@@ -103,8 +103,11 @@
   --shadow-card: 0 0 18px rgba(255, 138, 0, 0.12);
   --editor-glow: rgba(100, 55, 14, 0.22);
   --editor-header: rgba(7, 10, 16, 0.98);
-  --editor-explorer-width: clamp(220px, 20vw, 320px);
-  --editor-inspector-width: clamp(260px, 22vw, 340px);
+  /* Desktop editor proportions: explorer is intentionally wider so chapters
+     remain scannable as a two-column storyboard, while the inspector stays
+     narrow enough to preserve a useful 16:9 preview canvas. */
+  --editor-explorer-width: clamp(360px, 26vw, 440px);
+  --editor-inspector-width: clamp(280px, 18.5vw, 340px);
   --editor-preview-frame-max-height: clamp(320px, 52dvh, 560px);
   --editor-timeline-height: clamp(235px, 28dvh, 260px);
   --editor-preview-frame-width: 1040px;
@@ -367,13 +370,21 @@
   }
 
   .nx-editor-playback-surface {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) var(--editor-timeline-height);
+    display: contents;
+  }
+
+  .nx-editor-layout > .nx-editor-explorer {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .nx-editor-preview-panel {
+    grid-column: 2;
+    grid-row: 1;
     min-height: 0;
     overflow: hidden;
+    border-right: 1px solid var(--border-subtle);
+    background: var(--background);
   }
 
   .nx-editor-preview-viewport {
@@ -381,9 +392,16 @@
   }
 
   .nx-editor-timeline-panel {
+    grid-column: 1 / span 2;
+    grid-row: 2;
     height: auto;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .nx-editor-layout > .nx-editor-inspector {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .nx-editor-preview-frame {
@@ -418,8 +436,8 @@
 
 @media (max-width: 1280px) {
   :root {
-    --editor-explorer-width: clamp(196px, 20vw, 280px);
-    --editor-inspector-width: clamp(236px, 22vw, 300px);
+    --editor-explorer-width: clamp(280px, 25vw, 340px);
+    --editor-inspector-width: clamp(236px, 23vw, 300px);
   }
 }
 

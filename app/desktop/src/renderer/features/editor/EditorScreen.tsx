@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
   BeatMediaFitMode,
@@ -12,6 +12,7 @@ import {
   createBeatDecision,
 } from "../production/auto-edit-planner";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
+import { isEditorMutationCurrent } from "./editor-mutation-state";
 import {
   buildEditorHierarchy,
   resolveEditorScopeWindow,
@@ -31,6 +32,7 @@ interface PreviewSources {
 }
 
 export interface MediaMutationNotice {
+  beatId: string;
   tone: "success" | "error";
   message: string;
   retry?: () => void;
@@ -59,6 +61,8 @@ export function EditorScreen({
     [workspace.assets],
   );
   const [selectedId, setSelectedId] = useState("");
+  const selectedIdRef = useRef("");
+  const mediaMutationRequestRef = useRef(0);
   const [query, setQuery] = useState("");
   // Review should naturally continue across chapter boundaries. Beat/scene/chapter
   // scopes remain modelled in editor-timeline for future explicit focus controls.
@@ -67,19 +71,25 @@ export function EditorScreen({
   const [mediaNotice, setMediaNotice] = useState<MediaMutationNotice | null>(null);
   const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
 
+  const changeSelectedId = useCallback((nextId: string) => {
+    selectedIdRef.current = nextId;
+    mediaMutationRequestRef.current += 1;
+    setMediaBusy(false);
+    setMediaNotice(null);
+    setSelectedId(nextId);
+  }, []);
+
   useEffect(() => {
     if (!orderedBeats.length) {
-      if (selectedId) setSelectedId("");
+      if (selectedId) changeSelectedId("");
       return;
     }
     if (!orderedBeats.some((beat) => beat.visualBeatId === selectedId)) {
-      setSelectedId(orderedBeats[0].visualBeatId);
+      changeSelectedId(orderedBeats[0].visualBeatId);
+      return;
     }
-  }, [orderedBeats, selectedId]);
-
-  useEffect(() => {
-    setMediaNotice(null);
-  }, [selectedId]);
+    selectedIdRef.current = selectedId;
+  }, [changeSelectedId, orderedBeats, selectedId]);
 
   const totalMs = timeline?.totalDurationMs ?? 0;
   const selected = useMemo(
@@ -208,7 +218,7 @@ export function EditorScreen({
   ]);
 
   const selectBeat = (beat: DesktopTimelineBeat) => {
-    setSelectedId(beat.visualBeatId);
+    changeSelectedId(beat.visualBeatId);
   };
 
   async function refreshEditorData() {
@@ -219,41 +229,70 @@ export function EditorScreen({
     ]);
   }
 
+  function isCurrentMediaMutation(requestId: number, beatId: string) {
+    return isEditorMutationCurrent(
+      {
+        requestId: mediaMutationRequestRef.current,
+        beatId: selectedIdRef.current,
+      },
+      { requestId, beatId },
+    );
+  }
+
   async function withMediaMutation(
+    beatId: string,
     action: () => Promise<void>,
     successMessage: string,
     retry?: () => void,
   ) {
+    const requestId = ++mediaMutationRequestRef.current;
     setMediaBusy(true);
     setMediaNotice(null);
     try {
       await action();
       await refreshEditorData();
-      setMediaNotice({ tone: "success", message: successMessage });
+      if (!isCurrentMediaMutation(requestId, beatId)) return;
+      setMediaNotice({ beatId, tone: "success", message: successMessage });
     } catch (error) {
+      if (!isCurrentMediaMutation(requestId, beatId)) return;
       setMediaNotice({
+        beatId,
         tone: "error",
         message: error instanceof Error ? error.message : "Không thể cập nhật media cho beat.",
         retry,
       });
     } finally {
-      setMediaBusy(false);
+      if (isCurrentMediaMutation(requestId, beatId)) {
+        setMediaBusy(false);
+      }
     }
   }
 
-  async function uploadBeatMedia(expectedType: "IMAGE" | "VIDEO") {
+  async function uploadBeatMedia(expectedType?: "IMAGE" | "VIDEO") {
     if (!projectId || !selected) return;
+    const beat = selected;
+    const beatId = beat.visualBeatId;
     setMediaNotice(null);
     const selection = await window.narrativex.localStorage.selectAsset();
-    if (!selection) return;
-    if (selection.kind !== expectedType) {
+    if (!selection || selectedIdRef.current !== beatId) return;
+    if (selection.kind !== "IMAGE" && selection.kind !== "VIDEO") {
       setMediaNotice({
+        beatId,
+        tone: "error",
+        message: "Hãy chọn một file ảnh hoặc video.",
+      });
+      return;
+    }
+    if (expectedType && selection.kind !== expectedType) {
+      setMediaNotice({
+        beatId,
         tone: "error",
         message: expectedType === "VIDEO" ? "Hãy chọn một file video." : "Hãy chọn một file ảnh.",
       });
       return;
     }
 
+    const requestId = ++mediaMutationRequestRef.current;
     setMediaBusy(true);
     try {
       const asset = await assetsApi.registerLocal({
@@ -274,70 +313,88 @@ export function EditorScreen({
       const autoFit = chooseMediaFit({
         mediaType: selection.kind === "VIDEO" ? "VIDEO" : "IMAGE",
         sourceDurationMs: asset.durationMs,
-        durationMs: selected.durationMs,
+        durationMs: beat.durationMs,
       });
       const attachAsset = () =>
-        productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+        productionApi.updateBeatMedia(projectId, beatId, {
           mediaAssetId: asset.id,
           fitMode: autoFit.fitMode,
           trimStartMs: autoFit.trimStartMs,
         });
+      const retryAttach = () => {
+        void withMediaMutation(
+          beatId,
+          attachAsset,
+          "Asset đã được gắn lại vào Visual Beat.",
+          retryAttach,
+        );
+      };
 
       try {
         await attachAsset();
         await refreshEditorData();
+        if (!isCurrentMediaMutation(requestId, beatId)) return;
         setMediaNotice({
+          beatId,
           tone: "success",
           message:
-            expectedType === "VIDEO"
+            selection.kind === "VIDEO"
               ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration."
               : "Ảnh đã được gắn vào Visual Beat.",
         });
       } catch (error) {
+        if (!isCurrentMediaMutation(requestId, beatId)) return;
         setMediaNotice({
+          beatId,
           tone: "error",
           message:
             error instanceof Error
               ? error.message
               : "Asset đã được lưu cục bộ nhưng chưa thể gắn vào Visual Beat.",
-          retry: () => {
-            void withMediaMutation(
-              attachAsset,
-              "Asset đã được gắn lại vào Visual Beat.",
-              () => void withMediaMutation(attachAsset, "Asset đã được gắn lại vào Visual Beat."),
-            );
-          },
+          retry: retryAttach,
         });
       }
     } catch (error) {
+      if (!isCurrentMediaMutation(requestId, beatId)) return;
       setMediaNotice({
+        beatId,
         tone: "error",
         message: error instanceof Error ? error.message : "Không thể nhập media vào project.",
       });
     } finally {
-      setMediaBusy(false);
+      if (isCurrentMediaMutation(requestId, beatId)) {
+        setMediaBusy(false);
+      }
     }
   }
 
   async function chooseExistingAsset(assetId: string) {
     if (!projectId || !selected) return;
+    const beat = selected;
+    const beatId = beat.visualBeatId;
     const asset = selectableAssets.find((candidate) => candidate.id === assetId);
     if (!asset) return;
     const autoFit = chooseMediaFit({
       mediaType: asset.type === "VIDEO" ? "VIDEO" : "IMAGE",
       sourceDurationMs: asset.durationMs,
-      durationMs: selected.durationMs,
+      durationMs: beat.durationMs,
     });
     const action = () =>
-      productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+      productionApi.updateBeatMedia(projectId, beatId, {
         mediaAssetId: asset.id,
         fitMode: autoFit.fitMode,
         trimStartMs: autoFit.trimStartMs,
       });
     const retry = () => {
-      void withMediaMutation(action, `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`, retry);
+      void withMediaMutation(
+        beatId,
+        action,
+        `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
+        retry,
+      );
     };
     await withMediaMutation(
+      beatId,
       action,
       `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
       retry,
@@ -346,16 +403,24 @@ export function EditorScreen({
 
   async function updateFitMode(fitMode: BeatMediaFitMode) {
     if (!projectId || !selected?.mediaAssetId) return;
+    const beat = selected;
+    const beatId = beat.visualBeatId;
     const action = () =>
-      productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
-        mediaAssetId: selected.mediaAssetId as string,
+      productionApi.updateBeatMedia(projectId, beatId, {
+        mediaAssetId: beat.mediaAssetId as string,
         fitMode,
-        trimStartMs: selected.trimStartMs,
+        trimStartMs: beat.trimStartMs,
       });
     const retry = () => {
-      void withMediaMutation(action, `Manual override đã chuyển fit mode sang ${fitMode}.`, retry);
+      void withMediaMutation(
+        beatId,
+        action,
+        `Manual override đã chuyển fit mode sang ${fitMode}.`,
+        retry,
+      );
     };
     await withMediaMutation(
+      beatId,
       action,
       `Manual override đã chuyển fit mode sang ${fitMode}.`,
       retry,
@@ -364,15 +429,16 @@ export function EditorScreen({
 
   async function resetToGeneratedSource() {
     if (!projectId || !selected) return;
-    const action = () => productionApi.resetBeatMedia(projectId, selected.visualBeatId);
+    const beatId = selected.visualBeatId;
+    const action = () => productionApi.resetBeatMedia(projectId, beatId);
     const retry = () => {
-      void withMediaMutation(action, "Visual Beat đã quay về generated source.", retry);
+      void withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
     };
-    await withMediaMutation(action, "Visual Beat đã quay về generated source.", retry);
+    await withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
   }
 
   return (
-    <div className="nx-editor-layout grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] overflow-hidden bg-background text-foreground select-none">
+    <div className="nx-editor-layout grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
       <EditorExplorerPanel
         hierarchy={filteredHierarchy}
         selectedBeatId={selectedId}

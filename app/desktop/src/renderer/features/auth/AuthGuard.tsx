@@ -131,7 +131,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
 
   return (
     <>
-      <div className="min-h-dvh">{children}</div>
+      <div className="h-dvh min-h-0 overflow-hidden">{children}</div>
       {loginReason && (
         <LoginModal
           reason={loginReason}
