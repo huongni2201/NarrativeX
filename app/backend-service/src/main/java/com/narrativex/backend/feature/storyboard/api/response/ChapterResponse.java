@@ -14,6 +14,26 @@ public record ChapterResponse(
     long rowVersion,
     Instant createdAt,
     Instant updatedAt) {
+  public ChapterResponse(
+      UUID id,
+      UUID storyVersionId,
+      int orderIndex,
+      String title,
+      String sourceText,
+      String sourceHash,
+      long rowVersion) {
+    this(
+        id,
+        storyVersionId,
+        orderIndex,
+        title,
+        sourceText,
+        sourceHash,
+        rowVersion,
+        Instant.EPOCH,
+        Instant.EPOCH);
+  }
+
   public static ChapterResponse from(Chapter chapter) {
     return new ChapterResponse(
         chapter.getId(),
