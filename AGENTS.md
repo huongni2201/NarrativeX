@@ -32,7 +32,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Electron main owns native filesystem access, protected credentials, system-browser/deep-link handling, backend session transport and local FFmpeg/ffprobe execution.
 - Desktop project bytes are local-first and represented to the backend through stable IDs/checksums plus opaque project-relative artifact keys, never absolute local filesystem paths.
 - Production Compose has no web frontend, Caddy, or Redis service. PostgreSQL is the only application state service required by the MVP runtime.
-- Cloudflare Tunnel is optional infrastructure for self-hosted HTTPS ingress. In the single `docker-compose.yml`, enable it with the `tunnel` profile; when used, it routes directly to `http://backend:8080`. If deployment already provides HTTPS ingress, leave the profile disabled.
+- HTTPS ingress is external to the single `docker-compose.yml`; set `NARRATIVEX_PUBLIC_BASE_URL` to the externally provided HTTPS origin for production OAuth and API traffic.
 
 ## Change discipline
 

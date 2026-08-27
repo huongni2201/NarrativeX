@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseChapterWorkspace } from "../src/renderer/features/chapters/api/chapter-workspace-contract.ts";
+import {
+  audioButtonLabel,
+  audioGenerationBlockMessage,
+} from "../src/renderer/features/chapters/model/chapter-ui.ts";
 import { filterVoices, playableSampleUrl } from "../src/renderer/features/voices/voice-filters.ts";
 
 const workspace = {
@@ -46,6 +50,7 @@ const workspace = {
     canGenerateAudio: true,
     canRender: false,
     visualGenerationBlockReason: "No approved asset",
+    audioGenerationBlockReason: null,
   },
 };
 
@@ -80,4 +85,25 @@ test("voice preview only accepts HTTP(S) media URLs", () => {
   assert.equal(playableSampleUrl("https://media.example.test/sample.wav"), "https://media.example.test/sample.wav");
   assert.equal(playableSampleUrl("file:///secret/sample.wav"), null);
   assert.equal(playableSampleUrl("not-a-url"), null);
+});
+
+test("chapter audio button shows a loading label while the create request is pending", () => {
+  assert.equal(
+    audioButtonLabel({
+      generatePending: true,
+      trackedForSelected: false,
+      processing: false,
+      blockedByAnotherChapter: false,
+      ready: false,
+    }),
+    "Đang tạo…",
+  );
+});
+
+test("chapter audio explains when the active plan does not include narration", () => {
+  assert.equal(
+    audioGenerationBlockMessage("NARRATION_NOT_ENTITLED"),
+    "Gói hiện tại không hỗ trợ tạo audio. Hãy nâng cấp gói để sử dụng tính năng narration.",
+  );
+  assert.equal(audioGenerationBlockMessage(null), null);
 });

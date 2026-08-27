@@ -37,10 +37,6 @@ class SecretScannerTest(unittest.TestCase):
                 "credentials.json",
             ),
         )
-        self.assertIn(
-            "cloudflare-tunnel-token",
-            self.rule_ids("CLOUDFLARE_TUNNEL_TOKEN=" + "cf-token-" + "a" * 24, ".env.example"),
-        )
 
     def test_cloud_and_messaging_tokens_are_detected(self) -> None:
         aws_access_key = "AWS_ACCESS_KEY_ID=AKIA" + "A" * 16
@@ -74,7 +70,6 @@ class SecretScannerTest(unittest.TestCase):
     def test_placeholders_and_environment_references_are_ignored(self) -> None:
         safe = "\n".join(
             (
-                "CLOUDFLARE_TUNNEL_TOKEN=${ENV_VAR}",
                 "R2_SECRET_ACCESS_KEY=<redacted>",
                 "GOOGLE_OAUTH_CLIENT_SECRET=replace-with-client-secret",
                 "DB_PASSWORD=change-me-local-only",

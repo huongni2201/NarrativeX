@@ -24,7 +24,7 @@ tests/Ruff/mypy, Desktop `npm ci` plus tests/type-check/build, the repository se
 and `docker compose config --quiet`. It does not require GitHub Actions minutes or tokens.
 
 The first gate step is `python scripts/check-secrets.py`. It covers the provider credentials
-used by NarrativeX (Google/GCP, Cloudflare Tunnel, AWS/R2, GitHub, Slack), bearer/JWT tokens,
+used by NarrativeX (Google/GCP, AWS/R2, GitHub, Slack), bearer/JWT tokens,
 database URLs with inline passwords, PEM private keys and non-placeholder environment
 credentials. `${ENV_VAR}`, `<redacted>`, `change-me` and explicit `secret-scan: allow` fixture
 markers are safe examples; do not use those allowlists for real credentials.
@@ -80,18 +80,9 @@ NarrativeX does not require a web frontend, Caddy or Redis. The default Compose 
 docker compose up -d
 ```
 
-It starts PostgreSQL, the backend and retained AI/narration workers without a tunnel token.
-A self-hosted deployment using Cloudflare Tunnel must explicitly enable the profile:
-
-```powershell
-docker compose --profile tunnel up -d
-```
-
-With that profile enabled, `CLOUDFLARE_TUNNEL_TOKEN` is required and the tunnel
-routes directly to `http://backend:8080` inside the Compose network. The hostname from
-`NARRATIVEX_PUBLIC_BASE_URL` must resolve over HTTPS to that ingress for Desktop
-system-browser OAuth and API/session traffic. Deployments that already provide HTTPS
-ingress should leave the tunnel profile disabled.
+It starts PostgreSQL, the backend and retained AI/narration workers. Production deployments
+must provide HTTPS ingress separately; `NARRATIVEX_PUBLIC_BASE_URL` must match that origin
+for Desktop system-browser OAuth and API/session traffic.
 
 For production worker rollouts, set `BUILD_SHA` to the immutable Git revision and
 configure the registry image prefixes in `.env.prod`. Then pull and recreate the

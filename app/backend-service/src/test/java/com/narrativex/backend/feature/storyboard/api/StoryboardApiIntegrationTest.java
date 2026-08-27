@@ -198,6 +198,9 @@ class StoryboardApiIntegrationTest {
                     "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop"))
         .andExpect(jsonPath("$.data.capabilities.canGenerateVisuals").value(false))
         .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(false))
+        .andExpect(
+            jsonPath("$.data.capabilities.audioGenerationBlockReason")
+                .value("NARRATION_NOT_ENTITLED"))
         .andExpect(jsonPath("$.data.capabilities.canRender").value(false));
 
     mockMvc
@@ -206,7 +209,10 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.safety").doesNotExist())
         .andExpect(jsonPath("$.data.capabilities.canAnalyze").value(true))
         .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
-        .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(true))
+        .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(false))
+        .andExpect(
+            jsonPath("$.data.capabilities.audioGenerationBlockReason")
+                .value("NARRATION_NOT_ENTITLED"))
         .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"));
   }
 

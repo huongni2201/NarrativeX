@@ -111,6 +111,28 @@ export function audioStatusBadgeClass(status: string | null) {
   return "border border-border bg-surface-3 text-text-muted";
 }
 
+export function audioButtonLabel(input: {
+  generatePending: boolean;
+  trackedForSelected: boolean;
+  processing: boolean;
+  blockedByAnotherChapter: boolean;
+  ready: boolean;
+}) {
+  if (input.generatePending || input.trackedForSelected || input.processing) {
+    return "Đang tạo…";
+  }
+  if (input.blockedByAnotherChapter) return "Đang bận…";
+  if (input.ready) return "Tạo lại";
+  return "Tạo audio";
+}
+
+export function audioGenerationBlockMessage(reason: string | null | undefined) {
+  if (reason === "NARRATION_NOT_ENTITLED") {
+    return "Gói hiện tại không hỗ trợ tạo audio. Hãy nâng cấp gói để sử dụng tính năng narration.";
+  }
+  return null;
+}
+
 export function workspaceStatusDotClass(status: WorkspaceStatus) {
   if (status === "ready") return "bg-success";
   if (status === "error") return "bg-danger";

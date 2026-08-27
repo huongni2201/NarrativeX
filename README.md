@@ -14,7 +14,7 @@ The Electron application is the only supported editor client. Spring Boot remain
 | `packages/client-contracts` | Shared typed Desktop/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `documentation` | Product, domain, architecture, workflows, current-state maps and ADRs |
-| `docker-compose.yml` | Backend/AI-worker runtime with optional Cloudflare Tunnel ingress |
+| `docker-compose.yml` | Backend/AI-worker runtime |
 
 ## Primary runtime topology
 
@@ -159,13 +159,7 @@ NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 
 ## Production backend ingress
 
-Production Compose contains no browser frontend and no Caddy layer. Cloudflare Tunnel is optional HTTPS ingress for self-hosted deployments and routes directly to `backend:8080` when the `tunnel` profile is enabled.
-
-```powershell
-docker compose --profile tunnel up -d
-```
-
-If another platform already provides HTTPS ingress, leave the tunnel profile disabled. The public backend origin and Google OAuth redirect URI must match the deployed HTTPS host.
+Production Compose contains no browser frontend, Caddy layer, or bundled ingress service. Deployments must provide HTTPS ingress separately and set `NARRATIVEX_PUBLIC_BASE_URL` to that origin so it matches the Google OAuth redirect URI.
 
 ## Persistence
 

@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
+import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
@@ -29,15 +30,17 @@ public class GetChapterWorkspaceUseCase {
   private final ChapterRepository chapterRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
   private final MediaStorageAccess mediaStorageAccess;
+  private final UserQuotaAccess userQuotaAccess;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(UUID projectId, UUID chapterId) {
+    String userId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
     storyVersionAccess.requireOwnedStoryVersion(
-        projectId, chapter.getStoryVersionId(), currentUserId.get());
+        projectId, chapter.getStoryVersionId(), userId);
 
     var snapshot = chapterWorkspaceReadRepository.get(projectId, chapterId);
     var analysis = snapshot.analysis();
@@ -90,8 +93,16 @@ public class GetChapterWorkspaceUseCase {
             visualPlanningCompleted,
             snapshot.visualBeatCount(),
             visualJobRunning);
+    boolean narrationEntitled =
+        userQuotaAccess
+            .findCurrentQuota(userId)
+            .map(quota -> quota.features().narrationEnabled())
+            .orElse(false);
+    String audioGenerationBlockReason =
+        narrationEntitled ? null : "NARRATION_NOT_ENTITLED";
     boolean canGenerateAudio =
-        !chapter.getSourceText().isBlank()
+        narrationEntitled
+            && !chapter.getSourceText().isBlank()
             && !"READY".equals(audio.status())
             && !isActive(audio.status());
     boolean hasCurrentMediaPlan =
@@ -144,7 +155,8 @@ public class GetChapterWorkspaceUseCase {
                 canGenerateVisuals,
                 canGenerateAudio,
                 canRender,
-                visualGenerationBlockReason));
+                visualGenerationBlockReason,
+                audioGenerationBlockReason));
 
     return ApiResponse.success(response);
   }

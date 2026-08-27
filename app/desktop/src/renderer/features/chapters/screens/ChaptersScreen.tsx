@@ -19,6 +19,7 @@ import { ChapterWorkflowRibbon } from "../components/ChapterWorkflowRibbon";
 import { ChapterWorkspaceContext } from "../components/ChapterWorkspaceContext";
 import {
   chapterStatus,
+  audioGenerationBlockMessage,
   isAudioProcessingStatus,
   isGenerationJobTerminal,
   type ChapterFilter,
@@ -85,6 +86,7 @@ export function ChaptersScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [narrationJob, setNarrationJob] = useState<TrackedNarrationJob | null>(null);
+  const [audioRequestError, setAudioRequestError] = useState<string | null>(null);
 
   useEffect(() => {
     if (workspaceStatus === "loading") return;
@@ -200,6 +202,9 @@ export function ChaptersScreen({
   const audioBusy =
     generateNarration.isPending || selectedAudioProcessing || trackedNarrationForSelected;
   const audioReady = selectedAudioStatus === "READY" || selectedAudioStatus === "COMPLETED";
+  const audioBlockMessage = audioGenerationBlockMessage(
+    selectedWorkspace?.capabilities.audioGenerationBlockReason,
+  );
 
   useEffect(() => {
     if (!selected) return;
@@ -327,6 +332,7 @@ export function ChaptersScreen({
     }
     setIsCreating(false);
     setNotice(null);
+    setAudioRequestError(null);
     setEditingId(chapterId);
   }
 
@@ -391,12 +397,14 @@ export function ChaptersScreen({
       !voiceId ||
       generationActionDisabled ||
       selectedAudioProcessing ||
-      narrationJob
+      narrationJob ||
+      audioBlockMessage
     ) {
       return;
     }
 
     setNotice(null);
+    setAudioRequestError(null);
     const chapterId = selected.id;
     const parsedRate = Number.parseFloat(speakingRate);
     try {
@@ -414,7 +422,9 @@ export function ChaptersScreen({
       });
       setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
     } catch (error) {
-      setNotice(toErrorMessage(error, "Tạo audio thất bại."));
+      const message = toErrorMessage(error, "Tạo audio thất bại.");
+      setAudioRequestError(message);
+      setNotice(message);
     }
   }
 
@@ -445,7 +455,7 @@ export function ChaptersScreen({
     narrationJob && narrationJob.chapterId !== selected?.id,
   );
   const audioControlsDisabled =
-    !selected || busy || selectedAudioProcessing || Boolean(narrationJob);
+    !selected || busy || selectedAudioProcessing || Boolean(narrationJob) || Boolean(audioBlockMessage);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
@@ -536,6 +546,8 @@ export function ChaptersScreen({
             trackedForSelected: trackedNarrationForSelected,
             blockedByAnotherChapter: narrationBlockedByAnotherChapter,
             generatePending: generateNarration.isPending,
+            blockMessage: audioBlockMessage,
+            requestError: audioRequestError,
             onVoiceChange: setVoiceId,
             onSpeakingRateChange: setSpeakingRate,
             onCreate: () => void createAudio(),

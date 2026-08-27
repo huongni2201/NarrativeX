@@ -23,10 +23,9 @@ The supported machine-local runtime is `docker-compose.yml` with
 - Desktop-local final rendering and artifact storage through the Electron main process;
 - API mode for the Desktop client and server-managed session authentication.
 
-The same Compose file contains the optional Cloudflare Tunnel service behind the
-`tunnel` profile; it does not contain a web frontend or Caddy service. Fake
-providers, local media storage and frontend mock data remain test/Storybook
-capabilities only.
+The current Compose file keeps HTTPS ingress external to the application runtime; it
+does not contain a web frontend, Caddy service or bundled tunnel service. Fake providers,
+local media storage and frontend mock data remain test/Storybook capabilities only.
 Production worker startup rejects disabled/fake/local provider or storage selections for roles that
 need real external execution.
 

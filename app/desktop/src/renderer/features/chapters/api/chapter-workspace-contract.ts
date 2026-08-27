@@ -98,7 +98,8 @@ function isChapterWorkspace(value: unknown): value is DesktopChapterWorkspace {
     typeof value.capabilities.canGenerateVisuals === "boolean" &&
     typeof value.capabilities.canGenerateAudio === "boolean" &&
     typeof value.capabilities.canRender === "boolean" &&
-    isNullableString(value.capabilities.visualGenerationBlockReason)
+    isNullableString(value.capabilities.visualGenerationBlockReason) &&
+    isNullableString(value.capabilities.audioGenerationBlockReason)
   );
 }
 

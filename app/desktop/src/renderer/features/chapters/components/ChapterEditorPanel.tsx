@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  audioButtonLabel,
   audioStatusBadgeClass,
   audioStatusLabel,
   formatDurationMs,
@@ -36,6 +37,8 @@ type AudioState = Readonly<{
   trackedForSelected: boolean;
   blockedByAnotherChapter: boolean;
   generatePending: boolean;
+  blockMessage: string | null;
+  requestError: string | null;
   onVoiceChange: (voiceId: string) => void;
   onSpeakingRateChange: (value: string) => void;
   onCreate: () => void;
@@ -336,13 +339,13 @@ function AudioChapterCard({
               <AudioLines size={13} />
             )}
             <span>
-              {audio.trackedForSelected || audio.processing
-                ? "Đang tạo…"
-                : audio.blockedByAnotherChapter
-                  ? "Đang bận…"
-                  : audio.ready
-                    ? "Tạo lại"
-                    : "Tạo audio"}
+              {audioButtonLabel({
+                generatePending: audio.generatePending,
+                trackedForSelected: audio.trackedForSelected,
+                processing: audio.processing,
+                blockedByAnotherChapter: audio.blockedByAnotherChapter,
+                ready: audio.ready,
+              })}
             </span>
           </Button>
         </div>
@@ -357,6 +360,24 @@ function AudioChapterCard({
       {audio.blockedByAnotherChapter && (
         <p className="text-[10px] leading-4 text-info">
           Một chapter khác đang tạo audio. Chờ job hiện tại hoàn tất trước khi gửi job mới.
+        </p>
+      )}
+
+      {audio.blockMessage && (
+        <p
+          className="rounded-md border border-warning/20 bg-warning-bg px-3 py-2 text-[10px] leading-4 text-warning"
+          role="alert"
+        >
+          {audio.blockMessage}
+        </p>
+      )}
+
+      {audio.requestError && (
+        <p
+          className="rounded-md border border-danger/20 bg-danger-bg px-3 py-2 text-[10px] leading-4 text-danger"
+          role="alert"
+        >
+          {audio.requestError}
         </p>
       )}
 

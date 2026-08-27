@@ -112,15 +112,6 @@ RULES: tuple[SecretRule, ...] = (
         "value",
     ),
     SecretRule(
-        "cloudflare-tunnel-token",
-        _credential_assignment(
-            r"(?:CLOUDFLARE_TUNNEL_TOKEN|TUNNEL_TOKEN)",
-            r"[A-Za-z0-9._-]{24,}",
-        ),
-        "Cloudflare Tunnel token",
-        value_group="value",
-    ),
-    SecretRule(
         "aws-or-r2-access-key-id",
         re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
         "AWS or R2 access key ID",

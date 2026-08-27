@@ -44,6 +44,7 @@ export interface DesktopChapterWorkspace {
     canGenerateAudio: boolean;
     canRender: boolean;
     visualGenerationBlockReason: string | null;
+    audioGenerationBlockReason: string | null;
   };
 }
 
