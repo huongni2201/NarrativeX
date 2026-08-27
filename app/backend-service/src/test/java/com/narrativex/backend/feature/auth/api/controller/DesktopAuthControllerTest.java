@@ -22,10 +22,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -222,7 +223,12 @@ class DesktopAuthControllerTest {
     var context = SecurityContextHolder.getContext();
     assertEquals("user-1", context.getAuthentication().getName());
     assertTrue(context.getAuthentication().getPrincipal() instanceof DesktopUserPrincipal);
-    assertDoesNotThrow(() -> new JdkSerializationRedisSerializer().serialize(context));
+    assertDoesNotThrow(
+        () -> {
+          try (var bytes = new ByteArrayOutputStream(); var output = new ObjectOutputStream(bytes)) {
+            output.writeObject(context);
+          }
+        });
   }
 
   @Test
