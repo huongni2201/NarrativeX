@@ -62,6 +62,9 @@ export function ChapterListPanel({
 }: Props) {
   const from = filteredCount > 0 ? (page - 1) * pageSize + 1 : 0;
   const to = Math.min(page * pageSize, filteredCount);
+  const selectionHidden = Boolean(
+    editingId && !isCreating && !chapters.some((chapter) => chapter.id === editingId),
+  );
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
@@ -135,6 +138,13 @@ export function ChapterListPanel({
           <p className="text-[10px] leading-4 text-text-muted">
             Bộ lọc trạng thái tải workspace của toàn bộ chapter theo yêu cầu; polling nền vẫn chỉ
             chạy cho chapter đang chọn.
+          </p>
+        )}
+
+        {selectionHidden && (
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[10px] leading-4 text-text-secondary" role="status">
+            Chapter đang chỉnh sửa không nằm trong trang hoặc bộ lọc hiện tại. Nội dung editor vẫn
+            được giữ nguyên; đặt lại bộ lọc hoặc chuyển trang để hiển thị chapter đó.
           </p>
         )}
       </div>
