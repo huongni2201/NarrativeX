@@ -10,9 +10,13 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
-import { generationApi } from "../../generation/api/generation.api";
+import {
+  generationApi,
+  type ChapterAnalysisProductionMode,
+} from "../../generation/api/generation.api";
 import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { useGenerateNarration } from "../../generation/queries/narration.queries";
+import { AnalysisModeDialog } from "../components/AnalysisModeDialog";
 import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
 import { ChapterListPanel } from "../components/ChapterListPanel";
 import { ChapterWorkflowRibbon } from "../components/ChapterWorkflowRibbon";
@@ -40,6 +44,11 @@ import {
 type TrackedGenerationJob = {
   jobId: string;
   chapterId: string;
+};
+
+type AnalyzeChapterInput = {
+  chapterId: string;
+  productionMode: ChapterAnalysisProductionMode;
 };
 
 const PAGE_SIZE = 8;
@@ -87,6 +96,7 @@ export function ChaptersScreen({
   const [page, setPage] = useState(1);
   const [narrationJob, setNarrationJob] = useState<TrackedGenerationJob | null>(null);
   const [analysisJob, setAnalysisJob] = useState<TrackedGenerationJob | null>(null);
+  const [analysisModeOpen, setAnalysisModeOpen] = useState(false);
   const [audioRequestError, setAudioRequestError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -328,14 +338,18 @@ export function ChaptersScreen({
   }, [isCreating, selected]);
 
   const analyzeChapter = useMutation({
-    mutationFn: (chapterId: string) => generationApi.analyze(projectId, chapterId),
-    onSuccess: async (job, chapterId) => {
-      setAnalysisJob({ jobId: job.jobId, chapterId });
+    mutationFn: ({ chapterId, productionMode }: AnalyzeChapterInput) =>
+      generationApi.analyze(projectId, chapterId, productionMode),
+    onSuccess: async (job, input) => {
+      setAnalysisJob({ jobId: job.jobId, chapterId: input.chapterId });
       await queryClient.invalidateQueries({
-        queryKey: chapterQueryKeys.workspace(projectId, chapterId),
+        queryKey: chapterQueryKeys.workspace(projectId, input.chapterId),
       });
-      if (editingId === chapterId) {
-        setNotice(`Đã gửi phân tích. Job ${job.jobId.slice(0, 8)} đang được AI xử lý.`);
+      if (editingId === input.chapterId) {
+        const visualLabel = input.productionMode === "VIDEO_GENERATION" ? "video" : "image";
+        setNotice(
+          `Đã gửi phân tích ${visualLabel}. Job ${job.jobId.slice(0, 8)} đang được AI xử lý.`,
+        );
       }
     },
     onError: (error) => setNotice(toErrorMessage(error, "Phân tích chapter thất bại.")),
@@ -417,6 +431,13 @@ export function ChaptersScreen({
     setStatusFilter("all");
     setSortBy("recent");
     setPage(1);
+  }
+
+  function startAnalysis(productionMode: ChapterAnalysisProductionMode) {
+    if (!selected || generationActionDisabled || analysisJob) return;
+    setAnalysisModeOpen(false);
+    setNotice(null);
+    analyzeChapter.mutate({ chapterId: selected.id, productionMode });
   }
 
   async function save() {
@@ -513,133 +534,141 @@ export function ChaptersScreen({
     !selected || busy || selectedAudioProcessing || Boolean(narrationJob) || Boolean(audioBlockMessage);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
-      <header className="flex shrink-0 items-start justify-between border-b border-border bg-surface-panel px-6 py-3">
-        <div className="min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-            CHAPTER WORKSPACE
-          </span>
-          <h1 className="mt-0.5 text-lg font-bold tracking-tight text-foreground">
-            Chapter Workspace
-          </h1>
-          <p className="mt-0.5 text-xs text-text-secondary">
-            Tạo, chỉnh sửa và chuẩn bị chapter trước khi phân tích hoặc tạo media.
-          </p>
+    <>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
+        <header className="flex shrink-0 items-start justify-between border-b border-border bg-surface-panel px-6 py-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+              CHAPTER WORKSPACE
+            </span>
+            <h1 className="mt-0.5 text-lg font-bold tracking-tight text-foreground">
+              Chapter Workspace
+            </h1>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              Tạo, chỉnh sửa và chuẩn bị chapter trước khi phân tích hoặc tạo media.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-text-secondary">
+              <span className={`size-2 rounded-full ${workspaceStatusDotClass(workspaceStatus)}`} />
+              <span>{workspaceStatusLabel(workspaceStatus)}</span>
+            </span>
+            <Button
+              variant="outline"
+              onClick={openEditor}
+              className="h-8 gap-1.5 border-border bg-surface-input px-3 text-xs font-semibold text-text-secondary hover:border-primary/55 hover:bg-surface-2 hover:text-primary-hover"
+            >
+              <span>Open Editor</span>
+              <ChevronRight size={13} />
+            </Button>
+          </div>
+        </header>
+
+        <ChapterWorkflowRibbon />
+
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-hidden p-4">
+          <ChapterListPanel
+            chapters={paginatedChapters}
+            allChaptersCount={chapters.length}
+            editingId={editingId}
+            isCreating={isCreating}
+            busy={busy}
+            query={query}
+            statusFilter={statusFilter}
+            sortBy={sortBy}
+            page={page}
+            pageSize={PAGE_SIZE}
+            totalPages={totalPages}
+            filteredCount={filtered.length}
+            workspacesByChapterId={workspacesByChapterId}
+            workspaceErrorsByChapterId={workspaceErrorsByChapterId}
+            onQueryChange={(value) => {
+              setQuery(value);
+              setPage(1);
+            }}
+            onStatusFilterChange={(value) => {
+              setStatusFilter(value);
+              setPage(1);
+            }}
+            onSortChange={(value) => {
+              setSortBy(value);
+              setPage(1);
+            }}
+            onResetFilters={resetFilters}
+            onPageChange={setPage}
+            onSelectChapter={selectChapter}
+            onDeleteChapter={(chapter) => void remove(chapter)}
+          />
+
+          <ChapterEditorPanel
+            selected={selected}
+            title={title}
+            sourceText={sourceText}
+            busy={busy}
+            saveBusy={saveBusy}
+            analyzeBusy={analysisBusy}
+            isDirty={isDirty}
+            notice={notice}
+            audio={{
+              voices,
+              voiceId,
+              speakingRate,
+              workspace: selectedWorkspace,
+              workspaceError: Boolean(selectedWorkspaceQuery?.isError),
+              status: selectedAudioStatus,
+              busy: audioBusy,
+              ready: audioReady,
+              processing: selectedAudioProcessing,
+              controlsDisabled: audioControlsDisabled,
+              trackedForSelected: trackedNarrationForSelected,
+              blockedByAnotherChapter: narrationBlockedByAnotherChapter,
+              generatePending: generateNarration.isPending,
+              blockMessage: audioBlockMessage,
+              requestError: audioRequestError,
+              onVoiceChange: setVoiceId,
+              onSpeakingRateChange: setSpeakingRate,
+              onCreate: () => void createAudio(),
+              onRefetchWorkspace: () => {
+                void selectedWorkspaceQuery?.refetch();
+              },
+            }}
+            onTitleChange={setTitle}
+            onSourceTextChange={setSourceText}
+            onBeginCreate={beginCreate}
+            onCancel={cancelEditing}
+            onSave={() => void save()}
+            onAnalyze={() => {
+              if (selected && !generationActionDisabled && !analysisJob) {
+                setAnalysisModeOpen(true);
+              }
+            }}
+            onOpenEditor={openEditor}
+          />
+
+          <ChapterWorkspaceContext
+            projectName={projectName}
+            selected={Boolean(selected)}
+            selectedWorkspace={selectedWorkspace}
+            selectedWorkspaceError={Boolean(selectedWorkspaceQuery?.isError)}
+            metrics={{
+              chapters: chapters.length,
+              words: totalWords,
+              scenes: totalSceneCount,
+              beats: totalBeatCount,
+              audioReady: audioReadyCount,
+              renderReady: renderReadyCount,
+            }}
+            onOpenRender={() => navigate(`/projects/${projectId}/render`)}
+          />
         </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-text-secondary">
-            <span className={`size-2 rounded-full ${workspaceStatusDotClass(workspaceStatus)}`} />
-            <span>{workspaceStatusLabel(workspaceStatus)}</span>
-          </span>
-          <Button
-            variant="outline"
-            onClick={openEditor}
-            className="h-8 gap-1.5 border-border bg-surface-input px-3 text-xs font-semibold text-text-secondary hover:border-primary/55 hover:bg-surface-2 hover:text-primary-hover"
-          >
-            <span>Open Editor</span>
-            <ChevronRight size={13} />
-          </Button>
-        </div>
-      </header>
-
-      <ChapterWorkflowRibbon />
-
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-hidden p-4">
-        <ChapterListPanel
-          chapters={paginatedChapters}
-          allChaptersCount={chapters.length}
-          editingId={editingId}
-          isCreating={isCreating}
-          busy={busy}
-          query={query}
-          statusFilter={statusFilter}
-          sortBy={sortBy}
-          page={page}
-          pageSize={PAGE_SIZE}
-          totalPages={totalPages}
-          filteredCount={filtered.length}
-          workspacesByChapterId={workspacesByChapterId}
-          workspaceErrorsByChapterId={workspaceErrorsByChapterId}
-          onQueryChange={(value) => {
-            setQuery(value);
-            setPage(1);
-          }}
-          onStatusFilterChange={(value) => {
-            setStatusFilter(value);
-            setPage(1);
-          }}
-          onSortChange={(value) => {
-            setSortBy(value);
-            setPage(1);
-          }}
-          onResetFilters={resetFilters}
-          onPageChange={setPage}
-          onSelectChapter={selectChapter}
-          onDeleteChapter={(chapter) => void remove(chapter)}
-        />
-
-        <ChapterEditorPanel
-          selected={selected}
-          title={title}
-          sourceText={sourceText}
-          busy={busy}
-          saveBusy={saveBusy}
-          analyzeBusy={analysisBusy}
-          isDirty={isDirty}
-          notice={notice}
-          audio={{
-            voices,
-            voiceId,
-            speakingRate,
-            workspace: selectedWorkspace,
-            workspaceError: Boolean(selectedWorkspaceQuery?.isError),
-            status: selectedAudioStatus,
-            busy: audioBusy,
-            ready: audioReady,
-            processing: selectedAudioProcessing,
-            controlsDisabled: audioControlsDisabled,
-            trackedForSelected: trackedNarrationForSelected,
-            blockedByAnotherChapter: narrationBlockedByAnotherChapter,
-            generatePending: generateNarration.isPending,
-            blockMessage: audioBlockMessage,
-            requestError: audioRequestError,
-            onVoiceChange: setVoiceId,
-            onSpeakingRateChange: setSpeakingRate,
-            onCreate: () => void createAudio(),
-            onRefetchWorkspace: () => {
-              void selectedWorkspaceQuery?.refetch();
-            },
-          }}
-          onTitleChange={setTitle}
-          onSourceTextChange={setSourceText}
-          onBeginCreate={beginCreate}
-          onCancel={cancelEditing}
-          onSave={() => void save()}
-          onAnalyze={() => {
-            if (selected && !generationActionDisabled && !analysisJob) {
-              analyzeChapter.mutate(selected.id);
-            }
-          }}
-          onOpenEditor={openEditor}
-        />
-
-        <ChapterWorkspaceContext
-          projectName={projectName}
-          selected={Boolean(selected)}
-          selectedWorkspace={selectedWorkspace}
-          selectedWorkspaceError={Boolean(selectedWorkspaceQuery?.isError)}
-          metrics={{
-            chapters: chapters.length,
-            words: totalWords,
-            scenes: totalSceneCount,
-            beats: totalBeatCount,
-            audioReady: audioReadyCount,
-            renderReady: renderReadyCount,
-          }}
-          onOpenRender={() => navigate(`/projects/${projectId}/render`)}
-        />
       </div>
-    </div>
+
+      <AnalysisModeDialog
+        open={analysisModeOpen}
+        onClose={() => setAnalysisModeOpen(false)}
+        onSelect={startAnalysis}
+      />
+    </>
   );
 }
