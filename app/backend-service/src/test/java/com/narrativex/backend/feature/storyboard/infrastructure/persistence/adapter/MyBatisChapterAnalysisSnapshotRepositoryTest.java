@@ -35,9 +35,9 @@ class MyBatisChapterAnalysisSnapshotRepositoryTest {
   @Test
   void mapsOwnedChapterToCurrentAnalysisSource() {
     var row = new ChapterAnalysisSnapshotRow();
-    UUID variantId = UuidV7.random();
+    UUID snapshotId = UuidV7.random();
     UUID storyVersionId = UuidV7.random();
-    row.setId(variantId);
+    row.setId(snapshotId);
     row.setStoryVersionId(storyVersionId);
     row.setRowVersion(7L);
     row.setSourceHash("a".repeat(64));
@@ -46,7 +46,7 @@ class MyBatisChapterAnalysisSnapshotRepositoryTest {
 
     var source = repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
 
-    assertEquals(variantId, source.contentVariantId());
+    assertEquals(snapshotId, source.chapterId());
     assertEquals(storyVersionId, source.storyVersionId());
     assertEquals(7L, source.rowVersion());
     assertEquals("a".repeat(64), source.sourceHash());
