@@ -9,7 +9,7 @@ const STEPS = [
 
 export function ChapterWorkflowRibbon() {
   return (
-    <div className="border-b border-border bg-surface-panel px-6 py-2.5">
+    <div className="shrink-0 border-b border-border bg-surface-panel px-6 py-2">
       <div className="flex max-w-2xl items-center gap-3 text-xs text-text-muted">
         {STEPS.map(({ label, active }, index) => (
           <div key={label} className="flex items-center gap-3">

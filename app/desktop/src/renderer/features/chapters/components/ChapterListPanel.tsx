@@ -72,7 +72,7 @@ export function ChapterListPanel({
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
-      <div className="space-y-3 border-b border-border p-4">
+      <div className="shrink-0 space-y-3 border-b border-border p-4">
         <div>
           <h2 className="text-sm font-bold text-foreground">Chapter List</h2>
           <p className="mt-0.5 text-xs text-text-muted">
@@ -241,7 +241,7 @@ export function ChapterListPanel({
         )}
       </div>
 
-      <footer className="flex items-center justify-between border-t border-border px-3 py-2.5 text-xs text-text-muted">
+      <footer className="shrink-0 flex items-center justify-between border-t border-border px-3 py-2.5 text-xs text-text-muted">
         <span>
           Hiển thị {from} – {to} của {filteredCount} chapter
         </span>

@@ -448,16 +448,16 @@ export function ChaptersScreen({
     !selected || busy || selectedAudioProcessing || Boolean(narrationJob);
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
-      <header className="flex items-start justify-between border-b border-border bg-surface-panel px-6 py-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
+      <header className="flex shrink-0 items-start justify-between border-b border-border bg-surface-panel px-6 py-3">
         <div className="min-w-0">
           <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
             CHAPTER WORKSPACE
           </span>
-          <h1 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">
+          <h1 className="mt-0.5 text-lg font-bold tracking-tight text-foreground">
             Chapter Workspace
           </h1>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-0.5 text-xs text-text-secondary">
             Tạo, chỉnh sửa và chuẩn bị chapter trước khi phân tích hoặc tạo media.
           </p>
         </div>
@@ -480,7 +480,7 @@ export function ChaptersScreen({
 
       <ChapterWorkflowRibbon />
 
-      <div className="grid min-h-0 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-x-auto overflow-y-hidden p-4">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-hidden p-4">
         <ChapterListPanel
           chapters={paginatedChapters}
           allChaptersCount={chapters.length}

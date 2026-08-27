@@ -82,7 +82,7 @@ export function ChapterEditorPanel({
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
-      <header className="flex items-start justify-between gap-3 border-b border-border p-5">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
         <div>
           <div className="flex items-center gap-2">
             <PencilLine className="text-text-secondary" size={18} />
@@ -90,7 +90,7 @@ export function ChapterEditorPanel({
               {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
             </h2>
           </div>
-          <p className="mt-1 text-xs text-text-muted">
+          <p className="mt-0.5 text-xs text-text-muted">
             {selected
               ? "Lưu thay đổi trước khi chạy các bước phân tích hoặc tạo audio."
               : "Nhập nội dung chapter rồi lưu để tiếp tục pipeline."}
@@ -112,7 +112,7 @@ export function ChapterEditorPanel({
         )}
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-title">
             Tên chapter <span className="text-danger">*</span>
@@ -134,7 +134,7 @@ export function ChapterEditorPanel({
           </div>
         </div>
 
-        <div className="flex min-h-[240px] flex-col space-y-1.5">
+        <div className="flex min-h-[140px] flex-col space-y-1.5">
           <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-source">
             Nội dung chapter <span className="text-danger">*</span>
           </label>
@@ -145,7 +145,7 @@ export function ChapterEditorPanel({
               value={sourceText}
               onChange={(event) => onSourceTextChange(event.target.value)}
               placeholder="Nhập nội dung chapter..."
-              className="min-h-[200px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
+              className="min-h-[100px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
             />
             <div className="flex items-center justify-between border-t border-border-subtle bg-surface-2 px-3 py-1.5 text-[10px] text-text-dim">
               <span>{wordCount(sourceText).toLocaleString("vi-VN")} từ</span>
@@ -213,7 +213,7 @@ export function ChapterEditorPanel({
         </div>
       </div>
 
-      <footer className="border-t border-border bg-surface-panel px-5 py-3">
+      <footer className="shrink-0 border-t border-border bg-surface-panel px-5 py-3">
         {notice && (
           <p className="mb-2 text-xs text-text-secondary" role="status">
             {notice}
