@@ -86,6 +86,7 @@ export function chapterAudioListClass(status: string | undefined) {
 
 export function pipelineStatusLabel(status: string) {
   if (status === "COMPLETED" || status === "READY") return "Hoàn thành";
+  if (status === "PAUSED_COST_LIMIT") return "Tạm dừng";
   if (PIPELINE_PROCESSING_STATUSES.has(status)) return "Đang chạy";
   if (status === "FAILED") return "Thất bại";
   return "Chưa bắt đầu";
