@@ -1,7 +1,10 @@
+from narrativex_worker.schema import VisualGenerationMode
 from narrativex_worker.visual_timing import (
     SemanticBeat,
+    VIDEO_TIMING_POLICY,
     VisualTimingPolicy,
     normalize_visual_timing,
+    timing_policy_for,
 )
 
 
@@ -45,6 +48,21 @@ def test_empty_provider_output_still_covers_audio_deterministically() -> None:
     second = normalize_visual_timing(65_000, [])
     assert first == second
     _assert_clock(65_000, first)
+
+
+def test_video_policy_keeps_generated_shots_at_or_below_eight_seconds() -> None:
+    policy = timing_policy_for(VisualGenerationMode.VIDEO)
+    assert policy == VIDEO_TIMING_POLICY
+    assert policy.target_ms == 6_500
+    assert policy.max_ms == 8_000
+
+    beats = normalize_visual_timing(
+        65_000,
+        [SemanticBeat("reveal"), SemanticBeat("reaction"), SemanticBeat("exit")],
+        policy,
+    )
+    _assert_clock(65_000, beats)
+    assert max(beat.duration_ms for beat in beats) <= 8_000
 
 
 def test_invalid_policy_and_duration_are_rejected() -> None:
