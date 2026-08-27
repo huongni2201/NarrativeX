@@ -28,6 +28,10 @@ export function isAudioProcessingStatus(status: string | null | undefined) {
   return Boolean(status && AUDIO_PROCESSING_STATUSES.has(status));
 }
 
+export function isAnalysisProcessingStatus(status: string | null | undefined) {
+  return Boolean(status && ANALYSIS_PROCESSING_STATUSES.has(status));
+}
+
 export function isGenerationJobTerminal(status: string | null | undefined) {
   return status === "COMPLETED" || status === "FAILED" || status === "CANCELED";
 }
@@ -56,7 +60,7 @@ export function chapterStatus(workspace: DesktopChapterWorkspace | undefined): C
   if (!workspace) return "loading";
   if (workspace.pipeline.sourceOutdated) return "in_progress";
   if (workspace.pipeline.analysis.status === "COMPLETED") return "completed";
-  if (ANALYSIS_PROCESSING_STATUSES.has(workspace.pipeline.analysis.status)) return "in_progress";
+  if (isAnalysisProcessingStatus(workspace.pipeline.analysis.status)) return "in_progress";
   return "draft";
 }
 
