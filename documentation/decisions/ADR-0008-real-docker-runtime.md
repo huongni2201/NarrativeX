@@ -20,7 +20,7 @@ The supported machine-local runtime is `docker-compose.yml` with
 - Vertex for analysis and image generation;
 - Cloudflare R2 for durable generated media;
 - VieNeu for narration;
-- Google Drive for final rendered MP4 files;
+- Desktop-local final rendering and artifact storage through the Electron main process;
 - API mode for the Desktop client and server-managed session authentication.
 
 The same Compose file contains the optional Cloudflare Tunnel service behind the

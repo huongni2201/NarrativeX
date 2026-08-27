@@ -29,7 +29,7 @@
  | StageAttempt | Attempt persisted của một stage trong parent job, có lifecycle retry/recover riêng. |
  | ProviderOperation | Bản ghi durable của external submission, gồm provider identity, operation id và status. |
  | UNKNOWN | Chưa xác định external operation thành công/thất bại; không được blind resubmit. |
- | FinalArtifact | Metadata của video cuối đã validate storage/MIME/dimensions/manifest; bytes nằm trong Google Drive production hoặc local final storage ở E2E deterministic. |
+ | FinalArtifact | Metadata của video cuối đã validate storage/MIME/dimensions/manifest; bytes nằm trong local Desktop project artifact workspace. |
  | RenderVersion | Một lần kết xuất final immutable; render lại tạo version mới. |
  | RenderProfile | Preset output gồm aspect ratio, quality, width/height/FPS/bitrate. |
  | Aspect Ratio | Tỉ lệ rộng:cao của image/video; capability provider quyết định khả dụng. |

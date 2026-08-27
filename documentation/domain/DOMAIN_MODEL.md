@@ -25,8 +25,8 @@ NarrationPlan
   -> NarrationSet / ordered NarrationPart snapshots
   -> NarrationTimeline / NarrationSpan
 
-MediaAsset metadata -> immutable R2 pipeline object
-FinalArtifact metadata -> immutable final-video object (Google Drive in production, local storage in deterministic E2E)
+MediaAsset metadata -> immutable remote/local project media identity
+FinalArtifact metadata -> immutable local final-video object; bytes remain in Desktop project storage
 ```
 
 ## Narration semantics
@@ -57,7 +57,8 @@ MotionStrategy: BASIC_IMAGE_MOTION | IMAGE_TO_VIDEO
 - Chapter workflows pin `chapterId + rowVersion + sourceHash`.
 - Narration fingerprints include ordered immutable audio-part identities; document fingerprints include selected Chapter revision/source identities.
 - Completed ProviderOperation results are immutable except for idempotent same-fingerprint replay.
-- MediaAsset bytes are immutable R2 pipeline objects; production FinalArtifact bytes are immutable Google Drive objects (local storage is test-only); local worker files are not durable identity.
+- MediaAsset bytes may use R2 during provider/worker transport and are materialized into Desktop ProjectStorage when needed; local worker files are not durable identity.
+- FinalArtifact is backend metadata only; Electron main owns the local MP4 bytes and direct playback/export.
 - Approved/locked historical state is not destructively overwritten.
 
 ## Persistence direction

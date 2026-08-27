@@ -2,7 +2,7 @@
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
-**Current checkpoint:** `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26)
+**Current checkpoint:** `main` at `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795` (2026-08-27)
 
 The browser→Desktop and JPA/JDBC→MyBatis migrations are no longer roadmap tracks. Desktop is already the only editor client and MyBatis is the production persistence path. Remaining work is product/reliability/release work.
 
@@ -14,8 +14,10 @@ Desktop guest-first workspace
   -> analyze / image / narration workflows
   -> local asset registration/materialization
   -> production timeline + beat media selection
+  -> Auto Edit planning with narration-aware fit/motion decisions
   -> local render preflight
   -> backend-assigned FFmpeg render
+  -> immutable subtitle snapshot + local SRT track
   -> journal/cache/artifact metadata registration
   -> local final MP4 playback/export
   -> backup/restore/storage tooling
@@ -52,7 +54,7 @@ Remaining:
 
 ## Track C — Timeline/editor review workflow — HIGH
 
-Current foundations include production timeline reads, narration-aligned timing, beat media selection, duration/camera draft state and typed undo/redo.
+Current foundations include production timeline reads, narration-aligned timing, beat media selection, probed source durations, duration/camera draft state, typed undo/redo, Auto Edit planning and atomic application of render overrides.
 
 Remaining:
 
@@ -63,6 +65,8 @@ Remaining:
 - review/regenerate/replace media from the timeline without losing selection state;
 - dirty-state/save/error/retry semantics for production mutations;
 - keyboard shortcuts and accessible focus behavior for dense editor workflows.
+
+Real-time generation status delivery and reload recovery are implemented foundations: Desktop subscribes to owner-scoped SSE snapshots and keeps a slow GET watchdog for stream/network interruption. Durable job state remains PostgreSQL-authoritative.
 
 ## Track D — Adaptive scene planning and continuity — HIGH
 
@@ -95,7 +99,7 @@ Remaining:
 
 ## Track F — Narration/audio production completion — MEDIUM
 
-- harden generated TTS and local imported narration flows around one logical audio clock;
+- harden generated TTS, custom voice preview and local imported narration flows around one logical audio clock;
 - complete multi-part user audio alignment/slicing behavior needed by production render;
 - expose alignment diagnostics and correction UX;
 - preserve `USER_PROVIDED_AUDIO` as an explicit TTS bypass;
@@ -131,6 +135,10 @@ Remaining:
 **Desktop generated-media path:** backend-authorized generation produces accepted media identity, Desktop materializes/registers required bytes locally, and local render resolves asset IDs/checksums without persisting absolute paths.
 
 **Editable production timeline:** a user can choose beat media, adjust supported timeline properties, undo/redo edits and submit an authoritative render snapshot that reflects persisted production choices.
+
+**Auto Edit render:** a user can accept the default narration-aware Auto Edit plan or choose a style override; supported fit/motion decisions are applied atomically before render admission.
+
+**Subtitle render:** narration text and alignment are captured in the immutable render input snapshot and emitted as a UTF-8 SRT track during local FFmpeg rendering when renderable cues exist.
 
 **Local render recovery:** an assigned device renders with FFmpeg under a lease, journals progress, survives/reports interruption safely and never double-finalizes after recovery.
 

@@ -60,13 +60,16 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - project/chapter CRUD is backed by real backend contracts and row-version behavior;
 - native import is two-phase: inspect/hash in main → backend stable asset registration → commit into ProjectStorage;
 - image generation and narration flows include local materialization foundations;
+- generation jobs stream owner-scoped snapshots over authenticated SSE, with Desktop reconnect and a slow watchdog fallback;
 - production timeline reads are narration-aligned and support explicit beat media selection;
-- duration/camera draft edits use typed undo/redo command history;
+- imported audio/video duration is probed in Electron main and carried into asset/timeline state;
+- duration/camera draft edits use typed undo/redo command history and Auto Edit can derive fit/motion overrides;
 - local export performs capability/disk/integrity preflight before render submission;
 - final rendering is backend-assigned, lease-controlled and executed only by Electron main;
 - render state is journaled and unfinished work is discoverable after restart;
 - immutable segment cache avoids redundant segment FFmpeg work;
 - final MP4 playback/export reads the local artifact directly;
+- local rendering captures immutable narration subtitle text/alignment and writes a UTF-8 SRT track when cues are available;
 - Settings exposes storage accounting, project verification/cleanup and backup/restore/archive-copy foundations;
 - renderer UI has been reorganized into production-oriented feature/component boundaries with Tailwind/source-owned primitives.
 
@@ -78,8 +81,11 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - project/chapter/storyboard/character/location domain foundations;
 - saved `chapters.source_text/source_hash` are the authoritative chapter content for analysis/narration;
 - durable generation jobs, stages, provider operations, plans, outbox and quota foundations;
+- owner-scoped generation SSE snapshots, current chapter media-head recovery and voice-preview jobs;
 - persisted production beat media selections consolidated into V1;
 - production timeline aggregation/alignment and local render input snapshots;
+- atomic Auto Edit override application during render admission;
+- immutable render subtitle snapshots (`subtitle_text`, `subtitle_spans_json`);
 - local device capability/heartbeat/revocation/render assignment;
 - render completion and FinalArtifact metadata without final-video byte storage/proxying.
 
@@ -113,9 +119,11 @@ Backend state uses stable IDs/checksums and opaque project-relative artifact key
 V1__create_tables.sql            # final consolidated schema/runtime state
 V2__init_indexes.sql             # final consolidated indexes/invariants
 V3__seed_data.sql                # deterministic seeds
+V4__project_render_subtitles.sql # immutable narration subtitle snapshot fields
+V5__chapter_workspace_generation_lookup.sql # Chapter Workspace lookup index
 ```
 
-The repository contains only V1-V3. Spring Session, Desktop OAuth handoffs, Desktop guest identity, beat media selections and local execution/render metadata are already folded into V1/V2. Translation/content-variant tables and columns are absent. After this final baseline is adopted, future schema changes begin with append-only `V4__*.sql`.
+V1-V3 remain the frozen consolidated baseline. Spring Session, Desktop OAuth handoffs, Desktop guest identity and beat media selections are already folded into V1/V2. V4 adds render subtitle snapshot fields and V5 adds a Chapter Workspace generation lookup index. Translation/content-variant tables and columns are absent. Future schema changes begin with append-only `V6__*.sql`.
 
 ## Current gaps
 

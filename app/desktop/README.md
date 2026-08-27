@@ -64,7 +64,9 @@ The editor consumes backend production timeline data and maintains supported loc
 - narration-aligned beat timing;
 - explicit beat media selection/replace flow;
 - image/video-aware beat state;
-- duration/camera draft state where applicable;
+- probed source duration for imported audio/video;
+- duration/camera/fit draft state where applicable;
+- narration-aware Auto Edit planning with optional style override;
 - typed undo/redo/reset command history;
 - render submission based on authoritative IDs/production choices rather than local machine paths.
 
@@ -80,11 +82,14 @@ Current foundations include:
 - FFmpeg/ffprobe discovery from configured, bundled or system paths;
 - preflight for runtime, executor, disk and local asset integrity;
 - progress heartbeat and lease-loss handling;
+- immutable narration subtitle snapshot to local UTF-8 SRT track during render;
 - `COMPLETED`, `CANCELED`, `FAILED` and retryable/stalled behavior where defined;
 - atomic `render.state.json` journaling and unfinished-work discovery;
 - immutable segment cache keyed by input/timeline/renderer/output identity;
 - checksum-verified local artifact registration;
 - in-process cancellation.
+
+Generation and narration jobs use authenticated owner-scoped SSE snapshots through the Electron main bridge. The renderer updates React Query from snapshots, reconnects after stream interruption and keeps a slow GET watchdog; terminal snapshots stop the subscription. Durable job state remains backend/PostgreSQL authority.
 
 Richer recovery/resume UX after abrupt process/OS failure remains roadmap work.
 

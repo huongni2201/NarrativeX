@@ -1,9 +1,9 @@
 # NarrativeX — Project Source of Truth V1.11
 
 **Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 2026-08-26  
+**Effective date:** 2026-08-27
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `main` at `0aca94e6eef07158e161cd67c648671e74055473`  
+**Docs-sync implementation checkpoint:** `main` at `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795`
 **Primary product boundary:** Electron Desktop editor + backend-authoritative control plane + Desktop local-first project media/render
 
 ---
@@ -89,7 +89,7 @@ The backend creates/version-controls authorized MediaPlan/production policy and 
 
 ### 3.5 PostgreSQL remains durable control-plane authority
 
-PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata. Redis may hold server sessions and transient hints but is never the only record of generation correctness.
+PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata, server sessions and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime and is not a current queue or session dependency.
 
 ### 3.6 Persistence is MyBatis + explicit SQL
 
@@ -364,9 +364,11 @@ External provider ambiguity preserves `UNKNOWN` and reconciles before paid resub
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
+V4__project_render_subtitles.sql
+V5__chapter_workspace_generation_lookup.sql
 ```
 
-V1-V3 are the frozen consolidated baseline and are the only current Flyway files. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already folded into V1. Future schema evolution starts with a new append-only `V4__*.sql`; current schema evolution must not rewrite already-published Flyway history.
+V1-V3 are the frozen consolidated baseline. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already folded into V1/V2. V4 adds immutable subtitle text/alignment fields to render input chapters; V5 adds a Chapter Workspace generation lookup index. Future schema evolution starts with a new append-only `V6__*.sql`; current schema evolution must not rewrite already-published Flyway history.
 
 Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and additive migrations remain authoritative.
 
@@ -404,6 +406,11 @@ Historical schema columns/defaults that no longer have an active executor do not
 | Render preflight/journal/cache | IMPLEMENTED foundation |
 | FinalArtifact metadata-only backend boundary | IMPLEMENTED |
 | Direct local final playback/export | IMPLEMENTED foundation |
+| Owner-scoped generation SSE + Desktop reconnect/watchdog | IMPLEMENTED foundation |
+| Auto Edit plan + atomic render snapshot | IMPLEMENTED foundation |
+| Immutable subtitle snapshot + local SRT track | IMPLEMENTED foundation |
+| Local media duration probing | IMPLEMENTED foundation |
+| Custom voice reference preview | IMPLEMENTED foundation |
 | Production packaging/signing/auto-update | TARGET |
 | Full abrupt-process render recovery UX | PARTIAL |
 | Adaptive narration-driven VisualScenePlanner | TARGET |

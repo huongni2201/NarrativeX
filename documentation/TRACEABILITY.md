@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Baseline Implementation Traceability
 
-This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26). Current code, migrations and tests remain authoritative for AS-IS claims.
+This matrix maps the V1.11 contract to implementation checkpoint `main` / `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795` (2026-08-27). Current code, migrations and tests remain authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
@@ -13,10 +13,12 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | Guest ownership transfer | auth use case transfers eligible guest-owned workspace metadata on Google exchange | IMPLEMENTED foundation |
 | Project/Chapter authoring | backend commands/use cases/MyBatis + Desktop React Query flows | IMPLEMENTED foundation |
 | Chapter Analyze | durable admission + worker execution | IMPLEMENTED |
+| Owner-scoped generation status stream | authenticated job SSE snapshots with Desktop reconnect and 15-second watchdog fallback | IMPLEMENTED foundation |
+| Current media job recovery | chapter-scoped media-head lookup restores active media work after Desktop reload | IMPLEMENTED foundation |
 | Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
 | ProviderOperation reconciliation | durable provider lifecycle with UNKNOWN-before-resubmit discipline | IMPLEMENTED foundation |
 | MyBatis-only production persistence | backend production adapters use MyBatis + explicit PostgreSQL SQL | IMPLEMENTED |
-| Flyway consolidated baseline | V1-V3 are the complete frozen current baseline; future schema changes start at append-only V4+ | IMPLEMENTED |
+| Flyway baseline plus append-only refinements | V1-V3 frozen baseline, V4 subtitle snapshot fields, V5 Chapter Workspace lookup index; future changes start at append-only V6+ | IMPLEMENTED |
 | Stable guest schema | `desktop_guest_installations` is consolidated into V1 | IMPLEMENTED |
 | Beat media selection schema | `production_beat_media_selections` is consolidated into V1 | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
@@ -29,6 +31,10 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | Production timeline reads | backend production timeline + narration-aligned timing | IMPLEMENTED foundation |
 | Beat media selection | V1 table + backend mutation/read model + Desktop editor integration | IMPLEMENTED foundation |
 | Timeline draft history | typed duration/camera command history with undo/redo/reset | IMPLEMENTED foundation |
+| Auto Edit render planning | narration-aware local plan with style override and atomic backend render snapshot | IMPLEMENTED foundation |
+| Immutable render subtitles | V4 subtitle text/alignment snapshot + Desktop UTF-8 SRT generation | IMPLEMENTED foundation |
+| Local media duration probing | Electron main probes imported audio/video duration and persists metadata | IMPLEMENTED foundation |
+| Custom voice preview | voice-reference upload/preview job and expiring result URL | IMPLEMENTED foundation |
 | Local project workspace | `ProjectStorage(<userData>/projects)` | IMPLEMENTED foundation |
 | Local manifest integrity | schema versioning, project-relative path, size, SHA-256, atomic write, boundary checks | IMPLEMENTED foundation |
 | Backup/restore/archive-copy | manifest-verified snapshots + safe active-workspace preservation | IMPLEMENTED foundation |
@@ -51,7 +57,7 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 
 ## Current non-claims
 
-NarrativeX now has implemented foundations for guest-first Desktop use, local asset materialization, backup/restore, render journals, segment cache and editable beat media selection. These must not be described as future-only work.
+NarrativeX now has implemented foundations for guest-first Desktop use, local asset materialization, backup/restore, render journals, segment cache, editable beat media selection, real-time job updates, Auto Edit planning and render subtitle snapshots. These must not be described as future-only work.
 
 NarrativeX does **not** yet claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, or complete billing/actual-usage reconciliation.
 
@@ -77,3 +83,4 @@ NarrativeX does **not** yet claim production-complete packaging/signing/auto-upd
 8. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
 9. Google remains the only end-user account sign-in provider.
 10. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
+11. SSE is a best-effort status transport; PostgreSQL job rows remain the durable source of truth and the Desktop watchdog can recover from stream interruption.

@@ -67,7 +67,7 @@ Narration/alignment is the timing authority. Explicit beat media selections and 
 
 ## API/capability foundations
 
-Current backend surfaces include auth guest bootstrap/current-user/CSRF/Google Desktop auth; project/story/chapter CRUD and direct chapter analysis; storyboard and character/location reads; generation estimate/enqueue/history/events; narration/import/alignment; production timeline/media selection; local asset/materialization metadata; local-device/render execution; final-artifact/notification/quota/catalog reads.
+Current backend surfaces include auth guest bootstrap/current-user/CSRF/Google Desktop auth; project/story/chapter CRUD and direct chapter analysis; storyboard and character/location reads; generation estimate/enqueue/history, current media-head lookup and owner-scoped SSE events; narration/import/alignment and voice-preview jobs/results; production timeline/media selection and atomic Auto Edit render admission; local asset/materialization metadata; local-device/render execution; final-artifact/notification/quota/catalog reads.
 
 Endpoint availability does not imply every future UI interaction is complete; use `documentation/TRACEABILITY.md` and `documentation/product/FEATURE_CATALOG.md` for current status.
 
@@ -81,9 +81,11 @@ Final pre-release baseline:
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
+V4__project_render_subtitles.sql
+V5__chapter_workspace_generation_lookup.sql
 ```
 
-V1 contains the complete relational/runtime schema, including Spring Session JDBC and Desktop OAuth handoffs. V2 contains the complete index/invariant set. V3 contains deterministic seeds. Translation/content-variant schema is absent. After this final baseline is adopted, future schema changes are append-only starting with V4.
+V1 contains the complete relational/runtime schema, including Spring Session JDBC and Desktop OAuth handoffs. V2 contains the baseline index/invariant set. V3 contains deterministic seeds. V4 adds immutable render subtitle snapshots; V5 adds the Chapter Workspace generation lookup index. Translation/content-variant schema is absent. Future schema changes are append-only starting with V6.
 
 ## Quality/concurrency rules
 

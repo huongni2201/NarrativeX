@@ -42,8 +42,11 @@ Implemented foundations include:
 - Vertex image generation with Desktop review and verified local materialization;
 - native local media registration without renderer path exposure;
 - production timeline aggregation with narration-aligned timing;
-- persisted beat media selection (V5);
-- timeline duration/camera draft editing with undo/redo/reset;
+- persisted beat media selection (V1);
+- timeline duration/camera/fit draft editing with undo/redo/reset;
+- narration-aware Auto Edit planning with atomic render override application;
+- immutable narration subtitle snapshot and local UTF-8 SRT render track;
+- imported audio/video duration probing and custom voice preview jobs;
 - local ProjectStorage/ProjectCatalog integrity, storage accounting/verification/cleanup;
 - backup/restore/archive-copy foundations;
 - backend-assigned local render preflight/lease/FFmpeg execution;
@@ -99,17 +102,14 @@ PostgreSQL
 
 `project.manifest.json` maps stable backend IDs to project-relative paths plus size/SHA-256. Absolute machine paths are never durable backend identities.
 
-## Retained server/cloud storage contract
+## Remote generated-media transport contract
 
 ```text
 Cloudflare R2
   -> retained server/provider pipeline media when remote durability is required
-
-Google Drive
-  -> retained cloud-render final MP4
 ```
 
-ADR-0003 governs the retained server/cloud path. ADR-0012 governs the primary Desktop local-first path. Do not state that every generated project asset or final MP4 must be stored remotely.
+ADR-0003 governs remote generated-media transport. ADR-0012 governs the Desktop local-first path. Final MP4 bytes are local-only; do not state that generated project assets or final renders must be stored remotely.
 
 ## Current final-video behavior
 
@@ -122,17 +122,8 @@ backend-authorized production snapshot
   -> resolve local media IDs/checksums
   -> journal + segment cache
   -> FFmpeg/ffprobe render
-  -> checksum-verified local final MP4
+  -> immutable subtitle snapshot + checksum-verified local final MP4
   -> backend completion metadata
-```
-
-Retained cloud fallback:
-
-```text
-remote R2 inputs
-  -> cloud/server render
-  -> Google Drive final upload
-  -> FinalArtifact provider metadata
 ```
 
 ## Current versus target scope
@@ -151,6 +142,11 @@ remote R2 inputs
 | Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
 | Native local asset registration | IMPLEMENTED foundation |
 | Persisted beat media selection | IMPLEMENTED foundation |
+| Generation SSE + reload recovery | IMPLEMENTED foundation |
+| Auto Edit planning | IMPLEMENTED foundation |
+| Render subtitle track | IMPLEMENTED foundation |
+| Imported media duration probing | IMPLEMENTED foundation |
+| Custom voice preview | IMPLEMENTED foundation |
 | Mixed image/video beat timeline | IMPLEMENTED foundation |
 | Desktop local FFmpeg render | IMPLEMENTED foundation |
 | Render preflight/journal/cache | IMPLEMENTED foundation |

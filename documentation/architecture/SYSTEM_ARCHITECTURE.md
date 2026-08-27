@@ -64,6 +64,7 @@ The backend owns:
 - local-device registration/revocation and render assignment;
 - render leases, progress and terminal job state;
 - durable asset identity/checksums/lineage plus final-artifact metadata;
+- owner-scoped generation status snapshots delivered through SSE (transport only; PostgreSQL remains authoritative);
 - Flyway schema ownership.
 
 The backend never treats an absolute Desktop filesystem path as a durable asset identity and never stores or proxies final MP4 bytes. The current product has no translation/content-variant layer; analysis and narration consume the saved Chapter directly.
@@ -161,7 +162,7 @@ business/job/artifact metadata   -> PostgreSQL
 
 ## Production timeline and local render
 
-Production timeline state is backend-authoritative where persisted, including explicit beat media selections consolidated into the final V1 schema. Renderer draft state may add temporary camera/duration edits, but final render submission is converted into backend-authorized immutable input state.
+Production timeline state is backend-authoritative where persisted, including explicit beat media selections consolidated into the final V1 schema. Renderer draft state may add temporary camera/duration/fit edits. Auto Edit derives narration-aware overrides, and the backend applies those overrides atomically with immutable render snapshot creation.
 
 ```text
 backend admits + assigns local render
@@ -171,7 +172,10 @@ backend admits + assigns local render
   -> write/update atomic render journal
   -> reuse immutable segment-cache hits when valid
   -> FFmpeg render missing segments
-  -> concat/mux
+  -> concat video
+  -> derive subtitle cues from immutable narration text/alignment snapshot
+  -> write UTF-8 SRT when renderable cues exist
+  -> mux video + narration + subtitle track
   -> ffprobe + checksum final MP4
   -> register final-artifact metadata
   -> report completion under current lease
@@ -202,9 +206,11 @@ Production application persistence is MyBatis + explicit PostgreSQL SQL. Final p
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
+V4__project_render_subtitles.sql
+V5__chapter_workspace_generation_lookup.sql
 ```
 
-V1 includes the complete relational/runtime schema, including Spring Session JDBC, Desktop OAuth handoffs, Desktop guest identity, production beat media selection and local-execution/render metadata. V2 includes the complete index/invariant set. V3 contains deterministic bootstrap/catalog data. Translation/content-variant schema is absent. After this baseline is adopted, future schema evolution starts with append-only V4+ migrations.
+V1 includes the complete relational/runtime schema, including Spring Session JDBC, Desktop OAuth handoffs, Desktop guest identity, production beat media selection and local-execution/render metadata. V2 includes the baseline index/invariant set. V3 contains deterministic bootstrap/catalog data. V4 adds immutable render subtitle snapshots and V5 adds the Chapter Workspace lookup index. Translation/content-variant schema is absent. Future schema evolution starts with append-only V6+ migrations.
 
 ## Remaining architecture hardening
 

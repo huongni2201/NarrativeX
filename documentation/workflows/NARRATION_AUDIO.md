@@ -34,7 +34,9 @@ Local/self-hosted inference may have no external provider charge while still con
 
 ## Desktop generated-audio workflow
 
-Current Desktop foundations include voice selection/preview, single/batch narration requests, progress/error handling and local materialization of accepted narration results used by the project.
+Current Desktop foundations include voice selection/preview, custom voice-reference upload, single/batch narration requests, progress/error handling, active-job recovery after reload and local materialization of accepted narration results used by the project. Preview results are returned through an expiring URL and are not the durable project audio artifact.
+
+The preview contract is asynchronous: Desktop submits `POST /api/v1/projects/{projectId}/voice-preview-jobs`, observes the job through the shared generation status stream, then reads `GET /api/v1/projects/{projectId}/voice-preview-jobs/{jobId}/result`. The backend returns a signed/temporary result URL with an expiry and duration metadata. Uploaded references remain subject to ownership, readiness and voice-capability checks.
 
 Generated/project narration bytes used by final rendering live under the project workspace and are referenced through stable backend identity plus manifest integrity metadata. Absolute paths remain inside Electron main.
 
@@ -83,6 +85,8 @@ local narration input
 ```
 
 Render execution remains backend-assigned and lease-controlled. Final MP4 playback/export reads the local artifact directly.
+
+Generation status delivery is real-time-first: authenticated SSE carries job snapshots, Electron main reconnects the stream, and a slow GET watchdog covers missed events. A reload can recover the active chapter narration job from the persisted workspace/job state; the stream is a delivery optimization, not durable authority.
 
 ## Cost behavior
 

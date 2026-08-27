@@ -4,7 +4,8 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Effective docs sync: `2026-08-26`
+- Effective docs sync: `2026-08-27`
+- Implementation checkpoint: `main` at `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 - Runtime refinement: `documentation/decisions/ADR-0020-postgresql-only-mvp-runtime-state.md`
 
@@ -53,10 +54,11 @@ Cloudflare R2 is generated-media transport/durability where remote provider/work
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__postgres_runtime_state.sql
+V4__project_render_subtitles.sql
+V5__chapter_workspace_generation_lookup.sql
 ```
 
-V1-V3 are frozen. V4 adds Spring Session JDBC and one-time Desktop OAuth handoff storage. Future schema changes are append-only V5+.
+V1-V3 are frozen. Spring Session JDBC, Desktop OAuth handoffs, guest identity and beat-media selection are already part of that baseline. V4 adds immutable render subtitle text/alignment snapshots, and V5 adds the Chapter Workspace generation lookup index. Future schema changes are append-only V6+.
 
 ## Primary remaining work
 

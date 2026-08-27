@@ -92,7 +92,13 @@ The current Desktop image-generation flow includes chapter selection, analysis/e
 
 The backend production timeline aggregates persisted scene/beat/timing/media state. Durable beat media selections are part of the consolidated V1 schema, so an explicit editor choice survives reload and can feed render admission.
 
-Renderer draft state supports typed undo/redo/reset for supported duration/camera edits. Draft state is not durable authority until converted to the backend render/production contract.
+Renderer draft state supports typed undo/redo/reset for supported duration/camera/fit edits. Auto Edit derives narration-aware decisions for fit, trim and motion, with `AUTO` as the default and optional Cinematic/Balanced/Dynamic overrides. Draft/Auto Edit state is not durable authority until converted to the backend render/production contract; render override application and immutable snapshot creation are atomic in the backend.
+
+## Real-time job tracking and subtitles
+
+Generation, narration and local-render jobs expose owner-scoped authenticated SSE snapshots to Desktop. Electron main owns the reconnecting transport; the renderer updates React Query and retains a slow GET watchdog while a job is active. PostgreSQL remains the durable job authority.
+
+When a render is admitted, narration text and alignment spans are captured in the immutable render input snapshot. Electron main derives renderable cues, writes a UTF-8 `subtitles.srt` file and includes it in the final FFmpeg output when cues are available.
 
 ## Final local render path
 
@@ -134,6 +140,7 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 - complete multi-part user-audio alignment/slicing behavior for all production scopes;
 - richer media reuse/reframe/edit/regeneration lineage;
 - richer timeline mutation/save/retry UX;
+- richer Auto Edit explanations and manual override/review UX;
 - long-form crash/restart recovery and soak reliability;
 - production packaging/signing/auto-update and packaged OAuth/protocol tests.
 

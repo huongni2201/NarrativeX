@@ -1,6 +1,6 @@
 # NarrativeX — Current Feature Catalog (V1.11)
 
-This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26). Current code, migrations and tests decide factual AS-IS claims when documentation drifts.
+This is the maintained feature/status view at docs checkpoint `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795` (2026-08-27). Current code, migrations and tests decide factual AS-IS claims when documentation drifts.
 
 | Feature | V1.11 status | Current direction |
 |---|---|---|
@@ -13,6 +13,8 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Project/Chapter authoring | IMPLEMENTED foundation | backend-authoritative MyBatis persistence + Desktop API integration |
 | Project dashboard/favorite | IMPLEMENTED foundation | authoritative project APIs and Desktop mutations |
 | Chapter Analyze | IMPLEMENTED | durable admission/job/provider/reconciliation |
+| Real-time generation job status | IMPLEMENTED foundation | owner-scoped SSE snapshots, automatic reconnect and slow GET watchdog |
+| Current media job recovery | IMPLEMENTED foundation | chapter media-head lookup restores active media state after reload |
 | Generation durability | IMPLEMENTED foundation | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox state |
 | Character/Location continuity | IMPLEMENTED foundation | richer human review/reference locking remains partial |
 | Storyboard / Scene / VisualBeat | IMPLEMENTED foundation | richer adaptive planning/revision review remains partial |
@@ -27,6 +29,10 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Persisted beat media selection | IMPLEMENTED foundation | production beat media selection state is consolidated into V1 |
 | Mixed image/video beat model | IMPLEMENTED foundation | timeline can carry media identity; richer video editing semantics remain partial |
 | Timeline duration/camera draft editing | IMPLEMENTED foundation | typed command history with undo/redo/reset |
+| Auto Edit planning | IMPLEMENTED foundation | narration-aware AUTO/CINEMATIC/BALANCED/DYNAMIC plan; render overrides apply atomically with snapshot creation |
+| Render subtitle track | IMPLEMENTED foundation | immutable narration text/alignment snapshot feeds local UTF-8 SRT generation and mux |
+| Imported media duration metadata | IMPLEMENTED foundation | Electron main probes audio/video duration before local registration |
+| Custom voice preview/reference | IMPLEMENTED foundation | upload/reference validation plus expiring preview result URL |
 | Electron Desktop only editor | IMPLEMENTED | sole supported editor; former web client removed |
 | Secure main/preload/renderer split | IMPLEMENTED foundation | native capabilities outside renderer |
 | Tailwind/source-owned UI primitives | IMPLEMENTED foundation | production-oriented renderer structure and accessible component vocabulary |
@@ -45,7 +51,7 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Direct final playback/export | IMPLEMENTED foundation | Desktop reads the local MP4 without backend byte proxying |
 | Full abrupt-process render recovery/resume UX | PARTIAL | journals exist; complete stage recovery/soak behavior still needs hardening |
 | MyBatis-only production persistence | IMPLEMENTED | production persistence uses MyBatis + explicit SQL |
-| Flyway V1-V3 frozen baseline | IMPLEMENTED | current repository contains V1-V3 only; future schema evolution starts at append-only V4+ |
+| Flyway V1-V3 baseline + V4/V5 refinements | IMPLEMENTED | V4 stores immutable render subtitle snapshots; V5 indexes Chapter Workspace generation lookup; future schema evolution starts at append-only V6+ |
 | VisualScenePlanner | TARGET | narration-driven adaptive Scene/VisualBeat planning/review |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | richer asset lineage/reuse after core reliability |
 | HYBRID_LOCAL_I2V | DEFERRED fast-follow | optional selected-beat I2V, not core Desktop dependency |
@@ -71,6 +77,6 @@ A Desktop installation can resume the same guest-owned workspace after server-se
 
 ## Local render acceptance
 
-A backend-authorized device can claim a project render, preflight runtime/disk/assets, resolve checksum-verified media by stable IDs, heartbeat the lease, journal/cache local execution, run FFmpeg/ffprobe, register final-artifact metadata and report completion without persisting an absolute local path. Playback/export reads the final local MP4 directly.
+A backend-authorized device can claim a project render, preflight runtime/disk/assets, resolve checksum-verified media by stable IDs, apply an Auto Edit plan, build an immutable subtitle snapshot, heartbeat the lease, journal/cache local execution, run FFmpeg/ffprobe, register final-artifact metadata and report completion without persisting an absolute local path. Playback/export reads the final local MP4 directly.
 
 Do not claim production-complete crash recovery, adaptive planner completion, arbitrary multi-part audio coverage or release packaging until those paths are proven.

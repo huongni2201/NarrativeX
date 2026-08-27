@@ -27,6 +27,7 @@ CURRENT_FILES = [
     ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
     ROOT / "documentation" / "product" / "ROADMAP.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+    ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
     ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
     ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
     ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
@@ -41,6 +42,7 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "product" / "ROADMAP.md",
     ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
     ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
+    ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
     ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
@@ -48,7 +50,7 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "decisions" / "ADR-0010-desktop-editor-client-boundary.md",
     ROOT / "documentation" / "decisions" / "ADR-0011-google-oauth-only-desktop-auth.md",
     ROOT / "documentation" / "decisions" / "ADR-0012-desktop-local-first-media-and-render-execution.md",
-    ROOT / "documentation" / "decisions" / "ADR-0017-desktop-renderer-ui-architecture.md",
+    ROOT / "documentation" / "decisions" / "ADR-0017-desktop-renderer-ui-component-stack.md",
 ]
 
 RETIRED_PATHS = [
@@ -187,6 +189,8 @@ def main() -> int:
         "V1__create_tables.sql",
         "V2__init_indexes.sql",
         "V3__seed_data.sql",
+        "V4__project_render_subtitles.sql",
+        "V5__chapter_workspace_generation_lookup.sql",
     }
     if migrations.exists():
         actual = {path.name for path in migrations.glob("V*.sql")}

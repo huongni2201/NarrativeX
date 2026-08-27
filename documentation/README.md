@@ -42,5 +42,5 @@ A newer ADR wins only within the scope it explicitly supersedes.
 10. Cloudflare R2 is limited to generated-media transport/durability before Desktop materialization; final MP4 bytes remain local.
 11. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
 12. Production persistence is MyBatis + explicit PostgreSQL SQL.
-13. Flyway V1-V3 are frozen; V4 adds PostgreSQL runtime session/handoff state; later migrations are append-only.
+13. Flyway V1-V3 are frozen; V4 adds immutable render subtitle snapshots and V5 adds the Chapter Workspace generation lookup index; later migrations are append-only V6+.
 14. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.

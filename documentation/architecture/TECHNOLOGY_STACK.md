@@ -2,7 +2,7 @@
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, translation-free MVP runtime refactor (2026-08-26).
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, translation-free MVP runtime refactor and the latest Desktop render/status additions (2026-08-27).
 
 | Layer | Current stack | Current role |
 |---|---|---|
@@ -78,6 +78,9 @@ Implemented foundations include:
 - workspace backup/restore/archive-copy;
 - local checksum-verified final artifact metadata registration;
 - direct local playback/export of the final MP4.
+- Auto Edit planning, immutable subtitle snapshots and local UTF-8 SRT generation;
+- authenticated generation SSE with Desktop reconnect/watchdog fallback;
+- imported audio/video duration probing and custom voice preview foundations.
 
 Production release hardening, abrupt-process recovery UX and richer editor/review workflows remain roadmap work.
 
@@ -85,4 +88,4 @@ Production release hardening, abrupt-process recovery UX and richer editor/revie
 
 Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-The final pre-release Flyway baseline contains exactly V1-V3. V1 includes relational/runtime state such as Spring Session and Desktop OAuth handoffs, V2 contains the consolidated indexes/invariants, and V3 contains deterministic seeds. After this baseline is adopted, future schema changes begin with append-only V4+ migrations.
+The final pre-release baseline is V1-V3, followed by append-only V4/V5 refinements. V1 includes relational/runtime state such as Spring Session and Desktop OAuth handoffs, V2 contains the baseline indexes/invariants, V3 contains deterministic seeds, V4 adds immutable render subtitle snapshots and V5 adds the Chapter Workspace generation lookup index. Future migrations begin at V6.

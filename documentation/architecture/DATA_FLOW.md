@@ -11,10 +11,12 @@ PostgreSQL state, not renderer memory, delivery hints or process memory, determi
 | Desktop OAuth handoff | PostgreSQL | 90-second, hash-only, PKCE-bound, atomically single-use |
 | Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
 | GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | worker claims and lifecycle truth |
+| Generation status delivery | authenticated SSE + Desktop watchdog GET | best-effort transport; PostgreSQL job rows remain authoritative |
 | Queue discovery | PostgreSQL polling/claim SQL | durable source; no broker or notification dependency |
 | MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
 | Production beat media selection | PostgreSQL | explicit editor choice is part of the consolidated V1 schema |
 | Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
+| Render subtitle snapshot | PostgreSQL render input chapter snapshot | immutable source text + alignment spans used by local SRT generation |
 | Desktop project byte locations | local `project.manifest.json` | relative paths + size/SHA-256; not domain authority |
 | Desktop render journal/cache | local project work storage | recovery/performance aid, not backend business authority |
 | Desktop final MP4 bytes | local project `artifacts/` | backend stores metadata only |
@@ -122,7 +124,8 @@ An arbitrary absolute local path does not cross into durable backend domain stat
 storyboard + narration alignment + media assets
   -> backend production timeline read
   -> persisted beat media selections
-  -> renderer draft edits where supported
+  -> renderer draft edits / Auto Edit plan
+  -> atomic backend application of render overrides
   -> render submission
   -> immutable render input snapshot
 ```
@@ -139,6 +142,8 @@ backend admits + assigns local render
   -> write atomic render journal
   -> reuse valid segment cache
   -> FFmpeg render missing segments
+  -> derive subtitle cues from immutable narration snapshot
+  -> write UTF-8 SRT when cues are renderable
   -> concat/mux
   -> ffprobe + SHA-256 final MP4
   -> register final-artifact metadata
@@ -147,6 +152,18 @@ backend admits + assigns local render
 ```
 
 Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Full crash/restart resume/retry behavior remains hardening work.
+
+## Real-time generation status
+
+```text
+backend durable job update
+  -> owner-scoped `/api/v1/generation-jobs/{jobId}/events` snapshot
+  -> Electron main authenticated SSE bridge
+  -> renderer React Query cache update
+  -> terminal snapshot closes the stream
+```
+
+Desktop reconnects the stream when needed and keeps a 15-second GET watchdog while a job is active. SSE delivery is not the queue or durable status authority; a missed event is recovered from PostgreSQL through the normal job query.
 
 ## Backup/restore data flow
 

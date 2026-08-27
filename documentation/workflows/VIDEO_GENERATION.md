@@ -15,6 +15,8 @@ Chapter → Scene → VisualBeat is a logical timeline hierarchy. A video beat d
 
 Persisted beat media selections are part of the consolidated V1 schema and allow an editor-selected image/video asset to survive reload and feed production/render reads.
 
+Electron main probes imported audio/video duration before local registration. Known video source duration is carried into the timeline and render contract so `TRIM`, `LOOP`, `FREEZE_END` and `SPEED_ADJUST` decisions can be validated against the source rather than guessed at render time.
+
 ## Imported video — current Desktop direction
 
 Imported user video is a first-class local project media candidate. Native import follows the same secure local-media boundary as other imports:
@@ -83,7 +85,8 @@ backend-authorized production snapshot
   -> assigned local-device lease
   -> Electron main resolves checksum-verified local assets
   -> render/cache segments
-  -> concat/mux with narration
+  -> narration-aligned subtitle cues from immutable render snapshot
+  -> write UTF-8 SRT and mux with narration when cues exist
   -> ffprobe/checksum final MP4
   -> write project artifacts/<jobId>/final.mp4
   -> register backend artifact metadata

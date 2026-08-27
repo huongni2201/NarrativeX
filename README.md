@@ -107,9 +107,11 @@ The current Desktop code includes:
 - chapter analysis and generation admission flows;
 - image generation/review plus remote-to-local materialization;
 - generated narration/voice preview and local audio import safeguards;
+- authenticated generation SSE with reconnect/watchdog status recovery;
 - native local asset registration;
-- production timeline editing including beat media selection, duration/camera draft state and undo/redo;
+- production timeline editing including beat media selection, probed media duration, duration/camera/fit draft state, Auto Edit planning and undo/redo;
 - local render preflight, lease-controlled FFmpeg execution and final artifact metadata registration;
+- immutable narration subtitle snapshots and local UTF-8 SRT generation during render;
 - render journal discovery, segment caching and project storage verification/cleanup;
 - workspace backup/restore/archive-copy foundations;
 - source-owned Tailwind/shadcn-style renderer component structure.
@@ -167,7 +169,7 @@ If another platform already provides HTTPS ingress, leave the tunnel profile dis
 
 ## Persistence
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. The final pre-release baseline contains exactly `V1__create_tables.sql`, `V2__init_indexes.sql` and `V3__seed_data.sql`. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. The consolidated core baseline contains `V1__create_tables.sql`, `V2__init_indexes.sql` and `V3__seed_data.sql`; current append-only refinements are `V4__project_render_subtitles.sql` and `V5__chapter_workspace_generation_lookup.sql`. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
 
 ## Product guardrails
 

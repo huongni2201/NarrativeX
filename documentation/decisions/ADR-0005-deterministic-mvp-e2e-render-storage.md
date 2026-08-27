@@ -1,15 +1,15 @@
 # ADR-0005: Deterministic MVP E2E Rendering with Local Final Storage
 
-- Status: Accepted
+- Status: Accepted; superseded by ADR-0012 for the production final-render/storage boundary
 - Date: 2026-08-23
 
 ## Context
 
-The story-to-video MVP must be verified end to end, including real worker execution and FFmpeg output. CI must not depend on Vertex/Gemini availability, Google Drive credentials, provider latency, or provider billing. A browser refresh must also be able to recover a completed render from the chapter workspace response.
+The story-to-video MVP must be verified end to end, including real worker execution and FFmpeg output. CI must not depend on Vertex/Gemini availability, remote final-video credentials, provider latency, or provider billing. Desktop reload must also be able to recover a completed render from durable job/workspace metadata.
 
 ## Decision
 
-Keep PostgreSQL, Redis, the Spring Boot backend, the Python worker, and FFmpeg real in the MVP E2E environment. Select deterministic fake analysis, image, and TTS providers through explicit provider modes. Store generated media and final MP4 artifacts on the shared local E2E filesystem through `LocalFinalVideoStorage` and the backend local content adapter. Production continues to use the configured external providers and Google Drive final-video storage.
+Keep PostgreSQL, the Spring Boot backend, the Python worker, and FFmpeg real in the MVP E2E environment. Select deterministic fake analysis, image, and TTS providers through explicit provider modes. Store generated media and final MP4 artifacts on the shared local E2E filesystem through the test-only local storage adapter. Production final rendering remains Desktop-local under ADR-0012.
 
 Expose the latest non-archived `CHAPTER_VIDEO` final artifact in the chapter workspace render summary as `status`, `latestJobId`, and `artifactId`. The frontend hydrates the artifact by ID after loading the workspace, while render submission and polling remain owned by the render container/hook.
 

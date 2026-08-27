@@ -11,7 +11,7 @@ This directory records decisions that affect more than one feature or change a p
    Chapter-first workflow, reusable Character identity, revision/history rules and VisualBeat/motion models. Its historical translation-lineage portion is superseded by the current translation-free Chapter source baseline.
 
 3. **[ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)**  
-   Cloud/worker media storage and provider integrations. R2 pipeline media + Google Drive final MP4 remain valid for the retained cloud/legacy execution path. **Desktop project-media storage is superseded by ADR-0012.**
+   Cloud/worker generated-media transport and provider integrations. R2 remains valid for remote generated image/narration transport before Desktop materialization. **Desktop project/final-media storage is governed by ADR-0012.**
 
 4. **[ADR-0004: Authentication, runtime security and test credentials](./ADR-0004-authentication-runtime-security-and-test-credentials.md)**  
    Spring Security/session baseline, Google OIDC security controls, CSRF and test/runtime credential boundaries. Password-auth product behavior is superseded by ADR-0011.
@@ -38,7 +38,7 @@ This directory records decisions that affect more than one feature or change a p
     Google-only end-user authentication, system-browser OIDC, one-time `narrativex://` handoff into a server-managed NarrativeX session, and strict separation from local-execution device tokens.
 
 12. **[ADR-0012: Desktop local-first project media and local render execution](./ADR-0012-desktop-local-first-media-and-render-execution.md)**  
-    Local project workspace/manifest, asset-ID/checksum resolution, backend-assigned `LOCAL_DEVICE` rendering, FFmpeg in Electron main, `LOCAL_DESKTOP` local artifacts and cloud render/storage as migration fallback.
+    Local project workspace/manifest, asset-ID/checksum resolution, backend-assigned `LOCAL_DEVICE` rendering, FFmpeg in Electron main and `LOCAL_DESKTOP` local artifacts.
 
 13. **[ADR-0013: Desktop local media registration and editor mutations](./ADR-0013-desktop-local-media-registration-and-editor-mutations.md)**
     Main-process asset registration and editor mutation boundaries.
