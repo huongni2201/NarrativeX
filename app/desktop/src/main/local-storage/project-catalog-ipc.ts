@@ -74,7 +74,7 @@ function isMetadata(value: unknown): value is LocalProjectCatalogMetadata | unde
     optionalNullableString(metadata.ownerId) &&
     optionalNullableString(metadata.cloudProjectId) &&
     (metadata.syncStatus === undefined ||
-      ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED"].includes(
+      ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED", "ORPHANED"].includes(
         String(metadata.syncStatus),
       ))
   );
