@@ -17,7 +17,7 @@ This is the maintained feature/status view at docs checkpoint `8c9d953da4c197240
 | Current media job recovery | IMPLEMENTED foundation | chapter media-head lookup restores active media state after reload |
 | Generation durability | IMPLEMENTED foundation | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox state |
 | Character/Location continuity | IMPLEMENTED foundation | richer human review/reference locking remains partial |
-| Storyboard / Scene / VisualBeat | IMPLEMENTED foundation | richer adaptive planning/revision review remains partial |
+| Storyboard / Scene / VisualBeat | IMPLEMENTED foundation | Desktop scene view supports status filtering and an owner-authorized per-beat review workflow, including approve-all for pending beats; richer adaptive planning/revision review remains partial |
 | Narration timing authority | IMPLEMENTED foundation | aligned narration drives beat duration |
 | VieNeu narration | IMPLEMENTED foundation | provider execution + Desktop local materialization for current flows |
 | Local voice preview | IMPLEMENTED foundation | Desktop voice selection/preview workflow |

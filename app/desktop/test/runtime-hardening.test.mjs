@@ -76,6 +76,22 @@ test("chapter polling is scoped to the selected chapter", () => {
   assert.match(queries, /chapter\.id === pollingChapterId/);
 });
 
+test("storyboard review filter uses the themed select primitive", () => {
+  const storyboard = source(
+    "app",
+    "desktop",
+    "src",
+    "renderer",
+    "features",
+    "storyboard",
+    "screens",
+    "StoryboardScreen.tsx",
+  );
+  assert.match(storyboard, /<SelectContent>/);
+  assert.match(storyboard, /<SelectItem value="NEEDS_REVIEW">Needs review<\/SelectItem>/);
+  assert.doesNotMatch(storyboard, /<select[\s>]/);
+});
+
 test("chapter analysis carries an idempotency key", () => {
   const generation = source(
     "app",
