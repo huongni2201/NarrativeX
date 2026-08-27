@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import { randomUUID } from "node:crypto";
 import type {
   DesktopApiRequest,
   DesktopApiResponse,
@@ -12,6 +11,8 @@ import type {
 
 const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
 const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
+const SUBSCRIPTION_PROCESS_PREFIX = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+let subscriptionSequence = 0;
 
 const bridge: NarrativeXDesktopBridge = {
   appVersion: () => ipcRenderer.invoke("desktop:app-version"),
@@ -28,9 +29,12 @@ const bridge: NarrativeXDesktopBridge = {
     onCallback: (listener: (response: DesktopApiResponse) => void) => {
       const handler = (_event: IpcRendererEvent, response: DesktopApiResponse) => listener(response);
       ipcRenderer.on("desktop:auth:callback", handler);
-      void ipcRenderer.invoke("desktop:auth:consume-pending").then((response: unknown) => {
-        if (isDesktopApiResponse(response)) listener(response);
-      });
+      void ipcRenderer
+        .invoke("desktop:auth:consume-pending")
+        .then((response: unknown) => {
+          if (isDesktopApiResponse(response)) listener(response);
+        })
+        .catch(() => undefined);
       return () => ipcRenderer.removeListener("desktop:auth:callback", handler);
     },
   },
@@ -87,8 +91,13 @@ const bridge: NarrativeXDesktopBridge = {
   },
 };
 
+function createSubscriptionId(): string {
+  subscriptionSequence += 1;
+  return `${SUBSCRIPTION_PROCESS_PREFIX}-${subscriptionSequence.toString(36)}`;
+}
+
 function subscribeBackendEvents(path: string, handlers: DesktopSseHandlers): () => void {
-  const subscriptionId = randomUUID();
+  const subscriptionId = createSubscriptionId();
   let closed = false;
 
   const eventHandler = (
