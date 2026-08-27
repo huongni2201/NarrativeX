@@ -68,6 +68,51 @@ Gemini Web generation applies a Desktop-main-owned series style lock before the 
 
 The Gemini Web wrapper also treats the Visual Beat scene text as untrusted narrative input. Scene content may control story action, characters, environment, camera, and mood, but it may not remove the series style contract, request multiple panels, or add text/logos/watermarks. This boundary keeps Generate, Generate All, and any other Gemini Web entry point visually consistent without duplicating the style prompt in renderer UI code.
 
+### Beat-scoped character reference flow
+
+Character identity is established before storyboard image generation. Chapter analysis now records only the characters actually visible in each Visual Beat and assigns each participant a `PRIMARY`, `SECONDARY`, or `BACKGROUND` role. These rows are materialized into `visual_beat_characters`; old/manual beats without explicit rows fall back to the parent Scene cast for compatibility.
+
+For one Gemini Web Visual Beat, continuity resolution is:
+
+```text
+Visual Beat
+  -> resolve explicit beat participants
+  -> resolve pinned CharacterVersion, otherwise latest LOCKED CharacterVersion
+  -> resolve current CharacterAppearance / OutfitVersion state
+  -> select reference assets deterministically
+       1. one highest-priority identity anchor per visible character
+       2. additional references by priority
+       3. hard cap: 3 attachments per generated frame
+  -> assign attachment order REF_01, REF_02, REF_03
+  -> materialize those immutable MediaAssets into local ProjectStorage
+  -> attach the files to Gemini in exactly REF order
+  -> append the backend-derived REF-to-character map to the scene prompt
+  -> submit generation
+```
+
+The prompt names every attachment explicitly, for example `REF_01 = Lan [PRIMARY]`, and instructs the model never to merge or swap identities. Reference images are identity evidence rather than composition templates. A beat with no visible established character sends no character reference and explicitly tells the model not to invent one.
+
+Reference upload happens before the generation DOM/network baseline is captured. This is important: uploaded reference previews must never be mistaken for the newly generated image.
+
+### Gemini Web output capture
+
+Gemini Web uses Chrome DevTools Protocol Network capture as the primary output path:
+
+```text
+references attached
+  -> snapshot existing DOM images
+  -> start Network.responseReceived / Network.loadingFinished tracking
+  -> submit prompt
+  -> wait for a new generated DOM image
+  -> correlate the fresh DOM image with image/* network responses
+  -> Network.getResponseBody
+  -> validate supported MIME and byte bounds
+  -> persist into Gemini staging
+  -> register/commit as NarrativeX MediaAsset
+```
+
+The visible Gemini Download control is fallback-only. This avoids making successful generation depend on Gemini's current button labels, hover behavior, menus, or DOM layout.
+
 Long-term reuse preference remains:
 
 ```text
