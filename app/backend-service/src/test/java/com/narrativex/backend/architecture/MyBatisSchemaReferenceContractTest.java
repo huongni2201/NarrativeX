@@ -21,8 +21,6 @@ import org.junit.jupiter.api.Test;
 
 /** Static contract between the authoritative Flyway schema and every MyBatis XML mapper. */
 class MyBatisSchemaReferenceContractTest {
-  private static final Path CREATE_TABLES_MIGRATION =
-      Path.of("src/main/resources/db/migration/V1__create_tables.sql");
   private static final Path MAPPER_ROOT = Path.of("src/main/resources/mybatis");
 
   private static final Pattern CREATE_TABLE =
@@ -30,8 +28,7 @@ class MyBatisSchemaReferenceContractTest {
           "(?im)^\\s*CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern CREATE_TABLE_BLOCK =
       Pattern.compile(
-          "(?is)CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\s*\\((.*?)\\n\\);"
-      );
+          "(?is)CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\s*\\((.*?)\\n\\);");
   private static final Pattern COLUMN_DEFINITION =
       Pattern.compile(
           "(?im)^\\s*([a-z_][a-z0-9_]*)\\s+(?:BIGSERIAL|BIGINT|BOOLEAN|CHAR|INTEGER|JSONB|NUMERIC|SMALLINT|TEXT|TIMESTAMP|TIMESTAMPTZ|UUID|VARCHAR)\\b");
@@ -86,7 +83,7 @@ class MyBatisSchemaReferenceContractTest {
   @Test
   void everyMyBatisTableReferenceExistsInAuthoritativeBaseline() throws IOException {
     Set<String> schemaTables = schemaTables();
-    assertFalse(schemaTables.isEmpty(), "expected V1 create-tables migration to define tables");
+    assertFalse(schemaTables.isEmpty(), "expected Flyway baseline to define tables");
 
     List<String> violations = new ArrayList<>();
     for (Path mapper : mapperFiles()) {
@@ -179,33 +176,36 @@ class MyBatisSchemaReferenceContractTest {
   }
 
   private static Set<String> schemaTables() throws IOException {
-    String migration = Files.readString(CREATE_TABLES_MIGRATION);
-    Matcher matcher = CREATE_TABLE.matcher(migration);
     Set<String> tables = new HashSet<>();
-    while (matcher.find()) {
-      tables.add(matcher.group(1).toLowerCase(Locale.ROOT));
+    for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
+      Matcher matcher = CREATE_TABLE.matcher(Files.readString(FlywayMigrationContract.migration(name)));
+      while (matcher.find()) {
+        tables.add(matcher.group(1).toLowerCase(Locale.ROOT));
+      }
     }
     return tables;
   }
 
   private static Map<String, Set<String>> schemaColumns() throws IOException {
-    String migration = Files.readString(CREATE_TABLES_MIGRATION);
-    Matcher tableMatcher = CREATE_TABLE_BLOCK.matcher(migration);
     Map<String, Set<String>> tables = new HashMap<>();
-    while (tableMatcher.find()) {
-      String table = tableMatcher.group(1).toLowerCase(Locale.ROOT);
-      Matcher columnMatcher = COLUMN_DEFINITION.matcher(tableMatcher.group(2));
-      Set<String> columns = new HashSet<>();
-      while (columnMatcher.find()) {
-        columns.add(columnMatcher.group(1).toLowerCase(Locale.ROOT));
+
+    for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
+      String migration = Files.readString(FlywayMigrationContract.migration(name));
+      Matcher tableMatcher = CREATE_TABLE_BLOCK.matcher(migration);
+      while (tableMatcher.find()) {
+        String table = tableMatcher.group(1).toLowerCase(Locale.ROOT);
+        Matcher columnMatcher = COLUMN_DEFINITION.matcher(tableMatcher.group(2));
+        Set<String> columns = new HashSet<>();
+        while (columnMatcher.find()) {
+          columns.add(columnMatcher.group(1).toLowerCase(Locale.ROOT));
+        }
+        tables.put(table, columns);
       }
-      tables.put(table, columns);
     }
 
     for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
-      if ("V1__create_tables.sql".equals(name)) continue;
-      String additionalMigration = Files.readString(FlywayMigrationContract.migration(name));
-      Matcher alter = ALTER_TABLE_BLOCK.matcher(additionalMigration);
+      String migration = Files.readString(FlywayMigrationContract.migration(name));
+      Matcher alter = ALTER_TABLE_BLOCK.matcher(migration);
       while (alter.find()) {
         Set<String> columns = tables.get(alter.group(1).toLowerCase(Locale.ROOT));
         if (columns == null) continue;

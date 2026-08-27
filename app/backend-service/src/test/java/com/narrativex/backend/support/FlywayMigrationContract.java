@@ -10,17 +10,19 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Shared test-side source of truth for the append-only Flyway migration set. */
+/** Shared test-side source of truth for the pre-release Flyway baseline. */
 public final class FlywayMigrationContract {
   private static final Pattern VERSIONED_MIGRATION = Pattern.compile("V(\\d+)__.*\\.sql");
   private static final List<String> CANONICAL_MIGRATIONS =
       List.of(
-          "V1__create_tables.sql",
-          "V2__init_indexes.sql",
-          "V3__seed_data.sql",
-          "V4__project_render_subtitles.sql",
-          "V5__chapter_workspace_generation_lookup.sql",
-          "V6__enable_vieneu_speaking_rate.sql");
+          "V1__identity_and_access.sql",
+          "V2__project_story_and_planning.sql",
+          "V3__generation_billing_and_media.sql",
+          "V4__narration_notifications_and_artifacts.sql",
+          "V5__catalog_generation_and_render_snapshots.sql",
+          "V6__database_logic_and_triggers.sql",
+          "V7__indexes.sql",
+          "V8__seed_catalog.sql");
 
   private FlywayMigrationContract() {}
 

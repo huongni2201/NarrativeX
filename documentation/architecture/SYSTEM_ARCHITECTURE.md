@@ -162,7 +162,7 @@ business/job/artifact metadata   -> PostgreSQL
 
 ## Production timeline and local render
 
-Production timeline state is backend-authoritative where persisted, including explicit beat media selections consolidated into the final V1 schema. Renderer draft state may add temporary camera/duration/fit edits. Auto Edit derives narration-aware overrides, and the backend applies those overrides atomically with immutable render snapshot creation.
+Production timeline state is backend-authoritative where persisted, including explicit beat media selections defined in the project/story/planning baseline. Renderer draft state may add temporary camera/duration/fit edits. Auto Edit derives narration-aware overrides, and the backend applies those overrides atomically with immutable render snapshot creation.
 
 ```text
 backend admits + assigns local render
@@ -200,17 +200,22 @@ Implemented image/narration workflows materialize required generated media local
 
 ## Persistence and migrations
 
-Production application persistence is MyBatis + explicit PostgreSQL SQL. Final pre-release Flyway baseline:
+Production application persistence is MyBatis + explicit PostgreSQL SQL. Current pre-release Flyway baseline:
 
 ```text
-V1__create_tables.sql
-V2__init_indexes.sql
-V3__seed_data.sql
-V4__project_render_subtitles.sql
-V5__chapter_workspace_generation_lookup.sql
+V1__identity_and_access.sql
+V2__project_story_and_planning.sql
+V3__generation_billing_and_media.sql
+V4__narration_notifications_and_artifacts.sql
+V5__catalog_generation_and_render_snapshots.sql
+V6__database_logic_and_triggers.sql
+V7__indexes.sql
+V8__seed_catalog.sql
 ```
 
-V1 includes the complete relational/runtime schema, including Spring Session JDBC, Desktop OAuth handoffs, Desktop guest identity, production beat media selection and local-execution/render metadata. V2 includes the baseline index/invariant set. V3 contains deterministic bootstrap/catalog data. V4 adds immutable render subtitle snapshots and V5 adds the Chapter Workspace lookup index. Translation/content-variant schema is absent. Future schema evolution starts with append-only V6+ migrations.
+V1-V6 separate identity/domain/execution/narration/render/database-logic responsibilities; V7 contains indexes and V8 deterministic catalog/system seed data. Project-render subtitle snapshots are part of V5, the Chapter Workspace covering lookup is part of V7, and VieNeu voices are seeded with `supportsSpeakingRate=true`; narration requests persist a positive `speaking_rate`. Translation/content-variant schema is absent.
+
+Because NarrativeX has not deployed this baseline to production, migrations may still be reorganized for a cleaner final schema and disposable development/test databases should be recreated when checksums/history change. At the first production deployment, freeze the accepted baseline and make all future schema evolution append-only.
 
 ## Remaining architecture hardening
 

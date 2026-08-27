@@ -1,6 +1,5 @@
--- NarrativeX final baseline: indexes and index-backed invariants.
--- V1 creates the complete relational schema. This migration adds query/access-path
--- indexes and partial uniqueness that is not required to create foreign keys.
+-- NarrativeX pre-release baseline: query/access-path indexes and index-backed invariants.
+-- All referenced tables are created by V1-V5.
 
 -- Local execution devices and desktop session runtime
 CREATE INDEX idx_local_device_pairing_codes_user
@@ -115,6 +114,17 @@ CREATE INDEX idx_generation_jobs_media_plan_id
     WHERE media_plan_id IS NOT NULL;
 CREATE INDEX idx_generation_jobs_requester_created_id
     ON generation_jobs (requested_by_user_id, created_at DESC, id DESC);
+CREATE INDEX idx_generation_jobs_chapter_workspace_lookup
+    ON generation_jobs (
+        chapter_id,
+        chapter_row_version,
+        storyboard_revision_id,
+        source_hash,
+        job_type,
+        status
+    )
+    INCLUDE (media_plan_id, media_plan_revision)
+    WHERE chapter_id IS NOT NULL;
 CREATE INDEX idx_stage_attempts_claimable
     ON stage_attempts (status, created_at, id)
     WHERE status IN ('QUEUED', 'STALLED');

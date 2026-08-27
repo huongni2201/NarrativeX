@@ -169,7 +169,7 @@ If another platform already provides HTTPS ingress, leave the tunnel profile dis
 
 ## Persistence
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. The consolidated core baseline contains `V1__create_tables.sql`, `V2__init_indexes.sql` and `V3__seed_data.sql`; current append-only refinements are `V4__project_render_subtitles.sql` and `V5__chapter_workspace_generation_lookup.sql`. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. The current pre-release baseline is responsibility-separated across `V1__identity_and_access.sql` through `V6__database_logic_and_triggers.sql`, followed by `V7__indexes.sql` and deterministic `V8__seed_catalog.sql`. Project-render subtitle fields, the Chapter Workspace covering index and VieNeu speaking-rate capability are folded directly into that final baseline rather than represented as patch migrations. Until the first production deployment, disposable local/test databases are recreated when the baseline is rewritten; after the first production deployment, applied migrations become immutable and future changes are append-only. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
 
 ## Product guardrails
 
