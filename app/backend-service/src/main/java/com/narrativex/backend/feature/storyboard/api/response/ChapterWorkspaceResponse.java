@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.api.response;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -15,7 +16,7 @@ public record ChapterWorkspaceResponse(
   public record Summary(int sceneCount, int visualBeatCount, long estimatedDurationSeconds) {}
 
   public record Pipeline(
-      PipelineStep analysis,
+      AnalysisStep analysis,
       PipelineStep visualPlanning,
       ProgressStep visualGeneration,
       AudioStep audio,
@@ -24,11 +25,19 @@ public record ChapterWorkspaceResponse(
 
   public record PipelineStep(String status, Instant completedAt) {}
 
+  public record AnalysisStep(
+      String status,
+      Instant completedAt,
+      UUID latestJobId,
+      String visualGenerationMode,
+      String imageProvider) {}
+
   public record AudioStep(
       String status,
       Instant completedAt,
       UUID latestJobId,
       String voiceId,
+      BigDecimal speakingRate,
       String audioUrl,
       Long durationMs) {}
 
