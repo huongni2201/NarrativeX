@@ -1,10 +1,14 @@
-from narrativex_worker.visual_timing import SemanticBeat, VisualTimingPolicy, normalize_visual_timing
+from narrativex_worker.visual_timing import (
+    SemanticBeat,
+    VisualTimingPolicy,
+    normalize_visual_timing,
+)
 
 
 def _assert_clock(duration_ms: int, beats) -> None:
     assert beats[0].start_ms == 0
     assert beats[-1].end_ms == duration_ms
-    for left, right in zip(beats, beats[1:]):
+    for left, right in zip(beats, beats[1:], strict=False):
         assert left.end_ms == right.start_ms
         assert left.duration_ms > 0
 
