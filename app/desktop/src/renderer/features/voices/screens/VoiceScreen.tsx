@@ -332,6 +332,7 @@ export function VoiceScreen({
         contentType: selection.contentType,
         sizeBytes: selection.sizeBytes,
         checksumSha256: selection.checksumSha256,
+        durationMs: selection.durationMs,
       });
       await window.narrativex.localStorage.commitSelectedAsset({
         projectId,
@@ -340,7 +341,11 @@ export function VoiceScreen({
         selectionToken: selection.selectionToken,
       });
       await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
-      setNotice(`${selection.originalFilename} đã được import vào workspace.`);
+      setNotice(
+        `${selection.originalFilename} đã được import vào workspace${
+          selection.durationMs ? ` (${formatDuration(selection.durationMs)})` : ""
+        }.`,
+      );
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể import audio."));
     } finally {
@@ -511,3 +516,11 @@ export function VoiceScreen({
     </div>
   );
 }
+
+function formatDuration(value: number) {
+  const totalSeconds = Math.round(value / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+

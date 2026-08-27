@@ -72,7 +72,11 @@ function buildBeatRenderArgs(
     `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2`;
 
   if (beat.mediaType === "IMAGE") {
-    const filter = imageMotionFilter(manifest, beat, targetDurationSeconds);
+    const filter = withTransitionFilters(
+      imageMotionFilter(manifest, beat, targetDurationSeconds),
+      beat,
+      targetDurationSeconds,
+    );
     return [
       "-i",
       beat.localPath,
@@ -114,7 +118,7 @@ function buildBeatRenderArgs(
       }
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
-        baseFilter,
+        withTransitionFilters(baseFilter, beat, targetDurationSeconds),
         target,
         manifest.fps,
         output,
@@ -123,13 +127,17 @@ function buildBeatRenderArgs(
     case "LOOP":
       return encodeVideoArgs(
         ["-stream_loop", "-1", ...inputSeek, "-i", beat.localPath],
-        baseFilter,
+        withTransitionFilters(baseFilter, beat, targetDurationSeconds),
         target,
         manifest.fps,
         output,
       );
     case "FREEZE_END": {
-      const filter = `${baseFilter},tpad=stop_mode=clone:stop_duration=${target}`;
+      const filter = withTransitionFilters(
+        `${baseFilter},tpad=stop_mode=clone:stop_duration=${target}`,
+        beat,
+        targetDurationSeconds,
+      );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
         filter,
@@ -152,7 +160,11 @@ function buildBeatRenderArgs(
           `Unable to calculate video speed for beat ${beat.visualBeatId}.`,
         );
       }
-      const filter = `${baseFilter},setpts=${ptsFactor.toFixed(8)}*PTS`;
+      const filter = withTransitionFilters(
+        `${baseFilter},setpts=${ptsFactor.toFixed(8)}*PTS`,
+        beat,
+        targetDurationSeconds,
+      );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
         filter,
@@ -224,6 +236,32 @@ function imageMotionFilter(
   ].join(",");
 }
 
+function withTransitionFilters(
+  videoFilter: string,
+  beat: LocalRenderBeat,
+  targetDurationSeconds: number,
+): string {
+  const filters = [videoFilter];
+  const transitionInSeconds = Math.min(
+    targetDurationSeconds / 2,
+    Math.max(0, beat.transitionInMs) / 1000,
+  );
+  const transitionOutSeconds = Math.min(
+    targetDurationSeconds / 2,
+    Math.max(0, beat.transitionOutMs) / 1000,
+  );
+  if (transitionInSeconds > 0) {
+    filters.push(`fade=t=in:st=0:d=${transitionInSeconds.toFixed(3)}`);
+  }
+  if (transitionOutSeconds > 0) {
+    const start = Math.max(0, targetDurationSeconds - transitionOutSeconds);
+    filters.push(
+      `fade=t=out:st=${start.toFixed(3)}:d=${transitionOutSeconds.toFixed(3)}`,
+    );
+  }
+  return filters.join(",");
+}
+
 function encodeVideoArgs(
   input: string[],
   videoFilter: string,
@@ -253,7 +291,7 @@ function segmentCacheKey(manifest: LocalRenderManifest, beat: LocalRenderBeat): 
   return createHash("sha256")
     .update(
       JSON.stringify({
-        rendererVersion: "segment-render-v3",
+        rendererVersion: "segment-render-v4",
         width: manifest.width,
         height: manifest.height,
         fps: manifest.fps,
@@ -267,6 +305,8 @@ function segmentCacheKey(manifest: LocalRenderManifest, beat: LocalRenderBeat): 
           fitMode: beat.fitMode,
           trimStartMs: beat.trimStartMs,
           cameraMovement: beat.cameraMovement,
+          transitionInMs: beat.transitionInMs,
+          transitionOutMs: beat.transitionOutMs,
         },
       }),
     )

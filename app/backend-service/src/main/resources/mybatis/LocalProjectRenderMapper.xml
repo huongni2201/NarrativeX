@@ -97,7 +97,9 @@
            audio_storage_key AS storageKey,
            audio_size_bytes AS sizeBytes,
            audio_checksum AS checksum,
-           audio_duration_ms AS durationMs
+           audio_duration_ms AS durationMs,
+           subtitle_text AS subtitleText,
+           subtitle_spans_json::text AS subtitleSpansJson
       FROM project_render_input_chapters
      WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
      ORDER BY chapter_order_index, chapter_id

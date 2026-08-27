@@ -9,6 +9,31 @@ export interface ProbedVideo {
   sizeBytes: number;
 }
 
+export async function probeMediaDuration(
+  ffprobePath: string,
+  filePath: string,
+): Promise<number> {
+  const process = runProcess(ffprobePath, [
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "default=noprint_wrappers=1:nokey=1",
+    filePath,
+  ]);
+  const result = await process.result;
+  if (result.exitCode !== 0) {
+    throw new Error(`ffprobe failed: ${result.stderr.trim() || "unknown error"}`);
+  }
+  const durationSeconds = Number(result.stdout.trim());
+  const durationMs = Math.round(durationSeconds * 1000);
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    throw new Error("ffprobe returned an invalid media duration.");
+  }
+  return durationMs;
+}
+
 export async function probeVideo(ffprobePath: string, filePath: string): Promise<ProbedVideo> {
   const process = runProcess(ffprobePath, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", filePath]);
   const result = await process.result;

@@ -9,7 +9,7 @@ import com.narrativex.backend.feature.generation.api.response.ProductionTimeline
 import com.narrativex.backend.feature.generation.api.response.ProjectRenderArtifactResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
-import com.narrativex.backend.feature.generation.application.usecase.CreateProjectRenderUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.CreateAutoEditedProjectRenderUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.UpdateProductionBeatMediaUseCase;
@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/projects/{projectId}/production")
 public class ProductionRenderController {
   private final GetProductionTimelineUseCase getProductionTimelineUseCase;
-  private final CreateProjectRenderUseCase createProjectRenderUseCase;
+  private final CreateAutoEditedProjectRenderUseCase createAutoEditedProjectRenderUseCase;
   private final GetProjectRenderArtifactUseCase getProjectRenderArtifactUseCase;
   private final UpdateProductionBeatMediaUseCase updateProductionBeatMediaUseCase;
 
@@ -81,15 +81,20 @@ public class ProductionRenderController {
       throw new FeatureNotAvailableException(
           "Cloud project rendering is temporarily unavailable until its worker is enabled.");
     }
+
     var overrides =
         request.beatOverrides().stream()
             .map(
                 override ->
                     new RenderBeatOverride(
-                        override.visualBeatId(), override.durationMs(), override.cameraMovement()))
+                        override.visualBeatId(),
+                        override.durationMs(),
+                        override.cameraMovement(),
+                        override.fitMode(),
+                        override.trimStartMs()))
             .toList();
     var job =
-        createProjectRenderUseCase.execute(
+        createAutoEditedProjectRenderUseCase.execute(
             new CreateProjectRenderCommand(
                 projectId,
                 request.resolution(),
