@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, screen, session, shell } from "electron";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -200,9 +200,10 @@ async function showRendererFailure(window: BrowserWindow, rendererUrl: string, e
 function createWindow() {
   const iconPath = join(__dirname, "../../resources/narrativex-icon.png");
   const trustPolicy = rendererTrustPolicy();
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const window = new BrowserWindow({
-    width: 1600,
-    height: 980,
+    width: Math.max(1180, display.workAreaSize.width),
+    height: Math.max(720, display.workAreaSize.height),
     minWidth: 1180,
     minHeight: 720,
     backgroundColor: "#080b10",
@@ -219,6 +220,7 @@ function createWindow() {
     },
   });
   mainWindow = window;
+  window.maximize();
   let rendererFailureShown = false;
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;

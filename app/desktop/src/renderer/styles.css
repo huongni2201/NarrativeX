@@ -103,9 +103,10 @@
   --shadow-card: 0 0 18px rgba(255, 138, 0, 0.12);
   --editor-glow: rgba(100, 55, 14, 0.22);
   --editor-header: rgba(7, 10, 16, 0.98);
-  --editor-explorer-width: 320px;
-  --editor-inspector-width: 340px;
-  --editor-preview-panel-height: clamp(430px, calc(100dvh - 440px), 560px);
+  --editor-explorer-width: clamp(220px, 20vw, 320px);
+  --editor-inspector-width: clamp(260px, 22vw, 340px);
+  --editor-preview-frame-max-height: clamp(320px, 52dvh, 560px);
+  --editor-timeline-height: clamp(235px, 28dvh, 260px);
   --editor-preview-frame-width: 1040px;
 
   /* Compatibility aliases while legacy editor JSX is decomposed. */
@@ -365,25 +366,82 @@
       linear-gradient(180deg, var(--surface-4), var(--surface-dark) 62%, var(--background));
   }
 
+  .nx-editor-playback-surface {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) var(--editor-timeline-height);
+  }
+
   .nx-editor-preview-panel {
-    flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
   }
 
+  .nx-editor-preview-viewport {
+    height: 100%;
+  }
+
   .nx-editor-timeline-panel {
-    flex: 0 0 200px;
-    height: 200px;
+    height: auto;
     min-height: 0;
     overflow: hidden;
   }
 
   .nx-editor-preview-frame {
-    max-height: 100%;
+    max-height: min(100%, var(--editor-preview-frame-max-height));
     max-width: 100%;
     aspect-ratio: 16 / 9;
-    width: auto;
-    height: 100%;
+    width: min(100%, calc(var(--editor-preview-frame-max-height) * 16 / 9));
+    height: auto;
+  }
+
+  .nx-editor-layout,
+  .nx-editor-explorer,
+  .nx-editor-inspector {
+    min-width: 0;
+  }
+
+  .nx-timeline-toolbar-actions {
+    min-width: 0;
+  }
+
+  .nx-timeline-legend-label {
+    white-space: nowrap;
+  }
+
+  .nx-preview-scene-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1280px) {
+  :root {
+    --editor-explorer-width: clamp(196px, 20vw, 280px);
+    --editor-inspector-width: clamp(236px, 22vw, 300px);
+  }
+}
+
+@media (max-width: 960px) {
+  :root {
+    --editor-explorer-width: clamp(176px, 20vw, 220px);
+    --editor-inspector-width: clamp(220px, 22vw, 260px);
+  }
+
+  .nx-timeline-legend-label {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --editor-explorer-width: 168px;
+    --editor-inspector-width: 208px;
+  }
+
+  .nx-editor-preview-frame {
+    border-radius: var(--radius-md);
   }
 }
 

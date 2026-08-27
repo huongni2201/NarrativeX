@@ -123,13 +123,13 @@ export function WorkspaceShell({
           </nav>
         </aside>
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           {workspace.error && (
             <div className="border-b border-warning/30 bg-warning-bg px-4 py-1.5 text-xs text-warning">
               {workspace.error}
             </div>
           )}
-          {children}
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
         </main>
       </div>
     </div>

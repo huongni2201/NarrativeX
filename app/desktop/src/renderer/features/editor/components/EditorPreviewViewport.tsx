@@ -128,7 +128,7 @@ export function EditorPreviewViewport({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background px-5 py-2">
+    <div className="nx-editor-preview-viewport flex min-h-0 flex-col bg-background px-5 py-2">
       {narrationUrl && !audioFailed && (
         <audio
           ref={audioRef}
@@ -143,7 +143,7 @@ export function EditorPreviewViewport({
       <div className="mx-auto flex h-8 shrink-0 w-full max-w-[1040px] items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="font-mono text-[12px] font-bold text-text-dim">{beatNumber}</span>
-          <h2 className="text-[13px] font-bold text-foreground">
+          <h2 className="nx-preview-scene-title text-[13px] font-bold text-foreground">
             {beatTitle}
           </h2>
           <span className="rounded-full bg-[#182236] px-2.5 py-0.5 text-[10px] font-semibold text-[#8faadc]">

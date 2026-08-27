@@ -61,7 +61,7 @@ export function EditorInspectorPanel({
   const durationText = selectedBeat ? formatTimecode(selectedBeat.durationMs) : "00:10.00";
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-surface-panel font-sans text-foreground">
+    <aside className="nx-editor-inspector flex h-full min-h-0 flex-col bg-surface-panel font-sans text-foreground">
       <div className="flex h-14 shrink-0 items-center border-b border-border-subtle px-5">
         <h3 className="text-[14px] font-bold text-foreground">Inspector</h3>
       </div>
@@ -88,7 +88,7 @@ export function EditorInspectorPanel({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2.5">
                 <div>
                   <label className="mb-1.5 block text-[11px] text-text-dim">Duration</label>
                   <input
@@ -243,7 +243,7 @@ export function EditorInspectorPanel({
                   {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(108px,1fr))] gap-2">
                 <InfoCell label="Motion" value={autoDecision?.cameraMovement || "NONE"} />
                 <InfoCell label="Fit" value={autoDecision?.fitMode || selectedBeat?.fitMode || "TRIM"} />
                 <InfoCell label="Trim start" value={formatTimecode(autoDecision?.trimStartMs ?? selectedBeat?.trimStartMs ?? 0)} />

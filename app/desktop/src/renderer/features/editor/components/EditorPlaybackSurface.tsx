@@ -118,8 +118,8 @@ export function EditorPlaybackSurface({
   };
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
-      <div className="nx-editor-preview-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="nx-editor-playback-surface h-full min-h-0 min-w-0 overflow-hidden border-r border-border-subtle bg-background">
+      <div className="nx-editor-preview-panel min-h-0 overflow-hidden">
         <EditorPreviewViewport
           selectedBeat={previewBeat}
           mediaUrl={mediaUrl}
@@ -139,7 +139,7 @@ export function EditorPlaybackSurface({
         />
       </div>
 
-      <div className="nx-editor-timeline-panel h-[215px] shrink-0 border-t border-border-subtle overflow-hidden">
+      <div className="nx-editor-timeline-panel border-t border-border-subtle overflow-hidden">
         <EditorMultiTrackTimeline
           beats={orderedBeats}
           chapters={chapters}

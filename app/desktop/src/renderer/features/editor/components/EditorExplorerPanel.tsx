@@ -71,7 +71,7 @@ export function EditorExplorerPanel({
   }, [hierarchy, selectedBeatId]);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-border-subtle bg-surface-panel text-foreground">
+    <aside className="nx-editor-explorer relative flex h-full min-h-0 flex-col border-r border-border-subtle bg-surface-panel text-foreground">
       {/* Header */}
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-5">
         <h3 className="text-[14px] font-bold tracking-tight text-foreground">Project Explorer</h3>
@@ -117,7 +117,7 @@ export function EditorExplorerPanel({
       </div>
 
       {/* Chapters List */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2.5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2.5 pb-28">
         <div className="space-y-2">
           {chaptersList.map((chapter) => {
             const isActive = chapter.isActive;
@@ -180,27 +180,27 @@ export function EditorExplorerPanel({
       </div>
 
       {/* Project Info Card */}
-      <div className="shrink-0 border-t border-border-subtle p-3">
-        <div className="rounded-lg border border-border-subtle bg-surface p-3">
+      <div className="nx-project-info absolute inset-x-0 bottom-0 z-10 border-t border-border-subtle bg-surface-panel p-2">
+        <div className="rounded-lg border border-border-subtle bg-surface p-2">
           <h4 className="text-[12px] font-bold text-foreground">Project Info</h4>
-          <div className="mt-2.5 space-y-1.5 text-[11px]">
-            <div className="flex items-center justify-between">
+          <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+            <div className="flex min-w-0 items-center justify-between gap-2">
               <span className="text-text-dim">Resolution</span>
-              <span className="font-medium text-text-secondary">1920 × 1080</span>
+              <span className="truncate text-right font-medium text-text-secondary">1920 × 1080</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-center justify-between gap-2">
               <span className="text-text-dim">Frame Rate</span>
-              <span className="font-medium text-text-secondary">24 fps</span>
+              <span className="truncate text-right font-medium text-text-secondary">24 fps</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-center justify-between gap-2">
               <span className="text-text-dim">Duration</span>
-              <span className="font-mono font-medium text-text-secondary">
+              <span className="truncate text-right font-mono font-medium text-text-secondary">
                 {totalDurationMs > 0 ? formatDurationTimecode(totalDurationMs) : "01:30.00"}
               </span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-center justify-between gap-2">
               <span className="text-text-dim">Aspect Ratio</span>
-              <span className="font-medium text-text-secondary">16:9</span>
+              <span className="truncate text-right font-medium text-text-secondary">16:9</span>
             </div>
           </div>
         </div>
