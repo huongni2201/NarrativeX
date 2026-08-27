@@ -4,6 +4,10 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { GeminiWebAutomation } from "./gemini-web-automation";
+import {
+  isGeminiDownloadRecoveryError,
+  recoverGeminiWebImageDownload,
+} from "./gemini-web-download-recovery";
 import { compileGeminiWebPrompt } from "./gemini-web-prompt";
 import { ProjectStorage } from "../local-storage/project-storage";
 import {
@@ -26,8 +30,16 @@ export function registerGeminiWebIpc(
     policy,
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
-      const result = await automation.generateImage(compileGeminiWebPrompt(input.prompt));
-      return stageGeneratedImage(event.sender.id, result.sourcePath);
+      const prompt = compileGeminiWebPrompt(input.prompt);
+      let sourcePath: string;
+      try {
+        const result = await automation.generateImage(prompt);
+        sourcePath = result.sourcePath;
+      } catch (error) {
+        if (!isGeminiDownloadRecoveryError(error)) throw error;
+        sourcePath = await recoverGeminiWebImageDownload(automationRoot);
+      }
+      return stageGeneratedImage(event.sender.id, sourcePath);
     },
   );
 
