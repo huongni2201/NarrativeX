@@ -12,7 +12,6 @@ import {
   Shirt,
   Sparkles,
   Tags,
-  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,12 +44,10 @@ function CharacterPortrait({
   src,
   alt,
   className,
-  iconSize,
 }: Readonly<{
   src: string | null;
   alt: string;
   className: string;
-  iconSize: number;
 }>) {
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -69,7 +66,9 @@ function CharacterPortrait({
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <UserCircle aria-hidden="true" size={iconSize} />
+        <span className="px-2 text-center text-[9px] font-medium leading-4 text-text-dim">
+          Chưa có ảnh
+        </span>
       )}
     </div>
   );
@@ -91,7 +90,7 @@ function CharacterCard({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`grid min-w-0 cursor-pointer grid-cols-[44px_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`grid min-w-0 cursor-pointer items-stretch grid-cols-[88px_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
         selected
           ? "border-primary bg-primary/5"
           : "border-border bg-card hover:border-primary/40 hover:bg-surface-panel"
@@ -100,8 +99,7 @@ function CharacterCard({
       <CharacterPortrait
         src={portraitUrl}
         alt={`Ảnh đại diện của ${character.canonicalName}`}
-        className="size-11 rounded-lg"
-        iconSize={25}
+        className="h-full min-h-24 w-[88px] rounded-lg"
       />
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -306,18 +304,21 @@ export function CharactersScreen({
                       <CharacterPortrait
                         src={portraitQuery.url}
                         alt={`Ảnh đại diện của ${detail.canonicalName}`}
-                        className="size-20"
-                        iconSize={44}
+                        className="size-20 rounded-xl"
                       />
-                      <span className="max-w-20 text-center text-[9px] text-text-dim">
-                        {portraitQuery.isReferencesLoading || portraitQuery.isLoading
-                          ? "Đang tải ảnh…"
-                          : portraitQuery.isReferencesError || portraitQuery.isError
-                            ? "Không tải được ảnh"
-                            : portraitQuery.url
-                              ? "Identity reference"
-                              : "Chưa có ảnh"}
-                      </span>
+                      {(portraitQuery.isReferencesLoading ||
+                        portraitQuery.isLoading ||
+                        portraitQuery.isReferencesError ||
+                        portraitQuery.isError ||
+                        portraitQuery.url) && (
+                        <span className="max-w-24 text-center text-[9px] text-text-dim">
+                          {portraitQuery.isReferencesLoading || portraitQuery.isLoading
+                            ? "Đang tải ảnh…"
+                            : portraitQuery.isReferencesError || portraitQuery.isError
+                              ? "Không tải được ảnh"
+                              : "Identity reference"}
+                        </span>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
