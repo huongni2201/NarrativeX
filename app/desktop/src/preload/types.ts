@@ -104,8 +104,22 @@ export interface LocalAssetSelection {
   durationMs?: number;
 }
 
+export interface GeminiWebCharacterReferenceInput {
+  referenceKey: string;
+  assetId: string;
+  characterName: string;
+  visualPrompt?: string | null;
+  appearancePrompt?: string | null;
+  ageState?: string | null;
+  hairstyle?: string | null;
+  injury?: string | null;
+  wardrobeContext?: string | null;
+}
+
 export interface GeminiWebGenerateImageInput {
+  projectId: string;
   prompt: string;
+  references?: GeminiWebCharacterReferenceInput[];
 }
 
 export interface VoiceReferenceUploadResult {
