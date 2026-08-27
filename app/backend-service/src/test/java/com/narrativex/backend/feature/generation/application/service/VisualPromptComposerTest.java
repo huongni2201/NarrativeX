@@ -37,6 +37,7 @@ class VisualPromptComposerTest {
                     "straight shoulder-length black hair",
                     null,
                     "beige cardigan",
+                    "PRIMARY",
                     List.of(
                         new CharacterReference(
                             identityId,
@@ -52,16 +53,22 @@ class VisualPromptComposerTest {
         .contains("SCENE DESCRIPTION: Lan opens the letter")
         .contains("LOCATION CONTINUITY: Kitchen — warm practical lighting")
         .contains("CHARACTER CONTINUITY")
-        .contains("REFERENCE IMAGE RULES")
+        .contains("REFERENCE IMAGE MAP")
+        .contains("REF_01 = Lan [PRIMARY]")
+        .contains("Never merge, swap, or transfer identities")
         .contains("oval face, dark eyes")
         .contains("wardrobe: beige cardigan")
         .contains("CONTINUITY RULES");
     assertThat(result.characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
         .contains("\"versionNumber\":4")
+        .contains("\"beatRole\":\"PRIMARY\"")
         .contains(identityId.toString())
         .contains("private/characters/lan.png")
         .contains("\"sha256\":\"" + "a".repeat(64) + "\"");
+    assertThat(result.referenceBindings()).hasSize(1);
+    assertThat(result.referenceBindings().getFirst().assetId()).isEqualTo(identityId);
+    assertThat(result.referenceBindings().getFirst().canonicalName()).isEqualTo("Lan");
   }
 
   @Test
@@ -86,8 +93,9 @@ class VisualPromptComposerTest {
         .contains("CONTINUITY RULES")
         .doesNotContain("CHARACTER CONTINUITY")
         .doesNotContain("LOCATION CONTINUITY")
-        .doesNotContain("REFERENCE IMAGE RULES");
+        .doesNotContain("REFERENCE IMAGE MAP");
     assertThat(result.characterSnapshotJson()).isEqualTo("{\"characters\":[]}");
+    assertThat(result.referenceBindings()).isEmpty();
   }
 
   @Test
@@ -107,6 +115,7 @@ class VisualPromptComposerTest {
                     null,
                     null,
                     null,
+                    "SECONDARY",
                     List.of())));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Portrait", context);
@@ -126,8 +135,8 @@ class VisualPromptComposerTest {
         new VisualPromptContext(
             null,
             List.of(
-                canon(UuidV7.random(), "Lan", List.of(lanIdentity, lanProfile, lanExpression)),
-                canon(UuidV7.random(), "Minh", List.of(minhIdentity))));
+                canon(UuidV7.random(), "Lan", "PRIMARY", List.of(lanIdentity, lanProfile, lanExpression)),
+                canon(UuidV7.random(), "Minh", "SECONDARY", List.of(minhIdentity))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan and Minh speak", context);
 
@@ -136,10 +145,17 @@ class VisualPromptComposerTest {
         .contains(minhIdentity.assetId().toString())
         .contains(lanProfile.assetId().toString())
         .doesNotContain(lanExpression.assetId().toString());
+    assertThat(result.referenceBindings())
+        .extracting(VisualPromptComposer.ReferenceBinding::assetId)
+        .containsExactly(lanIdentity.assetId(), minhIdentity.assetId(), lanProfile.assetId());
+    assertThat(result.prompt())
+        .contains("REF_01 = Lan [PRIMARY]")
+        .contains("REF_02 = Minh [SECONDARY]")
+        .contains("REF_03 = Lan [PRIMARY]");
   }
 
   private static CharacterCanon canon(
-      UUID assignmentId, String name, List<CharacterReference> references) {
+      UUID assignmentId, String name, String beatRole, List<CharacterReference> references) {
     return new CharacterCanon(
         assignmentId,
         UuidV7.random(),
@@ -151,6 +167,7 @@ class VisualPromptComposerTest {
         null,
         null,
         null,
+        beatRole,
         references);
   }
 
