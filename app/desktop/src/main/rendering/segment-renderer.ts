@@ -67,9 +67,12 @@ function buildBeatRenderArgs(
   }
 
   const target = targetDurationSeconds.toFixed(3);
+  // Generated/imported video already contains motion. Keep post-processing intentionally simple:
+  // fit to the requested output, use Lanczos when scaling/upscaling, normalize SAR/pixel format,
+  // trim to the narration clock, mute source audio, then let project-renderer concatenate/mux.
   const baseFilter =
-    `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease,` +
-    `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2`;
+    `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+    `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p`;
 
   if (beat.mediaType === "IMAGE") {
     const filter = withTransitionFilters(
@@ -291,7 +294,7 @@ function segmentCacheKey(manifest: LocalRenderManifest, beat: LocalRenderBeat): 
   return createHash("sha256")
     .update(
       JSON.stringify({
-        rendererVersion: "segment-render-v4",
+        rendererVersion: "segment-render-v5",
         width: manifest.width,
         height: manifest.height,
         fps: manifest.fps,
