@@ -104,6 +104,10 @@ export interface LocalAssetSelection {
   durationMs?: number;
 }
 
+export interface GeminiWebGenerateImageInput {
+  prompt: string;
+}
+
 export interface VoiceReferenceUploadResult {
   assetId: string;
   status: string;
@@ -209,6 +213,14 @@ export interface NarrativeXDesktopBridge {
       selectionToken: string;
     }): Promise<LocalAssetImportResult>;
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
+  };
+  geminiWeb: {
+    generateImage(input: GeminiWebGenerateImageInput): Promise<LocalAssetSelection>;
+    commitImage(input: {
+      projectId: string;
+      assetId: string;
+      selectionToken: string;
+    }): Promise<LocalAssetImportResult>;
   };
   render: {
     status(): Promise<FfmpegRuntimeStatus>;
