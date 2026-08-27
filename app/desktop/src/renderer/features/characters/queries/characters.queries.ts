@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { assetsApi } from "../../assets/api/assets.api";
 import { charactersApi } from "../api/characters.api";
 
 export function useCreateCharacter(projectId: string) {
@@ -25,4 +26,37 @@ export function useCharacterDetail(projectId: string, characterId: string | null
     queryFn: () => charactersApi.detail(projectId, characterId as string),
     enabled: Boolean(projectId && characterId),
   });
+}
+
+export function useCharacterPortrait(
+  projectId: string,
+  characterId: string | null,
+  versionId: string | null,
+) {
+  const referencesQuery = useQuery({
+    queryKey: ["projects", projectId, "characters", characterId, "versions", versionId, "references"],
+    queryFn: () => charactersApi.versionReferences(characterId as string, versionId as string),
+    enabled: Boolean(projectId && characterId && versionId),
+    staleTime: 30_000,
+  });
+
+  const portraitReference =
+    referencesQuery.data?.find((reference) => reference.role === "IDENTITY") ??
+    referencesQuery.data?.[0] ??
+    null;
+
+  const imageQuery = useQuery({
+    queryKey: ["assets", portraitReference?.assetId ?? "none", "download-url"],
+    queryFn: () => assetsApi.downloadUrl(portraitReference!.assetId),
+    enabled: Boolean(portraitReference?.assetId),
+    staleTime: 30_000,
+  });
+
+  return {
+    ...imageQuery,
+    isReferencesLoading: referencesQuery.isLoading,
+    isReferencesError: referencesQuery.isError,
+    reference: portraitReference,
+    url: imageQuery.data?.url ?? null,
+  };
 }
