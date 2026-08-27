@@ -112,6 +112,8 @@ public class EnqueueStoryAnalysisUseCase {
                 chapter.sourceText(),
                 analysisLanguage,
                 idempotencyKey,
+                command.visualGenerationMode(),
+                command.imageProvider(),
                 userId));
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
