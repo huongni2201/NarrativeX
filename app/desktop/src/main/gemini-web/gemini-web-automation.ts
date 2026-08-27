@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
-import { delimiter, dirname, extname, join } from "node:path";
+import { delimiter, extname, join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -31,10 +31,14 @@ type PersistedSession = {
 
 type CdpEnvelope = {
   id?: number;
-  method?: string;
-  params?: unknown;
   result?: unknown;
   error?: { message?: string };
+};
+
+type GenerationSnapshot = {
+  downloadCount: number;
+  imageSources: string[];
+  blocked: boolean;
 };
 
 class CdpClient {
@@ -117,7 +121,7 @@ export class GeminiWebAutomation {
   private readonly sessionFile: string;
   private port: number | null = null;
 
-  constructor(private readonly rootDirectory: string) {
+  constructor(rootDirectory: string) {
     this.profileDirectory = join(rootDirectory, "chrome-profile");
     this.downloadDirectory = join(rootDirectory, "downloads");
     this.sessionFile = join(rootDirectory, "session.json");
@@ -125,7 +129,9 @@ export class GeminiWebAutomation {
 
   async generateImage(prompt: string): Promise<GeminiWebGenerationResult> {
     const normalizedPrompt = prompt.trim();
-    if (!normalizedPrompt) throw geminiError("GEMINI_PROMPT_EMPTY", "Gemini prompt must not be empty.");
+    if (!normalizedPrompt) {
+      throw geminiError("GEMINI_PROMPT_EMPTY", "Gemini prompt must not be empty.");
+    }
     if (this.active) {
       throw geminiError(
         "GEMINI_BUSY",
@@ -152,9 +158,10 @@ export class GeminiWebAutomation {
         await this.waitForComposerOrLogin(cdp);
 
         const beforeDownload = await this.snapshotDownloads();
+        const baseline = await this.generationSnapshot(cdp);
         await this.submitPrompt(cdp, normalizedPrompt);
-        await this.waitForGeneratedImage(cdp);
-        await this.triggerDownload(cdp);
+        await this.waitForGeneratedImage(cdp, baseline);
+        await this.triggerDownload(cdp, baseline);
         const sourcePath = await this.waitForDownloadedImage(beforeDownload);
         return { sourcePath };
       } finally {
@@ -179,7 +186,7 @@ export class GeminiWebAutomation {
           }
         }
       } catch {
-        // Fall back to terminating the child process below.
+        // Fall through to the child-process kill below when this process owns Chrome.
       }
     }
     if (this.chromeProcess && !this.chromeProcess.killed) {
@@ -250,7 +257,7 @@ export class GeminiWebAutomation {
         target.type === "page" &&
         typeof target.url === "string" &&
         target.url.includes("gemini.google.com") &&
-        target.webSocketDebuggerUrl,
+        typeof target.webSocketDebuggerUrl === "string",
     );
     if (gemini?.webSocketDebuggerUrl) return gemini;
 
@@ -298,7 +305,7 @@ export class GeminiWebAutomation {
       );
       if (state.composer) return;
       if (state.signIn) {
-        // Chrome is visible. Leave the page untouched so the user can authenticate normally.
+        // Chrome stays visible so the user can authenticate normally. NarrativeX never fills credentials.
         await delay(750);
         continue;
       }
@@ -323,8 +330,9 @@ export class GeminiWebAutomation {
         const elements = [...document.querySelectorAll('button, a')];
         const target = elements.find((element) => {
           if (!visible(element)) return false;
-          const value = `${element.getAttribute("aria-label") || ""} ${element.textContent || ""}`.trim().toLowerCase();
-          return patterns.some((pattern) => value.includes(pattern));
+          const value = String(element.getAttribute("aria-label") || "") + " " + String(element.textContent || "");
+          const normalized = value.trim().toLowerCase();
+          return patterns.some((pattern) => normalized.includes(pattern));
         });
         if (!target) return false;
         target.click();
@@ -344,12 +352,13 @@ export class GeminiWebAutomation {
             const rect = element.getBoundingClientRect();
             return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
           };
-          const exact = ["images", "image", "hình ảnh", "ảnh", "create image", "create images", "tạo hình ảnh", "tạo ảnh"];
+          const patterns = ["images", "image", "hình ảnh", "ảnh", "create image", "create images", "tạo hình ảnh", "tạo ảnh"];
           const elements = [...document.querySelectorAll('button, a, [role="menuitem"], [role="option"]')];
           const target = elements.find((element) => {
             if (!visible(element)) return false;
-            const value = `${element.getAttribute("aria-label") || ""} ${element.textContent || ""}`.replace(/\\s+/g, " ").trim().toLowerCase();
-            return exact.some((pattern) => value === pattern || value.includes(pattern));
+            const value = String(element.getAttribute("aria-label") || "") + " " + String(element.textContent || "");
+            const normalized = value.replace(/\\s+/g, " ").trim().toLowerCase();
+            return patterns.some((pattern) => normalized === pattern || normalized.includes(pattern));
           });
           if (!target) return false;
           target.click();
@@ -374,8 +383,9 @@ export class GeminiWebAutomation {
         const buttons = [...document.querySelectorAll('button')];
         const menu = buttons.find((button) => {
           if (!visible(button)) return false;
-          const value = `${button.getAttribute("aria-label") || ""} ${button.textContent || ""}`.trim().toLowerCase();
-          return patterns.some((pattern) => value === pattern || value.includes(pattern));
+          const value = String(button.getAttribute("aria-label") || "") + " " + String(button.textContent || "");
+          const normalized = value.trim().toLowerCase();
+          return patterns.some((pattern) => normalized === pattern || normalized.includes(pattern));
         });
         if (menu) menu.click();
         return Boolean(menu);
@@ -431,58 +441,79 @@ export class GeminiWebAutomation {
         const buttons = [...document.querySelectorAll('button')];
         const button = buttons.find((candidate) => {
           if (!visible(candidate) || candidate.disabled) return false;
-          const value = `${candidate.getAttribute("aria-label") || ""} ${candidate.getAttribute("title") || ""} ${candidate.textContent || ""}`.trim().toLowerCase();
-          return patterns.some((pattern) => value === pattern || value.includes(pattern));
+          const value = String(candidate.getAttribute("aria-label") || "") + " " +
+            String(candidate.getAttribute("title") || "") + " " + String(candidate.textContent || "");
+          const normalized = value.trim().toLowerCase();
+          return patterns.some((pattern) => normalized === pattern || normalized.includes(pattern));
         });
         if (!button) return false;
         button.click();
         return true;
       })()`,
     );
-    if (!clicked) {
-      await cdp.send("Input.dispatchKeyEvent", {
-        type: "keyDown",
-        key: "Enter",
-        code: "Enter",
-        windowsVirtualKeyCode: 13,
-        nativeVirtualKeyCode: 13,
-      });
-      await cdp.send("Input.dispatchKeyEvent", {
-        type: "keyUp",
-        key: "Enter",
-        code: "Enter",
-        windowsVirtualKeyCode: 13,
-        nativeVirtualKeyCode: 13,
-      });
-    }
+    if (clicked) return;
+
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key: "Enter",
+      code: "Enter",
+      windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
+    });
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "keyUp",
+      key: "Enter",
+      code: "Enter",
+      windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
+    });
   }
 
-  private async waitForGeneratedImage(cdp: CdpClient): Promise<void> {
+  private async generationSnapshot(cdp: CdpClient): Promise<GenerationSnapshot> {
+    return evaluate<GenerationSnapshot>(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        };
+        const downloadWords = ["download full size", "download", "tải xuống", "tải ảnh"];
+        const downloadCount = [...document.querySelectorAll('button, a')].filter((element) => {
+          if (!visible(element)) return false;
+          const value = String(element.getAttribute("aria-label") || "") + " " +
+            String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
+          const normalized = value.trim().toLowerCase();
+          return downloadWords.some((word) => normalized.includes(word));
+        }).length;
+        const imageSources = [...document.querySelectorAll('img')]
+          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256)
+          .map((image) => image.currentSrc || image.src || "")
+          .filter(Boolean);
+        const text = (document.body?.innerText || "").toLowerCase();
+        const blocked = text.includes("can't generate") || text.includes("cannot generate") ||
+          text.includes("không thể tạo") || text.includes("unable to generate");
+        return { downloadCount, imageSources, blocked };
+      })()`,
+    );
+  }
+
+  private async waitForGeneratedImage(
+    cdp: CdpClient,
+    baseline: GenerationSnapshot,
+  ): Promise<void> {
+    const baselineImages = new Set(baseline.imageSources);
     const deadline = Date.now() + GENERATION_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      const state = await evaluate<{ download: boolean; image: boolean; blocked: boolean }>(
-        cdp,
-        `(() => {
-          const visible = (element) => {
-            const style = window.getComputedStyle(element);
-            const rect = element.getBoundingClientRect();
-            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-          };
-          const downloadWords = ["download full size", "download", "tải xuống", "tải ảnh"];
-          const download = [...document.querySelectorAll('button, a')].some((element) => {
-            const value = `${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""} ${element.textContent || ""}`.trim().toLowerCase();
-            return downloadWords.some((word) => value.includes(word));
-          });
-          const images = [...document.querySelectorAll('img')].filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
-          const text = (document.body?.innerText || "").toLowerCase();
-          const blocked = text.includes("can't generate") || text.includes("cannot generate") || text.includes("không thể tạo") || text.includes("unable to generate");
-          return { download, image: images.length > 0, blocked };
-        })()`,
-      );
+      const state = await this.generationSnapshot(cdp);
       if (state.blocked) {
-        throw geminiError("GEMINI_GENERATION_REJECTED", "Gemini did not generate an image for this Visual Beat.");
+        throw geminiError(
+          "GEMINI_GENERATION_REJECTED",
+          "Gemini did not generate an image for this Visual Beat.",
+        );
       }
-      if (state.download || state.image) {
+      const hasNewImage = state.imageSources.some((source) => !baselineImages.has(source));
+      if (state.downloadCount > baseline.downloadCount || hasNewImage) {
         await delay(1_000);
         return;
       }
@@ -491,15 +522,26 @@ export class GeminiWebAutomation {
     throw geminiError("GEMINI_GENERATION_TIMEOUT", "Gemini image generation did not finish in time.");
   }
 
-  private async triggerDownload(cdp: CdpClient): Promise<void> {
+  private async triggerDownload(
+    cdp: CdpClient,
+    baseline: GenerationSnapshot,
+  ): Promise<void> {
     const clickDownload = () =>
       evaluate<boolean>(
         cdp,
         `(() => {
+          const visible = (element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          };
           const words = ["download full size", "download", "tải xuống", "tải ảnh"];
           const candidates = [...document.querySelectorAll('button, a')].filter((element) => {
-            const value = `${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""} ${element.textContent || ""}`.trim().toLowerCase();
-            return words.some((word) => value.includes(word));
+            if (!visible(element)) return false;
+            const value = String(element.getAttribute("aria-label") || "") + " " +
+              String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
+            const normalized = value.trim().toLowerCase();
+            return words.some((word) => normalized.includes(word));
           });
           const target = candidates.at(-1);
           if (!target) return false;
@@ -508,18 +550,23 @@ export class GeminiWebAutomation {
         })()`,
       );
 
+    const snapshot = await this.generationSnapshot(cdp);
+    if (snapshot.downloadCount > baseline.downloadCount && (await clickDownload())) return;
     if (await clickDownload()) return;
 
+    const baselineImagesJson = JSON.stringify(baseline.imageSources);
     const imageRect = await evaluate<{ x: number; y: number } | null>(
       cdp,
       `(() => {
+        const baseline = new Set(${baselineImagesJson});
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const images = [...document.querySelectorAll('img')].filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
-        const image = images.at(-1);
+        const images = [...document.querySelectorAll('img')]
+          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
+        const image = images.find((candidate) => !baseline.has(candidate.currentSrc || candidate.src || "")) || images.at(-1);
         if (!image) return null;
         const rect = image.getBoundingClientRect();
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -566,7 +613,10 @@ export class GeminiWebAutomation {
       }
       await delay(400);
     }
-    throw geminiError("GEMINI_DOWNLOAD_FAILED", "Gemini finished, but the generated image was not downloaded.");
+    throw geminiError(
+      "GEMINI_DOWNLOAD_FAILED",
+      "Gemini finished, but the generated image was not downloaded.",
+    );
   }
 
   private async readPersistedPort(): Promise<number | null> {
@@ -635,12 +685,25 @@ async function resolveChromeExecutable(): Promise<string | null> {
 
   const candidates: string[] = [];
   if (process.platform === "win32") {
-    for (const root of [process.env.PROGRAMFILES, process.env["PROGRAMFILES(X86)"], process.env.LOCALAPPDATA]) {
+    for (const root of [
+      process.env.PROGRAMFILES,
+      process.env["PROGRAMFILES(X86)"],
+      process.env.LOCALAPPDATA,
+    ]) {
       if (root) candidates.push(join(root, "Google", "Chrome", "Application", "chrome.exe"));
     }
   } else if (process.platform === "darwin") {
     candidates.push("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
-    candidates.push(join(process.env.HOME || "", "Applications", "Google Chrome.app", "Contents", "MacOS", "Google Chrome"));
+    candidates.push(
+      join(
+        process.env.HOME || "",
+        "Applications",
+        "Google Chrome.app",
+        "Contents",
+        "MacOS",
+        "Google Chrome",
+      ),
+    );
   } else {
     for (const name of ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]) {
       const fromPath = await resolveFromPath(name);
