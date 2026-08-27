@@ -54,7 +54,7 @@ export function chapterStatus(workspace: DesktopChapterWorkspace | undefined): C
 }
 
 export function chapterStatusLabel(status: ChapterDisplayStatus) {
-  if (status === "completed") return "Hoàn thành";
+  if (status === "completed") return "Đã phân tích";
   if (status === "in_progress") return "Đang xử lý";
   if (status === "error") return "Không tải được";
   if (status === "loading") return "Đang tải…";
