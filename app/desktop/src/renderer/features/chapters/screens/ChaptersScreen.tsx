@@ -15,7 +15,6 @@ import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { useGenerateNarration } from "../../generation/queries/narration.queries";
 import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
 import { ChapterListPanel } from "../components/ChapterListPanel";
-import { ChapterWorkflowRibbon } from "../components/ChapterWorkflowRibbon";
 import { ChapterWorkspaceContext } from "../components/ChapterWorkspaceContext";
 import {
   chapterStatus,
@@ -542,8 +541,6 @@ export function ChaptersScreen({
           </Button>
         </div>
       </header>
-
-      <ChapterWorkflowRibbon />
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-hidden p-4">
         <ChapterListPanel
