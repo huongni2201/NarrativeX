@@ -15,13 +15,13 @@ import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorks
 import {
   buildEditorHierarchy,
   resolveEditorScopeWindow,
+  sortEditorBeats,
   type EditorChapterGroup,
   type EditorScope,
 } from "./editor-timeline";
 import { EditorExplorerPanel } from "./components/EditorExplorerPanel";
-import { EditorPreviewViewport } from "./components/EditorPreviewViewport";
 import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
-import { EditorMultiTrackTimeline } from "./components/EditorMultiTrackTimeline";
+import { EditorPlaybackSurface } from "./components/EditorPlaybackSurface";
 
 interface PreviewSources {
   mediaUrl: string | null;
@@ -47,12 +47,12 @@ export function EditorScreen({
   const projectId = timeline?.projectId ?? null;
   const beats = timeline?.beats ?? [];
   const chapters = timeline?.chapters ?? [];
-  const selectableAssets = workspace.assets.filter(
-    (asset) => asset.type === "IMAGE" || asset.type === "VIDEO",
+  const orderedBeats = useMemo(() => sortEditorBeats(beats), [beats]);
+  const selectableAssets = useMemo(
+    () => workspace.assets.filter((asset) => asset.type === "IMAGE" || asset.type === "VIDEO"),
+    [workspace.assets],
   );
   const [selectedId, setSelectedId] = useState("");
-  const [playing, setPlaying] = useState(false);
-  const [playheadMs, setPlayheadMs] = useState(0);
   const [query, setQuery] = useState("");
   // Review should naturally continue across chapter boundaries. Beat/scene/chapter
   // scopes remain modelled in editor-timeline for future explicit focus controls.
@@ -62,28 +62,38 @@ export function EditorScreen({
   const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
 
   useEffect(() => {
-    if (!beats.length) {
+    if (!orderedBeats.length) {
       if (selectedId) setSelectedId("");
       return;
     }
-    if (!beats.some((beat) => beat.visualBeatId === selectedId)) {
-      setSelectedId(beats[0].visualBeatId);
-      setPlayheadMs(beats[0].startMs);
+    if (!orderedBeats.some((beat) => beat.visualBeatId === selectedId)) {
+      setSelectedId(orderedBeats[0].visualBeatId);
     }
-  }, [beats, selectedId]);
+  }, [orderedBeats, selectedId]);
 
   useEffect(() => {
     setMediaNotice(null);
   }, [selectedId]);
 
   const totalMs = timeline?.totalDurationMs ?? 0;
-  const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
-  const selectedChapter = selected
-    ? chapters.find((chapter) => chapter.chapterId === selected.chapterId) ?? null
-    : null;
-  const narrationAsset = selectedChapter?.narrationAssetId
-    ? workspace.assets.find((asset) => asset.id === selectedChapter.narrationAssetId) ?? null
-    : null;
+  const selected = useMemo(
+    () => orderedBeats.find((beat) => beat.visualBeatId === selectedId) ?? null,
+    [orderedBeats, selectedId],
+  );
+  const selectedChapter = useMemo(
+    () =>
+      selected
+        ? chapters.find((chapter) => chapter.chapterId === selected.chapterId) ?? null
+        : null,
+    [chapters, selected],
+  );
+  const narrationAsset = useMemo(
+    () =>
+      selectedChapter?.narrationAssetId
+        ? workspace.assets.find((asset) => asset.id === selectedChapter.narrationAssetId) ?? null
+        : null,
+    [selectedChapter?.narrationAssetId, workspace.assets],
+  );
   const autoDecision = useMemo(
     () => (selected ? createBeatDecision(selected, "AUTO") : null),
     [selected],
@@ -101,8 +111,8 @@ export function EditorScreen({
     [autoDecision, selected],
   );
   const hierarchy = useMemo(
-    () => buildEditorHierarchy(chapters, beats),
-    [beats, chapters],
+    () => buildEditorHierarchy(chapters, orderedBeats),
+    [chapters, orderedBeats],
   );
   const filteredHierarchy = useMemo(
     () => filterHierarchy(hierarchy, query),
@@ -112,44 +122,13 @@ export function EditorScreen({
     () =>
       resolveEditorScopeWindow({
         chapters,
-        beats,
+        beats: orderedBeats,
         selected,
         scope,
         totalMs,
       }),
-    [beats, chapters, scope, selected, totalMs],
+    [chapters, orderedBeats, scope, selected, totalMs],
   );
-  const scopeDurationMs = Math.max(0, scopeWindow.endMs - scopeWindow.startMs);
-
-  useEffect(() => {
-    if (scopeWindow.endMs <= scopeWindow.startMs) return;
-    if (playheadMs < scopeWindow.startMs || playheadMs > scopeWindow.endMs) {
-      setPlayheadMs(scopeWindow.startMs);
-    }
-  }, [playheadMs, scopeWindow.endMs, scopeWindow.startMs]);
-
-  useEffect(() => {
-    if (!playing || scopeDurationMs <= 0) return;
-    const timer = window.setInterval(() => {
-      setPlayheadMs((current) =>
-        current >= scopeWindow.endMs
-          ? scopeWindow.startMs
-          : Math.min(scopeWindow.endMs, current + 250),
-      );
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [playing, scopeDurationMs, scopeWindow.endMs, scopeWindow.startMs]);
-
-  useEffect(() => {
-    if (!beats.length) return;
-    const beatAtTime = beats.find((beat, index) => {
-      const isLast = index === beats.length - 1;
-      return playheadMs >= beat.startMs && (playheadMs < beat.endMs || (isLast && playheadMs <= beat.endMs));
-    });
-    if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
-      setSelectedId(beatAtTime.visualBeatId);
-    }
-  }, [beats, playheadMs, selectedId]);
 
   useEffect(() => {
     let active = true;
@@ -224,35 +203,6 @@ export function EditorScreen({
 
   const selectBeat = (beat: DesktopTimelineBeat) => {
     setSelectedId(beat.visualBeatId);
-    setPlayheadMs(beat.startMs);
-  };
-
-  const handlePrevBeat = () => {
-    const currentIndex = beats.findIndex((beat) => beat.visualBeatId === selectedId);
-    if (currentIndex > 0) selectBeat(beats[currentIndex - 1]);
-  };
-
-  const handleNextBeat = () => {
-    const currentIndex = beats.findIndex((beat) => beat.visualBeatId === selectedId);
-    if (currentIndex >= 0 && currentIndex < beats.length - 1) {
-      selectBeat(beats[currentIndex + 1]);
-    }
-  };
-
-  const handleStepMs = (deltaMs: number) => {
-    setPlayheadMs((current) =>
-      Math.max(scopeWindow.startMs, Math.min(scopeWindow.endMs, current + deltaMs)),
-    );
-  };
-
-  const handleSeek = (targetMs: number) => {
-    setPlayheadMs(targetMs);
-    const beatAtTime = beats.find(
-      (beat) => targetMs >= beat.startMs && targetMs < beat.endMs,
-    );
-    if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
-      setSelectedId(beatAtTime.visualBeatId);
-    }
   };
 
   async function refreshEditorData() {
@@ -369,39 +319,22 @@ export function EditorScreen({
         onQueryChange={setQuery}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
-        <div className="nx-editor-preview-panel min-h-[400px] shrink-0">
-          <EditorPreviewViewport
-            selectedBeat={previewBeat}
-            mediaUrl={previewSources.mediaUrl}
-            narrationUrl={previewSources.narrationUrl}
-            narrationStartMs={selectedChapter?.startMs ?? null}
-            narrationEndMs={selectedChapter?.endMs ?? null}
-            previewLoading={previewSources.loading}
-            previewMessage={previewSources.message}
-            playheadMs={playheadMs}
-            scopeWindowStartMs={scopeWindow.startMs}
-            scopeWindowEndMs={scopeWindow.endMs}
-            playing={playing}
-            onTogglePlay={() => setPlaying(!playing)}
-            onPrevBeat={handlePrevBeat}
-            onNextBeat={handleNextBeat}
-            onStepMs={handleStepMs}
-          />
-        </div>
-
-        <div className="nx-editor-timeline-panel min-h-[220px] border-t border-border-subtle">
-          <EditorMultiTrackTimeline
-            beats={beats}
-            chapters={chapters}
-            playheadMs={playheadMs}
-            totalDurationMs={totalMs}
-            selectedBeatId={selectedId}
-            onSelectBeat={selectBeat}
-            onSeek={handleSeek}
-          />
-        </div>
-      </div>
+      <EditorPlaybackSurface
+        beats={orderedBeats}
+        chapters={chapters}
+        selectedBeatId={selectedId}
+        previewBeat={previewBeat}
+        mediaUrl={previewSources.mediaUrl}
+        narrationUrl={previewSources.narrationUrl}
+        narrationStartMs={selectedChapter?.startMs ?? null}
+        narrationEndMs={selectedChapter?.endMs ?? null}
+        previewLoading={previewSources.loading}
+        previewMessage={previewSources.message}
+        totalDurationMs={totalMs}
+        scopeWindowStartMs={scopeWindow.startMs}
+        scopeWindowEndMs={scopeWindow.endMs}
+        onSelectBeat={selectBeat}
+      />
 
       <EditorInspectorPanel
         selectedBeat={selected}
