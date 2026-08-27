@@ -75,17 +75,22 @@ Endpoint availability does not imply every future UI interaction is complete; us
 
 Production application code uses MyBatis + explicit SQL with dedicated row models/mappers and row-version/state CAS where required.
 
-Final pre-release baseline:
+Current pre-release baseline:
 
 ```text
-V1__create_tables.sql
-V2__init_indexes.sql
-V3__seed_data.sql
-V4__project_render_subtitles.sql
-V5__chapter_workspace_generation_lookup.sql
+V1__identity_and_access.sql
+V2__project_story_and_planning.sql
+V3__generation_billing_and_media.sql
+V4__narration_notifications_and_artifacts.sql
+V5__catalog_generation_and_render_snapshots.sql
+V6__database_logic_and_triggers.sql
+V7__indexes.sql
+V8__seed_catalog.sql
 ```
 
-V1 contains the complete relational/runtime schema, including Spring Session JDBC and Desktop OAuth handoffs. V2 contains the baseline index/invariant set. V3 contains deterministic seeds. V4 adds immutable render subtitle snapshots; V5 adds the Chapter Workspace generation lookup index. Translation/content-variant schema is absent. Future schema changes are append-only starting with V6.
+V1-V6 separate schema/database logic by responsibility, V7 contains the index/invariant set, and V8 contains deterministic system/catalog seeds. Render subtitle fields are created directly with project render snapshots; the Chapter Workspace covering lookup is part of V7; VieNeu voices are seeded with `supportsSpeakingRate=true`, and narration requests persist a positive `speaking_rate`. Translation/content-variant schema is absent.
+
+Because no production database has adopted this history yet, the baseline can still be reorganized for clarity and disposable development/test databases should be recreated after checksum/version changes. The baseline becomes immutable at the first production deployment; future changes after that point must be append-only.
 
 ## Quality/concurrency rules
 
