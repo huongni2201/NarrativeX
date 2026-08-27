@@ -79,7 +79,7 @@ public final class GenerationJob extends AggregateRoot {
     this.sourceText = sourceText;
     this.sourceLanguage = sourceLanguage;
     this.idempotencyKey = idempotencyKey;
-    requireCompleteMediaPlanPointer(mediaPlanId, mediaPlanRevision, productionMode);
+    requireCompleteMediaPlanPointer(type, mediaPlanId, mediaPlanRevision, productionMode);
     this.mediaPlanId = mediaPlanId;
     this.mediaPlanRevision = mediaPlanRevision;
     this.productionMode = productionMode;
@@ -124,9 +124,40 @@ public final class GenerationJob extends AggregateRoot {
       String sourceLanguage,
       String idempotencyKey,
       String userId) {
+    return createChapterAnalysis(
+        projectId,
+        storyVersionId,
+        chapterId,
+        storyboardRevisionId,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey,
+        userId,
+        ProductionMode.IMAGE_MOTION);
+  }
+
+  public static GenerationJob createChapterAnalysis(
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId,
+      ProductionMode productionMode) {
     Objects.requireNonNull(storyVersionId, "storyVersionId");
     Objects.requireNonNull(chapterId, "chapterId");
     Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId");
+    Objects.requireNonNull(productionMode, "productionMode");
+    if (productionMode == ProductionMode.HYBRID_LOCAL_I2V) {
+      throw new IllegalArgumentException(
+          "HYBRID_LOCAL_I2V is a media-plan mode and cannot direct chapter analysis");
+    }
     if (chapterRowVersion < 0) {
       throw new IllegalArgumentException("chapterRowVersion must not be negative");
     }
@@ -153,7 +184,7 @@ public final class GenerationJob extends AggregateRoot {
         required(idempotencyKey, "idempotencyKey"),
         null,
         null,
-        null);
+        productionMode);
   }
 
   public static GenerationJob createChapterGeneration(
@@ -358,7 +389,22 @@ public final class GenerationJob extends AggregateRoot {
   public ProductionMode getProductionMode() { return productionMode; }
 
   private static void requireCompleteMediaPlanPointer(
-      UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
+      JobType type,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
+      ProductionMode productionMode) {
+    if (type == JobType.CHAPTER_ANALYZE) {
+      if (mediaPlanId != null || mediaPlanRevision != null) {
+        throw new IllegalArgumentException("Chapter analysis cannot point to a media plan");
+      }
+      if (productionMode != ProductionMode.IMAGE_MOTION
+          && productionMode != ProductionMode.VIDEO_GENERATION) {
+        throw new IllegalArgumentException(
+            "Chapter analysis requires IMAGE_MOTION or VIDEO_GENERATION");
+      }
+      return;
+    }
+
     boolean allNull = mediaPlanId == null && mediaPlanRevision == null && productionMode == null;
     boolean allPresent = mediaPlanId != null && mediaPlanRevision != null && productionMode != null;
     if (!allNull && !allPresent) {
