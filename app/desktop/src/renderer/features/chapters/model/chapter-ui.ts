@@ -1,4 +1,4 @@
-import type { DesktopChapterWorkspace } from "@narrativex/client-contracts";
+import type { DesktopChapterWorkspace, DesktopVoice } from "@narrativex/client-contracts";
 
 export type ChapterFilter = "all" | "completed" | "in_progress" | "draft";
 export type ChapterSort = "recent" | "title" | "order" | "words";
@@ -43,6 +43,13 @@ export function formatDurationMs(durationMs: number | null | undefined) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+export function narrationVoiceName(input: {
+  generatedVoiceId: string | null | undefined;
+  voices: DesktopVoice[];
+}) {
+  return input.voices.find((voice) => voice.id === input.generatedVoiceId)?.name ?? "Audio chapter";
 }
 
 export function chapterStatus(workspace: DesktopChapterWorkspace | undefined): ChapterDisplayStatus {

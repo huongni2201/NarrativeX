@@ -36,6 +36,8 @@ Local/self-hosted inference may have no external provider charge while still con
 
 Current Desktop foundations include voice selection/preview, custom voice-reference upload, single/batch narration requests, progress/error handling, active-job recovery after reload and local materialization of accepted narration results used by the project. Preview results are returned through an expiring URL and are not the durable project audio artifact.
 
+The Chapter Workspace response also carries the voice ID from the latest persisted narration request. Desktop uses that ID to label the generated audio player, so changing the voice selector for a future generation does not rename an existing narration.
+
 The preview contract is asynchronous: Desktop submits `POST /api/v1/projects/{projectId}/voice-preview-jobs`, observes the job through the shared generation status stream, then reads `GET /api/v1/projects/{projectId}/voice-preview-jobs/{jobId}/result`. The backend returns a signed/temporary result URL with an expiry and duration metadata. Uploaded references remain subject to ownership, readiness and voice-capability checks.
 
 Generated/project narration bytes used by final rendering live under the project workspace and are referenced through stable backend identity plus manifest integrity metadata. Absolute paths remain inside Electron main.

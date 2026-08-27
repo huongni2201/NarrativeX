@@ -53,6 +53,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                 narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()),
                 row.getNarrationCompletedAt(),
                 row.getNarrationJobId(),
+                row.getNarrationVoiceId(),
                 row.getNarrationStorageKey(),
                 row.getNarrationDurationMs()),
             new RenderStep(

@@ -4,6 +4,7 @@ import { parseChapterWorkspace } from "../src/renderer/features/chapters/api/cha
 import {
   audioButtonLabel,
   audioGenerationBlockMessage,
+  narrationVoiceName,
 } from "../src/renderer/features/chapters/model/chapter-ui.ts";
 import { filterVoices, playableSampleUrl } from "../src/renderer/features/voices/voice-filters.ts";
 
@@ -27,6 +28,7 @@ const workspace = {
       status: "NOT_STARTED",
       completedAt: null,
       latestJobId: null,
+      voiceId: null,
       audioUrl: null,
       durationMs: null,
     },
@@ -106,4 +108,16 @@ test("chapter audio explains when the active plan does not include narration", (
     "Gói hiện tại không hỗ trợ tạo audio. Hãy nâng cấp gói để sử dụng tính năng narration.",
   );
   assert.equal(audioGenerationBlockMessage(null), null);
+});
+
+test("chapter audio title keeps the voice used by the generated narration", () => {
+  const voices = [
+    { id: "ngoc", provider: "VIENEU", name: "Ngọc Huyền", language: "vi-VN", gender: "FEMALE", sampleUrl: null },
+    { id: "adam", provider: "ELEVENLABS", name: "Adam", language: "en-US", gender: "MALE", sampleUrl: null },
+  ];
+
+  assert.equal(
+    narrationVoiceName({ generatedVoiceId: "adam", voices }),
+    "Adam",
+  );
 });

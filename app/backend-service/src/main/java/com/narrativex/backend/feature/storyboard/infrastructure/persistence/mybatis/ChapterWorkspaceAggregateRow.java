@@ -31,6 +31,7 @@ public class ChapterWorkspaceAggregateRow {
   private boolean narrationAssetReady;
   private String narrationJobStatus;
   private UUID narrationJobId;
+  private String narrationVoiceId;
   private Instant narrationCompletedAt;
   private String narrationStorageKey;
   private Long narrationDurationMs;

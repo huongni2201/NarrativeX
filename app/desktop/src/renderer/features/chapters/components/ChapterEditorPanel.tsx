@@ -25,6 +25,7 @@ import {
   audioStatusBadgeClass,
   audioStatusLabel,
   formatDurationMs,
+  narrationVoiceName,
   wordCount,
 } from "../model/chapter-ui";
 
@@ -93,7 +94,6 @@ export function ChapterEditorPanel({
   const [imageProvider, setImageProvider] =
     useState<ImageGenerationProvider>("GEMINI_WEB");
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
-  const selectedVoiceName = audio.voices.find((voice) => voice.id === audio.voiceId)?.name;
 
   function submitAnalysis() {
     setAnalyzeChapterPreferences({
@@ -159,7 +159,7 @@ export function ChapterEditorPanel({
             </div>
           </div>
 
-          <div className="flex min-h-[140px] flex-col space-y-1.5">
+          <div className="flex min-h-[240px] flex-col space-y-1.5">
             <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-source">
               Nội dung chapter <span className="text-danger">*</span>
             </label>
@@ -190,7 +190,6 @@ export function ChapterEditorPanel({
           <AudioChapterCard
             selected={selected}
             generationBlockedByUnsavedChanges={generationBlockedByUnsavedChanges}
-            selectedVoiceName={selectedVoiceName}
             audio={audio}
           />
 
@@ -410,14 +409,17 @@ function AnalyzeChapterModal({
 function AudioChapterCard({
   selected,
   generationBlockedByUnsavedChanges,
-  selectedVoiceName,
   audio,
 }: Readonly<{
   selected: DesktopChapterDetails | null;
   generationBlockedByUnsavedChanges: boolean;
-  selectedVoiceName: string | undefined;
   audio: AudioState;
 }>) {
+  const generatedVoiceName = narrationVoiceName({
+    generatedVoiceId: audio.workspace?.pipeline.audio.voiceId,
+    voices: audio.voices,
+  });
+
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface p-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -560,7 +562,7 @@ function AudioChapterCard({
             <div className="flex items-center justify-between gap-3 text-[10px]">
               <div className="min-w-0">
                 <strong className="block truncate text-xs text-foreground">
-                  Narration · {selectedVoiceName ?? "Audio chapter"}
+                  Narration · {generatedVoiceName}
                 </strong>
                 <span className="text-text-muted">
                   {formatDurationMs(audio.workspace.pipeline.audio.durationMs)}

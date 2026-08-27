@@ -141,6 +141,7 @@ public class GetChapterWorkspaceUseCase {
                     audio.status(),
                     audio.completedAt(),
                     audio.latestJobId(),
+                    audio.voiceId(),
                     audioUrl,
                     audio.durationMs()),
                 new ChapterWorkspaceResponse.RenderStep(
