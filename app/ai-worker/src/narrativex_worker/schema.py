@@ -179,7 +179,8 @@ class ChapterAnalysisResult(BaseModel):
                 beat_character_keys = [ref.character_key for ref in beat.characters]
                 if len(beat_character_keys) != len(set(beat_character_keys)):
                     raise ValueError(
-                        f"scene {scene_index} visual beat {beat_index} contains duplicate character references"
+                        f"scene {scene_index} visual beat {beat_index} contains duplicate "
+                        "character references"
                     )
                 for character_key in beat_character_keys:
                     if character_key not in known_character_keys:
@@ -189,7 +190,8 @@ class ChapterAnalysisResult(BaseModel):
                         )
                     if character_key not in scene_character_set:
                         raise ValueError(
-                            f"scene {scene_index} visual beat {beat_index} references character_key "
+                            f"scene {scene_index} visual beat {beat_index} references "
+                            "character_key "
                             f"{character_key!r} that is not present in the scene"
                         )
         return self

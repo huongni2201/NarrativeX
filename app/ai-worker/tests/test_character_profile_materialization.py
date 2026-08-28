@@ -31,7 +31,9 @@ def enriched_character() -> CharacterAnalysis:
         hairstyle="Tóc đen dài được búi gọn.",
         injury="Không có thương tích được nhắc tới.",
         wardrobe_context="Trang phục trang nhã phù hợp địa vị.",
-        appearance_prompt="Nữ nhân trẻ với tóc đen dài, phong thái thanh lãnh, trang phục trang nhã.",
+        appearance_prompt=(
+            "Nữ nhân trẻ với tóc đen dài, phong thái thanh lãnh, trang phục trang nhã."
+        ),
     )
 
 
