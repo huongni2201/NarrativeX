@@ -47,7 +47,9 @@ CHECKPOINT_FILES = {
 ALLOWED_POST_CHECKPOINT_EXACT = {
     "README.md",
     "CONTRIBUTING.md",
+    "AGENTS.md",
     "AI_CONTEXT.md",
+    "app/backend-service/README.md",
     "app/desktop/README.md",
     "app/ai-worker/README.md",
     "scripts/check-docs-drift.py",
