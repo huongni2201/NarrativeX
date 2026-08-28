@@ -1,6 +1,6 @@
-# NarrativeX V1.11 Baseline Implementation Traceability
+# NarrativeX V1.12 Baseline Implementation Traceability
 
-This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28). Current code, migrations and tests remain authoritative for AS-IS claims.
+This matrix maps the V1.12 contract to the current implementation branch. Current code, migrations and tests remain authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
@@ -18,22 +18,30 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 | Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
 | ProviderOperation reconciliation | durable provider lifecycle with UNKNOWN-before-resubmit discipline | IMPLEMENTED foundation |
 | MyBatis-only production persistence | backend production adapters use MyBatis + explicit PostgreSQL SQL | IMPLEMENTED |
-| Flyway V1-V8 clean pre-release baseline | V1-V6 responsibility-separated schema/database logic, V7 indexes/invariants, V8 deterministic catalog seeds; future changes start at append-only V9+ | IMPLEMENTED |
+| Clean pre-release Flyway baseline | V1-V8 consolidated baseline; preview-media schema currently exists as V9 pending baseline cleanup | PARTIAL |
 | Stable guest schema | `desktop_guest_installations` is consolidated into V1 | IMPLEMENTED |
 | Beat media selection schema | `production_beat_media_selections` is consolidated into V1 | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
 | Generated narration | VieNeu provider path + Desktop local materialization foundation | IMPLEMENTED foundation |
 | Local audio import | native import/registration with USER_PROVIDED_AUDIO guard | IMPLEMENTED foundation |
-| Vertex image generation | queue/provider/review flow + verified remote-to-local materialization | IMPLEMENTED foundation |
+| Vertex image generation | queue/provider/review flow + verified local materialization | IMPLEMENTED foundation |
 | Gemini Web Desktop generation | Chrome/CDP automation, locked series prompt, Generate/Generate All Storyboard flow, protected IPC, checksum-verified local asset registration | IMPLEMENTED foundation |
 | Protected prompt clipboard | typed preload capability to Electron main clipboard API; renderer has no direct clipboard API | IMPLEMENTED foundation |
-| R2 generated-media transport | AI-generated image/narration bytes are remotely durable until Desktop materialization | IMPLEMENTED foundation |
+| Local-first project media | generated/imported project image/video bytes live in Desktop project storage; R2 is not required for project production media | IMPLEMENTED foundation |
+| Voice sample remote durability | account-scoped voice samples/custom voice references may use R2 | IMPLEMENTED foundation |
 | Native local asset registration | two-phase main-process inspect/hash + backend LOCAL_ONLY registration + manifest commit | IMPLEMENTED foundation |
-| Production timeline reads | backend production timeline + narration-aligned timing | IMPLEMENTED foundation |
+| Generated VisualBeat source | `visual_beats.preview_media_asset_id` points at the generated/default READY media asset | IMPLEMENTED foundation |
+| Production timeline reads current Storyboard | `ProductionTimelineMapper` reads current storyboard scenes/VisualBeats directly instead of requiring MediaPlan rows | IMPLEMENTED foundation |
+| Effective beat media precedence | READY `production_beat_media_selections` override → READY `preview_media_asset_id` → missing | IMPLEMENTED foundation |
+| MediaPlan-independent Editor visibility | current VisualBeats remain inspectable even with null MediaPlan metadata | IMPLEMENTED foundation |
+| Exact narration render gate | final readiness requires contiguous VisualBeat audio spans from 0 through chapter narration duration | IMPLEMENTED foundation |
+| Incomplete timing review | fallback timing keeps Editor inspectable while backend `readyForRender=false` | IMPLEMENTED foundation |
 | Beat media selection | V1 table + backend mutation/read model + Desktop editor integration | IMPLEMENTED foundation |
-| Timeline draft history | typed duration/camera command history with undo/redo/reset | IMPLEMENTED foundation |
+| Editor reset semantics | deleting the explicit selection falls back to generated preview media | IMPLEMENTED foundation |
+| Timeline draft history | typed duration/camera command history with undo/redo/reset foundations; duration retiming is not exposed in the local-first MVP | IMPLEMENTED foundation |
 | Auto Edit render planning | narration-aware local plan with style override and atomic backend render snapshot | IMPLEMENTED foundation |
+| Concrete render blockers | Desktop Render UI distinguishes missing narration, missing media and incomplete timing before preflight | IMPLEMENTED foundation |
 | Immutable render subtitles | V4 subtitle text/alignment snapshot + Desktop UTF-8 SRT generation | IMPLEMENTED foundation |
 | Local media duration probing | Electron main probes imported audio/video duration and persists metadata | IMPLEMENTED foundation |
 | Custom voice preview | voice-reference upload/preview job and expiring result URL | IMPLEMENTED foundation |
@@ -44,6 +52,7 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 | Local render preflight | FFmpeg/ffprobe, executor, disk and local asset integrity checks | IMPLEMENTED foundation |
 | Backend-assigned local render | device-scoped claim/lease/progress/completion/failure | IMPLEMENTED foundation |
 | Local render input resolution | asset IDs/checksums resolved through local manifest | IMPLEMENTED foundation |
+| LOCAL_ONLY render admission | READY LOCAL_ONLY image/video media is valid for LOCAL_DEVICE rendering | IMPLEMENTED foundation |
 | Desktop FFmpeg render | segment render → concat → mux → ffprobe → local artifact | IMPLEMENTED foundation |
 | Final artifact metadata only | backend stores FinalArtifact metadata and never final MP4 bytes | IMPLEMENTED |
 | Direct local playback/export | Desktop reads final MP4 directly from project artifacts | IMPLEMENTED foundation |
@@ -59,15 +68,15 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 
 ## Current non-claims
 
-NarrativeX now has implemented foundations for guest-first Desktop use, local asset materialization, backup/restore, render journals, segment cache, editable beat media selection, real-time job updates, Auto Edit planning and render subtitle snapshots. These must not be described as future-only work.
+NarrativeX now has implemented foundations for guest-first Desktop use, local-first project media, generated VisualBeat preview media, Storyboard-backed production timelines, exact narration render admission, editable beat media selection, local render preflight, render journals, segment cache, real-time job updates, Auto Edit planning and render subtitle snapshots. These must not be described as future-only work.
 
-NarrativeX does **not** yet claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, or complete billing/actual-usage reconciliation.
+NarrativeX does **not** yet claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, full manual timeline retiming, or complete billing/actual-usage reconciliation.
 
 ## Storage invariants
 
 1. PostgreSQL is durable business/control authority and stores final-artifact metadata only.
-2. AI-generated image/narration bytes may use R2 until they are materialized locally.
-3. Desktop project bytes live in the local project workspace.
+2. Desktop project image/video/audio bytes live in the local project workspace once accepted for production use.
+3. R2 is not required as the production store for project image/video media; it remains appropriate for account-scoped voice samples/custom voice references and provider transport where required.
 4. `project.manifest.json` maps stable IDs to project-relative paths + size/SHA-256.
 5. Absolute local paths are not persisted as backend identities.
 6. Final MP4 remains in the project artifact workspace unless an explicit export/upload/publish action copies it elsewhere.
@@ -77,12 +86,14 @@ NarrativeX does **not** yet claim production-complete packaging/signing/auto-upd
 
 1. `USER_PROVIDED_AUDIO` bypasses TTS for its covered scope.
 2. Narration timing is the visual master clock.
-3. Backend MediaPlan/execution policy is authoritative.
-4. Provider `UNKNOWN` reconciles before paid resubmission.
-5. Completed provider results remain immutable by identity/fingerprint policy.
-6. Final rendering is backend-assigned and lease-controlled but executed only in Electron main.
-7. FFmpeg final project rendering never runs in unrestricted renderer code or Python AI workers.
-8. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
-9. Google remains the only end-user account sign-in provider.
-10. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
-11. SSE is a best-effort status transport; PostgreSQL job rows remain the durable source of truth and the Desktop watchdog can recover from stream interruption.
+3. Current Storyboard + narration + effective READY beat media are authoritative for the local-first Editor/Render path; MediaPlan remains compatibility/planning data and is not a render admission prerequisite.
+4. Exact final render timing requires contiguous VisualBeat audio spans from `0` through narration duration; provisional fallback timing is review-only.
+5. Explicit Editor media selection overrides generated preview media; reset restores preview media.
+6. Provider `UNKNOWN` reconciles before paid resubmission.
+7. Completed provider results remain immutable by identity/fingerprint policy.
+8. Final rendering is backend-assigned and lease-controlled but executed only in Electron main.
+9. FFmpeg final project rendering never runs in unrestricted renderer code or Python AI workers.
+10. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
+11. Google remains the only end-user account sign-in provider.
+12. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
+13. SSE is a best-effort status transport; PostgreSQL job rows remain the durable source of truth and the Desktop watchdog can recover from stream interruption.
