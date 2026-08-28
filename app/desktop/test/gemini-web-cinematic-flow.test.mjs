@@ -25,16 +25,16 @@ test("Gemini 3.1 Pro target accepts the current Pro-only picker label", () => {
   );
 });
 
-test("Gemini generation enters image mode, selects Pro, then selects cinematic preset", () => {
+test("Gemini generation enters image mode, selects cinematic preset, then selects Pro model", () => {
   assert.match(automationSource, /GEMINI_IMAGE_PRESET\s*=\s*"Điện ảnh"/);
 
   const imageModeIndex = automationSource.indexOf("await this.activateImagesMode(cdp)");
-  const modelIndex = automationSource.indexOf("await this.selectModel(cdp, GEMINI_IMAGE_MODEL)");
   const presetIndex = automationSource.indexOf("await this.selectImagePreset(cdp, GEMINI_IMAGE_PRESET)");
+  const modelIndex = automationSource.indexOf("await this.selectModel(cdp, GEMINI_IMAGE_MODEL)");
 
   assert.ok(imageModeIndex >= 0, "image mode must be activated");
-  assert.ok(modelIndex > imageModeIndex, "Pro must be selected after image mode is ready");
-  assert.ok(presetIndex > modelIndex, "cinematic preset must be selected after Pro");
+  assert.ok(presetIndex > imageModeIndex, "cinematic preset must be selected after image mode is ready");
+  assert.ok(modelIndex > presetIndex, "Pro model must be selected after preset");
 });
 
 test("Gemini image discovery supports the current single-image output DOM", () => {
