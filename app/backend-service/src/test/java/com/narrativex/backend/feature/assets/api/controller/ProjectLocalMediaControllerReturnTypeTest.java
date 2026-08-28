@@ -11,8 +11,7 @@ import org.springframework.http.ResponseEntity;
 class ProjectLocalMediaControllerReturnTypeTest {
   @Test
   void localMediaEndpointDeclaresResourceResponseSoMvcCanApplyRangeHandling() throws Exception {
-    Method method =
-        ProjectLocalMediaController.class.getDeclaredMethod("download", String.class, String.class);
+    Method method = ProjectLocalMediaController.class.getDeclaredMethod("download", String.class);
 
     assertThat(method.getGenericReturnType()).isInstanceOf(ParameterizedType.class);
     ParameterizedType returnType = (ParameterizedType) method.getGenericReturnType();
