@@ -2,6 +2,7 @@ import type {
   CursorPage,
   DesktopCharacter,
   DesktopCharacterDetail,
+  DesktopCharacterVersion,
   DesktopCharacterVersionReference,
 } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
@@ -11,6 +12,17 @@ import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
 const CHARACTER_PAGE_LIMIT = 100;
 
 type CharactersPage = CursorPage<DesktopCharacter>;
+
+export interface CharacterVersionMutationResult extends DesktopCharacterVersion {
+  id: string;
+  characterId: string;
+  versionNumber: number;
+  status: string;
+  bible: string;
+  visualPrompt: string;
+  lockedAt: string | null;
+  lockedBy: string | null;
+}
 
 function isCharacter(value: unknown): value is DesktopCharacter {
   return isRecord(value) && isString(value.id) && isString(value.canonicalName);
@@ -72,6 +84,49 @@ export const charactersApi = {
     apiRequest<unknown>(
       `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/references`,
     ).then(parseCharacterVersionReferences),
+
+  setVersionReferences: (
+    characterId: string,
+    versionId: string,
+    references: DesktopCharacterVersionReference[],
+  ) =>
+    apiRequest<unknown>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/references`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ references }),
+      },
+    ).then(parseCharacterVersionReferences),
+
+  createVersion: (characterId: string, input: { bible: string; visualPrompt: string }) =>
+    apiRequest<CharacterVersionMutationResult>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}/versions`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    ),
+
+  reviewVersion: (characterId: string, versionId: string) =>
+    apiRequest<CharacterVersionMutationResult>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/review`,
+      { method: "POST" },
+    ),
+
+  lockVersion: (characterId: string, versionId: string) =>
+    apiRequest<CharacterVersionMutationResult>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/lock`,
+      { method: "POST" },
+    ),
+
+  pinVersion: (projectId: string, characterId: string, versionId: string) =>
+    apiRequest<DesktopCharacterDetail>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}/pinned-version`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ versionId }),
+      },
+    ),
 
   create: (input: {
     canonicalName: string;
