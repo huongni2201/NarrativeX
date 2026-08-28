@@ -9,7 +9,7 @@ export interface EditorMediaSelection {
   contentType: string;
   sizeBytes: number;
   checksumSha256: string;
-  durationMs: number | null;
+  durationMs?: number | null;
   kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
 }
 
@@ -117,7 +117,7 @@ export async function persistEditorMedia(
     contentType: input.selection.contentType,
     sizeBytes: input.selection.sizeBytes,
     checksumSha256: input.selection.checksumSha256,
-    durationMs: input.selection.durationMs,
+    durationMs: input.selection.durationMs ?? null,
   });
 
   await deps.commitSelectedAsset({
