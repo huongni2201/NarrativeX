@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.api.response;
 
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer.ComposedVisualPrompt;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -32,14 +33,7 @@ public record VisualBeatGeminiContextResponse(
               binding.sha256()));
     }
     return new VisualBeatGeminiContextResponse(
-        visualBeatId, finalPrompt(composedPrompt), references);
-  }
-
-  private static String finalPrompt(ComposedVisualPrompt composedPrompt) {
-    String prompt = composedPrompt.prompt();
-    String negativePrompt = composedPrompt.negativePrompt();
-    if (negativePrompt == null || negativePrompt.isBlank()) return prompt;
-    return prompt + "\nAVOID: " + negativePrompt.trim();
+        visualBeatId, VisualPromptText.finalPrompt(composedPrompt), references);
   }
 
   public record ReferenceItem(
