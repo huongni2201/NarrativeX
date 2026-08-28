@@ -18,7 +18,9 @@ const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const CHROME_START_TIMEOUT_MS = 20_000;
 const LOGIN_TIMEOUT_MS = 10 * 60_000;
 const GENERATION_TIMEOUT_MS = 4 * 60_000;
+const GEMINI_UI_READY_TIMEOUT_MS = 12_000;
 const GEMINI_IMAGE_MODEL = "Gemini 3.1 Pro";
+const GEMINI_IMAGE_PRESET = "Điện ảnh";
 const NETWORK_CAPTURE_GRACE_MS = 8_000;
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 const REFERENCE_UPLOAD_TIMEOUT_MS = 30_000;
@@ -26,6 +28,15 @@ const MIN_CAPTURE_BYTES = 24 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
 const GEMINI_MODEL_OPTION_SELECTOR =
   'button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="radio"]';
+const GEMINI_GENERATED_IMAGE_SELECTOR = [
+  "generated-image img",
+  "single-image img",
+  '[data-testid*="generated" i] img',
+  '[data-test-id*="generated" i] img',
+  'img[aria-label*="generated" i]',
+  'img[alt*="generated" i]',
+  'img[src*="googleusercontent.com"]',
+].join(", ");
 
 export interface GeminiWebGenerationResult {
   sourcePath: string;
@@ -120,7 +131,7 @@ class CdpClient {
           try {
             listener(message.params);
           } catch {
-            // A diagnostic/network observer must never break the CDP transport.
+            // Observers must never break the CDP transport.
           }
         }
         return;
@@ -245,11 +256,7 @@ class NetworkImageTracker {
       );
       if (selected) {
         const bytes = await readNetworkBody(this.cdp, selected.requestId);
-        if (
-          bytes &&
-          bytes.length >= MIN_CAPTURE_BYTES &&
-          bytes.length <= MAX_CAPTURE_BYTES
-        ) {
+        if (bytes && bytes.length >= MIN_CAPTURE_BYTES && bytes.length <= MAX_CAPTURE_BYTES) {
           return { bytes, candidate: selected };
         }
         this.candidates.delete(selected.requestId);
@@ -319,17 +326,17 @@ export class GeminiWebAutomation {
           behavior: "allow",
           downloadPath: this.downloadDirectory,
         });
+
         await this.navigateToGemini(cdp);
         await this.waitForComposerOrLogin(cdp);
         await this.startFreshConversation(cdp);
         await this.waitForComposerOrLogin(cdp);
-        await this.selectModel(cdp, GEMINI_IMAGE_MODEL);
         await this.activateImagesMode(cdp);
+        await this.selectModel(cdp, GEMINI_IMAGE_MODEL);
+        await this.selectImagePreset(cdp, GEMINI_IMAGE_PRESET);
         await this.waitForComposerOrLogin(cdp);
         await this.attachReferences(cdp, references);
 
-        // References are attached before both baselines. They can therefore never be mistaken for
-        // the generated output by DOM correlation or Network capture.
         const beforeDownload = await this.snapshotDownloads();
         const baseline = await this.generationSnapshot(cdp);
         networkTracker.start();
@@ -347,10 +354,7 @@ export class GeminiWebAutomation {
           if (sourcePath) return { sourcePath, captureMethod: "NETWORK" };
         }
 
-        // UI download is deliberately fallback-only. Gemini DOM changes no longer break the normal
-        // success path when the browser already received the generated image bytes.
-        await this.triggerDownload(cdp, baseline);
-        const sourcePath = await this.waitForDownloadedImage(beforeDownload);
+        const sourcePath = await this.captureGeneratedImageFallback(cdp, baseline, beforeDownload);
         return { sourcePath, captureMethod: "DOWNLOAD" };
       } finally {
         networkTracker.dispose();
@@ -375,7 +379,7 @@ export class GeminiWebAutomation {
           }
         }
       } catch {
-        // Fall through to the child-process kill below when this process owns Chrome.
+        // Child-process kill below is the final fallback when this process owns Chrome.
       }
     }
     if (this.chromeProcess && !this.chromeProcess.killed) this.chromeProcess.kill();
@@ -482,7 +486,7 @@ export class GeminiWebAutomation {
             const rect = element.getBoundingClientRect();
             return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
           };
-          const composer = [...document.querySelectorAll('textarea, [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
+          const composer = [...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
             .some((element) => visible(element));
           const text = (document.body?.innerText || "").toLowerCase();
           const signIn = text.includes("sign in") || text.includes("đăng nhập");
@@ -494,7 +498,7 @@ export class GeminiWebAutomation {
         await delay(750);
         continue;
       }
-      await delay(750);
+      await delay(500);
     }
     throw geminiError(
       "GEMINI_AUTH_REQUIRED",
@@ -516,7 +520,7 @@ export class GeminiWebAutomation {
         const target = elements.find((element) => {
           if (!visible(element)) return false;
           const value = String(element.getAttribute("aria-label") || "") + " " + String(element.textContent || "");
-          const normalized = value.trim().toLowerCase();
+          const normalized = value.replace(/\\s+/g, " ").trim().toLowerCase();
           return patterns.some((pattern) => normalized.includes(pattern));
         });
         if (!target) return false;
@@ -527,8 +531,133 @@ export class GeminiWebAutomation {
     await delay(500);
   }
 
+  private async activateImagesMode(cdp: CdpClient): Promise<void> {
+    const deadline = Date.now() + GEMINI_UI_READY_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (await this.isImageModeReady(cdp)) return;
+
+      const clicked = await evaluate<boolean>(
+        cdp,
+        `(() => {
+          const visible = (element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          };
+          const patterns = ["hình ảnh", "tạo hình ảnh", "tạo ảnh", "images", "image", "create image", "create images"];
+          const elements = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [role="tab"]')];
+          const candidates = elements.filter((element) => {
+            if (!visible(element)) return false;
+            const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
+              .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+            return patterns.some((pattern) => value === pattern || value.startsWith(pattern + " "));
+          });
+          const target = candidates.sort((a, b) => {
+            const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
+            const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
+            return areaA - areaB;
+          })[0];
+          if (!target) return false;
+          target.click();
+          return true;
+        })()`,
+      );
+      if (clicked) await delay(350);
+      else await delay(250);
+    }
+
+    throw geminiError(
+      "GEMINI_IMAGE_MODE_NOT_FOUND",
+      "NarrativeX could not open Gemini image creation mode.",
+    );
+  }
+
+  private async isImageModeReady(cdp: CdpClient): Promise<boolean> {
+    return evaluate<boolean>(
+      cdp,
+      `(() => {
+        const text = (document.body?.innerText || "").replace(/\\s+/g, " ").toLowerCase();
+        if (text.includes("tạo hình ảnh") || text.includes("create image")) return true;
+        return [...document.querySelectorAll('textarea, input, [contenteditable="true"]')].some((element) => {
+          const value = [element.getAttribute("placeholder"), element.getAttribute("aria-label")]
+            .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+          return value.includes("mô tả hình ảnh") || value.includes("describe your image");
+        });
+      })()`,
+    );
+  }
+
   private async selectModel(cdp: CdpClient, modelName: string): Promise<void> {
-    const opened = await evaluate<boolean>(
+    const deadline = Date.now() + GEMINI_UI_READY_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (await this.isModelAlreadySelected(cdp, modelName)) return;
+
+      const opened = await evaluate<boolean>(
+        cdp,
+        `(() => {
+          const visible = (element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          };
+          const nodes = [...document.querySelectorAll('button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], bard-mode-menu-button, input-area-switch')];
+          const target = nodes.find((element) => {
+            if (!visible(element)) return false;
+            const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
+              .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+            return value === "pro" || value === "fast" || value === "thinking" ||
+              value.includes("model") || value.includes("mô hình") ||
+              element.tagName.toLowerCase() === "bard-mode-menu-button" ||
+              element.tagName.toLowerCase() === "input-area-switch";
+          });
+          if (!target) return false;
+          target.click();
+          return true;
+        })()`,
+      );
+
+      if (!opened) {
+        await delay(250);
+        continue;
+      }
+
+      const optionDeadline = Math.min(deadline, Date.now() + 3_000);
+      while (Date.now() < optionDeadline) {
+        const candidates = await this.modelCandidates(cdp);
+        const candidateIndex = findGeminiModelCandidateIndex(candidates, modelName);
+        if (candidateIndex >= 0) {
+          const selected = await evaluate<boolean>(
+            cdp,
+            `(() => {
+              const visible = (element) => {
+                const style = window.getComputedStyle(element);
+                const rect = element.getBoundingClientRect();
+                return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+              };
+              const nodes = [...document.querySelectorAll(${JSON.stringify(GEMINI_MODEL_OPTION_SELECTOR)})].filter(visible);
+              const candidate = nodes[${candidateIndex}];
+              if (!candidate) return false;
+              candidate.click();
+              return true;
+            })()`,
+          );
+          if (selected) {
+            await delay(500);
+            return;
+          }
+        }
+        await delay(200);
+      }
+    }
+
+    throw geminiError(
+      "GEMINI_MODEL_PICKER_NOT_FOUND",
+      `NarrativeX could not select Gemini model "${modelName}" after waiting for the image UI to become ready.`,
+    );
+  }
+
+  private async isModelAlreadySelected(cdp: CdpClient, modelName: string): Promise<boolean> {
+    const candidates = await evaluate<GeminiModelCandidate[]>(
       cdp,
       `(() => {
         const visible = (element) => {
@@ -536,31 +665,21 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const modelWords = ["model", "gemini", "flash", "pro", "mô hình"];
-        const nodes = [...document.querySelectorAll('button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"]')];
-        const target = nodes.find((element) => {
-          if (!visible(element)) return false;
-          const value = String(element.getAttribute("aria-label") || "") + " " +
-            String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
-          const normalized = value.replace(/\\s+/g, " ").trim().toLowerCase();
-          return modelWords.some((word) => normalized.includes(word));
-        });
-        if (!target) return false;
-        target.click();
-        return true;
+        return [...document.querySelectorAll('button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], bard-mode-menu-button, input-area-switch')]
+          .filter(visible)
+          .map((element) => ({
+            role: "button",
+            label: String(element.innerText || element.textContent || ""),
+            ariaLabel: String(element.getAttribute("aria-label") || ""),
+            title: String(element.getAttribute("title") || ""),
+          }));
       })()`,
     );
+    return findGeminiModelCandidateIndex(candidates, modelName) >= 0;
+  }
 
-    if (!opened) {
-      throw geminiError(
-        "GEMINI_MODEL_PICKER_NOT_FOUND",
-        `NarrativeX could not find the Gemini model picker to select "${modelName}".`,
-      );
-    }
-
-    await delay(500);
-
-    const candidates = await evaluate<GeminiModelCandidate[]>(
+  private async modelCandidates(cdp: CdpClient): Promise<GeminiModelCandidate[]> {
+    return evaluate<GeminiModelCandidate[]>(
       cdp,
       `(() => {
         const visible = (element) => {
@@ -578,92 +697,55 @@ export class GeminiWebAutomation {
           }));
       })()`,
     );
-    const candidateIndex = findGeminiModelCandidateIndex(candidates, modelName);
-    if (candidateIndex < 0) {
-      throw geminiError(
-        "GEMINI_MODEL_NOT_FOUND",
-        `Gemini model "${modelName}" was not found in the Gemini Web UI.`,
-      );
-    }
-
-    const selected = await evaluate<boolean>(
-      cdp,
-      `(() => {
-        const visible = (element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-        };
-        const nodes = [...document.querySelectorAll(${JSON.stringify(GEMINI_MODEL_OPTION_SELECTOR)})]
-          .filter(visible);
-        const candidate = nodes[${candidateIndex}];
-        if (!candidate) return false;
-        candidate.click();
-        return true;
-      })()`,
-    );
-
-    if (!selected) {
-      throw geminiError(
-        "GEMINI_MODEL_NOT_FOUND",
-        `Gemini model "${modelName}" was not found in the Gemini Web UI.`,
-      );
-    }
-
-    await delay(800);
   }
 
-  private async activateImagesMode(cdp: CdpClient): Promise<void> {
-    const clickImages = async () =>
-      evaluate<boolean>(
+  private async selectImagePreset(cdp: CdpClient, presetName: string): Promise<void> {
+    const deadline = Date.now() + GEMINI_UI_READY_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const selected = await evaluate<boolean>(
         cdp,
         `(() => {
+          const targets = [${JSON.stringify(presetName.toLowerCase())}, "cinematic"];
           const visible = (element) => {
             const style = window.getComputedStyle(element);
             const rect = element.getBoundingClientRect();
-            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 20 && rect.height > 20;
           };
-          const patterns = ["images", "image", "hình ảnh", "ảnh", "create image", "create images", "tạo hình ảnh", "tạo ảnh"];
-          const elements = [...document.querySelectorAll('button, a, [role="menuitem"], [role="option"]')];
-          const target = elements.find((element) => {
-            if (!visible(element)) return false;
-            const value = String(element.getAttribute("aria-label") || "") + " " + String(element.textContent || "");
-            const normalized = value.replace(/\\s+/g, " ").trim().toLowerCase();
-            return patterns.some((pattern) => normalized === pattern || normalized.includes(pattern));
-          });
+          const label = (element) => [
+            element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent
+          ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+
+          const textNodes = [...document.querySelectorAll('button, [role="button"], [role="option"], [role="radio"], [tabindex], div, span')]
+            .filter((element) => visible(element) && targets.some((target) => label(element) === target));
+          const clickables = textNodes.map((element) =>
+            element.closest('button, [role="button"], [role="option"], [role="radio"], [tabindex]') || element
+          );
+          const target = clickables.sort((a, b) => {
+            const ra = a.getBoundingClientRect();
+            const rb = b.getBoundingClientRect();
+            return ra.width * ra.height - rb.width * rb.height;
+          })[0];
           if (!target) return false;
+          const state = [
+            target.getAttribute("aria-pressed"), target.getAttribute("aria-selected"),
+            target.getAttribute("data-state"), target.getAttribute("data-selected")
+          ].filter(Boolean).join(" ").toLowerCase();
+          if (state.includes("true") || state.includes("active") || state.includes("checked")) return true;
           target.click();
           return true;
         })()`,
       );
-
-    if (await clickImages()) {
-      await delay(500);
-      return;
+      if (selected) {
+        await delay(500);
+        return;
+      }
+      await delay(250);
     }
-    await evaluate(
-      cdp,
-      `(() => {
-        const visible = (element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-        };
-        const patterns = ["menu", "main menu", "trình đơn", "menu chính"];
-        const buttons = [...document.querySelectorAll('button')];
-        const menu = buttons.find((button) => {
-          if (!visible(button)) return false;
-          const value = String(button.getAttribute("aria-label") || "") + " " + String(button.textContent || "");
-          const normalized = value.trim().toLowerCase();
-          return patterns.some((pattern) => normalized === pattern || normalized.includes(pattern));
-        });
-        if (menu) menu.click();
-        return Boolean(menu);
-      })()`,
+
+    throw geminiError(
+      "GEMINI_IMAGE_PRESET_NOT_FOUND",
+      `NarrativeX could not find Gemini image preset "${presetName}".`,
     );
-    await delay(500);
-    await clickImages();
-    await delay(500);
   }
 
   private async attachReferences(
@@ -712,9 +794,7 @@ export class GeminiWebAutomation {
     const deadline = Date.now() + REFERENCE_UPLOAD_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const snapshot = await this.attachmentSnapshot(cdp);
-      if (snapshot.error) {
-        throw geminiError("GEMINI_REFERENCE_UPLOAD_FAILED", snapshot.error);
-      }
+      if (snapshot.error) throw geminiError("GEMINI_REFERENCE_UPLOAD_FAILED", snapshot.error);
       if (snapshot.attachmentCount >= before.attachmentCount + references.length) return;
       if (snapshot.sendEnabled && Date.now() + 2_000 >= deadline) return;
       await delay(250);
@@ -809,8 +889,7 @@ export class GeminiWebAutomation {
         };
         const attachmentSelectors = [
           '[aria-label*="remove" i]', '[aria-label*="attachment" i]', '[aria-label*="preview" i]',
-          '[data-test-id*="attachment" i]', '[data-testid*="attachment" i]',
-          'img[src^="blob:"]'
+          '[data-test-id*="attachment" i]', '[data-testid*="attachment" i]', 'img[src^="blob:"]'
         ];
         const attachments = new Set();
         for (const selector of attachmentSelectors) {
@@ -844,9 +923,16 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const candidates = [...document.querySelectorAll('textarea, [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
+        const candidates = [...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
           .filter((element) => visible(element));
-        const editor = candidates.at(-1);
+        const score = (element) => {
+          const value = [element.getAttribute("placeholder"), element.getAttribute("aria-label")]
+            .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+          if (value.includes("mô tả hình ảnh") || value.includes("describe your image")) return 100;
+          if (element.getAttribute("role") === "textbox") return 20;
+          return 0;
+        };
+        const editor = candidates.sort((a, b) => score(b) - score(a)).at(0);
         if (!editor) return false;
         editor.focus();
         if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
@@ -862,7 +948,7 @@ export class GeminiWebAutomation {
       })()`,
     );
     if (!inserted) {
-      throw geminiError("GEMINI_UI_CHANGED", "NarrativeX could not find the Gemini prompt editor.");
+      throw geminiError("GEMINI_UI_CHANGED", "NarrativeX could not find the Gemini image prompt editor.");
     }
 
     await delay(300);
@@ -877,10 +963,9 @@ export class GeminiWebAutomation {
         const patterns = ["send", "submit", "gửi"];
         const button = [...document.querySelectorAll('button')].find((candidate) => {
           if (!visible(candidate) || candidate.disabled) return false;
-          const value = String(candidate.getAttribute("aria-label") || "") + " " +
-            String(candidate.getAttribute("title") || "") + " " + String(candidate.textContent || "");
-          const normalized = value.trim().toLowerCase();
-          return patterns.some((pattern) => normalized === pattern || normalized.includes(pattern));
+          const value = [candidate.getAttribute("aria-label"), candidate.getAttribute("title"), candidate.textContent]
+            .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+          return patterns.some((pattern) => value === pattern || value.includes(pattern));
         });
         if (!button) return false;
         button.click();
@@ -888,6 +973,7 @@ export class GeminiWebAutomation {
       })()`,
     );
     if (clicked) return;
+
     await cdp.send("Input.dispatchKeyEvent", {
       type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
@@ -903,18 +989,15 @@ export class GeminiWebAutomation {
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width >= 96 && rect.height >= 96;
         };
-        const generatedImages = [...document.querySelectorAll('generated-image')];
-        const imageSources = generatedImages.map((container) => {
-          const image = [...container.querySelectorAll('img')]
-            .find((candidate) => visible(candidate) && candidate.naturalWidth >= 256 && candidate.naturalHeight >= 256);
-          return image ? image.currentSrc || image.src || "" : "";
-        });
+        const images = [...document.querySelectorAll(${JSON.stringify(GEMINI_GENERATED_IMAGE_SELECTOR)})]
+          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
+        const imageSources = [...new Set(images.map((image) => image.currentSrc || image.src || "").filter(Boolean))];
         const text = (document.body?.innerText || "").toLowerCase();
         const blocked = text.includes("can't generate") || text.includes("cannot generate") ||
           text.includes("không thể tạo") || text.includes("unable to generate");
-        return { generatedImageCount: generatedImages.length, imageSources, blocked };
+        return { generatedImageCount: imageSources.length, imageSources, blocked };
       })()`,
     );
   }
@@ -929,7 +1012,7 @@ export class GeminiWebAutomation {
           "Gemini did not generate an image for this Visual Beat.",
         );
       }
-      if (hasCompletedGeminiGeneration(baseline, state)) {
+      if (hasCompletedGeminiGeneration(baseline, state) || hasFreshImageSource(baseline, state)) {
         await delay(800);
         return;
       }
@@ -939,29 +1022,24 @@ export class GeminiWebAutomation {
   }
 
   private async freshDomImages(cdp: CdpClient, baseline: GenerationSnapshot): Promise<DomImage[]> {
-    const baselineCount = baseline.generatedImageCount;
     return evaluate<DomImage[]>(
       cdp,
       `(() => {
-        const containers = [...document.querySelectorAll('generated-image')].slice(${baselineCount});
-        return containers.flatMap((container) => [...container.querySelectorAll('img')])
+        const baseline = new Set(${JSON.stringify(baseline.imageSources)});
+        return [...document.querySelectorAll(${JSON.stringify(GEMINI_GENERATED_IMAGE_SELECTOR)})]
           .filter((image) => {
             const style = window.getComputedStyle(image);
             const rect = image.getBoundingClientRect();
             const src = image.currentSrc || image.src || "";
-            return src && style.display !== "none" && style.visibility !== "hidden" &&
-              rect.width >= 128 && rect.height >= 128 && image.naturalWidth >= 256 && image.naturalHeight >= 256;
+            return src && !baseline.has(src) && style.display !== "none" && style.visibility !== "hidden" &&
+              rect.width >= 96 && rect.height >= 96 && image.naturalWidth >= 256 && image.naturalHeight >= 256;
           })
           .map((image) => ({ src: image.currentSrc || image.src || "", area: image.naturalWidth * image.naturalHeight }));
       })()`,
     );
   }
 
-  private async persistCapturedImage(
-    bytes: Buffer,
-    mimeType: string,
-    url: string,
-  ): Promise<string | null> {
+  private async persistCapturedImage(bytes: Buffer, mimeType: string, url: string): Promise<string | null> {
     const extension = imageExtensionForMimeType(mimeType) ?? extensionForUrl(url);
     if (!extension || bytes.length < MIN_CAPTURE_BYTES || bytes.length > MAX_CAPTURE_BYTES) return null;
     const sourcePath = join(
@@ -973,13 +1051,25 @@ export class GeminiWebAutomation {
     return file.isFile() && file.size === bytes.length ? sourcePath : null;
   }
 
-  private async triggerDownload(cdp: CdpClient, baseline: GenerationSnapshot): Promise<void> {
-    if (await this.downloadVisibleGeneratedImage(cdp, baseline)) return;
-    if (await this.captureVisibleGeneratedImage(cdp, baseline)) return;
+  private async captureGeneratedImageFallback(
+    cdp: CdpClient,
+    baseline: GenerationSnapshot,
+    beforeDownload: Set<string>,
+  ): Promise<string> {
+    if (await this.downloadVisibleGeneratedImage(cdp, baseline)) {
+      try {
+        return await this.waitForDownloadedImage(beforeDownload);
+      } catch {
+        // Gemini may block an in-page fetch. Screenshot fallback below still keeps the beat usable.
+      }
+    }
+
+    const screenshotPath = await this.captureVisibleGeneratedImage(cdp, baseline);
+    if (screenshotPath) return screenshotPath;
 
     throw geminiError(
       "GEMINI_IMAGE_CAPTURE_FAILED",
-      "Gemini generated an image, but NarrativeX could not download or capture it after network capture fallback.",
+      "Gemini generated an image, but NarrativeX could not download or capture it.",
     );
   }
 
@@ -987,27 +1077,29 @@ export class GeminiWebAutomation {
     cdp: CdpClient,
     baseline: GenerationSnapshot,
   ): Promise<boolean> {
-    const baselineCount = baseline.generatedImageCount;
-    return await evaluate<boolean>(
+    return evaluate<boolean>(
       cdp,
       `(async () => {
+        const baseline = new Set(${JSON.stringify(baseline.imageSources)});
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width >= 96 && rect.height >= 96;
         };
-        const containers = [...document.querySelectorAll("generated-image")].slice(${baselineCount});
-        const images = containers.flatMap((container) => [...container.querySelectorAll("img")])
-          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
+        const images = [...document.querySelectorAll(${JSON.stringify(GEMINI_GENERATED_IMAGE_SELECTOR)})]
+          .filter((image) => {
+            const src = image.currentSrc || image.src || "";
+            return src && !baseline.has(src) && visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256;
+          });
         const image = images.at(-1);
         if (!image) return false;
-
         const source = image.currentSrc || image.src || "";
         if (!source || source.startsWith("data:")) return false;
         try {
           const response = await fetch(source, { credentials: "include" });
           if (!response.ok) return false;
           const blob = await response.blob();
+          if (blob.size < ${MIN_CAPTURE_BYTES}) return false;
           const mime = blob.type || "image/png";
           const extension = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png";
           const objectUrl = URL.createObjectURL(blob);
@@ -1030,25 +1122,21 @@ export class GeminiWebAutomation {
   private async captureVisibleGeneratedImage(
     cdp: CdpClient,
     baseline: GenerationSnapshot,
-  ): Promise<boolean> {
-    const baselineCount = baseline.generatedImageCount;
-    const clip = await evaluate<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      scale: number;
-    } | null>(
+  ): Promise<string | null> {
+    const clip = await evaluate<{ x: number; y: number; width: number; height: number; scale: number } | null>(
       cdp,
       `(() => {
+        const baseline = new Set(${JSON.stringify(baseline.imageSources)});
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width >= 96 && rect.height >= 96;
         };
-        const containers = [...document.querySelectorAll("generated-image")].slice(${baselineCount});
-        const images = containers.flatMap((container) => [...container.querySelectorAll("img")])
-          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
+        const images = [...document.querySelectorAll(${JSON.stringify(GEMINI_GENERATED_IMAGE_SELECTOR)})]
+          .filter((image) => {
+            const src = image.currentSrc || image.src || "";
+            return src && !baseline.has(src) && visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256;
+          });
         const image = images.at(-1);
         if (!image) return null;
         image.scrollIntoView({ block: "center", inline: "center" });
@@ -1062,7 +1150,7 @@ export class GeminiWebAutomation {
         };
       })()`,
     );
-    if (!clip || clip.width <= 0 || clip.height <= 0) return false;
+    if (!clip || clip.width <= 0 || clip.height <= 0) return null;
 
     const screenshot = await cdp.send<{ data?: string }>("Page.captureScreenshot", {
       format: "png",
@@ -1070,11 +1158,13 @@ export class GeminiWebAutomation {
       captureBeyondViewport: true,
       clip,
     });
-    if (!screenshot?.data) return false;
+    if (!screenshot?.data) return null;
 
     const fallbackPath = join(this.downloadDirectory, `gemini-image-fallback-${Date.now()}.png`);
-    await writeFile(fallbackPath, Buffer.from(screenshot.data, "base64"));
-    return true;
+    const bytes = Buffer.from(screenshot.data, "base64");
+    if (bytes.length < MIN_CAPTURE_BYTES) return null;
+    await writeFile(fallbackPath, bytes);
+    return fallbackPath;
   }
 
   private async snapshotDownloads(): Promise<Set<string>> {
@@ -1095,7 +1185,7 @@ export class GeminiWebAutomation {
         const extension = extname(candidate).toLowerCase();
         if (!IMAGE_EXTENSIONS.has(extension) || candidate.endsWith(".crdownload")) continue;
         const file = await stat(candidate);
-        if (!file.isFile() || file.size <= 0) continue;
+        if (!file.isFile() || file.size < MIN_CAPTURE_BYTES) continue;
         if (candidate === stablePath && file.size === stableSize) return candidate;
         stablePath = candidate;
         stableSize = file.size;
@@ -1136,6 +1226,11 @@ export class GeminiWebAutomation {
   }
 }
 
+function hasFreshImageSource(baseline: GenerationSnapshot, current: GenerationSnapshot): boolean {
+  const previous = new Set(baseline.imageSources.filter(Boolean));
+  return current.imageSources.some((source) => source && !previous.has(source));
+}
+
 async function readNetworkBody(cdp: CdpClient, requestId: string): Promise<Buffer | null> {
   try {
     const result = await cdp.send<ResponseBody>("Network.getResponseBody", { requestId });
@@ -1174,7 +1269,7 @@ async function evaluate<T>(cdp: CdpClient, expression: string): Promise<T> {
 }
 
 async function findFreePort(): Promise<number> {
-  return await new Promise<number>((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     const server = createServer();
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {

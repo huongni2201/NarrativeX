@@ -17,8 +17,8 @@ export function findGeminiModelCandidateIndex(
   candidates: readonly GeminiModelCandidate[],
   modelName: string,
 ): number {
-  const target = normalizeModelText(modelName);
-  if (!target) return -1;
+  const targets = modelTargets(modelName);
+  if (!targets.length) return -1;
 
   let bestIndex = -1;
   let bestScore = -1;
@@ -27,9 +27,15 @@ export function findGeminiModelCandidateIndex(
     if (role && !MODEL_OPTION_ROLES.has(role)) return;
 
     const values = [candidate.ariaLabel, candidate.title, candidate.label].map(normalizeModelText);
-    const exactScore = values.findIndex((value) => value === target);
-    const prefixScore = values.findIndex((value) => value.startsWith(`${target} `));
-    const matchScore = exactScore >= 0 ? 100 - exactScore : prefixScore >= 0 ? 80 - prefixScore : -1;
+    let matchScore = -1;
+    for (const target of targets) {
+      const exactScore = values.findIndex((value) => value === target);
+      const prefixScore = values.findIndex((value) => value.startsWith(`${target} `));
+      matchScore = Math.max(
+        matchScore,
+        exactScore >= 0 ? 100 - exactScore : prefixScore >= 0 ? 80 - prefixScore : -1,
+      );
+    }
     if (matchScore < 0) return;
 
     const roleScore = role === "option" || role.startsWith("menuitem") || role === "radio" ? 10 : 0;
@@ -41,6 +47,19 @@ export function findGeminiModelCandidateIndex(
   });
 
   return bestIndex;
+}
+
+function modelTargets(value: string): string[] {
+  const normalized = normalizeModelText(value);
+  if (!normalized) return [];
+  const targets = new Set([normalized]);
+  if (/\bpro\b/.test(normalized)) targets.add("pro");
+  if (/\bthinking\b/.test(normalized)) targets.add("thinking");
+  if (/\b(?:fast|flash)\b/.test(normalized)) {
+    targets.add("fast");
+    targets.add("flash");
+  }
+  return [...targets];
 }
 
 function normalizeModelText(value: string): string {
