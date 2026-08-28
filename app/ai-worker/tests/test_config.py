@@ -36,12 +36,12 @@ def test_r2_endpoint_is_none_without_endpoint_or_account() -> None:
     assert settings.resolved_r2_endpoint is None
 
 
-def test_r2_runtime_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MEDIA_STORAGE_MODE", "r2")
-    monkeypatch.setenv("R2_ACCOUNT_ID", "account-123")
+def test_project_media_local_dir_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROJECT_MEDIA_LOCAL_DIR", "/tmp/narrativex-project-media")
 
-    with pytest.raises(ValidationError, match="R2_ACCESS_KEY_ID"):
-        WorkerSettings()
+    settings = WorkerSettings()
+
+    assert settings.project_media_local_dir == "/tmp/narrativex-project-media"
 
 
 def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -51,11 +51,11 @@ def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         WorkerSettings()
 
 
-def test_tts_requires_r2_storage(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TTS_PROVIDER_MODE", "vieneu")
+def test_vieneu_does_not_require_project_media_r2() -> None:
+    settings = WorkerSettings(tts_provider_mode="vieneu")
 
-    with pytest.raises(ValidationError, match="MEDIA_STORAGE_MODE=r2"):
-        WorkerSettings()
+    assert settings.tts_provider_mode == "vieneu"
+    assert settings.project_media_local_dir
 
 
 def test_vieneu_voice_settings_are_available_without_provider_credentials() -> None:
@@ -138,24 +138,15 @@ def test_enabled_vertex_requires_gcs_staging_bucket() -> None:
         )
 
 
-def test_enabled_image_requires_r2_storage() -> None:
-    with pytest.raises(ValidationError, match="Image generation requires MEDIA_STORAGE_MODE=r2"):
-        WorkerSettings(
-            image_provider_mode="vertex",
-            vertex_project_id="project-123",
-            vertex_image_batch_gcs_bucket="image-batches",
-        )
+def test_enabled_image_uses_local_project_media_without_r2() -> None:
+    settings = WorkerSettings(
+        image_provider_mode="vertex",
+        vertex_project_id="project-123",
+        vertex_image_batch_gcs_bucket="image-batches",
+    )
 
-
-def test_enabled_image_requires_r2_credentials() -> None:
-    with pytest.raises(ValidationError, match="R2_ACCESS_KEY_ID"):
-        WorkerSettings(
-            image_provider_mode="vertex",
-            vertex_project_id="project-123",
-            vertex_image_batch_gcs_bucket="image-batches",
-            media_storage_mode="r2",
-            r2_account_id="account-123",
-        )
+    assert settings.image_provider_mode == "vertex"
+    assert settings.project_media_local_dir
 
 
 def test_disabled_image_provider_does_not_require_batch_bucket() -> None:
@@ -170,18 +161,15 @@ def test_production_image_worker_rejects_disabled_provider() -> None:
         WorkerSettings(worker_env="production", worker_roles="image-generation")
 
 
-def test_production_image_worker_accepts_real_provider_and_r2() -> None:
+def test_production_image_worker_accepts_real_provider_with_local_project_media() -> None:
     settings = WorkerSettings(
         worker_env="production",
         worker_roles="image-generation",
         image_provider_mode="vertex",
         vertex_project_id="project-123",
         vertex_image_batch_gcs_bucket="image-batches",
-        media_storage_mode="r2",
-        r2_account_id="account-123",
-        r2_access_key_id="access-key",
-        r2_secret_access_key="secret-key",
+        project_media_local_dir="/data/narrativex/projects",
     )
 
     assert settings.image_provider_mode == "vertex"
-    assert settings.media_storage_mode == "r2"
+    assert settings.project_media_local_dir == "/data/narrativex/projects"

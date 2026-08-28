@@ -20,24 +20,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** R2 upload workflow reserved for reusable account-owned voice references. */
 @Service
 public class MediaUploadUseCase {
-  private static final Map<String, Long> MAX_BYTES_BY_TYPE =
-      Map.of(
-          "AUDIO", 100L * 1024 * 1024, "IMAGE", 100L * 1024 * 1024, "VIDEO", 1_024L * 1024 * 1024);
-  private static final Map<String, Set<String>> CONTENT_TYPES_BY_TYPE =
-      Map.of(
-          "AUDIO",
-              Set.of(
-                  "audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg", "audio/mp4", "audio/webm"),
-          "IMAGE", Set.of("image/jpeg", "image/png", "image/webp", "image/gif"),
-          "VIDEO", Set.of("video/mp4", "video/webm", "video/quicktime"));
+  private static final long MAX_VOICE_REFERENCE_BYTES = 50L * 1024 * 1024;
+  private static final Map<String, String> ALLOWED_VOICE_CONTENT_TYPES =
+      Map.of("audio/mpeg", "mp3", "audio/wav", "wav", "audio/x-wav", "wav");
 
   private final CurrentUserId currentUserId;
   private final MediaUploadSessionRepository sessions;
@@ -57,7 +50,6 @@ public class MediaUploadUseCase {
         currentUserId, sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
   }
 
-  // Kept for focused unit tests and small embedders that do not load Spring configuration.
   public MediaUploadUseCase(
       CurrentUserId currentUserId,
       MediaUploadSessionRepository sessions,
@@ -91,7 +83,7 @@ public class MediaUploadUseCase {
   public UploadIntentView createIntent(
       CreateUploadIntentCommand request, String requestedIdempotencyKey) {
     String accountId = currentUserId.get();
-    validateRequest(request);
+    validateVoiceReferenceRequest(request);
     String idempotencyKey = normalizeIdempotencyKey(requestedIdempotencyKey);
     if (idempotencyKey != null) {
       UploadSession existing =
@@ -115,15 +107,15 @@ public class MediaUploadUseCase {
 
     Instant expiresAt = clock.instant().plus(storageProperties.uploadIntentTtl());
     UUID id = UuidV7.random();
-    String storageKey = "media/uploads/" + id;
+    String storageKey = voiceStorageKey(accountId, id);
     UploadSession session =
         sessions.create(
             new CreateUploadSession(
                 id,
                 accountId,
-                request.assetType(),
+                "AUDIO",
                 request.originalFilename().trim(),
-                request.contentType().trim().toLowerCase(),
+                normalize(request.contentType()),
                 request.expectedSizeBytes(),
                 request.expectedSha256(),
                 storageKey,
@@ -155,27 +147,40 @@ public class MediaUploadUseCase {
     return finalization.finalizeVerifiedObject(accountId, id, object);
   }
 
-  private static void validateRequest(CreateUploadIntentCommand request) {
-    String type =
-        request.assetType() == null ? "" : request.assetType().trim().toUpperCase(Locale.ROOT);
+  private static void validateVoiceReferenceRequest(CreateUploadIntentCommand request) {
+    String type = normalize(request.assetType()).toUpperCase(Locale.ROOT);
     String contentType = normalize(request.contentType());
-    if (!MAX_BYTES_BY_TYPE.containsKey(type)) {
-      throw new IllegalArgumentException("Unsupported asset type");
+    if (!"AUDIO".equals(type)) {
+      throw new IllegalArgumentException("R2 upload accepts voice reference audio only");
     }
-    if (request.expectedSizeBytes() <= 0
-        || request.expectedSizeBytes() > MAX_BYTES_BY_TYPE.get(type)) {
-      throw new IllegalArgumentException("Upload exceeds the server-authorized size limit");
+    if (!ALLOWED_VOICE_CONTENT_TYPES.containsKey(contentType)) {
+      throw new IllegalArgumentException("Content type is not allowed for a voice reference");
     }
-    if (!CONTENT_TYPES_BY_TYPE.get(type).contains(contentType)) {
-      throw new IllegalArgumentException("Content type is not allowed for this asset type");
+    if (request.expectedSizeBytes() <= 0 || request.expectedSizeBytes() > MAX_VOICE_REFERENCE_BYTES) {
+      throw new IllegalArgumentException("Voice reference exceeds the server-authorized size limit");
     }
     String filename = request.originalFilename() == null ? "" : request.originalFilename().trim();
     if (filename.isBlank()
         || filename.contains("/")
         || filename.contains("\\")
         || filename.indexOf('\0') >= 0) {
-      throw new IllegalArgumentException("Filename is invalid");
+      throw new IllegalArgumentException("Voice reference filename is invalid");
     }
+    String extension = ALLOWED_VOICE_CONTENT_TYPES.get(contentType);
+    if (!filename.toLowerCase(Locale.ROOT).endsWith("." + extension)) {
+      throw new IllegalArgumentException("Voice reference filename does not match content type");
+    }
+  }
+
+  private static String voiceStorageKey(String accountId, UUID uploadId) {
+    String safeAccount =
+        accountId == null
+            ? "unknown"
+            : accountId.trim().replaceAll("[^A-Za-z0-9._-]", "_");
+    if (safeAccount.isBlank()) {
+      throw new IllegalArgumentException("Authenticated account id is required for voice upload");
+    }
+    return "voices/" + safeAccount + "/uploads/" + uploadId;
   }
 
   private static String normalize(String value) {
@@ -221,9 +226,9 @@ public class MediaUploadUseCase {
   }
 
   private static boolean sameRequest(UploadSession session, CreateUploadIntentCommand request) {
-    return session.assetType().equals(request.assetType())
+    return session.assetType().equals("AUDIO")
         && session.originalFilename().equals(request.originalFilename().trim())
-        && session.contentType().equals(request.contentType().trim().toLowerCase())
+        && session.contentType().equals(normalize(request.contentType()))
         && session.expectedSize() == request.expectedSizeBytes()
         && session.expectedSha256().equals(request.expectedSha256());
   }

@@ -156,8 +156,6 @@ function registerVoiceReferenceUploadIpc(
       const bytes = await readFile(sourcePath);
       const checksumSha256 = createHash("sha256").update(bytes).digest("hex");
       const originalFilename = basename(sourcePath);
-      // Keep one key stable inside this upload attempt, but generate a new key when
-      // the user explicitly retries the same file after a rejected/expired session.
       const idempotencyKey = `desktop-voice-${randomUUID()}`;
       const api = apiProvider();
       const csrf = await backendData<CsrfTokenData>(
@@ -173,7 +171,7 @@ function registerVoiceReferenceUploadIpc(
 
       const intent = await backendData<UploadIntentData>(
         api,
-        "/api/v1/assets/upload-intents",
+        "/api/v1/voice-references/upload-intents",
         {
           method: "POST",
           headers: { ...mutationHeaders, "Idempotency-Key": idempotencyKey },
@@ -210,7 +208,7 @@ function registerVoiceReferenceUploadIpc(
 
       const finalized = await backendData<UploadFinalizeData>(
         api,
-        `/api/v1/assets/upload-intents/${encodeURIComponent(intent.id)}/finalize`,
+        `/api/v1/voice-references/upload-intents/${encodeURIComponent(intent.id)}/finalize`,
         {
           method: "POST",
           headers: mutationHeaders,

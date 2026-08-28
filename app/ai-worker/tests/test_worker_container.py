@@ -54,18 +54,37 @@ def test_compose_selects_only_active_worker_targets() -> None:
     assert "worker-render" not in compose
 
 
-def test_narration_worker_receives_the_shared_database_environment() -> None:
-    compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
-    service_start = compose_lines.index("  narration-worker:") + 1
-    narration_service_lines: list[str] = []
+def _service(compose_lines: list[str], service_name: str) -> str:
+    service_start = compose_lines.index(f"  {service_name}:") + 1
+    service_lines: list[str] = []
     for line in compose_lines[service_start:]:
         if line.startswith("  ") and not line.startswith("    "):
             break
-        narration_service_lines.append(line)
-    narration_service = "\n".join(narration_service_lines)
+        service_lines.append(line)
+    return "\n".join(service_lines)
+
+
+def test_project_media_services_share_one_local_root() -> None:
+    compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
+    backend_service = _service(compose_lines, "backend")
+    ai_service = _service(compose_lines, "ai-worker")
+    narration_service = _service(compose_lines, "narration-worker")
+
+    for service in (backend_service, ai_service, narration_service):
+        assert "PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media" in service
+        assert "target: /data/narrativex/project-media" in service
+        assert "source: ${PROJECT_MEDIA_HOST_DIR:?Set PROJECT_MEDIA_HOST_DIR in .env}" in service
+        assert "MEDIA_STORAGE_MODE" not in service
+
+
+def test_narration_worker_keeps_r2_only_for_custom_voice_references() -> None:
+    compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
+    narration_service = _service(compose_lines, "narration-worker")
 
     assert "<<: *worker-database-environment" in narration_service
     assert "WORKER_ROLES: narration" in narration_service
     assert "TTS_PROVIDER_MODE: vieneu" in narration_service
-    assert "MEDIA_STORAGE_MODE: r2" in narration_service
+    assert "R2_ACCOUNT_ID:" in narration_service
+    assert "R2_ACCESS_KEY_ID:" in narration_service
+    assert "R2_SECRET_ACCESS_KEY:" in narration_service
     assert "VIENEU_REFERENCE_AUDIO_PATH: /run/narrativex/voices/reference.wav" in narration_service

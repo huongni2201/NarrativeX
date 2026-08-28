@@ -42,7 +42,8 @@ public class SecurityConfig {
     "/api/v1/auth/desktop/guest",
     "/api/v1/local-devices/pair",
     "/api/v1/local-devices/heartbeat",
-    "/api/v1/local-devices/project-renders/**"
+    "/api/v1/local-devices/project-renders/**",
+    "/api/v1/local-media/**"
   };
 
   private static final String[] GUEST_WORKSPACE_POST_PATHS = {

@@ -16,7 +16,7 @@ def isolate_settings_environment(
         "TTS_PROVIDER_MODE",
         "NARRATION_PROVIDER_MODE",
         "GOOGLE_TTS_PROJECT_ID",
-        "MEDIA_STORAGE_MODE",
+        "PROJECT_MEDIA_LOCAL_DIR",
         "R2_ACCOUNT_ID",
         "R2_ACCESS_KEY_ID",
         "R2_SECRET_ACCESS_KEY",

@@ -68,6 +68,8 @@ class MediaStorage(Protocol):
 
 
 class InMemoryMediaStorage:
+    """Test-only immutable storage implementation."""
+
     def __init__(self) -> None:
         self._objects: dict[str, tuple[StoredMediaAsset, bytes]] = {}
 
@@ -124,10 +126,9 @@ class InMemoryMediaStorage:
         with file_path.open("rb") as source:
             while chunk := source.read(1024 * 1024):
                 content_buffer.extend(chunk)
-        content = bytes(content_buffer)
         return await self.put_immutable(
             storage_key=storage_key,
-            content=content,
+            content=bytes(content_buffer),
             checksum=checksum,
             mime_type=mime_type,
             metadata=metadata,
@@ -172,7 +173,7 @@ class InMemoryMediaStorage:
 
 
 class LocalMediaStorage:
-    """Filesystem-backed immutable media store for deterministic local/E2E execution."""
+    """Filesystem-backed immutable store for project working media."""
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).resolve()
@@ -269,19 +270,24 @@ class LocalMediaStorage:
 def _mime_for_path(path: Path) -> str:
     return {
         ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
         ".png": "image/png",
         ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
     }.get(path.suffix.lower(), "application/octet-stream")
 
 
 class S3MediaStorage:
-    """Cloudflare R2 immutable media storage through its S3-compatible API."""
+    """Cloudflare R2 immutable storage reserved for account-owned voice references."""
 
-    logger = logging.getLogger("narrativex.worker.narration.storage")
+    logger = logging.getLogger("narrativex.worker.voice-reference.storage")
 
     def __init__(self, settings: WorkerSettings) -> None:
-        if settings.media_storage_mode != "r2":
-            raise ValueError("S3MediaStorage is R2-only and requires MEDIA_STORAGE_MODE=r2")
+        settings.require_voice_reference_r2()
         endpoint = settings.resolved_r2_endpoint
         assert endpoint is not None
         assert settings.r2_access_key_id is not None
@@ -382,7 +388,7 @@ class S3MediaStorage:
         object_metadata["sha256"] = checksum
         size_bytes = file_path.stat().st_size
         self.logger.info(
-            "R2 upload started storageKey=%s sizeBytes=%s checksum=%s",
+            "R2 voice-reference upload started storageKey=%s sizeBytes=%s checksum=%s",
             storage_key,
             size_bytes,
             checksum,
@@ -404,34 +410,8 @@ class S3MediaStorage:
                 raise MediaAssetConflictError(
                     f"immutable storage conflict for {storage_key}"
                 ) from exception
-            self.logger.info(
-                "R2 upload reused existing immutable object storageKey=%s sizeBytes=%s checksum=%s",
-                storage_key,
-                existing.size_bytes,
-                existing.checksum,
-            )
             return existing
-        except Exception:
-            self.logger.exception(
-                "R2 upload failed storageKey=%s sizeBytes=%s checksum=%s",
-                storage_key,
-                size_bytes,
-                checksum,
-            )
-            raise
-        self.logger.info(
-            "R2 upload completed storageKey=%s sizeBytes=%s checksum=%s",
-            storage_key,
-            size_bytes,
-            checksum,
-        )
-        return StoredMediaAsset(
-            storage_key,
-            checksum,
-            size_bytes,
-            mime_type,
-            object_metadata,
-        )
+        return StoredMediaAsset(storage_key, checksum, size_bytes, mime_type, object_metadata)
 
     def _put_file_sync(
         self,

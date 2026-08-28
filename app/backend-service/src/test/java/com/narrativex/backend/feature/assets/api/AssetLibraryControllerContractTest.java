@@ -11,7 +11,6 @@ import com.narrativex.backend.feature.assets.api.request.RegisterLocalAssetReque
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.application.usecase.AssetLibraryUseCase;
-import com.narrativex.backend.feature.assets.application.usecase.MediaUploadUseCase;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -19,10 +18,9 @@ import org.springframework.http.HttpStatus;
 
 class AssetLibraryControllerContractTest {
   private final AssetLibraryUseCase useCase = mock(AssetLibraryUseCase.class);
-  private final MediaUploadUseCase mediaUploadUseCase = mock(MediaUploadUseCase.class);
   private final MediaStorageAccess mediaStorageAccess = mock(MediaStorageAccess.class);
   private final AssetLibraryController controller =
-      new AssetLibraryController(useCase, mediaUploadUseCase, mediaStorageAccess);
+      new AssetLibraryController(useCase, mediaStorageAccess);
 
   @Test
   void registerLocalReturnsCreatedEnvelopeAndForwardsRequest() {

@@ -120,42 +120,36 @@ class WorkerSettings(BaseSettings):
     vieneu_force_reenroll: bool = False
     vieneu_apply_watermark: bool = False
 
-    media_storage_mode: Literal["disabled", "local", "r2"] = Field(
-        default="disabled",
-        validation_alias=AliasChoices("MEDIA_STORAGE_MODE"),
-        description=(
-            "Durable generated-media storage mode; Cloudflare R2 is the object-store runtime"
-        ),
+    project_media_local_dir: str = Field(
+        default="/data/narrativex/project-media",
+        validation_alias=AliasChoices("PROJECT_MEDIA_LOCAL_DIR"),
+        description="Shared local filesystem root for generated and imported project media",
     )
     r2_account_id: str | None = Field(
         default=None,
         validation_alias=AliasChoices("R2_ACCOUNT_ID"),
-        description="Cloudflare account ID used to derive the R2 S3-compatible endpoint",
+        description="Cloudflare account ID used to derive the voice-reference R2 endpoint",
     )
     r2_access_key_id: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("R2_ACCESS_KEY_ID"),
-        description="Cloudflare R2 API access key ID",
+        description="Cloudflare R2 API access key ID for voice-reference storage",
     )
     r2_secret_access_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("R2_SECRET_ACCESS_KEY"),
-        description="Cloudflare R2 API secret access key",
+        description="Cloudflare R2 API secret access key for voice-reference storage",
     )
     r2_bucket: str = Field(
         default="narrativex-dev",
         min_length=1,
         validation_alias=AliasChoices("R2_BUCKET", "R2_BUCKET_NAME"),
-        description="R2 bucket that owns durable generated media for this environment",
+        description="R2 bucket reserved for account-owned voice-reference assets",
     )
     r2_endpoint: str | None = Field(
         default=None,
         validation_alias=AliasChoices("R2_ENDPOINT", "R2_ENDPOINT_URL"),
-        description="Optional R2 endpoint override; normally derived from r2_account_id",
-    )
-    media_local_dir: str = Field(
-        default="/tmp/narrativex-e2e/media",
-        validation_alias=AliasChoices("MEDIA_LOCAL_DIR"),
+        description="Optional voice-reference R2 endpoint override",
     )
 
     wan_video_enabled: bool = False
@@ -175,13 +169,31 @@ class WorkerSettings(BaseSettings):
             raise ValueError("Unsupported WORKER_ROLES: " + ", ".join(sorted(unknown)))
         return ",".join(sorted(roles))
 
+    @field_validator("project_media_local_dir")
+    @classmethod
+    def validate_project_media_local_dir(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("PROJECT_MEDIA_LOCAL_DIR must not be blank")
+        return normalized
+
     def has_worker_role(self, role: str) -> bool:
         return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
+
+    @property
+    def media_storage_mode(self) -> Literal["local"]:
+        """Compatibility view for old worker internals; project media is hard-wired local."""
+        return "local"
+
+    @property
+    def media_local_dir(self) -> str:
+        """Compatibility alias while narration internals migrate to the explicit local root."""
+        return self.project_media_local_dir
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def resolved_r2_endpoint(self) -> str | None:
-        """Return the explicit R2 endpoint or derive the canonical Cloudflare endpoint."""
+        """Return the explicit voice-reference R2 endpoint or derive Cloudflare's endpoint."""
         if self.r2_endpoint and self.r2_endpoint.strip():
             return self.r2_endpoint.strip().rstrip("/")
         if self.r2_account_id and self.r2_account_id.strip():
@@ -194,7 +206,7 @@ class WorkerSettings(BaseSettings):
         return self.vertex_image_batch_gcs_prefix.strip().strip("/")
 
     @model_validator(mode="after")
-    def validate_narration_runtime(self) -> "WorkerSettings":
+    def validate_runtime(self) -> "WorkerSettings":
         if self.worker_env.strip().lower() in {"production", "prod"}:
             self._validate_production_runtime()
         if self.image_provider_mode == "vertex" and not self.vertex_project_id:
@@ -222,32 +234,27 @@ class WorkerSettings(BaseSettings):
                 raise ValueError("VIENEU_VOICE_ID must not be blank")
             if not self.vieneu_voice_name.strip():
                 raise ValueError("VIENEU_VOICE_NAME must not be blank")
-        if self.image_provider_mode not in {"disabled", "fake"} and self.media_storage_mode != "r2":
-            raise ValueError("Image generation requires MEDIA_STORAGE_MODE=r2")
-        if self.media_storage_mode == "r2":
-            missing: list[str] = []
-            if not self.resolved_r2_endpoint:
-                missing.append("R2_ACCOUNT_ID or R2_ENDPOINT")
-            if (
-                self.r2_access_key_id is None
-                or not self.r2_access_key_id.get_secret_value().strip()
-            ):
-                missing.append("R2_ACCESS_KEY_ID")
-            if (
-                self.r2_secret_access_key is None
-                or not self.r2_secret_access_key.get_secret_value().strip()
-            ):
-                missing.append("R2_SECRET_ACCESS_KEY")
-            if not self.r2_bucket.strip():
-                missing.append("R2_BUCKET")
-            if missing:
-                raise ValueError("Missing R2 settings: " + ", ".join(missing))
-        if self.tts_provider_mode not in {"disabled", "fake"} and self.media_storage_mode != "r2":
-            raise ValueError("External narration TTS requires durable MEDIA_STORAGE_MODE=r2")
         return self
 
+    def require_voice_reference_r2(self) -> None:
+        """Validate R2 settings only where a voice-reference R2 client is constructed."""
+        missing: list[str] = []
+        if not self.resolved_r2_endpoint:
+            missing.append("R2_ACCOUNT_ID or R2_ENDPOINT")
+        if self.r2_access_key_id is None or not self.r2_access_key_id.get_secret_value().strip():
+            missing.append("R2_ACCESS_KEY_ID")
+        if (
+            self.r2_secret_access_key is None
+            or not self.r2_secret_access_key.get_secret_value().strip()
+        ):
+            missing.append("R2_SECRET_ACCESS_KEY")
+        if not self.r2_bucket.strip():
+            missing.append("R2_BUCKET")
+        if missing:
+            raise ValueError("Missing voice-reference R2 settings: " + ", ".join(missing))
+
     def _validate_production_runtime(self) -> None:
-        """Prevent a production worker container from silently selecting test/local adapters."""
+        """Prevent a production worker container from silently selecting test adapters."""
         errors: list[str] = []
         if self.has_worker_role("analysis") and self.provider_mode != "vertex":
             errors.append("AI_PROVIDER_MODE=vertex is required for production analysis")
@@ -255,10 +262,6 @@ class WorkerSettings(BaseSettings):
             errors.append("IMAGE_PROVIDER_MODE=vertex is required for production image generation")
         if self.has_worker_role("narration") and self.tts_provider_mode != "vieneu":
             errors.append("TTS_PROVIDER_MODE=vieneu is required for production narration")
-        if (
-            self.has_worker_role("image-generation") or self.has_worker_role("narration")
-        ) and self.media_storage_mode != "r2":
-            errors.append("MEDIA_STORAGE_MODE=r2 is required for production media workers")
         if errors:
             raise ValueError("Invalid production worker configuration: " + "; ".join(errors))
 

@@ -20,13 +20,10 @@ from narrativex_worker.image_generation_runner import (
     ImageGenerationRunner,
     ImageGenerationUnknownError,
 )
-from narrativex_worker.narration.storage import LocalMediaStorage, MediaStorage, S3MediaStorage
+from narrativex_worker.narration.storage import LocalMediaStorage, MediaStorage
 from narrativex_worker.observability import PipelineContext, PipelineMetrics
 from narrativex_worker.providers.factory import create_image_provider
-from narrativex_worker.providers.image import (
-    ImageBatchItem,
-    ImageBatchOperation,
-)
+from narrativex_worker.providers.image import ImageBatchItem, ImageBatchOperation
 from narrativex_worker.providers.vertex_image import (
     VertexImageProviderError,
     VertexImageSubmissionUnknownError,
@@ -51,7 +48,7 @@ class ImageGenerationWorkerRunner:
         self.repository = repository or ImageGenerationRepository(
             settings.database_url, settings.lease_seconds, settings
         )
-        self.storage = storage or _configured_storage(settings)
+        self.storage = storage or LocalMediaStorage(settings.project_media_local_dir)
         self.provider = create_image_provider(settings, reference_store=self.storage)
         self._running = False
         self._tasks: set[asyncio.Task[None]] = set()
@@ -73,8 +70,6 @@ class ImageGenerationWorkerRunner:
         if dry_run:
             self.logger.info("Image generation worker dry run completed")
             return
-        if self.storage is None:
-            raise RuntimeError("Image generation requires configured media storage")
         await self.repository.connect()
         self._running = True
         try:
@@ -176,7 +171,6 @@ class ImageGenerationWorkerRunner:
             )
             await self.repository.fail_provider_operation(operation, "IMAGE_CIRCUIT_BREAKER_OPEN")
             return
-        # This is the final DB-side lease fence before crossing the paid provider boundary.
         await self.repository.assert_lease(job)
         try:
             provider_operation = await self.provider.submit_batch(items)
@@ -193,9 +187,6 @@ class ImageGenerationWorkerRunner:
                 "Image batch submission failed without a classified provider outcome operation=%s",
                 operation.id,
             )
-            # Once submit_batch has been entered, a generic exception is ambiguous: the provider
-            # may have accepted the request before the client failed. Keep the durable UNKNOWN
-            # fence recoverable instead of creating a false terminal failure.
             self._record_provider_failure(normalize_error(exception))
             await self.repository.mark_unknown(operation, normalize_error(exception))
             return
@@ -235,8 +226,6 @@ class ImageGenerationWorkerRunner:
         await self.repository.fail_provider_operation(operation, error)
 
     async def _reconcile_due(self) -> None:
-        if self.storage is None:
-            return
         for durable in await self.repository.due_operations(self.settings.worker_concurrency):
             operation = ImageBatchOperation(
                 provider_key=durable.provider_key,
@@ -315,23 +304,10 @@ class ImageGenerationWorkerRunner:
                 raise ImageGenerationLeaseLostError("Image generation lease was lost")
 
 
-def _configured_storage(settings: WorkerSettings) -> MediaStorage | None:
-    if settings.media_storage_mode == "local":
-        return LocalMediaStorage(settings.media_local_dir)
-    if settings.media_storage_mode == "r2":
-        return S3MediaStorage(settings)
-    return None
-
-
 def _partition_batches(
     items: list[ImageBatchItem], max_items: int
 ) -> tuple[tuple[ImageBatchItem, ...], ...]:
-    """Keep duplicate provider request bodies in separate batches.
-
-    Vertex's JSONL response may echo identical instances without a stable item identity. A
-    deterministic split is safer than positional assignment and still batches all unique bodies.
-    Character reference identity is part of the request body and therefore part of this key.
-    """
+    """Keep duplicate provider request bodies in separate batches."""
     batches: list[tuple[ImageBatchItem, ...]] = []
     current: list[ImageBatchItem] = []
     identities: set[tuple[object, ...]] = set()

@@ -71,6 +71,7 @@ narrativex:
       model: ${VERTEX_GEMINI_MODEL:gemini-2.5-flash}
   storage:
     upload-intent-ttl: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:15m}
+    project-media-local-dir: ${PROJECT_MEDIA_LOCAL_DIR:/data/narrativex/project-media}
     r2:
       account-id: ${R2_ACCOUNT_ID:}
       access-key-id: ${R2_ACCESS_KEY_ID:}

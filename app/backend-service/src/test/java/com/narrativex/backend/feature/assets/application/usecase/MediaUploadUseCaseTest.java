@@ -75,7 +75,7 @@ class MediaUploadUseCaseTest {
   }
 
   @Test
-  void createIntentGeneratesStorageKeyAndPersistsSessionBeforeReturningUrl() {
+  void createIntentGeneratesAccountScopedVoiceStorageKeyAndPersistsSessionBeforeReturningUrl() {
     CreateUploadIntentCommand request = request();
     when(sessions.create(any()))
         .thenAnswer(invocation -> session(invocation.getArgument(0, CreateUploadSession.class)));
@@ -89,11 +89,34 @@ class MediaUploadUseCaseTest {
 
     UploadIntentView response = useCase.createIntent(request, "retry-1");
 
-    assertThat(response.storageKey()).startsWith("media/uploads/");
+    assertThat(response.storageKey()).startsWith("voices/account-a/");
     assertThat(response.storageKey()).doesNotContain(request.expectedSha256());
     assertThat(response.uploadUrl()).isEqualTo("https://upload.example.test/signed");
     verify(sessions).create(any());
     verify(objectStorage).createUpload(any());
+  }
+
+  @Test
+  void createIntentRejectsNonVoiceProjectMedia() {
+    CreateUploadIntentCommand image =
+        new CreateUploadIntentCommand("IMAGE", "shot.png", "image/png", 128, SHA);
+
+    assertThatThrownBy(() -> useCase.createIntent(image, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("voice reference");
+    verify(sessions, never()).create(any());
+    verify(objectStorage, never()).createUpload(any());
+  }
+
+  @Test
+  void createIntentRejectsUnsupportedVoiceContainer() {
+    CreateUploadIntentCommand ogg =
+        new CreateUploadIntentCommand("AUDIO", "voice.ogg", "audio/ogg", 128, SHA);
+
+    assertThatThrownBy(() -> useCase.createIntent(ogg, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("voice reference");
+    verify(sessions, never()).create(any());
   }
 
   @Test
@@ -196,7 +219,7 @@ class MediaUploadUseCaseTest {
                 existingAssetId,
                 session.assetType(),
                 "USER_UPLOAD",
-                "media/existing",
+                "voices/account-a/existing",
                 session.originalFilename(),
                 session.contentType(),
                 session.expectedSize(),
@@ -296,7 +319,7 @@ class MediaUploadUseCaseTest {
         "audio/wav",
         128,
         SHA,
-        "media/uploads/" + id,
+        "voices/account-a/" + id,
         "retry-1",
         status,
         expiresAt,
