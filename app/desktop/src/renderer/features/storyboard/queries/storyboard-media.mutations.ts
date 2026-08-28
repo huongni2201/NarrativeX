@@ -32,6 +32,14 @@ export interface PersistStoryboardImageDeps {
     kind: "IMAGE";
     selectionToken: string;
   }): Promise<unknown>;
+  attachBeatPreview(
+    projectId: string,
+    chapterId: string,
+    sceneId: string,
+    beatId: string,
+    beatRowVersion: number,
+    mediaAssetId: string,
+  ): Promise<unknown>;
   updateBeatMedia(
     projectId: string,
     beatId: string,
@@ -41,7 +49,11 @@ export interface PersistStoryboardImageDeps {
 
 export interface PersistStoryboardImageInput {
   projectId: string;
+  chapterId: string;
+  sceneId: string;
   beatId: string;
+  beatRowVersion: number;
+  hasProductionTimelineBeat: boolean;
   selection: StoryboardImageSelection;
   source: StoryboardImageSource;
 }
@@ -79,11 +91,22 @@ export async function persistStoryboardImage(
     });
   }
 
-  await deps.updateBeatMedia(input.projectId, input.beatId, {
-    mediaAssetId: asset.id,
-    fitMode: "TRIM",
-    trimStartMs: 0,
-  });
+  await deps.attachBeatPreview(
+    input.projectId,
+    input.chapterId,
+    input.sceneId,
+    input.beatId,
+    input.beatRowVersion,
+    asset.id,
+  );
+
+  if (input.hasProductionTimelineBeat) {
+    await deps.updateBeatMedia(input.projectId, input.beatId, {
+      mediaAssetId: asset.id,
+      fitMode: "TRIM",
+      trimStartMs: 0,
+    });
+  }
 
   return asset.id;
 }
@@ -121,7 +144,10 @@ export interface GenerateGeminiStoryboardImageInput {
   chapterId: string;
   beat: {
     id: string;
+    sceneId: string;
+    rowVersion: number;
   };
+  hasProductionTimelineBeat: boolean;
   materializedReferenceIds: Set<string>;
 }
 
@@ -161,7 +187,11 @@ export async function generateGeminiStoryboardImage(
   });
   const assetId = await deps.persistImage({
     projectId: input.projectId,
+    chapterId: input.chapterId,
+    sceneId: input.beat.sceneId,
     beatId: input.beat.id,
+    beatRowVersion: input.beat.rowVersion,
+    hasProductionTimelineBeat: input.hasProductionTimelineBeat,
     selection,
     source: "GEMINI_WEB",
   });

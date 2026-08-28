@@ -583,6 +583,7 @@ function AudioChapterCard({
               </span>
             </div>
             <audio
+              key={audio.workspace.pipeline.audio.audioUrl}
               className="h-9 w-full"
               controls
               preload="metadata"

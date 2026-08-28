@@ -237,7 +237,7 @@ function VisualBeatCard({
           </div>
         </div>
 
-        <BeatImagePreview projectId={projectId} timelineBeat={timelineBeat} />
+        <BeatImagePreview projectId={projectId} beat={beat} timelineBeat={timelineBeat} />
       </div>
     </article>
   );
@@ -245,22 +245,28 @@ function VisualBeatCard({
 
 function BeatImagePreview({
   projectId,
+  beat,
   timelineBeat,
 }: Readonly<{
   projectId: string;
+  beat: StoryboardVisualBeat;
   timelineBeat: DesktopTimelineBeat | null;
 }>) {
   const [failed, setFailed] = useState(false);
+  const timelineImageAssetId =
+    timelineBeat?.mediaType === "IMAGE" ? timelineBeat.mediaAssetId : null;
+  const previewAssetId = beat.previewMediaAssetId ?? timelineImageAssetId;
+  const previewStorageMode = beat.previewMediaAssetId ? null : timelineBeat?.storageMode;
   const preview = useStoryboardImagePreview({
     projectId,
-    assetId: timelineBeat?.mediaAssetId,
-    storageMode: timelineBeat?.storageMode,
-    enabled: Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
+    assetId: previewAssetId,
+    storageMode: previewStorageMode,
+    enabled: Boolean(previewAssetId),
   });
 
-  useEffect(() => setFailed(false), [timelineBeat?.mediaAssetId]);
+  useEffect(() => setFailed(false), [previewAssetId]);
 
-  if (!timelineBeat?.mediaAssetId || timelineBeat.mediaType !== "IMAGE") {
+  if (!previewAssetId) {
     return (
       <div className="grid min-h-40 place-items-center rounded-md border border-dashed border-border bg-surface-dark text-center text-[10px] text-text-muted">
         <div>
@@ -291,7 +297,7 @@ function BeatImagePreview({
     <div className="overflow-hidden rounded-md border border-border bg-surface-dark">
       <img
         src={preview.data.url}
-        alt={`Visual beat ${timelineBeat.visualBeatId}`}
+        alt={`Visual beat ${beat.id}`}
         className="aspect-video h-full w-full object-cover"
         onError={() => setFailed(true)}
       />

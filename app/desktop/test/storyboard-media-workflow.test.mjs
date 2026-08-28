@@ -23,18 +23,28 @@ test("persistStoryboardImage keeps register -> trusted commit -> beat selection 
     },
     commitGeminiImage: async (input) => calls.push(["commit-gemini", input]),
     commitSelectedAsset: async (input) => calls.push(["commit-manual", input]),
+    attachBeatPreview: async (...args) => calls.push(["attach-preview", ...args]),
     updateBeatMedia: async (...args) => calls.push(["attach", ...args]),
   };
 
   const assetId = await persistStoryboardImage(deps, {
     projectId: "project-1",
+    chapterId: "chapter-1",
+    sceneId: "scene-1",
     beatId: "beat-1",
+    beatRowVersion: 2,
+    hasProductionTimelineBeat: true,
     selection: imageSelection,
     source: "GEMINI_WEB",
   });
 
   assert.equal(assetId, "asset-1");
-  assert.deepEqual(calls.map(([name]) => name), ["register", "commit-gemini", "attach"]);
+  assert.deepEqual(calls.map(([name]) => name), [
+    "register",
+    "commit-gemini",
+    "attach-preview",
+    "attach",
+  ]);
   assert.deepEqual(calls[0][1], {
     projectId: "project-1",
     type: "IMAGE",
@@ -51,6 +61,14 @@ test("persistStoryboardImage keeps register -> trusted commit -> beat selection 
   });
   assert.deepEqual(calls[2].slice(1), [
     "project-1",
+    "chapter-1",
+    "scene-1",
+    "beat-1",
+    2,
+    "asset-1",
+  ]);
+  assert.deepEqual(calls[3].slice(1), [
+    "project-1",
     "beat-1",
     { mediaAssetId: "asset-1", fitMode: "TRIM", trimStartMs: 0 },
   ]);
@@ -62,12 +80,17 @@ test("manual image persistence uses ProjectStorage commit instead of Gemini comm
     registerLocal: async () => ({ id: "asset-2" }),
     commitGeminiImage: async () => calls.push("gemini"),
     commitSelectedAsset: async (input) => calls.push(input),
+    attachBeatPreview: async () => undefined,
     updateBeatMedia: async () => undefined,
   };
 
   await persistStoryboardImage(deps, {
     projectId: "project-1",
+    chapterId: "chapter-1",
+    sceneId: "scene-1",
     beatId: "beat-2",
+    beatRowVersion: 0,
+    hasProductionTimelineBeat: true,
     selection: imageSelection,
     source: "MANUAL",
   });
@@ -79,6 +102,44 @@ test("manual image persistence uses ProjectStorage commit instead of Gemini comm
       kind: "IMAGE",
       selectionToken: "selection-1",
     },
+  ]);
+});
+
+test("storyboard image persists its preview when the beat has no production timeline entry", async () => {
+  const calls = [];
+  const deps = {
+    registerLocal: async () => ({ id: "asset-preview" }),
+    commitGeminiImage: async () => calls.push("commit-gemini"),
+    commitSelectedAsset: async () => calls.push("commit-manual"),
+    attachBeatPreview: async (...args) => calls.push(["attach-preview", ...args]),
+    updateBeatMedia: async () => {
+      throw new Error("production timeline must not be required for a storyboard preview");
+    },
+  };
+
+  const assetId = await persistStoryboardImage(deps, {
+    projectId: "project-1",
+    chapterId: "chapter-1",
+    sceneId: "scene-1",
+    beatId: "beat-without-timing",
+    beatRowVersion: 3,
+    hasProductionTimelineBeat: false,
+    selection: imageSelection,
+    source: "GEMINI_WEB",
+  });
+
+  assert.equal(assetId, "asset-preview");
+  assert.deepEqual(calls, [
+    "commit-gemini",
+    [
+      "attach-preview",
+      "project-1",
+      "chapter-1",
+      "scene-1",
+      "beat-without-timing",
+      3,
+      "asset-preview",
+    ],
   ]);
 });
 
@@ -129,7 +190,8 @@ test("Gemini workflow sends backend final prompt unchanged and preserves REF map
   const result = await generateGeminiStoryboardImage(deps, {
     projectId: "project-1",
     chapterId: "chapter-1",
-    beat: { id: "beat-1" },
+    beat: { id: "beat-1", sceneId: "scene-1", rowVersion: 4 },
+    hasProductionTimelineBeat: false,
     materializedReferenceIds: materialized,
   });
 
@@ -169,7 +231,8 @@ test("Gemini workflow rejects an empty backend prompt", async () => {
         {
           projectId: "project-1",
           chapterId: "chapter-1",
-          beat: { id: "beat-1" },
+          beat: { id: "beat-1", sceneId: "scene-1", rowVersion: 0 },
+          hasProductionTimelineBeat: false,
           materializedReferenceIds: new Set(),
         },
       ),
@@ -186,6 +249,7 @@ test("media workflow rejects non-image selections before registration", async ()
     },
     commitGeminiImage: async () => undefined,
     commitSelectedAsset: async () => undefined,
+    attachBeatPreview: async () => undefined,
     updateBeatMedia: async () => undefined,
   };
 
@@ -193,7 +257,11 @@ test("media workflow rejects non-image selections before registration", async ()
     () =>
       persistStoryboardImage(deps, {
         projectId: "project-1",
+        chapterId: "chapter-1",
+        sceneId: "scene-1",
         beatId: "beat-1",
+        beatRowVersion: 0,
+        hasProductionTimelineBeat: false,
         selection: { ...imageSelection, kind: "VIDEO" },
         source: "MANUAL",
       }),

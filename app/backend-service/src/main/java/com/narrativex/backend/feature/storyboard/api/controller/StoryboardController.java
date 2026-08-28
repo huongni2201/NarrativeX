@@ -1,10 +1,12 @@
 package com.narrativex.backend.feature.storyboard.api.controller;
 
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.storyboard.api.request.AttachVisualBeatPreviewMediaRequest;
 import com.narrativex.backend.feature.storyboard.api.request.CreateVisualBeatRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateVisualBeatReviewStatusRequest;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardResponse;
 import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
+import com.narrativex.backend.feature.storyboard.application.usecase.AttachVisualBeatPreviewMediaUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateVisualBeatUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateVisualBeatReviewStatusUseCase;
@@ -33,6 +35,7 @@ public class StoryboardController {
   private final GetChapterStoryboardUseCase getChapterStoryboardUseCase;
   private final CreateVisualBeatUseCase createVisualBeatUseCase;
   private final UpdateVisualBeatReviewStatusUseCase updateVisualBeatReviewStatusUseCase;
+  private final AttachVisualBeatPreviewMediaUseCase attachVisualBeatPreviewMediaUseCase;
 
   @GetMapping("/storyboard")
   public ResponseEntity<ApiResponse<ChapterStoryboardResponse>> getStoryboard(
@@ -88,6 +91,27 @@ public class StoryboardController {
     ApiResponse<VisualBeatResponse> response =
         updateVisualBeatReviewStatusUseCase.execute(
             projectId, chapterId, sceneId, visualBeatId, expectedRowVersion, request.status());
+    return ResponseEntity.ok()
+        .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
+        .body(response);
+  }
+
+  @PutMapping("/scenes/{sceneId}/visual-beats/{visualBeatId}/preview-media")
+  public ResponseEntity<ApiResponse<VisualBeatResponse>> attachPreviewMedia(
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @PathVariable UUID sceneId,
+      @PathVariable UUID visualBeatId,
+      @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+      @Valid @RequestBody AttachVisualBeatPreviewMediaRequest request) {
+    ApiResponse<VisualBeatResponse> response =
+        attachVisualBeatPreviewMediaUseCase.execute(
+            projectId,
+            chapterId,
+            sceneId,
+            visualBeatId,
+            parseExpectedVersion(ifMatch),
+            request.mediaAssetId());
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
         .body(response);

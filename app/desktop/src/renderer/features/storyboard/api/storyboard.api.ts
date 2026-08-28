@@ -15,6 +15,7 @@ export interface StoryboardVisualBeat {
   reviewStatus: VisualBeatReviewStatus;
   aspectRatioOverride: string | null;
   qualityTierOverride: string | null;
+  previewMediaAssetId: string | null;
   rowVersion: number;
 }
 
@@ -104,6 +105,23 @@ export const storyboardApi = {
         method: "PUT",
         headers: { "If-Match": `"${rowVersion}"` },
         body: JSON.stringify({ status }),
+      },
+    ),
+
+  attachPreviewMedia: (
+    projectId: string,
+    chapterId: string,
+    sceneId: string,
+    visualBeatId: string,
+    rowVersion: number,
+    mediaAssetId: string,
+  ) =>
+    apiRequest<StoryboardVisualBeat>(
+      `${chapterPath(projectId, chapterId)}/scenes/${encodeURIComponent(sceneId)}/visual-beats/${encodeURIComponent(visualBeatId)}/preview-media`,
+      {
+        method: "PUT",
+        headers: { "If-Match": `"${rowVersion}"` },
+        body: JSON.stringify({ mediaAssetId }),
       },
     ),
 };

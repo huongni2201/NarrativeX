@@ -25,6 +25,7 @@ public final class VisualBeat extends DomainEntity {
   private final ImageQualityTier qualityTierOverride;
   private VisualBeatReviewStatus reviewStatus;
   private UUID previewAssetId;
+  private UUID previewMediaAssetId;
 
   public VisualBeat(UUID sceneId, int orderIndex, String visualIntent) {
     this(sceneId, orderIndex, defaultTitle(visualIntent), visualIntent);
@@ -179,6 +180,14 @@ public final class VisualBeat extends DomainEntity {
 
   public void attachPreviewAsset(UUID previewAssetId) {
     this.previewAssetId = previewAssetId;
+  }
+
+  public UUID getPreviewMediaAssetId() {
+    return previewMediaAssetId;
+  }
+
+  public void attachPreviewMediaAsset(UUID previewMediaAssetId) {
+    this.previewMediaAssetId = Objects.requireNonNull(previewMediaAssetId, "previewMediaAssetId");
   }
 
   private static String requiredText(String value, String field, int maxLength) {

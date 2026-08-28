@@ -177,6 +177,7 @@ export function StoryboardScreen({
     try {
       const result = await mediaMutations.generateGeminiImage.mutateAsync({
         beat,
+        hasProductionTimelineBeat: timelineBeats.has(beat.id),
         onReferencesResolved: (referenceCount) => {
           setNotice(
             queueMode
@@ -318,7 +319,10 @@ export function StoryboardScreen({
     setMediaBusyBeatId(beat.id);
     setNotice(null);
     try {
-      const result = await mediaMutations.importImage.mutateAsync({ beatId: beat.id });
+      const result = await mediaMutations.importImage.mutateAsync({
+        beat,
+        hasProductionTimelineBeat: timelineBeats.has(beat.id),
+      });
       if (!result) return;
       setPendingImportBeatId((current) => (current === beat.id ? null : current));
       setNotice(`Ảnh đã được import và gắn đúng Visual Beat “${beat.title}”.`);

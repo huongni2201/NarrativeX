@@ -1,9 +1,11 @@
 package com.narrativex.backend.feature.storyboard.api;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.hamcrest.Matchers.containsString;
 
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -39,6 +42,7 @@ class StoryboardApiIntegrationTest {
   private static final UUID SCENE_1 = testUuid(4001);
   private static final UUID BEAT_1 = testUuid(5001);
   private static final UUID PROJECT_ASSET = testUuid(26001);
+  private static final UUID PREVIEW_MEDIA_ASSET = testUuid(26002);
   private static final UUID MEDIA_PLAN_1 = UUID.fromString("00000000-0000-4000-8000-000000001001");
   private static final UUID MEDIA_PLAN_2 = UUID.fromString("00000000-0000-4000-8000-000000001002");
   private static final UUID RENDER_MANIFEST = testUuid(27001);
@@ -126,6 +130,9 @@ class StoryboardApiIntegrationTest {
     jdbcTemplate.update(
         "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES ('00000000-0000-4000-8000-000000004001', 'seed-user-01', 'AUDIO', 'USER_UPLOAD', 'accounts/seed-user-01/uploads/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
+        "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, 'seed-user-01', 'IMAGE', 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, 'gemini.png', 'image/png', 2048, repeat('4', 64), NULL, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+        PREVIEW_MEDIA_ASSET);
+    jdbcTemplate.update(
         "INSERT INTO narration_requests (id, project_id, chapter_id, chapter_row_version, source_hash, source_text, voice_id, language, speaking_rate, segmentation_version, request_fingerprint) VALUES ('00000000-0000-4000-8000-000000002001', ?, ?, 0, repeat('a', 64), 'Text', 'voice', 'vi-VN', 1.0, 'v1', repeat('1', 64)) ON CONFLICT (id) DO NOTHING",
         PROJECT_1,
         CHAPTER_1);
@@ -177,6 +184,35 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].cameraMovement").value("PAN"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].reviewStatus").value("APPROVED"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].rowVersion").isNumber());
+  }
+
+  @Test
+  void attachesLocalPreviewMediaWithoutRequiringAProductionTimelineBeat() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/v1/projects/"
+                    + PROJECT_1
+                    + "/chapters/"
+                    + CHAPTER_1
+                    + "/scenes/"
+                    + SCENE_1
+                    + "/visual-beats/"
+                    + BEAT_1
+                    + "/preview-media")
+                .with(csrf())
+                .header("If-Match", "\"0\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mediaAssetId\":\"" + PREVIEW_MEDIA_ASSET + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.previewMediaAssetId").value(PREVIEW_MEDIA_ASSET.toString()))
+        .andExpect(jsonPath("$.data.rowVersion").value(1));
+
+    mockMvc
+        .perform(get("/api/v1/projects/" + PROJECT_1 + "/chapters/" + CHAPTER_1 + "/storyboard"))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.data.scenes[0].visualBeats[0].previewMediaAssetId")
+                .value(PREVIEW_MEDIA_ASSET.toString()));
   }
 
   @Test

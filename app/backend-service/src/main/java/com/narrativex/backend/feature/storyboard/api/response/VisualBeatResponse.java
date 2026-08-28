@@ -22,6 +22,7 @@ public record VisualBeatResponse(
     VisualBeatReviewStatus reviewStatus,
     AspectRatio aspectRatioOverride,
     ImageQualityTier qualityTierOverride,
+    UUID previewMediaAssetId,
     long rowVersion) {
   public static VisualBeatResponse from(VisualBeat beat) {
     return new VisualBeatResponse(
@@ -37,6 +38,7 @@ public record VisualBeatResponse(
         beat.getReviewStatus(),
         beat.getAspectRatioOverride(),
         beat.getQualityTierOverride(),
+        beat.getPreviewMediaAssetId(),
         beat.getRowVersion());
   }
 
@@ -54,6 +56,7 @@ public record VisualBeatResponse(
         beat.getReviewStatus(),
         beat.getAspectRatioOverride(),
         beat.getQualityTierOverride(),
+        beat.getPreviewMediaAssetId(),
         beat.getRowVersion());
   }
 }

@@ -25,6 +25,7 @@ class FlywayBaselineStructureTest {
     String v6 = read("V6__database_logic_and_triggers.sql");
     String v7 = read("V7__indexes.sql");
     String v8 = read("V8__seed_catalog.sql");
+    String v9 = read("V9__visual_beat_preview_media.sql");
 
     for (String schema : new String[] {v1, v2, v3, v4, v5, v6}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
@@ -33,6 +34,7 @@ class FlywayBaselineStructureTest {
     assertFalse(v8.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
     assertFalse(v8.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v8.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
+    assertFalse(v9.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
 
     assertTrue(v1.contains("CREATE TABLE auth_users"));
     assertTrue(v1.contains("CREATE TABLE desktop_guest_installations"));
@@ -77,6 +79,9 @@ class FlywayBaselineStructureTest {
     assertTrue(v8.contains("'VIENEU'"));
     assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
     assertFalse(v8.contains("\"supportsSpeakingRate\":false"));
+
+    assertTrue(v9.contains("ADD COLUMN preview_media_asset_id UUID"));
+    assertTrue(v9.contains("REFERENCES media_assets(id) ON DELETE SET NULL"));
 
     String allSchema = v1 + v2 + v3 + v4 + v5 + v6;
     assertFalse(allSchema.contains("narrativex_uuid_v7"));

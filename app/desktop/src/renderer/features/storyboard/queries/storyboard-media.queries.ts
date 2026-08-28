@@ -38,6 +38,22 @@ function createPersistDeps(): PersistStoryboardImageDeps {
     registerLocal: (input) => assetsApi.registerLocal(input),
     commitGeminiImage: (input) => window.narrativex.geminiWeb.commitImage(input),
     commitSelectedAsset: (input) => window.narrativex.localStorage.commitSelectedAsset(input),
+    attachBeatPreview: (
+      projectId,
+      chapterId,
+      sceneId,
+      beatId,
+      beatRowVersion,
+      mediaAssetId,
+    ) =>
+      storyboardApi.attachPreviewMedia(
+        projectId,
+        chapterId,
+        sceneId,
+        beatId,
+        beatRowVersion,
+        mediaAssetId,
+      ),
     updateBeatMedia: (projectId, beatId, input) =>
       productionApi.updateBeatMedia(projectId, beatId, input),
   };
@@ -49,20 +65,31 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
   const persistDeps = createPersistDeps();
 
   const importImage = useMutation({
-    mutationFn: async ({ beatId }: { beatId: string }) => {
+    mutationFn: async ({
+      beat,
+      hasProductionTimelineBeat,
+    }: {
+      beat: Pick<StoryboardVisualBeat, "id" | "sceneId" | "rowVersion">;
+      hasProductionTimelineBeat: boolean;
+    }) => {
+      if (!chapterId) throw new Error("Chưa chọn chapter.");
       const selection = await window.narrativex.localStorage.selectAsset();
       if (!selection) return null;
 
       const assetId = await persistStoryboardImage(persistDeps, {
         projectId,
-        beatId,
+        chapterId,
+        sceneId: beat.sceneId,
+        beatId: beat.id,
+        beatRowVersion: beat.rowVersion,
+        hasProductionTimelineBeat,
         selection,
         source: "MANUAL",
       });
       return { assetId };
     },
-    onSuccess: async (result) => {
-      if (!result) return;
+    onSettled: async (result, error) => {
+      if (!result && !error) return;
       await invalidateStoryboardMedia(queryClient, projectId, chapterId);
     },
   });
@@ -71,9 +98,11 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
     mutationFn: async ({
       beat,
       onReferencesResolved,
+      hasProductionTimelineBeat,
     }: {
-      beat: Pick<StoryboardVisualBeat, "id">;
+      beat: Pick<StoryboardVisualBeat, "id" | "sceneId" | "rowVersion">;
       onReferencesResolved?: (referenceCount: number) => void;
+      hasProductionTimelineBeat: boolean;
     }) => {
       if (!chapterId) throw new Error("Chưa chọn chapter để resolve character reference.");
 
@@ -97,11 +126,12 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
           projectId,
           chapterId,
           beat,
+          hasProductionTimelineBeat,
           materializedReferenceIds: materializedReferenceIdsRef.current,
         },
       );
     },
-    onSuccess: async () => {
+    onSettled: async () => {
       await invalidateStoryboardMedia(queryClient, projectId, chapterId);
     },
   });
@@ -123,13 +153,29 @@ export function useStoryboardImagePreview({
   storageMode: string | null | undefined;
   enabled: boolean;
 }>) {
-  const initialPreview = assetId
-    ? resolveStoryboardImagePreview({ projectId, assetId, storageMode, remoteUrl: null })
+  const asset = useQuery({
+    queryKey: ["assets", assetId ?? "none"],
+    queryFn: () => assetsApi.get(assetId as string),
+    enabled: Boolean(assetId && enabled && !storageMode),
+  });
+  const resolvedStorageMode = storageMode ?? asset.data?.storageMode ?? asset.data?.origin;
+  const resolvedInitialPreview = assetId
+    ? resolveStoryboardImagePreview({
+      projectId,
+      assetId,
+      storageMode: resolvedStorageMode,
+      remoteUrl: null,
+    })
     : null;
   const remotePreview = useQuery({
     queryKey: ["assets", assetId ?? "none", "download-url"],
     queryFn: () => assetsApi.downloadUrl(assetId as string),
-    enabled: Boolean(assetId && enabled && initialPreview?.requiresRemoteUrl),
+    enabled: Boolean(
+      assetId &&
+      enabled &&
+      resolvedStorageMode &&
+      resolvedInitialPreview?.requiresRemoteUrl
+    ),
     staleTime: 30_000,
   });
 
@@ -137,13 +183,15 @@ export function useStoryboardImagePreview({
     ? resolveStoryboardImagePreview({
       projectId,
       assetId,
-      storageMode,
+      storageMode: resolvedStorageMode,
       remoteUrl: remotePreview.data?.url,
     })
     : null;
 
   return {
     ...remotePreview,
+    isLoading: asset.isLoading || remotePreview.isLoading,
+    isError: asset.isError || remotePreview.isError,
     data: preview?.url ? { url: preview.url } : undefined,
   };
 }
