@@ -77,9 +77,15 @@
            c.title,
            c.row_version,
            c.source_hash,
-           mp.id AS media_plan_id,
-           mp.revision AS media_plan_revision,
-           COALESCE(mp.image_aspect_ratio, '16:9') AS aspect_ratio,
+           NULL::uuid AS media_plan_id,
+           NULL::integer AS media_plan_revision,
+           CASE p.image_aspect_ratio
+             WHEN 'RATIO_9_16' THEN '9:16'
+             WHEN 'RATIO_1_1' THEN '1:1'
+             WHEN 'RATIO_4_3' THEN '4:3'
+             WHEN 'RATIO_3_4' THEN '3:4'
+             ELSE '16:9'
+           END AS aspect_ratio,
            narration.duration_ms AS audio_duration_ms,
            narration.storage_key AS audio_storage_key,
            narration.size_bytes AS audio_size_bytes,
@@ -88,19 +94,11 @@
            narration.narration_asset_id,
            narration.narration_alignment_id,
            COALESCE(narration.duration_ms, NULLIF(c.estimated_duration_ms, 0), scene_duration.duration_ms, 0) AS fallback_duration_ms,
-           COALESCE(plan_counts.beat_count, 0) AS beat_count,
-           COALESCE(plan_counts.ready_beat_count, 0) AS ready_beat_count
+           COALESCE(storyboard_counts.beat_count, 0) AS beat_count,
+           COALESCE(storyboard_counts.ready_beat_count, 0) AS ready_beat_count
       FROM chapters c
       JOIN current_story cs ON cs.id = c.story_version_id
-      LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-      LEFT JOIN generation_jobs gj ON gj.id = cmh.generation_job_id AND gj.status = 'COMPLETED'
-      LEFT JOIN media_plans mp
-        ON mp.id = gj.media_plan_id
-       AND mp.revision = gj.media_plan_revision
-       AND mp.chapter_id = c.id
-       AND mp.chapter_row_version = c.row_version
-       AND mp.source_hash = c.source_hash
-       AND mp.storyboard_revision_id = c.current_storyboard_revision_id
+      JOIN projects p ON p.id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
       LEFT JOIN LATERAL (
         SELECT nr.id AS narration_request_id,
                na.id AS narration_asset_id,
@@ -142,7 +140,8 @@
                      FROM production_beat_media_selections pbms
                      JOIN media_assets ma ON ma.id = pbms.media_asset_id
                     WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-                      AND pbms.visual_beat_id = mbp.visual_beat_id
+                      AND pbms.visual_beat_id = vb.id
+                      AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
@@ -150,21 +149,21 @@
                       AND ma.sha256 IS NOT NULL
                  ) OR EXISTS (
                    SELECT 1
-                     FROM media_generation_items mgi
-                     JOIN media_assets ma ON ma.id = mgi.media_asset_id
-                    WHERE mgi.media_plan_id = mbp.media_plan_id
-                      AND mgi.visual_beat_id = mbp.visual_beat_id
-                      AND mgi.execution_status = 'READY'
-                      AND ma.asset_type IN ('IMAGE', 'VIDEO')
+                     FROM media_assets ma
+                    WHERE ma.id = vb.preview_media_asset_id
+                      AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
+                      AND ma.asset_type IN ('IMAGE', 'VIDEO')
                       AND ma.size_bytes > 0
                       AND ma.sha256 IS NOT NULL
                  )
                )::int AS ready_beat_count
-          FROM media_beat_plans mbp
-         WHERE mbp.media_plan_id = mp.id
-      ) plan_counts ON mp.id IS NOT NULL
+          FROM scenes s
+          JOIN visual_beats vb ON vb.scene_id = s.id
+         WHERE s.chapter_id = c.id
+           AND s.storyboard_revision_id = c.current_storyboard_revision_id
+      ) storyboard_counts ON TRUE
      WHERE c.deleted_at IS NULL
      ORDER BY c.order_index ASC, c.id ASC
   </select>
@@ -172,44 +171,59 @@
   <select id="findBeats" resultMap="beatRow">
     WITH current_story AS (
       <include refid="currentStoryVersion" />
+    ),
+    current_beats AS (
+      SELECT c.id AS chapter_id,
+             c.order_index AS chapter_order_index,
+             s.order_index AS scene_index,
+             vb.order_index AS beat_index,
+             vb.id AS visual_beat_id,
+             vb.title,
+             vb.visual_intent,
+             COALESCE(vb.camera_movement, 'NONE') AS camera_movement,
+             vb.audio_start_ms,
+             vb.audio_end_ms,
+             CASE
+               WHEN vb.audio_start_ms IS NOT NULL
+                AND vb.audio_end_ms IS NOT NULL
+                AND vb.audio_end_ms > vb.audio_start_ms
+               THEN vb.audio_end_ms - vb.audio_start_ms
+               ELSE NULL
+             END AS audio_duration_ms,
+             vb.preview_media_asset_id
+        FROM chapters c
+        JOIN current_story cs ON cs.id = c.story_version_id
+        JOIN scenes s
+          ON s.chapter_id = c.id
+         AND s.storyboard_revision_id = c.current_storyboard_revision_id
+        JOIN visual_beats vb ON vb.scene_id = s.id
+       WHERE c.deleted_at IS NULL
     )
-    SELECT c.id AS chapter_id,
-           c.order_index AS chapter_order_index,
-           mp.id AS media_plan_id,
-           mp.revision AS media_plan_revision,
-           mbp.scene_index,
-           mbp.beat_index,
-           mbp.visual_beat_id,
-           COALESCE(vb.title, CONCAT('Beat ', mbp.beat_index + 1)) AS title,
-           mbp.visual_intent,
-           COALESCE(mbp.camera_movement, 'NONE') AS camera_movement,
-           mbp.asset_strategy,
-           mbp.audio_start_ms,
-           mbp.audio_end_ms,
-           mbp.audio_duration_ms,
-           COALESCE(chosen.media_asset_id, generated.media_asset_id) AS media_asset_id,
-           COALESCE(chosen.media_type, generated.media_type) AS media_type,
-           COALESCE(chosen.storage_mode, generated.storage_mode) AS storage_mode,
-           COALESCE(chosen.source_duration_ms, generated.source_duration_ms) AS source_duration_ms,
+    SELECT cb.chapter_id,
+           cb.chapter_order_index,
+           NULL::uuid AS media_plan_id,
+           NULL::integer AS media_plan_revision,
+           cb.scene_index,
+           cb.beat_index,
+           cb.visual_beat_id,
+           COALESCE(cb.title, CONCAT('Beat ', cb.beat_index + 1)) AS title,
+           cb.visual_intent,
+           cb.camera_movement,
+           'GENERATE_NEW' AS asset_strategy,
+           cb.audio_start_ms,
+           cb.audio_end_ms,
+           cb.audio_duration_ms,
+           COALESCE(chosen.media_asset_id, preview.media_asset_id) AS media_asset_id,
+           COALESCE(chosen.media_type, preview.media_type) AS media_type,
+           COALESCE(chosen.storage_mode, preview.storage_mode) AS storage_mode,
+           COALESCE(chosen.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
            CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode ELSE 'TRIM' END AS fit_mode,
            CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms ELSE 0 END AS trim_start_ms,
            (chosen.media_asset_id IS NOT NULL) AS media_selection_active,
-           COALESCE(chosen.storage_key, generated.storage_key) AS storage_key,
-           COALESCE(chosen.size_bytes, generated.size_bytes) AS size_bytes,
-           COALESCE(chosen.checksum, generated.checksum) AS checksum
-      FROM chapters c
-      JOIN current_story cs ON cs.id = c.story_version_id
-      JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-      JOIN generation_jobs gj ON gj.id = cmh.generation_job_id AND gj.status = 'COMPLETED'
-      JOIN media_plans mp
-        ON mp.id = gj.media_plan_id
-       AND mp.revision = gj.media_plan_revision
-       AND mp.chapter_id = c.id
-       AND mp.chapter_row_version = c.row_version
-       AND mp.source_hash = c.source_hash
-       AND mp.storyboard_revision_id = c.current_storyboard_revision_id
-      JOIN media_beat_plans mbp ON mbp.media_plan_id = mp.id
-      LEFT JOIN visual_beats vb ON vb.id = mbp.visual_beat_id
+           COALESCE(chosen.storage_key, preview.storage_key) AS storage_key,
+           COALESCE(chosen.size_bytes, preview.size_bytes) AS size_bytes,
+           COALESCE(chosen.checksum, preview.checksum) AS checksum
+      FROM current_beats cb
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
@@ -223,7 +237,8 @@
           FROM production_beat_media_selections pbms
           JOIN media_assets ma ON ma.id = pbms.media_asset_id
          WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-           AND pbms.visual_beat_id = mbp.visual_beat_id
+           AND pbms.visual_beat_id = cb.visual_beat_id
+           AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')
@@ -232,28 +247,27 @@
          LIMIT 1
       ) chosen ON TRUE
       LEFT JOIN LATERAL (
-        SELECT mgi.media_asset_id,
+        SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
                ma.storage_mode,
                ma.duration_ms AS source_duration_ms,
                ma.storage_key,
                ma.size_bytes,
                ma.sha256 AS checksum
-          FROM media_generation_items mgi
-          JOIN media_assets ma ON ma.id = mgi.media_asset_id
-         WHERE mgi.media_plan_id = mbp.media_plan_id
-           AND mgi.visual_beat_id = mbp.visual_beat_id
-           AND mgi.execution_status = 'READY'
-           AND mgi.media_asset_id IS NOT NULL
-           AND ma.asset_type IN ('IMAGE', 'VIDEO')
+          FROM media_assets ma
+         WHERE ma.id = cb.preview_media_asset_id
+           AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
+           AND ma.asset_type IN ('IMAGE', 'VIDEO')
            AND ma.size_bytes > 0
            AND ma.sha256 IS NOT NULL
-         ORDER BY mgi.attempt_number DESC, mgi.created_at DESC, mgi.id DESC
          LIMIT 1
-      ) generated ON TRUE
-     WHERE c.deleted_at IS NULL
-     ORDER BY c.order_index ASC, c.id ASC, mbp.scene_index ASC, mbp.beat_index ASC
+      ) preview ON TRUE
+     ORDER BY cb.chapter_order_index ASC,
+              cb.chapter_id ASC,
+              cb.scene_index ASC,
+              cb.beat_index ASC,
+              cb.visual_beat_id ASC
   </select>
 </mapper>
