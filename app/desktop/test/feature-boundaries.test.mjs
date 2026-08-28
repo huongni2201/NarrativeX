@@ -46,12 +46,7 @@ test("features only use renderer/api for shared transport primitives", () => {
 });
 
 test("StoryboardScreen delegates Gemini queue persistence and transitions to feature modules", () => {
-  const screenPath = join(
-    featuresRoot,
-    "storyboard",
-    "screens",
-    "StoryboardScreen.tsx",
-  );
+  const screenPath = join(featuresRoot, "storyboard", "screens", "StoryboardScreen.tsx");
   const source = readFileSync(screenPath, "utf8");
 
   assert.doesNotMatch(source, /\blocalStorage\.(?:getItem|setItem|removeItem)\s*\(/);
@@ -106,4 +101,19 @@ test("StoryboardScreen composes focused presentation components", () => {
   assert.doesNotMatch(source, /function GeminiQueuePanel\s*\(/);
   assert.doesNotMatch(source, /function VisualBeatCard\s*\(/);
   assert.doesNotMatch(source, /function BeatImagePreview\s*\(/);
+});
+
+test("EditorScreen delegates media persistence and preview transport to feature queries", () => {
+  const editorRoot = join(featuresRoot, "editor");
+  const source = readFileSync(join(editorRoot, "EditorScreen.tsx"), "utf8");
+
+  assert.doesNotMatch(source, /import\s+\{\s*useQueryClient\s*\}/);
+  assert.doesNotMatch(source, /import\s+\{\s*assetsApi\s*\}/);
+  assert.doesNotMatch(source, /import\s+\{\s*productionApi\s*\}/);
+  assert.doesNotMatch(source, /\bassetsApi\.downloadUrl\s*\(/);
+  assert.doesNotMatch(source, /\bassetsApi\.registerLocal\s*\(/);
+  assert.doesNotMatch(source, /\bproductionApi\.(?:updateBeatMedia|resetBeatMedia)\s*\(/);
+  assert.doesNotMatch(source, /window\.narrativex\.localStorage\.(?:selectAsset|commitSelectedAsset)\s*\(/);
+  assert.match(source, /useEditorMediaMutations/);
+  assert.match(source, /useEditorPreviewSources/);
 });
