@@ -11,17 +11,15 @@ The Python worker executes durable AI/media work authorized by Spring backend pl
 - Validation/config: Pydantic v2 + Pydantic Settings.
 - PostgreSQL: asyncpg.
 - HTTP: HTTPX.
-- Google auth: `google-auth` / ADC or workload identity.
+- Google auth: `google-auth` / ADC or workload identity where provider access requires it.
 - Quality: pytest/pytest-asyncio, Ruff and mypy.
 - Entry points: `python -m narrativex_worker` and `narrativex-worker`.
 
-The worker dependency manifest does not make FastAPI/Starlette/Uvicorn part of the runtime architecture.
-
-Exact versions belong in `app/ai-worker/pyproject.toml`; do not duplicate version pins here as migration targets.
+The worker dependency manifest does not make FastAPI/Starlette/Uvicorn part of the runtime architecture. Exact versions belong in `app/ai-worker/pyproject.toml`.
 
 ## Worker roles
 
-The supported worker roles are:
+The current supervisor supports:
 
 ```text
 analysis
@@ -30,15 +28,9 @@ media-validation
 image-generation
 ```
 
-The same source tree is packaged into role-specific runtimes. Current Compose/config separates general/image and narration concurrency using role-appropriate settings such as:
+There is no final-render worker role in `narrativex_worker.__main__`. Final project rendering belongs to Electron main under backend assignment/lease.
 
-```text
-GENERAL_WORKER_CONCURRENCY
-NARRATION_WORKER_CONCURRENCY
-WORKER_ROLES
-```
-
-Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start. Translation is not a supported worker role in the current product baseline.
+`WORKER_ROLES` selects enabled roles and a shared concurrency gate bounds active work. Role-specific optional imports prevent one role from requiring every media dependency merely to start. Translation is not a supported worker role in the current product baseline.
 
 ## Chapter Analyze
 
@@ -56,7 +48,45 @@ Backend durable admission
   -> terminal durable state
 ```
 
-The analysis source is the authoritative saved `chapters.source_text/source_hash`; there is no translation/content-variant selection layer. Dropped delivery hints do not lose queued work because PostgreSQL is authoritative.
+The analysis source is authoritative saved `chapters.source_text/source_hash`; there is no translation/content-variant selection layer. Dropped delivery hints do not lose queued work because PostgreSQL is authoritative.
+
+### Character analysis/materialization
+
+Current Character analysis includes source-grounded profile fields in addition to identity:
+
+```text
+key / name / aliases / description
+role / importance / groups
+bible / visual_prompt
+age_state / hairstyle / injury / wardrobe_context / appearance_prompt
+```
+
+Materialization rules:
+
+- merge/retain project-level role, importance and groups without destructively replacing stronger existing state;
+- create and pin an AI-derived `CharacterVersion` only when `ProjectCharacter.pinned_character_version_id` is absent;
+- never overwrite an explicitly pinned Character version merely because a later Chapter is analyzed;
+- persist Chapter-scoped `CharacterAppearance` when source-grounded appearance fields exist;
+- use stable Character/ProjectCharacter IDs rather than display names as relational identity.
+
+### Scene and Visual Beat analysis
+
+Current analysis schema supports:
+
+```text
+Scene
+  title / narration / character refs / location ref
+
+VisualBeat
+  title
+  visual_intent
+  camera_angle
+  characters[{character_key, role}]
+```
+
+Beat Character roles are `PRIMARY`, `SECONDARY`, or `BACKGROUND`. A beat Character must already be present in the parent Scene, and materialization persists `visual_beat_characters` rather than copying the full Scene cast into every beat.
+
+Current non-claim: `VisualBeatAnalysis` does not yet contain stable source-span references, and storyboard materialization does not yet persist deterministic `text_start/text_end` or narration-derived `audio_start_ms/audio_end_ms` for every analyzed beat.
 
 ## Provider operation fence
 
@@ -64,7 +94,7 @@ External paid/provider work follows a fail-closed durable fence:
 
 ```text
 RESERVED
-  -> persist the submission fence before external call
+  -> persist submission fence before external call
   -> SUBMITTED / RUNNING when durable provider identity is known
   -> COMPLETED / FAILED
   -> UNKNOWN when acceptance/outcome is ambiguous
@@ -73,55 +103,74 @@ RESERVED
 Rules:
 
 - never blind-resubmit `UNKNOWN`, `SUBMITTED` or `RUNNING` work;
-- reconcile using durable operation/request identity when the provider supports it;
-- keep unsupported ambiguous outcomes visible for explicit attention rather than manufacturing success/failure;
-- mutate provider operation state using status/row-version CAS rules;
-- treat `COMPLETED` and `FAILED` as terminal;
+- reconcile using durable operation/request identity when supported;
+- keep unsupported ambiguous outcomes visible rather than manufacturing success/failure;
+- mutate provider state using status/row-version/CAS rules;
+- treat terminal results as immutable except idempotent same-fingerprint replay;
 - stale reconciliation responses must not overwrite newer durable state;
-- stage lease loss cancels claimed processing and prevents new submissions from the stale worker.
-
-Image and narration paths apply this boundary with workflow-specific reconciliation/finalization rules.
+- stage lease loss cancels claimed processing and prevents new side effects from the stale worker.
 
 ## Image generation
 
-The image role executes backend-authorized `SHOT_IMAGE_GENERATE` work through the configured Vertex image adapter and durable batch/reconciliation path.
+The image role executes backend-authorized image-generation work through the configured Vertex/provider adapter and durable reconciliation path.
 
 ```text
 queued media-generation items
   -> stage lease
   -> deterministic request fingerprint
   -> provider-operation submission fence
-  -> Vertex batch staging/execution
+  -> provider staging/execution
   -> durable reconciliation
   -> validate/correlate image output
   -> stable MediaAsset + lineage
-  -> retained remote materialization when required
+  -> R2 transport when remote durability is required
   -> item/stage/job aggregation
 ```
 
-Provider batch correlation fails closed when rows are missing/duplicate/unmatchable. One completed provider batch cannot complete a parent job while other items remain pending.
+Provider batch correlation fails closed when output is missing, duplicated or unmatchable. One completed provider batch cannot complete a parent job while other items remain pending.
 
-Remote R2 output is a server/provider durability boundary. Desktop workflows may then materialize the accepted MediaAsset locally through authorized Desktop/backend flows; the worker never owns the Desktop machine path.
+Remote R2 output is a generated-media transport/durability boundary. Desktop workflows materialize accepted MediaAssets locally through authorized Desktop/backend flows; the worker never owns the Desktop machine path.
+
+Gemini Web generation is not a worker adapter. It is a Desktop-main Chrome/CDP path.
 
 ## Narration
 
 ```text
 TTS
-  -> VieNeu execution
+  -> VieNeu/provider execution
   -> validate/normalize
-  -> retained remote materialization where required
-  -> alignment
+  -> retained remote transport when required
+  -> durable narration asset
+  -> source-hash-bound alignment spans
 
 USER_PROVIDED_AUDIO
   -> ordered registered parts
-  -> logical global clock
-  -> alignment
-  -> no TTS_GENERATE for covered scope
+  -> logical global clock/alignment foundations
+  -> no TTS generation for covered scope
 ```
 
-Narration generation consumes saved Chapter content directly. Narration provider ambiguity uses the same durable operation rules. Infrastructure failures after an external TTS side effect must not cause blind paid resubmission.
+Current generated narration alignment spans persist:
 
-The worker may process user-owned voice references in ephemeral job storage when the authorized narration request allows it. Real-person samples require appropriate consent and must not become arbitrary durable payload secrets.
+```text
+textStart / textEnd
+audioStartMs / audioEndMs
+```
+
+They are produced from real synthesized/materialized audio duration. This is a narration contract, not proof that storyboard Visual Beat timing has been reconciled. The current narration completion path does not write exact audio timing to every Visual Beat.
+
+## Visual Beat timing boundary
+
+Approved target flow, not current AS-IS implementation:
+
+```text
+semantic source-segment refs
+  -> deterministic UTF-16 VisualBeat text_start/text_end
+  -> compatible persisted narration alignment
+  -> deterministic VisualBeatTimingReconciler
+  -> VisualBeat audio_start_ms/audio_end_ms
+```
+
+AI must not count characters or invent timestamps. Source hash/version compatibility must guard later reconciliation.
 
 ## Claim, lease and concurrency
 
@@ -137,9 +186,8 @@ Worker-local files are ephemeral execution scratch/cache. Runtime-file helpers v
 
 - Desktop local project bytes are owned by Electron main.
 - Worker scratch is disposable.
-- Retained remote server/provider media may use R2.
-
-The worker does not decide the Desktop storage topology.
+- Generated remote provider media may use R2 while transport durability is required.
+- Final project MP4 bytes are owned by Desktop local artifacts.
 
 ## Final project rendering
 
@@ -153,7 +201,7 @@ Final project video rendering belongs to Electron main under backend assignment/
 - provider invocation/reconciliation through adapters;
 - structured response/media validation;
 - stale-source/lease fences during execution;
-- provider/server materialization under persisted backend authorization.
+- generated-media transport/materialization under persisted backend authorization.
 
 ### Worker does not own
 
@@ -164,13 +212,14 @@ Final project video rendering belongs to Electron main under backend assignment/
 - Flyway schema ownership;
 - Desktop native paths/ProjectStorage/device credentials;
 - final project render execution;
-- chapter translation/content variants;
+- Chapter translation/content variants;
 - arbitrary paid-work escalation.
 
 ## Current gaps
 
+- deterministic Visual Beat source-span materialization and narration timing reconciliation;
 - complete actual-usage reconciliation across all operation types;
-- arbitrary multi-part user-audio production slicing/stitching hardening;
+- arbitrary multi-part user-audio production slicing/stitching/correction hardening;
 - richer generated-media review/reuse lineage;
 - broader provider failure/recovery/observability evidence;
 - optional I2V runtime hardening only when the product enables that path.
@@ -184,4 +233,4 @@ ruff format --check .
 mypy src tests
 ```
 
-Tests should cover claim/lease loss, provider submission ambiguity, stale source rejection, deterministic validation failures, reconciliation, shutdown behavior and role-specific optional dependency boundaries.
+Tests should cover claim/lease loss, provider submission ambiguity, stale source rejection, Character profile/pinning behavior, beat Character validation, deterministic validation failures, reconciliation, shutdown behavior and role-specific optional dependency boundaries.
