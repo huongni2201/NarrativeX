@@ -44,3 +44,22 @@ test("features only use renderer/api for shared transport primitives", () => {
   }
   assert.deepEqual(violations, []);
 });
+
+test("StoryboardScreen delegates Gemini queue persistence and transitions to feature modules", () => {
+  const screenPath = join(
+    featuresRoot,
+    "storyboard",
+    "screens",
+    "StoryboardScreen.tsx",
+  );
+  const source = readFileSync(screenPath, "utf8");
+
+  assert.doesNotMatch(source, /\blocalStorage\./);
+  assert.doesNotMatch(source, /function geminiQueueStorageKey\s*\(/);
+  assert.doesNotMatch(source, /function uniqueIds\s*\(/);
+  assert.match(source, /loadGeminiQueue/);
+  assert.match(source, /saveGeminiQueue/);
+  assert.match(source, /reconcileQueue/);
+  assert.match(source, /markQueueBeatCompleted/);
+  assert.match(source, /markQueueBeatSkipped/);
+});
