@@ -10,7 +10,6 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
-import { useGenerationJob } from "../../generation/queries/generation.queries";
 import {
   useGenerateBatchNarration,
   useGenerateNarration,
@@ -23,7 +22,6 @@ import {
   chapterStatus,
   isAnalysisProcessingStatus,
   isAudioProcessingStatus,
-  isGenerationJobTerminal,
   type ChapterFilter,
   type ChapterSort,
   type WorkspaceStatus,
@@ -42,11 +40,6 @@ import {
   useDeleteChapter,
   useUpdateChapter,
 } from "../queries/chapters.queries";
-
-type TrackedGenerationJob = {
-  jobId: string;
-  chapterId: string;
-};
 
 const PAGE_SIZE = 8;
 
@@ -74,11 +67,11 @@ export function ChaptersScreen({
   charactersCount: number;
 }>) {
   const createChapter = useCreateChapter(projectId);
+  const updateChapter = useUpdateChapter(projectId);
+  const deleteChapter = useDeleteChapter(projectId);
   const generateNarration = useGenerateNarration();
   const generateBatchNarration = useGenerateBatchNarration();
   const bulkChapterAnalysis = useBulkChapterAnalysis(projectId);
-  const updateChapter = useUpdateChapter(projectId);
-  const deleteChapter = useDeleteChapter(projectId);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -93,7 +86,6 @@ export function ChaptersScreen({
   const [sortBy, setSortBy] = useState<ChapterSort>("order");
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [narrationJob, setNarrationJob] = useState<TrackedGenerationJob | null>(null);
   const [audioRequestError, setAudioRequestError] = useState<string | null>(null);
   const [bulkAnalysisBusy, setBulkAnalysisBusy] = useState(false);
 
@@ -138,34 +130,33 @@ export function ChaptersScreen({
     });
   }, [chapters, query, sortBy]);
 
-  const workspaceTargets = chapters;
-  const chapterWorkspaceQueries = useChapterWorkspacesQuery(projectId, workspaceTargets, selected?.id);
+  const chapterWorkspaceQueries = useChapterWorkspacesQuery(projectId, chapters, selected?.id);
 
   const workspacesByChapterId = useMemo(() => {
     const workspaces = new Map<string, DesktopChapterWorkspace>();
-    workspaceTargets.forEach((chapter, index) => {
+    chapters.forEach((chapter, index) => {
       const data = chapterWorkspaceQueries[index]?.data;
       if (data) workspaces.set(chapter.id, data);
     });
     return workspaces;
-  }, [chapterWorkspaceQueries, workspaceTargets]);
+  }, [chapterWorkspaceQueries, chapters]);
 
   const workspaceQueriesByChapterId = useMemo(
     () =>
       new Map(
-        workspaceTargets.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]]),
+        chapters.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]]),
       ),
-    [chapterWorkspaceQueries, workspaceTargets],
+    [chapterWorkspaceQueries, chapters],
   );
 
   const workspaceErrorsByChapterId = useMemo(
     () =>
       new Set(
-        workspaceTargets
+        chapters
           .filter((_chapter, index) => chapterWorkspaceQueries[index]?.isError)
           .map((chapter) => chapter.id),
       ),
-    [chapterWorkspaceQueries, workspaceTargets],
+    [chapterWorkspaceQueries, chapters],
   );
 
   const filtered = useMemo(() => {
@@ -202,9 +193,7 @@ export function ChaptersScreen({
   const canAnalyze = Boolean(
     selected && selectedWorkspace?.capabilities.canAnalyze && chapterAnalysis.canAnalyze,
   );
-  const trackedNarrationForSelected = Boolean(selected && narrationJob?.chapterId === selected.id);
-  const audioBusy =
-    generateNarration.isPending || selectedAudioProcessing || trackedNarrationForSelected;
+  const audioBusy = generateNarration.isPending || selectedAudioProcessing;
   const audioReady = selectedAudioStatus === "READY" || selectedAudioStatus === "COMPLETED";
   const audioBlockMessage = audioGenerationBlockMessage(
     selectedWorkspace?.capabilities.audioGenerationBlockReason,
@@ -256,56 +245,6 @@ export function ChaptersScreen({
   ]);
 
   useEffect(() => {
-    if (!selected) return;
-    const audio = selectedWorkspace?.pipeline.audio;
-    const latestJobId = audio?.latestJobId;
-    if (!latestJobId || !isAudioProcessingStatus(audio.status)) return;
-    if (narrationJob?.chapterId && narrationJob.chapterId !== selected.id) return;
-    setNarrationJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
-  }, [narrationJob?.chapterId, selected, selectedWorkspace]);
-
-  const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
-  const narrationJobStatus = narrationJobQuery.data?.status;
-  const narrationJobErrorCode = narrationJobQuery.data?.errorCode;
-
-  useEffect(() => {
-    if (!narrationJob || !isGenerationJobTerminal(narrationJobStatus)) return;
-
-    const completedJob = narrationJob;
-    const completedStatus = narrationJobStatus;
-    const completedErrorCode = narrationJobErrorCode;
-
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
-      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-    ]).finally(() => {
-      setNarrationJob((current) => (current?.jobId === completedJob.jobId ? null : current));
-      if (editingId !== completedJob.chapterId) return;
-      setNotice(
-        completedStatus === "COMPLETED"
-          ? "Audio đã tạo xong. Bạn có thể nghe ngay bên dưới."
-          : completedErrorCode
-            ? `Tạo audio thất bại: ${completedErrorCode}`
-            : "Tạo audio không hoàn tất. Bạn có thể thử lại.",
-      );
-    });
-  }, [
-    editingId,
-    narrationJob,
-    narrationJobErrorCode,
-    narrationJobStatus,
-    projectId,
-    queryClient,
-  ]);
-
-  useEffect(() => {
-    if (!narrationJob || !narrationJobQuery.isError || narrationJobQuery.data) return;
-    if (editingId === narrationJob.chapterId) {
-      setNotice("Kết nối realtime tạm gián đoạn. Workspace vẫn tự polling trạng thái audio.");
-    }
-  }, [editingId, narrationJob, narrationJobQuery.data, narrationJobQuery.isError]);
-
-  useEffect(() => {
     if (!chapterAnalysis.isTerminal || !chapterAnalysis.job || !chapterAnalysis.message) return;
     setNotice(chapterAnalysis.message);
   }, [
@@ -317,7 +256,7 @@ export function ChaptersScreen({
 
   useEffect(() => {
     if (chapterAnalysis.connectionInterrupted) {
-      setNotice("Kết nối realtime tạm gián đoạn. Hệ thống sẽ tự thử lại trạng thái phân tích.");
+      setNotice("Kết nối realtime tạm gián đoạn. Workspace vẫn tự polling trạng thái phân tích.");
     }
   }, [chapterAnalysis.connectionInterrupted]);
 
@@ -445,20 +384,18 @@ export function ChaptersScreen({
 
     setNotice(null);
     setAudioRequestError(null);
-    const chapterId = selected.id;
     const parsedRate = Number.parseFloat(speakingRate);
     try {
       const job = await generateNarration.mutateAsync({
         projectId,
         request: {
-          chapterId,
+          chapterId: selected.id,
           voiceId,
           speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
         },
       });
-      setNarrationJob({ jobId: job.jobId, chapterId });
       await queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) });
-      setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
+      setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được worker xử lý.`);
     } catch (error) {
       const message = toErrorMessage(error, "Tạo audio thất bại.");
       setAudioRequestError(message);
@@ -482,7 +419,7 @@ export function ChaptersScreen({
         queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
       ]);
       setNotice(
-        `Đã xếp hàng tạo audio cho ${admitted.length} chapter. Worker sẽ xử lý song song theo giới hạn concurrency.`,
+        `Đã xếp hàng tạo audio cho ${admitted.length} chapter. Narration worker sẽ xử lý song song theo concurrency.`,
       );
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể xếp hàng tạo audio cho các chapter."));
@@ -640,8 +577,6 @@ export function ChaptersScreen({
             ready: audioReady,
             processing: selectedAudioProcessing,
             controlsDisabled: audioControlsDisabled,
-            trackedForSelected: trackedNarrationForSelected,
-            blockedByAnotherChapter: false,
             generatePending: generateNarration.isPending,
             blockMessage: audioBlockMessage,
             requestError: audioRequestError,
