@@ -40,8 +40,6 @@ type AudioState = Readonly<{
   ready: boolean;
   processing: boolean;
   controlsDisabled: boolean;
-  trackedForSelected: boolean;
-  blockedByAnotherChapter: boolean;
   generatePending: boolean;
   blockMessage: string | null;
   requestError: string | null;
@@ -235,7 +233,7 @@ export function ChapterEditorPanel({
                   </div>
                   <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
                     {analyzeBusy
-                      ? "AI đang phân tích nội dung. Nút được khóa để tránh gửi trùng request."
+                      ? "AI đang phân tích nội dung. Nút được khóa để tránh gửi trùng request cho chapter này."
                       : !canAnalyze && selected
                         ? "Backend đang khóa phân tích cho trạng thái hiện tại của chapter."
                         : "Chọn IMAGE/VIDEO và provider trước khi tạo scene/beat."}
@@ -408,7 +406,7 @@ function AnalyzeChapterModal({
 
           {visualGenerationMode === "IMAGE" && imageProvider === "GEMINI_WEB" && (
             <div className="rounded-md border border-info/25 bg-info-bg px-3 py-2 text-[10px] leading-4 text-text-secondary">
-              Web image generation always creates a new image for each visual beat. Reuse và reframe không được dùng với Gemini Web.
+              Web image generation luôn tạo ảnh mới cho từng visual beat. Reuse và reframe không dùng với Gemini Web.
             </div>
           )}
         </div>
@@ -525,9 +523,7 @@ function AudioChapterCard({
             <span>
               {audioButtonLabel({
                 generatePending: audio.generatePending,
-                trackedForSelected: audio.trackedForSelected,
                 processing: audio.processing,
-                blockedByAnotherChapter: audio.blockedByAnotherChapter,
                 ready: audio.ready,
               })}
             </span>
@@ -538,12 +534,6 @@ function AudioChapterCard({
       {generationBlockedByUnsavedChanges && (
         <p className="text-[10px] leading-4 text-warning">
           Hãy lưu thay đổi trước khi tạo audio hoặc phân tích chapter.
-        </p>
-      )}
-
-      {audio.blockedByAnotherChapter && (
-        <p className="text-[10px] leading-4 text-info">
-          Một chapter khác đang tạo audio. Chờ job hiện tại hoàn tất trước khi gửi job mới.
         </p>
       )}
 
@@ -572,7 +562,7 @@ function AudioChapterCard({
             <span>
               {audio.generatePending
                 ? "Đang gửi yêu cầu tạo audio…"
-                : "Narration worker đang xử lý. Nút tạo audio đã được khóa để tránh gửi trùng job."}
+                : "Narration worker đang xử lý chapter này. Các chapter khác vẫn có thể tạo audio song song."}
             </span>
           </div>
         )}
@@ -604,8 +594,7 @@ function AudioChapterCard({
 
         {!audio.busy && audio.ready && !audio.workspace?.pipeline.audio.audioUrl && (
           <p className="rounded-md border border-warning/20 bg-warning-bg px-3 py-2 text-[10px] leading-4 text-warning">
-            Audio đã sẵn sàng nhưng chưa lấy được URL nghe thử. Hãy tải lại workspace hoặc kiểm tra
-            media storage.
+            Audio đã sẵn sàng nhưng chưa lấy được URL nghe thử. Hãy tải lại workspace hoặc kiểm tra media storage.
           </p>
         )}
 
@@ -617,7 +606,7 @@ function AudioChapterCard({
 
         {!audio.busy && !audio.ready && audio.status !== "FAILED" && (
           <p className="text-[10px] text-text-muted">
-            Chưa có audio để nghe. Sau khi job hoàn tất, player sẽ xuất hiện ngay tại đây.
+            Chưa có audio để nghe. Sau khi job hoàn tất, player sẽ xuất hiện tại đây.
           </p>
         )}
       </div>

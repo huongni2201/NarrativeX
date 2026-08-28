@@ -14,6 +14,8 @@ import { deriveChapterAnalysisUiState } from "../model/chapter-analysis.ts";
 
 export { chapterAnalysisQueryKeys, chapterAnalysisShouldPoll };
 
+const BULK_ANALYSIS_ADMISSION_CONCURRENCY = 4;
+
 type TrackedAnalysisJob = {
   jobId: string;
   chapterId: string;
@@ -24,6 +26,39 @@ type ChapterAnalysisJob = {
   status: string;
   errorCode: string | null;
 };
+
+export function useBulkChapterAnalysis(projectId: string) {
+  const queryClient = useQueryClient();
+  const analyzeMutation = useAnalyzeChapter();
+
+  async function analyzeAll(chapterIds: string[], preferences: AnalyzeChapterInput) {
+    let admitted = 0;
+    for (
+      let offset = 0;
+      offset < chapterIds.length;
+      offset += BULK_ANALYSIS_ADMISSION_CONCURRENCY
+    ) {
+      const chunk = chapterIds.slice(offset, offset + BULK_ANALYSIS_ADMISSION_CONCURRENCY);
+      const results = await Promise.allSettled(
+        chunk.map((chapterId) =>
+          analyzeMutation.mutateAsync({ projectId, chapterId, request: preferences }),
+        ),
+      );
+      admitted += results.filter((result) => result.status === "fulfilled").length;
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "chapters"] }),
+      queryClient.invalidateQueries({ queryKey: chapterAnalysisQueryKeys.timeline(projectId) }),
+    ]);
+    return { admitted, total: chapterIds.length };
+  }
+
+  return {
+    analyzeAll,
+    isPending: analyzeMutation.isPending,
+  };
+}
 
 export function useChapterAnalysis(
   projectId: string,

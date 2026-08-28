@@ -10,17 +10,18 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
-import { useGenerationJob } from "../../generation/queries/generation.queries";
-import { useGenerateNarration } from "../../generation/queries/narration.queries";
+import {
+  useGenerateBatchNarration,
+  useGenerateNarration,
+} from "../../generation/queries/narration.queries";
 import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
 import { ChapterListPanel } from "../components/ChapterListPanel";
 import { ChapterWorkspaceContext } from "../components/ChapterWorkspaceContext";
 import {
-  chapterStatus,
   audioGenerationBlockMessage,
+  chapterStatus,
   isAnalysisProcessingStatus,
   isAudioProcessingStatus,
-  isGenerationJobTerminal,
   type ChapterFilter,
   type ChapterSort,
   type WorkspaceStatus,
@@ -28,7 +29,10 @@ import {
   workspaceStatusDotClass,
   workspaceStatusLabel,
 } from "../model/chapter-ui";
-import { useChapterAnalysis } from "../queries/chapter-analysis.queries";
+import {
+  useBulkChapterAnalysis,
+  useChapterAnalysis,
+} from "../queries/chapter-analysis.queries";
 import {
   chapterQueryKeys,
   useChapterWorkspacesQuery,
@@ -36,11 +40,6 @@ import {
   useDeleteChapter,
   useUpdateChapter,
 } from "../queries/chapters.queries";
-
-type TrackedGenerationJob = {
-  jobId: string;
-  chapterId: string;
-};
 
 const PAGE_SIZE = 8;
 
@@ -68,9 +67,11 @@ export function ChaptersScreen({
   charactersCount: number;
 }>) {
   const createChapter = useCreateChapter(projectId);
-  const generateNarration = useGenerateNarration();
   const updateChapter = useUpdateChapter(projectId);
   const deleteChapter = useDeleteChapter(projectId);
+  const generateNarration = useGenerateNarration();
+  const generateBatchNarration = useGenerateBatchNarration();
+  const bulkChapterAnalysis = useBulkChapterAnalysis(projectId);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -82,11 +83,11 @@ export function ChaptersScreen({
   const [speakingRate, setSpeakingRate] = useState("1");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ChapterFilter>("all");
-  const [sortBy, setSortBy] = useState<ChapterSort>("recent");
+  const [sortBy, setSortBy] = useState<ChapterSort>("order");
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [narrationJob, setNarrationJob] = useState<TrackedGenerationJob | null>(null);
   const [audioRequestError, setAudioRequestError] = useState<string | null>(null);
+  const [bulkAnalysisBusy, setBulkAnalysisBusy] = useState(false);
 
   useEffect(() => {
     if (workspaceStatus === "loading") return;
@@ -129,50 +130,33 @@ export function ChaptersScreen({
     });
   }, [chapters, query, sortBy]);
 
-  const visibleCandidates = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return baseChapters.slice(start, start + PAGE_SIZE);
-  }, [baseChapters, page]);
-
-  const workspaceTargets = useMemo(() => {
-    if (statusFilter !== "all") return chapters;
-    const ids = new Set(visibleCandidates.map((chapter) => chapter.id));
-    if (selected) ids.add(selected.id);
-    if (narrationJob) ids.add(narrationJob.chapterId);
-    return chapters.filter((chapter) => ids.has(chapter.id));
-  }, [chapters, narrationJob, selected, statusFilter, visibleCandidates]);
-
-  const chapterWorkspaceQueries = useChapterWorkspacesQuery(
-    projectId,
-    workspaceTargets,
-    selected?.id,
-  );
+  const chapterWorkspaceQueries = useChapterWorkspacesQuery(projectId, chapters, selected?.id);
 
   const workspacesByChapterId = useMemo(() => {
     const workspaces = new Map<string, DesktopChapterWorkspace>();
-    workspaceTargets.forEach((chapter, index) => {
+    chapters.forEach((chapter, index) => {
       const data = chapterWorkspaceQueries[index]?.data;
       if (data) workspaces.set(chapter.id, data);
     });
     return workspaces;
-  }, [chapterWorkspaceQueries, workspaceTargets]);
+  }, [chapterWorkspaceQueries, chapters]);
 
   const workspaceQueriesByChapterId = useMemo(
     () =>
       new Map(
-        workspaceTargets.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]]),
+        chapters.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]]),
       ),
-    [chapterWorkspaceQueries, workspaceTargets],
+    [chapterWorkspaceQueries, chapters],
   );
 
   const workspaceErrorsByChapterId = useMemo(
     () =>
       new Set(
-        workspaceTargets
+        chapters
           .filter((_chapter, index) => chapterWorkspaceQueries[index]?.isError)
           .map((chapter) => chapter.id),
       ),
-    [chapterWorkspaceQueries, workspaceTargets],
+    [chapterWorkspaceQueries, chapters],
   );
 
   const filtered = useMemo(() => {
@@ -209,14 +193,39 @@ export function ChaptersScreen({
   const canAnalyze = Boolean(
     selected && selectedWorkspace?.capabilities.canAnalyze && chapterAnalysis.canAnalyze,
   );
-  const trackedNarrationForSelected = Boolean(
-    selected && narrationJob?.chapterId === selected.id,
-  );
-  const audioBusy =
-    generateNarration.isPending || selectedAudioProcessing || trackedNarrationForSelected;
+  const audioBusy = generateNarration.isPending || selectedAudioProcessing;
   const audioReady = selectedAudioStatus === "READY" || selectedAudioStatus === "COMPLETED";
   const audioBlockMessage = audioGenerationBlockMessage(
     selectedWorkspace?.capabilities.audioGenerationBlockReason,
+  );
+
+  const bulkAudioChapterIds = useMemo(
+    () =>
+      chapters
+        .filter((chapter) => {
+          const workspace = workspacesByChapterId.get(chapter.id);
+          if (!workspace?.capabilities.canGenerateAudio) return false;
+          const status = workspace.pipeline.audio.status;
+          return (
+            !isAudioProcessingStatus(status) && status !== "READY" && status !== "COMPLETED"
+          );
+        })
+        .map((chapter) => chapter.id),
+    [chapters, workspacesByChapterId],
+  );
+
+  const bulkAnalysisChapterIds = useMemo(
+    () =>
+      chapters
+        .filter((chapter) => {
+          const workspace = workspacesByChapterId.get(chapter.id);
+          return Boolean(
+            workspace?.capabilities.canAnalyze &&
+              !isAnalysisProcessingStatus(workspace.pipeline.analysis.status),
+          );
+        })
+        .map((chapter) => chapter.id),
+    [chapters, workspacesByChapterId],
   );
 
   useEffect(() => {
@@ -228,65 +237,12 @@ export function ChaptersScreen({
     if (audio?.speakingRate != null) {
       setSpeakingRate(String(audio.speakingRate));
     }
-  }, [selected?.id, selectedWorkspace?.pipeline.audio.speakingRate, selectedWorkspace?.pipeline.audio.voiceId, voices]);
-
-  useEffect(() => {
-    if (!selected) return;
-    const audio = selectedWorkspace?.pipeline.audio;
-    const latestJobId = audio?.latestJobId;
-    if (!latestJobId || !isAudioProcessingStatus(audio.status)) return;
-
-    setNarrationJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
-  }, [selected, selectedWorkspace]);
-
-  const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
-  const narrationJobStatus = narrationJobQuery.data?.status;
-  const narrationJobErrorCode = narrationJobQuery.data?.errorCode;
-
-  useEffect(() => {
-    if (!narrationJob || !isGenerationJobTerminal(narrationJobStatus)) return;
-
-    const completedJob = narrationJob;
-    const completedStatus = narrationJobStatus;
-    const completedErrorCode = narrationJobErrorCode;
-
-    void Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: chapterQueryKeys.workspace(projectId, completedJob.chapterId),
-      }),
-      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-    ]).finally(() => {
-      setNarrationJob((current) =>
-        current?.jobId === completedJob.jobId ? null : current,
-      );
-      if (editingId !== completedJob.chapterId) return;
-
-      if (completedStatus === "COMPLETED") {
-        setNotice("Audio đã tạo xong. Bạn có thể nghe ngay bên dưới.");
-        return;
-      }
-
-      setNotice(
-        completedErrorCode
-          ? `Tạo audio thất bại: ${completedErrorCode}`
-          : "Tạo audio không hoàn tất. Bạn có thể thử lại.",
-      );
-    });
   }, [
-    editingId,
-    narrationJob,
-    narrationJobErrorCode,
-    narrationJobStatus,
-    projectId,
-    queryClient,
+    selected?.id,
+    selectedWorkspace?.pipeline.audio.speakingRate,
+    selectedWorkspace?.pipeline.audio.voiceId,
+    voices,
   ]);
-
-  useEffect(() => {
-    if (!narrationJob || !narrationJobQuery.isError || narrationJobQuery.data) return;
-    if (editingId === narrationJob.chapterId) {
-      setNotice("Kết nối realtime tạm gián đoạn. Hệ thống sẽ tự thử lại trạng thái audio.");
-    }
-  }, [editingId, narrationJob, narrationJobQuery.data, narrationJobQuery.isError]);
 
   useEffect(() => {
     if (!chapterAnalysis.isTerminal || !chapterAnalysis.job || !chapterAnalysis.message) return;
@@ -300,7 +256,7 @@ export function ChaptersScreen({
 
   useEffect(() => {
     if (chapterAnalysis.connectionInterrupted) {
-      setNotice("Kết nối realtime tạm gián đoạn. Hệ thống sẽ tự thử lại trạng thái phân tích.");
+      setNotice("Kết nối realtime tạm gián đoạn. Workspace vẫn tự polling trạng thái phân tích.");
     }
   }, [chapterAnalysis.connectionInterrupted]);
 
@@ -318,12 +274,7 @@ export function ChaptersScreen({
 
   const saveBusy = createChapter.isPending || updateChapter.isPending;
   const analysisBusy = chapterAnalysis.isAnalyzing || selectedAnalysisProcessing;
-  const busy =
-    saveBusy ||
-    generateNarration.isPending ||
-    deleteChapter.isPending ||
-    analysisBusy;
-
+  const busy = saveBusy || deleteChapter.isPending;
   const isDirty = selected
     ? title !== selected.title || sourceText !== selected.sourceText
     : Boolean(title.trim() || sourceText.trim());
@@ -334,12 +285,10 @@ export function ChaptersScreen({
     () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
     [chapters],
   );
-
   const totalSceneCount = useMemo(() => {
     if (!timeline) return null;
     return new Set(timeline.beats.map((beat) => `${beat.chapterId}:${beat.sceneIndex}`)).size;
   }, [timeline]);
-
   const totalBeatCount = timeline?.beats.length ?? null;
   const audioReadyCount = timeline?.chapters.filter((chapter) => chapter.audioReady).length ?? null;
   const renderReadyCount =
@@ -390,7 +339,7 @@ export function ChaptersScreen({
   function resetFilters() {
     setQuery("");
     setStatusFilter("all");
-    setSortBy("recent");
+    setSortBy("order");
     setPage(1);
   }
 
@@ -427,7 +376,7 @@ export function ChaptersScreen({
       !voiceId ||
       generationActionDisabled ||
       selectedAudioProcessing ||
-      narrationJob ||
+      generateNarration.isPending ||
       audioBlockMessage
     ) {
       return;
@@ -435,26 +384,73 @@ export function ChaptersScreen({
 
     setNotice(null);
     setAudioRequestError(null);
-    const chapterId = selected.id;
     const parsedRate = Number.parseFloat(speakingRate);
     try {
       const job = await generateNarration.mutateAsync({
         projectId,
         request: {
-          chapterId,
+          chapterId: selected.id,
           voiceId,
           speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
         },
       });
-      setNarrationJob({ jobId: job.jobId, chapterId });
-      void queryClient.invalidateQueries({
-        queryKey: chapterQueryKeys.workspace(projectId, chapterId),
-      });
-      setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
+      await queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) });
+      setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được worker xử lý.`);
     } catch (error) {
       const message = toErrorMessage(error, "Tạo audio thất bại.");
       setAudioRequestError(message);
       setNotice(message);
+    }
+  }
+
+  async function generateAudioAll() {
+    if (!voiceId || !bulkAudioChapterIds.length || generateBatchNarration.isPending) return;
+    setNotice(null);
+    const parsedRate = Number.parseFloat(speakingRate);
+    try {
+      const admitted = await generateBatchNarration.mutateAsync({
+        projectId,
+        chapterIds: bulkAudioChapterIds,
+        voiceId,
+        speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
+        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+      ]);
+      setNotice(
+        `Đã xếp hàng tạo audio cho ${admitted.length} chapter. Narration worker sẽ xử lý song song theo concurrency.`,
+      );
+    } catch (error) {
+      setNotice(toErrorMessage(error, "Không thể xếp hàng tạo audio cho các chapter."));
+    }
+  }
+
+  async function analyzeAll() {
+    if (!bulkAnalysisChapterIds.length || bulkAnalysisBusy) return;
+    const currentMode = selectedWorkspace?.pipeline.analysis.visualGenerationMode ?? "IMAGE";
+    const preferences = {
+      visualGenerationMode: currentMode,
+      imageProvider:
+        currentMode === "IMAGE"
+          ? selectedWorkspace?.pipeline.analysis.imageProvider ?? "GEMINI_WEB"
+          : null,
+    };
+
+    setBulkAnalysisBusy(true);
+    setNotice(null);
+    try {
+      const result = await bulkChapterAnalysis.analyzeAll(bulkAnalysisChapterIds, preferences);
+      const failed = result.total - result.admitted;
+      setNotice(
+        failed
+          ? `Đã gửi phân tích ${result.admitted}/${result.total} chapter; ${failed} request chưa được nhận.`
+          : `Đã xếp hàng phân tích ${result.admitted} chapter. General worker sẽ xử lý song song theo concurrency.`,
+      );
+    } catch (error) {
+      setNotice(toErrorMessage(error, "Không thể xếp hàng phân tích các chapter."));
+    } finally {
+      setBulkAnalysisBusy(false);
     }
   }
 
@@ -481,11 +477,12 @@ export function ChaptersScreen({
     }
   }
 
-  const narrationBlockedByAnotherChapter = Boolean(
-    narrationJob && narrationJob.chapterId !== selected?.id,
-  );
   const audioControlsDisabled =
-    !selected || busy || selectedAudioProcessing || Boolean(narrationJob) || Boolean(audioBlockMessage);
+    !selected ||
+    saveBusy ||
+    selectedAudioProcessing ||
+    generateNarration.isPending ||
+    Boolean(audioBlockMessage);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
@@ -524,7 +521,11 @@ export function ChaptersScreen({
           allChaptersCount={chapters.length}
           editingId={editingId}
           isCreating={isCreating}
-          busy={busy}
+          deleteBusy={deleteChapter.isPending}
+          bulkAudioBusy={generateBatchNarration.isPending}
+          bulkAnalysisBusy={bulkAnalysisBusy}
+          canBulkAudio={Boolean(voiceId && bulkAudioChapterIds.length)}
+          canBulkAnalysis={Boolean(bulkAnalysisChapterIds.length)}
           query={query}
           statusFilter={statusFilter}
           sortBy={sortBy}
@@ -550,6 +551,8 @@ export function ChaptersScreen({
           onPageChange={setPage}
           onSelectChapter={selectChapter}
           onDeleteChapter={(chapter) => void remove(chapter)}
+          onGenerateAudioAll={() => void generateAudioAll()}
+          onAnalyzeAll={() => void analyzeAll()}
         />
 
         <ChapterEditorPanel
@@ -574,8 +577,6 @@ export function ChaptersScreen({
             ready: audioReady,
             processing: selectedAudioProcessing,
             controlsDisabled: audioControlsDisabled,
-            trackedForSelected: trackedNarrationForSelected,
-            blockedByAnotherChapter: narrationBlockedByAnotherChapter,
             generatePending: generateNarration.isPending,
             blockMessage: audioBlockMessage,
             requestError: audioRequestError,

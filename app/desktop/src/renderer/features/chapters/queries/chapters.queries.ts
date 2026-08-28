@@ -11,7 +11,10 @@ import type {
   UpdateChapterInput,
 } from "@narrativex/client-contracts";
 import { chaptersApi } from "../api/chapters.api";
-import { isAudioProcessingStatus } from "../model/chapter-ui";
+import {
+  isAnalysisProcessingStatus,
+  isAudioProcessingStatus,
+} from "../model/chapter-ui";
 
 export const chapterQueryKeys = {
   all: (projectId: string) => ["projects", projectId, "chapters"] as const,
@@ -26,10 +29,18 @@ export const chapterQueryKeys = {
 function invalidateChapterData(queryClient: QueryClient, projectId: string) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
-    // Production timeline contains chapter identity/version/title and is therefore
-    // backend-derived chapter data too. Keep it synchronized after every CRUD write.
     queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
   ]);
+}
+
+function hasActiveChapterWork(workspaces: DesktopChapterWorkspace[] | undefined) {
+  return Boolean(
+    workspaces?.some(
+      (workspace) =>
+        isAudioProcessingStatus(workspace.pipeline.audio.status) ||
+        isAnalysisProcessingStatus(workspace.pipeline.analysis.status),
+    ),
+  );
 }
 
 export function useChapterWorkspacesQuery(
@@ -43,21 +54,23 @@ export function useChapterWorkspacesQuery(
     queryFn: () => chaptersApi.workspaces(projectId, chapterIds),
     enabled: Boolean(projectId && chapterIds.length),
     staleTime: 30_000,
+    refetchInterval: (query) =>
+      hasActiveChapterWork(query.state.data as DesktopChapterWorkspace[] | undefined) ? 3000 : false,
   });
 
-  const pollingEnabled = Boolean(
-    pollingChapterId && chapterIds.includes(pollingChapterId),
-  );
+  const pollingEnabled = Boolean(pollingChapterId && chapterIds.includes(pollingChapterId));
   const pollingQuery = useQuery({
     queryKey: chapterQueryKeys.workspace(projectId, pollingChapterId ?? "none"),
     queryFn: () => chaptersApi.workspace(projectId, pollingChapterId as string),
     enabled: pollingEnabled,
-    refetchInterval: (query) =>
-      isAudioProcessingStatus(
-        (query.state.data as DesktopChapterWorkspace | undefined)?.pipeline.audio.status,
-      )
+    refetchInterval: (query) => {
+      const workspace = query.state.data as DesktopChapterWorkspace | undefined;
+      return workspace &&
+        (isAudioProcessingStatus(workspace.pipeline.audio.status) ||
+          isAnalysisProcessingStatus(workspace.pipeline.analysis.status))
         ? 3000
-        : false,
+        : false;
+    },
   });
 
   const workspacesByChapterId = new Map(
@@ -71,7 +84,9 @@ export function useChapterWorkspacesQuery(
     data: workspacesByChapterId.get(chapter.id),
     isError:
       batchQuery.isError ||
-      (chapter.id === pollingChapterId && pollingQuery.isError && !workspacesByChapterId.has(chapter.id)),
+      (chapter.id === pollingChapterId &&
+        pollingQuery.isError &&
+        !workspacesByChapterId.has(chapter.id)),
     refetch: chapter.id === pollingChapterId ? pollingQuery.refetch : batchQuery.refetch,
   }));
 }

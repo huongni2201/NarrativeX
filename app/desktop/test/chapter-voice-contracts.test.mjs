@@ -116,15 +116,13 @@ test("voice preview only accepts HTTP(S) media URLs", () => {
   assert.equal(playableSampleUrl("not-a-url"), null);
 });
 
-test("chapter audio button shows a loading label while the create request is pending", () => {
+test("chapter audio button shows a loading label while the selected chapter is pending", () => {
   assert.equal(
-    audioButtonLabel({
-      generatePending: true,
-      trackedForSelected: false,
-      processing: false,
-      blockedByAnotherChapter: false,
-      ready: false,
-    }),
+    audioButtonLabel({ generatePending: true, processing: false, ready: false }),
+    "Đang tạo…",
+  );
+  assert.equal(
+    audioButtonLabel({ generatePending: false, processing: true, ready: false }),
     "Đang tạo…",
   );
 });
