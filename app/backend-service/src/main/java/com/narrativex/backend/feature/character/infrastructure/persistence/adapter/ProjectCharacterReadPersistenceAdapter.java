@@ -65,9 +65,10 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
 
   private ProjectCharacterReadModel map(ProjectCharacterReadRow row) {
     ProjectCharacterReadModel.Version version =
-        row.getPinnedCharacterVersionId() == null
+        row.getCharacterVersionId() == null
             ? null
             : new ProjectCharacterReadModel.Version(
+                row.getCharacterVersionId(),
                 row.getVersionNumber(),
                 row.getVersionStatus(),
                 row.getBible(),
