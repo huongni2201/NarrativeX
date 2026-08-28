@@ -1,4 +1,4 @@
-import { apiRequest } from "../../../api/client";
+import { apiRequest } from "../../../api/client.ts";
 
 export type VisualBeatReviewStatus = "NEEDS_REVIEW" | "APPROVED";
 
