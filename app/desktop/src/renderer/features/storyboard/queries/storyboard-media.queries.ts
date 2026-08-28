@@ -16,6 +16,7 @@ import {
   persistStoryboardImage,
   type PersistStoryboardImageDeps,
 } from "./storyboard-media.mutations";
+import { resolveStoryboardImagePreview } from "../model/storyboard-image-preview";
 import { storyboardKeys } from "./storyboard.queries";
 
 async function invalidateStoryboardMedia(
@@ -111,11 +112,38 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
   };
 }
 
-export function useStoryboardImagePreview(assetId: string | null | undefined, enabled: boolean) {
-  return useQuery({
+export function useStoryboardImagePreview({
+  projectId,
+  assetId,
+  storageMode,
+  enabled,
+}: Readonly<{
+  projectId: string;
+  assetId: string | null | undefined;
+  storageMode: string | null | undefined;
+  enabled: boolean;
+}>) {
+  const initialPreview = assetId
+    ? resolveStoryboardImagePreview({ projectId, assetId, storageMode, remoteUrl: null })
+    : null;
+  const remotePreview = useQuery({
     queryKey: ["assets", assetId ?? "none", "download-url"],
     queryFn: () => assetsApi.downloadUrl(assetId as string),
-    enabled: Boolean(assetId && enabled),
+    enabled: Boolean(assetId && enabled && initialPreview?.requiresRemoteUrl),
     staleTime: 30_000,
   });
+
+  const preview = assetId
+    ? resolveStoryboardImagePreview({
+      projectId,
+      assetId,
+      storageMode,
+      remoteUrl: remotePreview.data?.url,
+    })
+    : null;
+
+  return {
+    ...remotePreview,
+    data: preview?.url ? { url: preview.url } : undefined,
+  };
 }

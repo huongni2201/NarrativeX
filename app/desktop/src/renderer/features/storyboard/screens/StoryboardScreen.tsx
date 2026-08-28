@@ -559,6 +559,7 @@ export function StoryboardScreen({
 
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <VisualBeatGrid
+                projectId={projectId}
                 beats={filteredVisualBeats}
                 hasSelectedScene={Boolean(selectedScene)}
                 selectedSceneBeatCount={selectedSceneBeats.length}

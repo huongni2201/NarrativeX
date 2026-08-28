@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
 import {
   Check,
@@ -17,6 +17,7 @@ import type { GeminiQueueStatus } from "../model/gemini-queue";
 import { useStoryboardImagePreview } from "../queries/storyboard-media.queries";
 
 export function VisualBeatGrid({
+  projectId,
   beats,
   hasSelectedScene,
   selectedSceneBeatCount,
@@ -32,6 +33,7 @@ export function VisualBeatGrid({
   onCopyPrompt,
   onImport,
 }: Readonly<{
+  projectId: string;
   beats: StoryboardVisualBeat[];
   hasSelectedScene: boolean;
   selectedSceneBeatCount: number;
@@ -79,6 +81,7 @@ export function VisualBeatGrid({
       {beats.map((beat) => (
         <VisualBeatCard
           key={beat.id}
+          projectId={projectId}
           beat={beat}
           timelineBeat={timelineBeats.get(beat.id) ?? null}
           updating={updating}
@@ -98,6 +101,7 @@ export function VisualBeatGrid({
 }
 
 function VisualBeatCard({
+  projectId,
   beat,
   timelineBeat,
   updating,
@@ -111,6 +115,7 @@ function VisualBeatCard({
   onCopyPrompt,
   onImport,
 }: Readonly<{
+  projectId: string;
   beat: StoryboardVisualBeat;
   timelineBeat: DesktopTimelineBeat | null;
   updating: boolean;
@@ -232,18 +237,28 @@ function VisualBeatCard({
           </div>
         </div>
 
-        <BeatImagePreview timelineBeat={timelineBeat} />
+        <BeatImagePreview projectId={projectId} timelineBeat={timelineBeat} />
       </div>
     </article>
   );
 }
 
-function BeatImagePreview({ timelineBeat }: Readonly<{ timelineBeat: DesktopTimelineBeat | null }>) {
+function BeatImagePreview({
+  projectId,
+  timelineBeat,
+}: Readonly<{
+  projectId: string;
+  timelineBeat: DesktopTimelineBeat | null;
+}>) {
   const [failed, setFailed] = useState(false);
-  const preview = useStoryboardImagePreview(
-    timelineBeat?.mediaAssetId,
-    Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
-  );
+  const preview = useStoryboardImagePreview({
+    projectId,
+    assetId: timelineBeat?.mediaAssetId,
+    storageMode: timelineBeat?.storageMode,
+    enabled: Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
+  });
+
+  useEffect(() => setFailed(false), [timelineBeat?.mediaAssetId]);
 
   if (!timelineBeat?.mediaAssetId || timelineBeat.mediaType !== "IMAGE") {
     return (

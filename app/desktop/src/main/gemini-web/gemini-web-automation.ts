@@ -11,6 +11,7 @@ import {
   findGeminiModelCandidateIndex,
   type GeminiModelCandidate,
 } from "./gemini-web-model-selection";
+import { hasCompletedGeminiGeneration } from "./gemini-web-generation-state";
 
 const GEMINI_URL = "https://gemini.google.com/app";
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -62,7 +63,7 @@ type CdpEnvelope = {
 };
 
 type GenerationSnapshot = {
-  downloadCount: number;
+  generatedImageCount: number;
   imageSources: string[];
   blocked: boolean;
 };
@@ -335,7 +336,7 @@ export class GeminiWebAutomation {
         await this.submitPrompt(cdp, normalizedPrompt);
         await this.waitForGeneratedImage(cdp, baseline);
 
-        const freshDomImages = await this.freshDomImages(cdp, baseline.imageSources);
+        const freshDomImages = await this.freshDomImages(cdp, baseline);
         const captured = await networkTracker.capture(freshDomImages);
         if (captured) {
           const sourcePath = await this.persistCapturedImage(
@@ -904,28 +905,21 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const downloadWords = ["download full size", "download", "tải xuống", "tải ảnh"];
-        const downloadCount = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [tabindex]')].filter((element) => {
-          if (!visible(element)) return false;
-          const value = String(element.getAttribute("aria-label") || "") + " " +
-            String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
-          const normalized = value.trim().toLowerCase();
-          return downloadWords.some((word) => normalized.includes(word));
-        }).length;
-        const imageSources = [...document.querySelectorAll('img')]
-          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256)
-          .map((image) => image.currentSrc || image.src || "")
-          .filter(Boolean);
+        const generatedImages = [...document.querySelectorAll('generated-image')];
+        const imageSources = generatedImages.map((container) => {
+          const image = [...container.querySelectorAll('img')]
+            .find((candidate) => visible(candidate) && candidate.naturalWidth >= 256 && candidate.naturalHeight >= 256);
+          return image ? image.currentSrc || image.src || "" : "";
+        });
         const text = (document.body?.innerText || "").toLowerCase();
         const blocked = text.includes("can't generate") || text.includes("cannot generate") ||
           text.includes("không thể tạo") || text.includes("unable to generate");
-        return { downloadCount, imageSources, blocked };
+        return { generatedImageCount: generatedImages.length, imageSources, blocked };
       })()`,
     );
   }
 
   private async waitForGeneratedImage(cdp: CdpClient, baseline: GenerationSnapshot): Promise<void> {
-    const baselineImages = new Set(baseline.imageSources);
     const deadline = Date.now() + GENERATION_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const state = await this.generationSnapshot(cdp);
@@ -935,8 +929,7 @@ export class GeminiWebAutomation {
           "Gemini did not generate an image for this Visual Beat.",
         );
       }
-      const hasNewImage = state.imageSources.some((source) => !baselineImages.has(source));
-      if (state.downloadCount > baseline.downloadCount || hasNewImage) {
+      if (hasCompletedGeminiGeneration(baseline, state)) {
         await delay(800);
         return;
       }
@@ -945,18 +938,18 @@ export class GeminiWebAutomation {
     throw geminiError("GEMINI_GENERATION_TIMEOUT", "Gemini image generation did not finish in time.");
   }
 
-  private async freshDomImages(cdp: CdpClient, baselineSources: string[]): Promise<DomImage[]> {
-    const baselineJson = JSON.stringify(baselineSources);
+  private async freshDomImages(cdp: CdpClient, baseline: GenerationSnapshot): Promise<DomImage[]> {
+    const baselineCount = baseline.generatedImageCount;
     return evaluate<DomImage[]>(
       cdp,
       `(() => {
-        const baseline = new Set(${baselineJson});
-        return [...document.querySelectorAll('img')]
+        const containers = [...document.querySelectorAll('generated-image')].slice(${baselineCount});
+        return containers.flatMap((container) => [...container.querySelectorAll('img')])
           .filter((image) => {
             const style = window.getComputedStyle(image);
             const rect = image.getBoundingClientRect();
             const src = image.currentSrc || image.src || "";
-            return src && !baseline.has(src) && style.display !== "none" && style.visibility !== "hidden" &&
+            return src && style.display !== "none" && style.visibility !== "hidden" &&
               rect.width >= 128 && rect.height >= 128 && image.naturalWidth >= 256 && image.naturalHeight >= 256;
           })
           .map((image) => ({ src: image.currentSrc || image.src || "", area: image.naturalWidth * image.naturalHeight }));
@@ -981,60 +974,6 @@ export class GeminiWebAutomation {
   }
 
   private async triggerDownload(cdp: CdpClient, baseline: GenerationSnapshot): Promise<void> {
-    const clickDownload = () =>
-      evaluate<boolean>(
-        cdp,
-        `(() => {
-          const visible = (element) => {
-            const style = window.getComputedStyle(element);
-            const rect = element.getBoundingClientRect();
-            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-          };
-          const words = ["download full size", "download image", "download", "tải xuống", "tải hình ảnh", "tải ảnh"];
-          const candidates = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [tabindex], [aria-label], [title]')].filter((element) => {
-            if (!visible(element)) return false;
-            const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
-              .filter(Boolean).join(" ").trim().toLowerCase();
-            return words.some((word) => value.includes(word));
-          });
-          const target = candidates.at(-1);
-          if (!target) return false;
-          target.click();
-          return true;
-        })()`,
-      );
-
-    const snapshot = await this.generationSnapshot(cdp);
-    if (snapshot.downloadCount > baseline.downloadCount && (await clickDownload())) return;
-    if (await clickDownload()) return;
-
-    const baselineImagesJson = JSON.stringify(baseline.imageSources);
-    const imageRect = await evaluate<{ x: number; y: number } | null>(
-      cdp,
-      `(() => {
-        const baseline = new Set(${baselineImagesJson});
-        const visible = (element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-        };
-        const images = [...document.querySelectorAll('img')]
-          .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
-        const image = images.find((candidate) => !baseline.has(candidate.currentSrc || candidate.src || "")) || images.at(-1);
-        if (!image) return null;
-        image.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
-        const rect = image.getBoundingClientRect();
-        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      })()`,
-    );
-    if (imageRect) {
-      await cdp.send("Input.dispatchMouseEvent", {
-        type: "mouseMoved", x: imageRect.x, y: imageRect.y,
-      });
-      await delay(500);
-      if (await clickDownload()) return;
-    }
-
     if (await this.downloadVisibleGeneratedImage(cdp, baseline)) return;
     if (await this.captureVisibleGeneratedImage(cdp, baseline)) return;
 
@@ -1048,19 +987,19 @@ export class GeminiWebAutomation {
     cdp: CdpClient,
     baseline: GenerationSnapshot,
   ): Promise<boolean> {
-    const baselineImagesJson = JSON.stringify(baseline.imageSources);
+    const baselineCount = baseline.generatedImageCount;
     return await evaluate<boolean>(
       cdp,
       `(async () => {
-        const baseline = new Set(${baselineImagesJson});
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const images = [...document.querySelectorAll("img")]
+        const containers = [...document.querySelectorAll("generated-image")].slice(${baselineCount});
+        const images = containers.flatMap((container) => [...container.querySelectorAll("img")])
           .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
-        const image = images.find((candidate) => !baseline.has(candidate.currentSrc || candidate.src || "")) || images.at(-1);
+        const image = images.at(-1);
         if (!image) return false;
 
         const source = image.currentSrc || image.src || "";
@@ -1092,7 +1031,7 @@ export class GeminiWebAutomation {
     cdp: CdpClient,
     baseline: GenerationSnapshot,
   ): Promise<boolean> {
-    const baselineImagesJson = JSON.stringify(baseline.imageSources);
+    const baselineCount = baseline.generatedImageCount;
     const clip = await evaluate<{
       x: number;
       y: number;
@@ -1102,15 +1041,15 @@ export class GeminiWebAutomation {
     } | null>(
       cdp,
       `(() => {
-        const baseline = new Set(${baselineImagesJson});
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const images = [...document.querySelectorAll("img")]
+        const containers = [...document.querySelectorAll("generated-image")].slice(${baselineCount});
+        const images = containers.flatMap((container) => [...container.querySelectorAll("img")])
           .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
-        const image = images.find((candidate) => !baseline.has(candidate.currentSrc || candidate.src || "")) || images.at(-1);
+        const image = images.at(-1);
         if (!image) return null;
         image.scrollIntoView({ block: "center", inline: "center" });
         const rect = image.getBoundingClientRect();
