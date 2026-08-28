@@ -2,19 +2,21 @@
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
-**Current checkpoint:** `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28)
+**Current audited code checkpoint:** `main` at `2c965b2e95ddcc1e03dc5527340c6adb18cdd05e` (2026-08-28)
 
-The browser→Desktop and JPA/JDBC→MyBatis migrations are no longer roadmap tracks. Desktop is already the only editor client and MyBatis is the production persistence path. Remaining work is product/reliability/release work.
+This roadmap contains remaining work only. Completed browser->Desktop, password-auth->Google-only, JPA/JDBC->MyBatis and Redis->PostgreSQL runtime migrations are not roadmap tracks and must not reappear as future work.
 
 ## Current implemented foundations
 
 ```text
 Desktop guest-first workspace
   -> project/chapter authoring
-  -> analyze / API image / Gemini Web image / narration workflows
+  -> Chapter Analyze / API image / Gemini Web image / narration flows
+  -> semantic Scene/VisualBeat storyboard state
+  -> narration alignment persistence
   -> local asset registration/materialization
-  -> production timeline + beat media selection
-  -> Auto Edit planning with narration-aware fit/motion decisions
+  -> production timeline planned/fallback timing + beat media selection
+  -> Auto Edit planning with supported fit/motion decisions
   -> local render preflight
   -> backend-assigned FFmpeg render
   -> immutable subtitle snapshot + local SRT track
@@ -23,9 +25,30 @@ Desktop guest-first workspace
   -> backup/restore/storage tooling
 ```
 
-Google remains the only account sign-in provider. Guest identity is an installation-scoped ownership/session mechanism, not a second login provider.
+Google remains the only account sign-in provider. Guest identity is an installation-scoped ownership/session mechanism, not a second login provider. PostgreSQL is the required MVP durable runtime state service; Redis is not a required runtime dependency.
 
-## Track A — Production Desktop release — HIGH
+## Track A — Exact Visual Beat source/audio timeline — HIGH
+
+Current foundations already include semantic Visual Beat analysis, nullable source/audio timing columns, persisted narration alignment and production timeline planned/fallback timing. The missing work is the deterministic bridge between those pieces.
+
+Remaining:
+
+- expose deterministic source segments with stable IDs to Chapter analysis;
+- make AI choose semantic contiguous source segment references rather than numeric offsets;
+- resolve those references into UTF-16 half-open `visual_beats.text_start/text_end` on the exact Chapter source snapshot;
+- reconcile compatible narration alignment into `visual_beats.audio_start_ms/audio_end_ms` deterministically;
+- handle both analysis-first/audio-later and audio-first/analysis-later ordering idempotently;
+- reject stale source hash/version alignment rather than writing timing onto changed source;
+- keep fallback/provisional timing distinguishable from exact `ALIGNED` timing in backend/Desktop contracts;
+- expose current storyboard Visual Beats before a MediaPlan without accidentally satisfying render admission;
+- make real narration audio the Desktop draft-preview clock when exact timing is available;
+- verify seek, beat-boundary selection, chapter transitions, playback failures and no-image preview behavior.
+
+**Done when:** every current analyzed Visual Beat can identify exact source coverage; a compatible narration alignment deterministically yields exact Chapter-audio offsets; Desktop can preview/select/seek draft beats on the real narration clock; missing alignment remains explicitly provisional rather than silently simulated as exact.
+
+Implementation plan: `../../docs/superpowers/plans/2026-08-28-draft-visual-beat-preview-audio-timeline.md`.
+
+## Track B — Production Desktop release — HIGH
 
 - lock production packaging dependencies and installer reproducibility;
 - code signing and release identity;
@@ -38,7 +61,7 @@ Google remains the only account sign-in provider. Guest identity is an installat
 
 **Done when:** a clean supported Windows machine can install, authenticate, open/create a project, render/export, upgrade and recover without developer tooling.
 
-## Track B — Local execution recovery and long-form reliability — HIGH
+## Track C — Local execution recovery and long-form reliability — HIGH
 
 Current foundations already include render journals, unfinished-job discovery, segment cache, preflight, lease heartbeat and cancellation.
 
@@ -48,36 +71,36 @@ Remaining:
 - prove lease-loss and app-crash recovery without duplicate finalization;
 - recover safely from FFmpeg child-process termination and OS shutdown;
 - expose clear retry/discard/recover UX for discovered unfinished work;
-- add long-duration soak tests for 1–2 hour outputs;
+- add long-duration soak tests for 1-2 hour outputs;
 - add disk-pressure behavior and cleanup policy around active/incomplete work;
 - validate cache invalidation across renderer/version/output-setting changes.
 
-## Track C — Timeline/editor review workflow — HIGH
+## Track D — Timeline/editor review workflow — HIGH
 
-Current foundations include production timeline reads, narration-aligned timing, beat media selection, probed source durations, duration/camera draft state, typed undo/redo, Auto Edit planning and atomic application of render overrides.
+Current foundations include production timeline reads with planned/fallback timing, beat media selection, probed source durations, duration/camera/fit draft state, typed undo/redo and Auto Edit planning.
 
-Remaining:
+Remaining after Track A timing work:
 
-- richer scene/beat hierarchy editing while preserving Chapter → Scene → VisualBeat semantics;
+- richer Scene/VisualBeat hierarchy editing while preserving Chapter -> Scene -> VisualBeat semantics;
 - trim/split/reorder behavior where domain rules allow it;
 - clear visual distinction between image and imported/generated video beats;
-- image-only camera/motion controls that do not appear for video beats;
+- image-only camera/motion controls that do not appear as video controls;
 - review/regenerate/replace media from the timeline without losing selection state;
 - dirty-state/save/error/retry semantics for production mutations;
 - keyboard shortcuts and accessible focus behavior for dense editor workflows.
 
-Real-time generation status delivery and reload recovery are implemented foundations: Desktop subscribes to owner-scoped SSE snapshots and keeps a slow GET watchdog for stream/network interruption. Durable job state remains PostgreSQL-authoritative.
+Real-time generation status delivery and reload recovery are implemented foundations: Desktop subscribes to owner-scoped SSE snapshots and keeps a slow GET watchdog for interruption. Durable job state remains PostgreSQL-authoritative.
 
-## Track D — Adaptive scene planning and continuity — HIGH
+## Track E — Adaptive scene planning and continuity — HIGH
 
 - complete narration-driven `VisualScenePlanner` instead of fixed image-count assumptions;
-- use narration alignment as the duration authority;
-- improve semantic scene boundaries and beat density based on source complexity;
+- consume exact/aligned timing from Track A rather than generic fallback geometry;
+- improve semantic Scene boundaries and beat density based on source complexity;
 - strengthen Character/Location continuity context in planning and prompts;
 - complete review/approval/version flow for storyboard revisions;
 - preserve immutable approved history when source or continuity inputs change.
 
-## Track E — Asset review, reuse and replacement — MEDIUM
+## Track F — Asset review, reuse and replacement — MEDIUM
 
 Build on current media identity/materialization foundations:
 
@@ -97,15 +120,15 @@ Remaining:
 - local missing/corrupt asset repair UX;
 - optional cross-device/shared-media workflows only when a real sharing requirement exists.
 
-## Track F — Narration/audio production completion — MEDIUM
+## Track G — Narration/audio production completion — MEDIUM
 
 - harden generated TTS, custom voice preview and local imported narration flows around one logical audio clock;
-- complete multi-part user audio alignment/slicing behavior needed by production render;
+- complete arbitrary multi-part user audio alignment/slicing behavior needed by production render;
 - expose alignment diagnostics and correction UX;
 - preserve `USER_PROVIDED_AUDIO` as an explicit TTS bypass;
-- keep narration timing authoritative for visual duration.
+- keep exact source/alignment identity compatible with Track A Visual Beat timing reconciliation.
 
-## Track G — Billing, quota and provider operations — MEDIUM
+## Track H — Billing, quota and provider operations — MEDIUM
 
 - complete actual-usage ledger and reservation settlement evidence;
 - prove terminal release/refund behavior under retries and provider ambiguity;
@@ -113,14 +136,15 @@ Remaining:
 - expose user-facing cost/usage status from backend-authoritative values;
 - add failure-mode tests for concurrent enqueue/edit/lease and provider terminal replay.
 
-## Track H — Operational hardening — MEDIUM
+## Track I — Operational hardening — MEDIUM
 
 - production backup/restore evidence for backend PostgreSQL state;
 - retention/cleanup policy for remote generated-media transport and local generated/render work;
 - structured observability/correlation across Desktop, backend and worker;
 - SSRF/upload/media validation hardening where external resources are accepted;
 - security review for guest credential lifecycle, ownership transfer and logout/resume behavior;
-- local quality gate that remains useful when GitHub Actions is unavailable.
+- keep local quality gates useful when GitHub Actions is unavailable;
+- keep documentation checkpoint/drift guards enforcing docs resync after runtime code changes.
 
 ## Fast-follow / deferred
 
@@ -130,13 +154,15 @@ Remaining:
 
 ## Acceptance scenarios
 
+**Exact draft timeline:** analyzed Visual Beats have deterministic source spans; compatible narration alignment yields exact beat audio offsets; before MediaPlan the editor can show/select/seek draft clips using real narration audio without treating draft state as render-ready.
+
 **Guest-first authoring:** a new installation resumes the same guest-owned workspace across session restarts, allows free authoring, then signs in with Google only when a gated operation is invoked without losing the active editor context.
 
 **Desktop generated-media path:** backend-authorized generation produces accepted media identity, Desktop materializes/registers required bytes locally, and local render resolves asset IDs/checksums without persisting absolute paths.
 
-**Editable production timeline:** a user can choose beat media, adjust supported timeline properties, undo/redo edits and submit an authoritative render snapshot that reflects persisted production choices.
+**Gemini Web path:** Desktop main owns visible Chrome/CDP automation and style/prompt wrapping; renderer requests work only through typed capabilities; accepted results are checksum-verified and committed locally without pretending the flow is a backend API job.
 
-**Auto Edit render:** a user can accept the default narration-aware Auto Edit plan or choose a style override; supported fit/motion decisions are applied atomically before render admission.
+**Editable production timeline:** a user can choose beat media, adjust supported timeline properties, undo/redo edits and submit an authoritative render snapshot that reflects persisted production choices.
 
 **Subtitle render:** narration text and alignment are captured in the immutable render input snapshot and emitted as a UTF-8 SRT track during local FFmpeg rendering when renderable cues exist.
 
