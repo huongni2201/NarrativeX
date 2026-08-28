@@ -1,523 +1,288 @@
-# Desktop Renderer Clean Architecture Design
+# Desktop Renderer Feature-Boundary Design
 
 Date: 2026-08-28
-Status: Approved design, pending implementation plan
+Status: Approved for implementation
 Scope: `app/desktop/src/renderer`
 
-## Context
+## Authority
 
-The desktop renderer is already organized primarily by feature and already contains good examples of feature-local API and query modules. However, several large screens currently mix rendering, local UI state, TanStack Query orchestration, backend calls, Electron bridge calls, persistence, multi-step workflows, cache invalidation, and error handling.
+This refactor follows the current repository authority order:
 
-The highest-priority hotspots are Storyboard, Editor, and Chapters. This design standardizes the renderer around the architecture that already fits the repository instead of introducing a separate global Clean Architecture hierarchy or a new global state framework.
+1. current code, Flyway migrations and automated tests for AS-IS behavior;
+2. accepted ADRs for intentional cross-cutting boundaries;
+3. `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`;
+4. current implementation docs such as `documentation/codebase/DESKTOP_RENDERER_STRUCTURE.md`.
 
-## Goals
+The current renderer structure document supersedes the earlier draft idea of mandatory `hooks/` and `services/` layers. Do not introduce layers merely to satisfy a theoretical architecture.
 
-1. Make screens composition-focused and easy to understand.
-2. Separate UI, server-state orchestration, multi-step workflows, transport, and pure domain/view logic.
-3. Make business/workflow behavior testable without rendering entire screens.
-4. Keep backend data authoritative through TanStack Query.
-5. Preserve the existing Electron/backend ownership boundaries.
-6. Preserve current UI, API contracts, IPC contracts, and user-visible behavior during the refactor.
-7. Establish dependency rules that prevent future screens from accumulating API, native, and workflow logic again.
+## Goal
 
-## Non-goals
+Reduce coupling in the Storyboard, Editor and Chapters renderer hotspots while preserving current UI behavior, backend contracts, preload contracts and local-first media semantics.
 
-- No backend API redesign.
-- No database/schema changes.
-- No Electron IPC contract redesign unless an existing call cannot be represented safely behind an adapter.
-- No Redux migration.
-- No replacement of TanStack Query.
-- No broad UI redesign in the architecture-cleanup phase.
-- No attempt to refactor every renderer feature in one pull request.
+The refactor should make server-state behavior and workflow sequencing easier to test without turning the renderer into a second backend or moving native capabilities out of Electron main.
 
-## Chosen Architecture
+## Canonical feature structure
 
-Use feature-oriented architecture with explicit feature-local layers:
+Use the existing renderer feature structure:
 
 ```text
 features/<feature>/
-  screens/        # route-level composition
-  components/     # presentation and focused interaction
-  hooks/          # controller/view-model orchestration
-  queries/        # TanStack Query keys, queries, mutations, polling, invalidation
-  services/       # multi-step application workflows/use cases
-  api/            # pure backend transport
-  model/          # types, selectors, reducers/state machines, pure logic
+  api/         # raw backend transport for the feature
+  queries/     # React Query hooks, query keys, mutations, polling, invalidation
+  model/       # pure types, selectors, state transitions and presentation helpers
+  components/  # feature-owned presentation components
+  screens/     # route/page containers and orchestration
+  store/       # optional client-only feature state/persistence
 ```
 
-A feature may omit folders that it does not need. The folder layout is a boundary guide, not a requirement to create empty abstractions.
+Not every feature needs every folder.
 
-### Dependency direction
+## Dependency direction
 
 ```text
-screens
-  -> components
-  -> hooks
-
-hooks
+screen
   -> queries
-  -> services
+  -> components
   -> model
+  -> store (only for client-only state)
 
 queries
   -> api
   -> model
-
-services
-  -> api
-  -> native adapters
-  -> model
+  -> typed preload capability when the workflow is explicitly Desktop-owned
 
 components
-  -> model/types
+  -> model
+  -> components/ui
 
 model
-  -> no React, transport, or native runtime dependencies
+  -> pure libraries/shared contracts only
 ```
 
-The following dependencies are prohibited in newly refactored code:
+Avoid:
 
-```text
-component -> backend API
-component -> queryClient
-component -> window.narrativex workflow
-screen -> backend API
-screen -> queryClient cache orchestration
-screen -> multi-step native/backend workflow
-api -> React
-model -> React
-model -> backend/native transport
-```
+- `api` importing React, screens, components or stores;
+- `queries` importing screens or layout components;
+- `model` importing React Query, routing, network clients or Electron bridges;
+- presentational components calling backend APIs or `queryClient`;
+- screens containing raw backend transport calls when a feature query/mutation module can own them;
+- screens embedding long multi-step provider/media workflows that can be isolated and tested independently;
+- renderer code receiving unrestricted filesystem, process, CDP or credential access.
 
-A screen may invoke actions exposed by a controller hook and render query-derived state exposed by that controller. It must not know how cache invalidation, native materialization, asset registration, or workflow retries are implemented.
+## Screen responsibilities
 
-## Layer Responsibilities
+A screen may own:
 
-### Screens
+- route/navigation integration;
+- chapter/scene/beat selection;
+- ephemeral form/filter state;
+- composition of feature queries and mutations;
+- user-facing notices and confirmation state;
+- callback wiring between presentation components and commands.
 
-Screens are route-level composition roots for a feature. They may:
+A screen should not own:
 
-- obtain route/project/chapter identifiers,
-- invoke one feature controller hook,
-- compose major feature components,
-- bind controller state/actions to components.
+- raw HTTP transport details;
+- query-key construction duplicated inline;
+- browser persistence parsing/serialization mixed with rendering;
+- complete multi-step Gemini/media mutation sequences inline;
+- large independent product panels that can be extracted as feature components.
 
-Screens should not directly call feature APIs, `queryClient`, `localStorage`, or multi-step Electron bridge workflows.
+There is no arbitrary line-count requirement. Split by responsibility.
 
-Target guideline: approximately 150-300 lines for large feature screens. This is a guideline, not an absolute rule; responsibility is more important than line count.
-
-### Components
-
-Components receive data and callbacks through props. They should focus on rendering and local interaction behavior.
-
-A component can own ephemeral presentation state that does not affect other feature units, such as whether a popover is open. It should not own backend entities or hidden workflow state.
-
-### Controller hooks
-
-Controller hooks act as feature view models. They combine:
-
-- query/mutation state,
-- feature-local selection state,
-- derived selectors,
-- application service actions,
-- user-facing busy/progress/error state.
-
-Controllers expose a stable shape that screens/components consume. They do not implement raw HTTP requests or native bridge details.
-
-### Query modules
-
-Query modules own server-state behavior:
-
-- query keys,
-- `useQuery` and `useMutation`,
-- polling rules,
-- invalidation and refetch policy,
-- optimistic updates only when justified,
-- normalization of transport errors into application-facing errors when appropriate.
-
-Query keys must be centralized per feature instead of duplicated as array literals across screens.
-
-### API modules
-
-API modules are pure backend transport adapters. They may:
-
-- build request paths and payloads,
-- call the shared renderer HTTP client,
-- parse/guard transport responses.
-
-They must not import React, TanStack Query, toast/notice code, browser persistence, or Electron native workflows.
-
-### Services
-
-Services own application workflows that span more than one transport/native step.
-
-Examples:
-
-- Gemini visual-beat generation,
-- beat media upload/commit/attach,
-- reference materialization before native generation,
-- asset registration followed by production attachment.
-
-Services must expose explicit input/output contracts and be testable with transport/native dependencies mocked or injected at module boundaries.
-
-### Model
-
-Model modules contain pure code:
-
-- types,
-- selectors,
-- sorting/filtering,
-- derived status,
-- small reducers/state machines,
-- validation that does not perform I/O.
-
-Model code should have the highest unit-test coverage because it is cheap and deterministic to test.
-
-## State Ownership
-
-Use the smallest appropriate owner for each state category.
+## State ownership
 
 ```text
 Backend/server state          -> TanStack Query
-Form state                    -> local component/form hook
-Ephemeral presentation state  -> local component state
-Feature orchestration state   -> controller hook or feature store
-Cross-screen persistent state -> Zustand only when truly needed
-Pure derived state            -> selectors/useMemo
+Ephemeral form/filter/select  -> local React state
+Pure derived state            -> model selector / useMemo
+Client-only persisted state   -> feature store/persistence adapter
+Cross-screen client state     -> Zustand only when necessary
 ```
 
-Backend entities such as chapters, characters, assets, storyboard data, and timeline/production data must not be duplicated into Zustand as a second authority.
+Do not mirror Storyboard, Chapter, Asset, Production or other backend-authoritative entities into Zustand.
 
-The existing project-session store remains appropriate for true cross-screen client session state.
+## Storyboard server-state flow
 
-## Standard Data Flow
+Storyboard query keys and mutations move into `features/storyboard/queries/`.
 
 ```text
-User action
-  -> Component callback
-  -> Screen/controller action
-  -> Mutation or application service
-  -> API adapter and/or typed Electron bridge
-  -> Backend/native result
-  -> Query invalidation/refetch
-  -> Controller derives new view state
-  -> UI re-renders
+Screen action
+  -> Storyboard query/mutation hook
+  -> storyboardApi
+  -> backend
+  -> feature-owned query invalidation
+  -> screen renders refreshed query data
 ```
 
-Server mutations should converge back through the query cache instead of manually patching multiple local copies of the same backend entity.
+Create/review/approve mutations keep row-version semantics unchanged.
 
-## Storyboard / Gemini Workflow
+## Gemini Web boundary
 
-The current Gemini generation flow is a primary example of logic that belongs outside the screen.
+ADR-0021 is mandatory.
 
-Target flow:
+`GEMINI_WEB` remains a Desktop-only provider path with a renderer-owned serial queue. Chrome lifecycle, CDP, provider page automation and staged-file validation remain Electron-main-only.
+
+Generation sequence:
 
 ```text
-VisualBeatCard.onGenerate(beatId)
-  -> useStoryboardController.generateBeat(beatId)
-  -> useGenerateGeminiBeat mutation
-  -> gemini-generation.service
-       1. fetch Gemini/storyboard context
-       2. resolve and materialize reference assets
-       3. invoke typed Electron Gemini generation
-       4. register generated asset with backend
-       5. commit/move the generated local file as required
-       6. attach generated asset to the visual beat
-       7. return result
-  -> invalidate storyboard/production/asset queries
-  -> UI updates from query data
+Storyboard action
+  -> backend Gemini context/prompt
+  -> renderer materializes referenced assets through typed preload capability
+  -> typed preload Gemini generate capability
+  -> Electron main returns metadata + sender-bound single-use selection token
+  -> renderer registers LOCAL_ONLY asset metadata with backend
+  -> renderer invokes trusted Gemini commit capability
+  -> renderer persists Visual Beat media selection
+  -> invalidate Storyboard/timeline/asset queries
 ```
 
-The service owns the sequence and cleanup/error mapping. The controller owns which beat is active and which user-facing progress state to expose. The screen only binds actions and state to UI.
+The renderer never receives arbitrary paths or CDP/process APIs.
 
-## Gemini Batch Queue
+## Gemini All queue
 
-Batch generation requires explicit workflow state rather than multiple unrelated booleans.
+The queue remains renderer-owned and serial, as required by ADR-0021.
 
-Queue state:
+Queue state/persistence should be removed from `StoryboardScreen.tsx` and isolated into feature-local pure model + persistence adapter code.
+
+Required behavior to preserve:
+
+- queue is keyed by project/chapter;
+- it can start, pause/resume, skip and finish;
+- a queue persisted as `RUNNING` restores as `PAUSED` after renderer restart;
+- deleted/invalid beats are reconciled out of the queue;
+- stopping between beats does not promise cancellation of a generation already running in Chrome;
+- backend Storyboard/Asset entities are not persisted as a second source of truth.
+
+## Storyboard media mutations
+
+Manual image import and Gemini generated-image attachment should be expressed as feature query/mutation workflows instead of raw `assetsApi` / `productionApi` calls inside the screen.
+
+Manual image attach remains:
 
 ```text
-idle -> running -> paused -> running
-running -> completed
-running -> failed
-failed -> running     # retry/resume
+native selection token
+  -> backend local asset registration
+  -> trusted ProjectStorage commit
+  -> persisted beat media selection
+  -> query invalidation
 ```
 
-Item state:
+Gemini generated image attach follows the ADR-0021 flow above.
+
+## Editor media boundary
+
+`EditorScreen.tsx` remains the cross-feature workspace container, but raw asset/production transport and preview resolution should move into focused editor query/mutation modules.
+
+Preserve existing behavior:
 
 ```text
-pending
-materializing
-generating
-saving
-completed
-failed
-skipped
+native selection
+  -> register local asset
+  -> trusted commit
+  -> existing media-fit choice
+  -> production beat-media update
+  -> query invalidation
 ```
 
-If queue resume across renderer restarts is required, persistence must be hidden behind a feature abstraction such as `gemini-queue.persistence.ts` or a small feature store. Screens must not read/write browser `localStorage` directly.
+Remote preview URL resolution should not require direct `assetsApi.downloadUrl(...)` effects in the screen.
 
-Persist only information needed to resume safely. Backend asset/storyboard entities remain backend-owned and are reloaded through queries.
+Existing stale-request protection must be preserved so an older async completion cannot overwrite newer editor state.
 
-## Editor Media Workflow
+## Chapter analysis boundary
 
-Editor media operations follow the same separation.
+`ChaptersScreen.tsx` keeps authoring/list/form/filter state. Analyze submission, generation-job polling composition, terminal-state mapping and invalidation should move into Chapter/generation query modules.
 
-Target flow for an upload/attach operation:
+Expose semantic state to the screen such as:
 
 ```text
-Editor UI
-  -> editor controller
-  -> beat-media service
-       1. invoke native asset picker
-       2. register selected asset
-       3. commit selected asset into managed storage
-       4. compute/choose media fit using existing production logic
-       5. update visual beat media
-  -> invalidate relevant production/assets queries
-  -> controller updates preview state from query result
+isAnalyzing
+canAnalyze
+job
+error
+analyze()
 ```
 
-Remote preview URL resolution should move to a query/helper boundary rather than having the screen directly call asset transport APIs inside effects.
+Duplicate-submit protection remains required in UI in addition to backend idempotency.
 
-Retry and stale-request protection should be implemented in the service/controller layer and covered by tests.
+## Error/loading ownership
 
-## Chapters Workflow
+- query fetch state -> React Query status;
+- mutation pending -> mutation status;
+- multi-step Desktop workflow phase -> feature query/mutation/local orchestration state;
+- form state -> local form state;
+- user-facing wording -> screen/component presentation layer.
 
-Chapter CRUD should continue to use feature query hooks. Analysis/generation job orchestration should move out of `ChaptersScreen` into chapter/generation-specific query/controller hooks.
+Do not invent a global error framework as part of this refactor. Reuse existing error helpers unless at least two features demonstrably need the same semantic abstraction.
 
-The controller should expose semantic state such as:
+## Presentation extraction
 
-- `isAnalyzing`,
-- `analysisProgress` when available,
-- `analysisError`,
-- `canAnalyze`,
-- `analyzeChapter()`.
+`StoryboardScreen.tsx` currently contains independently understandable regions. Extract feature-owned components where doing so reduces reasoning size, while preserving the exact visual design and behavior.
 
-Polling termination, query invalidation, and mapping of terminal job states belong in the query/application layer rather than the screen.
+Initial candidates:
 
-## Loading and Progress State
+- Storyboard header/status controls;
+- scene rail;
+- Visual Beat list/grid;
+- Gemini queue status/actions.
 
-Each source of loading has a single owner:
+Components receive props/callbacks and do not perform backend transport or cache orchestration.
+
+## Testing strategy
+
+This is a behavior-preserving refactor. Use characterization/TDD around each extraction.
+
+Test priorities:
+
+1. pure queue transitions and reconciliation;
+2. query-key contracts and invalidation ownership;
+3. source/workflow contracts for Gemini/manual media sequencing;
+4. editor media mutation boundaries and stale request behavior;
+5. Chapter analysis terminal-state derivation and polling boundaries;
+6. source-level feature-boundary guards preventing raw API logic from drifting back into the refactored screens.
+
+Desktop verification:
 
 ```text
-Initial/fetch loading  -> query status
-Mutation pending       -> mutation status
-Workflow progress      -> controller/store state machine
-Form submission        -> form/mutation state
-Native operation busy  -> workflow/controller state
+npm test
+npm run type-check
+npm run build
 ```
 
-Avoid parallel booleans such as `busy`, `loading`, `generating`, and `saving` for one workflow. Prefer a semantic phase/status where the workflow has multiple steps.
+Before merge, run the repository local gate when the environment supports it. UI changes/refactors also require runtime Electron verification before claiming full UI verification.
 
-The controller maps internal phases into UI-friendly properties. Components receive simple props such as `isGenerating`, `progressLabel`, `canRetry`, and `error`.
+## Scope
 
-## Error Handling
+### Phase 1 — Storyboard
 
-Introduce a small renderer application error shape or equivalent helper:
+- centralize query keys/query hooks/mutations;
+- extract Gemini queue model + persistence;
+- extract manual/Gemini media mutation workflow;
+- split major presentation regions without redesign.
 
-```ts
-type AppError = {
-  code: string;
-  message: string;
-  retryable: boolean;
-  cause?: unknown;
-};
-```
+### Phase 2 — Editor
 
-This does not require rewriting every existing error immediately. Refactored workflows should normalize backend/native errors at query/service boundaries so UI code does not parse exception strings or native error structures.
+- extract raw asset/production mutation sequences;
+- extract preview resolution;
+- preserve stale-request protection and current timeline behavior.
 
-Error responsibilities:
+### Phase 3 — Chapters
 
-- API/native adapter: preserve actionable transport/runtime details.
-- Service/query layer: map errors into semantic application errors and retryability.
-- Controller: decide which error applies to which feature action/beat.
-- UI: decide presentation only (inline message, banner, toast, retry button).
+- extract Analyze mutation/job orchestration;
+- centralize semantic analysis state;
+- preserve authoring UI and current generation contracts.
 
-Expected errors must not be silently swallowed. Cleanup/rollback behavior for partially completed workflows must be explicit in the relevant service tests.
+Generation/Images, Characters, Voice and Projects are follow-up cleanup only after these three hotspots are stable.
 
-## Testing Strategy
+## Acceptance criteria
 
-This refactor is behavior-preserving. Characterization tests should be added or strengthened before extracting logic where existing coverage is insufficient.
-
-Testing pyramid:
-
-```text
-Runtime/E2E verification
-Component interaction tests
-Controller/query tests
-Service workflow tests
-Pure model unit tests
-```
-
-### Model tests
-
-Test selectors, sorting/filtering, status derivation, and state-machine transitions without React or I/O mocks.
-
-### Service tests
-
-Test multi-step workflows by mocking API/native boundaries. Important cases include:
-
-- successful Gemini generation and attachment,
-- failure during materialization,
-- native generation failure,
-- asset registration failure,
-- commit failure after registration,
-- beat attachment failure,
-- retryable vs non-retryable errors,
-- stale request protection where applicable.
-
-### Query tests
-
-Verify:
-
-- correct query keys,
-- API invocation,
-- invalidation/refetch behavior,
-- polling stop conditions,
-- terminal generation/analysis job state mapping.
-
-### Controller tests
-
-Verify orchestration and UI-facing state:
-
-- selection changes,
-- action enable/disable rules,
-- workflow progress mapping,
-- error/retry exposure,
-- batch queue transitions.
-
-### Component tests
-
-Test visual behavior and callbacks with data/actions passed as props. Backend and Electron bridge details should not be required for ordinary component tests.
-
-### Screen tests
-
-Keep screen tests light: composition/smoke tests and a small number of critical integration flows. Do not recreate all service logic through giant screen tests.
-
-### Verification gates
-
-For each refactored phase:
-
-1. targeted tests for touched feature code,
-2. desktop test suite,
-3. TypeScript type-check,
-4. desktop production build,
-5. repository verification script when appropriate,
-6. runtime desktop UI verification for affected screens as required by repository guidance.
-
-A phase is not considered fully verified if required runtime UI verification cannot be performed; that limitation must be reported explicitly.
-
-## File and Complexity Guidelines
-
-Use responsibility rather than line count as the primary split criterion. Suggested guardrails:
-
-- route-level screen: target 150-300 lines,
-- controller hook: target below roughly 300 lines,
-- focused UI component: target below roughly 250 lines,
-- service: one coherent application workflow/use case,
-- API module: one backend resource/domain boundary,
-- model module: pure, side-effect-free responsibility.
-
-If a file exceeds these ranges but still has one clear responsibility and is easy to test, splitting is optional. Conversely, a smaller file that mixes unrelated responsibilities should still be split.
-
-## Migration Plan and Scope
-
-Implementation will be incremental to minimize regressions.
-
-### Phase 1: Storyboard
-
-Refactor the highest-coupling workflow first.
-
-Expected extractions:
-
-```text
-storyboard/
-  screens/StoryboardScreen.tsx
-  components/
-  hooks/useStoryboardController.ts
-  hooks/useGeminiQueue.ts or equivalent feature store adapter
-  queries/storyboard.keys.ts
-  queries/storyboard.queries.ts
-  queries/storyboard.mutations.ts
-  services/gemini-generation.service.ts
-  services/beat-media.service.ts where storyboard-specific operations belong
-  model/storyboard-selectors.ts
-  model/storyboard-review.ts
-```
-
-Existing files may be retained/renamed when they already fit the target responsibility. Avoid churn for naming alone.
-
-### Phase 2: Editor
-
-Extract direct asset/production/native workflows and preview resolution from `EditorScreen` into controller/query/service boundaries. Preserve the current editor UI and planner behavior.
-
-### Phase 3: Chapters
-
-Move analysis-job mutation/polling/terminal-state orchestration from `ChaptersScreen` into feature queries/controllers while preserving existing chapter CRUD hooks.
-
-### Follow-up phases
-
-After Phase 1-3 are stable and verified, apply the same boundary rules to:
-
-1. Generation/Images,
-2. Characters,
-3. Voice,
-4. Projects.
-
-These follow-up phases should reuse the pattern proven by the first three features and should not be bundled into the initial architecture-cleanup pull request unless their changes are trivial and necessary for shared abstractions.
-
-## Shared Abstractions
-
-Do not create a generic abstraction until at least two features need the same behavior and the common contract is clear.
-
-Good candidates after duplication is proven:
-
-- shared `AppError`/error normalization helper,
-- typed native bridge wrapper helpers,
-- shared query invalidation helpers only for truly shared resources.
-
-Avoid generic `BaseService`, `BaseController`, or repository-pattern wrappers around the existing HTTP client. They add indirection without solving a current problem.
-
-## Compatibility and Behavior Preservation
-
-During architecture cleanup:
-
-- keep current route behavior,
-- keep current visual layout and controls,
-- keep backend request/response contracts,
-- keep asset storage semantics,
-- keep existing Electron main/preload responsibility boundaries,
-- keep current generation/retry semantics unless an existing behavior is demonstrably incorrect and fixed in a separately documented change.
-
-If a hidden bug is discovered during refactoring, prefer adding a characterization/regression test and fixing it in a separately identifiable commit or follow-up change rather than silently changing behavior inside structural moves.
-
-## Acceptance Criteria
-
-Phase 1-3 architecture cleanup is successful when:
-
-1. Storyboard, Editor, and Chapters screens no longer directly orchestrate backend/native multi-step workflows.
-2. Feature APIs are transport-only.
-3. Query keys and invalidation are feature-local and centralized.
-4. Gemini generation and editor media workflows can be unit tested without rendering the route-level screen.
-5. Components do not need backend/native mocks for ordinary interaction tests.
-6. Backend entities remain TanStack Query-owned rather than copied to global client state.
-7. Persisted Gemini queue behavior, when needed, is behind a feature abstraction instead of direct screen `localStorage` access.
-8. Existing UI behavior and API/IPC contracts remain compatible.
-9. Targeted tests, desktop tests, type-check, and build pass.
-10. Affected desktop screens receive required runtime UI verification, or any verification limitation is explicitly reported.
-
-## Implementation Principle
-
-The refactor should improve boundaries before aesthetics:
-
-```text
-same UI
-same API
-same user-visible behavior
-better ownership
-better testability
-smaller reasoning units
-```
-
-Do not combine this architecture cleanup with unrelated UI redesign or feature expansion.
+1. `StoryboardScreen.tsx` no longer directly imports `assetsApi` or `productionApi` and no longer reads/writes `localStorage` directly.
+2. Storyboard query keys/invalidation live in feature query modules.
+3. Gemini queue transitions/persistence are testable outside the screen.
+4. Gemini/manual image attachment sequence is testable outside the route-level screen and still follows ADR-0021/local-first contracts.
+5. `EditorScreen.tsx` no longer directly performs raw asset/production API workflow or remote preview transport.
+6. `ChaptersScreen.tsx` no longer directly owns `generationApi.analyze` + job polling/terminal orchestration.
+7. Presentational components do not need backend/native mocks for ordinary interaction behavior.
+8. No backend, database, route or preload contract changes are introduced.
+9. Desktop tests, type-check and build pass in a capable environment.
+10. Runtime Desktop UI verification is completed before claiming the affected UI flows fully verified, or any environment limitation is reported explicitly.
