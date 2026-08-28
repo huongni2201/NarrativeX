@@ -1,10 +1,20 @@
 import type { DesktopChapterDetails, DesktopChapterWorkspace } from "@narrativex/client-contracts";
-import { ChevronLeft, ChevronRight, Filter, Search, Trash2 } from "lucide-react";
+import {
+  AudioLines,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Loader2,
+  Search,
+  Trash2,
+  WandSparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "../../workspace/components/FeaturePage";
 import {
   chapterAudioListClass,
   chapterAudioListLabel,
+  chapterNumberLabel,
   chapterStatus,
   chapterStatusClass,
   chapterStatusLabel,
@@ -18,7 +28,11 @@ type Props = Readonly<{
   allChaptersCount: number;
   editingId: string | null;
   isCreating: boolean;
-  busy: boolean;
+  deleteBusy: boolean;
+  bulkAudioBusy: boolean;
+  bulkAnalysisBusy: boolean;
+  canBulkAudio: boolean;
+  canBulkAnalysis: boolean;
   query: string;
   statusFilter: ChapterFilter;
   sortBy: ChapterSort;
@@ -35,6 +49,8 @@ type Props = Readonly<{
   onPageChange: (page: number) => void;
   onSelectChapter: (chapterId: string) => void;
   onDeleteChapter: (chapter: DesktopChapterDetails) => void;
+  onGenerateAudioAll: () => void;
+  onAnalyzeAll: () => void;
 }>;
 
 export function ChapterListPanel({
@@ -42,7 +58,11 @@ export function ChapterListPanel({
   allChaptersCount,
   editingId,
   isCreating,
-  busy,
+  deleteBusy,
+  bulkAudioBusy,
+  bulkAnalysisBusy,
+  canBulkAudio,
+  canBulkAnalysis,
   query,
   statusFilter,
   sortBy,
@@ -59,6 +79,8 @@ export function ChapterListPanel({
   onPageChange,
   onSelectChapter,
   onDeleteChapter,
+  onGenerateAudioAll,
+  onAnalyzeAll,
 }: Props) {
   const from = filteredCount > 0 ? (page - 1) * pageSize + 1 : 0;
   const to = Math.min(page * pageSize, filteredCount);
@@ -78,6 +100,39 @@ export function ChapterListPanel({
           <p className="mt-0.5 text-xs text-text-muted">
             Quản lý và điều hướng các chapter trong project.
           </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAnalyzeAll}
+            disabled={!canBulkAnalysis || bulkAnalysisBusy}
+            className="h-8 gap-1.5 text-[11px]"
+          >
+            {bulkAnalysisBusy ? (
+              <Loader2 className="animate-spin" size={12} />
+            ) : (
+              <WandSparkles size={12} />
+            )}
+            Phân tích tất cả
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onGenerateAudioAll}
+            disabled={!canBulkAudio || bulkAudioBusy}
+            className="h-8 gap-1.5 text-[11px]"
+          >
+            {bulkAudioBusy ? (
+              <Loader2 className="animate-spin" size={12} />
+            ) : (
+              <AudioLines size={12} />
+            )}
+            Tạo audio tất cả
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -130,8 +185,8 @@ export function ChapterListPanel({
               onChange={(event) => onSortChange(event.target.value as ChapterSort)}
               className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
             >
-              <option value="recent">Cập nhật mới nhất</option>
               <option value="order">Theo thứ tự</option>
+              <option value="recent">Cập nhật mới nhất</option>
               <option value="title">Theo tên A–Z</option>
               <option value="words">Nhiều từ nhất</option>
             </select>
@@ -140,19 +195,25 @@ export function ChapterListPanel({
 
         {statusFilter !== "all" && (
           <p className="text-[10px] leading-4 text-text-muted">
-            Bộ lọc trạng thái tải workspace của toàn bộ chapter theo yêu cầu; polling nền vẫn chỉ
-            chạy cho chapter đang chọn.
+            Workspace của các chapter đang xử lý được polling nền song song để trạng thái luôn cập
+            nhật khi bạn chuyển chapter.
           </p>
         )}
 
         {statusFilterLoading && (
-          <p className="rounded-md border border-info/30 bg-info-bg px-2.5 py-2 text-[10px] leading-4 text-text-secondary" role="status">
+          <p
+            className="rounded-md border border-info/30 bg-info-bg px-2.5 py-2 text-[10px] leading-4 text-text-secondary"
+            role="status"
+          >
             Đang tải trạng thái chapter để áp dụng bộ lọc. Kết quả sẽ ổn định sau khi dữ liệu tải xong.
           </p>
         )}
 
         {selectionHidden && (
-          <p className="rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[10px] leading-4 text-text-secondary" role="status">
+          <p
+            className="rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[10px] leading-4 text-text-secondary"
+            role="status"
+          >
             Chapter đang chỉnh sửa không nằm trong trang hoặc bộ lọc hiện tại. Nội dung editor vẫn
             được giữ nguyên; đặt lại bộ lọc hoặc chuyển trang để hiển thị chapter đó.
           </p>
@@ -187,6 +248,9 @@ export function ChapterListPanel({
                 onClick={() => onSelectChapter(chapter.id)}
                 className="min-w-0 flex-1 p-2.5 text-left focus-visible:outline-none"
               >
+                <span className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide text-text-dim">
+                  {chapterNumberLabel(chapter.orderIndex)}
+                </span>
                 <strong
                   className={`block truncate text-xs font-semibold ${
                     isSelected ? "text-primary-hover" : "text-foreground"
@@ -215,7 +279,7 @@ export function ChapterListPanel({
                   variant="ghost"
                   size="icon"
                   onClick={() => onDeleteChapter(chapter)}
-                  disabled={busy}
+                  disabled={deleteBusy}
                   className="size-7 text-text-dim opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:text-danger"
                   title={`Xóa chapter ${chapter.title}`}
                   aria-label={`Xóa chapter ${chapter.title}`}
