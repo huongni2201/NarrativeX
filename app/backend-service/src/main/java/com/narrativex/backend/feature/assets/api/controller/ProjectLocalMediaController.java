@@ -32,7 +32,7 @@ public class ProjectLocalMediaController {
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             ContentDisposition.inline().filename(file.filename()).build().toString())
-        .header(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
+        .header("X-Content-Type-Options", "nosniff")
         .body(file.resource());
   }
 }
