@@ -64,14 +64,12 @@ test("StoryboardScreen delegates Gemini queue persistence and transitions to fea
   assert.match(source, /markQueueBeatSkipped/);
 });
 
-test("StoryboardScreen delegates media and Gemini transport workflows to feature queries", () => {
-  const screenPath = join(
-    featuresRoot,
-    "storyboard",
-    "screens",
-    "StoryboardScreen.tsx",
-  );
+test("Storyboard delegates media and Gemini transport workflows to feature queries", () => {
+  const storyboardRoot = join(featuresRoot, "storyboard");
+  const screenPath = join(storyboardRoot, "screens", "StoryboardScreen.tsx");
+  const gridPath = join(storyboardRoot, "components", "VisualBeatGrid.tsx");
   const source = readFileSync(screenPath, "utf8");
+  const gridSource = readFileSync(gridPath, "utf8");
 
   assert.doesNotMatch(source, /import\s+\{\s*assetsApi\s*\}/);
   assert.doesNotMatch(source, /import\s+\{\s*productionApi\s*\}/);
@@ -79,7 +77,7 @@ test("StoryboardScreen delegates media and Gemini transport workflows to feature
   assert.doesNotMatch(source, /\bassetsApi\.registerLocal\s*\(/);
   assert.doesNotMatch(source, /\bproductionApi\.updateBeatMedia\s*\(/);
   assert.match(source, /useStoryboardMediaMutations/);
-  assert.match(source, /useStoryboardImagePreview/);
+  assert.match(gridSource, /useStoryboardImagePreview/);
 });
 
 test("StoryboardScreen composes focused presentation components", () => {
