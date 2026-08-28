@@ -25,6 +25,9 @@ class DocsCheckpointCheckerTest(unittest.TestCase):
             )
         )
         self.assertTrue(CHECKER.is_allowed_post_checkpoint_path("AI_CONTEXT.md"))
+        self.assertTrue(CHECKER.is_allowed_post_checkpoint_path("AGENTS.md"))
+        self.assertTrue(CHECKER.is_allowed_post_checkpoint_path("app/backend-service/README.md"))
+        self.assertTrue(CHECKER.is_allowed_post_checkpoint_path("scripts/verify-local.py"))
 
     def test_application_change_requires_checkpoint_advance(self) -> None:
         self.assertFalse(
