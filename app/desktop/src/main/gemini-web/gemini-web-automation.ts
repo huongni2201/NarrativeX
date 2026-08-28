@@ -544,7 +544,7 @@ export class GeminiWebAutomation {
             const rect = element.getBoundingClientRect();
             return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
           };
-          const patterns = ["hình ảnh", "tạo hình ảnh", "tạo ảnh", "images", "image", "create image", "create images"];
+          const patterns = ["ảnh", "hình ảnh", "tạo hình ảnh", "tạo ảnh", "images", "image", "create image", "create images"];
           const elements = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [role="tab"]')];
           const candidates = elements.filter((element) => {
             if (!visible(element)) return false;
@@ -562,13 +562,53 @@ export class GeminiWebAutomation {
           return true;
         })()`,
       );
-      if (clicked) await delay(350);
-      else await delay(250);
+      if (clicked) {
+        await delay(350);
+        continue;
+      }
+
+      if (await this.openImageModeMenu(cdp)) {
+        await delay(350);
+        continue;
+      }
+
+      await delay(250);
     }
 
     throw geminiError(
       "GEMINI_IMAGE_MODE_NOT_FOUND",
       "NarrativeX could not open Gemini image creation mode.",
+    );
+  }
+
+  private async openImageModeMenu(cdp: CdpClient): Promise<boolean> {
+    return evaluate<boolean>(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        };
+        const patterns = ["tools", "công cụ", "menu", "main menu", "trình đơn", "menu chính", "more", "more options"];
+        const elements = [...document.querySelectorAll('button, [role="button"], [role="menuitem"], [aria-haspopup="menu"], [aria-label], [title]')]
+          .filter((element) => visible(element) && !element.disabled);
+        const label = (element) => [
+          element.getAttribute("aria-label"), element.getAttribute("title"), element.getAttribute("data-tooltip"), element.textContent
+        ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+        const candidates = elements.filter((element) => {
+          const value = label(element);
+          return patterns.some((pattern) => value === pattern || value.includes(pattern));
+        });
+        const target = candidates.sort((a, b) => {
+          const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
+          const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
+          return areaA - areaB;
+        })[0];
+        if (!target) return false;
+        target.click();
+        return true;
+      })()`,
     );
   }
 
