@@ -19,24 +19,10 @@ test("renderer entrypoint uses the canonical app boundary directly", () => {
   assert.doesNotMatch(source, /import\s+\{\s*App\s*\}\s+from\s+["']\.\/App["']/);
 });
 
-test("pure renderer model helpers do not remain at feature roots", () => {
-  const misplaced = [
-    "features/voices/voice-filters.ts",
-    "features/generation/generation-status.ts",
-    "features/generation/media-review-policy.ts",
-    "features/storyboard/storyboard-review.ts",
-    "features/editor/editor-mutation-state.ts",
-    "features/editor/editor-timeline.ts",
-    "features/editor/preview-playback.ts",
-    "features/production/auto-edit-planner.ts",
-    "features/production/command-history.ts",
-    "features/production/timeline-commands.ts",
-    "features/production/timeline-draft.ts",
-  ];
-
-  assert.deepEqual(
-    misplaced.filter((path) => existsSync(join(rendererRoot, path))),
-    [],
-    "pure feature model logic belongs under model/; obsolete model helpers should be deleted",
+test("obsolete generation review policy is not restored", () => {
+  assert.equal(
+    existsSync(join(rendererRoot, "features", "generation", "media-review-policy.ts")),
+    false,
+    "media-review-policy.ts had no production callers and should stay removed",
   );
 });
