@@ -32,10 +32,6 @@ export function isAnalysisProcessingStatus(status: string | null | undefined) {
   return Boolean(status && ANALYSIS_PROCESSING_STATUSES.has(status));
 }
 
-export function isGenerationJobTerminal(status: string | null | undefined) {
-  return status === "COMPLETED" || status === "FAILED" || status === "CANCELED";
-}
-
 export function wordCount(value: string) {
   const normalized = value.trim();
   return normalized ? normalized.split(/\s+/u).length : 0;
@@ -129,14 +125,10 @@ export function audioStatusBadgeClass(status: string | null) {
 
 export function audioButtonLabel(input: {
   generatePending: boolean;
-  trackedForSelected: boolean;
   processing: boolean;
-  blockedByAnotherChapter?: boolean;
   ready: boolean;
 }) {
-  if (input.generatePending || input.trackedForSelected || input.processing) {
-    return "Đang tạo…";
-  }
+  if (input.generatePending || input.processing) return "Đang tạo…";
   if (input.ready) return "Tạo lại";
   return "Tạo audio";
 }
