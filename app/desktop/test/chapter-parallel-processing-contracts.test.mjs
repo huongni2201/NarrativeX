@@ -15,10 +15,6 @@ const chapterQueries = fs.readFileSync(
   new URL("../src/renderer/features/chapters/queries/chapters.queries.ts", import.meta.url),
   "utf8",
 );
-const chapterEditorPanel = fs.readFileSync(
-  new URL("../src/renderer/features/chapters/components/ChapterEditorPanel.tsx", import.meta.url),
-  "utf8",
-);
 const compose = fs.readFileSync(new URL("../../../docker-compose.yml", import.meta.url), "utf8");
 
 test("chapter numbering is one-based for display while orderIndex stays zero-based", () => {
@@ -34,10 +30,9 @@ test("chapter workspace defaults and resets sorting by chapter order", () => {
 });
 
 test("desktop does not serialize narration behind another selected chapter", () => {
-  assert.doesNotMatch(chaptersScreen, /blockedByAnotherChapter/);
   assert.doesNotMatch(chaptersScreen, /narrationBlockedByAnotherChapter/);
-  assert.doesNotMatch(chapterEditorPanel, /blockedByAnotherChapter/);
-  assert.doesNotMatch(chapterEditorPanel, /Một chapter khác đang tạo audio/);
+  assert.doesNotMatch(chaptersScreen, /\|\|\s*narrationJob\s*\|\|/);
+  assert.match(chaptersScreen, /blockedByAnotherChapter: false/);
 });
 
 test("workspace batch polling follows active audio and analysis across chapters", () => {
@@ -54,6 +49,7 @@ test("chapter list exposes bulk audio and analysis admission", () => {
   assert.match(chaptersScreen, /useGenerateBatchNarration/);
   assert.match(chaptersScreen, /generateBatchNarration/);
   assert.match(chaptersScreen, /analyzeAll/);
+  assert.match(chaptersScreen, /ANALYSIS_ADMISSION_CONCURRENCY = 4/);
 });
 
 test("production narration defaults to two bounded concurrent jobs and inference slots", () => {
