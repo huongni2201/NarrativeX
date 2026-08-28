@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
-  AnalyzeChapterInput,
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   DesktopTimeline,
@@ -11,7 +10,6 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
-import { generationApi } from "../../generation/api/generation.api";
 import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { useGenerateNarration } from "../../generation/queries/narration.queries";
 import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
@@ -30,6 +28,7 @@ import {
   workspaceStatusDotClass,
   workspaceStatusLabel,
 } from "../model/chapter-ui";
+import { useChapterAnalysis } from "../queries/chapter-analysis.queries";
 import {
   chapterQueryKeys,
   useChapterWorkspacesQuery,
@@ -41,11 +40,6 @@ import {
 type TrackedGenerationJob = {
   jobId: string;
   chapterId: string;
-};
-
-type AnalyzeMutationInput = {
-  chapterId: string;
-  preferences: AnalyzeChapterInput;
 };
 
 const PAGE_SIZE = 8;
@@ -92,7 +86,6 @@ export function ChaptersScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [narrationJob, setNarrationJob] = useState<TrackedGenerationJob | null>(null);
-  const [analysisJob, setAnalysisJob] = useState<TrackedGenerationJob | null>(null);
   const [audioRequestError, setAudioRequestError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -146,9 +139,8 @@ export function ChaptersScreen({
     const ids = new Set(visibleCandidates.map((chapter) => chapter.id));
     if (selected) ids.add(selected.id);
     if (narrationJob) ids.add(narrationJob.chapterId);
-    if (analysisJob) ids.add(analysisJob.chapterId);
     return chapters.filter((chapter) => ids.has(chapter.id));
-  }, [analysisJob, chapters, narrationJob, selected, statusFilter, visibleCandidates]);
+  }, [chapters, narrationJob, selected, statusFilter, visibleCandidates]);
 
   const chapterWorkspaceQueries = useChapterWorkspacesQuery(
     projectId,
@@ -210,7 +202,13 @@ export function ChaptersScreen({
   const selectedAnalysisProcessing = isAnalysisProcessingStatus(
     selectedWorkspace?.pipeline.analysis.status,
   );
-  const canAnalyze = Boolean(selected && selectedWorkspace?.capabilities.canAnalyze);
+  const analysisResumeJobId = selectedAnalysisProcessing
+    ? selectedWorkspace?.pipeline.analysis.latestJobId ?? null
+    : null;
+  const chapterAnalysis = useChapterAnalysis(projectId, selected?.id ?? null, analysisResumeJobId);
+  const canAnalyze = Boolean(
+    selected && selectedWorkspace?.capabilities.canAnalyze && chapterAnalysis.canAnalyze,
+  );
   const trackedNarrationForSelected = Boolean(
     selected && narrationJob?.chapterId === selected.id,
   );
@@ -239,15 +237,6 @@ export function ChaptersScreen({
     if (!latestJobId || !isAudioProcessingStatus(audio.status)) return;
 
     setNarrationJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
-  }, [selected, selectedWorkspace]);
-
-  useEffect(() => {
-    if (!selected) return;
-    const analysis = selectedWorkspace?.pipeline.analysis;
-    const latestJobId = analysis?.latestJobId;
-    if (!latestJobId || !isAnalysisProcessingStatus(analysis.status)) return;
-
-    setAnalysisJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
   }, [selected, selectedWorkspace]);
 
   const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
@@ -299,54 +288,21 @@ export function ChaptersScreen({
     }
   }, [editingId, narrationJob, narrationJobQuery.data, narrationJobQuery.isError]);
 
-  const analysisJobQuery = useGenerationJob(analysisJob?.jobId ?? null);
-  const analysisJobStatus = analysisJobQuery.data?.status;
-  const analysisJobErrorCode = analysisJobQuery.data?.errorCode;
-
   useEffect(() => {
-    if (!analysisJob || !isGenerationJobTerminal(analysisJobStatus)) return;
-
-    const completedJob = analysisJob;
-    const completedStatus = analysisJobStatus;
-    const completedErrorCode = analysisJobErrorCode;
-
-    void Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: chapterQueryKeys.workspace(projectId, completedJob.chapterId),
-      }),
-      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-    ]).finally(() => {
-      setAnalysisJob((current) =>
-        current?.jobId === completedJob.jobId ? null : current,
-      );
-      if (editingId !== completedJob.chapterId) return;
-
-      if (completedStatus === "COMPLETED") {
-        setNotice("Phân tích chapter đã hoàn tất.");
-        return;
-      }
-
-      setNotice(
-        completedErrorCode
-          ? `Phân tích chapter thất bại: ${completedErrorCode}`
-          : "Phân tích chapter không hoàn tất. Bạn có thể thử lại.",
-      );
-    });
+    if (!chapterAnalysis.isTerminal || !chapterAnalysis.job || !chapterAnalysis.message) return;
+    setNotice(chapterAnalysis.message);
   }, [
-    analysisJob,
-    analysisJobErrorCode,
-    analysisJobStatus,
-    editingId,
-    projectId,
-    queryClient,
+    chapterAnalysis.isTerminal,
+    chapterAnalysis.job?.jobId,
+    chapterAnalysis.job?.status,
+    chapterAnalysis.message,
   ]);
 
   useEffect(() => {
-    if (!analysisJob || !analysisJobQuery.isError || analysisJobQuery.data) return;
-    if (editingId === analysisJob.chapterId) {
+    if (chapterAnalysis.connectionInterrupted) {
       setNotice("Kết nối realtime tạm gián đoạn. Hệ thống sẽ tự thử lại trạng thái phân tích.");
     }
-  }, [analysisJob, analysisJobQuery.data, analysisJobQuery.isError, editingId]);
+  }, [chapterAnalysis.connectionInterrupted]);
 
   useEffect(() => {
     if (!selected) {
@@ -360,24 +316,8 @@ export function ChaptersScreen({
     setSourceText(selected.sourceText);
   }, [isCreating, selected]);
 
-  const analyzeChapter = useMutation({
-    mutationFn: ({ chapterId, preferences }: AnalyzeMutationInput) =>
-      generationApi.analyze(projectId, chapterId, preferences),
-    onSuccess: async (job, { chapterId }) => {
-      setAnalysisJob({ jobId: job.jobId, chapterId });
-      await queryClient.invalidateQueries({
-        queryKey: chapterQueryKeys.workspace(projectId, chapterId),
-      });
-      if (editingId === chapterId) {
-        setNotice(`Đã gửi phân tích. Job ${job.jobId.slice(0, 8)} đang được AI xử lý.`);
-      }
-    },
-    onError: (error) => setNotice(toErrorMessage(error, "Phân tích chapter thất bại.")),
-  });
-
   const saveBusy = createChapter.isPending || updateChapter.isPending;
-  const analysisBusy =
-    analyzeChapter.isPending || Boolean(analysisJob) || selectedAnalysisProcessing;
+  const analysisBusy = chapterAnalysis.isAnalyzing || selectedAnalysisProcessing;
   const busy =
     saveBusy ||
     generateNarration.isPending ||
@@ -652,9 +592,16 @@ export function ChaptersScreen({
           onCancel={cancelEditing}
           onSave={() => void save()}
           onAnalyze={(preferences) => {
-            if (selected && canAnalyze && !generationActionDisabled && !analysisJob) {
-              analyzeChapter.mutate({ chapterId: selected.id, preferences });
-            }
+            if (!selected || !canAnalyze || generationActionDisabled) return;
+            setNotice(null);
+            void chapterAnalysis
+              .analyze(preferences)
+              .then((job) => {
+                setNotice(`Đã gửi phân tích. Job ${job.jobId.slice(0, 8)} đang được AI xử lý.`);
+              })
+              .catch((error) => {
+                setNotice(toErrorMessage(error, "Phân tích chapter thất bại."));
+              });
           }}
           onOpenEditor={openEditor}
         />
