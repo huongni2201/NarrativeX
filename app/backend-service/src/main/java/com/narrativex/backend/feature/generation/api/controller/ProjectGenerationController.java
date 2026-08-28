@@ -94,7 +94,7 @@ public class ProjectGenerationController {
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
     var composedPrompt =
         visualPromptComposer.compose(
-            ImageStyle.MANHUA,
+            ImageStyle.CINEMATIC_ANIME,
             beat.visualIntent(),
             beat.cameraAngle().name(),
             context);
