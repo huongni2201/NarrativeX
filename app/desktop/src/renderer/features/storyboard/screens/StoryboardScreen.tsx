@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopTimeline,
@@ -17,8 +16,6 @@ import {
   RotateCcw,
   WandSparkles,
 } from "lucide-react";
-import { assetsApi } from "../../assets/api/assets.api";
-import { productionApi } from "../../production/api/production.api";
 import {
   Select,
   SelectContent,
@@ -26,10 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  storyboardApi,
-  type StoryboardVisualBeat,
-  type VisualBeatReviewStatus,
+import type {
+  StoryboardVisualBeat,
+  VisualBeatReviewStatus,
 } from "../api/storyboard.api";
 import {
   markQueueBeatCompleted,
@@ -39,7 +35,10 @@ import {
   type GeminiQueueState,
 } from "../model/gemini-queue";
 import {
-  storyboardKeys,
+  useStoryboardImagePreview,
+  useStoryboardMediaMutations,
+} from "../queries/storyboard-media.mutations";
+import {
   useApproveVisualBeats,
   useCreateVisualBeat,
   useStoryboardQuery,
@@ -64,7 +63,6 @@ export function StoryboardScreen({
   chapters: DesktopChapterDetails[];
   timeline: DesktopTimeline | null;
 }>) {
-  const queryClient = useQueryClient();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [creatingBeat, setCreatingBeat] = useState(false);
@@ -77,7 +75,6 @@ export function StoryboardScreen({
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
   const [geminiQueue, setGeminiQueue] = useState<GeminiQueueState | null>(null);
   const geminiRunTokenRef = useRef(0);
-  const materializedReferenceIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!chapters.length) {
@@ -107,6 +104,7 @@ export function StoryboardScreen({
   const createBeat = useCreateVisualBeat(projectId, selectedChapterId);
   const updateReview = useUpdateVisualBeatReview(projectId, selectedChapterId);
   const approveAll = useApproveVisualBeats(projectId, selectedChapterId);
+  const mediaMutations = useStoryboardMediaMutations(projectId, selectedChapterId);
 
   const scenes = storyboardQuery.data?.scenes ?? [];
 
@@ -179,64 +177,6 @@ export function StoryboardScreen({
     [scenes],
   );
 
-  async function persistGeneratedImage(
-    beat: StoryboardVisualBeat,
-    selection: {
-      selectionToken: string;
-      originalFilename: string;
-      contentType: string;
-      sizeBytes: number;
-      checksumSha256: string;
-      kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
-    },
-    source: "GEMINI_WEB" | "MANUAL",
-  ) {
-    if (selection.kind !== "IMAGE") {
-      throw new Error("Generated image flow chỉ chấp nhận file ảnh.");
-    }
-
-    const asset = await assetsApi.registerLocal({
-      projectId,
-      type: "IMAGE",
-      originalFilename: selection.originalFilename,
-      contentType: selection.contentType,
-      sizeBytes: selection.sizeBytes,
-      checksumSha256: selection.checksumSha256,
-      durationMs: null,
-    });
-
-    if (source === "GEMINI_WEB") {
-      await window.narrativex.geminiWeb.commitImage({
-        projectId,
-        assetId: asset.id,
-        selectionToken: selection.selectionToken,
-      });
-    } else {
-      await window.narrativex.localStorage.commitSelectedAsset({
-        projectId,
-        assetId: asset.id,
-        kind: "IMAGE",
-        selectionToken: selection.selectionToken,
-      });
-    }
-
-    await productionApi.updateBeatMedia(projectId, beat.id, {
-      mediaAssetId: asset.id,
-      fitMode: "TRIM",
-      trimStartMs: 0,
-    });
-
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      selectedChapterId
-        ? queryClient.invalidateQueries({
-            queryKey: storyboardKeys.chapter(projectId, selectedChapterId),
-          })
-        : Promise.resolve(),
-      queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
-    ]);
-  }
-
   async function generateGeminiImage(beat: StoryboardVisualBeat, queueMode = false): Promise<boolean> {
     if (mediaBusyBeatId) return false;
     if (!beat.prompt) {
@@ -255,38 +195,20 @@ export function StoryboardScreen({
         : `Đang chuẩn bị character reference cho “${beat.title}”…`,
     );
     try {
-      const context = await storyboardApi.geminiContext(projectId, selectedChapterId, beat.id);
-      for (const reference of context.references) {
-        if (materializedReferenceIdsRef.current.has(reference.assetId)) continue;
-        await window.narrativex.localStorage.materializeRemoteAsset({
-          projectId,
-          assetId: reference.assetId,
-        });
-        materializedReferenceIdsRef.current.add(reference.assetId);
-      }
-
-      const prompt = [beat.prompt, context.promptContext].filter(Boolean).join("\n\n");
-      setNotice(
-        queueMode
-          ? `Gemini All · Đang gửi ${context.references.length} reference và generate “${beat.title}”…`
-          : `Đang gửi ${context.references.length} character reference lên Gemini và generate “${beat.title}”…`,
-      );
-      const selection = await window.narrativex.geminiWeb.generateImage({
-        prompt,
-        projectId,
-        references: context.references.map((reference) => ({
-          refLabel: reference.refLabel,
-          assetId: reference.assetId,
-          characterId: reference.characterId,
-          canonicalName: reference.canonicalName,
-          beatRole: reference.beatRole,
-        })),
+      const result = await mediaMutations.generateGeminiImage.mutateAsync({
+        beat,
+        onReferencesResolved: (referenceCount) => {
+          setNotice(
+            queueMode
+              ? `Gemini All · Đang gửi ${referenceCount} reference và generate “${beat.title}”…`
+              : `Đang gửi ${referenceCount} character reference lên Gemini và generate “${beat.title}”…`,
+          );
+        },
       });
-      await persistGeneratedImage(beat, selection, "GEMINI_WEB");
       setNotice(
         queueMode
-          ? `Gemini All · Đã gắn ảnh cho “${beat.title}” với ${context.references.length} character reference.`
-          : `Gemini đã generate và gắn ảnh vào “${beat.title}” với ${context.references.length} character reference.`,
+          ? `Gemini All · Đã gắn ảnh cho “${beat.title}” với ${result.referenceCount} character reference.`
+          : `Gemini đã generate và gắn ảnh vào “${beat.title}” với ${result.referenceCount} character reference.`,
       );
       return true;
     } catch (error) {
@@ -416,9 +338,8 @@ export function StoryboardScreen({
     setMediaBusyBeatId(beat.id);
     setNotice(null);
     try {
-      const selection = await window.narrativex.localStorage.selectAsset();
-      if (!selection) return;
-      await persistGeneratedImage(beat, selection, "MANUAL");
+      const result = await mediaMutations.importImage.mutateAsync({ beatId: beat.id });
+      if (!result) return;
       setPendingImportBeatId((current) => (current === beat.id ? null : current));
       setNotice(`Ảnh đã được import và gắn đúng Visual Beat “${beat.title}”.`);
     } catch (error) {
@@ -998,12 +919,10 @@ function VisualBeatCard({
 
 function BeatImagePreview({ timelineBeat }: Readonly<{ timelineBeat: DesktopTimelineBeat | null }>) {
   const [failed, setFailed] = useState(false);
-  const preview = useQuery({
-    queryKey: ["assets", timelineBeat?.mediaAssetId ?? "none", "download-url"],
-    queryFn: () => assetsApi.downloadUrl(timelineBeat?.mediaAssetId as string),
-    enabled: Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
-    staleTime: 30_000,
-  });
+  const preview = useStoryboardImagePreview(
+    timelineBeat?.mediaAssetId,
+    Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
+  );
 
   if (!timelineBeat?.mediaAssetId || timelineBeat.mediaType !== "IMAGE") {
     return (
