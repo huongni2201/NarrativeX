@@ -47,10 +47,12 @@ export function CharacterReferenceStudio({
     actions.generateIdentity.isPending ||
     actions.importIdentity.isPending ||
     actions.review.isPending ||
+    actions.pin.isPending ||
     actions.lockAndPin.isPending;
   const isDraft = status === "DRAFT" || status === "GENERATING";
   const isReview = status === "REVIEW";
   const isLocked = status === "LOCKED";
+  const isPinned = Boolean(versionId && character.pinnedCharacterVersionId === versionId);
 
   async function createDraft() {
     if (!bible.trim() || !visualPrompt.trim()) return;
@@ -105,7 +107,17 @@ export function CharacterReferenceStudio({
       await actions.lockAndPin.mutateAsync();
       setNotice("Character version đã LOCKED và được dùng cho storyboard generation.");
     } catch (error) {
-      setNotice(errorMessage(error, "Không thể lock character version."));
+      setNotice(errorMessage(error, "Không thể lock hoặc pin character version."));
+    }
+  }
+
+  async function useInProject() {
+    setNotice(null);
+    try {
+      await actions.pin.mutateAsync();
+      setNotice("Character version đã được pin và sẽ dùng cho storyboard generation.");
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể pin character version vào project."));
     }
   }
 
@@ -206,6 +218,13 @@ export function CharacterReferenceStudio({
                   Lock & Use in Project
                 </Button>
               )}
+
+              {isLocked && !isPinned && (
+                <Button size="sm" onClick={() => void useInProject()} disabled={busy}>
+                  {actions.pin.isPending ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
+                  Use in Project
+                </Button>
+              )}
             </div>
 
             {isReview && (
@@ -213,9 +232,14 @@ export function CharacterReferenceStudio({
                 Reference đã được approve. Lock sẽ làm version immutable và cho phép Storyboard tự động gửi ảnh này lên Gemini.
               </p>
             )}
-            {isLocked && (
+            {isLocked && isPinned && (
               <p className="mt-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[9px] leading-4 text-emerald-500">
-                Canonical identity đã LOCKED. Visual Beat có nhân vật này sẽ tự động resolve và upload reference.
+                Canonical identity đã LOCKED và pin vào project. Visual Beat có nhân vật này sẽ tự động resolve và upload reference.
+              </p>
+            )}
+            {isLocked && !isPinned && (
+              <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">
+                Version đã LOCKED nhưng chưa được pin vào project. Bấm Use in Project để hoàn tất continuity flow.
               </p>
             )}
           </div>
