@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_CURRENT_FILES = [
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
+    ROOT / "AGENTS.md",
     ROOT / "AI_CONTEXT.md",
+    ROOT / "app" / "backend-service" / "README.md",
     ROOT / "app" / "desktop" / "README.md",
     ROOT / "app" / "ai-worker" / "README.md",
 ]
