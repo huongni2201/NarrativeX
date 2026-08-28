@@ -77,7 +77,7 @@ class _Repository(ImageMaterializationMixin):
 
 
 @pytest.mark.asyncio
-async def test_new_image_asset_and_lineage_use_uuidv7() -> None:
+async def test_new_image_asset_and_lineage_use_uuidv7_and_project_local_storage() -> None:
     connection = _Connection()
     repository = _Repository(connection)
     stored = DurableMediaResult(
@@ -120,3 +120,6 @@ async def test_new_image_asset_and_lineage_use_uuidv7() -> None:
     assert media_asset_id.version == 7
     assert lineage_id.version == 7
     assert lineage_insert[1][1] == media_asset_id
+    normalized_insert = " ".join(media_asset_insert[0].split())
+    assert "storage_mode" in normalized_insert
+    assert "'PROJECT_LOCAL'" in normalized_insert
