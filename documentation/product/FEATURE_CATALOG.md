@@ -1,9 +1,9 @@
 # NarrativeX — Current Feature Catalog (V1.11)
 
-This is the maintained feature/status view at docs checkpoint `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28). Current code, migrations and tests decide factual AS-IS claims when documentation drifts.
+This is the maintained feature/status view at audited code checkpoint `2c965b2e95ddcc1e03dc5527340c6adb18cdd05e` (2026-08-28). Current code, migrations and tests decide factual AS-IS claims. A plan, ADR or nullable schema column is not implementation evidence by itself.
 
 | Feature | V1.11 status | Current direction |
-|---|---|---|
+| --- | --- | --- |
 | Stable installation guest identity | IMPLEMENTED | guest ownership/session continuity without becoming a second login provider |
 | Guest-first free workspace | IMPLEMENTED foundation | free authoring/local-workspace mutations allowed by explicit backend guest rules |
 | Google-only account sign-in | IMPLEMENTED | system browser + one-time deep-link exchange + server session |
@@ -13,24 +13,32 @@ This is the maintained feature/status view at docs checkpoint `7249f1bfd31bfeea5
 | Project/Chapter authoring | IMPLEMENTED foundation | backend-authoritative MyBatis persistence + Desktop API integration |
 | Project dashboard/favorite | IMPLEMENTED foundation | authoritative project APIs and Desktop mutations |
 | Chapter Analyze | IMPLEMENTED | durable admission/job/provider/reconciliation |
+| Visual Beat semantic analysis | IMPLEMENTED foundation | title, visual intent, camera angle, participating Character refs and durable storyboard materialization |
+| Visual Beat deterministic source offsets | TARGET | AI should select semantic source segments; worker must resolve exact UTF-16 `text_start/text_end` |
+| Visual Beat narration timing reconciliation | TARGET | compatible narration alignment should deterministically populate `audio_start_ms/audio_end_ms` |
+| Exact draft storyboard timing before MediaPlan | TARGET/PARTIAL | current fallback geometry is not exact narration alignment |
 | Real-time generation job status | IMPLEMENTED foundation | owner-scoped SSE snapshots, automatic reconnect and slow GET watchdog |
 | Current media job recovery | IMPLEMENTED foundation | chapter media-head lookup restores active media state after reload |
 | Generation durability | IMPLEMENTED foundation | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox state |
 | Character/Location continuity | IMPLEMENTED foundation | richer human review/reference locking remains partial |
-| Storyboard / Scene / VisualBeat | IMPLEMENTED foundation | Desktop scene view supports status filtering and an owner-authorized per-beat review workflow, including approve-all for pending beats; richer adaptive planning/revision review remains partial |
-| Narration timing authority | IMPLEMENTED foundation | aligned narration drives beat duration |
+| Beat-specific Character participation | IMPLEMENTED foundation | `visual_beat_characters` and analysis references prevent copying full scene cast into every beat |
+| Narration strategy/TTS bypass | IMPLEMENTED foundation | TTS and USER_PROVIDED_AUDIO remain distinct; covered user audio bypasses TTS |
+| Narration alignment persistence | IMPLEMENTED foundation | source-hash-bound text/audio spans persist with narration assets |
 | VieNeu narration | IMPLEMENTED foundation | provider execution + Desktop local materialization for current flows |
 | Local voice preview | IMPLEMENTED foundation | Desktop voice selection/preview workflow |
-| User-provided narration | IMPLEMENTED foundation | native local import, ordered parts, logical clock and TTS bypass |
-| Arbitrary multi-part user-audio production coverage | PARTIAL | slicing/concatenation/alignment behavior needs complete path-specific proof |
-| Vertex image generation | IMPLEMENTED foundation | selection/estimate/queue/review + verified Desktop materialization |
-| Gemini Web image generation | IMPLEMENTED foundation | Desktop Storyboard Generate/Generate All through visible Chrome/CDP; per-beat `GENERATE_NEW`, locked manhua series style, local checksum-verified import; no backend API media job or cost estimate |
-| Remote generated-media transport | IMPLEMENTED foundation | R2 transports AI-generated media before Desktop materialization |
+| User-provided narration | IMPLEMENTED foundation | native local import, ordered parts/logical clock foundations and TTS bypass |
+| Arbitrary multi-part user-audio production coverage | PARTIAL | slicing/concatenation/alignment/correction behavior needs complete path-specific proof |
+| Vertex/API image generation | IMPLEMENTED foundation | selection/estimate/queue/review + verified Desktop materialization |
+| Gemini Web image generation | IMPLEMENTED foundation | Desktop Storyboard Generate/Generate All through visible Chrome/CDP, locked series style and checksum-verified local import; not a backend API media-job/cost path |
+| Remote generated-media transport | IMPLEMENTED foundation | R2 transports generated AI media when remote provider/worker durability is needed before Desktop materialization |
 | Native local media import | IMPLEMENTED foundation | main-process inspect/hash + backend stable identity + ProjectStorage commit |
-| Persisted beat media selection | IMPLEMENTED foundation | production beat media selection state is consolidated into V1 |
+| Persisted beat media selection | IMPLEMENTED foundation | durable production beat media selection state |
 | Mixed image/video beat model | IMPLEMENTED foundation | timeline can carry media identity; richer video editing semantics remain partial |
-| Timeline duration/camera draft editing | IMPLEMENTED foundation | typed command history with undo/redo/reset |
-| Auto Edit planning | IMPLEMENTED foundation | narration-aware AUTO/CINEMATIC/BALANCED/DYNAMIC plan; render overrides apply atomically with snapshot creation |
+| Production timeline planned timing | IMPLEMENTED foundation | current immutable MediaPlan timing wins for production/render planning |
+| Production timeline generic fallback timing | IMPLEMENTED foundation | keeps incomplete scopes representable but is not exact narration alignment |
+| Narration-master draft preview clock | TARGET/PARTIAL | exact storyboard timing + real audio clock path requires completion/runtime proof |
+| Timeline duration/camera/fit draft editing | IMPLEMENTED foundation | typed command history with undo/redo/reset |
+| Auto Edit planning | IMPLEMENTED foundation | narration-aware AUTO/CINEMATIC/BALANCED/DYNAMIC planning and atomic render snapshot application |
 | Render subtitle track | IMPLEMENTED foundation | immutable narration text/alignment snapshot feeds local UTF-8 SRT generation and mux |
 | Imported media duration metadata | IMPLEMENTED foundation | Electron main probes audio/video duration before local registration |
 | Custom voice preview/reference | IMPLEMENTED foundation | upload/reference validation plus expiring preview result URL |
@@ -44,7 +52,7 @@ This is the maintained feature/status view at docs checkpoint `7249f1bfd31bfeea5
 | Local device identity/heartbeat | IMPLEMENTED foundation | protected device credential + execution state |
 | Backend-assigned local render claim | IMPLEMENTED foundation | device-scoped assignment/lease |
 | Local render preflight | IMPLEMENTED foundation | FFmpeg/ffprobe, executor, disk and asset-integrity checks |
-| Desktop FFmpeg project render | IMPLEMENTED foundation | segments → concat → narration → mux → ffprobe → local artifact |
+| Desktop FFmpeg project render | IMPLEMENTED foundation | segments -> concat -> narration -> mux -> ffprobe -> local artifact |
 | Render journal discovery | IMPLEMENTED foundation | atomic state journal + unfinished-work discovery |
 | Render segment cache | IMPLEMENTED foundation | immutable input/timeline/renderer/output identity cache |
 | In-process cancellation | IMPLEMENTED foundation | active render abort path |
@@ -52,7 +60,8 @@ This is the maintained feature/status view at docs checkpoint `7249f1bfd31bfeea5
 | Direct final playback/export | IMPLEMENTED foundation | Desktop reads the local MP4 without backend byte proxying |
 | Full abrupt-process render recovery/resume UX | PARTIAL | journals exist; complete stage recovery/soak behavior still needs hardening |
 | MyBatis-only production persistence | IMPLEMENTED | production persistence uses MyBatis + explicit SQL |
-| Flyway V1-V8 clean pre-release baseline | IMPLEMENTED | responsibility-separated migrations, consolidated indexes and deterministic catalog seeds; future schema evolution starts at append-only V9+ |
+| PostgreSQL-only MVP runtime | IMPLEMENTED | sessions, handoffs, durable queues/outbox and worker polling use PostgreSQL; Redis is not required |
+| Flyway V1-V8 clean pre-release baseline | IMPLEMENTED | responsibility-separated migrations, indexes/invariants and deterministic catalog seeds |
 | VisualScenePlanner | TARGET | narration-driven adaptive Scene/VisualBeat planning/review |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | richer asset lineage/reuse after core reliability |
 | HYBRID_LOCAL_I2V | DEFERRED fast-follow | optional selected-beat I2V, not core Desktop dependency |
@@ -63,7 +72,7 @@ This is the maintained feature/status view at docs checkpoint `7249f1bfd31bfeea5
 ## Storage contract
 
 ```text
-AI-generated image/narration bytes -> R2 transport until materialized
+AI-generated image/narration bytes -> R2 transport when remote durability is required
 Generated/imported project media   -> local project workspace
 Narration/audio                    -> local project workspace
 Render work/cache                  -> local project workspace/work
@@ -72,12 +81,27 @@ Final MP4                          -> local project workspace/artifacts
 Business/job/artifact metadata     -> PostgreSQL
 ```
 
+## Timing acceptance
+
+Current code may expose planned timing or fallback geometry. Exact draft narration alignment requires all of the following before it can be marked implemented:
+
+```text
+semantic VisualBeat source span
+  -> deterministic UTF-16 text_start/text_end
+  -> source-compatible narration alignment
+  -> deterministic audio_start_ms/audio_end_ms
+  -> global startMs/endMs
+  -> Desktop playback driven by real narration audio
+```
+
+Missing exact alignment must stay distinguishable from provisional/fallback geometry.
+
 ## Authentication acceptance
 
 A Desktop installation can resume the same guest-owned workspace after server-session expiry by presenting its protected installation credential. Google remains the only account sign-in provider. A gated operation can sign the guest in through the system browser and one-time `narrativex://` handoff without discarding the active editor context. Google tokens do not enter Electron.
 
 ## Local render acceptance
 
-A backend-authorized device can claim a project render, preflight runtime/disk/assets, resolve checksum-verified media by stable IDs, apply an Auto Edit plan, build an immutable subtitle snapshot, heartbeat the lease, journal/cache local execution, run FFmpeg/ffprobe, register final-artifact metadata and report completion without persisting an absolute local path. Playback/export reads the final local MP4 directly.
+A backend-authorized device can claim a project render, preflight runtime/disk/assets, resolve checksum-verified media by stable IDs, apply supported Auto Edit choices, build an immutable subtitle snapshot, heartbeat the lease, journal/cache local execution, run FFmpeg/ffprobe, register final-artifact metadata and report completion without persisting an absolute local path. Playback/export reads the final local MP4 directly.
 
-Do not claim production-complete crash recovery, adaptive planner completion, arbitrary multi-part audio coverage or release packaging until those paths are proven.
+Do not claim production-complete crash recovery, exact draft Visual Beat narration timing, adaptive planner completion, arbitrary multi-part audio coverage or release packaging until those paths are proven.
