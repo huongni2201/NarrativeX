@@ -97,7 +97,7 @@ export interface GeminiStoryboardReference {
 }
 
 export interface GeminiStoryboardContext {
-  promptContext: string;
+  prompt: string;
   references: GeminiStoryboardReference[];
 }
 
@@ -121,8 +121,6 @@ export interface GenerateGeminiStoryboardImageInput {
   chapterId: string;
   beat: {
     id: string;
-    title: string;
-    prompt: string | null;
   };
   materializedReferenceIds: Set<string>;
 }
@@ -131,15 +129,14 @@ export async function generateGeminiStoryboardImage(
   deps: GenerateGeminiStoryboardImageDeps,
   input: GenerateGeminiStoryboardImageInput,
 ) {
-  if (!input.beat.prompt) {
-    throw new Error("Backend chưa trả prompt cho Visual Beat này.");
-  }
-
   const context = await deps.getGeminiContext(
     input.projectId,
     input.chapterId,
     input.beat.id,
   );
+  if (!context.prompt.trim()) {
+    throw new Error("Backend chưa trả Gemini prompt cho Visual Beat này.");
+  }
 
   for (const reference of context.references) {
     if (input.materializedReferenceIds.has(reference.assetId)) continue;
@@ -157,9 +154,8 @@ export async function generateGeminiStoryboardImage(
     canonicalName: reference.canonicalName,
     beatRole: reference.beatRole,
   }));
-  const prompt = [input.beat.prompt, context.promptContext].filter(Boolean).join("\n\n");
   const selection = await deps.generateImage({
-    prompt,
+    prompt: context.prompt,
     projectId: input.projectId,
     references,
   });

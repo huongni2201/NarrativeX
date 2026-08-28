@@ -51,19 +51,7 @@ export interface GeminiBeatReference {
 
 export interface GeminiBeatContext {
   visualBeatId: string;
-  promptContext: string;
-  characters: Array<{
-    characterId: string;
-    canonicalName: string;
-    versionNumber: number | null;
-    beatRole: string | null;
-    visualPrompt: string | null;
-    appearancePrompt: string | null;
-    ageState: string | null;
-    hairstyle: string | null;
-    injury: string | null;
-    wardrobeContext: string | null;
-  }>;
+  prompt: string;
   references: GeminiBeatReference[];
 }
 

@@ -71,7 +71,7 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
       beat,
       onReferencesResolved,
     }: {
-      beat: Pick<StoryboardVisualBeat, "id" | "title" | "prompt">;
+      beat: Pick<StoryboardVisualBeat, "id">;
       onReferencesResolved?: (referenceCount: number) => void;
     }) => {
       if (!chapterId) throw new Error("Chưa chọn chapter để resolve character reference.");

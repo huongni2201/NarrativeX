@@ -17,4 +17,13 @@ class ImageStyleTest {
         .startsWith("GLOBAL VISUAL STYLE: cinematic visual storytelling")
         .contains("SCENE DESCRIPTION: A woman enters a dark room.");
   }
+
+  @Test
+  void manhuaProfileIsOwnedByBackend() {
+    assertThat(ImageStyle.MANHUA.promptFor("A heroine enters a moonlit palace courtyard."))
+        .contains("premium Chinese romantic-fantasy manhua illustration")
+        .contains("SCENE DESCRIPTION: A heroine enters a moonlit palace courtyard.");
+    assertThat(ImageStyle.MANHUA.negativePrompt())
+        .contains("photorealistic photography", "watermark", "collage");
+  }
 }

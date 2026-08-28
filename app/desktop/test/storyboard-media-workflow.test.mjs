@@ -82,31 +82,30 @@ test("manual image persistence uses ProjectStorage commit instead of Gemini comm
   ]);
 });
 
-test("Gemini workflow materializes each missing reference before generation and preserves REF mapping", async () => {
+test("Gemini workflow sends backend final prompt unchanged and preserves REF mapping", async () => {
   const calls = [];
   const materialized = new Set(["asset-existing"]);
   const context = {
     visualBeatId: "beat-1",
-    promptContext: "REF_1 is Alice. REF_2 is Bob.",
-    characters: [],
+    prompt: "BACKEND FINAL PROMPT",
     references: [
       {
-        refLabel: "REF_1",
+        refLabel: "REF_01",
         assetId: "asset-existing",
         characterId: "char-1",
         canonicalName: "Alice",
-        beatRole: "lead",
+        beatRole: "PRIMARY",
         referenceRole: null,
         priority: 1,
         contentType: "image/png",
         sha256: "one",
       },
       {
-        refLabel: "REF_2",
+        refLabel: "REF_02",
         assetId: "asset-new",
         characterId: "char-2",
         canonicalName: "Bob",
-        beatRole: "support",
+        beatRole: "SECONDARY",
         referenceRole: null,
         priority: 2,
         contentType: "image/png",
@@ -130,7 +129,7 @@ test("Gemini workflow materializes each missing reference before generation and 
   const result = await generateGeminiStoryboardImage(deps, {
     projectId: "project-1",
     chapterId: "chapter-1",
-    beat: { id: "beat-1", title: "Beat", prompt: "Draw the scene" },
+    beat: { id: "beat-1" },
     materializedReferenceIds: materialized,
   });
 
@@ -138,23 +137,44 @@ test("Gemini workflow materializes each missing reference before generation and 
   assert.equal(result.referenceCount, 2);
   assert.equal(materialized.has("asset-new"), true);
   assert.deepEqual(calls.map(([name]) => name), ["materialize", "generate", "persist"]);
-  assert.equal(calls[1][1].prompt, "Draw the scene\n\nREF_1 is Alice. REF_2 is Bob.");
+  assert.equal(calls[1][1].prompt, "BACKEND FINAL PROMPT");
   assert.deepEqual(calls[1][1].references, [
     {
-      refLabel: "REF_1",
+      refLabel: "REF_01",
       assetId: "asset-existing",
       characterId: "char-1",
       canonicalName: "Alice",
-      beatRole: "lead",
+      beatRole: "PRIMARY",
     },
     {
-      refLabel: "REF_2",
+      refLabel: "REF_02",
       assetId: "asset-new",
       characterId: "char-2",
       canonicalName: "Bob",
-      beatRole: "support",
+      beatRole: "SECONDARY",
     },
   ]);
+});
+
+test("Gemini workflow rejects an empty backend prompt", async () => {
+  await assert.rejects(
+    () =>
+      generateGeminiStoryboardImage(
+        {
+          getGeminiContext: async () => ({ prompt: "   ", references: [] }),
+          materializeRemoteAsset: async () => undefined,
+          generateImage: async () => imageSelection,
+          persistImage: async () => "asset-generated",
+        },
+        {
+          projectId: "project-1",
+          chapterId: "chapter-1",
+          beat: { id: "beat-1" },
+          materializedReferenceIds: new Set(),
+        },
+      ),
+    /Backend chưa trả Gemini prompt/i,
+  );
 });
 
 test("media workflow rejects non-image selections before registration", async () => {

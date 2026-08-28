@@ -7,7 +7,6 @@ import {
   GeminiWebAutomation,
   type GeminiWebReferenceFile,
 } from "./gemini-web-automation";
-import { compileGeminiWebPrompt } from "./gemini-web-prompt";
 import { ProjectStorage } from "../local-storage/project-storage";
 import {
   registerTrustedIpcHandlerWithEvent,
@@ -32,10 +31,7 @@ export function registerGeminiWebIpc(
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
       const references = await resolveReferenceFiles(projectStorage, input);
-      const result = await automation.generateImage(
-        compileGeminiWebPrompt(input.prompt),
-        references,
-      );
+      const result = await automation.generateImage(input.prompt, references);
       return stageGeneratedImage(event.sender.id, result.sourcePath);
     },
   );

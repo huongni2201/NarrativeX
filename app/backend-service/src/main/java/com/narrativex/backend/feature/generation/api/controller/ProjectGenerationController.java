@@ -18,6 +18,7 @@ import com.narrativex.backend.feature.generation.application.usecase.EnqueueStor
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetVoicePreviewResultUseCase;
+import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -80,18 +81,27 @@ public class ProjectGenerationController {
       @PathVariable UUID chapterId,
       @PathVariable UUID visualBeatId) {
     var storyboard = getChapterStoryboardUseCase.execute(projectId, chapterId).data();
-    boolean belongsToCurrentStoryboard =
+    var beat =
         storyboard.scenes().stream()
             .flatMap(scene -> scene.visualBeats().stream())
-            .anyMatch(beat -> beat.id().equals(visualBeatId));
-    if (!belongsToCurrentStoryboard) {
-      throw new ResourceNotFoundException("Visual Beat not found in the current Chapter storyboard");
-    }
+            .filter(candidate -> candidate.id().equals(visualBeatId))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "Visual Beat not found in the current Chapter storyboard"));
+
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
+    var composedPrompt =
+        visualPromptComposer.compose(
+            ImageStyle.MANHUA,
+            beat.visualIntent(),
+            beat.cameraAngle().name(),
+            context);
     return ResponseEntity.ok(
         ApiResponse.success(
-            "Gemini Visual Beat reference context retrieved",
-            VisualBeatGeminiContextResponse.from(visualBeatId, context, visualPromptComposer)));
+            "Gemini Visual Beat prompt context retrieved",
+            VisualBeatGeminiContextResponse.from(visualBeatId, composedPrompt)));
   }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/narration-jobs")
