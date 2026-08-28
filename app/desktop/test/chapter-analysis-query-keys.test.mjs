@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   chapterAnalysisQueryKeys,
   chapterAnalysisShouldPoll,
-} from "../src/renderer/features/chapters/queries/chapter-analysis.queries.ts";
+} from "../src/renderer/features/chapters/model/chapter-analysis-query-contract.ts";
 
 test("chapter analysis query keys stay scoped to project chapter and generation job", () => {
   assert.deepEqual(
