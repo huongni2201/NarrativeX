@@ -136,7 +136,9 @@ class ImageGenerationWorkerRunner:
         except Exception:
             self.logger.exception("Image generation job failed job=%s", job.generation_job_id)
         finally:
-            self.metrics.duration("image_generation_duration", started_at, context)
+            metrics = getattr(self, "metrics", None)
+            if metrics is not None:
+                metrics.duration("image_generation_duration", started_at, context)
             for task in (processing, heartbeat):
                 if not task.done():
                     task.cancel()
