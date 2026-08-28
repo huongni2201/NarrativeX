@@ -69,7 +69,6 @@ FORBIDDEN = {
         r"(?:stable|installation)[- ]scoped guest[^\n]{0,100}(?:TARGET|future-only|not implemented)",
         re.IGNORECASE,
     ),
-    "removed Google Drive storage contract": re.compile(r"\bgoogle\s+drive\b", re.IGNORECASE),
     "removed Google Drive environment contract": re.compile(r"\bGOOGLE_DRIVE_[A-Z0-9_]+\b"),
     "removed final-video server storage contract": re.compile(
         r"\b(?:FINAL_VIDEO_STORAGE_MODE|FINAL_VIDEO_LOCAL_DIR|render-worker|worker-render)\b",
@@ -101,6 +100,11 @@ DESKTOP_ONLY_FORBIDDEN = {
 
 LEGACY_STORAGE_ENV = re.compile(
     r"\b(?:S3_ENDPOINT_URL|S3_BUCKET|S3_REGION|S3_ACCESS_KEY|S3_SECRET_KEY|MINIO_CONSOLE_PORT)\b"
+)
+GOOGLE_DRIVE = re.compile(r"\bgoogle\s+drive\b", re.IGNORECASE)
+NEGATED_OR_HISTORICAL = re.compile(
+    r"\b(?:not|no longer|removed|deprecated|historical|superseded|retired|former|obsolete)\b",
+    re.IGNORECASE,
 )
 
 CHECKPOINT_FILES = {
@@ -168,6 +172,18 @@ def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bo
     ]
 
 
+def google_drive_invariant_errors(path: Path, text: str) -> list[str]:
+    """Flag Google Drive only when current docs describe it as an active contract."""
+    errors: list[str] = []
+    for line in text.splitlines():
+        if not GOOGLE_DRIVE.search(line):
+            continue
+        if NEGATED_OR_HISTORICAL.search(line):
+            continue
+        errors.append(f"{path}: removed Google Drive storage contract")
+    return errors
+
+
 def decision_index_errors(
     decisions_dir: Path | None = None, index_path: Path | None = None
 ) -> list[str]:
@@ -230,6 +246,7 @@ def main() -> int:
             if pattern.search(text):
                 errors.append(f"{relative}: {label}")
         errors.extend(desktop_only_invariant_errors(relative, text, frontend_web_exists))
+        errors.extend(google_drive_invariant_errors(relative, text))
         if re.search(r"\bminio\b", text, re.IGNORECASE):
             errors.append(f"{relative}: MinIO is not part of the current storage contract")
         if LEGACY_STORAGE_ENV.search(text):
