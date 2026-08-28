@@ -120,7 +120,9 @@ class MediaValidationWorkerRunner:
             except LeaseLostError:
                 raise
             except Exception:
-                self.logger.exception("Unexpected voice-reference validation failure job=%s", job.id)
+                self.logger.exception(
+                    "Unexpected voice-reference validation failure job=%s", job.id
+                )
                 await self.repository.retry_or_fail(
                     job, self.worker_id, "VALIDATION_INFRASTRUCTURE_ERROR"
                 )
