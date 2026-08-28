@@ -7,19 +7,24 @@ import type {
 } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
 
+export function narrationJobPath(
+  projectId: string,
+  input: Pick<GenerateNarrationInput, "chapterId" | "forceRegenerate">,
+) {
+  const path = `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(input.chapterId)}/narration-jobs`;
+  return input.forceRegenerate ? `${path}?forceRegenerate=true` : path;
+}
+
 export const narrationApi = {
   generate: (projectId: string, input: GenerateNarrationInput) =>
-    apiRequest<GenerationJob>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(input.chapterId)}/narration-jobs?forceRegenerate=true`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          voiceId: input.voiceId,
-          speakingRate: input.speakingRate,
-          voiceReferenceAssetId: input.voiceReferenceAssetId,
-        }),
-      },
-    ),
+    apiRequest<GenerationJob>(narrationJobPath(projectId, input), {
+      method: "POST",
+      body: JSON.stringify({
+        voiceId: input.voiceId,
+        speakingRate: input.speakingRate,
+        voiceReferenceAssetId: input.voiceReferenceAssetId,
+      }),
+    }),
 
   generateBatch: (input: GenerateBatchNarrationInput) =>
     apiRequest<Array<{ chapterId: string; job: GenerationJob }>>(
