@@ -20,7 +20,6 @@ import com.narrativex.backend.feature.character.application.usecase.LockCharacte
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase.ReferenceInput;
 import com.narrativex.backend.feature.character.application.usecase.SubmitCharacterVersionForReviewUseCase;
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -93,12 +92,10 @@ public class CharacterController {
   @PostMapping("/{characterId}/versions/{versionId}/review")
   public ResponseEntity<ApiResponse<CharacterVersionResponse>> reviewVersion(
       @PathVariable UUID characterId, @PathVariable UUID versionId) {
+    getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     var version =
         submitCharacterVersionForReviewUseCase.execute(
             new ChangeCharacterVersionStatusCommand(versionId, null));
-    if (!version.getCharacterId().equals(characterId)) {
-      throw new ResourceNotFoundException("Character version not found");
-    }
     return ResponseEntity.ok(
         ApiResponse.success(
             "Character version submitted for review", CharacterVersionResponse.from(version)));
@@ -107,11 +104,9 @@ public class CharacterController {
   @PostMapping("/{characterId}/versions/{versionId}/lock")
   public ResponseEntity<ApiResponse<CharacterVersionResponse>> lockVersion(
       @PathVariable UUID characterId, @PathVariable UUID versionId) {
+    getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     var version =
         lockCharacterVersionUseCase.execute(new ChangeCharacterVersionStatusCommand(versionId, null));
-    if (!version.getCharacterId().equals(characterId)) {
-      throw new ResourceNotFoundException("Character version not found");
-    }
     return ResponseEntity.ok(
         ApiResponse.success("Character version locked", CharacterVersionResponse.from(version)));
   }
