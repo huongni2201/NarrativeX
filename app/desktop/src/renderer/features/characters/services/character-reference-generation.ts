@@ -38,6 +38,7 @@ async function registerSelection(projectId: string, selection: ImageSelection, g
   });
   if (generated) {
     await window.narrativex.geminiWeb.commitImage({
+      lane: "CHARACTER",
       projectId,
       assetId: asset.id,
       selectionToken: selection.selectionToken,
@@ -76,6 +77,7 @@ export async function generateCharacterIdentityReference(input: {
     throw new Error("Backend chưa trả character generation prompt.");
   }
   const selection = await window.narrativex.geminiWeb.generateImage({
+    lane: "CHARACTER",
     projectId: input.projectId,
     prompt: input.prompt,
   });

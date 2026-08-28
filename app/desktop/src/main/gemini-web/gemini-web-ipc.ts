@@ -7,6 +7,7 @@ import {
   GeminiWebAutomation,
   type GeminiWebReferenceFile,
 } from "./gemini-web-automation";
+import { isGeminiWebLane, type GeminiWebLane } from "../../shared/gemini-web-lanes";
 import { ProjectStorage } from "../local-storage/project-storage";
 import {
   registerTrustedIpcHandlerWithEvent,
@@ -14,7 +15,10 @@ import {
 } from "../security/renderer-security";
 import { SelectionTokenStore } from "../security/selection-token-store";
 
-const pendingGeminiSelections = new SelectionTokenStore<{ sourcePath: string }>();
+const pendingGeminiSelections = new SelectionTokenStore<{
+  sourcePath: string;
+  lane: GeminiWebLane;
+}>();
 const MAX_REFERENCE_IMAGES = 3;
 const OPAQUE_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 
@@ -31,8 +35,8 @@ export function registerGeminiWebIpc(
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
       const references = await resolveReferenceFiles(projectStorage, input);
-      const result = await automation.generateImage(input.prompt, references);
-      return stageGeneratedImage(event.sender.id, result.sourcePath);
+      const result = await automation.generateImage(input.lane, input.prompt, references);
+      return stageGeneratedImage(event.sender.id, result.sourcePath, input.lane);
     },
   );
 
@@ -41,6 +45,14 @@ export function registerGeminiWebIpc(
     policy,
     async (event, input) => {
       if (!isCommitInput(input)) throw new Error("Invalid Gemini Web image commit request.");
+      const stagedSelection = pendingGeminiSelections.peek(
+        input.selectionToken,
+        event.sender.id,
+        "gemini-image-import",
+      );
+      if (stagedSelection.lane !== input.lane) {
+        throw new Error("Gemini image selection belongs to another generation lane.");
+      }
       const selection = pendingGeminiSelections.consume(
         input.selectionToken,
         event.sender.id,
@@ -88,7 +100,7 @@ async function resolveReferenceFiles(
   return resolved;
 }
 
-async function stageGeneratedImage(senderId: number, sourcePath: string) {
+async function stageGeneratedImage(senderId: number, sourcePath: string, lane: GeminiWebLane) {
   const file = await stat(sourcePath);
   if (!file.isFile() || file.size <= 0) {
     throw new Error("Gemini Web downloaded an empty or invalid image file.");
@@ -100,7 +112,7 @@ async function stageGeneratedImage(senderId: number, sourcePath: string) {
   const selectionToken = pendingGeminiSelections.create(
     senderId,
     "gemini-image-import",
-    { sourcePath },
+    { sourcePath, lane },
   );
   return {
     selectionToken,
@@ -121,6 +133,7 @@ type GeminiReferenceInput = {
 };
 
 type GeminiGenerateInput = {
+  lane: GeminiWebLane;
   prompt: string;
   projectId?: string;
   references?: GeminiReferenceInput[];
@@ -129,6 +142,7 @@ type GeminiGenerateInput = {
 function isGenerateInput(value: unknown): value is GeminiGenerateInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
+  if (!isGeminiWebLane(input.lane)) return false;
   if (typeof input.prompt !== "string" || !input.prompt.trim()) return false;
   if (input.projectId !== undefined && typeof input.projectId !== "string") return false;
   if (input.references === undefined) return true;
@@ -157,6 +171,7 @@ function isReferenceInput(value: unknown): value is GeminiReferenceInput {
 }
 
 function isCommitInput(value: unknown): value is {
+  lane: GeminiWebLane;
   projectId: string;
   assetId: string;
   selectionToken: string;
@@ -164,11 +179,13 @@ function isCommitInput(value: unknown): value is {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
   return (
+    isGeminiWebLane(input.lane) &&
     typeof input.projectId === "string" &&
     typeof input.assetId === "string" &&
     typeof input.selectionToken === "string"
   );
 }
+
 
 function kindForPath(sourcePath: string): "IMAGE" | "OTHER" {
   return [".png", ".jpg", ".jpeg", ".webp"].includes(extname(sourcePath).toLowerCase())

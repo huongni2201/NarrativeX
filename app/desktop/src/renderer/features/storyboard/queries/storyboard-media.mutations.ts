@@ -22,6 +22,7 @@ export interface StoryboardImageRegistration {
 export interface PersistStoryboardImageDeps {
   registerLocal(input: StoryboardImageRegistration): Promise<{ id: string }>;
   commitGeminiImage(input: {
+    lane: "STORYBOARD";
     projectId: string;
     assetId: string;
     selectionToken: string;
@@ -78,6 +79,7 @@ export async function persistStoryboardImage(
 
   if (input.source === "GEMINI_WEB") {
     await deps.commitGeminiImage({
+      lane: "STORYBOARD",
       projectId: input.projectId,
       assetId: asset.id,
       selectionToken: input.selection.selectionToken,
@@ -132,6 +134,7 @@ export interface GenerateGeminiStoryboardImageDeps {
   ): Promise<GeminiStoryboardContext>;
   materializeRemoteAsset(input: { projectId: string; assetId: string }): Promise<unknown>;
   generateImage(input: {
+    lane: "STORYBOARD";
     prompt: string;
     projectId: string;
     references: GeminiStoryboardReference[];
@@ -181,6 +184,7 @@ export async function generateGeminiStoryboardImage(
     beatRole: reference.beatRole,
   }));
   const selection = await deps.generateImage({
+    lane: "STORYBOARD",
     prompt: context.prompt,
     projectId: input.projectId,
     references,

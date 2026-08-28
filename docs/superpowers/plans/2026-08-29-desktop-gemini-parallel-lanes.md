@@ -100,7 +100,7 @@ git commit -m "feat(desktop): require explicit Gemini generation lanes"
 ### Task 2: Refactor Gemini Web automation into two isolated lanes under one Chrome host
 
 **Files:**
-- Create: `app/desktop/src/main/gemini-web/gemini-web-lanes.ts` for lane constants, persisted target metadata, lane directory mapping, and testable lane state helpers.
+- Create: `app/desktop/src/shared/gemini-web-lanes.ts` for lane constants, persisted target metadata, lane directory mapping, and testable lane state helpers shared by preload, main, and renderer.
 - Modify: `app/desktop/src/main/gemini-web/gemini-web-automation.ts:58-70,276-515,1330-1515` to replace global `active`/download state with shared Chrome lifecycle plus per-lane state, target restoration/recreation, lane-scoped CDP/network/download paths, and a startup promise that prevents two Chrome launches against one profile.
 - Modify: `app/desktop/src/main/gemini-web/gemini-web-ipc.ts:21-59` to pass the lane through the new automation signature and stop the shared host exactly once.
 - Test: `app/desktop/test/gemini-web-lanes.test.mjs` for concurrent lane locks, duplicate same-lane rejection, target persistence/recreation, per-lane directories, and no arbitrary Gemini target fallback.
@@ -169,7 +169,7 @@ Expected: PASS; test assertions show concurrent lane ownership, independent targ
 - [ ] **Step 7: Commit the isolated automation host**
 
 ```bash
-git add app/desktop/src/main/gemini-web/gemini-web-lanes.ts app/desktop/src/main/gemini-web/gemini-web-automation.ts app/desktop/src/main/gemini-web/gemini-web-ipc.ts app/desktop/test/gemini-web-lanes.test.mjs app/desktop/test/gemini-web-network-capture.test.mjs
+git add app/desktop/src/shared/gemini-web-lanes.ts app/desktop/src/main/gemini-web/gemini-web-automation.ts app/desktop/src/main/gemini-web/gemini-web-ipc.ts app/desktop/test/gemini-web-lanes.test.mjs app/desktop/test/gemini-web-network-capture.test.mjs
 git commit -m "feat(desktop): isolate Gemini Character and Storyboard lanes"
 ```
 
