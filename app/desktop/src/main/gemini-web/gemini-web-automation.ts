@@ -7,6 +7,10 @@ import {
   imageExtensionForMimeType,
   selectBestNetworkCandidate,
 } from "./gemini-web-network-capture";
+import {
+  findGeminiModelCandidateIndex,
+  type GeminiModelCandidate,
+} from "./gemini-web-model-selection";
 
 const GEMINI_URL = "https://gemini.google.com/app";
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -19,6 +23,8 @@ const DOWNLOAD_TIMEOUT_MS = 60_000;
 const REFERENCE_UPLOAD_TIMEOUT_MS = 30_000;
 const MIN_CAPTURE_BYTES = 24 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
+const GEMINI_MODEL_OPTION_SELECTOR =
+  'button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="radio"]';
 
 export interface GeminiWebGenerationResult {
   sourcePath: string;
@@ -521,28 +527,6 @@ export class GeminiWebAutomation {
   }
 
   private async selectModel(cdp: CdpClient, modelName: string): Promise<void> {
-    const normalizedModel = modelName.trim().toLowerCase();
-
-    const alreadySelected = await evaluate<boolean>(
-      cdp,
-      `(() => {
-        const target = ${JSON.stringify(normalizedModel)};
-        const visible = (element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-        };
-        const nodes = [...document.querySelectorAll('button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"]')];
-        return nodes.some((element) => {
-          if (!visible(element)) return false;
-          const value = String(element.getAttribute("aria-label") || "") + " " +
-            String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
-          return value.replace(/\\s+/g, " ").trim().toLowerCase().includes(target);
-        });
-      })()`,
-    );
-    if (alreadySelected) return;
-
     const opened = await evaluate<boolean>(
       cdp,
       `(() => {
@@ -575,23 +559,43 @@ export class GeminiWebAutomation {
 
     await delay(500);
 
-    const selected = await evaluate<boolean>(
+    const candidates = await evaluate<GeminiModelCandidate[]>(
       cdp,
       `(() => {
-        const target = ${JSON.stringify(normalizedModel)};
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const nodes = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [tabindex]')];
-        const candidate = nodes.find((element) => {
-          if (!visible(element)) return false;
-          const value = String(element.getAttribute("aria-label") || "") + " " +
-            String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
-          const normalized = value.replace(/\\s+/g, " ").trim().toLowerCase();
-          return normalized.includes(target) || normalized.includes("3.1 pro");
-        });
+        return [...document.querySelectorAll(${JSON.stringify(GEMINI_MODEL_OPTION_SELECTOR)})]
+          .filter(visible)
+          .map((element) => ({
+            role: element.getAttribute("role") || element.tagName.toLowerCase(),
+            label: String(element.innerText || element.textContent || ""),
+            ariaLabel: String(element.getAttribute("aria-label") || ""),
+            title: String(element.getAttribute("title") || ""),
+          }));
+      })()`,
+    );
+    const candidateIndex = findGeminiModelCandidateIndex(candidates, modelName);
+    if (candidateIndex < 0) {
+      throw geminiError(
+        "GEMINI_MODEL_NOT_FOUND",
+        `Gemini model "${modelName}" was not found in the Gemini Web UI.`,
+      );
+    }
+
+    const selected = await evaluate<boolean>(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        };
+        const nodes = [...document.querySelectorAll(${JSON.stringify(GEMINI_MODEL_OPTION_SELECTOR)})]
+          .filter(visible);
+        const candidate = nodes[${candidateIndex}];
         if (!candidate) return false;
         candidate.click();
         return true;

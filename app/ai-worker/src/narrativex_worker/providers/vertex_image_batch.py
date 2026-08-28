@@ -365,7 +365,22 @@ class VertexBatchImageProvider(VertexImageProvider):
                     continue
                 if isinstance(row, dict):
                     rows.append(row)
-        return _materialize_batch_rows(rows, items)
+        results = _materialize_batch_rows(rows, items)
+        for item_result in results:
+            image_result = item_result.result
+            if image_result is None:
+                continue
+            self.logger.info(
+                "Materialized Vertex generated image item=%s bytes=%s mime_type=%s "
+                "width=%s height=%s sha256=%s",
+                item_result.item_key,
+                len(image_result.content),
+                image_result.mime_type,
+                image_result.width,
+                image_result.height,
+                image_result.result_fingerprint,
+            )
+        return results
 
     async def _list_gcs_objects(self, token: str, bucket: str, prefix: str) -> list[str]:
         endpoint = f"https://storage.googleapis.com/storage/v1/b/{quote(bucket, safe='')}/o"
@@ -411,7 +426,14 @@ class VertexBatchImageProvider(VertexImageProvider):
             raise VertexImageProviderError(
                 f"GCS image batch result download failed with HTTP {response.status_code}"
             )
-        return response.content
+        content = response.content
+        self.logger.info(
+            "Downloaded Vertex image batch result object bucket=%s object=%s bytes=%s",
+            bucket,
+            object_name,
+            len(content),
+        )
+        return content
 
 
 def _jsonl_payload(items: tuple[ImageBatchItem, ...]) -> bytes:

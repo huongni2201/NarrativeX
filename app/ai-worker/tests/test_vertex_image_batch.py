@@ -1,10 +1,14 @@
+import base64
 import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from io import BytesIO
 from typing import Any, cast
 
 import httpx
 import pytest
+from PIL import Image
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.image import (
@@ -92,10 +96,40 @@ class _ErrorClient:
         )
 
 
+class _DownloadClient:
+    async def get(self, *args: object, **kwargs: object) -> httpx.Response:
+        del args, kwargs
+        return httpx.Response(
+            200,
+            content=b"generated-output",
+            request=httpx.Request("GET", "https://example.test"),
+        )
+
+
+class _BatchOutputClient:
+    def __init__(self, content: bytes) -> None:
+        self.content = content
+
+    async def get(self, endpoint: str, *args: object, **kwargs: object) -> httpx.Response:
+        del args, kwargs
+        if "/storage/v1/" in endpoint and "download/storage/v1" not in endpoint:
+            return httpx.Response(
+                200,
+                json={"items": [{"name": "output/results.jsonl"}]},
+                request=httpx.Request("GET", endpoint),
+            )
+        return httpx.Response(
+            200,
+            content=self.content,
+            request=httpx.Request("GET", endpoint),
+        )
+
+
 class _ReconcileProvider(VertexBatchImageProvider):
     def __init__(self) -> None:
         self._client: Any = _ErrorClient()
         self.settings = WorkerSettings(vertex_image_batch_gcs_bucket="bucket")
+        self.logger = logging.getLogger("narrativex.vertex-image-batch")
 
     async def _access_token(self) -> str:
         return "token"
@@ -119,6 +153,73 @@ async def test_reconcile_http_4xx_is_provider_failed() -> None:
 
     assert resolved.status is ProviderOperationStatus.FAILED
     assert resolved.error_code == "HTTP_404"
+
+
+@pytest.mark.asyncio
+async def test_download_gcs_object_logs_successful_download(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = _ReconcileProvider()
+    provider._client = _DownloadClient()
+    caplog.set_level(logging.INFO, logger="narrativex.vertex-image-batch")
+
+    content = await provider._download_gcs_object("token", "bucket", "output/results.jsonl")
+
+    assert content == b"generated-output"
+    assert "Downloaded Vertex image batch result object" in caplog.text
+    assert "bucket=bucket" in caplog.text
+    assert "object=output/results.jsonl" in caplog.text
+    assert "bytes=16" in caplog.text
+
+
+def _valid_test_image() -> bytes:
+    buffer = BytesIO()
+    image = Image.new("RGB", (16, 9), color="red")
+    image.save(buffer, format="PNG")
+    image.close()
+    return buffer.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_batch_output_logs_materialized_generated_image(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    image = _valid_test_image()
+    encoded = base64.b64encode(image).decode("ascii")
+    output = "\n".join(
+        json.dumps(
+            {
+                "request": _request_body(item.request),
+                "response": {
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [
+                                    {
+                                        "inlineData": {
+                                            "mimeType": "image/png",
+                                            "data": encoded,
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+            }
+        )
+        for item in _items()
+    ).encode("utf-8")
+    provider = _ReconcileProvider()
+    provider._client = _BatchOutputClient(output)
+    caplog.set_level(logging.INFO, logger="narrativex.vertex-image-batch")
+
+    results = await provider._load_batch_results("token", "gs://bucket/output", _items())
+
+    assert all(result.result is not None for result in results)
+    assert "Materialized Vertex generated image" in caplog.text
+    assert "item=beat-1" in caplog.text
+    assert f"bytes={len(image)}" in caplog.text
 
 
 def test_gcs_uri_parser_preserves_nested_prefix() -> None:
