@@ -23,6 +23,7 @@ export interface DesktopCharacterVersion {
   status?: string | null;
   bible?: string | null;
   visualPrompt?: string | null;
+  prompt?: string | null;
   lockedAt?: string | null;
   lockedBy?: string | null;
 }
