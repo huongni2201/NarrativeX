@@ -86,6 +86,7 @@ Cloudflare R2 is limited to generated AI-media transport/durability before Deskt
 - ProjectStorage/ProjectCatalog with atomic schema-versioned manifests and integrity checks;
 - native two-phase local import/registration without renderer path exposure;
 - image-generation and narration local materialization foundations;
+- Gemini Web Storyboard generation through a visible Chrome/CDP session, with main-owned style locking and checksum-verified local commit;
 - production timeline with narration-aligned timing and explicit beat media selection;
 - duration/camera draft command history with undo/redo;
 - device identity/heartbeat and backend-assigned local render claim;

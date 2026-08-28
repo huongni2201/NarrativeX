@@ -55,6 +55,12 @@ This directory records decisions that affect more than one feature or change a p
 18. **[ADR-0018: Generation commit and worker build observability](./ADR-0018-generation-commit-and-worker-build-observability.md)**
     Post-commit job logging, database identity readiness diagnostics, shared Compose configuration and immutable build identity.
 
+20. **[ADR-0020: PostgreSQL-only MVP runtime state](./ADR-0020-postgresql-only-mvp-runtime-state.md)**
+    PostgreSQL is the sole MVP state service for sessions, handoffs, durable queues and worker polling; Redis is not required.
+
+21. **[ADR-0021: Desktop Gemini Web image generation boundary](./ADR-0021-desktop-gemini-web-image-generation.md)**
+    Desktop-only Gemini Web generation through visible Chrome/CDP, main-owned prompt/style locking, protected selection-token commits and the renderer-owned Generate All queue.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.
@@ -62,5 +68,7 @@ This directory records decisions that affect more than one feature or change a p
 - ADR-0012 supersedes ADR-0003 only for Desktop project bytes and Desktop final artifacts. ADR-0003 remains valid for retained cloud/legacy worker execution and deliberately shared remote media.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs; historical text remains only as rationale/history and is not an AS-IS contract.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
+
+- ADR-0021 defines the Gemini Web Desktop execution boundary; it does not replace the backend-authorized Vertex/API generation path or ADR-0012's local-first media contract.
 
 Use the next sequential ADR number for future cross-cutting architectural decisions.

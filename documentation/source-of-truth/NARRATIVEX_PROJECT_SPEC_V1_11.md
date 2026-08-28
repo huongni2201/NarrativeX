@@ -1,9 +1,9 @@
 # NarrativeX — Project Source of Truth V1.11
 
 **Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 2026-08-27
+**Effective date:** 2026-08-28
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `main` at `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795`
+**Docs-sync implementation checkpoint:** `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719`
 **Primary product boundary:** Electron Desktop editor + backend-authoritative control plane + Desktop local-first project media/render
 
 ---
@@ -361,14 +361,17 @@ External provider ambiguity preserves `UNKNOWN` and reconciles before paid resub
 ## 12. Current database baseline
 
 ```text
-V1__create_tables.sql
-V2__init_indexes.sql
-V3__seed_data.sql
-V4__project_render_subtitles.sql
-V5__chapter_workspace_generation_lookup.sql
+V1__identity_and_access.sql
+V2__project_story_and_planning.sql
+V3__generation_billing_and_media.sql
+V4__narration_notifications_and_artifacts.sql
+V5__catalog_generation_and_render_snapshots.sql
+V6__database_logic_and_triggers.sql
+V7__indexes.sql
+V8__seed_catalog.sql
 ```
 
-V1-V3 are the frozen consolidated baseline. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already folded into V1/V2. V4 adds immutable subtitle text/alignment fields to render input chapters; V5 adds a Chapter Workspace generation lookup index. Future schema evolution starts with a new append-only `V6__*.sql`; current schema evolution must not rewrite already-published Flyway history.
+V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Desktop guest-installation, production beat-media-selection, local execution/render metadata, subtitle snapshots, Chapter Workspace lookup and VieNeu speaking-rate support are represented directly in their owning baseline migrations. Future schema evolution starts with a new append-only `V9__*.sql` after the first production deployment; current pre-production databases may still be recreated when the clean baseline changes.
 
 Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and additive migrations remain authoritative.
 
@@ -393,6 +396,7 @@ Historical schema columns/defaults that no longer have an active executor do not
 | Narration strategy + user-audio TTS bypass | IMPLEMENTED foundation |
 | Generated narration + local import | IMPLEMENTED foundation |
 | Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
+| Gemini Web Desktop image generation + local materialization | IMPLEMENTED foundation |
 | R2 generated-media transport | IMPLEMENTED foundation |
 | Native local asset registration | IMPLEMENTED foundation |
 | Production timeline narration alignment | IMPLEMENTED foundation |

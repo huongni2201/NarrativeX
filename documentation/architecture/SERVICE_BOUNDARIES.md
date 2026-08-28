@@ -33,6 +33,8 @@ Owns machine/native capabilities:
 - protected local device identity;
 - heartbeat/render claim/lease/progress/completion/failure;
 - FFmpeg/ffprobe, render journal/cache and final-artifact open/reveal/export.
+- Gemini Web Chrome/CDP automation, its isolated profile/download staging and lifecycle;
+- protected clipboard writes exposed through a narrow typed capability.
 
 ## Backend feature ownership
 
@@ -77,6 +79,7 @@ Workers own asynchronous provider/media execution mechanics:
 - VieNeu narration execution foundations;
 - user-audio validation/alignment roles;
 - Vertex image generation;
+- provider-independent Gemini Web execution remains in Electron main, not in the Python worker;
 - R2 generated-media transport/materialization;
 - bounded retry/reconciliation/runtime-file handling.
 
@@ -109,9 +112,15 @@ Electron main owns local resolution/validation. Backend metadata uses stable IDs
 
 ADR-0012 governs Desktop local-first project bytes; ADR-0003 governs generated-media remote transport.
 
+### Gemini Web boundary
+
+The `GEMINI_WEB` provider is a Desktop execution path for manual/per-beat generation through a visible Chrome window. Electron main starts or reuses a dedicated Chrome profile, drives `https://gemini.google.com/app` through the local Chrome DevTools Protocol, waits for the user to authenticate when required, downloads the result and validates it before staging a sender-bound single-use selection token. The renderer receives only typed metadata and invokes a second trusted capability to commit the staged file.
+
+The path does not pass Gemini credentials through Electron, does not use a Python provider SDK, and does not replace the backend-authorized Vertex/API media-job path. Provider web UI changes, Chrome availability and sign-in state are operational dependencies. The current prompt wrapper owns the series style lock and treats scene text as untrusted narrative input.
+
 ## Persistence boundary
 
-Application/domain repository ports remain persistence-neutral. Production infrastructure uses MyBatis + explicit PostgreSQL SQL. Flyway owns schema evolution; V1-V3 are frozen and V4+ additive.
+Application/domain repository ports remain persistence-neutral. Production infrastructure uses MyBatis + explicit PostgreSQL SQL. Flyway owns schema evolution; V1-V8 are the clean pre-release baseline and future production changes are append-only V9+.
 
 ## Dependency direction
 

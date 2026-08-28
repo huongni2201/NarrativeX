@@ -120,6 +120,26 @@ pinned authorized image work
 
 R2 may hold generated media while provider/worker execution needs a remote durable location. Final rendering never depends on a remote final-video store.
 
+## Gemini Web Desktop generation
+
+```text
+Chapter selects GEMINI_WEB
+  -> no API media job/cost estimate; Storyboard is the generation entry point
+  -> Electron renderer requests typed Gemini Web capability
+  -> Electron main starts/reuses visible Chrome with dedicated profile + CDP
+  -> user signs in to Gemini in that Chrome window when required
+  -> main applies the locked manhua series prompt wrapper around untrusted scene text
+  -> fresh conversation + Images mode + one Visual Beat prompt
+  -> wait for generated image and download full-size result
+  -> validate supported image type/non-empty file + SHA-256
+  -> create sender-bound single-use selection token
+  -> backend registers LOCAL_ONLY asset metadata
+  -> Electron main commits staged bytes to ProjectStorage
+  -> production beat-media selection points to the new asset
+```
+
+`Gemini All` is a renderer-owned, project/chapter-keyed serial queue with resume/skip/stop controls. It is not a durable backend queue and stopping it does not necessarily cancel a generation already running in Chrome. The renderer copies prompts through the typed preload bridge to Electron main; it does not call the browser clipboard API directly.
+
 ## Native local import
 
 ```text

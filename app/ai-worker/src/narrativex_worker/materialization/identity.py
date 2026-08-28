@@ -10,7 +10,7 @@ from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.schema import ChapterAnalysisResult
+from narrativex_worker.schema import CharacterAnalysis, ChapterAnalysisResult
 
 if TYPE_CHECKING:
     from narrativex_worker.repository import ClaimedChapterAnalysisJob
@@ -194,20 +194,199 @@ async def materialize_characters(
             ),
             chapter_id,
         )
-        await connection.execute(
-            """
-            UPDATE project_characters
-               SET story_metadata = $3,
-                   updated_at = CURRENT_TIMESTAMP,
-                   row_version = row_version + 1
-             WHERE project_id = $1 AND id = $2
-            """,
+        await _materialize_character_profile(
+            connection,
             project_id,
+            chapter_id,
             project_character_id,
-            character.description or None,
+            character,
         )
 
     return materialized
+
+
+async def _materialize_character_profile(
+    connection: asyncpg.Connection,
+    project_id: UUID,
+    chapter_id: UUID,
+    project_character_id: UUID,
+    character: CharacterAnalysis,
+) -> None:
+    """Persist AI profile data without replacing an explicitly pinned character version."""
+    row = await connection.fetchrow(
+        """
+        SELECT character_id, pinned_character_version_id, role, importance, groups_json
+          FROM project_characters
+         WHERE project_id = $1 AND id = $2
+         FOR UPDATE
+        """,
+        project_id,
+        project_character_id,
+    )
+    if row is None:
+        raise RuntimeError(f"Project character {project_character_id} disappeared during analysis")
+
+    existing_groups = _json_string_list(row["groups_json"])
+    merged_groups = list(dict.fromkeys([*existing_groups, *character.groups]))
+    inferred_role = character.role.strip() or "SUPPORTING"
+    existing_role = str(row["role"] or "SUPPORTING")
+    role = inferred_role if existing_role == "SUPPORTING" else existing_role
+    importance = max(int(row["importance"] or 0), character.importance)
+
+    await connection.execute(
+        """
+        UPDATE project_characters
+           SET role = $3,
+               importance = $4,
+               groups_json = $5::jsonb,
+               story_metadata = COALESCE(NULLIF($6, ''), story_metadata),
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE project_id = $1 AND id = $2
+        """,
+        project_id,
+        project_character_id,
+        role,
+        importance,
+        json.dumps(merged_groups, ensure_ascii=False),
+        character.description.strip(),
+    )
+
+    character_id = UUID(str(row["character_id"]))
+    if row["pinned_character_version_id"] is None:
+        await _create_and_pin_character_version(
+            connection,
+            project_id,
+            project_character_id,
+            character_id,
+            character,
+        )
+
+    await _upsert_character_appearance(
+        connection,
+        project_id,
+        chapter_id,
+        character_id,
+        character,
+    )
+
+
+async def _create_and_pin_character_version(
+    connection: asyncpg.Connection,
+    project_id: UUID,
+    project_character_id: UUID,
+    character_id: UUID,
+    character: CharacterAnalysis,
+) -> None:
+    bible = character.bible.strip() or character.description.strip() or character.name
+    visual_prompt = (
+        character.visual_prompt.strip()
+        or character.appearance_prompt.strip()
+        or character.description.strip()
+        or character.name
+    )
+    version_number = await connection.fetchval(
+        """
+        SELECT COALESCE(MAX(version_number), 0) + 1
+          FROM character_versions
+         WHERE character_id = $1
+        """,
+        character_id,
+    )
+    version_id = await connection.fetchval(
+        """
+        INSERT INTO character_versions
+          (character_id, version_number, bible, visual_prompt, status)
+        VALUES ($1, $2, $3, $4, 'DRAFT')
+        RETURNING id
+        """,
+        character_id,
+        int(version_number or 1),
+        bible,
+        visual_prompt,
+    )
+    if version_id is None:
+        raise RuntimeError(f"Failed to create character version for {character_id}")
+
+    await connection.execute(
+        """
+        UPDATE project_characters
+           SET pinned_character_version_id = $3,
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE project_id = $1
+           AND id = $2
+           AND pinned_character_version_id IS NULL
+        """,
+        project_id,
+        project_character_id,
+        version_id,
+    )
+
+
+async def _upsert_character_appearance(
+    connection: asyncpg.Connection,
+    project_id: UUID,
+    chapter_id: UUID,
+    character_id: UUID,
+    character: CharacterAnalysis,
+) -> None:
+    appearance_values = (
+        character.age_state.strip(),
+        character.hairstyle.strip(),
+        character.injury.strip(),
+        character.wardrobe_context.strip(),
+        character.appearance_prompt.strip(),
+    )
+    if not any(appearance_values):
+        return
+
+    timeline_key = f"chapter:{chapter_id}"
+    appearance_id = await connection.fetchval(
+        """
+        SELECT id
+          FROM character_appearances
+         WHERE character_id = $1
+           AND project_id = $2
+           AND timeline_key = $3
+         ORDER BY updated_at DESC, id DESC
+         LIMIT 1
+        """,
+        character_id,
+        project_id,
+        timeline_key,
+    )
+    if appearance_id is None:
+        await connection.execute(
+            """
+            INSERT INTO character_appearances
+              (character_id, project_id, timeline_key, age_state, hairstyle, injury,
+               wardrobe_context, appearance_prompt)
+            VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''),
+                    NULLIF($7, ''), NULLIF($8, ''))
+            """,
+            character_id,
+            project_id,
+            timeline_key,
+            *appearance_values,
+        )
+        return
+
+    await connection.execute(
+        """
+        UPDATE character_appearances
+           SET age_state = NULLIF($2, ''),
+               hairstyle = NULLIF($3, ''),
+               injury = NULLIF($4, ''),
+               wardrobe_context = NULLIF($5, ''),
+               appearance_prompt = NULLIF($6, ''),
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = $1
+        """,
+        appearance_id,
+        *appearance_values,
+    )
 
 
 async def materialize_locations(
@@ -396,15 +575,6 @@ async def _create_character(
         claimed.requested_by_user_id,
         name,
         json.dumps(aliases, ensure_ascii=False),
-    )
-    await connection.execute(
-        """
-        INSERT INTO character_versions
-          (character_id, version_number, bible, visual_prompt, status)
-        VALUES ($1, 1, $2, $2, 'DRAFT')
-        """,
-        character_id,
-        description or name,
     )
     project_character_id = await connection.fetchval(
         """

@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.storyboard.api;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.containsString;
 
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -167,6 +168,11 @@ class StoryboardApiIntegrationTest {
         .andExpect(
             jsonPath("$.data.scenes[0].visualBeats[0].visualIntent")
                 .value("Warm lanterns form a river of light through quiet stone streets."))
+        .andExpect(
+            jsonPath("$.data.scenes[0].visualBeats[0].prompt")
+                .value(
+                    containsString(
+                        "SCENE DESCRIPTION: Warm lanterns form a river of light through quiet stone streets.")))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].motionMode").value("BASIC_MOTION"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].cameraMovement").value("PAN"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].reviewStatus").value("APPROVED"))

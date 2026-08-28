@@ -106,6 +106,7 @@ The current Desktop code includes:
 - guest-first session bootstrap and in-context Google sign-in;
 - chapter analysis and generation admission flows;
 - image generation/review plus remote-to-local materialization;
+- Desktop Gemini Web image generation through Chrome/CDP, including locked series style, Generate All and protected prompt copy;
 - generated narration/voice preview and local audio import safeguards;
 - authenticated generation SSE with reconnect/watchdog status recovery;
 - native local asset registration;

@@ -4,10 +4,10 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Effective docs sync: `2026-08-27`
-- Implementation checkpoint: `main` at `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795`
+- Effective docs sync: `2026-08-28`
+- Implementation checkpoint: `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
-- Runtime refinement: `documentation/decisions/ADR-0020-postgresql-only-mvp-runtime-state.md`
+- Runtime refinements: `documentation/decisions/ADR-0020-postgresql-only-mvp-runtime-state.md` and `documentation/decisions/ADR-0021-desktop-gemini-web-image-generation.md`
 
 Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims. Accepted ADRs outrank the canonical specification within the exact scope they supersede; ADR-0020 therefore replaces older Redis/session/delivery text still present in historical V1.11 wording.
 
@@ -18,7 +18,8 @@ Electron Desktop (only supported editor)
   renderer -> UI/editor/query state only
   preload  -> narrow typed capability bridge
   main     -> guest credential, OAuth deep link, native files,
-              ProjectStorage, local execution, FFmpeg/ffprobe
+              ProjectStorage, local execution, FFmpeg/ffprobe,
+              Gemini Web Chrome/CDP automation, protected clipboard
         |
         v
 Spring Boot Backend

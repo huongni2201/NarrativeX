@@ -1,8 +1,8 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0020 supersedes older Redis/session/delivery guidance within its scope.
+The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0020 supersedes older Redis/session/delivery guidance within its scope, and ADR-0021 defines the Gemini Web Desktop boundary.
 
-NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, and ADR-0020 defines the PostgreSQL-only MVP runtime.
+NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, and ADR-0021 defines the Desktop Gemini Web execution boundary.
 
 ## Navigation
 
@@ -42,5 +42,6 @@ A newer ADR wins only within the scope it explicitly supersedes.
 10. Cloudflare R2 is limited to generated-media transport/durability before Desktop materialization; final MP4 bytes remain local.
 11. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
 12. Production persistence is MyBatis + explicit PostgreSQL SQL.
-13. Flyway V1-V3 are frozen; V4 adds immutable render subtitle snapshots and V5 adds the Chapter Workspace generation lookup index; later migrations are append-only V6+.
+13. Flyway V1-V8 form the clean pre-release baseline; V1-V6 separate schema/database responsibilities, V7 owns indexes and V8 owns deterministic catalog seeds; later migrations are append-only V9+.
 14. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.
+15. Gemini Web is a Desktop-main Chrome/CDP path, not a Python worker or browser-editor architecture; keep its prompt wrapper and privileged file commit behind the typed bridge.

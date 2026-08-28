@@ -1,6 +1,6 @@
 # NarrativeX — Current Feature Catalog (V1.11)
 
-This is the maintained feature/status view at docs checkpoint `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795` (2026-08-27). Current code, migrations and tests decide factual AS-IS claims when documentation drifts.
+This is the maintained feature/status view at docs checkpoint `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28). Current code, migrations and tests decide factual AS-IS claims when documentation drifts.
 
 | Feature | V1.11 status | Current direction |
 |---|---|---|
@@ -24,6 +24,7 @@ This is the maintained feature/status view at docs checkpoint `8c9d953da4c197240
 | User-provided narration | IMPLEMENTED foundation | native local import, ordered parts, logical clock and TTS bypass |
 | Arbitrary multi-part user-audio production coverage | PARTIAL | slicing/concatenation/alignment behavior needs complete path-specific proof |
 | Vertex image generation | IMPLEMENTED foundation | selection/estimate/queue/review + verified Desktop materialization |
+| Gemini Web image generation | IMPLEMENTED foundation | Desktop Storyboard Generate/Generate All through visible Chrome/CDP; per-beat `GENERATE_NEW`, locked manhua series style, local checksum-verified import; no backend API media job or cost estimate |
 | Remote generated-media transport | IMPLEMENTED foundation | R2 transports AI-generated media before Desktop materialization |
 | Native local media import | IMPLEMENTED foundation | main-process inspect/hash + backend stable identity + ProjectStorage commit |
 | Persisted beat media selection | IMPLEMENTED foundation | production beat media selection state is consolidated into V1 |
@@ -51,7 +52,7 @@ This is the maintained feature/status view at docs checkpoint `8c9d953da4c197240
 | Direct final playback/export | IMPLEMENTED foundation | Desktop reads the local MP4 without backend byte proxying |
 | Full abrupt-process render recovery/resume UX | PARTIAL | journals exist; complete stage recovery/soak behavior still needs hardening |
 | MyBatis-only production persistence | IMPLEMENTED | production persistence uses MyBatis + explicit SQL |
-| Flyway V1-V3 baseline + V4/V5 refinements | IMPLEMENTED | V4 stores immutable render subtitle snapshots; V5 indexes Chapter Workspace generation lookup; future schema evolution starts at append-only V6+ |
+| Flyway V1-V8 clean pre-release baseline | IMPLEMENTED | responsibility-separated migrations, consolidated indexes and deterministic catalog seeds; future schema evolution starts at append-only V9+ |
 | VisualScenePlanner | TARGET | narration-driven adaptive Scene/VisualBeat planning/review |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | richer asset lineage/reuse after core reliability |
 | HYBRID_LOCAL_I2V | DEFERRED fast-follow | optional selected-beat I2V, not core Desktop dependency |
