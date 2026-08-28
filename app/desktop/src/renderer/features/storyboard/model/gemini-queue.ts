@@ -50,6 +50,7 @@ export function reconcileQueue(
 ): GeminiQueueState | null {
   const beatIds = state.beatIds.filter((beatId) => validBeatIds.has(beatId));
   if (!beatIds.length) return null;
+  if (beatIds.length === state.beatIds.length) return state;
 
   const completedBeatIds = state.completedBeatIds.filter((beatId) => validBeatIds.has(beatId));
   const skippedBeatIds = state.skippedBeatIds.filter((beatId) => validBeatIds.has(beatId));
@@ -64,7 +65,7 @@ export function reconcileQueue(
   return {
     ...reconciled,
     currentIndex,
-    status: currentIndex >= beatIds.length ? "COMPLETED" : state.status,
+    status: currentIndex >= beatIds.length ? "COMPLETED" : "PAUSED",
   };
 }
 
