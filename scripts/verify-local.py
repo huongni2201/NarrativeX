@@ -55,7 +55,19 @@ def main() -> int:
 
     steps = [
         Step("Secret scan", ROOT, [python, "scripts/check-secrets.py"]),
+        Step(
+            "Docs governance tests",
+            ROOT,
+            [
+                python,
+                "-m",
+                "unittest",
+                "scripts/test_check_docs_drift.py",
+                "scripts/test_check_docs_checkpoint.py",
+            ],
+        ),
         Step("Docs drift", ROOT, [python, "scripts/check-docs-drift.py"]),
+        Step("Docs checkpoint", ROOT, [python, "scripts/check-docs-checkpoint.py"]),
         Step("Compose config", ROOT, ["docker", "compose", "config", "--no-interpolate"], optional=True),
         Step("Backend verify", backend, [mvnw, "verify"]),
         Step("AI worker tests", worker, [python, "-m", "pytest"]),
