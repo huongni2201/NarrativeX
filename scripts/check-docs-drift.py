@@ -9,34 +9,18 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CURRENT_FILES = [
+ROOT_CURRENT_FILES = [
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "AI_CONTEXT.md",
     ROOT / "app" / "desktop" / "README.md",
-    ROOT / "documentation" / "README.md",
-    ROOT / "documentation" / "TRACEABILITY.md",
-    ROOT / "documentation" / "source-of-truth" / "README.md",
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
-    ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
-    ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
-    ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
-    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
-    ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
-    ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
-    ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
-    ROOT / "documentation" / "product" / "ROADMAP.md",
-    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
-    ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
-    ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
-    ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
-    ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
-    ROOT / "documentation" / "workflows" / "IMAGE_GENERATION.md",
-    ROOT / "documentation" / "workflows" / "VIDEO_GENERATION.md",
+    ROOT / "app" / "ai-worker" / "README.md",
 ]
 
 REQUIRED_PATHS = [
+    ROOT / "documentation" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+    ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
     ROOT / "documentation" / "product" / "ROADMAP.md",
@@ -44,13 +28,18 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
     ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
     ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
+    ROOT / "documentation" / "decisions" / "README.md",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
     ROOT / "documentation" / "decisions" / "ADR-0003-media-storage-generation-pipelines-and-external-integrations.md",
     ROOT / "documentation" / "decisions" / "ADR-0010-desktop-editor-client-boundary.md",
     ROOT / "documentation" / "decisions" / "ADR-0011-google-oauth-only-desktop-auth.md",
     ROOT / "documentation" / "decisions" / "ADR-0012-desktop-local-first-media-and-render-execution.md",
+    ROOT / "documentation" / "decisions" / "ADR-0015-desktop-render-lifecycle-and-capability-ipc.md",
     ROOT / "documentation" / "decisions" / "ADR-0017-desktop-renderer-ui-component-stack.md",
+    ROOT / "documentation" / "decisions" / "ADR-0020-postgresql-only-mvp-runtime-state.md",
+    ROOT / "documentation" / "decisions" / "ADR-0021-desktop-gemini-web-image-generation.md",
+    ROOT / "docs" / "superpowers" / "plans" / "README.md",
 ]
 
 RETIRED_PATHS = [
@@ -87,6 +76,14 @@ FORBIDDEN = {
         r"\b(?:FINAL_VIDEO_STORAGE_MODE|FINAL_VIDEO_LOCAL_DIR|render-worker|worker-render)\b",
         re.IGNORECASE,
     ),
+    "superseded Redis topology wording": re.compile(
+        r"Redis\s+sessions\s*/\s*transient\s+hints",
+        re.IGNORECASE,
+    ),
+    "Redis described as required current runtime": re.compile(
+        r"\bRedis\b[^\n]{0,80}\b(?:required|authoritative|session authority|queue authority)\b",
+        re.IGNORECASE,
+    ),
 }
 
 DESKTOP_ONLY_FORBIDDEN = {
@@ -109,20 +106,54 @@ LEGACY_STORAGE_ENV = re.compile(
     r"\b(?:S3_ENDPOINT_URL|S3_BUCKET|S3_REGION|S3_ACCESS_KEY|S3_SECRET_KEY|MINIO_CONSOLE_PORT)\b"
 )
 
-CHECKPOINT_PATTERNS = {
-    "spec": re.compile(
-        r"Docs-sync (?:baseline )?implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`",
-        re.IGNORECASE,
+CHECKPOINT_FILES = {
+    "spec": (
+        ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+        re.compile(
+            r"Docs-sync (?:baseline )?implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`",
+            re.IGNORECASE,
+        ),
     ),
-    "readme": re.compile(
-        r"Implementation checkpoint:\s*`[^`]+` at `([0-9a-f]{40})`",
-        re.IGNORECASE,
+    "source-readme": (
+        ROOT / "documentation" / "source-of-truth" / "README.md",
+        re.compile(
+            r"(?:Baseline )?implementation checkpoint:\s*`[^`]+` at `([0-9a-f]{40})`",
+            re.IGNORECASE,
+        ),
     ),
-    "traceability": re.compile(
-        r"implementation checkpoint\s+`[^`]+`\s*/\s*`([0-9a-f]{40})`",
-        re.IGNORECASE,
+    "traceability": (
+        ROOT / "documentation" / "TRACEABILITY.md",
+        re.compile(
+            r"(?:baseline|current) implementation checkpoint\s+`[^`]+`\s*/\s*`([0-9a-f]{40})`",
+            re.IGNORECASE,
+        ),
+    ),
+    "feature-catalog": (
+        ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+        re.compile(r"audited code checkpoint\s+`([0-9a-f]{40})`", re.IGNORECASE),
+    ),
+    "roadmap": (
+        ROOT / "documentation" / "product" / "ROADMAP.md",
+        re.compile(
+            r"Current audited code checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`",
+            re.IGNORECASE,
+        ),
     ),
 }
+
+PLAN_STATUSES = ("ACTIVE", "COMPLETED", "SUPERSEDED")
+
+
+def current_document_paths(root: Path = ROOT) -> list[Path]:
+    """Return every Markdown file that is intended to describe current state."""
+    paths = [path for path in ROOT_CURRENT_FILES if path.exists()]
+    documentation = root / "documentation"
+    if documentation.exists():
+        for path in documentation.rglob("*.md"):
+            if path.parent == documentation / "decisions" and path.name.startswith("ADR-"):
+                continue
+            paths.append(path)
+    return sorted(set(paths))
 
 
 def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
@@ -140,6 +171,47 @@ def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bo
     ]
 
 
+def decision_index_errors(
+    decisions_dir: Path | None = None,
+    index_path: Path | None = None,
+) -> list[str]:
+    decisions_dir = decisions_dir or ROOT / "documentation" / "decisions"
+    index_path = index_path or decisions_dir / "README.md"
+    if not decisions_dir.exists() or not index_path.exists():
+        return []
+    index = index_path.read_text(encoding="utf-8")
+    errors: list[str] = []
+    for adr in sorted(decisions_dir.glob("ADR-*.md")):
+        if adr.name not in index:
+            errors.append(f"documentation/decisions/README.md does not index {adr.name}")
+    return errors
+
+
+def plan_index_errors(
+    plans_dir: Path | None = None,
+    index_path: Path | None = None,
+) -> list[str]:
+    plans_dir = plans_dir or ROOT / "docs" / "superpowers" / "plans"
+    index_path = index_path or plans_dir / "README.md"
+    if not plans_dir.exists():
+        return []
+    if not index_path.exists():
+        return ["docs/superpowers/plans/README.md is required when implementation plans exist"]
+    index = index_path.read_text(encoding="utf-8")
+    errors: list[str] = []
+    for plan in sorted(path for path in plans_dir.glob("*.md") if path.name != "README.md"):
+        pattern = re.compile(
+            rf"{re.escape(plan.name)}[^\n]*\|\s*({'|'.join(PLAN_STATUSES)})\s*\|",
+            re.IGNORECASE,
+        )
+        if not pattern.search(index):
+            errors.append(
+                f"docs/superpowers/plans/README.md must index {plan.name} with status "
+                + "/".join(PLAN_STATUSES)
+            )
+    return errors
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -153,29 +225,27 @@ def main() -> int:
 
     frontend_web_exists = (ROOT / "app" / "frontend-web").exists()
 
-    for path in CURRENT_FILES:
-        if not path.exists():
-            errors.append(f"missing current-state doc registered in drift check: {path.relative_to(ROOT)}")
-            continue
+    for path in current_document_paths():
         text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(ROOT)
         for label, pattern in FORBIDDEN.items():
             if pattern.search(text):
-                errors.append(f"{path.relative_to(ROOT)}: {label}")
-        errors.extend(desktop_only_invariant_errors(path.relative_to(ROOT), text, frontend_web_exists))
+                errors.append(f"{relative}: {label}")
+        errors.extend(desktop_only_invariant_errors(relative, text, frontend_web_exists))
         if re.search(r"\bminio\b", text, re.IGNORECASE):
-            errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the current storage contract")
+            errors.append(f"{relative}: MinIO is not part of the current storage contract")
         if LEGACY_STORAGE_ENV.search(text):
-            errors.append(f"{path.relative_to(ROOT)}: legacy S3/MinIO environment contract is forbidden")
+            errors.append(f"{relative}: legacy S3/MinIO environment contract is forbidden")
 
-    spec_path = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md"
-    source_readme_path = ROOT / "documentation" / "source-of-truth" / "README.md"
-    traceability_path = ROOT / "documentation" / "TRACEABILITY.md"
+    errors.extend(decision_index_errors())
+    errors.extend(plan_index_errors())
+
     checkpoints = {
-        "spec": checkpoint_sha(spec_path, CHECKPOINT_PATTERNS["spec"]),
-        "readme": checkpoint_sha(source_readme_path, CHECKPOINT_PATTERNS["readme"]),
-        "traceability": checkpoint_sha(traceability_path, CHECKPOINT_PATTERNS["traceability"]),
+        name: checkpoint_sha(path, pattern)
+        for name, (path, pattern) in CHECKPOINT_FILES.items()
+        if path.exists()
     }
-    missing = [name for name, value in checkpoints.items() if value is None]
+    missing = [name for name in CHECKPOINT_FILES if checkpoints.get(name) is None]
     if missing:
         errors.append("missing implementation checkpoint in: " + ", ".join(sorted(missing)))
     elif len(set(checkpoints.values())) != 1:
@@ -207,15 +277,17 @@ def main() -> int:
                 + ", ".join(unexpected_migrations)
             )
 
-    navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
-    for retired_name in (
-        "DESKTOP_APP_MIGRATION.md",
-        "DESKTOP_BACKEND_MIGRATION.md",
-        "PROJECT_OVERVIEW_API_REPORT.md",
-        "PERSISTENCE_MIGRATION.md",
-    ):
-        if retired_name in navigation:
-            errors.append(f"documentation/README.md links retired doc {retired_name}")
+    navigation_path = ROOT / "documentation" / "README.md"
+    if navigation_path.exists():
+        navigation = navigation_path.read_text(encoding="utf-8")
+        for retired_name in (
+            "DESKTOP_APP_MIGRATION.md",
+            "DESKTOP_BACKEND_MIGRATION.md",
+            "PROJECT_OVERVIEW_API_REPORT.md",
+            "PERSISTENCE_MIGRATION.md",
+        ):
+            if retired_name in navigation:
+                errors.append(f"documentation/README.md links retired doc {retired_name}")
 
     root_env = ROOT / ".env.example"
     if root_env.exists():
@@ -235,7 +307,9 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print("Documentation drift check passed.")
+    print(
+        f"Documentation drift check passed across {len(current_document_paths())} current Markdown files."
+    )
     return 0
 
 
