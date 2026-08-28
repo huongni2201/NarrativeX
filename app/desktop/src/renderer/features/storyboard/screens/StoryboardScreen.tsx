@@ -14,10 +14,12 @@ import { SceneRail } from "../components/SceneRail";
 import { StoryboardHeader } from "../components/StoryboardHeader";
 import { VisualBeatGrid } from "../components/VisualBeatGrid";
 import {
+  createGeminiQueue,
   markQueueBeatCompleted,
   markQueueBeatSkipped,
   reconcileQueue,
   restoreQueueForSession,
+  skipQueueBeatIfApproved,
   type GeminiQueueState,
 } from "../model/gemini-queue";
 import { useStoryboardMediaMutations } from "../queries/storyboard-media.queries";
@@ -118,6 +120,10 @@ export function StoryboardScreen({
   const beatsPendingApproval = useMemo(
     () => beatsNeedingReview(selectedSceneBeats),
     [selectedSceneBeats],
+  );
+  const beatsPendingGeminiGeneration = useMemo(
+    () => beatsNeedingReview(allChapterBeats),
+    [allChapterBeats],
   );
   const currentQueueBeatId = geminiQueue?.beatIds[geminiQueue.currentIndex] ?? null;
   const currentQueueBeat = currentQueueBeatId ? beatById.get(currentQueueBeatId) ?? null : null;
@@ -224,6 +230,14 @@ export function StoryboardScreen({
         continue;
       }
 
+      const queueAfterApprovalCheck = skipQueueBeatIfApproved(queue, beat);
+      if (queueAfterApprovalCheck !== queue) {
+        processed.add(beatId);
+        queue = queueAfterApprovalCheck;
+        setGeminiQueue(queue);
+        continue;
+      }
+
       queue = { ...queue, currentIndex: index, status: "RUNNING" };
       setGeminiQueue(queue);
       setSelectedSceneId(beat.sceneId);
@@ -254,15 +268,9 @@ export function StoryboardScreen({
   }
 
   async function startGeminiAll() {
-    if (!selectedChapterId || !allChapterBeats.length) return;
-    const queue: GeminiQueueState = {
-      chapterId: selectedChapterId,
-      beatIds: allChapterBeats.map((beat) => beat.id),
-      completedBeatIds: [],
-      skippedBeatIds: [],
-      currentIndex: 0,
-      status: "RUNNING",
-    };
+    if (!selectedChapterId) return;
+    const queue = createGeminiQueue(selectedChapterId, allChapterBeats);
+    if (!queue) return;
     setGeminiQueue(queue);
     const runToken = ++geminiRunTokenRef.current;
     await runGeminiQueue(queue, runToken);
@@ -432,7 +440,7 @@ export function StoryboardScreen({
                 </div>
                 <button
                   type="button"
-                  disabled={!allChapterBeats.length || geminiQueueActive}
+                  disabled={!beatsPendingGeminiGeneration.length || geminiQueueActive}
                   onClick={() => void startGeminiAll()}
                   className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/35 bg-primary/5 px-3 text-xs font-bold text-primary-hover transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >

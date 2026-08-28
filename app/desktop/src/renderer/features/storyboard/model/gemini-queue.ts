@@ -9,6 +9,38 @@ export interface GeminiQueueState {
   status: GeminiQueueStatus;
 }
 
+type GeminiQueueBeat = {
+  id: string;
+  reviewStatus: "NEEDS_REVIEW" | "APPROVED";
+};
+
+export function createGeminiQueue(
+  chapterId: string,
+  beats: readonly GeminiQueueBeat[],
+): GeminiQueueState | null {
+  const beatIds = beats
+    .filter((beat) => beat.reviewStatus !== "APPROVED")
+    .map((beat) => beat.id);
+  if (!beatIds.length) return null;
+  return {
+    chapterId,
+    beatIds,
+    completedBeatIds: [],
+    skippedBeatIds: [],
+    currentIndex: 0,
+    status: "RUNNING",
+  };
+}
+
+export function skipQueueBeatIfApproved(
+  state: GeminiQueueState,
+  beat: GeminiQueueBeat,
+): GeminiQueueState {
+  return beat.reviewStatus === "APPROVED"
+    ? markQueueBeatSkipped(state, beat.id)
+    : state;
+}
+
 function uniqueIds(ids: readonly string[]) {
   return [...new Set(ids)];
 }

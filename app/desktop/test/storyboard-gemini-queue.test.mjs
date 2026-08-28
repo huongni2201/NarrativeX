@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  createGeminiQueue,
   markQueueBeatCompleted,
   markQueueBeatSkipped,
   reconcileQueue,
   restoreQueueForSession,
+  skipQueueBeatIfApproved,
 } from "../src/renderer/features/storyboard/model/gemini-queue.ts";
 import {
   geminiQueueStorageKey,
@@ -41,6 +43,35 @@ function memoryStorage() {
 
 test("a running Gemini queue restores paused after a renderer restart", () => {
   assert.equal(restoreQueueForSession(queue()).status, "PAUSED");
+});
+
+test("a new Gemini All queue excludes beats that are already approved", () => {
+  const created = createGeminiQueue("chapter-1", [
+    { id: "beat-1", reviewStatus: "NEEDS_REVIEW" },
+    { id: "beat-2", reviewStatus: "APPROVED" },
+    { id: "beat-3", reviewStatus: "NEEDS_REVIEW" },
+  ]);
+
+  assert.deepEqual(created, queue({ beatIds: ["beat-1", "beat-3"] }));
+  assert.equal(
+    createGeminiQueue("chapter-1", [{ id: "beat-2", reviewStatus: "APPROVED" }]),
+    null,
+  );
+});
+
+test("a persisted Gemini queue skips a beat that was approved before resume", () => {
+  const state = queue();
+  const skipped = skipQueueBeatIfApproved(state, {
+    id: "beat-1",
+    reviewStatus: "APPROVED",
+  });
+
+  assert.deepEqual(skipped.skippedBeatIds, ["beat-1"]);
+  assert.equal(skipped.currentIndex, 1);
+  assert.equal(
+    skipQueueBeatIfApproved(state, { id: "beat-1", reviewStatus: "NEEDS_REVIEW" }),
+    state,
+  );
 });
 
 test("queue reconciliation removes deleted beats, advances, and pauses before continuing", () => {
