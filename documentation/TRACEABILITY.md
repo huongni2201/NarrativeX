@@ -1,6 +1,6 @@
 # NarrativeX V1.12 Baseline Implementation Traceability
 
-This matrix maps the V1.12 contract to the current implementation branch. Current code, migrations and tests remain authoritative for AS-IS claims.
+This matrix maps the current implementation refinements to implementation checkpoint `main` / `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28). The canonical source-of-truth remains V1.11 until the next docs-sync cut; current code, migrations, accepted ADRs and tests remain authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
