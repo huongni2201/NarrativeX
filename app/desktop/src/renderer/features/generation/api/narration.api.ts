@@ -10,7 +10,7 @@ import { apiRequest } from "../../../api/client";
 export const narrationApi = {
   generate: (projectId: string, input: GenerateNarrationInput) =>
     apiRequest<GenerationJob>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(input.chapterId)}/narration-jobs`,
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(input.chapterId)}/narration-jobs?forceRegenerate=true`,
       {
         method: "POST",
         body: JSON.stringify({

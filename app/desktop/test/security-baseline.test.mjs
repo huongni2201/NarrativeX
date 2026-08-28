@@ -26,3 +26,10 @@ test("renderer defines a restrictive content security policy", () => {
   assert.match(rendererHtml, /base-uri 'none'/);
   assert.match(rendererHtml, /narrativex-media:/);
 });
+
+test("renderer allows loopback backend URLs for local media playback", () => {
+  const mediaSrc = rendererHtml.match(/media-src[^;]+;/)?.[0] ?? "";
+  assert.match(mediaSrc, /http:\/\/localhost:\*/);
+  assert.match(mediaSrc, /http:\/\/127\.0\.0\.1:\*/);
+  assert.doesNotMatch(mediaSrc, /\shttp:\s/);
+});

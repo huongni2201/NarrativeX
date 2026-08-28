@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
@@ -111,8 +112,13 @@ public class ProjectGenerationController {
   public ResponseEntity<ApiResponse<JobResponse>> narrateChapter(
       @PathVariable UUID projectId,
       @PathVariable UUID chapterId,
+      @RequestParam(defaultValue = "false") boolean forceRegenerate,
       @Valid @RequestBody GenerateChapterNarrationRequest request) {
-    log.info("Requesting narration for chapter {} in project {}", chapterId, projectId);
+    log.info(
+        "Requesting narration for chapter {} in project {} (forceRegenerate={})",
+        chapterId,
+        projectId,
+        forceRegenerate);
     var job =
         generateChapterNarrationUseCase.execute(
             new GenerateChapterNarrationCommand(
@@ -120,7 +126,8 @@ public class ProjectGenerationController {
                 chapterId,
                 request.voiceId(),
                 request.effectiveSpeakingRate(),
-                request.voiceReferenceAssetId()));
+                request.voiceReferenceAssetId(),
+                forceRegenerate));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Narration job accepted", JobResponse.from(job)));
   }
