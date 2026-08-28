@@ -40,7 +40,11 @@ public class VisualPromptComposer {
       throw new IllegalArgumentException("visualIntent must not be blank");
     }
     VisualPromptContext safeContext = context == null ? VisualPromptContext.empty() : context;
-    Set<UUID> selectedReferenceIds = selectReferenceIds(safeContext.characters());
+    List<SelectedReference> selectedReferences = selectReferences(safeContext.characters());
+    Set<UUID> selectedReferenceIds =
+        selectedReferences.stream()
+            .map(selected -> selected.reference().assetId())
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
     StringBuilder prompt = new StringBuilder(style.promptFor(visualIntent));
     prompt.append(
@@ -48,12 +52,7 @@ public class VisualPromptComposer {
     appendCameraFraming(prompt, cameraAngle);
     appendLocation(prompt, safeContext.location());
     appendCharacters(prompt, safeContext.characters());
-    if (!selectedReferenceIds.isEmpty()) {
-      prompt.append(
-          "\nREFERENCE IMAGE RULES: attached character images are identity references, not scene "
-              + "compositions. Preserve face, hair, body proportions, and defining visual traits; "
-              + "apply the requested scene, camera, pose, expression, wardrobe state, and lighting.");
-    }
+    appendReferenceMap(prompt, selectedReferences);
     prompt.append(
         "\nCOMPOSITION RULE: create one frame only. Do not create a montage, collage, split screen, "
             + "contact sheet, or multiple panels.");
@@ -69,13 +68,20 @@ public class VisualPromptComposer {
     return new ComposedVisualPrompt(
         prompt.toString(),
         style.negativePrompt(),
-        characterSnapshotJson(safeContext.characters(), selectedReferenceIds));
+        characterSnapshotJson(safeContext.characters(), selectedReferenceIds),
+        selectedReferences.stream().map(SelectedReference::toBinding).toList());
+  }
+
+  /** Returns the same deterministic attachment order used by prompt composition. */
+  public List<ReferenceBinding> referenceBindings(VisualPromptContext context) {
+    VisualPromptContext safeContext = context == null ? VisualPromptContext.empty() : context;
+    return selectReferences(safeContext.characters()).stream()
+        .map(SelectedReference::toBinding)
+        .toList();
   }
 
   private static void appendCameraFraming(StringBuilder prompt, String cameraAngle) {
-    if (cameraAngle == null || cameraAngle.isBlank()) {
-      return;
-    }
+    if (cameraAngle == null || cameraAngle.isBlank()) return;
     String normalized = cameraAngle.trim().toUpperCase(Locale.ROOT);
     String instruction =
         switch (normalized) {
@@ -94,30 +100,28 @@ public class VisualPromptComposer {
     prompt.append("\nCAMERA FRAMING: ").append(instruction).append('.');
   }
 
-  private static Set<UUID> selectReferenceIds(List<CharacterCanon> characters) {
-    LinkedHashSet<UUID> selected = new LinkedHashSet<>();
-    if (characters == null || characters.isEmpty()) {
-      return selected;
-    }
+  private static List<SelectedReference> selectReferences(List<CharacterCanon> characters) {
+    List<SelectedReference> selected = new ArrayList<>();
+    Set<UUID> selectedIds = new LinkedHashSet<>();
+    if (characters == null || characters.isEmpty()) return selected;
 
     for (CharacterCanon character : characters) {
       sortedReferences(character).stream()
+          .filter(reference -> reference.assetId() != null && selectedIds.add(reference.assetId()))
           .findFirst()
-          .ifPresent(reference -> addReference(selected, reference));
-      if (selected.size() == MAX_REFERENCE_IMAGES) {
-        return selected;
-      }
+          .ifPresent(reference -> selected.add(new SelectedReference(character, reference)));
+      if (selected.size() == MAX_REFERENCE_IMAGES) return List.copyOf(selected);
     }
 
     for (CharacterCanon character : characters) {
       for (CharacterReference reference : sortedReferences(character)) {
-        addReference(selected, reference);
-        if (selected.size() == MAX_REFERENCE_IMAGES) {
-          return selected;
+        if (reference.assetId() != null && selectedIds.add(reference.assetId())) {
+          selected.add(new SelectedReference(character, reference));
         }
+        if (selected.size() == MAX_REFERENCE_IMAGES) return List.copyOf(selected);
       }
     }
-    return selected;
+    return List.copyOf(selected);
   }
 
   private static List<CharacterReference> sortedReferences(CharacterCanon character) {
@@ -128,36 +132,53 @@ public class VisualPromptComposer {
         .toList();
   }
 
-  private static void addReference(Set<UUID> selected, CharacterReference reference) {
-    if (reference != null && reference.assetId() != null) {
-      selected.add(reference.assetId());
+  private static void appendReferenceMap(
+      StringBuilder prompt, List<SelectedReference> selectedReferences) {
+    if (selectedReferences.isEmpty()) return;
+    prompt.append(
+        "\nREFERENCE IMAGE MAP — attachments are supplied in exactly this order. Treat every "
+            + "attachment as identity evidence only, never as the requested scene composition:");
+    for (int index = 0; index < selectedReferences.size(); index++) {
+      SelectedReference selected = selectedReferences.get(index);
+      prompt
+          .append("\n- REF_")
+          .append(String.format(Locale.ROOT, "%02d", index + 1))
+          .append(" = ")
+          .append(nonBlank(selected.character().canonicalName(), "established character"));
+      if (selected.character().beatRole() != null && !selected.character().beatRole().isBlank()) {
+        prompt.append(" [").append(selected.character().beatRole()).append(']');
+      }
+      if (selected.reference().role() != null && !selected.reference().role().isBlank()) {
+        prompt.append("; reference role=").append(selected.reference().role());
+      }
     }
+    prompt.append(
+        "\nREFERENCE IDENTITY RULES: REF_01 maps only to the character named on REF_01, REF_02 "
+            + "only to its named character, and so on. Preserve each mapped face, hair, age, body "
+            + "proportions, and defining traits. Never merge, swap, or transfer identities between "
+            + "references. Scene text may change pose, expression, wardrobe state, camera, and "
+            + "lighting only when requested; it must not redefine the canonical identity.");
   }
 
   private static void appendLocation(StringBuilder prompt, LocationCanon location) {
-    if (location == null) {
-      return;
-    }
+    if (location == null) return;
     List<String> details = new ArrayList<>();
     addIfPresent(details, location.visualPrompt());
-    if (details.isEmpty()) {
-      addIfPresent(details, location.description());
-    }
+    if (details.isEmpty()) addIfPresent(details, location.description());
     prompt
         .append("\nLOCATION CONTINUITY: ")
         .append(nonBlank(location.name(), "established location"));
-    if (!details.isEmpty()) {
-      prompt.append(" — ").append(String.join("; ", details));
-    }
+    if (!details.isEmpty()) prompt.append(" — ").append(String.join("; ", details));
   }
 
   private static void appendCharacters(StringBuilder prompt, List<CharacterCanon> characters) {
-    if (characters == null || characters.isEmpty()) {
-      return;
-    }
+    if (characters == null || characters.isEmpty()) return;
     prompt.append("\nCHARACTER CONTINUITY — preserve these identities exactly:");
     for (CharacterCanon character : characters) {
       prompt.append("\n- ").append(nonBlank(character.canonicalName(), "established character"));
+      if (character.beatRole() != null && !character.beatRole().isBlank()) {
+        prompt.append(" [beat role: ").append(character.beatRole()).append(']');
+      }
       List<String> details = new ArrayList<>();
       addIfPresent(details, character.visualPrompt());
       addIfPresent(details, character.appearancePrompt());
@@ -165,9 +186,7 @@ public class VisualPromptComposer {
       addLabeled(details, "hairstyle", character.hairstyle());
       addLabeled(details, "injury", character.injury());
       addLabeled(details, "wardrobe", character.wardrobeContext());
-      if (!details.isEmpty()) {
-        prompt.append(": ").append(String.join("; ", details));
-      }
+      if (!details.isEmpty()) prompt.append(": ").append(String.join("; ", details));
     }
   }
 
@@ -189,6 +208,7 @@ public class VisualPromptComposer {
                             character.hairstyle(),
                             character.injury(),
                             character.wardrobeContext(),
+                            character.beatRole(),
                             sortedReferences(character).stream()
                                 .filter(
                                     reference -> selectedReferenceIds.contains(reference.assetId()))
@@ -204,19 +224,29 @@ public class VisualPromptComposer {
   }
 
   private static void addIfPresent(List<String> target, String value) {
-    if (value != null && !value.isBlank()) {
-      target.add(value.trim());
-    }
+    if (value != null && !value.isBlank()) target.add(value.trim());
   }
 
   private static void addLabeled(List<String> target, String label, String value) {
-    if (value != null && !value.isBlank()) {
-      target.add(label + ": " + value.trim());
-    }
+    if (value != null && !value.isBlank()) target.add(label + ": " + value.trim());
   }
 
   private static String nonBlank(String value, String fallback) {
     return value == null || value.isBlank() ? fallback : value.trim();
+  }
+
+  private record SelectedReference(CharacterCanon character, CharacterReference reference) {
+    ReferenceBinding toBinding() {
+      return new ReferenceBinding(
+          reference.assetId(),
+          character.characterId(),
+          character.canonicalName(),
+          character.beatRole(),
+          reference.role(),
+          reference.priority(),
+          reference.contentType(),
+          reference.sha256());
+    }
   }
 
   private record CharacterSnapshotEnvelope(List<CharacterSnapshot> characters) {}
@@ -232,6 +262,7 @@ public class VisualPromptComposer {
       String hairstyle,
       String injury,
       String wardrobeContext,
+      String beatRole,
       List<ReferenceSnapshot> references) {}
 
   private record ReferenceSnapshot(
@@ -252,6 +283,23 @@ public class VisualPromptComposer {
     }
   }
 
+  public record ReferenceBinding(
+      UUID assetId,
+      UUID characterId,
+      String canonicalName,
+      String beatRole,
+      String referenceRole,
+      int priority,
+      String contentType,
+      String sha256) {}
+
   public record ComposedVisualPrompt(
-      String prompt, String negativePrompt, String characterSnapshotJson) {}
+      String prompt,
+      String negativePrompt,
+      String characterSnapshotJson,
+      List<ReferenceBinding> referenceBindings) {
+    public ComposedVisualPrompt {
+      referenceBindings = referenceBindings == null ? List.of() : List.copyOf(referenceBindings);
+    }
+  }
 }

@@ -1,19 +1,24 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.AnalyzeChapterRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateBatchNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateChapterNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateVoicePreviewRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
+import com.narrativex.backend.feature.generation.api.response.VisualBeatGeminiContextResponse;
 import com.narrativex.backend.feature.generation.api.response.VoicePreviewResultResponse;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.feature.generation.application.command.GenerateBatchNarrationCommand;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetVoicePreviewResultUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +42,9 @@ public class ProjectGenerationController {
   private final GenerateChapterNarrationUseCase generateChapterNarrationUseCase;
   private final GenerateBatchNarrationUseCase generateBatchNarrationUseCase;
   private final GetVoicePreviewResultUseCase getVoicePreviewResultUseCase;
+  private final GetChapterStoryboardUseCase getChapterStoryboardUseCase;
+  private final VisualPromptContextRepository visualPromptContextRepository;
+  private final VisualPromptComposer visualPromptComposer;
 
   @PostMapping("/{projectId}/chapters/{chapterId}/analysis-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
@@ -64,6 +72,26 @@ public class ProjectGenerationController {
   /** Backward-compatible direct-call overload retained for controller contract tests and callers. */
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(UUID projectId, UUID chapterId) {
     return analyzeChapter(projectId, chapterId, null);
+  }
+
+  @GetMapping("/{projectId}/chapters/{chapterId}/visual-beats/{visualBeatId}/gemini-context")
+  public ResponseEntity<ApiResponse<VisualBeatGeminiContextResponse>> getVisualBeatGeminiContext(
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @PathVariable UUID visualBeatId) {
+    var storyboard = getChapterStoryboardUseCase.execute(projectId, chapterId).data();
+    boolean belongsToCurrentStoryboard =
+        storyboard.scenes().stream()
+            .flatMap(scene -> scene.visualBeats().stream())
+            .anyMatch(beat -> beat.id().equals(visualBeatId));
+    if (!belongsToCurrentStoryboard) {
+      throw new ResourceNotFoundException("Visual Beat not found in the current Chapter storyboard");
+    }
+    var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Gemini Visual Beat reference context retrieved",
+            VisualBeatGeminiContextResponse.from(visualBeatId, context, visualPromptComposer)));
   }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/narration-jobs")

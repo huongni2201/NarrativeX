@@ -113,15 +113,51 @@ async def materialize_storyboard(
             for scene_index, scene in enumerate(result.scenes)
             for beat_index, beat in enumerate(scene.visual_beats)
         ]
+        beat_ids: dict[tuple[UUID, int], UUID] = {}
         if beat_rows:
-            await connection.executemany(
+            inserted_beats = await connection.fetch(
                 """
                 INSERT INTO visual_beats
                   (scene_id, order_index, title, visual_intent, motion_mode,
                    camera_movement, camera_angle, review_status)
-                VALUES ($1, $2, $3, $4, 'STILL', $5, $6, 'NEEDS_REVIEW')
+                SELECT source.scene_id, source.order_index, source.title, source.visual_intent,
+                       'STILL', source.camera_movement, source.camera_angle, 'NEEDS_REVIEW'
+                  FROM UNNEST(
+                       $1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[])
+                       AS source(scene_id, order_index, title, visual_intent,
+                                 camera_movement, camera_angle)
+                 ORDER BY source.scene_id, source.order_index
+                RETURNING id, scene_id, order_index
                 """,
-                beat_rows,
+                [row[0] for row in beat_rows],
+                [row[1] for row in beat_rows],
+                [row[2] for row in beat_rows],
+                [row[3] for row in beat_rows],
+                [row[4] for row in beat_rows],
+                [row[5] for row in beat_rows],
+            )
+            beat_ids = {
+                (row["scene_id"], row["order_index"]): row["id"] for row in inserted_beats
+            }
+
+        beat_character_rows = [
+            (
+                beat_ids[(scene_ids[scene_index], beat_index)],
+                project_characters[character.character_key],
+                character.role.value,
+            )
+            for scene_index, scene in enumerate(result.scenes)
+            for beat_index, beat in enumerate(scene.visual_beats)
+            for character in beat.characters
+        ]
+        if beat_character_rows:
+            await connection.executemany(
+                """
+                INSERT INTO visual_beat_characters
+                  (visual_beat_id, project_character_id, role)
+                VALUES ($1, $2, $3)
+                """,
+                beat_character_rows,
             )
 
     chapter_update = await connection.execute(

@@ -71,6 +71,7 @@ export function StoryboardScreen({
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
   const [geminiQueue, setGeminiQueue] = useState<GeminiQueueState | null>(null);
   const geminiRunTokenRef = useRef(0);
+  const materializedReferenceIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!chapters.length) {
@@ -346,22 +347,50 @@ export function StoryboardScreen({
       setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
       return false;
     }
+    if (!selectedChapterId) {
+      setNotice("Chưa chọn chapter để resolve character reference.");
+      return false;
+    }
     setMediaBusyBeatId(beat.id);
     setPendingImportBeatId(null);
     setNotice(
       queueMode
-        ? `Gemini All · Đang mở Chrome và generate “${beat.title}”…`
-        : `Đang mở Chrome, gửi prompt lên Gemini và generate “${beat.title}”…`,
+        ? `Gemini All · Đang chuẩn bị character reference cho “${beat.title}”…`
+        : `Đang chuẩn bị character reference cho “${beat.title}”…`,
     );
     try {
+      const context = await storyboardApi.geminiContext(projectId, selectedChapterId, beat.id);
+      for (const reference of context.references) {
+        if (materializedReferenceIdsRef.current.has(reference.assetId)) continue;
+        await window.narrativex.localStorage.materializeRemoteAsset({
+          projectId,
+          assetId: reference.assetId,
+        });
+        materializedReferenceIdsRef.current.add(reference.assetId);
+      }
+
+      const prompt = [beat.prompt, context.promptContext].filter(Boolean).join("\n\n");
+      setNotice(
+        queueMode
+          ? `Gemini All · Đang gửi ${context.references.length} reference và generate “${beat.title}”…`
+          : `Đang gửi ${context.references.length} character reference lên Gemini và generate “${beat.title}”…`,
+      );
       const selection = await window.narrativex.geminiWeb.generateImage({
-        prompt: beat.prompt,
+        prompt,
+        projectId,
+        references: context.references.map((reference) => ({
+          refLabel: reference.refLabel,
+          assetId: reference.assetId,
+          characterId: reference.characterId,
+          canonicalName: reference.canonicalName,
+          beatRole: reference.beatRole,
+        })),
       });
       await persistGeneratedImage(beat, selection, "GEMINI_WEB");
       setNotice(
         queueMode
-          ? `Gemini All · Đã tải và gắn ảnh cho “${beat.title}”.`
-          : `Gemini đã generate, tải xuống và gắn ảnh vào Visual Beat “${beat.title}”.`,
+          ? `Gemini All · Đã gắn ảnh cho “${beat.title}” với ${context.references.length} character reference.`
+          : `Gemini đã generate và gắn ảnh vào “${beat.title}” với ${context.references.length} character reference.`,
       );
       return true;
     } catch (error) {
@@ -911,7 +940,7 @@ function GeminiQueuePanel({
       </div>
       {!completed && (
         <p className="mt-2 text-[10px] leading-4 text-text-muted">
-          NarrativeX điều khiển một cửa sổ Chrome riêng: mở Gemini Images, gửi prompt, chờ ảnh, tải file, gắn vào đúng Visual Beat rồi tự chuyển sang beat tiếp theo. Nếu Gemini đổi UI hoặc từ chối một prompt, batch dừng tại beat đó để bạn retry hoặc skip.
+          NarrativeX resolve nhân vật xuất hiện trong từng beat, attach tối đa 3 locked reference theo đúng REF mapping, gửi Gemini Images, bắt output trực tiếp qua Chrome Network và chỉ dùng nút Download làm fallback.
         </p>
       )}
     </div>
@@ -946,7 +975,7 @@ function VisualBeatCard({
   onImport: () => void;
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
-  const prompt = beat.prompt ?? "Prompt chưa khả dụng từ backend.";
+  const prompt = beat.prompt ?? "Backend prompt unavailable.";
 
   return (
     <article className={`rounded-lg border bg-surface-panel p-4 ${queueCurrent ? "border-primary/60 ring-1 ring-primary/20" : "border-border"}`}>
@@ -1011,7 +1040,7 @@ function VisualBeatCard({
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={mediaBusy || generationLocked}
+              disabled={mediaBusy || generationLocked || !beat.prompt}
               onClick={onGenerate}
               className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1025,7 +1054,7 @@ function VisualBeatCard({
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
             >
               {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
-              Import Image
+              Import Image (fallback)
             </button>
             <button
               type="button"

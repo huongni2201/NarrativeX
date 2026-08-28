@@ -21,33 +21,6 @@ select Chapter(s)
 
 The renderer consumes typed backend contracts; it does not call Vertex or receive provider credentials.
 
-## Desktop Gemini Web path
-
-`GEMINI_WEB` is a separate Desktop-local provider path. It is selected during Chapter setup, but it does not create the backend API media-generation job or an API cost estimate. The Images screen directs this provider to Storyboard, where generation is performed per Visual Beat.
-
-```text
-Storyboard Visual Beat
-  -> backend returns the composed Visual Beat prompt with style, framing and continuity context
-  -> Electron main adds the Gemini Web provider boundary/style wrapper
-  -> trusted preload call
-  -> Electron main starts/reuses a visible Chrome profile with CDP
-  -> user completes Gemini sign-in in that Chrome window when needed
-  -> open fresh conversation + Images mode
-  -> submit one prompt and wait for one generated image
-  -> download full-size image
-  -> validate extension/non-empty file + calculate SHA-256
-  -> sender-bound, single-use selection token
-  -> backend registers LOCAL_ONLY MediaAsset metadata
-  -> Electron main commits bytes into ProjectStorage
-  -> persist the asset as the Visual Beat media selection
-```
-
-The Storyboard supports single-beat Generate and a renderer-persisted `Gemini All` queue. The queue processes beats serially and supports resume, skip and stop; stopping the queue does not claim that an already-running Chrome generation was canceled. Gemini Web always uses `GENERATE_NEW`; reuse and reframe strategies are not supported on this path.
-
-This path requires Google Chrome. `NARRATIVEX_CHROME_PATH` may point to `chrome.exe` when automatic discovery cannot find it. NarrativeX never fills Gemini credentials. The Chrome profile, downloaded staging files and CDP session metadata are owned by Electron main, and provider web-page changes can make the automation unavailable. Errors such as missing Chrome, required sign-in, a busy generation, changed Gemini UI, timeout or failed download are surfaced to the Desktop UI.
-
-Copy Prompt uses the backend-composed Visual Beat prompt through the typed `system.copyText` preload capability and Electron main clipboard API. The renderer does not construct prompt text, call `navigator.clipboard` or receive unrestricted system APIs.
-
 ## Durable provider execution
 
 ```text
@@ -94,6 +67,51 @@ Image style, source identity, storyboard/beat context, Character/Location contin
 Gemini Web generation applies a Desktop-main-owned series style lock before the Visual Beat scene prompt is submitted. The current lock targets a premium Chinese romantic-fantasy manhua/webtoon rendering language: semi-realistic anime faces, detailed eyes/hair, polished digital painting, cinematic rim lighting, deep blue/crimson grading, and consistent serialized illustration quality. The style lock is intentionally separate from scene content so it does not force a specific character design, hair color, historical era, costume, or location that the canonical Scene/Character context does not request.
 
 The Gemini Web wrapper also treats the Visual Beat scene text as untrusted narrative input. Scene content may control story action, characters, environment, camera, and mood, but it may not remove the series style contract, request multiple panels, or add text/logos/watermarks. This boundary keeps Generate, Generate All, and any other Gemini Web entry point visually consistent without duplicating the style prompt in renderer UI code.
+
+### Beat-scoped character reference flow
+
+Character identity is established before storyboard image generation. Chapter analysis now records only the characters actually visible in each Visual Beat and assigns each participant a `PRIMARY`, `SECONDARY`, or `BACKGROUND` role. These rows are materialized into `visual_beat_characters`; old/manual beats without explicit rows fall back to the parent Scene cast for compatibility.
+
+For one Gemini Web Visual Beat, continuity resolution is:
+
+```text
+Visual Beat
+  -> resolve explicit beat participants
+  -> resolve pinned CharacterVersion, otherwise latest LOCKED CharacterVersion
+  -> resolve current CharacterAppearance / OutfitVersion state
+  -> select reference assets deterministically
+       1. one highest-priority identity anchor per visible character
+       2. additional references by priority
+       3. hard cap: 3 attachments per generated frame
+  -> assign attachment order REF_01, REF_02, REF_03
+  -> materialize those immutable MediaAssets into local ProjectStorage
+  -> attach the files to Gemini in exactly REF order
+  -> append the backend-derived REF-to-character map to the scene prompt
+  -> submit generation
+```
+
+The prompt names every attachment explicitly, for example `REF_01 = Lan [PRIMARY]`, and instructs the model never to merge or swap identities. Reference images are identity evidence rather than composition templates. A beat with no visible established character sends no character reference and explicitly tells the model not to invent one.
+
+Reference upload happens before the generation DOM/network baseline is captured. This is important: uploaded reference previews must never be mistaken for the newly generated image.
+
+### Gemini Web output capture
+
+Gemini Web uses Chrome DevTools Protocol Network capture as the primary output path:
+
+```text
+references attached
+  -> snapshot existing DOM images
+  -> start Network.responseReceived / Network.loadingFinished tracking
+  -> submit prompt
+  -> wait for a new generated DOM image
+  -> correlate the fresh DOM image with image/* network responses
+  -> Network.getResponseBody
+  -> validate supported MIME and byte bounds
+  -> persist into Gemini staging
+  -> register/commit as NarrativeX MediaAsset
+```
+
+The visible Gemini Download control is fallback-only. This avoids making successful generation depend on Gemini's current button labels, hover behavior, menus, or DOM layout.
 
 Long-term reuse preference remains:
 

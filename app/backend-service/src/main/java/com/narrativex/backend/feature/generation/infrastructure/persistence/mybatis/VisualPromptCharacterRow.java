@@ -21,4 +21,5 @@ public class VisualPromptCharacterRow {
   private String hairstyle;
   private String injury;
   private String wardrobeContext;
+  private String beatRole;
 }

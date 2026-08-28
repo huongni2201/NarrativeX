@@ -104,8 +104,18 @@ export interface LocalAssetSelection {
   durationMs?: number;
 }
 
+export interface GeminiWebReferenceInput {
+  refLabel: string;
+  assetId: string;
+  characterId: string;
+  canonicalName: string;
+  beatRole?: string | null;
+}
+
 export interface GeminiWebGenerateImageInput {
   prompt: string;
+  projectId?: string;
+  references?: GeminiWebReferenceInput[];
 }
 
 export interface VoiceReferenceUploadResult {

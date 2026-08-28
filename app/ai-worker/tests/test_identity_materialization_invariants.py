@@ -31,7 +31,7 @@ class _Connection:
 
 
 @pytest.mark.asyncio
-async def test_ai_created_draft_version_is_not_pinned_to_project_character() -> None:
+async def test_ai_created_project_character_is_not_prematurely_pinned() -> None:
     connection = _Connection()
     claimed = SimpleNamespace(
         requested_by_user_id="owner-1",
@@ -47,10 +47,8 @@ async def test_ai_created_draft_version_is_not_pinned_to_project_character() -> 
     )
 
     assert result == PROJECT_CHARACTER_ID
-    version_query, version_args = connection.execute_calls[0]
-    assert "INSERT INTO character_versions" in version_query
-    assert "'DRAFT'" in version_query
-    assert version_args == (CHARACTER_ID, "A draft AI character description")
+    assert connection.execute_calls == []
+    assert all("INSERT INTO character_versions" not in query for query, _ in connection.fetchval_calls)
 
     project_query, project_args = next(
         (query, args)

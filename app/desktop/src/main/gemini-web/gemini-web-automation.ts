@@ -3,17 +3,34 @@ import { createServer } from "node:net";
 import { delimiter, extname, join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
+import {
+  imageExtensionForMimeType,
+  selectBestNetworkCandidate,
+} from "./gemini-web-network-capture";
 
 const GEMINI_URL = "https://gemini.google.com/app";
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const CHROME_START_TIMEOUT_MS = 20_000;
 const LOGIN_TIMEOUT_MS = 10 * 60_000;
 const GENERATION_TIMEOUT_MS = 4 * 60_000;
-const DOWNLOAD_TIMEOUT_MS = 60_000;
 const GEMINI_IMAGE_MODEL = "Gemini 3.1 Pro";
+const NETWORK_CAPTURE_GRACE_MS = 8_000;
+const DOWNLOAD_TIMEOUT_MS = 60_000;
+const REFERENCE_UPLOAD_TIMEOUT_MS = 30_000;
+const MIN_CAPTURE_BYTES = 24 * 1024;
+const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
 
 export interface GeminiWebGenerationResult {
   sourcePath: string;
+  captureMethod: "NETWORK" | "DOWNLOAD";
+}
+
+export interface GeminiWebReferenceFile {
+  path: string;
+  refLabel: string;
+  canonicalName: string;
+  characterId: string;
+  beatRole?: string | null;
 }
 
 type DevToolsVersion = {
@@ -32,6 +49,8 @@ type PersistedSession = {
 
 type CdpEnvelope = {
   id?: number;
+  method?: string;
+  params?: unknown;
   result?: unknown;
   error?: { message?: string };
 };
@@ -42,12 +61,42 @@ type GenerationSnapshot = {
   blocked: boolean;
 };
 
+type NetworkCandidate = {
+  requestId: string;
+  url: string;
+  mimeType: string;
+  encodedDataLength: number;
+  seenAt: number;
+  finishedAt: number | null;
+};
+
+type NetworkResponseReceivedEvent = {
+  requestId?: string;
+  response?: { url?: string; status?: number; mimeType?: string };
+};
+
+type NetworkLoadingFinishedEvent = {
+  requestId?: string;
+  encodedDataLength?: number;
+};
+
+type ResponseBody = {
+  body?: string;
+  base64Encoded?: boolean;
+};
+
+type DomImage = {
+  src: string;
+  area: number;
+};
+
 class CdpClient {
   private nextId = 1;
   private readonly pending = new Map<
     number,
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
   >();
+  private readonly listeners = new Map<string, Set<(params: unknown) => void>>();
 
   private constructor(private readonly socket: WebSocket) {
     this.socket.addEventListener("message", (event) => {
@@ -58,6 +107,18 @@ class CdpClient {
       } catch {
         return;
       }
+
+      if (typeof message.method === "string" && typeof message.id !== "number") {
+        for (const listener of this.listeners.get(message.method) ?? []) {
+          try {
+            listener(message.params);
+          } catch {
+            // A diagnostic/network observer must never break the CDP transport.
+          }
+        }
+        return;
+      }
+
       if (typeof message.id !== "number") return;
       const waiter = this.pending.get(message.id);
       if (!waiter) return;
@@ -73,6 +134,7 @@ class CdpClient {
         waiter.reject(new Error("Chrome DevTools connection closed."));
       }
       this.pending.clear();
+      this.listeners.clear();
     });
   }
 
@@ -109,8 +171,91 @@ class CdpClient {
     return (await result) as T;
   }
 
+  on<T>(method: string, listener: (params: T) => void): () => void {
+    const listeners = this.listeners.get(method) ?? new Set<(params: unknown) => void>();
+    const wrapped = listener as (params: unknown) => void;
+    listeners.add(wrapped);
+    this.listeners.set(method, listeners);
+    return () => {
+      const current = this.listeners.get(method);
+      current?.delete(wrapped);
+      if (current?.size === 0) this.listeners.delete(method);
+    };
+  }
+
   close(): void {
     this.socket.close();
+  }
+}
+
+class NetworkImageTracker {
+  private readonly candidates = new Map<string, NetworkCandidate>();
+  private readonly unsubscribe: Array<() => void> = [];
+  private startedAt = 0;
+
+  constructor(private readonly cdp: CdpClient) {}
+
+  start(): void {
+    this.startedAt = Date.now();
+    this.candidates.clear();
+    this.unsubscribe.push(
+      this.cdp.on<NetworkResponseReceivedEvent>("Network.responseReceived", (event) => {
+        const response = event.response;
+        const requestId = event.requestId;
+        const mimeType = response?.mimeType?.toLowerCase() ?? "";
+        const url = response?.url ?? "";
+        const status = response?.status ?? 0;
+        if (!requestId || !url || !mimeType.startsWith("image/")) return;
+        if (status < 200 || status >= 400) return;
+        this.candidates.set(requestId, {
+          requestId,
+          url,
+          mimeType,
+          encodedDataLength: 0,
+          seenAt: Date.now(),
+          finishedAt: null,
+        });
+      }),
+    );
+    this.unsubscribe.push(
+      this.cdp.on<NetworkLoadingFinishedEvent>("Network.loadingFinished", (event) => {
+        if (!event.requestId) return;
+        const candidate = this.candidates.get(event.requestId);
+        if (!candidate) return;
+        candidate.encodedDataLength = Number(event.encodedDataLength ?? 0);
+        candidate.finishedAt = Date.now();
+      }),
+    );
+  }
+
+  async capture(freshDomImages: DomImage[]): Promise<{ bytes: Buffer; candidate: NetworkCandidate } | null> {
+    const deadline = Date.now() + NETWORK_CAPTURE_GRACE_MS;
+    while (Date.now() < deadline) {
+      const selected = selectBestNetworkCandidate(
+        [...this.candidates.values()],
+        freshDomImages,
+        this.startedAt,
+      );
+      if (selected) {
+        const bytes = await readNetworkBody(this.cdp, selected.requestId);
+        if (
+          bytes &&
+          bytes.length >= MIN_CAPTURE_BYTES &&
+          bytes.length <= MAX_CAPTURE_BYTES
+        ) {
+          return { bytes, candidate: selected };
+        }
+        this.candidates.delete(selected.requestId);
+      }
+      await delay(200);
+    }
+    return null;
+  }
+
+  dispose(): void {
+    for (const dispose of this.unsubscribe) dispose();
+    this.unsubscribe.length = 0;
+    this.candidates.clear();
   }
 }
 
@@ -128,10 +273,19 @@ export class GeminiWebAutomation {
     this.sessionFile = join(rootDirectory, "session.json");
   }
 
-  async generateImage(prompt: string): Promise<GeminiWebGenerationResult> {
+  async generateImage(
+    prompt: string,
+    references: readonly GeminiWebReferenceFile[] = [],
+  ): Promise<GeminiWebGenerationResult> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       throw geminiError("GEMINI_PROMPT_EMPTY", "Gemini prompt must not be empty.");
+    }
+    if (references.length > 3) {
+      throw geminiError(
+        "GEMINI_REFERENCE_LIMIT",
+        "NarrativeX sends at most three locked character reference images per Visual Beat.",
+      );
     }
     if (this.active) {
       throw geminiError(
@@ -145,9 +299,15 @@ export class GeminiWebAutomation {
       const port = await this.ensureChrome();
       const page = await this.ensureGeminiPage(port);
       const cdp = await CdpClient.connect(page.webSocketDebuggerUrl as string);
+      const networkTracker = new NetworkImageTracker(cdp);
       try {
         await cdp.send("Runtime.enable");
         await cdp.send("Page.enable");
+        await cdp.send("DOM.enable");
+        await cdp.send("Network.enable", {
+          maxTotalBufferSize: 100 * 1024 * 1024,
+          maxResourceBufferSize: 25 * 1024 * 1024,
+        });
         await cdp.send("Page.setDownloadBehavior", {
           behavior: "allow",
           downloadPath: this.downloadDirectory,
@@ -159,15 +319,34 @@ export class GeminiWebAutomation {
         await this.selectModel(cdp, GEMINI_IMAGE_MODEL);
         await this.activateImagesMode(cdp);
         await this.waitForComposerOrLogin(cdp);
+        await this.attachReferences(cdp, references);
 
+        // References are attached before both baselines. They can therefore never be mistaken for
+        // the generated output by DOM correlation or Network capture.
         const beforeDownload = await this.snapshotDownloads();
         const baseline = await this.generationSnapshot(cdp);
+        networkTracker.start();
         await this.submitPrompt(cdp, normalizedPrompt);
         await this.waitForGeneratedImage(cdp, baseline);
+
+        const freshDomImages = await this.freshDomImages(cdp, baseline.imageSources);
+        const captured = await networkTracker.capture(freshDomImages);
+        if (captured) {
+          const sourcePath = await this.persistCapturedImage(
+            captured.bytes,
+            captured.candidate.mimeType,
+            captured.candidate.url,
+          );
+          if (sourcePath) return { sourcePath, captureMethod: "NETWORK" };
+        }
+
+        // UI download is deliberately fallback-only. Gemini DOM changes no longer break the normal
+        // success path when the browser already received the generated image bytes.
         await this.triggerDownload(cdp, baseline);
         const sourcePath = await this.waitForDownloadedImage(beforeDownload);
-        return { sourcePath };
+        return { sourcePath, captureMethod: "DOWNLOAD" };
       } finally {
+        networkTracker.dispose();
         cdp.close();
       }
     } finally {
@@ -192,9 +371,7 @@ export class GeminiWebAutomation {
         // Fall through to the child-process kill below when this process owns Chrome.
       }
     }
-    if (this.chromeProcess && !this.chromeProcess.killed) {
-      this.chromeProcess.kill();
-    }
+    if (this.chromeProcess && !this.chromeProcess.killed) this.chromeProcess.kill();
     this.chromeProcess = null;
     this.port = null;
     await rm(this.sessionFile, { force: true });
@@ -207,7 +384,6 @@ export class GeminiWebAutomation {
     ]);
 
     if (this.port && (await this.devToolsAvailable(this.port))) return this.port;
-
     const persistedPort = await this.readPersistedPort();
     if (persistedPort && (await this.devToolsAvailable(persistedPort))) {
       this.port = persistedPort;
@@ -308,7 +484,6 @@ export class GeminiWebAutomation {
       );
       if (state.composer) return;
       if (state.signIn) {
-        // Chrome stays visible so the user can authenticate normally. NarrativeX never fills credentials.
         await delay(750);
         continue;
       }
@@ -461,7 +636,6 @@ export class GeminiWebAutomation {
       await delay(500);
       return;
     }
-
     await evaluate(
       cdp,
       `(() => {
@@ -487,6 +661,174 @@ export class GeminiWebAutomation {
     await delay(500);
   }
 
+  private async attachReferences(
+    cdp: CdpClient,
+    references: readonly GeminiWebReferenceFile[],
+  ): Promise<void> {
+    if (!references.length) return;
+    for (const reference of references) {
+      const file = await stat(reference.path);
+      if (!file.isFile() || file.size <= 0) {
+        throw geminiError(
+          "GEMINI_REFERENCE_INVALID",
+          `Character reference ${reference.refLabel} is missing or empty.`,
+        );
+      }
+      if (!IMAGE_EXTENSIONS.has(extname(reference.path).toLowerCase())) {
+        throw geminiError(
+          "GEMINI_REFERENCE_INVALID",
+          `Character reference ${reference.refLabel} is not a supported image.`,
+        );
+      }
+    }
+
+    let nodeId = await this.findFileInputNode(cdp);
+    if (!nodeId) {
+      await this.revealFileInput(cdp);
+      const deadline = Date.now() + 5_000;
+      while (!nodeId && Date.now() < deadline) {
+        nodeId = await this.findFileInputNode(cdp);
+        if (!nodeId) await delay(150);
+      }
+    }
+    if (!nodeId) {
+      throw geminiError(
+        "GEMINI_REFERENCE_UPLOAD_CONTROL_NOT_FOUND",
+        "NarrativeX could not find Gemini's image attachment input.",
+      );
+    }
+
+    const before = await this.attachmentSnapshot(cdp);
+    await cdp.send("DOM.setFileInputFiles", {
+      files: references.map((reference) => reference.path),
+      nodeId,
+    });
+
+    const deadline = Date.now() + REFERENCE_UPLOAD_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const snapshot = await this.attachmentSnapshot(cdp);
+      if (snapshot.error) {
+        throw geminiError("GEMINI_REFERENCE_UPLOAD_FAILED", snapshot.error);
+      }
+      if (snapshot.attachmentCount >= before.attachmentCount + references.length) return;
+      if (snapshot.sendEnabled && Date.now() + 2_000 >= deadline) return;
+      await delay(250);
+    }
+    throw geminiError(
+      "GEMINI_REFERENCE_UPLOAD_TIMEOUT",
+      "Gemini did not finish attaching the character reference images in time.",
+    );
+  }
+
+  private async findFileInputNode(cdp: CdpClient): Promise<number | null> {
+    const evaluated = await cdp.send<{ result?: { objectId?: string } }>("Runtime.evaluate", {
+      expression:
+        `(() => { const inputs = [...document.querySelectorAll('input[type="file"]')]; ` +
+        `return inputs.find((input) => !input.disabled && (!input.accept || input.accept.includes("image") || input.accept.includes("*"))) || inputs.at(-1) || null; })()`,
+      returnByValue: false,
+    });
+    const objectId = evaluated.result?.objectId;
+    if (!objectId) return null;
+    try {
+      const requested = await cdp.send<{ nodeId?: number }>("DOM.requestNode", { objectId });
+      return typeof requested.nodeId === "number" && requested.nodeId > 0 ? requested.nodeId : null;
+    } finally {
+      await cdp.send("Runtime.releaseObject", { objectId }).catch(() => undefined);
+    }
+  }
+
+  private async revealFileInput(cdp: CdpClient): Promise<void> {
+    const clicked = await evaluate<boolean>(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        };
+        const words = [
+          "upload files", "upload file", "upload image", "attach files", "attach file",
+          "add files", "add file", "add image", "tải tệp", "tải lên", "tải ảnh",
+          "đính kèm", "thêm tệp", "thêm ảnh"
+        ];
+        const candidates = [...document.querySelectorAll('button, [role="button"], [role="menuitem"], [aria-label], [title]')]
+          .filter((element) => visible(element) && !element.disabled);
+        const label = (element) => [
+          element.getAttribute("aria-label"), element.getAttribute("title"),
+          element.getAttribute("data-tooltip"), element.textContent
+        ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+        const direct = candidates.find((element) => words.some((word) => label(element).includes(word)));
+        if (direct) { direct.click(); return true; }
+        const attachment = candidates.find((element) => {
+          const value = label(element);
+          return value.includes("attach") || value.includes("upload") || value.includes("đính kèm") || value.includes("thêm");
+        });
+        if (!attachment) return false;
+        attachment.click();
+        return true;
+      })()`,
+    );
+    if (!clicked) return;
+    await delay(400);
+    if (await this.findFileInputNode(cdp)) return;
+    await evaluate(
+      cdp,
+      `(() => {
+        const words = ["upload files", "upload image", "tải tệp", "tải ảnh", "thêm ảnh"];
+        const elements = [...document.querySelectorAll('[role="menuitem"], [role="option"], button')];
+        const target = elements.find((element) => {
+          const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
+            .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+          return words.some((word) => value.includes(word));
+        });
+        if (!target) return false;
+        target.click();
+        return true;
+      })()`,
+    );
+    await delay(350);
+  }
+
+  private async attachmentSnapshot(cdp: CdpClient): Promise<{
+    attachmentCount: number;
+    sendEnabled: boolean;
+    error: string | null;
+  }> {
+    return evaluate(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 4 && rect.height > 4;
+        };
+        const attachmentSelectors = [
+          '[aria-label*="remove" i]', '[aria-label*="attachment" i]', '[aria-label*="preview" i]',
+          '[data-test-id*="attachment" i]', '[data-testid*="attachment" i]',
+          'img[src^="blob:"]'
+        ];
+        const attachments = new Set();
+        for (const selector of attachmentSelectors) {
+          for (const element of document.querySelectorAll(selector)) {
+            if (visible(element)) attachments.add(element);
+          }
+        }
+        const sendWords = ["send", "submit", "gửi"];
+        const sendEnabled = [...document.querySelectorAll('button')].some((button) => {
+          if (!visible(button) || button.disabled) return false;
+          const value = [button.getAttribute("aria-label"), button.getAttribute("title"), button.textContent]
+            .filter(Boolean).join(" ").trim().toLowerCase();
+          return sendWords.some((word) => value === word || value.includes(word));
+        });
+        const body = (document.body?.innerText || "").toLowerCase();
+        const error = body.includes("upload failed") || body.includes("failed to upload") || body.includes("tải lên thất bại")
+          ? "Gemini reported that a character reference image failed to upload."
+          : null;
+        return { attachmentCount: attachments.size, sendEnabled, error };
+      })()`,
+    );
+  }
+
   private async submitPrompt(cdp: CdpClient, prompt: string): Promise<void> {
     const inserted = await evaluate<boolean>(
       cdp,
@@ -505,8 +847,7 @@ export class GeminiWebAutomation {
         if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
           const prototype = editor instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
           const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-          if (setter) setter.call(editor, prompt);
-          else editor.value = prompt;
+          if (setter) setter.call(editor, prompt); else editor.value = prompt;
         } else {
           editor.textContent = prompt;
         }
@@ -529,8 +870,7 @@ export class GeminiWebAutomation {
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
         const patterns = ["send", "submit", "gửi"];
-        const buttons = [...document.querySelectorAll('button')];
-        const button = buttons.find((candidate) => {
+        const button = [...document.querySelectorAll('button')].find((candidate) => {
           if (!visible(candidate) || candidate.disabled) return false;
           const value = String(candidate.getAttribute("aria-label") || "") + " " +
             String(candidate.getAttribute("title") || "") + " " + String(candidate.textContent || "");
@@ -543,20 +883,11 @@ export class GeminiWebAutomation {
       })()`,
     );
     if (clicked) return;
-
     await cdp.send("Input.dispatchKeyEvent", {
-      type: "keyDown",
-      key: "Enter",
-      code: "Enter",
-      windowsVirtualKeyCode: 13,
-      nativeVirtualKeyCode: 13,
+      type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
     await cdp.send("Input.dispatchKeyEvent", {
-      type: "keyUp",
-      key: "Enter",
-      code: "Enter",
-      windowsVirtualKeyCode: 13,
-      nativeVirtualKeyCode: 13,
+      type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
   }
 
@@ -589,10 +920,7 @@ export class GeminiWebAutomation {
     );
   }
 
-  private async waitForGeneratedImage(
-    cdp: CdpClient,
-    baseline: GenerationSnapshot,
-  ): Promise<void> {
+  private async waitForGeneratedImage(cdp: CdpClient, baseline: GenerationSnapshot): Promise<void> {
     const baselineImages = new Set(baseline.imageSources);
     const deadline = Date.now() + GENERATION_TIMEOUT_MS;
     while (Date.now() < deadline) {
@@ -605,18 +933,50 @@ export class GeminiWebAutomation {
       }
       const hasNewImage = state.imageSources.some((source) => !baselineImages.has(source));
       if (state.downloadCount > baseline.downloadCount || hasNewImage) {
-        await delay(1_000);
+        await delay(800);
         return;
       }
-      await delay(1_000);
+      await delay(500);
     }
     throw geminiError("GEMINI_GENERATION_TIMEOUT", "Gemini image generation did not finish in time.");
   }
 
-  private async triggerDownload(
-    cdp: CdpClient,
-    baseline: GenerationSnapshot,
-  ): Promise<void> {
+  private async freshDomImages(cdp: CdpClient, baselineSources: string[]): Promise<DomImage[]> {
+    const baselineJson = JSON.stringify(baselineSources);
+    return evaluate<DomImage[]>(
+      cdp,
+      `(() => {
+        const baseline = new Set(${baselineJson});
+        return [...document.querySelectorAll('img')]
+          .filter((image) => {
+            const style = window.getComputedStyle(image);
+            const rect = image.getBoundingClientRect();
+            const src = image.currentSrc || image.src || "";
+            return src && !baseline.has(src) && style.display !== "none" && style.visibility !== "hidden" &&
+              rect.width >= 128 && rect.height >= 128 && image.naturalWidth >= 256 && image.naturalHeight >= 256;
+          })
+          .map((image) => ({ src: image.currentSrc || image.src || "", area: image.naturalWidth * image.naturalHeight }));
+      })()`,
+    );
+  }
+
+  private async persistCapturedImage(
+    bytes: Buffer,
+    mimeType: string,
+    url: string,
+  ): Promise<string | null> {
+    const extension = imageExtensionForMimeType(mimeType) ?? extensionForUrl(url);
+    if (!extension || bytes.length < MIN_CAPTURE_BYTES || bytes.length > MAX_CAPTURE_BYTES) return null;
+    const sourcePath = join(
+      this.downloadDirectory,
+      `gemini-network-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}${extension}`,
+    );
+    await writeFile(sourcePath, bytes);
+    const file = await stat(sourcePath);
+    return file.isFile() && file.size === bytes.length ? sourcePath : null;
+  }
+
+  private async triggerDownload(cdp: CdpClient, baseline: GenerationSnapshot): Promise<void> {
     const clickDownload = () =>
       evaluate<boolean>(
         cdp,
@@ -626,13 +986,12 @@ export class GeminiWebAutomation {
             const rect = element.getBoundingClientRect();
             return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
           };
-          const words = ["download full size", "download", "tải xuống", "tải ảnh"];
-          const candidates = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [tabindex]')].filter((element) => {
+          const words = ["download full size", "download image", "download", "tải xuống", "tải hình ảnh", "tải ảnh"];
+          const candidates = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [tabindex], [aria-label], [title]')].filter((element) => {
             if (!visible(element)) return false;
-            const value = String(element.getAttribute("aria-label") || "") + " " +
-              String(element.getAttribute("title") || "") + " " + String(element.textContent || "");
-            const normalized = value.trim().toLowerCase();
-            return words.some((word) => normalized.includes(word));
+            const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
+              .filter(Boolean).join(" ").trim().toLowerCase();
+            return words.some((word) => value.includes(word));
           });
           const target = candidates.at(-1);
           if (!target) return false;
@@ -659,15 +1018,14 @@ export class GeminiWebAutomation {
           .filter((image) => visible(image) && image.naturalWidth >= 256 && image.naturalHeight >= 256);
         const image = images.find((candidate) => !baseline.has(candidate.currentSrc || candidate.src || "")) || images.at(-1);
         if (!image) return null;
+        image.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
         const rect = image.getBoundingClientRect();
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
       })()`,
     );
     if (imageRect) {
       await cdp.send("Input.dispatchMouseEvent", {
-        type: "mouseMoved",
-        x: imageRect.x,
-        y: imageRect.y,
+        type: "mouseMoved", x: imageRect.x, y: imageRect.y,
       });
       await delay(500);
       if (await clickDownload()) return;
@@ -678,7 +1036,7 @@ export class GeminiWebAutomation {
 
     throw geminiError(
       "GEMINI_IMAGE_CAPTURE_FAILED",
-      "Gemini generated an image, but NarrativeX could not download or capture it.",
+      "Gemini generated an image, but NarrativeX could not download or capture it after network capture fallback.",
     );
   }
 
@@ -712,7 +1070,7 @@ export class GeminiWebAutomation {
           const objectUrl = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = objectUrl;
-          link.download = `gemini-image-${Date.now()}.${extension}`;
+          link.download = "gemini-image-" + Date.now() + "." + extension;
           link.style.display = "none";
           document.body.appendChild(link);
           link.click();
@@ -835,6 +1193,28 @@ export class GeminiWebAutomation {
   }
 }
 
+async function readNetworkBody(cdp: CdpClient, requestId: string): Promise<Buffer | null> {
+  try {
+    const result = await cdp.send<ResponseBody>("Network.getResponseBody", { requestId });
+    if (typeof result.body !== "string" || !result.body) return null;
+    const bytes = result.base64Encoded
+      ? Buffer.from(result.body, "base64")
+      : Buffer.from(result.body, "utf8");
+    return bytes.length ? bytes : null;
+  } catch {
+    return null;
+  }
+}
+
+function extensionForUrl(value: string): string | null {
+  try {
+    const extension = extname(new URL(value).pathname).toLowerCase();
+    return IMAGE_EXTENSIONS.has(extension) ? extension : null;
+  } catch {
+    return null;
+  }
+}
+
 async function evaluate<T>(cdp: CdpClient, expression: string): Promise<T> {
   const response = await cdp.send<{
     result?: { value?: T; description?: string };
@@ -883,14 +1263,7 @@ async function resolveChromeExecutable(): Promise<string | null> {
   } else if (process.platform === "darwin") {
     candidates.push("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
     candidates.push(
-      join(
-        process.env.HOME || "",
-        "Applications",
-        "Google Chrome.app",
-        "Contents",
-        "MacOS",
-        "Google Chrome",
-      ),
+      join(process.env.HOME || "", "Applications", "Google Chrome.app", "Contents", "MacOS", "Google Chrome"),
     );
   } else {
     for (const name of ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]) {

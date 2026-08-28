@@ -8,11 +8,14 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.controller.ProjectGenerationController;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetVoicePreviewResultUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -24,6 +27,9 @@ class ProjectGenerationControllerContractTest {
     GenerateChapterNarrationUseCase narrationUseCase = mock(GenerateChapterNarrationUseCase.class);
     GenerateBatchNarrationUseCase batchNarrationUseCase = mock(GenerateBatchNarrationUseCase.class);
     GetVoicePreviewResultUseCase voicePreviewResultUseCase = mock(GetVoicePreviewResultUseCase.class);
+    GetChapterStoryboardUseCase storyboardUseCase = mock(GetChapterStoryboardUseCase.class);
+    VisualPromptContextRepository visualPromptContextRepository = mock(VisualPromptContextRepository.class);
+    VisualPromptComposer visualPromptComposer = mock(VisualPromptComposer.class);
     UUID projectId = UuidV7.random();
     UUID storyVersionId = UuidV7.random();
     UUID chapterId = UuidV7.random();
@@ -43,7 +49,13 @@ class ProjectGenerationControllerContractTest {
     when(useCase.execute(new EnqueueStoryAnalysisCommand(projectId, chapterId))).thenReturn(job);
     ProjectGenerationController controller =
         new ProjectGenerationController(
-            useCase, narrationUseCase, batchNarrationUseCase, voicePreviewResultUseCase);
+            useCase,
+            narrationUseCase,
+            batchNarrationUseCase,
+            voicePreviewResultUseCase,
+            storyboardUseCase,
+            visualPromptContextRepository,
+            visualPromptComposer);
 
     var response = controller.analyzeChapter(projectId, chapterId);
 
