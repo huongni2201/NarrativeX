@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.character.api.controller;
 
 import com.narrativex.backend.feature.character.api.request.AssignCharacterToProjectRequest;
+import com.narrativex.backend.feature.character.api.request.PinCharacterVersionRequest;
 import com.narrativex.backend.feature.character.api.response.ProjectCharacterAssignmentResponse;
 import com.narrativex.backend.feature.character.api.response.ProjectCharacterDetailResponse;
 import com.narrativex.backend.feature.character.api.response.ProjectCharacterSummaryResponse;
@@ -8,6 +9,7 @@ import com.narrativex.backend.feature.character.application.command.AssignCharac
 import com.narrativex.backend.feature.character.application.usecase.AssignCharacterToProjectUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetProjectCharacterDetailUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListProjectCharactersUseCase;
+import com.narrativex.backend.feature.character.application.usecase.PinCharacterVersionUseCase;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -18,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,6 +33,7 @@ public class ProjectCharacterController {
   private final ListProjectCharactersUseCase listProjectCharactersUseCase;
   private final GetProjectCharacterDetailUseCase getProjectCharacterDetailUseCase;
   private final AssignCharacterToProjectUseCase assignCharacterToProjectUseCase;
+  private final PinCharacterVersionUseCase pinCharacterVersionUseCase;
 
   @GetMapping
   public ResponseEntity<ApiResponse<CursorPage<ProjectCharacterSummaryResponse>>> list(
@@ -74,5 +78,18 @@ public class ProjectCharacterController {
             getProjectCharacterDetailUseCase.execute(projectId, characterId));
     return ResponseEntity.ok(
         ApiResponse.success("Project character retrieved successfully", response));
+  }
+
+  @PutMapping("/{characterId}/pinned-version")
+  public ResponseEntity<ApiResponse<ProjectCharacterDetailResponse>> pinVersion(
+      @PathVariable UUID projectId,
+      @PathVariable UUID characterId,
+      @Valid @RequestBody PinCharacterVersionRequest request) {
+    pinCharacterVersionUseCase.execute(projectId, characterId, request.versionId());
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Character version pinned",
+            ProjectCharacterDetailResponse.from(
+                getProjectCharacterDetailUseCase.execute(projectId, characterId))));
   }
 }

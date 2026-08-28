@@ -20,6 +20,7 @@
         <result property="rowVersion" column="row_version" />
         <result property="createdAt" column="created_at" />
         <result property="updatedAt" column="updated_at" />
+        <result property="characterVersionId" column="character_version_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="versionNumber" column="version_number" />
         <result property="versionStatus" column="version_status" />
         <result property="bible" column="bible" />
@@ -57,6 +58,7 @@
         pc.row_version,
         pc.created_at,
         pc.updated_at,
+        cv.id AS character_version_id,
         cv.version_number,
         cv.status AS version_status,
         cv.bible,
@@ -72,7 +74,19 @@
         FROM project_characters pc
         JOIN projects p ON p.id = pc.project_id
         JOIN characters c ON c.id = pc.character_id
-        LEFT JOIN character_versions cv ON cv.id = pc.pinned_character_version_id
+        LEFT JOIN LATERAL (
+            SELECT version.*
+              FROM character_versions version
+             WHERE version.character_id = c.id
+               AND (
+                   version.id = pc.pinned_character_version_id
+                   OR pc.pinned_character_version_id IS NULL
+               )
+             ORDER BY CASE WHEN version.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
+                      version.version_number DESC,
+                      version.id DESC
+             LIMIT 1
+        ) cv ON TRUE
         LEFT JOIN LATERAL (
             SELECT COUNT(DISTINCT sc.scene_id) AS scene_count
               FROM scene_characters sc

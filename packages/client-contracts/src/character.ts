@@ -18,10 +18,13 @@ export interface DesktopCharacter {
 }
 
 export interface DesktopCharacterVersion {
+  id?: string | null;
   versionNumber?: number | null;
   status?: string | null;
   bible?: string | null;
   visualPrompt?: string | null;
+  lockedAt?: string | null;
+  lockedBy?: string | null;
 }
 
 export interface DesktopCharacterVersionReference {

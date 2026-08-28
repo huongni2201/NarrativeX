@@ -28,6 +28,7 @@ public class ProjectCharacterReadRow {
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
+  private UUID characterVersionId;
   private Integer versionNumber;
   private String versionStatus;
   private String bible;

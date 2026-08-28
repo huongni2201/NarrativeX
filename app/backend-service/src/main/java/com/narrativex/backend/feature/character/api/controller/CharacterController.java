@@ -1,18 +1,25 @@
 package com.narrativex.backend.feature.character.api.controller;
 
 import com.narrativex.backend.feature.character.api.request.CreateCharacterRequest;
+import com.narrativex.backend.feature.character.api.request.CreateCharacterVersionRequest;
 import com.narrativex.backend.feature.character.api.request.SetCharacterVersionReferencesRequest;
 import com.narrativex.backend.feature.character.api.response.CharacterSummaryResponse;
 import com.narrativex.backend.feature.character.api.response.CharacterVersionReferenceResponse;
+import com.narrativex.backend.feature.character.api.response.CharacterVersionResponse;
+import com.narrativex.backend.feature.character.application.command.ChangeCharacterVersionStatusCommand;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterCommand;
+import com.narrativex.backend.feature.character.application.command.CreateCharacterVersionCommand;
 import com.narrativex.backend.feature.character.application.query.CharacterListQuery;
 import com.narrativex.backend.feature.character.application.usecase.CountCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.CreateCharacterUseCase;
+import com.narrativex.backend.feature.character.application.usecase.CreateCharacterVersionUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListCharactersUseCase;
+import com.narrativex.backend.feature.character.application.usecase.LockCharacterVersionUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase.ReferenceInput;
+import com.narrativex.backend.feature.character.application.usecase.SubmitCharacterVersionForReviewUseCase;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -38,6 +45,9 @@ public class CharacterController {
   private final GetCharacterUseCase getCharacterUseCase;
   private final CountCharactersUseCase countCharactersUseCase;
   private final CreateCharacterUseCase createCharacterUseCase;
+  private final CreateCharacterVersionUseCase createCharacterVersionUseCase;
+  private final SubmitCharacterVersionForReviewUseCase submitCharacterVersionForReviewUseCase;
+  private final LockCharacterVersionUseCase lockCharacterVersionUseCase;
   private final GetCharacterVersionReferencesUseCase getCharacterVersionReferencesUseCase;
   private final SetCharacterVersionReferencesUseCase setCharacterVersionReferencesUseCase;
 
@@ -66,6 +76,39 @@ public class CharacterController {
         ApiResponse.success(
             "Character retrieved successfully",
             CharacterSummaryResponse.from(getCharacterUseCase.execute(characterId))));
+  }
+
+  @PostMapping("/{characterId}/versions")
+  public ResponseEntity<ApiResponse<CharacterVersionResponse>> createVersion(
+      @PathVariable UUID characterId,
+      @Valid @RequestBody CreateCharacterVersionRequest request) {
+    var version =
+        createCharacterVersionUseCase.execute(
+            new CreateCharacterVersionCommand(characterId, request.bible(), request.visualPrompt()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success("Character version created", CharacterVersionResponse.from(version)));
+  }
+
+  @PostMapping("/{characterId}/versions/{versionId}/review")
+  public ResponseEntity<ApiResponse<CharacterVersionResponse>> reviewVersion(
+      @PathVariable UUID characterId, @PathVariable UUID versionId) {
+    getCharacterVersionReferencesUseCase.execute(characterId, versionId);
+    var version =
+        submitCharacterVersionForReviewUseCase.execute(
+            new ChangeCharacterVersionStatusCommand(versionId, null));
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Character version submitted for review", CharacterVersionResponse.from(version)));
+  }
+
+  @PostMapping("/{characterId}/versions/{versionId}/lock")
+  public ResponseEntity<ApiResponse<CharacterVersionResponse>> lockVersion(
+      @PathVariable UUID characterId, @PathVariable UUID versionId) {
+    getCharacterVersionReferencesUseCase.execute(characterId, versionId);
+    var version =
+        lockCharacterVersionUseCase.execute(new ChangeCharacterVersionStatusCommand(versionId, null));
+    return ResponseEntity.ok(
+        ApiResponse.success("Character version locked", CharacterVersionResponse.from(version)));
   }
 
   @GetMapping("/{characterId}/versions/{versionId}/references")
