@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
-  AnalyzeChapterInput,
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   DesktopTimeline,
@@ -11,7 +10,6 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
-import { generationApi } from "../../generation/api/generation.api";
 import { useGenerationJob } from "../../generation/queries/generation.queries";
 import {
   useGenerateBatchNarration,
@@ -33,7 +31,10 @@ import {
   workspaceStatusDotClass,
   workspaceStatusLabel,
 } from "../model/chapter-ui";
-import { useChapterAnalysis } from "../queries/chapter-analysis.queries";
+import {
+  useBulkChapterAnalysis,
+  useChapterAnalysis,
+} from "../queries/chapter-analysis.queries";
 import {
   chapterQueryKeys,
   useChapterWorkspacesQuery,
@@ -48,20 +49,6 @@ type TrackedGenerationJob = {
 };
 
 const PAGE_SIZE = 8;
-const ANALYSIS_ADMISSION_CONCURRENCY = 4;
-
-async function admitAnalysisInChunks(
-  chapterIds: string[],
-  submit: (chapterId: string) => Promise<unknown>,
-) {
-  let admitted = 0;
-  for (let offset = 0; offset < chapterIds.length; offset += ANALYSIS_ADMISSION_CONCURRENCY) {
-    const chunk = chapterIds.slice(offset, offset + ANALYSIS_ADMISSION_CONCURRENCY);
-    const results = await Promise.allSettled(chunk.map((chapterId) => submit(chapterId)));
-    admitted += results.filter((result) => result.status === "fulfilled").length;
-  }
-  return admitted;
-}
 
 export function ChaptersScreen({
   projectId,
@@ -89,6 +76,7 @@ export function ChaptersScreen({
   const createChapter = useCreateChapter(projectId);
   const generateNarration = useGenerateNarration();
   const generateBatchNarration = useGenerateBatchNarration();
+  const bulkChapterAnalysis = useBulkChapterAnalysis(projectId);
   const updateChapter = useUpdateChapter(projectId);
   const deleteChapter = useDeleteChapter(projectId);
   const navigate = useNavigate();
@@ -347,12 +335,12 @@ export function ChaptersScreen({
 
   const saveBusy = createChapter.isPending || updateChapter.isPending;
   const analysisBusy = chapterAnalysis.isAnalyzing || selectedAnalysisProcessing;
-  const editorBusy = saveBusy || deleteChapter.isPending;
+  const busy = saveBusy || deleteChapter.isPending;
   const isDirty = selected
     ? title !== selected.title || sourceText !== selected.sourceText
     : Boolean(title.trim() || sourceText.trim());
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
-  const generationActionDisabled = editorBusy || generationBlockedByUnsavedChanges;
+  const generationActionDisabled = busy || generationBlockedByUnsavedChanges;
 
   const totalWords = useMemo(
     () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
@@ -417,7 +405,7 @@ export function ChaptersScreen({
   }
 
   async function save() {
-    if (!title.trim() || !sourceText.trim() || editorBusy) return;
+    if (!title.trim() || !sourceText.trim() || busy) return;
     setNotice(null);
     try {
       if (selected) {
@@ -493,7 +481,9 @@ export function ChaptersScreen({
         queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
         queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
       ]);
-      setNotice(`Đã xếp hàng tạo audio cho ${admitted.length} chapter. Worker sẽ xử lý song song theo giới hạn concurrency.`);
+      setNotice(
+        `Đã xếp hàng tạo audio cho ${admitted.length} chapter. Worker sẽ xử lý song song theo giới hạn concurrency.`,
+      );
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể xếp hàng tạo audio cho các chapter."));
     }
@@ -502,7 +492,7 @@ export function ChaptersScreen({
   async function analyzeAll() {
     if (!bulkAnalysisChapterIds.length || bulkAnalysisBusy) return;
     const currentMode = selectedWorkspace?.pipeline.analysis.visualGenerationMode ?? "IMAGE";
-    const preferences: AnalyzeChapterInput = {
+    const preferences = {
       visualGenerationMode: currentMode,
       imageProvider:
         currentMode === "IMAGE"
@@ -513,19 +503,15 @@ export function ChaptersScreen({
     setBulkAnalysisBusy(true);
     setNotice(null);
     try {
-      const admitted = await admitAnalysisInChunks(bulkAnalysisChapterIds, (chapterId) =>
-        generationApi.analyze(projectId, chapterId, preferences),
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      ]);
-      const failed = bulkAnalysisChapterIds.length - admitted;
+      const result = await bulkChapterAnalysis.analyzeAll(bulkAnalysisChapterIds, preferences);
+      const failed = result.total - result.admitted;
       setNotice(
         failed
-          ? `Đã gửi phân tích ${admitted}/${bulkAnalysisChapterIds.length} chapter; ${failed} request chưa được nhận.`
-          : `Đã xếp hàng phân tích ${admitted} chapter. General worker sẽ xử lý song song theo concurrency.`,
+          ? `Đã gửi phân tích ${result.admitted}/${result.total} chapter; ${failed} request chưa được nhận.`
+          : `Đã xếp hàng phân tích ${result.admitted} chapter. General worker sẽ xử lý song song theo concurrency.`,
       );
+    } catch (error) {
+      setNotice(toErrorMessage(error, "Không thể xếp hàng phân tích các chapter."));
     } finally {
       setBulkAnalysisBusy(false);
     }
@@ -638,7 +624,7 @@ export function ChaptersScreen({
           canAnalyze={canAnalyze}
           title={title}
           sourceText={sourceText}
-          busy={editorBusy}
+          busy={busy}
           saveBusy={saveBusy}
           analyzeBusy={analysisBusy}
           isDirty={isDirty}
