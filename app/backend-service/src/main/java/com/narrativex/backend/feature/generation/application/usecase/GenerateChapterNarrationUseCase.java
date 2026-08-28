@@ -89,23 +89,25 @@ public class GenerateChapterNarrationUseCase {
             command.voiceReferenceAssetId());
     String familyPrefix = command.preview() ? "voice-preview:" : "chapter-narration:";
     String baseIdempotencyKey = familyPrefix + fingerprint;
+    boolean forceRegenerate = !command.preview() && command.forceRegenerate();
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
     String idempotencyKey = baseIdempotencyKey;
     if (baseJob.isPresent()) {
       GenerationJob existing = baseJob.get();
-      if (!canRetry(existing.getStatus())) {
+      if (!canStartAnotherAttempt(existing.getStatus(), forceRegenerate)) {
         return existing;
       }
       var latest =
           generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
-      if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
+      if (latest.isPresent()
+          && !canStartAnotherAttempt(latest.get().getStatus(), forceRegenerate)) {
         return latest.get();
       }
       idempotencyKey = baseIdempotencyKey + ":retry:" + UuidV7.random();
       log.info(
-          "Retrying narration after terminal job id={} with new idempotencyKey='{}'",
+          "Starting another narration attempt after terminal job id={} with new idempotencyKey='{}'",
           latest.orElse(existing).getId(),
           idempotencyKey);
     }
@@ -209,8 +211,10 @@ public class GenerateChapterNarrationUseCase {
         job.getJobId());
   }
 
-  private static boolean canRetry(JobStatus status) {
-    return status == JobStatus.FAILED || status == JobStatus.CANCELED;
+  static boolean canStartAnotherAttempt(JobStatus status, boolean forceRegenerate) {
+    return status == JobStatus.FAILED
+        || status == JobStatus.CANCELED
+        || (forceRegenerate && status == JobStatus.COMPLETED);
   }
 
   private VoiceCatalogAccess.VoiceCapabilities resolveVoiceCapabilities(String voiceId) {
