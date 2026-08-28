@@ -55,6 +55,9 @@ ALLOWED_POST_CHECKPOINT_EXACT = {
     "scripts/test_check_docs_drift.py",
     "scripts/test_check_docs_checkpoint.py",
     "scripts/quality-gates.py",
+    "scripts/verify-local.py",
+    "scripts/verify-local.ps1",
+    "scripts/verify-local.sh",
 }
 
 ALLOWED_POST_CHECKPOINT_PREFIXES = (
