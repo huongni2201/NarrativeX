@@ -15,6 +15,10 @@ const chapterQueries = fs.readFileSync(
   new URL("../src/renderer/features/chapters/queries/chapters.queries.ts", import.meta.url),
   "utf8",
 );
+const chapterAnalysisQueries = fs.readFileSync(
+  new URL("../src/renderer/features/chapters/queries/chapter-analysis.queries.ts", import.meta.url),
+  "utf8",
+);
 const compose = fs.readFileSync(new URL("../../../docker-compose.yml", import.meta.url), "utf8");
 
 test("chapter numbering is one-based for display while orderIndex stays zero-based", () => {
@@ -43,13 +47,15 @@ test("workspace batch polling follows active audio and analysis across chapters"
   assert.match(chapterQueries, /3000/);
 });
 
-test("chapter list exposes bulk audio and analysis admission", () => {
+test("chapter list exposes bulk audio and delegated bulk analysis admission", () => {
   assert.match(chapterListPanel, /Tạo audio tất cả/);
   assert.match(chapterListPanel, /Phân tích tất cả/);
   assert.match(chaptersScreen, /useGenerateBatchNarration/);
   assert.match(chaptersScreen, /generateBatchNarration/);
-  assert.match(chaptersScreen, /analyzeAll/);
-  assert.match(chaptersScreen, /ANALYSIS_ADMISSION_CONCURRENCY = 4/);
+  assert.match(chaptersScreen, /useBulkChapterAnalysis/);
+  assert.match(chaptersScreen, /bulkChapterAnalysis\.analyzeAll/);
+  assert.match(chapterAnalysisQueries, /BULK_ANALYSIS_ADMISSION_CONCURRENCY = 4/);
+  assert.match(chapterAnalysisQueries, /Promise\.allSettled/);
 });
 
 test("production narration defaults to two bounded concurrent jobs and inference slots", () => {
