@@ -12,12 +12,10 @@ import com.narrativex.backend.feature.character.application.usecase.GetProjectCh
 import com.narrativex.backend.feature.character.application.usecase.ListProjectCharactersUseCase;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
-import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -25,65 +23,65 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectCharacterReadUseCasesTest {
-  private static final UUID PROJECT_ID = UuidV7.random();
-  private static final UUID CHARACTER_ID = UuidV7.random();
-  private static final UUID ASSIGNMENT_ID = UuidV7.random();
-  private static final UUID PINNED_VERSION_ID = UuidV7.random();
+  private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-0000-0000-000000000100");
+  private static final UUID CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
+  private static final UUID ASSIGNMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000200");
+  private static final UUID PINNED_VERSION_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000300");
+  private static final UUID APPEARANCE_ID = UUID.fromString("00000000-0000-0000-0000-000000000004");
 
   @Mock private ProjectCharacterReadRepository repository;
 
   private final CurrentUserId currentUserId = () -> "owner";
-  private ListProjectCharactersUseCase listUseCase;
-  private GetProjectCharacterDetailUseCase detailUseCase;
-
-  @BeforeEach
-  void setUp() {
-    listUseCase = new ListProjectCharactersUseCase(repository, currentUserId);
-    detailUseCase = new GetProjectCharacterDetailUseCase(repository, currentUserId);
-  }
 
   @Test
-  void listRequiresOwnedProjectAndReturnsRepositoryPage() {
-    CursorPage<ProjectCharacterReadModel> page =
-        new CursorPage<>(List.of(model()), "next", 20, true);
-    when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
-    when(repository.findByProject(PROJECT_ID, "owner", null, 20)).thenReturn(page);
-
-    var result = listUseCase.execute(PROJECT_ID, null, 20);
-
-    assertEquals(page, result);
-    verify(repository).findByProject(PROJECT_ID, "owner", null, 20);
-  }
-
-  @Test
-  void listRejectsUnknownProject() {
+  void listRejectsProjectOutsideCurrentOwner() {
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(false);
+    ListProjectCharactersUseCase useCase =
+        new ListProjectCharactersUseCase(repository, currentUserId);
 
-    assertThrows(
-        ResourceNotFoundException.class, () -> listUseCase.execute(PROJECT_ID, null, 20));
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, null, 20));
+    verify(repository).projectOwnedBy(PROJECT_ID, "owner");
   }
 
   @Test
-  void detailRequiresOwnedProjectAndCharacterAssignment() {
+  void listReturnsAuthoritativeProjectProjection() {
+    ProjectCharacterReadModel model = model();
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
-    when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner"))
-        .thenReturn(Optional.empty());
+    when(repository.findByProject(PROJECT_ID, "owner", null, 20))
+        .thenReturn(new CursorPage<>(List.of(model), null, 20, false));
+    ListProjectCharactersUseCase useCase =
+        new ListProjectCharactersUseCase(repository, currentUserId);
 
-    assertThrows(
-        ResourceNotFoundException.class,
-        () -> detailUseCase.execute(PROJECT_ID, CHARACTER_ID));
+    CursorPage<ProjectCharacterReadModel> page = useCase.execute(PROJECT_ID, null, 20);
+
+    assertEquals(1, page.content().size());
+    assertEquals("PROTAGONIST", page.content().getFirst().role());
+    assertEquals(8, page.content().getFirst().sceneCount());
   }
 
   @Test
-  void detailReturnsReadModel() {
+  void detailRejectsCharacterOutsideProject() {
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
-    when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner"))
-        .thenReturn(Optional.of(model()));
+    when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner")).thenReturn(Optional.empty());
+    GetProjectCharacterDetailUseCase useCase =
+        new GetProjectCharacterDetailUseCase(repository, currentUserId);
 
-    var result = detailUseCase.execute(PROJECT_ID, CHARACTER_ID);
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, CHARACTER_ID));
+  }
 
-    assertEquals(CHARACTER_ID, result.characterId());
-    assertEquals(PINNED_VERSION_ID, result.pinnedCharacterVersionId());
+  @Test
+  void detailReturnsPinnedVersionAndAppearance() {
+    ProjectCharacterReadModel model = model();
+    when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
+    when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner")).thenReturn(Optional.of(model));
+    GetProjectCharacterDetailUseCase useCase =
+        new GetProjectCharacterDetailUseCase(repository, currentUserId);
+
+    ProjectCharacterReadModel result = useCase.execute(PROJECT_ID, CHARACTER_ID);
+
+    assertEquals(3, result.version().versionNumber());
+    assertEquals("black hair", result.appearance().hairstyle());
     assertEquals(8, result.sceneCount());
   }
 
