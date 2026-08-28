@@ -98,7 +98,7 @@ export interface GeminiStoryboardReference {
 
 export interface GeminiStoryboardContext {
   promptContext: string;
-  references: Array<GeminiStoryboardReference & Record<string, unknown>>;
+  references: GeminiStoryboardReference[];
 }
 
 export interface GenerateGeminiStoryboardImageDeps {
