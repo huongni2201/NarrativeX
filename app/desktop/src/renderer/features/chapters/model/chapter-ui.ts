@@ -131,6 +131,7 @@ export function audioButtonLabel(input: {
   generatePending: boolean;
   trackedForSelected: boolean;
   processing: boolean;
+  blockedByAnotherChapter?: boolean;
   ready: boolean;
 }) {
   if (input.generatePending || input.trackedForSelected || input.processing) {
