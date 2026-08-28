@@ -82,9 +82,6 @@ class InMemoryMediaStorage:
         mime_type: str,
         metadata: dict[str, str] | None = None,
     ) -> StoredMediaAsset:
-        actual = hashlib.sha256(content).hexdigest()
-        if actual != checksum:
-            raise ValueError("content checksum does not match supplied checksum")
         existing = self._objects.get(storage_key)
         if existing is not None:
             asset, _ = existing
@@ -94,7 +91,11 @@ class InMemoryMediaStorage:
                 )
             return asset
         asset = StoredMediaAsset(
-            storage_key, checksum, len(content), mime_type, dict(metadata or {})
+            storage_key=storage_key,
+            checksum=checksum,
+            size_bytes=len(content),
+            mime_type=mime_type,
+            metadata=dict(metadata or {}),
         )
         self._objects[storage_key] = (asset, content)
         return asset
@@ -109,24 +110,6 @@ class InMemoryMediaStorage:
             raise FileNotFoundError(storage_key)
         return value[1]
 
-    async def download_to_file(
-        self,
-        storage_key: str,
-        destination: Path,
-        *,
-        expected_size: int | None = None,
-        expected_checksum: str | None = None,
-        max_bytes: int | None = None,
-    ) -> StoredMediaAsset:
-        asset = await self.find(storage_key)
-        if asset is None:
-            raise FileNotFoundError(storage_key)
-        content = await self.get_bytes(storage_key)
-        _validate_download_bounds(asset, expected_size, expected_checksum, max_bytes)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        await asyncio.to_thread(destination.write_bytes, content)
-        return asset
-
     async def put_file_immutable(
         self,
         *,
@@ -136,18 +119,61 @@ class InMemoryMediaStorage:
         mime_type: str,
         metadata: dict[str, str] | None = None,
     ) -> StoredMediaAsset:
-        content = await asyncio.to_thread(file_path.read_bytes)
+        actual = sha256_file(file_path)
+        if actual != checksum:
+            raise ValueError("file checksum does not match supplied checksum")
+        content_buffer = bytearray()
+        with file_path.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                content_buffer.extend(chunk)
         return await self.put_immutable(
             storage_key=storage_key,
-            content=content,
+            content=bytes(content_buffer),
             checksum=checksum,
             mime_type=mime_type,
             metadata=metadata,
         )
 
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset:
+        value = self._objects.get(storage_key)
+        if value is None:
+            raise FileNotFoundError(storage_key)
+        asset, content = value
+        if expected_size is not None and asset.size_bytes != expected_size:
+            raise MediaAssetConflictError("object size does not match validation job")
+        if max_bytes is not None and asset.size_bytes > max_bytes:
+            raise MediaDownloadLimitError("object exceeds the authorized download limit")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        total = 0
+        with destination.open("wb") as output:
+            for offset in range(0, len(content), 1024 * 1024):
+                chunk = content[offset : offset + 1024 * 1024]
+                total += len(chunk)
+                if max_bytes is not None and total > max_bytes:
+                    raise MediaDownloadLimitError("object exceeds the authorized download limit")
+                digest.update(chunk)
+                output.write(chunk)
+        if total != asset.size_bytes or (expected_size is not None and total != expected_size):
+            raise OSError(f"downloaded object {storage_key} has unexpected size")
+        checksum = digest.hexdigest()
+        if checksum != asset.checksum.lower() or (
+            expected_checksum is not None and checksum != expected_checksum.lower()
+        ):
+            raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
+        return asset
+
 
 class LocalMediaStorage:
-    """Filesystem-backed immutable project-media store."""
+    """Filesystem-backed immutable store for project working media."""
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).resolve()
@@ -155,7 +181,7 @@ class LocalMediaStorage:
 
     def _path(self, storage_key: str) -> Path:
         path = (self.root / storage_key).resolve()
-        if path == self.root or self.root not in path.parents:
+        if self.root not in path.parents:
             raise MediaAssetConflictError("local media key escapes the configured root")
         return path
 
@@ -168,10 +194,10 @@ class LocalMediaStorage:
         mime_type: str,
         metadata: dict[str, str] | None = None,
     ) -> StoredMediaAsset:
+        path = self._path(storage_key)
         actual = hashlib.sha256(content).hexdigest()
         if actual != checksum:
             raise ValueError("content checksum does not match supplied checksum")
-        path = self._path(storage_key)
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             existing = await self.find(storage_key)
@@ -211,9 +237,15 @@ class LocalMediaStorage:
         asset = await self.find(storage_key)
         if asset is None:
             raise FileNotFoundError(storage_key)
-        _validate_download_bounds(asset, expected_size, expected_checksum, max_bytes)
+        if expected_size is not None and asset.size_bytes != expected_size:
+            raise MediaAssetConflictError("local media size mismatch")
+        if max_bytes is not None and asset.size_bytes > max_bytes:
+            raise MediaDownloadLimitError("object exceeds the authorized download limit")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        await asyncio.to_thread(destination.write_bytes, await self.get_bytes(storage_key))
+        content = await self.get_bytes(storage_key)
+        await asyncio.to_thread(destination.write_bytes, content)
+        if expected_checksum is not None and asset.checksum != expected_checksum.lower():
+            raise MediaAssetConflictError("local media checksum mismatch")
         return asset
 
     async def put_file_immutable(
@@ -235,8 +267,22 @@ class LocalMediaStorage:
         )
 
 
+def _mime_for_path(path: Path) -> str:
+    return {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+    }.get(path.suffix.lower(), "application/octet-stream")
+
+
 class S3MediaStorage:
-    """Cloudflare R2 storage reserved for account-owned voice references."""
+    """Cloudflare R2 immutable storage reserved for account-owned voice references."""
 
     logger = logging.getLogger("narrativex.worker.voice-reference.storage")
 
@@ -326,29 +372,6 @@ class S3MediaStorage:
         finally:
             await asyncio.to_thread(body.close)
 
-    async def download_to_file(
-        self,
-        storage_key: str,
-        destination: Path,
-        *,
-        expected_size: int | None = None,
-        expected_checksum: str | None = None,
-        max_bytes: int | None = None,
-    ) -> StoredMediaAsset:
-        asset = await self.find(storage_key)
-        if asset is None:
-            raise FileNotFoundError(storage_key)
-        _validate_download_bounds(asset, expected_size, expected_checksum, max_bytes)
-        content = await self.get_bytes(storage_key)
-        if len(content) != asset.size_bytes:
-            raise OSError(f"downloaded object {storage_key} has unexpected size")
-        actual = hashlib.sha256(content).hexdigest()
-        if actual != asset.checksum.lower():
-            raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        await asyncio.to_thread(destination.write_bytes, content)
-        return asset
-
     async def put_file_immutable(
         self,
         *,
@@ -358,39 +381,126 @@ class S3MediaStorage:
         mime_type: str,
         metadata: dict[str, str] | None = None,
     ) -> StoredMediaAsset:
-        content = await asyncio.to_thread(file_path.read_bytes)
-        return await self.put_immutable(
-            storage_key=storage_key,
-            content=content,
-            checksum=checksum,
-            mime_type=mime_type,
-            metadata=metadata,
+        actual = await asyncio.to_thread(sha256_file, file_path)
+        if actual != checksum:
+            raise ValueError("file checksum does not match supplied checksum")
+        object_metadata = dict(metadata or {})
+        object_metadata["sha256"] = checksum
+        size_bytes = file_path.stat().st_size
+        self.logger.info(
+            "R2 voice-reference upload started storageKey=%s sizeBytes=%s checksum=%s",
+            storage_key,
+            size_bytes,
+            checksum,
+        )
+        try:
+            await asyncio.to_thread(
+                self._put_file_sync,
+                storage_key,
+                file_path,
+                mime_type,
+                object_metadata,
+            )
+        except ClientError as exception:
+            status = exception.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if status not in (409, 412):
+                raise
+            existing = await self.find(storage_key)
+            if existing is None or existing.checksum != checksum:
+                raise MediaAssetConflictError(
+                    f"immutable storage conflict for {storage_key}"
+                ) from exception
+            return existing
+        return StoredMediaAsset(storage_key, checksum, size_bytes, mime_type, object_metadata)
+
+    def _put_file_sync(
+        self,
+        storage_key: str,
+        file_path: Path,
+        mime_type: str,
+        metadata: dict[str, str],
+    ) -> None:
+        with file_path.open("rb") as content:
+            self.client.put_object(
+                Bucket=self.bucket,
+                Key=storage_key,
+                Body=content,
+                ContentLength=file_path.stat().st_size,
+                ContentType=mime_type,
+                Metadata=metadata,
+                IfNoneMatch="*",
+            )
+
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset:
+        return await asyncio.to_thread(
+            self._download_to_file_sync,
+            storage_key,
+            destination,
+            expected_size,
+            expected_checksum,
+            max_bytes,
         )
 
-
-def _validate_download_bounds(
-    asset: StoredMediaAsset,
-    expected_size: int | None,
-    expected_checksum: str | None,
-    max_bytes: int | None,
-) -> None:
-    if expected_size is not None and asset.size_bytes != expected_size:
-        raise MediaAssetConflictError("object size does not match validation job")
-    if max_bytes is not None and asset.size_bytes > max_bytes:
-        raise MediaDownloadLimitError("object exceeds the authorized download limit")
-    if expected_checksum is not None and asset.checksum.lower() != expected_checksum.lower():
-        raise MediaAssetConflictError("object checksum does not match validation job")
-
-
-def _mime_for_path(path: Path) -> str:
-    return {
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".webp": "image/webp",
-        ".gif": "image/gif",
-        ".mp4": "video/mp4",
-        ".webm": "video/webm",
-    }.get(path.suffix.lower(), "application/octet-stream")
+    def _download_to_file_sync(
+        self,
+        storage_key: str,
+        destination: Path,
+        expected_size: int | None,
+        expected_checksum: str | None,
+        max_bytes: int | None,
+    ) -> StoredMediaAsset:
+        response = self.client.get_object(Bucket=self.bucket, Key=storage_key)
+        body = response["Body"]
+        metadata = {str(key): str(value) for key, value in response.get("Metadata", {}).items()}
+        checksum = metadata.get("sha256")
+        if not checksum:
+            body.close()
+            raise MediaAssetConflictError(f"stored object {storage_key} has no sha256 metadata")
+        content_length = int(response.get("ContentLength", -1))
+        if content_length < 0:
+            body.close()
+            raise MediaAssetConflictError("object has no valid content length")
+        if expected_size is not None and content_length != expected_size:
+            body.close()
+            raise MediaAssetConflictError("object size does not match validation job")
+        if max_bytes is not None and content_length > max_bytes:
+            body.close()
+            raise MediaDownloadLimitError("object exceeds the authorized download limit")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        total = 0
+        try:
+            with destination.open("wb") as output:
+                while chunk := body.read(1024 * 1024):
+                    total += len(chunk)
+                    if max_bytes is not None and total > max_bytes:
+                        raise MediaDownloadLimitError(
+                            "object exceeds the authorized download limit"
+                        )
+                    digest.update(chunk)
+                    output.write(chunk)
+        finally:
+            body.close()
+        asset = StoredMediaAsset(
+            storage_key,
+            checksum,
+            content_length,
+            str(response.get("ContentType") or "application/octet-stream"),
+            metadata,
+        )
+        if total != asset.size_bytes or (expected_size is not None and total != expected_size):
+            raise OSError(f"downloaded object {storage_key} has unexpected size")
+        actual_checksum = digest.hexdigest()
+        if actual_checksum != checksum.lower() or (
+            expected_checksum is not None and actual_checksum != expected_checksum.lower()
+        ):
+            raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
+        return asset
