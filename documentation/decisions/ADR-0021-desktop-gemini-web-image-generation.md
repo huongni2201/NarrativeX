@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-28
+- Amended: 2026-08-29
 
 ## Context
 
@@ -12,12 +13,14 @@ Gemini Web is a browser product rather than a provider SDK exposed to the backen
 ## Decision
 
 1. `GEMINI_WEB` is a Desktop-only image provider path. The Chapter setup records the provider choice, but Images does not create the backend API media job, reuse/reframe plan or API cost estimate for this provider. Storyboard is the generation entry point and always uses `GENERATE_NEW`.
-2. Electron main owns Chrome lifecycle and browser automation. It starts or reuses a visible Chrome process with a dedicated profile, a local loopback DevTools Protocol port and a Gemini tab. The renderer never receives CDP, process or filesystem capabilities.
+2. Electron main owns Chrome lifecycle and browser automation. It starts or reuses one visible Chrome process with a dedicated profile and local loopback DevTools Protocol port. Inside that authenticated Chrome process, Electron main owns two logical automation lanes: a dedicated `CHARACTER` Gemini tab and a dedicated `STORYBOARD` Gemini tab. Each lane has its own target identity, active lock, CDP/network-capture state and download directory. The renderer never receives CDP, process or filesystem capabilities.
 3. The user signs in to Gemini in the NarrativeX Chrome window when required. NarrativeX does not fill, read or persist Google/Gemini credentials.
 4. The backend returns the composed Visual Beat prompt used by Desktop, including the server-owned style, camera framing and continuity context. Electron main remains the provider boundary: it adds the Gemini Web series visual style lock and scene boundary before submitting the untrusted backend prompt to Chrome. Scene text may describe story content but cannot remove the style contract, request multiple panels or add text/logos/watermarks.
 5. Generation downloads one full-size image, validates that it is a supported non-empty image, calculates SHA-256 and exposes only metadata plus a short-lived sender-bound, single-use selection token to the renderer. The renderer registers `LOCAL_ONLY` asset metadata through the backend, then invokes the trusted commit capability so main copies the staged bytes into ProjectStorage. The renderer always persists that stable media asset as the Visual Beat preview. It additionally updates the production media selection only when the beat already belongs to the current timed production plan; an untimed/manual Visual Beat must not lose its preview merely because no production timeline row exists yet.
-6. `Gemini All` is a renderer-owned serial queue keyed by project/chapter state. It may resume, skip and stop between beats, but it is not a durable backend queue and stopping the queue does not promise cancellation of a generation already running in Chrome.
-7. Prompt copy uses a typed preload capability to Electron main's clipboard API. The renderer does not call `navigator.clipboard` or receive a general clipboard primitive.
+6. Gemini generation requests carry a required `CHARACTER` or `STORYBOARD` lane discriminator through the typed preload boundary. Requests are serialized within a lane, while the two lanes may run concurrently. Missing or unknown lanes are rejected rather than routed by default. A failure or busy state in one lane does not pause or capture output from the other lane.
+7. `Gemini All` is a renderer-owned serial queue keyed by project/chapter state. It may continue while the Storyboard screen is unmounted, so each transition is published directly to the project/chapter local queue store. It may resume, skip and stop between beats, but it is not a durable backend queue and stopping the queue does not promise cancellation of a generation already running in Chrome.
+8. Durable image persistence defines a successful Storyboard generation. Cache invalidation is a handled background refresh and must not turn an attached image into a failed queue item, prevent progress from advancing or cause blind regeneration.
+9. Prompt copy uses a typed preload capability to Electron main's clipboard API. The renderer does not call `navigator.clipboard` or receive a general clipboard primitive.
 
 ## Consequences
 
@@ -27,12 +30,15 @@ Gemini Web is a browser product rather than a provider SDK exposed to the backen
 - The generated result follows the existing local-first project media contract and backend stable asset identity/checksum rules.
 - The backend-composed prompt keeps the UI and server generation inputs aligned, while the main-owned wrapper keeps Generate and Generate All consistent with Gemini Web's provider-specific style contract.
 - Selection-token binding and validation keep the privileged file commit outside the renderer.
+- Character and Storyboard generation can proceed concurrently without sharing page targets, prompts, captures, downloads or busy state, while retaining one user-owned Gemini login.
+- Storyboard queue progress survives navigation and is not coupled to fallible cache refetches after durable persistence.
 
 ### Trade-offs
 
 - Chrome installation, Gemini sign-in state and Gemini's changing web UI are runtime dependencies. Missing Chrome, UI changes, timeouts and failed downloads are user-visible errors rather than durable provider states.
 - Gemini Web generation has no API cost estimate, backend provider-operation reconciliation or durable batch queue in this path.
-- The visible browser flow is serialized to one active generation, so throughput is lower than a worker/API batch path.
+- Two concurrent Gemini tabs use more browser memory and may encounter account-side throttling independently. NarrativeX does not evade provider limits or retry work through the other lane.
+- The renderer-owned Storyboard queue is persisted locally for navigation/restart recovery but remains less durable than the backend PostgreSQL job model.
 
 ## Revisit criteria
 
