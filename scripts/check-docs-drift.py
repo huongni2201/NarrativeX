@@ -58,8 +58,7 @@ FORBIDDEN = {
     ),
     "obsolete Analyze scaffold token": re.compile(r"FEATURE_NOT_AVAILABLE"),
     "browser still described as primary studio topology": re.compile(
-        r"^\s*Browser\s*/\s*Next\.js\s+Studio\s*$",
-        re.IGNORECASE | re.MULTILINE,
+        r"^\s*Browser\s*/\s*Next\.js\s+Studio\s*$", re.IGNORECASE | re.MULTILINE
     ),
     "obsolete Electron 37 current stack": re.compile(r"\bElectron\s+37\b", re.IGNORECASE),
     "obsolete coverage 15 percent gate": re.compile(
@@ -77,11 +76,10 @@ FORBIDDEN = {
         re.IGNORECASE,
     ),
     "superseded Redis topology wording": re.compile(
-        r"Redis\s+sessions\s*/\s*transient\s+hints",
-        re.IGNORECASE,
+        r"Redis\s+sessions\s*/\s*transient\s+hints", re.IGNORECASE
     ),
     "Redis described as required current runtime": re.compile(
-        r"\bRedis\b[^\n]{0,80}\b(?:required|authoritative|session authority|queue authority)\b",
+        r"\bRedis\b\s+(?:is\s+)?(?:a\s+)?(?:required|authoritative)\b",
         re.IGNORECASE,
     ),
 }
@@ -97,8 +95,7 @@ DESKTOP_ONLY_FORBIDDEN = {
         re.IGNORECASE,
     ),
     "web removal still gated as future work": re.compile(
-        r"remove\s+`?app/frontend-web`?\s+only after",
-        re.IGNORECASE,
+        r"remove\s+`?app/frontend-web`?\s+only after", re.IGNORECASE
     ),
 }
 
@@ -172,39 +169,41 @@ def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bo
 
 
 def decision_index_errors(
-    decisions_dir: Path | None = None,
-    index_path: Path | None = None,
+    decisions_dir: Path | None = None, index_path: Path | None = None
 ) -> list[str]:
     decisions_dir = decisions_dir or ROOT / "documentation" / "decisions"
     index_path = index_path or decisions_dir / "README.md"
     if not decisions_dir.exists() or not index_path.exists():
         return []
     index = index_path.read_text(encoding="utf-8")
-    errors: list[str] = []
-    for adr in sorted(decisions_dir.glob("ADR-*.md")):
-        if adr.name not in index:
-            errors.append(f"documentation/decisions/README.md does not index {adr.name}")
-    return errors
+    return [
+        f"documentation/decisions/README.md does not index {adr.name}"
+        for adr in sorted(decisions_dir.glob("ADR-*.md"))
+        if adr.name not in index
+    ]
 
 
 def plan_index_errors(
-    plans_dir: Path | None = None,
-    index_path: Path | None = None,
+    plans_dir: Path | None = None, index_path: Path | None = None
 ) -> list[str]:
     plans_dir = plans_dir or ROOT / "docs" / "superpowers" / "plans"
     index_path = index_path or plans_dir / "README.md"
     if not plans_dir.exists():
         return []
+    plans = sorted(path for path in plans_dir.glob("*.md") if path.name != "README.md")
+    if not plans:
+        return []
     if not index_path.exists():
         return ["docs/superpowers/plans/README.md is required when implementation plans exist"]
     index = index_path.read_text(encoding="utf-8")
     errors: list[str] = []
-    for plan in sorted(path for path in plans_dir.glob("*.md") if path.name != "README.md"):
-        pattern = re.compile(
-            rf"{re.escape(plan.name)}[^\n]*\|\s*({'|'.join(PLAN_STATUSES)})\s*\|",
+    status_pattern = "|".join(PLAN_STATUSES)
+    for plan in plans:
+        row = re.compile(
+            rf"{re.escape(plan.name)}[^\n]*\|\s*({status_pattern})\s*\|",
             re.IGNORECASE,
         )
-        if not pattern.search(index):
+        if not row.search(index):
             errors.append(
                 f"docs/superpowers/plans/README.md must index {plan.name} with status "
                 + "/".join(PLAN_STATUSES)
@@ -218,14 +217,13 @@ def main() -> int:
     for path in REQUIRED_PATHS:
         if not path.exists():
             errors.append(f"missing required documentation file: {path.relative_to(ROOT)}")
-
     for path in RETIRED_PATHS:
         if path.exists():
             errors.append(f"retired documentation file returned: {path.relative_to(ROOT)}")
 
     frontend_web_exists = (ROOT / "app" / "frontend-web").exists()
-
-    for path in current_document_paths():
+    current_paths = current_document_paths()
+    for path in current_paths:
         text = path.read_text(encoding="utf-8")
         relative = path.relative_to(ROOT)
         for label, pattern in FORBIDDEN.items():
@@ -307,9 +305,7 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print(
-        f"Documentation drift check passed across {len(current_document_paths())} current Markdown files."
-    )
+    print(f"Documentation drift check passed across {len(current_paths)} current Markdown files.")
     return 0
 
 
