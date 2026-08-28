@@ -69,7 +69,10 @@ def test_chapter_prompt_preserves_untrusted_boundary_and_output_contract() -> No
         in prompt
     )
     assert "visual_prompt,age_state,hairstyle,injury,wardrobe_context,appearance_prompt}" in prompt
-    assert "visual_beats:[{title,visual_intent,camera_angle}]" in prompt
+    assert (
+        "visual_beats:[{title,visual_intent,camera_angle,"
+        "characters:[{character_key,role}]}]" in prompt
+    )
 
 
 def test_image_analysis_prompt_preserves_provider_as_routing_metadata() -> None:
