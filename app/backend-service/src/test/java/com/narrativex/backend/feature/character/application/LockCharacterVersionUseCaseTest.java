@@ -42,7 +42,8 @@ class LockCharacterVersionUseCaseTest {
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(List.of());
     var useCase = new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
 
-    assertThatThrownBy(() -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID)))
+    assertThatThrownBy(
+            () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null)))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("IDENTITY");
 
@@ -58,7 +59,7 @@ class LockCharacterVersionUseCaseTest {
     when(versionRepository.save(version)).thenReturn(version);
     var useCase = new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
 
-    var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID));
+    var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null));
 
     assertThat(locked.getStatus()).isEqualTo(CharacterVersionStatus.LOCKED);
     assertThat(locked.getLockedBy()).isEqualTo("owner");
