@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,7 +46,6 @@ public class GetProductionTimelineUseCase {
     String aspectRatio = firstAspectRatio(chapterSources);
     boolean oneAspectRatio =
         chapterSources.stream()
-                .filter(chapter -> chapter.mediaPlanId() != null)
                 .map(ChapterSource::aspectRatio)
                 .filter(value -> value != null && !value.isBlank())
                 .distinct()
@@ -65,6 +63,7 @@ public class GetProductionTimelineUseCase {
       long chapterStartMs = cursorMs;
       long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
       boolean timingRepresentable = chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
+      boolean exactTiming = hasCompleteAlignedClock(chapterBeats, chapterDurationMs);
 
       List<ProductionTimelineView.Beat> plannedBeats =
           timingRepresentable
@@ -77,25 +76,14 @@ public class GetProductionTimelineUseCase {
               && nonBlank(chapter.audioStorageKey())
               && positive(chapter.audioSizeBytes())
               && nonBlank(chapter.audioChecksum());
-      boolean planMatches =
-          chapterBeats.stream()
-              .allMatch(
-                  beat ->
-                      Objects.equals(beat.mediaPlanId(), chapter.mediaPlanId())
-                          && Objects.equals(beat.mediaPlanRevision(), chapter.mediaPlanRevision()));
-      boolean planReady =
-          timingRepresentable
-              && chapter.mediaPlanId() != null
-              && chapter.mediaPlanRevision() != null
-              && chapter.mediaPlanRevision() > 0
-              && chapter.beatCount() > 0
+      boolean beatSetComplete =
+          chapter.beatCount() > 0
               && chapterBeats.size() == chapter.beatCount()
-              && planMatches;
+              && plannedBeats.size() == chapter.beatCount();
       boolean assetsReady =
-          planReady
-              && plannedBeats.size() == chapter.beatCount()
+          beatSetComplete
               && plannedBeats.stream().allMatch(ProductionTimelineView.Beat::assetReady);
-      boolean chapterReady = audioReady && assetsReady;
+      boolean chapterReady = audioReady && exactTiming && assetsReady;
       readyForRender &= chapterReady;
 
       chapters.add(
@@ -198,6 +186,7 @@ public class GetProductionTimelineUseCase {
   }
 
   private static boolean hasCompleteAlignedClock(List<BeatSource> sources, long chapterDurationMs) {
+    if (sources.isEmpty()) return false;
     long expectedStartMs = 0L;
     for (BeatSource source : sources) {
       Long startMs = source.audioStartMs();
