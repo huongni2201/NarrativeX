@@ -108,10 +108,11 @@ export async function persistEditorMedia(
   input: PersistEditorMediaInput,
 ) {
   validateEditorMediaSelection(input.selection, input.expectedType);
+  const mediaType = input.selection.kind;
 
   const asset = await deps.registerLocal({
     projectId: input.projectId,
-    type: input.selection.kind,
+    type: mediaType,
     originalFilename: input.selection.originalFilename,
     contentType: input.selection.contentType,
     sizeBytes: input.selection.sizeBytes,
@@ -122,7 +123,7 @@ export async function persistEditorMedia(
   await deps.commitSelectedAsset({
     projectId: input.projectId,
     assetId: asset.id,
-    kind: input.selection.kind,
+    kind: mediaType,
     selectionToken: input.selection.selectionToken,
   });
 
@@ -130,7 +131,7 @@ export async function persistEditorMedia(
     input.beatId,
     input.beatDurationMs,
     asset.id,
-    input.selection.kind,
+    mediaType,
     asset.durationMs,
   );
 
@@ -153,6 +154,7 @@ export async function persistEditorMedia(
   return {
     assetId: asset.id,
     originalFilename: asset.originalFilename,
+    mediaType,
     fitMode: retryInput.fitMode,
     trimStartMs: retryInput.trimStartMs,
   };
