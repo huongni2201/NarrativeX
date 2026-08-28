@@ -10,6 +10,7 @@ public record GenerateChapterNarrationCommand(
     String voiceId,
     BigDecimal speakingRate,
     UUID voiceReferenceAssetId,
+    boolean forceRegenerate,
     String previewText) {
   public GenerateChapterNarrationCommand(
       UUID projectId,
@@ -17,7 +18,27 @@ public record GenerateChapterNarrationCommand(
       String voiceId,
       BigDecimal speakingRate,
       UUID voiceReferenceAssetId) {
-    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, null);
+    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, false, null);
+  }
+
+  public GenerateChapterNarrationCommand(
+      UUID projectId,
+      UUID chapterId,
+      String voiceId,
+      BigDecimal speakingRate,
+      UUID voiceReferenceAssetId,
+      boolean forceRegenerate) {
+    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, forceRegenerate, null);
+  }
+
+  public GenerateChapterNarrationCommand(
+      UUID projectId,
+      UUID chapterId,
+      String voiceId,
+      BigDecimal speakingRate,
+      UUID voiceReferenceAssetId,
+      String previewText) {
+    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, false, previewText);
   }
 
   public GenerateChapterNarrationCommand {
