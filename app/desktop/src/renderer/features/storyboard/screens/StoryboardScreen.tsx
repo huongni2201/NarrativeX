@@ -1,21 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type {
-  DesktopChapterDetails,
-  DesktopTimeline,
-  DesktopTimelineBeat,
-} from "@narrativex/client-contracts";
-import {
-  Check,
-  CheckCheck,
-  Clapperboard,
-  Copy,
-  ExternalLink,
-  ImagePlus,
-  Loader2,
-  Plus,
-  RotateCcw,
-  WandSparkles,
-} from "lucide-react";
+import type { DesktopChapterDetails, DesktopTimeline } from "@narrativex/client-contracts";
+import { CheckCheck, Clapperboard, Loader2, Plus, WandSparkles } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,10 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type {
-  StoryboardVisualBeat,
-  VisualBeatReviewStatus,
-} from "../api/storyboard.api";
+import type { StoryboardVisualBeat } from "../api/storyboard.api";
+import { GeminiQueueBanner } from "../components/GeminiQueueBanner";
+import { SceneRail } from "../components/SceneRail";
+import { StoryboardHeader } from "../components/StoryboardHeader";
+import { VisualBeatGrid } from "../components/VisualBeatGrid";
 import {
   markQueueBeatCompleted,
   markQueueBeatSkipped,
@@ -34,10 +20,7 @@ import {
   restoreQueueForSession,
   type GeminiQueueState,
 } from "../model/gemini-queue";
-import {
-  useStoryboardImagePreview,
-  useStoryboardMediaMutations,
-} from "../queries/storyboard-media.mutations";
+import { useStoryboardMediaMutations } from "../queries/storyboard-media.queries";
 import {
   useApproveVisualBeats,
   useCreateVisualBeat,
@@ -105,7 +88,6 @@ export function StoryboardScreen({
   const updateReview = useUpdateVisualBeatReview(projectId, selectedChapterId);
   const approveAll = useApproveVisualBeats(projectId, selectedChapterId);
   const mediaMutations = useStoryboardMediaMutations(projectId, selectedChapterId);
-
   const scenes = storyboardQuery.data?.scenes ?? [];
 
   useEffect(() => {
@@ -144,11 +126,8 @@ export function StoryboardScreen({
     : 0;
 
   useEffect(() => {
-    if (!geminiQueue || !currentQueueBeat) return;
-    if (geminiQueue.status === "COMPLETED") return;
-    if (selectedSceneId !== currentQueueBeat.sceneId) {
-      setSelectedSceneId(currentQueueBeat.sceneId);
-    }
+    if (!geminiQueue || !currentQueueBeat || geminiQueue.status === "COMPLETED") return;
+    if (selectedSceneId !== currentQueueBeat.sceneId) setSelectedSceneId(currentQueueBeat.sceneId);
     if (reviewStatusFilter !== "ALL") setReviewStatusFilter("ALL");
   }, [currentQueueBeat, geminiQueue, reviewStatusFilter, selectedSceneId]);
 
@@ -167,7 +146,6 @@ export function StoryboardScreen({
       ),
     [selectedChapterId, timeline?.beats],
   );
-
   const approvedCount = useMemo(
     () => scenes.reduce((total, scene) => total + scene.approvedBeatCount, 0),
     [scenes],
@@ -187,6 +165,7 @@ export function StoryboardScreen({
       setNotice("Chưa chọn chapter để resolve character reference.");
       return false;
     }
+
     setMediaBusyBeatId(beat.id);
     setPendingImportBeatId(null);
     setNotice(
@@ -194,6 +173,7 @@ export function StoryboardScreen({
         ? `Gemini All · Đang chuẩn bị character reference cho “${beat.title}”…`
         : `Đang chuẩn bị character reference cho “${beat.title}”…`,
     );
+
     try {
       const result = await mediaMutations.generateGeminiImage.mutateAsync({
         beat,
@@ -290,7 +270,7 @@ export function StoryboardScreen({
   async function resumeGeminiAll() {
     if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
     const runToken = ++geminiRunTokenRef.current;
-    const resumed = { ...geminiQueue, status: "RUNNING" as const };
+    const resumed: GeminiQueueState = { ...geminiQueue, status: "RUNNING" };
     setGeminiQueue(resumed);
     await runGeminiQueue(resumed, runToken);
   }
@@ -356,24 +336,11 @@ export function StoryboardScreen({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
-      <header className="flex shrink-0 items-center justify-between border-b border-border bg-surface-panel px-6 py-4">
-        <div>
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">
-            <Clapperboard size={13} />
-            Storyboard Workspace
-          </div>
-          <h1 className="mt-1 text-xl font-bold tracking-tight">Scene & Visual Beat Manager</h1>
-          <p className="mt-1 text-xs text-text-secondary">
-            Quản lý visual beat, tự động generate ảnh bằng Gemini Web và gắn output về đúng beat.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <Metric label="Scenes" value={scenes.length} />
-          <Metric label="Visual Beats" value={beatCount} />
-          <Metric label="Approved" value={approvedCount} />
-        </div>
-      </header>
+      <StoryboardHeader
+        sceneCount={scenes.length}
+        beatCount={beatCount}
+        approvedCount={approvedCount}
+      />
 
       {!chapters.length ? (
         <EmptyState
@@ -415,57 +382,18 @@ export function StoryboardScreen({
             </div>
           </section>
 
-          <section className="min-h-0 overflow-y-auto border-r border-border bg-surface-panel p-3">
-            <PanelTitle title="Scenes" count={scenes.length} />
-            <div className="mt-1 truncate text-[11px] text-text-muted">
-              {selectedChapter?.title ?? "Chọn chapter"}
-            </div>
-
-            {storyboardQuery.isLoading ? (
-              <LoadingState label="Đang tải storyboard..." />
-            ) : storyboardQuery.isError ? (
-              <InlineError message={errorMessage(storyboardQuery.error, "Không tải được storyboard.")} />
-            ) : !scenes.length ? (
-              <div className="mt-4 rounded-md border border-dashed border-border p-4 text-xs text-text-muted">
-                Chapter này chưa có scene. Hãy chạy hoặc chạy lại phân tích chapter.
-              </div>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {scenes.map((scene) => {
-                  const active = scene.id === selectedSceneId;
-                  return (
-                    <button
-                      key={scene.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSceneId(scene.id);
-                        setCreatingBeat(false);
-                        setCopiedPromptBeatId(null);
-                      }}
-                      className={`w-full rounded-md border p-3 text-left transition ${
-                        active
-                          ? "border-primary/55 bg-primary/10"
-                          : "border-border-subtle bg-surface-dark hover:border-border hover:bg-surface-2"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
-                          Scene {scene.orderIndex + 1}
-                        </span>
-                        <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] text-text-muted">
-                          {scene.approvedBeatCount}/{scene.totalBeatCount} approved
-                        </span>
-                      </div>
-                      <div className="mt-1.5 text-xs font-semibold text-foreground">{scene.title}</div>
-                      <div className="mt-2 text-[10px] uppercase tracking-wide text-text-dim">
-                        {formatEnum(scene.status)}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <SceneRail
+            scenes={scenes}
+            selectedSceneId={selectedSceneId}
+            chapterTitle={selectedChapter?.title ?? null}
+            loading={storyboardQuery.isLoading}
+            error={storyboardQuery.isError ? errorMessage(storyboardQuery.error, "Không tải được storyboard.") : null}
+            onSelectScene={(sceneId) => {
+              setSelectedSceneId(sceneId);
+              setCreatingBeat(false);
+              setCopiedPromptBeatId(null);
+            }}
+          />
 
           <section className="flex min-h-0 flex-col overflow-hidden bg-background">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
@@ -540,7 +468,7 @@ export function StoryboardScreen({
             </div>
 
             {geminiQueue && (
-              <GeminiQueuePanel
+              <GeminiQueueBanner
                 queue={geminiQueue}
                 currentBeat={currentQueueBeat}
                 processedCount={queueProcessedCount}
@@ -555,7 +483,9 @@ export function StoryboardScreen({
             {(mutationError || notice) && (
               <div className="mx-5 mt-3">
                 {mutationError ? (
-                  <InlineError message={errorMessage(mutationError, "Không thể cập nhật storyboard.")} />
+                  <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+                    {errorMessage(mutationError, "Không thể cập nhật storyboard.")}
+                  </div>
                 ) : (
                   <div className="rounded-md border border-border bg-surface-panel px-3 py-2 text-xs text-text-secondary">
                     {notice}
@@ -628,346 +558,26 @@ export function StoryboardScreen({
             )}
 
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              {!selectedScene ? (
-                <EmptyState
-                  title="Chọn scene để xem Visual Beat"
-                  detail="Mỗi scene chứa các visual beat được tạo bởi quá trình phân tích hoặc thêm thủ công."
-                  compact
-                />
-              ) : !selectedSceneBeats.length ? (
-                <EmptyState
-                  title="Scene chưa có Visual Beat"
-                  detail="Bạn có thể thêm Visual Beat mới bằng nút phía trên."
-                  compact
-                />
-              ) : !filteredVisualBeats.length ? (
-                <EmptyState
-                  title="Không có Visual Beat phù hợp"
-                  detail="Thử chọn một trạng thái review khác để xem các Visual Beat còn lại."
-                  compact
-                />
-              ) : (
-                <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
-                  {filteredVisualBeats.map((beat) => (
-                    <VisualBeatCard
-                      key={beat.id}
-                      beat={beat}
-                      timelineBeat={timelineBeats.get(beat.id) ?? null}
-                      updating={reviewUpdating}
-                      mediaBusy={mediaBusyBeatId === beat.id}
-                      pendingImport={pendingImportBeatId === beat.id}
-                      promptCopied={copiedPromptBeatId === beat.id}
-                      queueCurrent={currentQueueBeatId === beat.id && geminiQueue?.status !== "COMPLETED"}
-                      generationLocked={geminiQueue?.status === "RUNNING" && currentQueueBeatId !== beat.id}
-                      onReview={(status) => updateReview.mutate({ beat, status })}
-                      onGenerate={() => void generateWithGemini(beat)}
-                      onCopyPrompt={() => void copyPrompt(beat)}
-                      onImport={() => void importGeneratedImage(beat)}
-                    />
-                  ))}
-                </div>
-              )}
+              <VisualBeatGrid
+                beats={filteredVisualBeats}
+                hasSelectedScene={Boolean(selectedScene)}
+                selectedSceneBeatCount={selectedSceneBeats.length}
+                timelineBeats={timelineBeats}
+                updating={reviewUpdating}
+                mediaBusyBeatId={mediaBusyBeatId}
+                pendingImportBeatId={pendingImportBeatId}
+                copiedPromptBeatId={copiedPromptBeatId}
+                currentQueueBeatId={currentQueueBeatId}
+                queueStatus={geminiQueue?.status ?? null}
+                onReview={(beat, status) => updateReview.mutate({ beat, status })}
+                onGenerate={(beat) => void generateWithGemini(beat)}
+                onCopyPrompt={(beat) => void copyPrompt(beat)}
+                onImport={(beat) => void importGeneratedImage(beat)}
+              />
             </div>
           </section>
         </div>
       )}
-    </div>
-  );
-}
-
-function GeminiQueuePanel({
-  queue,
-  currentBeat,
-  processedCount,
-  busy,
-  onResume,
-  onSkip,
-  onStop,
-  onDismiss,
-}: Readonly<{
-  queue: GeminiQueueState;
-  currentBeat: StoryboardVisualBeat | null;
-  processedCount: number;
-  busy: boolean;
-  onResume: () => void;
-  onSkip: () => void;
-  onStop: () => void;
-  onDismiss: () => void;
-}>) {
-  const total = queue.beatIds.length;
-  const percent = total ? Math.round((processedCount / total) * 100) : 0;
-  const completed = queue.status === "COMPLETED";
-  const running = queue.status === "RUNNING";
-
-  return (
-    <div className="mx-5 mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary-hover">
-            Gemini Web · Generate All
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-foreground">
-            {running && <Loader2 size={13} className="animate-spin" />}
-            {completed
-              ? `Hoàn tất ${queue.completedBeatIds.length}/${total} ảnh`
-              : running
-                ? `${processedCount}/${total} · Chrome đang generate ${currentBeat?.title ?? "Visual Beat"}`
-                : `${processedCount}/${total} · Tạm dừng tại ${currentBeat?.title ?? "Visual Beat"}`}
-          </div>
-          <div className="mt-1 text-[10px] text-text-muted">
-            {queue.completedBeatIds.length} generated · {queue.skippedBeatIds.length} skipped · {percent}%
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {completed ? (
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="h-8 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2"
-            >
-              Dismiss
-            </button>
-          ) : running ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="h-8 rounded-md border border-danger/30 px-3 text-[11px] font-semibold text-danger hover:bg-danger/5"
-            >
-              Stop after current
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={!currentBeat || busy}
-                onClick={onResume}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:opacity-50"
-              >
-                <WandSparkles size={12} /> Retry & Resume
-              </button>
-              <button
-                type="button"
-                disabled={!currentBeat || busy}
-                onClick={onSkip}
-                className="h-8 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                onClick={onStop}
-                className="h-8 rounded-md border border-danger/30 px-3 text-[11px] font-semibold text-danger hover:bg-danger/5"
-              >
-                Stop
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-input">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
-      </div>
-      {!completed && (
-        <p className="mt-2 text-[10px] leading-4 text-text-muted">
-          NarrativeX resolve nhân vật xuất hiện trong từng beat, attach tối đa 3 locked reference theo đúng REF mapping, gửi Gemini Images, bắt output trực tiếp qua Chrome Network và chỉ dùng nút Download làm fallback.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function VisualBeatCard({
-  beat,
-  timelineBeat,
-  updating,
-  mediaBusy,
-  pendingImport,
-  promptCopied,
-  queueCurrent,
-  generationLocked,
-  onReview,
-  onGenerate,
-  onCopyPrompt,
-  onImport,
-}: Readonly<{
-  beat: StoryboardVisualBeat;
-  timelineBeat: DesktopTimelineBeat | null;
-  updating: boolean;
-  mediaBusy: boolean;
-  pendingImport: boolean;
-  promptCopied: boolean;
-  queueCurrent: boolean;
-  generationLocked: boolean;
-  onReview: (status: VisualBeatReviewStatus) => void;
-  onGenerate: () => void;
-  onCopyPrompt: () => void;
-  onImport: () => void;
-}>) {
-  const approved = beat.reviewStatus === "APPROVED";
-  const prompt = beat.prompt ?? "Backend prompt unavailable.";
-
-  return (
-    <article className={`rounded-lg border bg-surface-panel p-4 ${queueCurrent ? "border-primary/60 ring-1 ring-primary/20" : "border-border"}`}>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
-              Beat {beat.orderIndex + 1}
-            </span>
-            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-hover">
-              Gemini Web
-            </span>
-            <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
-              Generate New
-            </span>
-            {queueCurrent && (
-              <span className="rounded bg-info-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-hover">
-                Gemini All · Current
-              </span>
-            )}
-            <span
-              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                approved ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-              }`}
-            >
-              {approved ? "Approved" : "Needs review"}
-            </span>
-          </div>
-          <h3 className="mt-2 text-sm font-bold text-foreground">{beat.title}</h3>
-          <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-text-secondary">
-            {beat.visualIntent}
-          </p>
-
-          <div className="mt-3 rounded-md border border-border-subtle bg-surface-dark p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[9px] font-bold uppercase tracking-wide text-text-muted">
-                Prompt preview
-              </span>
-              <button
-                type="button"
-                onClick={onCopyPrompt}
-                aria-label={promptCopied ? `Prompt copied for ${beat.title}` : `Copy prompt for ${beat.title}`}
-                className={`inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-                  promptCopied ? "text-success" : "text-primary-hover hover:text-primary"
-                }`}
-              >
-                {promptCopied ? <Check size={11} /> : <Copy size={11} />}
-                {promptCopied ? "Copied" : "Copy"}
-              </button>
-            </div>
-            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-[10px] leading-4 text-text-secondary">
-              {prompt}
-            </p>
-          </div>
-
-          {pendingImport && (
-            <div className="mt-3 rounded-md border border-info/25 bg-info-bg p-3 text-[10px] leading-4 text-text-secondary">
-              Automation chưa hoàn tất. Bạn vẫn có thể dùng Import Generated Image làm fallback để gắn file ảnh thủ công vào beat này.
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={mediaBusy || generationLocked || !beat.prompt}
-              onClick={onGenerate}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
-              {mediaBusy ? "Generating…" : "Generate with Gemini"}
-            </button>
-            <button
-              type="button"
-              disabled={mediaBusy || generationLocked}
-              onClick={onImport}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
-            >
-              {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
-              Import Image (fallback)
-            </button>
-            <button
-              type="button"
-              disabled={updating}
-              onClick={() => onReview(approved ? "NEEDS_REVIEW" : "APPROVED")}
-              className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${
-                approved
-                  ? "border-border text-text-secondary hover:bg-surface-2"
-                  : "border-success/35 bg-success/5 text-success hover:bg-success/10"
-              }`}
-            >
-              {approved ? <RotateCcw size={12} /> : <Check size={12} />}
-              {approved ? "Needs review" : "Approve"}
-            </button>
-          </div>
-
-          <div className="mt-4 grid grid-cols-4 gap-2 border-t border-border-subtle pt-3 text-[10px] text-text-muted">
-            <Meta label="Motion" value={formatEnum(beat.motionMode)} />
-            <Meta label="Camera" value={formatEnum(beat.cameraMovement)} />
-            <Meta label="Angle" value={formatEnum(beat.cameraAngle)} />
-            <Meta
-              label="Time"
-              value={timelineBeat ? `${formatMs(timelineBeat.startMs)} – ${formatMs(timelineBeat.endMs)}` : "—"}
-            />
-          </div>
-        </div>
-
-        <BeatImagePreview timelineBeat={timelineBeat} />
-      </div>
-    </article>
-  );
-}
-
-function BeatImagePreview({ timelineBeat }: Readonly<{ timelineBeat: DesktopTimelineBeat | null }>) {
-  const [failed, setFailed] = useState(false);
-  const preview = useStoryboardImagePreview(
-    timelineBeat?.mediaAssetId,
-    Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
-  );
-
-  if (!timelineBeat?.mediaAssetId || timelineBeat.mediaType !== "IMAGE") {
-    return (
-      <div className="grid min-h-40 place-items-center rounded-md border border-dashed border-border bg-surface-dark text-center text-[10px] text-text-muted">
-        <div>
-          <ImagePlus className="mx-auto mb-2" size={22} />
-          Chưa có ảnh cho beat này
-        </div>
-      </div>
-    );
-  }
-
-  if (preview.isLoading) {
-    return (
-      <div className="grid min-h-40 place-items-center rounded-md border border-border bg-surface-dark text-text-muted">
-        <Loader2 size={18} className="animate-spin" />
-      </div>
-    );
-  }
-
-  if (!preview.data?.url || preview.isError || failed) {
-    return (
-      <div className="grid min-h-40 place-items-center rounded-md border border-border bg-surface-dark px-3 text-center text-[10px] text-text-muted">
-        Ảnh đã attach nhưng preview hiện không khả dụng.
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-hidden rounded-md border border-border bg-surface-dark">
-      <img
-        src={preview.data.url}
-        alt={`Visual beat ${timelineBeat.visualBeatId}`}
-        className="aspect-video h-full w-full object-cover"
-        onError={() => setFailed(true)}
-      />
-    </div>
-  );
-}
-
-function Metric({ label, value }: Readonly<{ label: string; value: number }>) {
-  return (
-    <div className="min-w-[78px] rounded-md border border-border bg-surface px-3 py-2 text-center">
-      <div className="text-sm font-bold text-foreground">{value}</div>
-      <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-text-muted">{label}</div>
     </div>
   );
 }
@@ -981,62 +591,16 @@ function PanelTitle({ title, count }: Readonly<{ title: string; count: number }>
   );
 }
 
-function Meta({ label, value }: Readonly<{ label: string; value: string }>) {
+function EmptyState({ title, detail }: Readonly<{ title: string; detail: string }>) {
   return (
-    <div>
-      <div className="font-semibold uppercase tracking-wide text-text-dim">{label}</div>
-      <div className="mt-1 truncate text-text-secondary">{value}</div>
-    </div>
-  );
-}
-
-function LoadingState({ label }: Readonly<{ label: string }>) {
-  return (
-    <div className="mt-6 flex items-center justify-center gap-2 text-xs text-text-muted">
-      <Loader2 size={14} className="animate-spin" />
-      {label}
-    </div>
-  );
-}
-
-function InlineError({ message }: Readonly<{ message: string }>) {
-  return (
-    <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
-      {message}
-    </div>
-  );
-}
-
-function EmptyState({
-  title,
-  detail,
-  compact = false,
-}: Readonly<{ title: string; detail: string; compact?: boolean }>) {
-  return (
-    <div className={`grid place-items-center ${compact ? "min-h-[220px]" : "min-h-0 flex-1"}`}>
+    <div className="grid min-h-0 flex-1 place-items-center">
       <div className="max-w-md px-6 text-center">
-        <Clapperboard size={compact ? 24 : 30} className="mx-auto text-text-dim" />
+        <Clapperboard size={30} className="mx-auto text-text-dim" />
         <div className="mt-3 text-sm font-bold">{title}</div>
         <p className="mt-1 text-xs leading-5 text-text-muted">{detail}</p>
       </div>
     </div>
   );
-}
-
-function formatEnum(value: string | null | undefined) {
-  if (!value) return "—";
-  return value
-    .toLocaleLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatMs(value: number) {
-  const totalSeconds = Math.max(0, Math.round(value / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function errorMessage(error: unknown, fallback: string) {
