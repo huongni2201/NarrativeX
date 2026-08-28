@@ -117,3 +117,16 @@ test("EditorScreen delegates media persistence and preview transport to feature 
   assert.match(source, /useEditorMediaMutations/);
   assert.match(source, /useEditorPreviewSources/);
 });
+
+test("ChaptersScreen delegates analysis mutation polling and invalidation to chapter queries", () => {
+  const source = readFileSync(
+    join(featuresRoot, "chapters", "screens", "ChaptersScreen.tsx"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(source, /import\s+\{\s*useMutation/);
+  assert.doesNotMatch(source, /generationApi\.analyze\s*\(/);
+  assert.doesNotMatch(source, /const\s+analysisJobQuery\s*=\s*useGenerationJob/);
+  assert.doesNotMatch(source, /setAnalysisJob\s*\(/);
+  assert.match(source, /useChapterAnalysis/);
+});
