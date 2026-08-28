@@ -70,7 +70,7 @@ class GuestMutationSecurityTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"));
     assertAuthenticationRequired(
-        post("/api/v1/assets/upload-intents")
+        post("/api/v1/voice-references/upload-intents")
             .with(csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"));
