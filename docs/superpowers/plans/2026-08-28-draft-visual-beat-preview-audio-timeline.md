@@ -2,725 +2,570 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Show narration-aligned Visual Beat clips and meaningful preview cards immediately after analysis, even before a media plan or image exists, while making narration audio the authoritative playback clock.
+**Goal:** Show source-grounded Visual Beats immediately after Chapter analysis, convert them deterministically into narration-aligned timeline clips when audio alignment exists, and make narration audio the authoritative Desktop playback clock without requiring a MediaPlan or generated image first.
 
-**Architecture:** Extend the existing backend production-timeline read model with a draft source: use the current completed media-plan snapshot when one exists, otherwise read the current storyboard revision's `Scene` and `VisualBeat` rows. Keep final-render admission unchanged—draft beats remain inspectable but never render-ready without a valid media plan and ready assets. In Desktop, retain `EditorPlaybackSurface` as playback-state owner, but feed its playhead from the selected chapter's real `<audio>` clock; the timer remains only a no-audio fallback.
+**Architecture:** Split Visual Beat timing into three explicit coordinate systems instead of asking AI to invent timestamps. Chapter analysis returns semantic source-segment references; the worker materializes deterministic UTF-16 `text_start/text_end` offsets on `chapters.source_text`; a `VisualBeatTimingReconciler` later projects those text spans through persisted narration alignment into `audio_start_ms/audio_end_ms`. Production timeline reads prefer a current immutable MediaPlan, otherwise expose current storyboard beats as draft clips. Draft clips may be `PROVISIONAL` before audio alignment and become `ALIGNED` only after narration timing is reconciled. Desktop uses real narration audio as the master clock whenever available.
 
-**Tech Stack:** Java 25 · Spring Boot 4.1 · MyBatis/PostgreSQL · JUnit 5/AssertJ/Testcontainers · Electron 43 · React 19 · TypeScript 7 · Node test runner
+**Tech Stack:** Python 3.13 · Pydantic · asyncpg/PostgreSQL · Java 25 · Spring Boot 4.1 · MyBatis · JUnit 5/AssertJ/Testcontainers · Electron 43 · React 19 · TypeScript 7 · Node test runner
 
-**Spec:** In-chat bounded design approved on 2026-08-28; no separate architecture spec is required.
+**Spec:** In-chat bounded design approved on 2026-08-28 and refined after review of the original plan; no separate architecture spec is required.
 
 ## Global Constraints
 
-- PostgreSQL remains authoritative for storyboard, timing, media selections, and production-timeline reads.
-- Do not create a `MediaPlan`, reserve cost, or enqueue provider work merely to make draft beats visible.
-- A valid current media-plan snapshot always takes precedence over storyboard fallback rows.
-- Draft beats are inspectable and editable but do not make `readyForRender` true.
-- Narration remains the master clock; timeline clips use explicit global `startMs` and `endMs`.
+- PostgreSQL remains authoritative for storyboard, source offsets, narration alignment, timing, media selections, and production-timeline reads.
+- AI must never calculate character offsets or audio timestamps.
+- Visual Beat source positions use UTF-16 half-open ranges `[text_start, text_end)` over the exact persisted `chapters.source_text` snapshot identified by `source_hash` and `row_version`.
+- `audio_start_ms/audio_end_ms` remain `NULL` until an applicable narration alignment exists; missing audio timing must not be silently represented as exact alignment.
+- `aspect_ratio_override` and `quality_tier_override` remain nullable override fields; `NULL` means inherit project/default policy and is not missing analysis data.
+- Narration is the visual master clock once real audio exists.
+- A current valid MediaPlan always takes precedence over storyboard draft rows.
+- Draft beats are inspectable/editable but never make `readyForRender=true` without a valid MediaPlan and ready assets.
+- Do not create a MediaPlan, reserve cost, or enqueue provider work merely to make draft beats visible.
 - Desktop renderer receives URLs and stable IDs only; it does not gain Node.js, filesystem, or process access.
 - Existing user changes in the worktree must be preserved.
-- All behavior changes follow red-green-refactor, then Desktop runtime verification.
+- Behavior changes follow red-green-refactor; integration claims require the relevant PostgreSQL/Desktop runtime verification.
+
+## Timing Model
+
+```text
+chapters.source_text
+  -> deterministic source segments
+  -> AI selects contiguous segment IDs per Visual Beat
+  -> worker resolves UTF-16 text_start/text_end
+  -> narration generation/import produces alignment spans
+  -> VisualBeatTimingReconciler maps text spans to audio spans
+  -> visual_beats.audio_start_ms/audio_end_ms
+  -> chapterStartMs + local audio offsets
+  -> ProductionTimeline Beat.startMs/endMs
+  -> Desktop timeline + narration-master playhead
+```
+
+### Timing states
+
+```text
+SOURCE_ONLY
+  text_start/text_end present
+  audio_start_ms/audio_end_ms null
+
+ALIGNED
+  text_start/text_end present
+  audio_start_ms/audio_end_ms present and validated against narration duration
+
+PLANNED
+  immutable MediaPlan timing exists and takes precedence for render planning
+```
+
+The API/UI may call `SOURCE_ONLY` timing `PROVISIONAL`; it must not label it narration-aligned.
 
 ## File Map
 
-- Create `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/infrastructure/persistence/ProductionTimelineDraftSourceIntegrationTest.java`: PostgreSQL contract proving current storyboard beats are returned without a media plan and are superseded by a current plan.
-- Modify `app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml`: produce planned or draft beat rows and draft chapter counts.
-- Modify `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/application/usecase/GetProductionTimelineUseCaseTest.java`: lock draft timing and render-admission semantics at the application layer.
-- Modify `app/desktop/src/renderer/features/editor/preview-playback.ts`: add pure narration-clock conversion and fallback-clock helpers.
-- Modify `app/desktop/test/preview-playback.test.mjs`: cover audio-authoritative playhead, clamping, fallback advancement, and end-of-scope behavior.
-- Modify `app/desktop/src/renderer/features/editor/components/EditorPlaybackSurface.tsx`: stop the periodic clock when narration is active and accept playhead/error events from the audio element.
-- Modify `app/desktop/src/renderer/features/editor/components/EditorPreviewViewport.tsx`: drive playhead from real audio time, surface playback failures, and render the no-image card.
-- Create `app/desktop/src/renderer/features/editor/beat-presentation.ts`: pure view-model helpers for pending-media preview and timeline state.
-- Create `app/desktop/test/beat-presentation.test.mjs`: test no-image copy, timing label, and ready/pending state.
-- Modify `app/desktop/src/renderer/features/editor/components/EditorMultiTrackTimeline.tsx`: visually distinguish pending beats while preserving their exact span and click/seek behavior.
-- Modify `documentation/workflows/STORY_TO_VIDEO.md`: document draft storyboard fallback and audio-master preview behavior.
-- Modify `documentation/TRACEABILITY.md`: record the verified draft-preview/timeline capability.
+- Modify `app/ai-worker/src/narrativex_worker/schema.py`: add source-segment references to Visual Beat analysis output, never numeric offsets/timestamps.
+- Modify `app/ai-worker/src/narrativex_worker/prompting.py`: provide stable source segment IDs and require contiguous source-span references.
+- Reuse/refactor `app/ai-worker/src/narrativex_worker/narration/segmenter.py`: one UTF-16 offset convention shared by narration and Visual Beat source materialization.
+- Modify `app/ai-worker/src/narrativex_worker/materialization/storyboard.py`: resolve source segment references and persist `visual_beats.text_start/text_end`.
+- Create `app/ai-worker/src/narrativex_worker/timing/visual_beat.py`: pure text-to-audio interpolation/reconciliation helpers.
+- Modify `app/ai-worker/src/narrativex_worker/narration/repository/completion.py`: reconcile current storyboard beat timing after durable narration alignment is inserted.
+- Modify/add AI-worker tests covering source spans, Unicode UTF-16 offsets, stale-source guards, interpolation and contiguous normalization.
+- Create/modify backend draft timeline tests and `ProductionTimelineMapper.xml`: expose current storyboard beats without a MediaPlan.
+- Modify `GetProductionTimelineUseCase` tests/read model so exact alignment is distinguishable from provisional fallback timing.
+- Modify Desktop production contract if a `timingState` field is required by UI.
+- Modify Desktop playback/presentation/timeline components for narration-master playback and pending/provisional states.
+- Modify `documentation/workflows/STORY_TO_VIDEO.md`, `documentation/workflows/NARRATION_AUDIO.md`, and `documentation/TRACEABILITY.md`.
 
 ---
 
-### Task 1: Return current storyboard Visual Beats when no media plan exists
+### Task 1: Give AI stable source-segment references instead of numeric offsets
 
 **Files:**
-
-- Create: `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/infrastructure/persistence/ProductionTimelineDraftSourceIntegrationTest.java`
-- Modify: `app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml:172`
+- Modify: `app/ai-worker/src/narrativex_worker/schema.py`
+- Modify: `app/ai-worker/src/narrativex_worker/prompting.py`
+- Modify: `app/ai-worker/src/narrativex_worker/narration/segmenter.py`
+- Test: `app/ai-worker/tests/test_prompting.py`
+- Test: add/update focused schema/segmenter tests under `app/ai-worker/tests/`
 
 **Interfaces:**
+- Produces `SourceSegment(id: str, text: str, text_start: int, text_end: int)` internally.
+- Produces `VisualBeatAnalysis.source_span.start_segment_id/end_segment_id` from AI.
+- Numeric UTF-16 offsets remain worker-owned and are not part of the AI output schema.
 
-- Consumes: `ProductionTimelineMapper.findBeats(UUID projectId, String ownerId)` and the current `chapters.current_storyboard_revision_id` pointer.
-- Produces: existing `ProductionTimelineBeatRow` values with nullable `mediaPlanId/mediaPlanRevision/mediaAssetId`, using `visual_beats.audio_start_ms/audio_end_ms` for draft timing.
+- [ ] **Step 1: Write failing schema tests**
 
-- [ ] **Step 1: Write the failing PostgreSQL integration test**
+Lock this contract:
 
-Create a Spring Boot integration test extending `PostgreSqlIntegrationTestSupport`. Insert one owned project, one active story version, one chapter, one current `DRAFT` storyboard revision, one scene, and two Visual Beats without creating `chapter_media_heads`, `generation_jobs`, `media_plans`, or `media_beat_plans`.
-
-The core assertion must be:
-
-```java
-@Test
-void returnsCurrentStoryboardBeatsBeforeAnyMediaPlanExists() {
-  DraftFixture fixture = insertDraftFixture("draft-timeline-owner");
-
-  var rows = mapper.findBeats(fixture.projectId(), "draft-timeline-owner");
-
-  assertThat(rows)
-      .extracting(
-          ProductionTimelineBeatRow::getVisualBeatId,
-          ProductionTimelineBeatRow::getSceneIndex,
-          ProductionTimelineBeatRow::getBeatIndex,
-          ProductionTimelineBeatRow::getAudioStartMs,
-          ProductionTimelineBeatRow::getAudioEndMs,
-          ProductionTimelineBeatRow::getMediaPlanId,
-          ProductionTimelineBeatRow::getMediaAssetId)
-      .containsExactly(
-          tuple(fixture.firstBeatId(), 0, 0, 0L, 4_000L, null, null),
-          tuple(fixture.secondBeatId(), 0, 1, 4_000L, 10_000L, null, null));
-}
+```python
+beat = VisualBeatAnalysis.model_validate({
+    "title": "Phát hiện chiếc hộp",
+    "visual_intent": "Nhân vật nhìn thấy chiếc hộp trên bàn.",
+    "camera_angle": "MEDIUM",
+    "characters": [],
+    "source_span": {
+        "start_segment_id": "s0002",
+        "end_segment_id": "s0003",
+    },
+})
+assert beat.source_span.start_segment_id == "s0002"
 ```
 
-Use `JdbcTemplate` inserts with unique UUIDv7-backed rows and set:
+Also assert unknown numeric timing fields are rejected by `extra="forbid"`:
+
+```python
+with pytest.raises(ValidationError):
+    VisualBeatAnalysis.model_validate({..., "text_start": 123})
+```
+
+- [ ] **Step 2: Add a shared deterministic source-segment representation**
+
+Refactor the existing narration segmentation helpers instead of creating a second offset convention. Segment IDs must be deterministic by order (`s0001`, `s0002`, ...), and each segment carries UTF-16 half-open offsets computed using the existing `utf16_length/codepoint_to_utf16_offset` logic.
+
+- [ ] **Step 3: Update prompt construction**
+
+Send source material as an ordered list such as:
+
+```json
+[
+  {"id":"s0001","text":"Lâm bước vào căn phòng. "},
+  {"id":"s0002","text":"Anh nhìn thấy chiếc hộp trên bàn. "}
+]
+```
+
+Add exact instructions:
 
 ```text
-scene.order_index = 0
-scene.duration_seconds = 10
-first beat:  order_index=0, audio_start_ms=0,    audio_end_ms=4000
-second beat: order_index=1, audio_start_ms=4000, audio_end_ms=10000
-chapter.current_storyboard_revision_id = inserted revision
+Every Visual Beat must reference one contiguous SOURCE_SEGMENTS range.
+Never calculate or return character offsets or audio timestamps.
+Never invent segment IDs.
+start_segment_id and end_segment_id must exist in SOURCE_SEGMENTS.
+Visual Beat source ranges must preserve story order.
 ```
 
-- [ ] **Step 2: Run the test and verify the expected failure**
+Update `OUTPUT_SCHEMA` to include `source_span` only.
 
-Run:
+- [ ] **Step 4: Add Unicode regression coverage**
+
+Use Vietnamese text plus an astral Unicode character/emoji and assert segment offsets are UTF-16 units, not Python code-point counts.
+
+- [ ] **Step 5: Run worker unit checks**
 
 ```powershell
-cd app/backend-service
-./mvnw.cmd -Dtest=ProductionTimelineDraftSourceIntegrationTest#returnsCurrentStoryboardBeatsBeforeAnyMediaPlanExists test
+cd app/ai-worker
+pytest tests/test_prompting.py -q
+pytest -q
 ```
 
-Expected: FAIL because `findBeats` currently inner-joins `chapter_media_heads`, `generation_jobs`, `media_plans`, and `media_beat_plans`, producing zero rows.
+Expected: PASS.
 
-- [ ] **Step 3: Implement the planned-or-draft beat source CTE**
-
-Rewrite `findBeats` around these responsibilities:
-
-```sql
-WITH current_story AS (...),
-chapter_context AS (
-  SELECT c.id AS chapter_id,
-         c.order_index AS chapter_order_index,
-         c.current_storyboard_revision_id,
-         mp.id AS media_plan_id,
-         mp.revision AS media_plan_revision
-    FROM chapters c
-    JOIN current_story cs ON cs.id = c.story_version_id
-    LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-    LEFT JOIN generation_jobs gj
-      ON gj.id = cmh.generation_job_id AND gj.status = 'COMPLETED'
-    LEFT JOIN media_plans mp
-      ON mp.id = gj.media_plan_id
-     AND mp.revision = gj.media_plan_revision
-     AND mp.chapter_id = c.id
-     AND mp.chapter_row_version = c.row_version
-     AND mp.source_hash = c.source_hash
-     AND mp.storyboard_revision_id = c.current_storyboard_revision_id
-   WHERE c.deleted_at IS NULL
-),
-beat_sources AS (
-  SELECT cc.chapter_id,
-         cc.chapter_order_index,
-         cc.media_plan_id,
-         cc.media_plan_revision,
-         mbp.scene_index,
-         mbp.beat_index,
-         mbp.visual_beat_id,
-         COALESCE(vb.title, CONCAT('Beat ', mbp.beat_index + 1)) AS title,
-         mbp.visual_intent,
-         COALESCE(mbp.camera_movement, 'NONE') AS camera_movement,
-         mbp.asset_strategy,
-         mbp.audio_start_ms,
-         mbp.audio_end_ms,
-         mbp.audio_duration_ms
-    FROM chapter_context cc
-    JOIN media_beat_plans mbp ON mbp.media_plan_id = cc.media_plan_id
-    LEFT JOIN visual_beats vb ON vb.id = mbp.visual_beat_id
-
-  UNION ALL
-
-  SELECT cc.chapter_id,
-         cc.chapter_order_index,
-         NULL::uuid AS media_plan_id,
-         NULL::integer AS media_plan_revision,
-         s.order_index AS scene_index,
-         vb.order_index AS beat_index,
-         vb.id AS visual_beat_id,
-         vb.title,
-         vb.visual_intent,
-         COALESCE(vb.camera_movement, 'NONE') AS camera_movement,
-         'GENERATE_NEW' AS asset_strategy,
-         vb.audio_start_ms,
-         vb.audio_end_ms,
-         CASE
-           WHEN vb.audio_start_ms IS NOT NULL AND vb.audio_end_ms > vb.audio_start_ms
-             THEN vb.audio_end_ms - vb.audio_start_ms
-           ELSE NULL
-         END AS audio_duration_ms
-    FROM chapter_context cc
-    JOIN scenes s
-      ON s.chapter_id = cc.chapter_id
-     AND s.storyboard_revision_id = cc.current_storyboard_revision_id
-    JOIN visual_beats vb ON vb.scene_id = s.id
-)
-```
-
-At this red-green stage, leave the draft branch unguarded so the first no-plan contract becomes green; the precedence guard is introduced only after its failing test in Step 5. Keep the existing chosen-media lateral join, but correlate it with `beat_sources.visual_beat_id` so explicit uploads work before media planning. Keep the generated-media lateral join correlated by both `media_plan_id` and `visual_beat_id`; it naturally yields no row for draft beats. Preserve ordering by chapter, scene, and beat.
-
-- [ ] **Step 4: Run the focused integration test**
-
-Run the command from Step 2.
-
-Expected: PASS; both rows retain their Visual Beat IDs and exact audio spans while plan/media fields remain null.
-
-- [ ] **Step 5: Add precedence coverage for a current media plan**
-
-Add `usesCurrentMediaPlanRowsInsteadOfDuplicatingStoryboardFallback()` to the same test class. Insert a valid completed generation head/plan with two `media_beat_plans` for the same storyboard and assert exactly two rows—not four—and non-null `mediaPlanId/mediaPlanRevision`.
-
-- [ ] **Step 6: Run the precedence test red, add the exact CTE guard, then run green**
-
-Run:
+- [ ] **Step 6: Commit**
 
 ```powershell
-./mvnw.cmd -Dtest=ProductionTimelineDraftSourceIntegrationTest test
-```
-
-Expected before the guard: FAIL with duplicate planned and draft rows. Add `WHERE cc.media_plan_id IS NULL` to the draft half of `beat_sources`, rerun, and expect PASS with only planned rows.
-
-- [ ] **Step 7: Commit the repository behavior**
-
-```powershell
-git add app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml app/backend-service/src/test/java/com/narrativex/backend/feature/generation/infrastructure/persistence/ProductionTimelineDraftSourceIntegrationTest.java
-git commit -m "feat(backend): expose draft storyboard beats on production timeline"
+git add app/ai-worker/src/narrativex_worker/schema.py app/ai-worker/src/narrativex_worker/prompting.py app/ai-worker/src/narrativex_worker/narration/segmenter.py app/ai-worker/tests
+git commit -m "feat(worker): ground visual beats in source segments"
 ```
 
 ---
 
-### Task 2: Preserve draft timing while keeping render admission closed
+### Task 2: Materialize exact UTF-16 source spans on Visual Beats
 
 **Files:**
-
-- Modify: `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/infrastructure/persistence/ProductionTimelineDraftSourceIntegrationTest.java`
-- Modify: `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/application/usecase/GetProductionTimelineUseCaseTest.java`
-- Modify: `app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml:92`
+- Modify: `app/ai-worker/src/narrativex_worker/materialization/storyboard.py`
+- Test: add/update storyboard materialization tests under `app/ai-worker/tests/`
 
 **Interfaces:**
+- Consumes AI `source_span` segment IDs plus the exact `claimed.request.source_text` snapshot.
+- Produces non-null `visual_beats.text_start/text_end` for every successfully materialized analyzed beat.
+- Leaves `audio_start_ms/audio_end_ms` null unless a separate reconciliation step has authoritative narration alignment.
 
-- Consumes: nullable-plan `BeatSource` rows created in Task 1.
-- Produces: `ProductionTimelineView` with visible draft beats, exact aligned spans where complete, `chapter.readyForRender=false`, and `timeline.readyForRender=false`.
+- [ ] **Step 1: Write failing source-span materialization tests**
 
-- [ ] **Step 1: Extend the integration test with failing draft chapter-count assertions**
+For two beats referencing adjacent source ranges, assert persisted rows contain deterministic UTF-16 offsets and preserve `[start,end)` ordering.
 
-In `returnsCurrentStoryboardBeatsBeforeAnyMediaPlanExists()`, call `mapper.findChapters(...)` and assert:
+- [ ] **Step 2: Add strict source-span validation**
 
-```java
-assertThat(mapper.findChapters(fixture.projectId(), "draft-timeline-owner"))
-    .singleElement()
-    .satisfies(chapter -> {
-      assertThat(chapter.getMediaPlanId()).isNull();
-      assertThat(chapter.getBeatCount()).isEqualTo(2);
-      assertThat(chapter.getReadyBeatCount()).isZero();
-    });
+Reject analysis materialization when:
+
+```text
+segment ID is unknown
+end segment precedes start segment
+beat ranges move backward in source order
+resolved end <= resolved start
+resolved end exceeds UTF-16 source length
 ```
 
-- [ ] **Step 2: Run the integration test and verify the count failure**
+Do not repair these cases by guessing.
 
-Run:
+- [ ] **Step 3: Persist text offsets**
+
+Extend the `visual_beats` insert to include `text_start,text_end`. Keep `aspect_ratio_override`, `quality_tier_override`, `audio_start_ms`, and `audio_end_ms` untouched/null at this stage.
+
+- [ ] **Step 4: Preserve stale-source protection**
+
+The existing storyboard revision `source_hash` and `source_row_version` checks remain mandatory. A source span is valid only for the exact source snapshot that produced it.
+
+- [ ] **Step 5: Run materialization tests**
+
+```powershell
+cd app/ai-worker
+pytest -q
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```powershell
+git add app/ai-worker/src/narrativex_worker/materialization/storyboard.py app/ai-worker/tests
+git commit -m "feat(worker): persist visual beat source spans"
+```
+
+---
+
+### Task 3: Reconcile Visual Beat source spans onto real narration time
+
+**Files:**
+- Create: `app/ai-worker/src/narrativex_worker/timing/visual_beat.py`
+- Modify: `app/ai-worker/src/narrativex_worker/narration/repository/completion.py`
+- Test: create `app/ai-worker/tests/test_visual_beat_timing.py`
+- Test: update narration completion PostgreSQL tests where appropriate
+
+**Interfaces:**
+- Consumes persisted beat `[text_start,text_end)` and `AlignmentSpan(text_start,text_end,audio_start_ms,audio_end_ms)` values.
+- Produces local chapter `[audio_start_ms,audio_end_ms)` for each beat.
+- Reconciliation is deterministic and idempotent for `(chapter source hash, storyboard revision, narration alignment)`.
+
+- [ ] **Step 1: Write pure interpolation tests**
+
+Example:
+
+```python
+span = AlignmentSpan(index=0, text_start=0, text_end=200, audio_start_ms=0, audio_end_ms=6000)
+assert project_text_offset_to_audio_ms(80, span) == 2400
+```
+
+Cover exact boundaries, multi-span beats, zero-width/invalid spans, Unicode-independent numeric offsets, and clamping to the narration duration.
+
+- [ ] **Step 2: Define interpolation rules**
+
+Within one alignment span:
+
+```text
+ratio = (text_offset - span.text_start) / (span.text_end - span.text_start)
+audio = span.audio_start_ms + ratio * (span.audio_end_ms - span.audio_start_ms)
+```
+
+For a beat crossing alignment spans, derive its start from the span containing/intersecting `text_start` and its end from the span containing/intersecting `text_end`. Round deterministically to integer milliseconds.
+
+- [ ] **Step 3: Normalize the complete ordered beat sequence**
+
+For an aligned chapter, enforce:
+
+```text
+first audio_start_ms = 0
+beat[i].audio_end_ms = beat[i+1].audio_start_ms
+last audio_end_ms = narration duration
+all beat durations > 0
+all values monotonic and within [0, narration duration]
+```
+
+Use semantic beat/source boundaries to determine interior boundaries; normalization removes rounding gaps/overlaps only. Do not redistribute all beats uniformly.
+
+- [ ] **Step 4: Add a stale/incompatible-alignment guard**
+
+Reconcile only when narration alignment `source_hash` matches the current chapter/storyboard source snapshot. If it does not match, leave beat audio offsets null and surface the incompatibility through existing job/error diagnostics rather than writing stale timing.
+
+- [ ] **Step 5: Trigger reconciliation after narration completion**
+
+After the narration asset and `narration_alignments` row are durably inserted inside the same transaction, resolve the chapter's current storyboard revision and update all beats that have valid text spans.
+
+The operation must also work idempotently on retry. The existing idempotent-completion branch must ensure timing is already reconciled or invoke the same reconciliation helper before returning.
+
+- [ ] **Step 6: Cover the reverse order**
+
+Add a materialization-side hook or reusable repository function so this also works when narration already exists before Chapter analysis completes:
+
+```text
+Audio first -> analysis later -> materialize text spans -> find compatible current alignment -> reconcile.
+Analysis first -> audio later -> narration completion -> reconcile.
+```
+
+- [ ] **Step 7: Run worker tests**
+
+```powershell
+cd app/ai-worker
+pytest -q
+ruff check .
+```
+
+Run the repository's configured type-check command as well.
+
+- [ ] **Step 8: Commit**
+
+```powershell
+git add app/ai-worker/src/narrativex_worker/timing app/ai-worker/src/narrativex_worker/narration/repository/completion.py app/ai-worker/src/narrativex_worker/materialization/storyboard.py app/ai-worker/tests
+git commit -m "feat(worker): reconcile visual beats to narration time"
+```
+
+---
+
+### Task 4: Expose current storyboard beats before a MediaPlan exists
+
+**Files:**
+- Create: `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/infrastructure/persistence/ProductionTimelineDraftSourceIntegrationTest.java`
+- Modify: `app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml`
+- Modify: `app/backend-service/src/test/java/com/narrativex/backend/feature/generation/application/usecase/GetProductionTimelineUseCaseTest.java`
+
+**Interfaces:**
+- Consumes current storyboard Visual Beats with nullable plan/media/timing fields.
+- Produces production-timeline rows for draft beats when no valid current MediaPlan exists.
+- Planned rows always supersede draft rows.
+
+- [ ] **Step 1: Write PostgreSQL tests for SOURCE_ONLY draft beats**
+
+Insert a current storyboard with two beats that have `text_start/text_end` but null `audio_start_ms/audio_end_ms`; assert `findBeats` returns both Visual Beat identities instead of zero rows.
+
+- [ ] **Step 2: Write PostgreSQL tests for ALIGNED draft beats**
+
+Set exact spans `[0,4000]` and `[4000,10000]`; assert the mapper preserves them exactly.
+
+- [ ] **Step 3: Implement planned-or-draft CTE**
+
+Use the current completed MediaPlan when valid. Otherwise join `chapters.current_storyboard_revision_id -> scenes -> visual_beats`. Keep explicit selected-media lookup available for draft beats. Add `WHERE cc.media_plan_id IS NULL` to the draft half to prevent duplicate planned/draft rows.
+
+- [ ] **Step 4: Add draft chapter counts**
+
+`beatCount` must count current storyboard beats when there is no MediaPlan. `readyBeatCount` may count explicit valid media selections, but render admission remains false without a plan.
+
+- [ ] **Step 5: Keep render admission closed**
+
+Add application tests proving draft beats can be visible/selectable while `chapter.readyForRender=false` and `timeline.readyForRender=false`.
+
+- [ ] **Step 6: Remove misleading exact-timing fallback semantics**
+
+Current `GetProductionTimelineUseCase.planBeatTiming()` may evenly/weight-distribute beats when exact aligned clock is incomplete. Preserve that only as a clearly provisional display fallback if required for geometry; do not treat generated positions as narration alignment.
+
+Preferred contract: add an explicit beat/timeline timing state such as:
+
+```text
+SOURCE_ONLY / PROVISIONAL / ALIGNED / PLANNED
+```
+
+If the public contract is extended, update `ProductionTimelineView`, `packages/client-contracts/src/production.ts`, mapping code and tests together.
+
+- [ ] **Step 7: Run backend tests**
 
 ```powershell
 cd app/backend-service
-./mvnw.cmd -Dtest=ProductionTimelineDraftSourceIntegrationTest#returnsCurrentStoryboardBeatsBeforeAnyMediaPlanExists test
-```
-
-Expected: FAIL because `findChapters` currently obtains `beat_count` only from `media_beat_plans`.
-
-- [ ] **Step 3: Add storyboard fallback counts to `findChapters`**
-
-Add a lateral aggregate restricted to `c.current_storyboard_revision_id`:
-
-```sql
-LEFT JOIN LATERAL (
-  SELECT COUNT(*)::int AS beat_count,
-         COUNT(*) FILTER (
-           WHERE EXISTS (
-             SELECT 1
-               FROM production_beat_media_selections pbms
-               JOIN media_assets ma ON ma.id = pbms.media_asset_id
-              WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-                AND pbms.visual_beat_id = vb.id
-                AND ma.status = 'READY'
-                AND ma.deleted_at IS NULL
-                AND ma.asset_type IN ('IMAGE', 'VIDEO')
-                AND ma.size_bytes > 0
-                AND ma.sha256 IS NOT NULL
-           )
-         )::int AS ready_beat_count
-    FROM scenes s
-    JOIN visual_beats vb ON vb.scene_id = s.id
-   WHERE s.chapter_id = c.id
-     AND s.storyboard_revision_id = c.current_storyboard_revision_id
-) storyboard_counts ON mp.id IS NULL
-```
-
-Select `COALESCE(plan_counts.beat_count, storyboard_counts.beat_count, 0)` and the corresponding ready count. The plan aggregate still wins when `mp.id` is non-null.
-
-- [ ] **Step 4: Run the focused integration test green**
-
-Run the Step 2 command.
-
-Expected: PASS with `beatCount=2`, `readyBeatCount=0`, and no media plan.
-
-- [ ] **Step 5: Add an application-layer contract test for draft beats**
-
-Add `showsAlignedDraftBeatsButDoesNotAdmitRender()` using a `ChapterSource` with `mediaPlanId=null`, `mediaPlanRevision=null`, audio duration `10_000`, and two `BeatSource` rows with null plan/media fields and aligned spans `[0, 4_000]`, `[4_000, 10_000]`.
-
-Assert:
-
-```java
-assertThat(timeline.beats())
-    .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.assetReady()))
-    .containsExactly(List.of(0L, 4_000L, false), List.of(4_000L, 10_000L, false));
-assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
-assertThat(timeline.readyForRender()).isFalse();
-```
-
-This is a semantic regression test for the generic timing code; no production change is expected if Task 1 supplies correct rows.
-
-- [ ] **Step 6: Run backend timeline tests**
-
-Run:
-
-```powershell
 ./mvnw.cmd -Dtest=GetProductionTimelineUseCaseTest,GetProductionTimelineAlignedTimingTest,ProductionTimelineDraftSourceIntegrationTest test
 ```
 
-Expected: PASS, including existing media-plan timing/render-ready cases.
+Expected: PASS.
 
-- [ ] **Step 7: Commit draft timing and count semantics**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml app/backend-service/src/test/java/com/narrativex/backend/feature/generation/application/usecase/GetProductionTimelineUseCaseTest.java app/backend-service/src/test/java/com/narrativex/backend/feature/generation/infrastructure/persistence/ProductionTimelineDraftSourceIntegrationTest.java
-git commit -m "test(backend): lock draft beat timing and render admission"
+git add app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml app/backend-service/src/main/java/com/narrativex/backend/feature/generation app/backend-service/src/test packages/client-contracts/src/production.ts
+git commit -m "feat(backend): expose timed draft storyboard beats"
 ```
 
 ---
 
-### Task 3: Make narration audio the Desktop playhead authority
+### Task 5: Make narration audio the Desktop playhead authority
 
 **Files:**
-
-- Modify: `app/desktop/test/preview-playback.test.mjs`
 - Modify: `app/desktop/src/renderer/features/editor/preview-playback.ts`
+- Modify: `app/desktop/test/preview-playback.test.mjs`
 - Modify: `app/desktop/src/renderer/features/editor/components/EditorPlaybackSurface.tsx`
 - Modify: `app/desktop/src/renderer/features/editor/components/EditorPreviewViewport.tsx`
 
 **Interfaces:**
+- Produces `narrationPlayheadMs(currentTimeSeconds, chapterStartMs, chapterEndMs): number`.
+- Produces `advanceFallbackPlayhead(currentMs, elapsedMs, scopeStartMs, scopeEndMs): number` for scopes with no real narration URL only.
+- Real audio load/play failure stops playback; it must not silently switch to simulated success.
 
-- Produces: `narrationPlayheadMs(currentTimeSeconds, chapterStartMs, chapterEndMs): number`.
-- Produces: `advanceFallbackPlayhead(currentMs, elapsedMs, scopeStartMs, scopeEndMs): number`.
-- `EditorPreviewViewport` emits `onNarrationClock(globalMs)`, `onNarrationEnded(globalMs)`, and `onNarrationError(message)`.
-- `EditorPlaybackSurface` keeps `playheadMs/playing` authoritative for timeline and selection, but consumes audio clock events whenever `narrationUrl` exists.
-
-- [ ] **Step 1: Write failing pure clock tests**
-
-Add:
+- [ ] **Step 1: Add pure clock tests**
 
 ```javascript
-test("narration audio time maps to the global project clock", () => {
+test("narration audio time maps to global project clock", () => {
   assert.equal(narrationPlayheadMs(2.5, 10_000, 20_000), 12_500);
   assert.equal(narrationPlayheadMs(12, 10_000, 20_000), 20_000);
 });
-
-test("fallback clock advances only inside the selected scope", () => {
-  assert.equal(advanceFallbackPlayhead(1_000, 250, 0, 2_000), 1_250);
-  assert.equal(advanceFallbackPlayhead(1_900, 250, 0, 2_000), 2_000);
-});
 ```
 
-- [ ] **Step 2: Run the clock tests red**
+- [ ] **Step 2: Implement clamped audio-clock helpers**
 
-Run:
+Use real `HTMLAudioElement.currentTime` and map chapter-local seconds to global timeline milliseconds.
+
+- [ ] **Step 3: Wire `EditorPreviewViewport` audio events**
+
+Emit `onNarrationClock`, `onNarrationEnded`, and visible `onNarrationError`. Keep seek synchronization from global playhead back into `audio.currentTime`.
+
+- [ ] **Step 4: Disable periodic timer while narration URL is active**
+
+The timer is a no-audio fallback only. Do not run two competing clocks.
+
+- [ ] **Step 5: Run Desktop tests/type-check**
 
 ```powershell
 cd app/desktop
-node --experimental-strip-types --experimental-transform-types --test test/preview-playback.test.mjs
-```
-
-Expected: FAIL because both named exports are missing.
-
-- [ ] **Step 3: Implement the minimal pure helpers**
-
-Add:
-
-```typescript
-export function narrationPlayheadMs(
-  currentTimeSeconds: number,
-  chapterStartMs: number,
-  chapterEndMs: number,
-): number {
-  const localMs = Number.isFinite(currentTimeSeconds)
-    ? Math.round(Math.max(0, currentTimeSeconds) * 1000)
-    : 0;
-  return clamp(chapterStartMs + localMs, chapterStartMs, chapterEndMs);
-}
-
-export function advanceFallbackPlayhead(
-  currentMs: number,
-  elapsedMs: number,
-  scopeStartMs: number,
-  scopeEndMs: number,
-): number {
-  return clamp(currentMs + Math.max(0, elapsedMs), scopeStartMs, scopeEndMs);
-}
-```
-
-- [ ] **Step 4: Run the clock tests green**
-
-Run the Step 2 command.
-
-Expected: PASS.
-
-- [ ] **Step 5: Integrate the audio clock into `EditorPreviewViewport`**
-
-Extend props:
-
-```typescript
-onNarrationClock: (globalMs: number) => void;
-onNarrationEnded: (globalMs: number) => void;
-onNarrationError: (message: string) => void;
-```
-
-On the hidden `<audio>` element:
-
-```tsx
-onTimeUpdate={(event) => {
-  if (narrationStartMs == null || narrationEndMs == null) return;
-  onNarrationClock(
-    narrationPlayheadMs(event.currentTarget.currentTime, narrationStartMs, narrationEndMs),
-  );
-}}
-onEnded={() => {
-  if (narrationEndMs != null) onNarrationEnded(narrationEndMs);
-}}
-onError={() => {
-  setAudioFailed(true);
-  onNarrationError("Không thể phát narration audio của chapter này.");
-}}
-```
-
-Keep the synchronization effect that seeks audio after a user seek or chapter change. Replace swallowed `audio.play()` failures with:
-
-```typescript
-void audio.play().catch(() => {
-  setAudioFailed(true);
-  onNarrationError("Narration audio bị trình phát từ chối hoặc không thể tải.");
-});
-```
-
-- [ ] **Step 6: Integrate master/fallback selection in `EditorPlaybackSurface`**
-
-Change the timer effect so it runs only while `playing && !narrationUrl`. Use `performance.now()` deltas rather than assuming every interval is exactly 250 ms, call `advanceFallbackPlayhead`, and stop at `scopeWindowEndMs` instead of looping silently.
-
-Wire audio callbacks as follows:
-
-```typescript
-const handleNarrationClock = (globalMs: number) => {
-  setPlayheadMs(Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, globalMs)));
-};
-
-const handleNarrationEnded = (globalMs: number) => {
-  setPlayheadMs(globalMs);
-  if (globalMs >= scopeWindowEndMs) setPlaying(false);
-};
-
-const handleNarrationError = (message: string) => {
-  setPlaying(false);
-  setPlaybackMessage(message);
-};
-```
-
-Pass `playbackMessage` into the viewport and clear it on a new play attempt or narration URL change. Do not advance with the fallback timer after a real narration URL fails; the UI must show the error instead of simulating successful playback.
-
-- [ ] **Step 7: Run Desktop unit tests and type checking**
-
-Run:
-
-```powershell
 npm test
 npm run type-check
 ```
 
-Expected: both commands exit 0; clock helpers and component props type-check.
-
-- [ ] **Step 8: Commit audio-clock behavior**
+- [ ] **Step 6: Commit**
 
 ```powershell
-git add app/desktop/src/renderer/features/editor/preview-playback.ts app/desktop/src/renderer/features/editor/components/EditorPlaybackSurface.tsx app/desktop/src/renderer/features/editor/components/EditorPreviewViewport.tsx app/desktop/test/preview-playback.test.mjs
+git add app/desktop/src/renderer/features/editor app/desktop/test/preview-playback.test.mjs
 git commit -m "feat(desktop): drive editor playhead from narration audio"
 ```
 
 ---
 
-### Task 4: Show informative pending-media preview cards and clips
+### Task 6: Represent pending media and provisional/aligned timing honestly in UI
 
 **Files:**
-
 - Create: `app/desktop/src/renderer/features/editor/beat-presentation.ts`
 - Create: `app/desktop/test/beat-presentation.test.mjs`
-- Modify: `app/desktop/src/renderer/features/editor/components/EditorPreviewViewport.tsx:164`
-- Modify: `app/desktop/src/renderer/features/editor/components/EditorMultiTrackTimeline.tsx:151`
+- Modify: `app/desktop/src/renderer/features/editor/components/EditorPreviewViewport.tsx`
+- Modify: `app/desktop/src/renderer/features/editor/components/EditorMultiTrackTimeline.tsx`
 
 **Interfaces:**
+- Produces `BeatPresentation` from a `DesktopTimelineBeat`.
+- Separates media state (`PENDING_MEDIA/READY_MEDIA`) from timing state (`PROVISIONAL/ALIGNED/PLANNED`).
 
-- Produces: `beatPresentation(beat: DesktopTimelineBeat | null): BeatPresentation`.
-- `BeatPresentation` contains `state`, `eyebrow`, `title`, `description`, and `timeRange` only; media loading/error messages remain runtime UI state in `EditorPreviewViewport`.
+- [ ] **Step 1: Add presentation tests**
 
-- [ ] **Step 1: Write the failing presentation tests**
+Cover:
 
-Create:
-
-```javascript
-test("pending visual beat exposes descriptive preview copy and timing", () => {
-  const view = beatPresentation(beat({ mediaAssetId: null, assetReady: false }));
-  assert.deepEqual(view, {
-    state: "PENDING_MEDIA",
-    eyebrow: "CHỜ ẢNH",
-    title: "Cổng Vệ Sinh",
-    description: "Nhân vật đứng trước cánh cổng phát sáng.",
-    timeRange: "00:04.00 – 00:10.00",
-  });
-});
-
-test("ready beat is not labelled as waiting for an image", () => {
-  assert.equal(beatPresentation(beat({ mediaAssetId: "asset-1", assetReady: true })).state, "READY_MEDIA");
-});
+```text
+no image + aligned timing -> Chờ ảnh + exact time range
+no image + provisional timing -> Chờ ảnh + timing indicator “Ước tính”
+ready media + aligned timing -> Ready media without “Chờ ảnh”
 ```
 
-The fixture must use `startMs=4_000`, `endMs=10_000`, the Vietnamese title/intent above, and the complete `DesktopTimelineBeat` shape.
+- [ ] **Step 2: Implement view-model helper**
 
-- [ ] **Step 2: Run the presentation test red**
+Do not infer `ALIGNED` merely because `startMs/endMs` exist if those values came from fallback geometry; use the explicit timing state from the backend/client contract when added in Task 4.
 
-Run:
+- [ ] **Step 3: Render pending preview cards**
+
+Show title, visual intent, timing label and media status before image generation completes.
+
+- [ ] **Step 4: Preserve exact clip geometry for aligned/planned beats**
+
+For provisional beats, geometry may be displayed for navigation but must be visually distinct and must not claim exact narration synchronization.
+
+- [ ] **Step 5: Run Desktop checks**
 
 ```powershell
 cd app/desktop
-node --experimental-strip-types --experimental-transform-types --test test/beat-presentation.test.mjs
-```
-
-Expected: FAIL because `beat-presentation.ts` does not exist.
-
-- [ ] **Step 3: Implement the minimal presentation helper**
-
-Use this public shape:
-
-```typescript
-export interface BeatPresentation {
-  state: "EMPTY" | "PENDING_MEDIA" | "READY_MEDIA";
-  eyebrow: string;
-  title: string;
-  description: string;
-  timeRange: string;
-}
-```
-
-For a pending beat, choose `visualIntent` as description and fall back to `"Visual Beat đã có timing nhưng chưa có mô tả hình ảnh."`. Format `startMs/endMs` as `mm:ss.hh`. For a null beat, return `state="EMPTY"`; for an attached ready asset, return `state="READY_MEDIA"`.
-
-- [ ] **Step 4: Run the presentation test green**
-
-Run the Step 2 command.
-
-Expected: PASS.
-
-- [ ] **Step 5: Render the pending-media preview card**
-
-In `EditorPreviewViewport`, compute the presentation once and use it in the existing no-media branch:
-
-```tsx
-<span className="text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
-  {presentation.eyebrow}
-</span>
-<h3 className="mt-2 text-[24px] font-extrabold tracking-tight text-white">
-  {presentation.title}
-</h3>
-<p className="mt-2 font-mono text-[11px] text-text-muted">
-  {presentation.timeRange}
-</p>
-<p className="mt-2.5 max-w-xl text-[13px] leading-5 text-[#7d8b9e]">
-  {mediaFailed ? "Không tải được media preview. Render source vẫn được giữ nguyên." : previewMessage || presentation.description}
-</p>
-```
-
-Keep the existing background visual and loading state, but change the badge to `Chờ ảnh` for `PENDING_MEDIA`. Do not claim `Ready` solely from `assetReady` when the preview URL failed.
-
-- [ ] **Step 6: Distinguish pending clips without changing geometry**
-
-In `EditorMultiTrackTimeline`, derive the presentation for each beat. Continue calculating:
-
-```typescript
-const leftPercent = (beat.startMs / effectiveTotalMs) * 100;
-const widthPercent = (beat.durationMs / effectiveTotalMs) * 100;
-```
-
-For `PENDING_MEDIA`, use a dashed border and muted blue surface, include a compact `Chờ ảnh` label, and omit `LinkIcon`. For `READY_MEDIA`, preserve the existing solid clip and link icon. Both states remain selectable and seek to `beat.startMs`.
-
-- [ ] **Step 7: Run Desktop unit/type/build checks**
-
-Run:
-
-```powershell
 npm test
 npm run type-check
 npm run build
 ```
 
-Expected: all commands exit 0.
-
-- [ ] **Step 8: Commit the pending-media UI**
+- [ ] **Step 6: Commit**
 
 ```powershell
-git add app/desktop/src/renderer/features/editor/beat-presentation.ts app/desktop/src/renderer/features/editor/components/EditorPreviewViewport.tsx app/desktop/src/renderer/features/editor/components/EditorMultiTrackTimeline.tsx app/desktop/test/beat-presentation.test.mjs
-git commit -m "feat(desktop): preview visual beats before images exist"
+git add app/desktop/src/renderer/features/editor app/desktop/test packages/client-contracts/src/production.ts
+git commit -m "feat(desktop): distinguish provisional and aligned visual beats"
 ```
 
 ---
 
-### Task 5: Verify the complete user flow and update implementation-facing documentation
+### Task 7: Verify end-to-end timing lifecycle and update implementation-facing documentation
 
 **Files:**
-
 - Modify: `documentation/workflows/STORY_TO_VIDEO.md`
+- Modify: `documentation/workflows/NARRATION_AUDIO.md`
 - Modify: `documentation/TRACEABILITY.md`
 
 **Interfaces:**
+- Consumes Tasks 1-6.
+- Produces verified documentation that distinguishes intended contract from actually verified implementation.
 
-- Consumes: completed backend and Desktop behavior from Tasks 1–4.
-- Produces: verified Desktop evidence and documentation matching the current implementation.
+- [ ] **Step 1: Verify analysis-before-audio lifecycle**
 
-- [ ] **Step 1: Update workflow documentation**
+Create/analyze a chapter before narration exists and verify:
 
-Add these facts to the production-timeline section of `STORY_TO_VIDEO.md`:
-
-```markdown
-Before a current MediaPlan exists, the production-timeline read model exposes Visual Beats from the Chapter's current storyboard revision as non-renderable draft clips. Draft clips retain persisted audio alignment spans when available and may carry an explicit user-selected image/video, but they cannot satisfy render admission until a current immutable MediaPlan revision exists.
-
-Desktop preview playback uses the active narration element as the master clock. The timer clock is only a no-audio fallback; an audio load/play failure stops playback and is shown to the user.
+```text
+visual_beats.text_start/text_end are populated
+visual_beats.audio_start_ms/audio_end_ms are null
+UI may show beats as provisional/source-only
+readyForRender remains false
 ```
 
-Update the production-timeline row in `TRACEABILITY.md` to mention draft storyboard fallback, pending-media preview, and narration-clock verification.
+Then generate narration and verify the same beat rows gain monotonic audio spans covering the narration duration.
 
-- [ ] **Step 2: Run focused backend verification**
+- [ ] **Step 2: Verify audio-before-analysis lifecycle**
 
-Run:
+Create narration first, then analyze the exact same source snapshot. Verify storyboard materialization finds the compatible alignment and produces aligned beat timing without requiring narration regeneration.
+
+- [ ] **Step 3: Verify stale source behavior**
+
+Change chapter source after narration/alignment or analysis snapshot creation. Verify stale alignment is not applied to the new source and no stale timing is written.
+
+- [ ] **Step 4: Verify draft timeline without MediaPlan**
+
+Confirm current storyboard beats are visible, selectable and non-renderable. Aligned beats use exact persisted audio spans. Provisional beats are visibly marked as estimates if fallback geometry is shown.
+
+- [ ] **Step 5: Verify narration-master Desktop playback**
+
+Confirm:
+
+```text
+play starts audible narration
+playhead follows audio.currentTime
+beat selection changes at aligned boundaries
+seek updates audio.currentTime
+pause freezes both audio and playhead
+broken narration URL stops playback and surfaces an error
+```
+
+- [ ] **Step 6: Run focused automated verification**
 
 ```powershell
-cd app/backend-service
+cd app/ai-worker
+pytest -q
+
+cd ../backend-service
 ./mvnw.cmd -Dtest=GetProductionTimelineUseCaseTest,GetProductionTimelineAlignedTimingTest,ProductionTimelineDraftSourceIntegrationTest test
-```
 
-Expected: exit 0. If Docker is unavailable, record the Testcontainers test as skipped and do not claim PostgreSQL integration verification.
-
-- [ ] **Step 3: Run the full Desktop check**
-
-Run:
-
-```powershell
 cd ../desktop
 npm run check
 ```
 
-Expected: dependency lock, all Node tests, TypeScript checks, and Electron Vite build exit 0.
-
-- [ ] **Step 4: Start or reuse the Desktop development environment**
-
-Run:
-
-```powershell
-npm run dev
-```
-
-Keep the dev process running in its terminal session. Reuse an existing healthy Electron/Vite session instead when available.
-
-- [ ] **Step 5: Execute the actual editor flow with Desktop/browser automation**
-
-Open a project that has:
-
-```text
-completed chapter analysis
-current storyboard revision with at least two Visual Beats
-ready narration audio
-no MediaPlan and no image/video on at least one beat
-```
-
-Verify all of the following:
-
-```text
-1. Visual Beats track contains one clip per analyzed Visual Beat.
-2. Clip left edge and width match its API startMs/endMs.
-3. Pending clip is labelled "Chờ ảnh" and remains selectable.
-4. Preview shows title, visual intent, and time range without an image.
-5. Play starts audible narration and advances the playhead.
-6. The selected beat switches exactly when the playhead crosses a beat boundary.
-7. Seek updates audio.currentTime and playback resumes from the requested point.
-8. Pause freezes both audio and playhead.
-9. Crossing into the next chapter loads its narration and keeps the global clock monotonic.
-10. A broken narration URL stops playback and displays an error.
-11. Console has no uncaught errors; network panel has no unexpected failed API calls.
-12. No runtime mock/fake data source is active.
-```
-
-- [ ] **Step 6: Capture and inspect screenshot evidence**
-
-Capture at least:
-
-```text
-Screenshot A: pending Visual Beat selected, preview card visible, timeline clips visible.
-Screenshot B: playback inside a later beat, playhead and selected clip aligned.
-```
-
-Inspect horizontal overflow at 100% and 125% display scaling and verify the inspector/preview/timeline remain usable.
-
-- [ ] **Step 7: Run the repository-wide local gate**
-
-From the repository root:
+- [ ] **Step 7: Run repository-wide gate**
 
 ```powershell
 pwsh -File scripts/verify-local.ps1
 ```
 
-Expected: secret scan, backend verify/coverage/format, worker tests/lint/type checks, Desktop install/tests/type/build, and Compose validation all exit 0. If an unrelated pre-existing failure occurs, capture the exact command/output and separate it from feature status.
+Record unrelated pre-existing failures separately; do not claim verification that did not run.
 
-- [ ] **Step 8: Review the final diff against requirements**
+- [ ] **Step 8: Update docs as AS-IS only after verification**
 
-Run:
+`STORY_TO_VIDEO.md` must document the source-span -> alignment -> project-timeline chain. `NARRATION_AUDIO.md` must document Visual Beat reconciliation as a consumer of alignment. `TRACEABILITY.md` may be upgraded to `IMPLEMENTED foundation` only after the relevant worker/backend/Desktop tests pass; otherwise leave the feature `TARGET/PARTIAL` with a precise gap.
+
+- [ ] **Step 9: Commit docs**
 
 ```powershell
-git diff --check
-git diff -- app/backend-service/src/main/resources/mybatis/ProductionTimelineMapper.xml app/backend-service/src/test app/desktop/src/renderer/features/editor app/desktop/test documentation/workflows/STORY_TO_VIDEO.md documentation/TRACEABILITY.md
+git add documentation/workflows/STORY_TO_VIDEO.md documentation/workflows/NARRATION_AUDIO.md documentation/TRACEABILITY.md
+git commit -m "docs: define visual beat timing lifecycle"
 ```
 
-Confirm:
+---
+
+## Final Acceptance Criteria
 
 ```text
-draft beats visible without MediaPlan
-exact persisted alignment used when complete
-no render-readiness regression
-audio is master clock
-audio failures are visible
-pending preview card contains title/intent/time
-pending timeline clips preserve geometry and selection
-documentation describes AS-IS behavior only
-```
-
-- [ ] **Step 9: Commit verification-facing documentation**
-
-```powershell
-git add documentation/workflows/STORY_TO_VIDEO.md documentation/TRACEABILITY.md
-git commit -m "docs: describe draft timeline preview behavior"
+1. AI never returns text/audio numeric offsets.
+2. Every analyzed Visual Beat has deterministic UTF-16 text_start/text_end for its exact source snapshot.
+3. Narration alignment is the only source of exact beat audio timing before MediaPlan creation.
+4. audio_start_ms/audio_end_ms remain NULL until compatible alignment exists.
+5. Reconciliation works whether analysis or narration completes first.
+6. Stale source/alignment combinations never write timing.
+7. Draft storyboard beats are visible without a MediaPlan but never render-ready.
+8. Planned MediaPlan rows supersede draft rows.
+9. Desktop audio is the master playback clock whenever narration exists.
+10. UI distinguishes provisional timing from aligned/planned timing.
+11. Pending media does not hide a valid Visual Beat from the timeline.
+12. Project/global startMs/endMs are derived from chapter start plus local narration timing, not AI estimates.
 ```
