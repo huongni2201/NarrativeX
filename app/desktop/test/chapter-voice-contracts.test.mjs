@@ -6,6 +6,7 @@ import {
   audioGenerationBlockMessage,
   narrationVoiceName,
 } from "../src/renderer/features/chapters/model/chapter-ui.ts";
+import { narrationJobPath } from "../src/renderer/features/generation/api/narration.api.ts";
 import { filterVoices, playableSampleUrl } from "../src/renderer/features/voices/model/voice-filters.ts";
 
 const workspace = {
@@ -144,5 +145,16 @@ test("chapter audio title keeps the voice used by the generated narration", () =
   assert.equal(
     narrationVoiceName({ generatedVoiceId: "adam", voices }),
     "Adam",
+  );
+});
+
+test("chapter narration only forces regeneration for an existing ready audio", () => {
+  assert.equal(
+    narrationJobPath("project/a", { chapterId: "chapter/1", forceRegenerate: false }),
+    "/api/v1/projects/project%2Fa/chapters/chapter%2F1/narration-jobs",
+  );
+  assert.equal(
+    narrationJobPath("project/a", { chapterId: "chapter/1", forceRegenerate: true }),
+    "/api/v1/projects/project%2Fa/chapters/chapter%2F1/narration-jobs?forceRegenerate=true",
   );
 });
