@@ -43,7 +43,7 @@ test("a running Gemini queue restores paused after a renderer restart", () => {
   assert.equal(restoreQueueForSession(queue()).status, "PAUSED");
 });
 
-test("queue reconciliation removes deleted beats and advances to the first pending beat", () => {
+test("queue reconciliation removes deleted beats, advances, and pauses before continuing", () => {
   const reconciled = reconcileQueue(
     queue({ completedBeatIds: ["beat-1"], currentIndex: 1 }),
     new Set(["beat-1", "beat-3"]),
@@ -55,8 +55,13 @@ test("queue reconciliation removes deleted beats and advances to the first pendi
     completedBeatIds: ["beat-1"],
     skippedBeatIds: [],
     currentIndex: 1,
-    status: "RUNNING",
+    status: "PAUSED",
   });
+});
+
+test("queue reconciliation preserves identity when no beat changed", () => {
+  const state = queue({ status: "PAUSED" });
+  assert.equal(reconcileQueue(state, new Set(state.beatIds)), state);
 });
 
 test("completing and skipping beats advance serially and finish the queue", () => {
