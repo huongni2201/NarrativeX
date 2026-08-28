@@ -31,7 +31,15 @@ public record VisualBeatGeminiContextResponse(
               binding.contentType(),
               binding.sha256()));
     }
-    return new VisualBeatGeminiContextResponse(visualBeatId, composedPrompt.prompt(), references);
+    return new VisualBeatGeminiContextResponse(
+        visualBeatId, finalPrompt(composedPrompt), references);
+  }
+
+  private static String finalPrompt(ComposedVisualPrompt composedPrompt) {
+    String prompt = composedPrompt.prompt();
+    String negativePrompt = composedPrompt.negativePrompt();
+    if (negativePrompt == null || negativePrompt.isBlank()) return prompt;
+    return prompt + "\nAVOID: " + negativePrompt.trim();
   }
 
   public record ReferenceItem(
