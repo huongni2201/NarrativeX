@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { persistVoiceAudioAsset } from "../src/renderer/features/voices/queries/voice-media.mutations.ts";
+import { persistVoiceAudioAsset } from "../src/renderer/features/voices/model/voice-media-workflow.ts";
 
 const selection = {
   selectionToken: "selection-1",
