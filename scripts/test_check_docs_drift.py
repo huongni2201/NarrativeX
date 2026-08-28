@@ -27,9 +27,21 @@ class DocsDriftCheckerTest(unittest.TestCase):
         self.assertTrue(errors)
 
     def test_removed_drive_contract_is_forbidden_in_current_docs(self) -> None:
-        text = "Desktop final video is stored in Google Drive."
-        matches = [label for label, pattern in CHECKER.FORBIDDEN.items() if pattern.search(text)]
-        self.assertIn("removed Google Drive storage contract", matches)
+        errors = CHECKER.google_drive_invariant_errors(
+            Path("fixture.md"),
+            "Desktop final video is stored in Google Drive.",
+        )
+        self.assertEqual(
+            errors,
+            ["fixture.md: removed Google Drive storage contract"],
+        )
+
+    def test_explicit_google_drive_retirement_wording_is_allowed(self) -> None:
+        errors = CHECKER.google_drive_invariant_errors(
+            Path("fixture.md"),
+            "Google Drive is not part of the current NarrativeX final-video contract.",
+        )
+        self.assertEqual(errors, [])
 
     def test_removed_server_render_contract_is_forbidden_in_current_docs(self) -> None:
         text = "The render-worker uploads the final artifact."
