@@ -1,6 +1,16 @@
 -- NarrativeX pre-release baseline: query/access-path indexes and index-backed invariants.
 -- All referenced tables are created by V1-V5.
 
+-- Project-local generated media is a clean-baseline storage mode. R2-backed REMOTE/HYBRID
+-- remains reserved for account-owned voice-reference assets.
+ALTER TABLE media_assets DROP CONSTRAINT ck_media_assets_storage_mode;
+ALTER TABLE media_assets
+    ADD CONSTRAINT ck_media_assets_storage_mode CHECK (
+        (storage_mode IN ('REMOTE', 'HYBRID') AND storage_key IS NOT NULL)
+        OR (storage_mode = 'LOCAL_ONLY' AND storage_key IS NULL)
+        OR (storage_mode = 'PROJECT_LOCAL' AND storage_key IS NOT NULL)
+    );
+
 -- Local execution devices and desktop session runtime
 CREATE INDEX idx_local_device_pairing_codes_user
     ON local_device_pairing_codes (user_id, created_at DESC);
