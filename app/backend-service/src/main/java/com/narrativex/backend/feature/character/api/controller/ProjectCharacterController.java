@@ -6,8 +6,8 @@ import com.narrativex.backend.feature.character.api.response.ProjectCharacterAss
 import com.narrativex.backend.feature.character.api.response.ProjectCharacterDetailResponse;
 import com.narrativex.backend.feature.character.api.response.ProjectCharacterSummaryResponse;
 import com.narrativex.backend.feature.character.application.command.AssignCharacterToProjectCommand;
-import com.narrativex.backend.feature.character.application.port.out.CharacterIdentityPromptProvider;
 import com.narrativex.backend.feature.character.application.usecase.AssignCharacterToProjectUseCase;
+import com.narrativex.backend.feature.character.application.usecase.ComposeCharacterIdentityPromptUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetProjectCharacterDetailUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListProjectCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.PinCharacterVersionUseCase;
@@ -35,7 +35,7 @@ public class ProjectCharacterController {
   private final GetProjectCharacterDetailUseCase getProjectCharacterDetailUseCase;
   private final AssignCharacterToProjectUseCase assignCharacterToProjectUseCase;
   private final PinCharacterVersionUseCase pinCharacterVersionUseCase;
-  private final CharacterIdentityPromptProvider characterIdentityPromptProvider;
+  private final ComposeCharacterIdentityPromptUseCase composeCharacterIdentityPromptUseCase;
 
   @GetMapping
   public ResponseEntity<ApiResponse<CursorPage<ProjectCharacterSummaryResponse>>> list(
@@ -94,7 +94,7 @@ public class ProjectCharacterController {
   private ProjectCharacterDetailResponse detailResponse(UUID projectId, UUID characterId) {
     var model = getProjectCharacterDetailUseCase.execute(projectId, characterId);
     String prompt =
-        model.version() == null ? null : characterIdentityPromptProvider.promptFor(model);
+        model.version() == null ? null : composeCharacterIdentityPromptUseCase.execute(model);
     return ProjectCharacterDetailResponse.from(model, prompt);
   }
 }
