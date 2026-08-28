@@ -59,15 +59,25 @@ Current storage tooling includes project verification, storage accounting, compl
 
 ## Gemini Web image generation
 
-The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the serial `Gemini All` queue; it does not create an API media job or cost estimate. Electron main owns a visible Chrome profile and drives Gemini through local CDP. The user signs in manually when needed; NarrativeX never fills provider credentials.
+The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It uses the Storyboard single-beat Generate flow or serial `Gemini All` queue and does not create an API media job or backend cost estimate. Electron main owns a visible Chrome profile and drives Gemini through local CDP. The user signs in manually when needed; NarrativeX never fills provider credentials.
 
-The main process applies the locked Chinese romantic-fantasy manhua series style wrapper, treats the scene block as untrusted narrative input, waits for a full-size download, validates the image and SHA-256, then exposes only a short-lived sender-bound selection token to the renderer. The renderer registers asset metadata with the backend and asks main to commit bytes into ProjectStorage. `NARRATIVEX_CHROME_PATH` can override Chrome discovery.
+Current Gemini Web foundations include:
+
+- main-owned series style/prompt wrapper and untrusted scene-content boundary;
+- beat-scoped locked Character reference context for continuity;
+- visible Chrome/CDP automation and hardened full-size/network download handling;
+- checksum/image validation before local registration;
+- short-lived sender-bound selection tokens rather than renderer filesystem paths;
+- protected prompt copy through the typed preload-to-main clipboard capability.
+
+`NARRATIVEX_CHROME_PATH` can override Chrome discovery.
 
 ## Production timeline
 
 The editor consumes backend production timeline data and maintains supported local draft edits. Current foundations include:
 
-- narration-aligned beat timing;
+- immutable MediaPlan timing when a current production plan exists;
+- generic fallback timeline geometry when exact beat timing is incomplete;
 - explicit beat media selection/replace flow;
 - image/video-aware beat state;
 - probed source duration for imported audio/video;
@@ -76,14 +86,16 @@ The editor consumes backend production timeline data and maintains supported loc
 - typed undo/redo/reset command history;
 - render submission based on authoritative IDs/production choices rather than local machine paths.
 
+Current non-claim: draft storyboard fallback geometry is **not** equivalent to exact narration-aligned Visual Beat timing. Deterministic `text_start/text_end`, source-to-audio reconciliation and a fully verified narration-clock-authoritative draft preview remain active implementation work.
+
 ## Local rendering
 
-Electron main can execute final project renders with FFmpeg when project rendering is enabled. The backend owns the durable render job, input snapshot, assignment, lease and terminal state; Desktop owns local execution and artifact bytes.
+Electron main executes final project renders with FFmpeg when project rendering is enabled. The backend owns the durable render job, immutable input snapshot, assignment, lease and terminal state; Desktop owns local execution and artifact bytes.
 
 Current foundations include:
 
 - project/device-scoped render claims and leases;
-- narration as the master clock;
+- narration as the intended visual master clock for authoritative production timing;
 - aspect-ratio aware output;
 - FFmpeg/ffprobe discovery from configured, bundled or system paths;
 - preflight for runtime, executor, disk and local asset integrity;
@@ -130,21 +142,13 @@ npm run dev
 
 `npm run check` verifies dependency-lock expectations, tests, type checks and the production build. Exact dependency versions are authoritative in `package.json` / `package-lock.json` and the dependency verification scripts; a separate dependency-migration document is intentionally not maintained.
 
-For local Desktop development against the Docker backend, use the ignored
-`app/desktop/.env` file (copy `.env.example` if it does not exist) with
-`VITE_API_BASE_URL=http://localhost:8080`, then start the local Compose override
-from the repository root:
+For local Desktop development against the Docker backend, use the ignored `app/desktop/.env` file with `VITE_API_BASE_URL=http://localhost:8080`, then start the local Compose override from the repository root:
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.local.yml up -d --no-build
 ```
 
-The local override keeps the backend on the loopback origin and starts all worker
-processes in development mode without external provider execution. The narration
-worker uses a deterministic fake TTS adapter only in this local development mode;
-AI/image jobs remain disabled until the production GCP credential and VieNeu
-reference-audio files are mounted explicitly. Fake provider output must not be used
-as production health or production media.
+The local override keeps the backend on the loopback origin and starts configured worker processes in development mode. Fake provider output must not be treated as production health or production media.
 
 ## Windows packaging
 
@@ -156,6 +160,8 @@ npm run package:win
 
 Production release work still needs full signing/upgrade/auto-update and packaged OAuth/protocol validation. See `../../documentation/product/ROADMAP.md`.
 
-## Architecture rule
+## Documentation and architecture rule
 
 `app/desktop` is the only supported editor client. Do not recreate a parallel browser editor without an explicit ADR. Native filesystem integration and local final FFmpeg execution belong in Electron main, never unrestricted renderer code.
+
+For current product status, use `../../documentation/TRACEABILITY.md` and `../../documentation/product/ROADMAP.md`; implementation plans under `../../docs/superpowers/plans/` are non-authoritative until implemented and verified.
