@@ -139,7 +139,7 @@ export function useCharacterReferenceActions(
       await charactersApi.lockVersion(characterId, versionId);
       return charactersApi.pinVersion(projectId, characterId, versionId);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
 
   return { createVersion, generateIdentity, importIdentity, review, pin, lockAndPin };
