@@ -1,4 +1,4 @@
-# NarrativeX Data Flow and Durability Model — V1.12
+# NarrativeX Data Flow and Durability Model — V1.11
 
 PostgreSQL state, not renderer memory, delivery hints or process memory, determines durable NarrativeX business/execution truth. Desktop project bytes are local-first but durable ownership/policy/job identity remains backend-owned.
 
@@ -8,19 +8,20 @@ PostgreSQL state, not renderer memory, delivery hints or process memory, determi
 |---|---|---|
 | Guest/account identity and ownership | PostgreSQL | stable installation guest + Google-linked accounts |
 | Server session | PostgreSQL via Spring Session JDBC | restart-safe server-managed session state |
-| Desktop OAuth handoff | PostgreSQL | 90-second, hash-only, PKCE-bound, atomically single-use |
+| Desktop OAuth handoff | PostgreSQL | short-lived, hash-only, PKCE-bound, atomically single-use |
 | Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
 | GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | worker claims and lifecycle truth |
 | Generation status delivery | authenticated SSE + Desktop watchdog GET | best-effort transport; PostgreSQL job rows remain authoritative |
-| Queue discovery | PostgreSQL polling/claim SQL | durable source; no broker or notification dependency |
+| Queue discovery | PostgreSQL polling/claim SQL | durable source; no broker/notification dependency |
 | MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
-| Production beat media selection | PostgreSQL | explicit editor choice is part of the consolidated V1 schema |
-| Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
-| Render subtitle snapshot | PostgreSQL render input chapter snapshot | immutable source text + alignment spans used by local SRT generation |
-| Desktop project byte locations | local `project.manifest.json` | relative paths + size/SHA-256; not domain authority |
+| Production beat media selection | PostgreSQL | explicit editor choice is durable production state |
+| Narration asset/alignment metadata | PostgreSQL | source hashes/fingerprints pin inputs |
+| VisualBeat exact source/audio timing | PostgreSQL once materialized/reconciled | TARGET/PARTIAL at audited checkpoint; nullable schema columns alone are not implementation evidence |
+| Render subtitle snapshot | PostgreSQL render input snapshot | immutable source text + alignment spans used by local SRT generation |
+| Desktop project byte locations | local `project.manifest.json` | project-relative paths + size/SHA-256; not domain authority |
 | Desktop render journal/cache | local project work storage | recovery/performance aid, not backend business authority |
 | Desktop final MP4 bytes | local project `artifacts/` | backend stores metadata only |
-| AI-generated remote media | Cloudflare R2 | transport/durability before Desktop materialization |
+| AI-generated remote media | Cloudflare R2 | transport/durability before Desktop materialization when required |
 | Guest installation secret | Electron secure storage | backend stores only hash |
 | Local-execution device credential | Electron protected storage | machine credential, not user session |
 
@@ -31,15 +32,14 @@ Redis is not required by the MVP runtime.
 ```text
 Desktop confirms deletion
   -> DELETE /api/v1/projects/{projectId}
-  -> backend locks the owner-scoped Project row
+  -> backend locks owner-scoped Project row
   -> Project transitions to ARCHIVED with archived_at
   -> active project queries no longer return it
-  -> Desktop marks the local catalog entry ORPHANED
+  -> Desktop marks local catalog entry ORPHANED
   -> local project bytes remain available for recovery/backup
 ```
 
-PostgreSQL remains authoritative for the project lifecycle. Deleting a project does not
-recursively delete shared Characters or machine-local project bytes.
+PostgreSQL remains authoritative for Project lifecycle. Deleting a Project does not recursively delete shared Characters or machine-local project bytes.
 
 ## Guest-first session flow
 
@@ -83,28 +83,42 @@ persisted Chapter
   -> worker polls/claims GenerationJob from PostgreSQL
   -> lease/heartbeat
   -> ProviderOperation where applicable
-  -> validated result
+  -> validated structured result
   -> stale-snapshot re-check
-  -> continuity/storyboard materialization
+  -> Character/Location/Scene/VisualBeat materialization
 ```
+
+Current materialization includes richer source-grounded Character profile/appearance state and beat-specific Character participation. VisualBeat numeric source/audio timing is not yet fully materialized by this flow.
 
 ## Narration
 
 ```text
 TTS
   -> provider/local inference
-  -> validate
-  -> alignment
+  -> validate/normalize
+  -> durable narration asset
+  -> source-hash-bound alignment spans
   -> Desktop materialization before local editing/rendering
 
 USER_PROVIDED_AUDIO
-  -> native import/register
-  -> one logical global clock
-  -> alignment
+  -> native import/register foundations
+  -> one logical audio clock/alignment
   -> no TTS for covered scope
 ```
 
-Narration alignment is the production timing authority.
+Compatible real narration alignment is the intended visual timing authority. Persistence of narration alignment does not automatically mean VisualBeat timing has been reconciled.
+
+Approved target bridge:
+
+```text
+VisualBeat semantic source span
+  -> deterministic UTF-16 text_start/text_end
+  -> compatible narration alignment
+  -> deterministic audio_start_ms/audio_end_ms
+  -> project timeline startMs/endMs
+```
+
+At the audited checkpoint the first and second numeric steps above remain TARGET/PARTIAL for storyboard beats.
 
 ## Image generation
 
@@ -124,21 +138,26 @@ R2 may hold generated media while provider/worker execution needs a remote durab
 
 ```text
 Chapter selects GEMINI_WEB
-  -> no API media job/cost estimate; Storyboard is the generation entry point
-  -> Electron renderer requests typed Gemini Web capability
+  -> no API media job/cost estimate; Storyboard is generation entry point
+  -> renderer resolves VisualBeat + locked Character reference context
   -> Electron main starts/reuses visible Chrome with dedicated profile + CDP
   -> user signs in to Gemini in that Chrome window when required
-  -> main applies the locked manhua series prompt wrapper around untrusted scene text
-  -> fresh conversation + Images mode + one Visual Beat prompt
-  -> wait for generated image and download full-size result
-  -> validate supported image type/non-empty file + SHA-256
+  -> main attaches reference files in deterministic REF order
+  -> main applies locked series prompt wrapper around untrusted scene text/reference map
+  -> capture pre-submit DOM/network baseline
+  -> submit one VisualBeat prompt
+  -> detect fresh generated DOM image
+  -> correlate fresh image/* network response
+  -> CDP Network.getResponseBody as primary byte path
+  -> visible Download control only as fallback
+  -> validate supported image type/size + SHA-256
   -> create sender-bound single-use selection token
   -> backend registers LOCAL_ONLY asset metadata
   -> Electron main commits staged bytes to ProjectStorage
   -> production beat-media selection points to the new asset
 ```
 
-`Gemini All` is a renderer-owned, project/chapter-keyed serial queue with resume/skip/stop controls. It is not a durable backend queue and stopping it does not necessarily cancel a generation already running in Chrome. The renderer copies prompts through the typed preload bridge to Electron main; it does not call the browser clipboard API directly.
+`Gemini All` is a renderer-owned project/chapter-keyed serial queue with resume/skip/stop controls. It is not a durable backend queue and stopping it does not necessarily cancel a generation already running in Chrome. The renderer copies prompts through the typed preload bridge to Electron main; it does not call the browser clipboard API directly.
 
 ## Native local import
 
@@ -155,8 +174,21 @@ An arbitrary absolute local path does not cross into durable backend domain stat
 
 ## Production timeline
 
+Current timing precedence:
+
 ```text
-storyboard + narration alignment + media assets
+current valid MediaPlan
+  -> immutable planned timing wins
+
+otherwise incomplete storyboard/timing state
+  -> generic fallback geometry may keep timeline representable
+  -> fallback is NOT exact narration alignment
+```
+
+Approved target draft flow adds deterministic VisualBeat source/audio reconciliation before exact storyboard timing is called `ALIGNED`.
+
+```text
+storyboard + production media state + available timing
   -> backend production timeline read
   -> persisted beat media selections
   -> renderer draft edits / Auto Edit plan
@@ -192,13 +224,13 @@ Lease loss prevents success. In-process cancellation and unfinished-journal disc
 
 ```text
 backend durable job update
-  -> owner-scoped `/api/v1/generation-jobs/{jobId}/events` snapshot
+  -> owner-scoped /api/v1/generation-jobs/{jobId}/events snapshot
   -> Electron main authenticated SSE bridge
   -> renderer React Query cache update
-  -> terminal snapshot closes the stream
+  -> terminal snapshot closes stream
 ```
 
-Desktop reconnects the stream when needed and keeps a 15-second GET watchdog while a job is active. SSE delivery is not the queue or durable status authority; a missed event is recovered from PostgreSQL through the normal job query.
+Desktop reconnects the stream when needed and keeps a slow GET watchdog while a job is active. SSE delivery is not the queue or durable status authority; a missed event is recovered from PostgreSQL through the normal job query.
 
 ## Backup/restore data flow
 
@@ -210,10 +242,11 @@ active project workspace
   -> verify restored manifest/files before normal use
 ```
 
-Backup snapshots are local file durability tools; backend domain ownership still comes from PostgreSQL.
+Backup snapshots are local file-durability tools; backend domain ownership still comes from PostgreSQL.
 
 ## Current gaps
 
+- exact VisualBeat source-span/narration-timing reconciliation and draft audio-clock preview;
 - full stage-by-stage crash/restart recovery UX and long-form soak validation;
 - adaptive narration-driven VisualScenePlanner/review;
 - richer media reuse/reframe/edit lineage;
