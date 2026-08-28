@@ -26,21 +26,36 @@ persisted source
   -> concatenate/encode
   -> validate + SHA-256
   -> alignment
-  -> remote generated-media transport when required
-  -> Desktop materialization for local use
+  -> local project media store
 ```
 
 Local/self-hosted inference may have no external provider charge while still consuming application compute/quota policy.
 
 ## Desktop generated-audio workflow
 
-Current Desktop foundations include voice selection/preview, custom voice-reference upload, single/batch narration requests, progress/error handling, active-job recovery after reload and local materialization of accepted narration results used by the project. Preview results are returned through an expiring URL and are not the durable project audio artifact.
+Current Desktop foundations include voice selection/preview, custom voice-reference upload, single/batch narration requests, progress/error handling, active-job recovery after reload and local project-media consumption. Preview results are temporary and are not the durable project audio artifact.
 
 The Chapter Workspace response also carries the voice ID from the latest persisted narration request. Desktop uses that ID to label the generated audio player, so changing the voice selector for a future generation does not rename an existing narration.
 
-The preview contract is asynchronous: Desktop submits `POST /api/v1/projects/{projectId}/voice-preview-jobs`, observes the job through the shared generation status stream, then reads `GET /api/v1/projects/{projectId}/voice-preview-jobs/{jobId}/result`. The backend returns a signed/temporary result URL with an expiry and duration metadata. Uploaded references remain subject to ownership, readiness and voice-capability checks.
+The preview contract is asynchronous: Desktop submits `POST /api/v1/projects/{projectId}/voice-preview-jobs`, observes the job through the shared generation status stream, then reads `GET /api/v1/projects/{projectId}/voice-preview-jobs/{jobId}/result`. Uploaded custom voice references are account-owned R2 assets and remain subject to ownership, readiness and voice-capability checks.
 
-Generated/project narration bytes used by final rendering live under the project workspace and are referenced through stable backend identity plus manifest integrity metadata. Absolute paths remain inside Electron main.
+Generated/project narration bytes used by final rendering live on the local machine under the configured project-media root and are referenced through stable backend identity plus integrity metadata. PostgreSQL stores logical keys and metadata, never host/container absolute paths.
+
+## Custom voice reference storage
+
+Custom voice references are reusable account assets rather than project working media.
+
+```text
+Desktop native picker (MP3/WAV)
+  -> checksum + authenticated voice-reference upload intent
+  -> account-scoped R2 key: voices/<account>/...
+  -> durable voice-reference validation
+  -> READY account asset
+  -> narration worker downloads only when selected
+  -> temporary WAV enrollment for VieNeu
+```
+
+R2 is reserved for these account-owned voice-reference/custom-voice files. Generated narration, generated images, imported project media and final render artifacts do not use R2.
 
 ## User-provided audio import
 
@@ -55,7 +70,7 @@ Electron native picker
   -> narration/alignment metadata
 ```
 
-Do not upload project audio to R2 solely so local FFmpeg can consume it. R2 is only for generated-media transport when remote provider/worker execution requires it.
+Do not upload project audio to R2 solely so local FFmpeg can consume it.
 
 ## Logical audio clock
 
@@ -101,13 +116,16 @@ For a `USER_PROVIDED_AUDIO` covered scope:
 ## Storage contract
 
 ```text
-AI-generated narration transport -> R2 only while remote durability is needed
-Generated narration              -> local project assets/audio after materialization
-Accepted imported audio          -> local project assets/audio
-Generated/imported media         -> local project assets
+Custom voice/reference audio      -> account-scoped R2
+Generated narration              -> local project media
+Accepted imported audio          -> local project media
+Generated/imported images/video  -> local project media
+Character/portrait media         -> local project media
 Final MP4                        -> local project artifacts
 Metadata/job/artifact state      -> PostgreSQL
 ```
+
+There is no project-media R2 fallback, dual write or legacy R2 read path in the pre-deployment hard cutover.
 
 ## Operational diagnostics
 
