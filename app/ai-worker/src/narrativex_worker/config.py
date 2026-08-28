@@ -173,6 +173,16 @@ class WorkerSettings(BaseSettings):
     def has_worker_role(self, role: str) -> bool:
         return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
 
+    @property
+    def media_storage_mode(self) -> Literal["local"]:
+        """Compatibility view for old worker internals; project media is hard-wired local."""
+        return "local"
+
+    @property
+    def media_local_dir(self) -> str:
+        """Compatibility alias while narration internals migrate to the explicit local root."""
+        return self.project_media_local_dir
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def resolved_r2_endpoint(self) -> str | None:
@@ -217,7 +227,7 @@ class WorkerSettings(BaseSettings):
         return self
 
     def require_voice_reference_r2(self) -> None:
-        """Validate R2 settings only where a voice-reference R2 client is actually constructed."""
+        """Validate R2 settings only where a voice-reference R2 client is constructed."""
         missing: list[str] = []
         if not self.resolved_r2_endpoint:
             missing.append("R2_ACCOUNT_ID or R2_ENDPOINT")
