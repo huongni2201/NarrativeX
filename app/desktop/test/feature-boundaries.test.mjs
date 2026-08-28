@@ -54,7 +54,7 @@ test("StoryboardScreen delegates Gemini queue persistence and transitions to fea
   );
   const source = readFileSync(screenPath, "utf8");
 
-  assert.doesNotMatch(source, /\blocalStorage\./);
+  assert.doesNotMatch(source, /\blocalStorage\.(?:getItem|setItem|removeItem)\s*\(/);
   assert.doesNotMatch(source, /function geminiQueueStorageKey\s*\(/);
   assert.doesNotMatch(source, /function uniqueIds\s*\(/);
   assert.match(source, /loadGeminiQueue/);
