@@ -13,6 +13,11 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 | Guest ownership transfer | auth use case transfers eligible guest-owned workspace metadata on Google exchange | IMPLEMENTED foundation |
 | Project/Chapter authoring | backend commands/use cases/MyBatis + Desktop React Query flows | IMPLEMENTED foundation |
 | Chapter Analyze | durable admission + worker execution | IMPLEMENTED |
+| Visual Beat semantic analysis | worker schema/prompt/materializer persists title, visual intent, camera angle and beat character refs | IMPLEMENTED foundation |
+| Visual Beat deterministic source spans | source-segment references -> UTF-16 `text_start/text_end` on exact Chapter source snapshot | TARGET — plan defined; current analysis schema/materializer do not yet persist these offsets |
+| Visual Beat narration timing reconciliation | source spans + narration alignment -> `audio_start_ms/audio_end_ms`, source-safe and idempotent | TARGET — alignment exists, but current completion/materialization path does not yet reconcile beat timing |
+| Draft storyboard beats on production timeline | current storyboard fallback visible before MediaPlan, with planned rows taking precedence | TARGET/PARTIAL — plan exists; current timeline read path still requires implementation/verification |
+| Narration-master Desktop preview clock | real narration `<audio>` drives global playhead; timer is no-audio fallback only | TARGET/PARTIAL — plan exists; runtime verification required before claiming implemented |
 | Owner-scoped generation status stream | authenticated job SSE snapshots with Desktop reconnect and 15-second watchdog fallback | IMPLEMENTED foundation |
 | Current media job recovery | chapter-scoped media-head lookup restores active media work after Desktop reload | IMPLEMENTED foundation |
 | Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
@@ -24,13 +29,14 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
 | Generated narration | VieNeu provider path + Desktop local materialization foundation | IMPLEMENTED foundation |
+| Narration alignment persistence | narration assets + source-hash-bound `narration_alignments.spans_json`; segment-duration alignment | IMPLEMENTED foundation |
 | Local audio import | native import/registration with USER_PROVIDED_AUDIO guard | IMPLEMENTED foundation |
 | Vertex image generation | queue/provider/review flow + verified remote-to-local materialization | IMPLEMENTED foundation |
 | Gemini Web Desktop generation | Chrome/CDP automation, locked series prompt, Generate/Generate All Storyboard flow, protected IPC, checksum-verified local asset registration | IMPLEMENTED foundation |
 | Protected prompt clipboard | typed preload capability to Electron main clipboard API; renderer has no direct clipboard API | IMPLEMENTED foundation |
 | R2 generated-media transport | AI-generated image/narration bytes are remotely durable until Desktop materialization | IMPLEMENTED foundation |
 | Native local asset registration | two-phase main-process inspect/hash + backend LOCAL_ONLY registration + manifest commit | IMPLEMENTED foundation |
-| Production timeline reads | backend production timeline + narration-aligned timing | IMPLEMENTED foundation |
+| Production timeline reads | backend production timeline + current planned timing/fallback logic | IMPLEMENTED foundation; exact draft narration alignment remains incomplete until beat timing reconciliation is implemented |
 | Beat media selection | V1 table + backend mutation/read model + Desktop editor integration | IMPLEMENTED foundation |
 | Timeline draft history | typed duration/camera command history with undo/redo/reset | IMPLEMENTED foundation |
 | Auto Edit render planning | narration-aware local plan with style override and atomic backend render snapshot | IMPLEMENTED foundation |
@@ -44,7 +50,7 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 | Local render preflight | FFmpeg/ffprobe, executor, disk and local asset integrity checks | IMPLEMENTED foundation |
 | Backend-assigned local render | device-scoped claim/lease/progress/completion/failure | IMPLEMENTED foundation |
 | Local render input resolution | asset IDs/checksums resolved through local manifest | IMPLEMENTED foundation |
-| Desktop FFmpeg render | segment render → concat → mux → ffprobe → local artifact | IMPLEMENTED foundation |
+| Desktop FFmpeg render | segment render -> concat -> mux -> ffprobe -> local artifact | IMPLEMENTED foundation |
 | Final artifact metadata only | backend stores FinalArtifact metadata and never final MP4 bytes | IMPLEMENTED |
 | Direct local playback/export | Desktop reads final MP4 directly from project artifacts | IMPLEMENTED foundation |
 | Render journal discovery | atomic `render.state.json` + unfinished-job scan | IMPLEMENTED foundation |
@@ -59,9 +65,11 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f
 
 ## Current non-claims
 
-NarrativeX now has implemented foundations for guest-first Desktop use, local asset materialization, backup/restore, render journals, segment cache, editable beat media selection, real-time job updates, Auto Edit planning and render subtitle snapshots. These must not be described as future-only work.
+NarrativeX has implemented foundations for guest-first Desktop use, local asset materialization, backup/restore, render journals, segment cache, editable beat media selection, real-time job updates, Auto Edit planning, narration alignment persistence and render subtitle snapshots. These must not be described as future-only work.
 
-NarrativeX does **not** yet claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, or complete billing/actual-usage reconciliation.
+NarrativeX does **not** yet claim that every analyzed Visual Beat has deterministic source offsets, that storyboard beat audio timing is reconciled from narration alignment, that draft storyboard clips are exact narration-aligned production timeline clips before a MediaPlan, or that the Desktop preview is fully verified as narration-clock-authoritative. Those capabilities remain implementation targets described in `docs/superpowers/plans/2026-08-28-draft-visual-beat-preview-audio-timeline.md`.
+
+NarrativeX also does **not** yet claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, or complete billing/actual-usage reconciliation.
 
 ## Storage invariants
 
@@ -73,16 +81,25 @@ NarrativeX does **not** yet claim production-complete packaging/signing/auto-upd
 6. Final MP4 remains in the project artifact workspace unless an explicit export/upload/publish action copies it elsewhere.
 7. Backend and Python workers do not store, stream or proxy final MP4 bytes.
 
+## Timing invariants
+
+1. AI selects semantic source spans; it does not calculate numeric character offsets or audio timestamps.
+2. Visual Beat `text_start/text_end`, once implemented, use UTF-16 half-open offsets over the exact persisted Chapter source snapshot.
+3. Visual Beat `audio_start_ms/audio_end_ms` are exact only when derived from a compatible persisted narration alignment or immutable MediaPlan; missing exact alignment must remain distinguishable from provisional display geometry.
+4. Narration timing is the visual master clock.
+5. A changed source hash invalidates stale source-to-audio timing for the changed Chapter snapshot.
+6. Planned MediaPlan timing supersedes storyboard draft timing for production/render planning.
+7. Nullable `aspect_ratio_override` / `quality_tier_override` mean inherited policy, not missing AI output.
+
 ## Execution and auth invariants
 
 1. `USER_PROVIDED_AUDIO` bypasses TTS for its covered scope.
-2. Narration timing is the visual master clock.
-3. Backend MediaPlan/execution policy is authoritative.
-4. Provider `UNKNOWN` reconciles before paid resubmission.
-5. Completed provider results remain immutable by identity/fingerprint policy.
-6. Final rendering is backend-assigned and lease-controlled but executed only in Electron main.
-7. FFmpeg final project rendering never runs in unrestricted renderer code or Python AI workers.
-8. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
-9. Google remains the only end-user account sign-in provider.
-10. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
-11. SSE is a best-effort status transport; PostgreSQL job rows remain the durable source of truth and the Desktop watchdog can recover from stream interruption.
+2. Backend MediaPlan/execution policy is authoritative.
+3. Provider `UNKNOWN` reconciles before paid resubmission.
+4. Completed provider results remain immutable by identity/fingerprint policy.
+5. Final rendering is backend-assigned and lease-controlled but executed only in Electron main.
+6. FFmpeg final project rendering never runs in unrestricted renderer code or Python AI workers.
+7. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
+8. Google remains the only end-user account sign-in provider.
+9. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
+10. SSE is a best-effort status transport; PostgreSQL job rows remain the durable source of truth and the Desktop watchdog can recover from stream interruption.
