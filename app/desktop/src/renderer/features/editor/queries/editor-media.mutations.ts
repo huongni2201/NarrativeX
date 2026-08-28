@@ -23,13 +23,15 @@ export function useEditorMediaMutations(projectId: string | null) {
     mutationFn: async ({
       beat,
       expectedType,
+      isCurrent,
     }: {
       beat: DesktopTimelineBeat;
       expectedType?: EditorMediaKind;
+      isCurrent?: () => boolean;
     }) => {
       if (!projectId) throw new Error("Project timeline chưa sẵn sàng.");
       const selection = await window.narrativex.localStorage.selectAsset();
-      if (!selection) return null;
+      if (!selection || (isCurrent && !isCurrent())) return null;
 
       return persistEditorMedia(
         {
