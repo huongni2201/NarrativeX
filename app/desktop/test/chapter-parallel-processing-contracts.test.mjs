@@ -11,6 +11,10 @@ const chapterListPanel = fs.readFileSync(
   new URL("../src/renderer/features/chapters/components/ChapterListPanel.tsx", import.meta.url),
   "utf8",
 );
+const chapterEditorPanel = fs.readFileSync(
+  new URL("../src/renderer/features/chapters/components/ChapterEditorPanel.tsx", import.meta.url),
+  "utf8",
+);
 const chapterQueries = fs.readFileSync(
   new URL("../src/renderer/features/chapters/queries/chapters.queries.ts", import.meta.url),
   "utf8",
@@ -33,13 +37,17 @@ test("chapter workspace defaults and resets sorting by chapter order", () => {
   assert.match(chapterListPanel, /chapterNumberLabel\(chapter\.orderIndex\)/);
 });
 
-test("desktop does not serialize narration behind another selected chapter", () => {
-  assert.doesNotMatch(chaptersScreen, /narrationBlockedByAnotherChapter/);
-  assert.doesNotMatch(chaptersScreen, /\|\|\s*narrationJob\s*\|\|/);
-  assert.match(chaptersScreen, /blockedByAnotherChapter: false/);
+test("desktop generation state is backend-driven and has no cross-chapter narration lock", () => {
+  assert.doesNotMatch(chaptersScreen, /narrationJob/);
+  assert.doesNotMatch(chaptersScreen, /useGenerationJob/);
+  assert.doesNotMatch(chaptersScreen, /blockedByAnotherChapter/);
+  assert.doesNotMatch(chapterEditorPanel, /blockedByAnotherChapter/);
+  assert.doesNotMatch(chapterEditorPanel, /trackedForSelected/);
+  assert.doesNotMatch(chapterEditorPanel, /Một chapter khác đang tạo audio/);
 });
 
 test("workspace batch polling follows active audio and analysis across chapters", () => {
+  assert.match(chapterQueries, /hasActiveChapterWork/);
   assert.match(chapterQueries, /isAnalysisProcessingStatus/);
   assert.match(chapterQueries, /batchQuery/);
   assert.match(chapterQueries, /pipeline\.audio\.status/);
