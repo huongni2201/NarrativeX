@@ -64,12 +64,13 @@ def _service(compose_lines: list[str], service_name: str) -> str:
     return "\n".join(service_lines)
 
 
-def test_media_workers_use_shared_local_project_media_root() -> None:
+def test_project_media_services_share_one_local_root() -> None:
     compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
+    backend_service = _service(compose_lines, "backend")
     ai_service = _service(compose_lines, "ai-worker")
     narration_service = _service(compose_lines, "narration-worker")
 
-    for service in (ai_service, narration_service):
+    for service in (backend_service, ai_service, narration_service):
         assert "PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media" in service
         assert "target: /data/narrativex/project-media" in service
         assert "source: ${PROJECT_MEDIA_HOST_DIR:?Set PROJECT_MEDIA_HOST_DIR in .env}" in service
