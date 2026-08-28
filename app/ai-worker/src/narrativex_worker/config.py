@@ -6,7 +6,14 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    SecretStr,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
@@ -213,7 +220,10 @@ class WorkerSettings(BaseSettings):
                     "or Vertex batch inference for the 50% discounted rate"
                 )
         if self.image_provider_mode == "vertex":
-            if not self.vertex_image_batch_gcs_bucket or not self.vertex_image_batch_gcs_bucket.strip():
+            if (
+                not self.vertex_image_batch_gcs_bucket
+                or not self.vertex_image_batch_gcs_bucket.strip()
+            ):
                 raise ValueError(
                     "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when IMAGE_PROVIDER_MODE=vertex"
                 )
@@ -233,7 +243,10 @@ class WorkerSettings(BaseSettings):
             missing.append("R2_ACCOUNT_ID or R2_ENDPOINT")
         if self.r2_access_key_id is None or not self.r2_access_key_id.get_secret_value().strip():
             missing.append("R2_ACCESS_KEY_ID")
-        if self.r2_secret_access_key is None or not self.r2_secret_access_key.get_secret_value().strip():
+        if (
+            self.r2_secret_access_key is None
+            or not self.r2_secret_access_key.get_secret_value().strip()
+        ):
             missing.append("R2_SECRET_ACCESS_KEY")
         if not self.r2_bucket.strip():
             missing.append("R2_BUCKET")
