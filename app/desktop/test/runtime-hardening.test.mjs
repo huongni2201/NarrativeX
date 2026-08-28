@@ -62,7 +62,7 @@ test("workspace follows cursor pagination and does not hide partial API failures
   assert.match(workspace, /firstError[\s\S]*?\? timeline[\s\S]*?\? "partial"[\s\S]*?: "error"/);
 });
 
-test("chapter polling is scoped to the selected chapter", () => {
+test("chapter polling follows active work across the batch", () => {
   const queries = source(
     "app",
     "desktop",
@@ -73,7 +73,10 @@ test("chapter polling is scoped to the selected chapter", () => {
     "queries",
     "chapters.queries.ts",
   );
-  assert.match(queries, /chapter\.id === pollingChapterId/);
+  assert.match(queries, /function hasActiveChapterWork/);
+  assert.match(queries, /isAudioProcessingStatus/);
+  assert.match(queries, /isAnalysisProcessingStatus/);
+  assert.match(queries, /hasActiveChapterWork\(query\.state\.data/);
 });
 
 test("storyboard review filter uses the themed select primitive", () => {
