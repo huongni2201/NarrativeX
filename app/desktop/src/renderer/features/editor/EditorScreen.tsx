@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import type {
   BeatMediaFitMode,
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
-import { localAssetPreviewUrl } from "../../../shared/local-asset-preview-url";
-import { assetsApi } from "../assets/api/assets.api";
-import { productionApi } from "../production/api/production.api";
-import {
-  chooseMediaFit,
-  createBeatDecision,
-} from "../production/auto-edit-planner";
+import { createBeatDecision } from "../production/auto-edit-planner";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
+import { EditorExplorerPanel } from "./components/EditorExplorerPanel";
+import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
+import { EditorPlaybackSurface } from "./components/EditorPlaybackSurface";
 import { isEditorMutationCurrent } from "./editor-mutation-state";
 import {
   buildEditorHierarchy,
@@ -20,16 +16,9 @@ import {
   type EditorChapterGroup,
   type EditorScope,
 } from "./editor-timeline";
-import { EditorExplorerPanel } from "./components/EditorExplorerPanel";
-import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
-import { EditorPlaybackSurface } from "./components/EditorPlaybackSurface";
-
-interface PreviewSources {
-  mediaUrl: string | null;
-  narrationUrl: string | null;
-  loading: boolean;
-  message: string | null;
-}
+import { EditorMediaAttachError } from "./model/editor-media-workflow";
+import { useEditorMediaMutations } from "./queries/editor-media.mutations";
+import { useEditorPreviewSources } from "./queries/editor-preview.queries";
 
 export interface MediaMutationNotice {
   beatId: string;
@@ -38,19 +27,11 @@ export interface MediaMutationNotice {
   retry?: () => void;
 }
 
-const EMPTY_PREVIEW: PreviewSources = {
-  mediaUrl: null,
-  narrationUrl: null,
-  loading: false,
-  message: null,
-};
-
 export function EditorScreen({
   workspace,
 }: Readonly<{
   workspace: DesktopWorkspaceState;
 }>) {
-  const queryClient = useQueryClient();
   const timeline = workspace.timeline;
   const projectId = timeline?.projectId ?? null;
   const beats = timeline?.beats ?? [];
@@ -69,7 +50,7 @@ export function EditorScreen({
   const [scope] = useState<EditorScope>("project");
   const [mediaBusy, setMediaBusy] = useState(false);
   const [mediaNotice, setMediaNotice] = useState<MediaMutationNotice | null>(null);
-  const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
+  const mediaMutations = useEditorMediaMutations(projectId);
 
   const changeSelectedId = useCallback((nextId: string) => {
     selectedIdRef.current = nextId;
@@ -110,6 +91,13 @@ export function EditorScreen({
         : null,
     [selectedChapter?.narrationAssetId, workspace.assets],
   );
+  const previewSources = useEditorPreviewSources({
+    projectId,
+    mediaAssetId: selected?.mediaAssetId ?? null,
+    mediaStorageMode: selected?.storageMode,
+    narrationAssetId: selectedChapter?.narrationAssetId ?? null,
+    narrationStorageMode: narrationAsset?.storageMode,
+  });
   const autoDecision = useMemo(
     () => (selected ? createBeatDecision(selected, "AUTO") : null),
     [selected],
@@ -146,88 +134,9 @@ export function EditorScreen({
     [chapters, orderedBeats, scope, selected, totalMs],
   );
 
-  useEffect(() => {
-    let active = true;
-    if (!projectId || !selected) {
-      setPreviewSources(EMPTY_PREVIEW);
-      return () => {
-        active = false;
-      };
-    }
-
-    const mediaIsLocalOnly = selected.storageMode === "LOCAL_ONLY";
-    const narrationIsLocalOnly = narrationAsset?.storageMode === "LOCAL_ONLY";
-    const localMediaUrl =
-      mediaIsLocalOnly && selected.mediaAssetId
-        ? localAssetPreviewUrl(projectId, selected.mediaAssetId)
-        : null;
-    const localNarrationUrl =
-      narrationIsLocalOnly && selectedChapter?.narrationAssetId
-        ? localAssetPreviewUrl(projectId, selectedChapter.narrationAssetId)
-        : null;
-    const needsRemoteMediaUrl = Boolean(selected.mediaAssetId && !mediaIsLocalOnly);
-    const needsRemoteNarrationUrl = Boolean(
-      selectedChapter?.narrationAssetId && !narrationIsLocalOnly,
-    );
-
-    setPreviewSources({
-      mediaUrl: localMediaUrl,
-      narrationUrl: localNarrationUrl,
-      loading: needsRemoteMediaUrl || needsRemoteNarrationUrl,
-      message: null,
-    });
-
-    void Promise.allSettled([
-      needsRemoteMediaUrl && selected.mediaAssetId
-        ? assetsApi.downloadUrl(selected.mediaAssetId)
-        : Promise.resolve(null),
-      needsRemoteNarrationUrl && selectedChapter?.narrationAssetId
-        ? assetsApi.downloadUrl(selectedChapter.narrationAssetId)
-        : Promise.resolve(null),
-    ]).then(([mediaResult, narrationResult]) => {
-      if (!active) return;
-      const remoteMediaUrl =
-        mediaResult.status === "fulfilled" ? mediaResult.value?.url ?? null : null;
-      const remoteNarrationUrl =
-        narrationResult.status === "fulfilled" ? narrationResult.value?.url ?? null : null;
-      const mediaUrl = localMediaUrl ?? remoteMediaUrl;
-      const narrationUrl = localNarrationUrl ?? remoteNarrationUrl;
-      const messages: string[] = [];
-      if (selected.mediaAssetId && !mediaUrl) {
-        messages.push("Không lấy được media preview URL.");
-      }
-      if (selectedChapter?.narrationAssetId && !narrationUrl) {
-        messages.push("Không lấy được narration preview URL.");
-      }
-      setPreviewSources({
-        mediaUrl,
-        narrationUrl,
-        loading: false,
-        message: messages.length ? messages.join(" ") : null,
-      });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    narrationAsset?.storageMode,
-    projectId,
-    selected,
-    selectedChapter?.narrationAssetId,
-  ]);
-
   const selectBeat = (beat: DesktopTimelineBeat) => {
     changeSelectedId(beat.visualBeatId);
   };
-
-  async function refreshEditorData() {
-    if (!projectId) return;
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
-    ]);
-  }
 
   function isCurrentMediaMutation(requestId: number, beatId: string) {
     return isEditorMutationCurrent(
@@ -239,20 +148,23 @@ export function EditorScreen({
     );
   }
 
-  async function withMediaMutation(
+  async function withMediaMutation<T>(
     beatId: string,
-    action: () => Promise<void>,
-    successMessage: string,
+    action: () => Promise<T>,
+    successMessage: string | ((result: T) => string),
     retry?: () => void,
   ) {
     const requestId = ++mediaMutationRequestRef.current;
     setMediaBusy(true);
     setMediaNotice(null);
     try {
-      await action();
-      await refreshEditorData();
+      const result = await action();
       if (!isCurrentMediaMutation(requestId, beatId)) return;
-      setMediaNotice({ beatId, tone: "success", message: successMessage });
+      setMediaNotice({
+        beatId,
+        tone: "success",
+        message: typeof successMessage === "function" ? successMessage(result) : successMessage,
+      });
     } catch (error) {
       if (!isCurrentMediaMutation(requestId, beatId)) return;
       setMediaNotice({
@@ -272,95 +184,49 @@ export function EditorScreen({
     if (!projectId || !selected) return;
     const beat = selected;
     const beatId = beat.visualBeatId;
-    setMediaNotice(null);
-    const selection = await window.narrativex.localStorage.selectAsset();
-    if (!selection || selectedIdRef.current !== beatId) return;
-    if (selection.kind !== "IMAGE" && selection.kind !== "VIDEO") {
-      setMediaNotice({
-        beatId,
-        tone: "error",
-        message: "Hãy chọn một file ảnh hoặc video.",
-      });
-      return;
-    }
-    if (expectedType && selection.kind !== expectedType) {
-      setMediaNotice({
-        beatId,
-        tone: "error",
-        message: expectedType === "VIDEO" ? "Hãy chọn một file video." : "Hãy chọn một file ảnh.",
-      });
-      return;
-    }
-
     const requestId = ++mediaMutationRequestRef.current;
     setMediaBusy(true);
-    try {
-      const asset = await assetsApi.registerLocal({
-        projectId,
-        type: selection.kind,
-        originalFilename: selection.originalFilename,
-        contentType: selection.contentType,
-        sizeBytes: selection.sizeBytes,
-        checksumSha256: selection.checksumSha256,
-        durationMs: selection.durationMs,
-      });
-      await window.narrativex.localStorage.commitSelectedAsset({
-        projectId,
-        assetId: asset.id,
-        kind: selection.kind,
-        selectionToken: selection.selectionToken,
-      });
-      const autoFit = chooseMediaFit({
-        mediaType: selection.kind === "VIDEO" ? "VIDEO" : "IMAGE",
-        sourceDurationMs: asset.durationMs,
-        durationMs: beat.durationMs,
-      });
-      const attachAsset = () =>
-        productionApi.updateBeatMedia(projectId, beatId, {
-          mediaAssetId: asset.id,
-          fitMode: autoFit.fitMode,
-          trimStartMs: autoFit.trimStartMs,
-        });
-      const retryAttach = () => {
-        void withMediaMutation(
-          beatId,
-          attachAsset,
-          "Asset đã được gắn lại vào Visual Beat.",
-          retryAttach,
-        );
-      };
+    setMediaNotice(null);
 
-      try {
-        await attachAsset();
-        await refreshEditorData();
-        if (!isCurrentMediaMutation(requestId, beatId)) return;
-        setMediaNotice({
-          beatId,
-          tone: "success",
-          message:
-            selection.kind === "VIDEO"
-              ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration."
-              : "Ảnh đã được gắn vào Visual Beat.",
-        });
-      } catch (error) {
-        if (!isCurrentMediaMutation(requestId, beatId)) return;
+    try {
+      const result = await mediaMutations.importMedia.mutateAsync({
+        beat,
+        expectedType,
+        isCurrent: () => selectedIdRef.current === beatId,
+      });
+      if (!result || !isCurrentMediaMutation(requestId, beatId)) return;
+      setMediaNotice({
+        beatId,
+        tone: "success",
+        message:
+          result.mediaType === "VIDEO"
+            ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration."
+            : "Ảnh đã được gắn vào Visual Beat.",
+      });
+    } catch (error) {
+      if (!isCurrentMediaMutation(requestId, beatId)) return;
+      if (error instanceof EditorMediaAttachError) {
+        const retryAttach = () => {
+          void withMediaMutation(
+            beatId,
+            () => mediaMutations.attachMedia.mutateAsync(error.retryInput),
+            "Asset đã được gắn lại vào Visual Beat.",
+            retryAttach,
+          );
+        };
         setMediaNotice({
           beatId,
           tone: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Asset đã được lưu cục bộ nhưng chưa thể gắn vào Visual Beat.",
+          message: error.message,
           retry: retryAttach,
         });
+      } else {
+        setMediaNotice({
+          beatId,
+          tone: "error",
+          message: error instanceof Error ? error.message : "Không thể nhập media vào project.",
+        });
       }
-    } catch (error) {
-      if (!isCurrentMediaMutation(requestId, beatId)) return;
-      setMediaNotice({
-        beatId,
-        tone: "error",
-        message: error instanceof Error ? error.message : "Không thể nhập media vào project.",
-      });
     } finally {
       if (isCurrentMediaMutation(requestId, beatId)) {
         setMediaBusy(false);
@@ -374,43 +240,20 @@ export function EditorScreen({
     const beatId = beat.visualBeatId;
     const asset = selectableAssets.find((candidate) => candidate.id === assetId);
     if (!asset) return;
-    const autoFit = chooseMediaFit({
-      mediaType: asset.type === "VIDEO" ? "VIDEO" : "IMAGE",
-      sourceDurationMs: asset.durationMs,
-      durationMs: beat.durationMs,
-    });
-    const action = () =>
-      productionApi.updateBeatMedia(projectId, beatId, {
-        mediaAssetId: asset.id,
-        fitMode: autoFit.fitMode,
-        trimStartMs: autoFit.trimStartMs,
-      });
+    const action = () => mediaMutations.chooseExistingAsset.mutateAsync({ beat, asset });
+    const successMessage = (result: Awaited<ReturnType<typeof action>>) =>
+      `${result.originalFilename} đã được gắn; Auto Edit chọn ${result.fitMode}.`;
     const retry = () => {
-      void withMediaMutation(
-        beatId,
-        action,
-        `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
-        retry,
-      );
+      void withMediaMutation(beatId, action, successMessage, retry);
     };
-    await withMediaMutation(
-      beatId,
-      action,
-      `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
-      retry,
-    );
+    await withMediaMutation(beatId, action, successMessage, retry);
   }
 
   async function updateFitMode(fitMode: BeatMediaFitMode) {
     if (!projectId || !selected?.mediaAssetId) return;
     const beat = selected;
     const beatId = beat.visualBeatId;
-    const action = () =>
-      productionApi.updateBeatMedia(projectId, beatId, {
-        mediaAssetId: beat.mediaAssetId as string,
-        fitMode,
-        trimStartMs: beat.trimStartMs,
-      });
+    const action = () => mediaMutations.updateFitMode.mutateAsync({ beat, fitMode });
     const retry = () => {
       void withMediaMutation(
         beatId,
@@ -430,7 +273,7 @@ export function EditorScreen({
   async function resetToGeneratedSource() {
     if (!projectId || !selected) return;
     const beatId = selected.visualBeatId;
-    const action = () => productionApi.resetBeatMedia(projectId, beatId);
+    const action = () => mediaMutations.resetMedia.mutateAsync({ beatId });
     const retry = () => {
       void withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
     };
