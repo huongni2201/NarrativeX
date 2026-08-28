@@ -306,7 +306,7 @@ export function StoryboardScreen({
   }
 
   async function runGeminiQueue(initialQueue: GeminiQueueState, runToken: number) {
-    let queue = { ...initialQueue, status: "RUNNING" as const };
+    let queue: GeminiQueueState = { ...initialQueue, status: "RUNNING" };
     const processed = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
 
     for (let index = queue.currentIndex; index < queue.beatIds.length; index += 1) {
