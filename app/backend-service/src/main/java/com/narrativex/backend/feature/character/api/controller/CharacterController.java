@@ -20,6 +20,7 @@ import com.narrativex.backend.feature.character.application.usecase.LockCharacte
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase.ReferenceInput;
 import com.narrativex.backend.feature.character.application.usecase.SubmitCharacterVersionForReviewUseCase;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -94,22 +95,22 @@ public class CharacterController {
       @PathVariable UUID characterId, @PathVariable UUID versionId) {
     var version =
         submitCharacterVersionForReviewUseCase.execute(
-            new ChangeCharacterVersionStatusCommand(versionId));
+            new ChangeCharacterVersionStatusCommand(versionId, null));
     if (!version.getCharacterId().equals(characterId)) {
-      throw new com.narrativex.backend.feature.common.exception.ResourceNotFoundException(
-          "Character version not found");
+      throw new ResourceNotFoundException("Character version not found");
     }
     return ResponseEntity.ok(
-        ApiResponse.success("Character version submitted for review", CharacterVersionResponse.from(version)));
+        ApiResponse.success(
+            "Character version submitted for review", CharacterVersionResponse.from(version)));
   }
 
   @PostMapping("/{characterId}/versions/{versionId}/lock")
   public ResponseEntity<ApiResponse<CharacterVersionResponse>> lockVersion(
       @PathVariable UUID characterId, @PathVariable UUID versionId) {
-    var version = lockCharacterVersionUseCase.execute(new ChangeCharacterVersionStatusCommand(versionId));
+    var version =
+        lockCharacterVersionUseCase.execute(new ChangeCharacterVersionStatusCommand(versionId, null));
     if (!version.getCharacterId().equals(characterId)) {
-      throw new com.narrativex.backend.feature.common.exception.ResourceNotFoundException(
-          "Character version not found");
+      throw new ResourceNotFoundException("Character version not found");
     }
     return ResponseEntity.ok(
         ApiResponse.success("Character version locked", CharacterVersionResponse.from(version)));
