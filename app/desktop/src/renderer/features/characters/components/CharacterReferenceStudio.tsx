@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { DesktopCharacterDetail } from "@narrativex/client-contracts";
 import { Check, ImagePlus, Loader2, LockKeyhole, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { assetsApi } from "../../assets/api/assets.api";
 import {
+  useCharacterAssetPreview,
   useCharacterReferenceActions,
   useCharacterReferences,
 } from "../queries/characters.queries";
@@ -41,7 +41,7 @@ export function CharacterReferenceStudio({
     () => referencesQuery.data?.find((reference) => reference.role.toUpperCase() === "IDENTITY") ?? null,
     [referencesQuery.data],
   );
-  const identityPreview = useIdentityPreview(identity?.assetId ?? null);
+  const identityPreview = useCharacterAssetPreview(projectId, identity?.assetId ?? null);
   const busy =
     actions.createVersion.isPending ||
     actions.generateIdentity.isPending ||
@@ -179,7 +179,7 @@ export function CharacterReferenceStudio({
                 <img src={identityPreview.url} alt={`${character.canonicalName} identity reference`} className="size-full object-cover" />
               ) : (
                 <div className="grid size-full place-items-center px-4 text-center text-[9px] text-text-dim">
-                  {identityPreview.loading ? "Đang tải reference…" : "Chưa có IDENTITY reference"}
+                  {identityPreview.isLoading ? "Đang tải reference…" : "Chưa có IDENTITY reference"}
                 </div>
               )}
             </div>
@@ -249,36 +249,4 @@ export function CharacterReferenceStudio({
       {notice && <p role="status" aria-live="polite" className="mt-3 text-[9px] text-text-muted">{notice}</p>}
     </section>
   );
-}
-
-function useIdentityPreview(assetId: string | null) {
-  const [state, setState] = useState<{ assetId: string | null; url: string | null; loading: boolean }>({
-    assetId: null,
-    url: null,
-    loading: false,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!assetId) {
-      setState({ assetId: null, url: null, loading: false });
-      return () => {
-        cancelled = true;
-      };
-    }
-    setState({ assetId, url: null, loading: true });
-    void assetsApi
-      .downloadUrl(assetId)
-      .then((result) => {
-        if (!cancelled) setState({ assetId, url: result.url, loading: false });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ assetId, url: null, loading: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [assetId]);
-
-  return { url: state.assetId === assetId ? state.url : null, loading: state.assetId === assetId && state.loading };
 }
