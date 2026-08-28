@@ -105,7 +105,7 @@ export function useEditorMediaMutations(projectId: string | null) {
       await productionApi.updateBeatMedia(projectId, beat.visualBeatId, {
         mediaAssetId: beat.mediaAssetId,
         fitMode,
-        trimStartMs: fitMode === "TRIM" ? beat.trimStartMs : 0,
+        trimStartMs: beat.trimStartMs,
       });
     },
     onSuccess: async () => {
