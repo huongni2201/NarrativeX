@@ -1,63 +1,117 @@
 # NarrativeX — Project Source of Truth V1.11
 
 **Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 2026-08-28
+**Effective date:** 2026-08-28  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719`
+**Docs-sync implementation checkpoint:** `main` at `2c965b2e95ddcc1e03dc5527340c6adb18cdd05e`  
 **Primary product boundary:** Electron Desktop editor + backend-authoritative control plane + Desktop local-first project media/render
 
 ---
 
-## 1. Authority and status semantics
+## 1. Authority and lifecycle
 
-This file is the maintained V1.11 product/domain/architecture baseline.
+This file is the maintained V1.11 product/domain/architecture baseline. V1.11 is a product/spec version, not a promise that every target below is already implemented.
 
 For factual AS-IS behavior, authority order is:
 
 1. current code, Flyway migrations and automated tests;
 2. accepted ADRs for deliberate cross-cutting decisions;
 3. this source-of-truth specification;
-4. current roadmap/workflow/codebase documentation;
-5. Git history for retired migration notes and superseded reports.
+4. `documentation/TRACEABILITY.md` for synchronized implementation evidence;
+5. current product/domain/architecture/workflow/codebase docs;
+6. Git history for retired migration notes and superseded reports.
+
+Documentation lifecycle:
+
+- `documentation/` is CURRENT except ADR bodies;
+- `documentation/decisions/ADR-*.md` is historical decision evidence and may contain superseded scope;
+- `docs/superpowers/plans/` is non-authoritative implementation planning;
+- completed migrations and obsolete implementation reports are retired to Git history instead of remaining current docs.
 
 Status vocabulary:
 
 - **IMPLEMENTED** — working path exists and the key contract is present.
-- **IMPLEMENTED foundation** — core runtime boundary exists but broader product/reliability work may remain.
-- **PARTIAL** — required pieces remain missing.
-- **TARGET** — approved next direction.
+- **IMPLEMENTED foundation** — core runtime boundary exists but broader product/reliability work remains.
+- **PARTIAL** — required pieces remain missing or incompletely verified.
+- **TARGET** — approved next direction not yet proven in current code.
 - **DEFERRED** — intentionally postponed.
 
-Roadmap intent must never be presented as implemented behavior.
+A plan or ADR alone never upgrades a capability to IMPLEMENTED.
 
 ---
 
 ## 2. Product definition
 
-NarrativeX is a **desktop-first AI-assisted long-form story-video studio**. It transforms persisted story/Chapter source into structured analysis, continuity-aware scene/beat plans, narration, generated/imported media and final long-form or Short/Reel video.
+NarrativeX is a **desktop-first AI-assisted long-form story-video studio**. It transforms persisted story/Chapter source into structured analysis, continuity-aware scenes/Visual Beats, narration, generated/imported media and final long-form or Short/Reel video.
 
 The product is:
 
-- **desktop-only editor boundary** — `app/desktop` is the only supported editor client;
+- **desktop-only at the editor boundary** — `app/desktop` is the only supported editor client;
 - **guest-first** — a new installation can enter a stable guest-owned workspace before account sign-in;
-- **Google-only account sign-in** — Google OIDC is the only end-user account authentication provider;
-- **chapter-first** — Chapter remains the primary persisted source unit;
-- **scene/beat aware** — Chapter → Scene → VisualBeat remains the production hierarchy;
+- **Google-only for account sign-in** — Google OIDC is the only end-user account authentication provider;
+- **Chapter-first** — Chapter remains the primary persisted source unit;
+- **Scene/VisualBeat aware** — Chapter → Scene → VisualBeat remains the production hierarchy;
 - **review-first** — generated/reviewed state is versioned rather than silently overwritten;
-- **audio-timeline-first** — narration timing is authoritative for visual duration;
-- **image-first but media-flexible** — image motion is the low-cost default, but a beat may use imported/generated video;
-- **local-media-first** — project media and final renders stay on the user's machine after required generated media is materialized;
+- **audio-timeline-first** — narration is the visual master clock when real aligned audio exists;
+- **image-first but media-flexible** — deterministic image motion is the low-cost default, while beats may use image or video media;
+- **local-media-first** — project media and final renders live in the Desktop project workspace after required generated media is materialized;
 - **backend-authorized** — Spring/PostgreSQL remain authoritative for ownership, policy, job admission, production choices, assignment and durable execution state.
 
 Creating a Project persists metadata. Saving a Chapter persists source. Analyze, narration/audio processing, image generation and rendering are explicit operations.
 
-The former `app/frontend-web` editor and Caddy frontend ingress are removed. Browser routes that remain belong to backend authentication flow only.
+The former `app/frontend-web` editor is removed. Browser routes that remain are backend authentication routes, not an editor client.
 
 ---
 
-## 3. Non-negotiable invariants
+## 3. Canonical runtime topology
 
-### 3.1 Source preservation
+```text
+                         Google OIDC
+                            ^
+                            |
+                       system browser
+                            |
++-------------------------------------------------------+
+|                  Electron Desktop                     |
+|                                                       |
+| renderer: UI / routes / React Query / editor drafts   |
+|                 |                                     |
+|                 v                                     |
+| preload: narrow typed capability bridge               |
+|                 |                                     |
+|                 v                                     |
+| main: guest secret / backend session / OAuth callback |
+|       native files / ProjectStorage / device runtime  |
+|       FFmpeg / ffprobe / journal / cache / backup     |
+|       Gemini Web Chrome/CDP automation                |
++----------------------+--------------------------------+
+                       |
+                       v
+              Spring Boot Backend
+              -> PostgreSQL authoritative state
+                 + Spring Session JDBC
+                 + one-time OAuth handoffs
+                 + durable jobs/leases/outbox
+              -> Python AI/provider workers
+                 polling/claiming PostgreSQL work
+
+Electron main
+  -> <userData>/projects/<projectId>/ local project bytes
+
+Generated AI-media transport
+  -> Cloudflare R2 only when remote provider/worker durability is required
+  -> Desktop materialization before local project use/render
+```
+
+**Redis is not required by the MVP runtime.** It is not the session authority, queue, worker notification channel or required deployment service.
+
+PostgreSQL is the durable control-plane authority. Electron local storage is the authority for machine-local project bytes referenced by stable backend IDs and integrity metadata.
+
+---
+
+## 4. Non-negotiable invariants
+
+### 4.1 Source preservation
 
 Expensive work pins authoritative source identity such as:
 
@@ -69,7 +123,7 @@ sourceHash
 
 A later source edit creates a new identity. Historical approved/generated outputs are not silently rewritten in place.
 
-### 3.2 Narration is not synonymous with TTS
+### 4.2 Narration is not synonymous with TTS
 
 ```text
 NarrationStrategy
@@ -77,173 +131,228 @@ NarrationStrategy
   USER_PROVIDED_AUDIO
 ```
 
-If accepted user-provided audio covers a scope, NarrativeX must not generate/reserve TTS for that same scope.
+If accepted user-provided audio covers a scope, NarrativeX must not generate or reserve TTS for that same scope.
 
-### 3.3 Narration timing is the master clock
+### 4.3 Narration is the visual master clock
 
-Audio file boundaries are not Chapter boundaries. One continuous file may cover multiple Chapters; several ordered parts may cover one logical timeline. Visual duration derives from narration/alignment rather than fixed per-image constants.
+Audio file boundaries are not Chapter boundaries. One continuous file may cover multiple Chapters; several ordered parts may cover one logical timeline. Exact visual timing must be derived from compatible narration alignment or an immutable production plan, not guessed by AI.
 
-### 3.4 Backend owns execution policy
+### 4.4 Backend owns execution policy
 
-The backend creates/version-controls authorized MediaPlan/production policy and expensive job admission. Workers and Desktop devices execute persisted policy and may not silently escalate paid work.
+The backend creates/version-controls authorized operation/media/render state. Workers and Desktop devices execute persisted policy and may not silently escalate paid work.
 
-### 3.5 PostgreSQL remains durable control-plane authority
+### 4.5 PostgreSQL remains durable authority
 
-PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata, server sessions and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime and is not a current queue or session dependency.
+PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata, server sessions and one-time Desktop OAuth handoffs.
 
-### 3.6 Persistence is MyBatis + explicit SQL
+### 4.6 Persistence is MyBatis + explicit SQL
 
-Production backend persistence uses application/domain ports backed by MyBatis rows/mappers/XML and explicit PostgreSQL SQL. Do not reintroduce JPA or parallel direct-`JdbcTemplate` production persistence without an ADR.
+Production backend persistence uses application/domain ports backed by MyBatis rows/mappers/XML and explicit PostgreSQL SQL. JPA and parallel direct-`JdbcTemplate` production persistence are not current application persistence paths.
 
-### 3.7 Renderer is isolated UI
+### 4.7 Renderer is isolated UI
 
 ```text
 contextIsolation = true
 nodeIntegration  = false
-sandbox          = false
 ```
 
-The Chromium renderer sandbox is currently disabled for Desktop startup compatibility. Electron renderer still owns UI/routing/query/editor state only; native filesystem/process/credential/deep-link/local-render capabilities live in Electron main behind narrow preload APIs, with context isolation and no Node integration preserved. Treat renderer-loaded story, prompt, reference and provider output as untrusted.
+Electron renderer owns UI/routing/query/editor state only. Native filesystem/process/credential/deep-link/local-render capabilities live in Electron main behind narrow preload APIs. Renderer-loaded story, prompt, reference and provider output are untrusted input.
 
-### 3.8 Absolute Desktop paths are never backend identities
+### 4.8 Absolute Desktop paths are never backend identities
 
-Backend contracts identify local media using stable asset/job IDs, checksums and opaque project-relative keys. Absolute machine paths stay inside Electron main/local storage.
+Backend contracts identify local media using stable IDs, checksums and opaque/project-relative keys. Absolute machine paths stay inside Electron main/local storage.
 
-### 3.9 Backend authorization gates paid/account work
+### 4.9 Backend authorization gates paid/account work
 
 Guest/user role enforcement belongs to backend security. Renderer state may improve UX but cannot be the only authorization gate.
 
-### 3.10 Lease ownership gates finalization
+### 4.10 Lease ownership gates finalization
 
 A Desktop render can finalize only under its current authorized device/lease. Lease loss prevents successful completion.
 
-### 3.11 Final video bytes are local-only
+### 4.11 Final video bytes are local-only
 
-Final project rendering executes in Electron main. The final MP4 lives in the local project artifact workspace. The backend records render/final-artifact metadata but does not store, download, preview-proxy or stream final video bytes.
-
----
-
-## 4. Canonical runtime topology
-
-```text
-                         Google OIDC
-                            ^
-                            |
-                       system browser
-                            |
-+-------------------------------------------------------+
-|                  Electron Desktop                     |
-|                                                       |
-| renderer: UI / routes / query + editor draft state    |
-|                 |                                     |
-|                 v                                     |
-| preload: narrow typed capability bridge               |
-|                 |                                     |
-|                 v                                     |
-| main: guest secret / backend session / OAuth callback |
-|       native files / ProjectStorage / device runtime  |
-|       FFmpeg / ffprobe / journal / cache / backup     |
-+----------------------+--------------------------------+
-                       |
-                       v
-              Spring Boot Backend
-              -> PostgreSQL authoritative state
-              -> Redis sessions/transient hints
-              -> Python AI/provider workers
-
-Electron main
-  -> <userData>/projects/<projectId>/ local project bytes
-
-Generated-media transport
-  -> R2 when remote durability is required by AI/provider execution
-  -> Desktop materialization before local project editing/final rendering
-```
+Final project rendering executes in Electron main. The final MP4 lives in the local project artifact workspace. The backend stores render/final-artifact metadata but does not store or proxy final MP4 bytes.
 
 ---
 
-## 5. Authentication and ownership architecture
+## 5. Authentication and ownership
 
-### 5.1 Stable installation guest
+### Stable installation guest
 
-Electron main owns a per-installation credential protected by OS secure storage. The backend persists only the secret hash and maps the installation to a stable internal guest user through `desktop_guest_installations`.
-
-The guest row exists for ownership/FK/session continuity. It is **not** a password account and **not** an alternative OAuth provider.
+Electron main owns a per-installation credential protected by OS secure storage. The backend persists only the secret hash and maps the installation to a stable internal guest user.
 
 ```text
 Desktop start
   -> GET /api/v1/auth/me
   -> if session missing/expired: POST /api/v1/auth/desktop/guest
-  -> backend verify/create installation mapping
   -> stable ROLE_GUEST session
 ```
 
-Free guest mutations are explicit backend allowlists.
+The guest principal exists for ownership/session continuity. It is not a password account or a second account-login provider.
 
-### 5.2 Google account sign-in
+### Google account sign-in
 
-Account-bound/provider-consuming actions remain `ROLE_USER` only.
+Account/provider-consuming actions remain backend-gated to `ROLE_USER`.
 
 ```text
 Gated action
   -> 403 AUTHENTICATION_REQUIRED
-  -> LoginModal stays over current editor route
-  -> Electron main opens /api/v1/auth/desktop/start
+  -> LoginModal remains over current editor context
+  -> Electron main opens backend Desktop auth start
   -> Google OIDC in system browser
-  -> backend one-time handoff code
-  -> narrativex://auth/callback?code=...
-  -> POST /api/v1/auth/desktop/exchange
-  -> eligible guest-owned workspace metadata transferred
+  -> one-time narrativex:// handoff
+  -> backend exchange + eligible guest ownership transfer
   -> ROLE_USER session
-  -> renderer invalidates/refetches without route loss
 ```
 
 Google access/refresh tokens never enter Electron.
 
-### 5.3 Credential separation
+### Credential separation
 
-These are distinct:
+These remain distinct:
 
-1. guest installation secret — resumes stable guest identity;
-2. signed-in user session — server-managed NarrativeX account session;
-3. local-execution device credential — heartbeat/claim/lease APIs.
-
-Do not conflate them.
+1. guest installation secret;
+2. signed-in user session;
+3. local-execution device credential.
 
 ---
 
-## 6. Desktop application boundary
+## 6. Chapter source and analysis
 
-### Electron main owns
+`chapters.source_text`, `source_hash` and row version are the authoritative saved Chapter source identity. Analyze and narration consume that saved Chapter directly.
 
-- backend session transport;
-- guest installation credential;
-- Google system-browser/deep-link handoff;
-- native file/folder dialogs and file inspection/hash;
-- ProjectStorage/ProjectCatalog;
-- backup/restore/archive-copy and storage verification/cleanup;
-- protected local-device identity;
-- local execution heartbeat/claim/progress/completion/failure;
-- FFmpeg/ffprobe process execution;
-- render journal/cache and local artifact operations;
-- final MP4 open/reveal/playback/export capabilities.
+Do not reintroduce translation gating, translated content variants or translation-lineage fields as a required generation flow unless product direction changes through a deliberate contract update.
 
-### Preload owns
+Current Chapter analysis persists foundations for:
 
-A narrow allow-listed typed capability bridge. Never expose arbitrary `fs`, `child_process`, shell, environment or Node globals.
+- reusable Character/ProjectCharacter continuity;
+- Locations;
+- ordered Scenes;
+- ordered Visual Beats;
+- per-beat title and visual intent;
+- camera angle and derived image-motion direction;
+- participating beat Character references and roles.
 
-### Renderer owns
-
-- routes and presentation;
-- React Query backend state;
-- editor/timeline local draft state;
-- preview/inspector interactions;
-- invocation of explicit preload capabilities.
-
-The renderer does not own backend session cookies directly or resolve arbitrary local paths.
+AI analysis is semantic. It must not invent numeric character offsets or audio timestamps.
 
 ---
 
-## 7. Desktop local-first project media
+## 7. Character and continuity model
+
+```text
+Character
+  -> reusable owner/workspace identity
+
+ProjectCharacter
+  -> assignment of Character to Project
+
+CharacterVersion
+  -> versioned identity/bible/visual prompt
+
+CharacterAppearance
+  -> timeline/project appearance state
+```
+
+Scene and VisualBeat reference participating ProjectCharacters. Character name is not a relational identity key. Temporary outfit/age/hairstyle/injury changes do not create a duplicate Character solely for that change.
+
+---
+
+## 8. Visual Beat source and timing model
+
+The database already has nullable Visual Beat source/audio timing columns, but schema availability is not equivalent to implemented materialization.
+
+Three coordinate systems must remain separate:
+
+```text
+Chapter source position
+  text_start / text_end
+        |
+        v
+Chapter narration position
+  audio_start_ms / audio_end_ms
+        |
+        v
+Project timeline position
+  chapterStartMs + local audio offset
+  -> startMs / endMs
+```
+
+### Current AS-IS
+
+- semantic Visual Beat analysis/materialization exists;
+- narration alignment persistence exists with source/text/audio spans;
+- production timeline supports immutable planned timing and generic fallback timing;
+- `visual_beats.text_start/text_end` are not yet deterministically materialized for every analyzed beat;
+- narration completion does not yet reconcile current storyboard beat source spans into `visual_beats.audio_start_ms/audio_end_ms`;
+- therefore an unplanned draft storyboard beat must not be described as exactly narration-aligned merely because the UI can derive fallback geometry.
+
+### Approved target
+
+```text
+chapters.source_text
+  -> deterministic source segments
+  -> AI selects stable contiguous segment IDs
+  -> worker resolves UTF-16 half-open text_start/text_end
+  -> compatible narration alignment
+  -> deterministic VisualBeatTimingReconciler
+  -> audio_start_ms/audio_end_ms
+  -> global project timeline startMs/endMs
+```
+
+AI never calculates the numeric offsets. Source hash/version compatibility gates reconciliation. Analysis-first and audio-first completion orders must converge to the same result.
+
+`aspect_ratio_override` and `quality_tier_override` remain nullable override fields. `NULL` means inherit project/default policy, not missing AI output.
+
+---
+
+## 9. Narration and alignment
+
+Generated narration flow:
+
+```text
+persisted Chapter source
+  -> sentence-aware segments
+  -> provider/local inference
+  -> normalize/encode/validate/checksum
+  -> narration asset
+  -> source-to-audio alignment spans
+  -> Desktop materialization
+```
+
+Current narration alignment persists source hash plus spans containing text and audio boundaries. That alignment is usable by subtitles and later timing/planning work.
+
+User-provided narration remains an explicit TTS bypass. Arbitrary multi-part coverage/alignment and correction UX remain PARTIAL and require path-specific verification.
+
+---
+
+## 10. Image generation and media
+
+### Backend-authorized API generation
+
+Provider/API image generation remains backend-authorized, durable and reconciled through job/provider-operation state before accepted results are materialized locally.
+
+### Gemini Web Desktop generation
+
+Gemini Web generation is a Desktop-main capability through a visible Chrome/CDP browser session. It is not a Python-worker or browser-editor architecture.
+
+Current foundation includes:
+
+- typed renderer/preload/main boundary;
+- main-owned prompt/style wrapper;
+- Storyboard per-beat Generate and serial Generate All flow;
+- checksum-verified local registration/materialization;
+- protected prompt clipboard capability.
+
+Gemini Web work must not be documented as a backend API media job or backend cost-estimate path.
+
+### Media identity
+
+A beat may select image or video media. Explicit beat media selection is durable backend production state. Image-only camera/motion controls must not be presented as identical semantics for video beats.
+
+---
+
+## 11. Desktop local-first project media
 
 Primary project bytes live under Electron `userData`:
 
@@ -259,72 +368,55 @@ Primary project bytes live under Electron `userData`:
   work/
 ```
 
-`project.manifest.json` is a local integrity/location index, not a domain database. Entries use stable IDs, project-relative paths, byte sizes and SHA-256.
-
-Primary contract:
+`project.manifest.json` is a local integrity/location index, not a second domain database. Entries use stable IDs, project-relative paths, byte sizes and SHA-256.
 
 ```text
 AI-generated image/narration transport -> R2 only when remote durability is needed
-Generated/imported project images      -> local project workspace
+Generated/imported project media       -> local project workspace
 Project narration/audio                -> local project workspace
-Imported project media                 -> local project workspace
 Render intermediates/cache             -> local project workspace/work
 Final MP4                              -> local project workspace/artifacts
 Durable business/job/artifact metadata -> PostgreSQL
 ```
 
-Current foundations also include storage accounting/verification/cleanup and manifest-verified backup/restore/archive-copy behavior.
+Current foundations include native import/registration, storage accounting/verification/cleanup and manifest-verified backup/restore/archive-copy behavior.
 
 ---
 
-## 8. Asset import and materialization
+## 12. Production timeline and editor
 
-Desktop native import must not expose arbitrary paths to renderer/backend domain state.
-
-```text
-native selection
-  -> Electron main inspect/hash
-  -> short-lived selection token
-  -> backend stable MediaAsset registration
-  -> main commits bytes into ProjectStorage
-  -> manifest stores relative path + integrity
-```
-
-Implemented image-generation/narration workflows materialize required results into Desktop local storage for the current creator flow. R2 may retain generated provider outputs while remote execution/reconciliation requires durable transport, but those remote locations do not become final project-video storage.
-
----
-
-## 9. Production timeline model
-
-The production editor is not Chapter-only. It preserves:
+The production editor preserves:
 
 ```text
 Project
   -> Chapter
      -> Scene
         -> VisualBeat
-           -> selected media (image or video)
-           -> timing / supported visual controls
+           -> selected image/video media
+           -> timing / supported controls
 ```
 
-Narration-aligned timing is authoritative. Explicit beat media selections are durable backend production state through the consolidated V1 `production_beat_media_selections` table.
+Current foundations include production timeline reads, explicit beat media selection, media-duration probing, typed duration/camera/fit draft commands, undo/redo/reset and Auto Edit planning.
 
-Renderer-local duration/camera drafts may use undo/redo/reset, but render submission must resolve to backend-authorized stable identities and immutable input state.
+Timing claims must remain precise:
 
-Image-only camera/motion controls must not be forced onto video beats.
+- immutable MediaPlan timing is authoritative when present;
+- persisted exact narration-aligned beat timing may be used when complete;
+- current fallback timing can make a timeline navigable but is not proof of exact Visual Beat narration alignment;
+- draft storyboard fallback/exact audio-clock preview remains an active implementation target until the associated plan is completed and verified.
 
 ---
 
-## 10. Final render execution
+## 13. Final render execution
 
 ```text
 backend admits + assigns local render
   -> authorized device claims lease
   -> Desktop preflight validates runtime/disk/assets
-  -> resolve input IDs/checksums through manifest
+  -> resolve stable input IDs/checksums through manifest
   -> write atomic render journal
   -> reuse valid segment-cache entries
-  -> FFmpeg render missing segments
+  -> FFmpeg render missing visual segments
   -> concat video/narration
   -> mux
   -> ffprobe + checksum final MP4
@@ -334,31 +426,35 @@ backend admits + assigns local render
   -> Desktop previews/exports local MP4 directly
 ```
 
-Implemented foundations include lease heartbeat, progress/failure/completion, in-process cancellation, journal discovery and immutable segment caching.
+Implemented foundations include lease heartbeat, progress/failure/completion, in-process cancellation, journal discovery, segment caching, immutable narration subtitle snapshots and local UTF-8 SRT generation.
 
-Abrupt process/OS failure recovery across every stage and its user-facing resume/retry UX remains **PARTIAL** hardening work.
-
-There is no server-side final render executor or final-video byte-storage path in the current architecture.
+Abrupt process/OS failure recovery across every stage and complete user-facing resume/retry behavior remain PARTIAL.
 
 ---
 
-## 11. Durable generation/provider contract
+## 14. Durable generation/provider contract
 
 ```text
 Source/reviewed state
   -> OperationPlan / MediaPlan
   -> GenerationJob / StageAttempt
-  -> ProviderOperation when crossing external paid boundary
+  -> ProviderOperation when crossing an external paid boundary
   -> validated immutable result
   -> remote generated-media transport where required
   -> Desktop materialization for project use
 ```
 
-External provider ambiguity preserves `UNKNOWN` and reconciles before paid resubmission. Long provider/network calls must not hold long business transactions open.
+External provider ambiguity preserves `UNKNOWN` and reconciles before paid resubmission. Workers and Desktop executors do not invent paid operations outside backend authorization.
+
+Generation status delivery is real-time-first through owner-scoped authenticated SSE with Desktop reconnect. A slower GET watchdog covers missed events. PostgreSQL remains durable authority; the stream is delivery optimization, not state authority.
 
 ---
 
-## 12. Current database baseline
+## 15. Persistence and Flyway baseline
+
+Production backend application persistence is MyBatis + explicit PostgreSQL SQL.
+
+Current clean pre-release Flyway baseline:
 
 ```text
 V1__identity_and_access.sql
@@ -371,18 +467,16 @@ V7__indexes.sql
 V8__seed_catalog.sql
 ```
 
-V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Desktop guest-installation, production beat-media-selection, local execution/render metadata, subtitle snapshots, Chapter Workspace lookup and VieNeu speaking-rate support are represented directly in their owning baseline migrations. Future schema evolution starts with a new append-only `V9__*.sql` after the first production deployment; current pre-production databases may still be recreated when the clean baseline changes.
-
-Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and additive migrations remain authoritative.
+Before the first production deployment, the clean baseline may still be reorganized and disposable development/test databases recreated. At first production deployment the accepted applied baseline becomes immutable; subsequent schema changes are append-only from the next version.
 
 ---
 
-## 13. Current implementation baseline
+## 16. Current implementation baseline
 
 | Capability | State |
-|---|---|
+| --- | --- |
 | Desktop-only Electron editor | IMPLEMENTED |
-| Secure main/preload/renderer boundary | IMPLEMENTED foundation |
+| Secure main/preload/renderer capability boundary | IMPLEMENTED foundation |
 | Stable installation guest identity/session | IMPLEMENTED |
 | Guest-first free workspace | IMPLEMENTED foundation |
 | Google-only account sign-in | IMPLEMENTED |
@@ -392,16 +486,23 @@ Historical schema columns/defaults that no longer have an active executor do not
 | MyBatis-only production persistence | IMPLEMENTED |
 | Generation/provider durable lifecycle | IMPLEMENTED foundation |
 | Character/Location continuity | IMPLEMENTED foundation |
-| Scene/VisualBeat persistence | IMPLEMENTED foundation |
+| Scene/VisualBeat semantic persistence | IMPLEMENTED foundation |
+| Beat-specific Character references | IMPLEMENTED foundation |
 | Narration strategy + user-audio TTS bypass | IMPLEMENTED foundation |
-| Generated narration + local import | IMPLEMENTED foundation |
-| Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
+| Generated narration + local materialization | IMPLEMENTED foundation |
+| Narration alignment persistence | IMPLEMENTED foundation |
+| Deterministic VisualBeat source offsets | TARGET |
+| VisualBeat narration timing reconciliation | TARGET |
+| Exact draft storyboard audio timing before MediaPlan | TARGET/PARTIAL |
+| Vertex/API image generation + Desktop materialization | IMPLEMENTED foundation |
 | Gemini Web Desktop image generation + local materialization | IMPLEMENTED foundation |
 | R2 generated-media transport | IMPLEMENTED foundation |
 | Native local asset registration | IMPLEMENTED foundation |
-| Production timeline narration alignment | IMPLEMENTED foundation |
 | Persisted beat media selection | IMPLEMENTED foundation |
+| Production timeline planned/fallback timing | IMPLEMENTED foundation |
+| Narration-master draft preview clock | TARGET/PARTIAL |
 | Timeline draft undo/redo | IMPLEMENTED foundation |
+| Auto Edit plan + atomic render snapshot | IMPLEMENTED foundation |
 | ProjectStorage/ProjectCatalog integrity | IMPLEMENTED foundation |
 | Backup/restore/archive-copy | IMPLEMENTED foundation |
 | Storage verification/cleanup | IMPLEMENTED foundation |
@@ -411,7 +512,6 @@ Historical schema columns/defaults that no longer have an active executor do not
 | FinalArtifact metadata-only backend boundary | IMPLEMENTED |
 | Direct local final playback/export | IMPLEMENTED foundation |
 | Owner-scoped generation SSE + Desktop reconnect/watchdog | IMPLEMENTED foundation |
-| Auto Edit plan + atomic render snapshot | IMPLEMENTED foundation |
 | Immutable subtitle snapshot + local SRT track | IMPLEMENTED foundation |
 | Local media duration probing | IMPLEMENTED foundation |
 | Custom voice reference preview | IMPLEMENTED foundation |
@@ -419,100 +519,39 @@ Historical schema columns/defaults that no longer have an active executor do not
 | Full abrupt-process render recovery UX | PARTIAL |
 | Adaptive narration-driven VisualScenePlanner | TARGET |
 | Rich reuse/reframe/edit AssetResolver | DEFERRED fast-follow |
+| Complete arbitrary multi-part audio production coverage | PARTIAL |
 | Complete actual usage/billing reconciliation | PARTIAL |
 
 ---
 
-## 14. Visual planning and continuity direction
+## 17. Security and secrets
 
-Avoid fixed image counts and fixed per-image duration. The target planner uses:
-
-```text
-source + analysis + continuity + narration alignment
-  -> adaptive Scene/VisualBeat plan
-  -> review/approval
-  -> media generation/reuse/import
-```
-
-Character identity remains reusable and versioned. Outfit/age/appearance changes must not create duplicate Characters solely to represent temporary visual state.
-
-Long-term reuse preference remains:
-
-```text
-REUSE_APPROVED
-  -> REFRAME_DERIVED
-  -> EDIT_EXISTING
-  -> GENERATE_NEW
-```
-
----
-
-## 15. Security and secrets
-
-- Google tokens never enter Electron.
-- Guest plaintext secret never enters renderer logs/storage and backend stores only its hash.
+- Google provider tokens never enter Electron.
+- Guest plaintext secrets do not belong in renderer logs/storage; backend stores hashes for durable verification.
 - Device credentials are separate revocable machine credentials.
 - Renderer receives no unrestricted filesystem/process APIs.
-- Provider/R2 credentials remain server/worker secrets.
+- Provider/R2 credentials remain backend/worker secrets.
 - Uploaded/provider media is untrusted until validated.
 - Absolute Desktop paths never become durable backend identity.
-- Guest/account production gates are enforced by backend authorization.
-- Final local artifact paths are resolved only inside Electron main and are not exposed as backend storage locations.
+- Guest/account production gates are backend-authorized.
+- Final local artifact paths are resolved inside Electron main, not exposed as backend storage locations.
 
 ---
 
-## 16. Active remaining work
+## 18. Current non-claims and active direction
 
-Active work belongs in `../product/ROADMAP.md`, currently centered on:
+NarrativeX does **not** currently claim:
 
-1. production packaging/signing/auto-update and packaged protocol/OAuth tests;
-2. long-form crash/restart recovery and soak reliability;
-3. richer timeline/editor review/regeneration behavior;
-4. adaptive narration-driven scene planning and continuity review;
-5. richer asset reuse/reframe/edit lineage;
-6. user-audio alignment/production hardening;
-7. billing/actual-usage and operational evidence.
+- deterministic source offsets for every analyzed Visual Beat;
+- exact storyboard Visual Beat audio timing reconciled from narration alignment before a MediaPlan;
+- fully verified narration-clock-authoritative draft preview behavior;
+- production-complete packaging/signing/auto-update;
+- fully hardened abrupt-process/OS render recovery for every stage;
+- complete arbitrary multi-part user-audio production coverage/correction UX;
+- complete adaptive VisualScenePlanner/review loop;
+- complete reuse/reframe/edit asset lineage;
+- complete billing/actual-usage reconciliation.
 
-Completed Desktop/backend/persistence migration plans are retired. Use ADRs and Git history for historical rationale rather than preserving stale migration checklists as current truth.
+Active remaining work belongs in `documentation/product/ROADMAP.md`. The Visual Beat source/audio timing work is described by the active plan indexed in `docs/superpowers/plans/README.md`.
 
----
-
-## 17. Definition of V1.11 consistency
-
-Documentation and implementation are consistent when:
-
-- Desktop is the only editor surface;
-- stable guest ownership works without creating a second end-user login method;
-- Google is the only account sign-in provider;
-- account/provider-consuming operations are backend-gated;
-- Desktop project bytes resolve through local stable IDs/checksums rather than backend absolute paths;
-- narration drives production timing;
-- Chapter → Scene → VisualBeat hierarchy is preserved;
-- image/video beat media choices are explicit;
-- final renders are backend-assigned/lease-controlled, execute in Electron main and validate inputs/artifacts;
-- final MP4 bytes remain local and backend FinalArtifact state is metadata-only;
-- MyBatis + Flyway/PostgreSQL remain the production persistence/schema path;
-- R2 is described only as generated-media transport/durability before local materialization;
-- current implementation foundations are not mislabeled as future migration work;
-- unfinished features remain clearly marked PARTIAL/TARGET/DEFERRED.
-
----
-
-## 18. Current creator-loop summary
-
-```text
-Create/open Project
-  -> persist/edit Chapter source
-  -> Analyze
-  -> review Scene/VisualBeat structure
-  -> generate/import narration and visuals
-  -> materialize required media locally
-  -> edit production timeline
-  -> backend authorizes and leases final render
-  -> Electron main renders with FFmpeg/ffprobe
-  -> final MP4 remains in local project artifacts
-  -> backend records final-artifact metadata
-  -> Desktop previews/exports locally
-```
-
-That local-first creator loop is the architectural baseline for all new NarrativeX work.
+Retired migration reports are not maintained current documents. Use ADRs and Git history for historical rationale.
