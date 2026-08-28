@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.out.VisualBeatPromptProvider;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
@@ -18,14 +19,13 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
 
   @Override
   public String promptFor(UUID projectId, VisualBeat visualBeat) {
-    var context =
-        visualPromptContextRepository.findForScene(projectId, visualBeat.getSceneId());
-    return visualPromptComposer
-        .compose(
-            ImageStyle.CINEMATIC,
+    var context = visualPromptContextRepository.findForBeat(projectId, visualBeat.getId());
+    var composedPrompt =
+        visualPromptComposer.compose(
+            ImageStyle.CINEMATIC_ANIME,
             visualBeat.getVisualIntent(),
             visualBeat.getCameraAngle().name(),
-            context)
-        .prompt();
+            context);
+    return VisualPromptText.finalPrompt(composedPrompt);
   }
 }
