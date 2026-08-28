@@ -1,7 +1,4 @@
-import type {
-  DesktopCharacterAppearance,
-  DesktopCharacterVersionReference,
-} from "@narrativex/client-contracts";
+import type { DesktopCharacterVersionReference } from "@narrativex/client-contracts";
 import { assetsApi } from "../../assets/api/assets.api";
 import { charactersApi } from "../api/characters.api";
 
@@ -13,43 +10,6 @@ interface ImageSelection {
   checksumSha256: string;
   kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
   durationMs?: number;
-}
-
-export function buildCharacterIdentityPrompt(input: {
-  canonicalName: string;
-  visualPrompt: string;
-  bible?: string | null;
-  appearance?: DesktopCharacterAppearance | null;
-}) {
-  const appearance = input.appearance;
-  const details = [
-    input.visualPrompt.trim(),
-    appearance?.appearancePrompt?.trim(),
-    appearance?.ageState ? `Age state: ${appearance.ageState}` : null,
-    appearance?.hairstyle ? `Hairstyle: ${appearance.hairstyle}` : null,
-    appearance?.injury ? `Injury/markings: ${appearance.injury}` : null,
-  ].filter(Boolean);
-
-  return [
-    "CHARACTER REFERENCE TASK",
-    "Generate exactly one canonical identity reference for the established character below.",
-    `Character: ${input.canonicalName}`,
-    `Canonical identity: ${details.join("; ")}`,
-    input.bible?.trim() ? `Character bible context: ${input.bible.trim()}` : null,
-    "REFERENCE COMPOSITION:",
-    "- one character only",
-    "- head and upper torso clearly visible",
-    "- neutral or subtle expression",
-    "- slight three-quarter angle",
-    "- face unobstructed and easy to recognize",
-    "- clean simple background",
-    "- no story action or unrelated props",
-    "- no text, captions, logos, watermarks, contact sheet, or second character",
-    "PURPOSE: this image becomes canonical identity evidence for later storyboard frames.",
-    "Preserve specified traits exactly. Do not invent or redesign defining identity traits.",
-  ]
-    .filter(Boolean)
-    .join("\n");
 }
 
 function mergeIdentityReference(
@@ -110,14 +70,14 @@ export async function generateCharacterIdentityReference(input: {
   projectId: string;
   characterId: string;
   versionId: string;
-  canonicalName: string;
-  visualPrompt: string;
-  bible?: string | null;
-  appearance?: DesktopCharacterAppearance | null;
+  prompt: string;
 }) {
+  if (!input.prompt.trim()) {
+    throw new Error("Backend chưa trả character generation prompt.");
+  }
   const selection = await window.narrativex.geminiWeb.generateImage({
     projectId: input.projectId,
-    prompt: buildCharacterIdentityPrompt(input),
+    prompt: input.prompt,
   });
   const assetId = await registerSelection(input.projectId, selection, true);
   const references = await assignIdentityReference({ ...input, assetId });

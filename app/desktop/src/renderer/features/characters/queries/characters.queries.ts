@@ -120,12 +120,7 @@ export function useCharacterReferenceActions(
   });
 
   const generateIdentity = useMutation({
-    mutationFn: (input: {
-      canonicalName: string;
-      visualPrompt: string;
-      bible?: string | null;
-      appearance?: Parameters<typeof generateCharacterIdentityReference>[0]["appearance"];
-    }) => {
+    mutationFn: (input: { prompt: string }) => {
       if (!versionId) throw new Error("Character chưa có version để lưu reference.");
       return generateCharacterIdentityReference({ projectId, characterId, versionId, ...input });
     },

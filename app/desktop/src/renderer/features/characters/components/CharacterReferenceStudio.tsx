@@ -53,6 +53,7 @@ export function CharacterReferenceStudio({
   const isReview = status === "REVIEW";
   const isLocked = status === "LOCKED";
   const isPinned = Boolean(versionId && character.pinnedCharacterVersionId === versionId);
+  const generationPrompt = character.version?.prompt?.trim() ?? "";
 
   async function createDraft() {
     if (!bible.trim() || !visualPrompt.trim()) return;
@@ -66,15 +67,10 @@ export function CharacterReferenceStudio({
   }
 
   async function generateIdentity() {
-    if (!character.version?.visualPrompt?.trim()) return;
+    if (!generationPrompt) return;
     setNotice(null);
     try {
-      await actions.generateIdentity.mutateAsync({
-        canonicalName: character.canonicalName,
-        visualPrompt: character.version.visualPrompt,
-        bible: character.version.bible,
-        appearance: character.appearance,
-      });
+      await actions.generateIdentity.mutateAsync({ prompt: generationPrompt });
       setNotice(identity ? "Identity reference đã được regenerate." : "Identity reference đã được tạo.");
     } catch (error) {
       setNotice(errorMessage(error, "Không thể generate identity reference."));
@@ -197,7 +193,7 @@ export function CharacterReferenceStudio({
             <div className="mt-3 flex flex-wrap gap-2">
               {isDraft && (
                 <>
-                  <Button size="sm" onClick={() => void generateIdentity()} disabled={busy || !character.version?.visualPrompt?.trim()}>
+                  <Button size="sm" onClick={() => void generateIdentity()} disabled={busy || !generationPrompt}>
                     {actions.generateIdentity.isPending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
                     {identity ? "Regenerate Identity" : "Generate Identity"}
                   </Button>
