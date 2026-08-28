@@ -194,6 +194,7 @@ def main() -> int:
         "V6__database_logic_and_triggers.sql",
         "V7__indexes.sql",
         "V8__seed_catalog.sql",
+        "V9__visual_beat_preview_media.sql",
     }
     if migrations.exists():
         actual = {path.name for path in migrations.glob("V*.sql")}
@@ -203,7 +204,7 @@ def main() -> int:
         unexpected_migrations = sorted(actual - expected_migrations)
         if unexpected_migrations:
             errors.append(
-                "unexpected Flyway migration(s) outside clean pre-release baseline: "
+                "unexpected Flyway migration(s) outside current pre-release baseline: "
                 + ", ".join(unexpected_migrations)
             )
 
@@ -227,7 +228,7 @@ def main() -> int:
             "R2_BUCKET",
         ):
             if required_r2_env not in root_text:
-                errors.append(f".env.example: generated-media R2 transport is missing {required_r2_env}")
+                errors.append(f".env.example: R2 voice/provider transport is missing {required_r2_env}")
 
     if errors:
         print("Documentation drift check failed:")
