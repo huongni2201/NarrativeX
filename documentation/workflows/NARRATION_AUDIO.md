@@ -20,12 +20,13 @@ Generated narration starts from a persisted source identity and is validated/ali
 
 ```text
 persisted source
-  -> sentence-aware segments
+  -> sentence-aware segments with deterministic UTF-16 source offsets
   -> VieNeu inference
   -> pitch-preserving speaking-rate adjustment (0.25x–2.0x)
   -> concatenate/encode
   -> validate + SHA-256
   -> alignment
+  -> Visual Beat timing reconciliation
   -> remote generated-media transport when required
   -> Desktop materialization for local use
 ```
@@ -53,6 +54,7 @@ Electron native picker
   -> main commit under project assets/audio
   -> manifest relative path + size + SHA-256
   -> narration/alignment metadata
+  -> Visual Beat timing reconciliation
 ```
 
 Do not upload project audio to R2 solely so local FFmpeg can consume it. R2 is only for generated-media transport when remote provider/worker execution requires it.
@@ -72,11 +74,46 @@ One audio part may cover multiple Chapters. Several parts may cover one Chapter 
 
 Alignment must preserve source identity/version, source span, global audio start/end, confidence and coverage/status. Low-confidence, missing or source-incompatible alignment must stop for review/fix rather than silently substituting generated narration.
 
+## Visual Beat timing reconciliation
+
+Visual Beat analysis owns semantic source selection; narration alignment owns exact audio time. These responsibilities must remain separate.
+
+```text
+VisualBeat source span
+  text_start/text_end
+        +
+Narration alignment spans
+  text_start/text_end <-> audio_start_ms/audio_end_ms
+        -> deterministic reconciliation
+        -> VisualBeat audio_start_ms/audio_end_ms
+```
+
+`visual_beats.text_start/text_end` are UTF-16 half-open offsets over the exact persisted Chapter source snapshot. They may exist before narration does. `visual_beats.audio_start_ms/audio_end_ms` remain null until a compatible alignment exists.
+
+When a Visual Beat boundary falls inside a coarse narration alignment span, derive the corresponding audio boundary by deterministic interpolation over that real span:
+
+```text
+ratio = (beatTextOffset - span.textStart) / (span.textEnd - span.textStart)
+audioOffset = span.audioStartMs + ratio * (span.audioEndMs - span.audioStartMs)
+```
+
+After projection, normalize only rounding-level gaps/overlaps so the ordered beat sequence is monotonic and contiguous where the Chapter is fully covered. Do not redistribute all beats uniformly merely to fill the audio duration.
+
+Reconciliation is source-safe and idempotent:
+
+- alignment `source_hash` must match the Chapter/storyboard source snapshot;
+- stale alignment never writes timing to changed source;
+- analysis-first and audio-first completion order must both converge to the same result;
+- retries must not create divergent timing for the same source/alignment identity.
+
+A future word-level alignment provider may improve timing precision without changing the Visual Beat analysis schema.
+
 ## Local render integration
 
 ```text
 local narration input
   + selected local beat media
+  + aligned/planned Visual Beat spans
   -> visual segments
   -> concat video
   -> concat narration
