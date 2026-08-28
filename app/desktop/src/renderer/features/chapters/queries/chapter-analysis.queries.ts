@@ -1,26 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AnalyzeChapterInput } from "@narrativex/client-contracts";
+import { isTerminalGenerationJobStatus } from "../../generation/generation-status.ts";
 import {
-  isActiveGenerationJobStatus,
-  isTerminalGenerationJobStatus,
-} from "../../generation/generation-status.ts";
-import {
-  generationQueryKeys,
   useAnalyzeChapter,
   useGenerationJob,
 } from "../../generation/queries/generation.queries.ts";
+import {
+  chapterAnalysisQueryKeys,
+  chapterAnalysisShouldPoll,
+} from "../model/chapter-analysis-query-contract.ts";
 import { deriveChapterAnalysisUiState } from "../model/chapter-analysis.ts";
-import { chapterQueryKeys } from "./chapters.queries.ts";
 
-export const chapterAnalysisQueryKeys = {
-  workspace: (projectId: string, chapterId: string) =>
-    chapterQueryKeys.workspace(projectId, chapterId),
-  timeline: (projectId: string) => ["projects", projectId, "timeline"] as const,
-  job: (jobId: string) => generationQueryKeys.generationJob(jobId),
-};
-
-export const chapterAnalysisShouldPoll = isActiveGenerationJobStatus;
+export { chapterAnalysisQueryKeys, chapterAnalysisShouldPoll };
 
 type TrackedAnalysisJob = {
   jobId: string;
