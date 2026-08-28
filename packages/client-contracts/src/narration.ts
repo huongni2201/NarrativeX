@@ -15,6 +15,7 @@ export interface GenerateNarrationInput {
   speakingRate?: number;
   voiceReferenceAssetId?: string;
   executionPreference?: ExecutionPreference;
+  forceRegenerate?: boolean;
 }
 
 export interface GenerateBatchNarrationInput {
