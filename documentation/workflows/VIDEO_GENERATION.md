@@ -7,15 +7,37 @@ NarrativeX remains image-first. A VisualBeat may use an image or video asset, bu
 ```text
 VisualBeat
   -> selected MediaAsset
-       IMAGE  -> deterministic FFmpeg camera/motion over narration span
+       IMAGE  -> deterministic FFmpeg camera/motion over the production beat span
        VIDEO  -> trim/fill/extend according to supported production policy
 ```
 
-Chapter → Scene → VisualBeat is a logical timeline hierarchy. A video beat does not require the system to prerender each Scene or Chapter into nested MP4 files before editing.
+Chapter -> Scene -> VisualBeat is a logical timeline hierarchy. A video beat does not require the system to prerender each Scene or Chapter into nested MP4 files before editing.
 
 Persisted beat media selections are part of the consolidated V1 schema and allow an editor-selected image/video asset to survive reload and feed production/render reads.
 
 Electron main probes imported audio/video duration before local registration. Known video source duration is carried into the timeline and render contract so `TRIM`, `LOOP`, `FREEZE_END` and `SPEED_ADJUST` decisions can be validated against the source rather than guessed at render time.
+
+## Timing semantics
+
+Narration is the intended visual master clock when compatible exact alignment exists, but current timing sources must remain distinguishable:
+
+```text
+PLANNED
+  current immutable MediaPlan timing
+  -> authoritative for production/render planning
+
+ALIGNED (target for draft storyboard)
+  VisualBeat source span
+  -> compatible narration alignment
+  -> exact audio_start_ms/audio_end_ms
+
+FALLBACK / PROVISIONAL
+  generic backend timeline geometry used when exact beat timing is incomplete
+  -> navigable/editor-friendly
+  -> NOT proof of exact narration alignment
+```
+
+At the audited code checkpoint, semantic VisualBeat analysis and narration alignment persistence exist, but deterministic `visual_beats.text_start/text_end` and source-to-audio reconciliation are not yet complete for every analyzed beat. Therefore docs and UI must not label generic fallback geometry as exact narration timing.
 
 ## Imported video — current Desktop direction
 
@@ -34,7 +56,7 @@ Renderer/backend state uses stable IDs and metadata, never arbitrary absolute ma
 
 ## Deterministic image motion — primary path
 
-For image-selected beats, FFmpeg in Electron main applies supported deterministic camera/motion behavior for the beat's narration-derived duration. This remains the low-cost default.
+For image-selected beats, FFmpeg in Electron main applies supported deterministic camera/motion behavior for the production beat duration. When a current MediaPlan exists, its timing is authoritative. Exact narration-derived storyboard timing may be used only after compatible source-to-audio reconciliation exists; otherwise fallback geometry remains provisional.
 
 Image-only controls such as camera/pan/zoom behavior must not be displayed as if they are required for video-selected beats.
 
@@ -73,7 +95,7 @@ approved VisualBeat + source keyframe/media identity
 
 Ambiguous provider acceptance becomes `UNKNOWN` and reconciles before resubmission. Failed/rejected generated motion does not destroy the source keyframe or prevent deterministic fallback when policy allows it.
 
-Generated motion duration and narration-span duration are separate concepts. The production timeline still has to fit the selected media into the narration-authoritative beat span.
+Generated motion duration and production beat duration are separate concepts. Selected media must be fitted into the authoritative production span chosen by the current plan/alignment contract rather than silently changing narrative timing.
 
 ## Final render
 
@@ -81,11 +103,11 @@ Regardless of whether a beat uses an imported video, generated motion or determi
 
 ```text
 backend-authorized production snapshot
-  -> selected beat media IDs + timing
+  -> selected beat media IDs + authoritative snapshot timing
   -> assigned local-device lease
   -> Electron main resolves checksum-verified local assets
   -> render/cache segments
-  -> narration-aligned subtitle cues from immutable render snapshot
+  -> subtitle cues from immutable narration text/alignment snapshot
   -> write UTF-8 SRT and mux with narration when cues exist
   -> ffprobe/checksum final MP4
   -> write project artifacts/<jobId>/final.mp4
@@ -93,9 +115,11 @@ backend-authorized production snapshot
   -> preview/export local MP4 directly
 ```
 
+Subtitle cues may legitimately be narration-aligned even while draft VisualBeat timing reconciliation is incomplete; those are separate contracts.
+
 The final MP4 remains under the project artifact workspace unless the user explicitly exports/uploads/publishes it elsewhere. The backend never stores or proxies final video bytes.
 
-AI-generated images/narration may use R2 while provider/worker execution requires remote durable transport, but those accepted media bytes are materialized locally before final rendering.
+AI-generated images/narration may use R2 while provider/worker execution requires remote durable transport, but accepted project media bytes are materialized locally before final rendering.
 
 ## Shorts / Reels
 
@@ -105,6 +129,7 @@ A short remains a Desktop-local artifact until the user explicitly exports or pu
 
 ## Remaining work
 
+- exact VisualBeat source-span and narration timing reconciliation for draft storyboard preview;
 - production-complete imported-video editing semantics (trim/fill/reorder/review where allowed);
 - adaptive timeline/reframe UX for mixed image/video beats;
 - optional I2V provider/runtime hardening only after core creator reliability;
