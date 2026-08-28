@@ -536,39 +536,18 @@ export class GeminiWebAutomation {
     while (Date.now() < deadline) {
       if (await this.isImageModeReady(cdp)) return;
 
-      const clicked = await evaluate<boolean>(
-        cdp,
-        `(() => {
-          const visible = (element) => {
-            const style = window.getComputedStyle(element);
-            const rect = element.getBoundingClientRect();
-            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-          };
-          const patterns = ["ảnh", "hình ảnh", "tạo hình ảnh", "tạo ảnh", "images", "image", "create image", "create images"];
-          const elements = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [role="tab"]')];
-          const candidates = elements.filter((element) => {
-            if (!visible(element)) return false;
-            const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
-              .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-            return patterns.some((pattern) => value === pattern || value.startsWith(pattern + " "));
-          });
-          const target = candidates.sort((a, b) => {
-            const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
-            const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
-            return areaA - areaB;
-          })[0];
-          if (!target) return false;
-          target.click();
-          return true;
-        })()`,
-      );
-      if (clicked) {
-        await delay(350);
+      if (await this.clickCreateImageAction(cdp)) {
+        if (await this.waitForImageModeReady(cdp, 5_000)) return;
+        await delay(250);
         continue;
       }
 
       if (await this.openImageModeMenu(cdp)) {
-        await delay(350);
+        await delay(300);
+        if (await this.clickCreateImageAction(cdp)) {
+          if (await this.waitForImageModeReady(cdp, 5_000)) return;
+        }
+        await delay(250);
         continue;
       }
 
@@ -578,6 +557,37 @@ export class GeminiWebAutomation {
     throw geminiError(
       "GEMINI_IMAGE_MODE_NOT_FOUND",
       "NarrativeX could not open Gemini image creation mode.",
+    );
+  }
+
+  private async clickCreateImageAction(cdp: CdpClient): Promise<boolean> {
+    return evaluate<boolean>(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        };
+        const patterns = ["tạo hình ảnh", "tạo ảnh", "hình ảnh", "ảnh", "create image", "create images", "image", "images"];
+        const label = (element) => [
+          element.getAttribute("aria-label"), element.getAttribute("title"), element.getAttribute("data-tooltip"), element.textContent
+        ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+        const elements = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="option"], [role="tab"]')]
+          .filter((element) => visible(element) && !element.disabled);
+        const candidates = elements.filter((element) => {
+          const value = label(element);
+          return patterns.some((pattern) => value === pattern || value.startsWith(pattern + " "));
+        });
+        const target = candidates.sort((a, b) => {
+          const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
+          const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
+          return areaA - areaB;
+        })[0];
+        if (!target) return false;
+        target.click();
+        return true;
+      })()`,
     );
   }
 
@@ -616,15 +626,41 @@ export class GeminiWebAutomation {
     return evaluate<boolean>(
       cdp,
       `(() => {
-        const text = (document.body?.innerText || "").replace(/\\s+/g, " ").toLowerCase();
-        if (text.includes("tạo hình ảnh") || text.includes("create image")) return true;
-        return [...document.querySelectorAll('textarea, input, [contenteditable="true"]')].some((element) => {
-          const value = [element.getAttribute("placeholder"), element.getAttribute("aria-label")]
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        };
+        const editors = [...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
+          .filter((element) => visible(element));
+        if (editors.some((element) => {
+          const value = [element.getAttribute("placeholder"), element.getAttribute("aria-label"), element.getAttribute("title")]
             .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-          return value.includes("mô tả hình ảnh") || value.includes("describe your image");
-        });
+          return value.includes("mô tả hình ảnh") || value.includes("describe your image") || value.includes("image prompt");
+        })) return true;
+
+        return [...document.querySelectorAll('button, [role="button"], [role="tab"], [role="option"]')]
+          .filter((element) => visible(element))
+          .some((element) => {
+            const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
+              .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+            const selected = element.getAttribute("aria-selected") === "true" ||
+              element.getAttribute("aria-pressed") === "true" ||
+              element.getAttribute("data-state") === "active" ||
+              element.getAttribute("data-selected") === "true";
+            return selected && (value.includes("hình ảnh") || value === "ảnh" || value.includes("image"));
+          });
       })()`,
     );
+  }
+
+  private async waitForImageModeReady(cdp: CdpClient, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await this.isImageModeReady(cdp)) return true;
+      await delay(200);
+    }
+    return false;
   }
 
   private async selectModel(cdp: CdpClient, modelName: string): Promise<void> {
@@ -645,7 +681,7 @@ export class GeminiWebAutomation {
             if (!visible(element)) return false;
             const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
               .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-            return value === "pro" || value === "fast" || value === "thinking" ||
+            return value === "pro" || value === "flash" || value === "fast" || value === "thinking" ||
               value.includes("model") || value.includes("mô hình") ||
               element.tagName.toLowerCase() === "bard-mode-menu-button" ||
               element.tagName.toLowerCase() === "input-area-switch";
