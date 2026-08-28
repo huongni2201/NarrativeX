@@ -1,8 +1,8 @@
 """Run NarrativeX's local CI and quality gates without a hosted CI provider.
 
 The command is intentionally tool-agnostic: it runs the same checks locally that should
-be used before merging, and never treats a failed compile, test, lint, or type check as
-non-blocking.
+be used before merging, and never treats a failed compile, test, lint, type or docs check
+as non-blocking.
 """
 
 from __future__ import annotations
@@ -36,6 +36,13 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
     maven = str(ROOT / "app/backend-service/mvnw.cmd")
     npm = "npm.cmd" if os.name == "nt" else "npm"
     result = [
+        python_gate(
+            "docs-governance-tests",
+            "-m",
+            "unittest",
+            "scripts/test_check_docs_drift.py",
+            "scripts/test_check_docs_checkpoint.py",
+        ),
         python_gate("docs-drift", "scripts/check-docs-drift.py"),
         python_gate("docs-checkpoint", "scripts/check-docs-checkpoint.py"),
         python_gate("secret-scan", "scripts/check-secrets.py"),
@@ -59,7 +66,7 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
 
     if not skip_install:
         result.insert(
-            3,
+            4,
             Gate("desktop-install-lockfile", (npm, "ci"), ROOT / "app/desktop"),
         )
     result.extend(
