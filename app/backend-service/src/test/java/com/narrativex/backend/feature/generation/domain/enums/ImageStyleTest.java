@@ -19,11 +19,14 @@ class ImageStyleTest {
   }
 
   @Test
-  void manhuaProfileIsOwnedByBackend() {
-    assertThat(ImageStyle.MANHUA.promptFor("A heroine enters a moonlit palace courtyard."))
-        .contains("premium Chinese romantic-fantasy manhua illustration")
-        .contains("SCENE DESCRIPTION: A heroine enters a moonlit palace courtyard.");
-    assertThat(ImageStyle.MANHUA.negativePrompt())
-        .contains("photorealistic photography", "watermark", "collage");
+  void cinematicAnimeProfileIsOwnedByBackend() {
+    assertThat(ImageStyle.CINEMATIC_ANIME.promptFor("A heroine stands in a sunlit flower field."))
+        .contains("cinematic anime illustration")
+        .contains("soft luminous atmospheric lighting")
+        .contains("glossy eyes")
+        .contains("wind-swept hair")
+        .contains("SCENE DESCRIPTION: A heroine stands in a sunlit flower field.");
+    assertThat(ImageStyle.CINEMATIC_ANIME.negativePrompt())
+        .contains("photorealistic photography", "3D render", "multiple panels", "watermark");
   }
 }

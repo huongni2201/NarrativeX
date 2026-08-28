@@ -18,20 +18,28 @@ public enum ImageStyle {
           + "consistent character appearance",
       "photorealistic, harsh contrast, plastic CGI, oversaturated colors, random art style, "
           + "inconsistent face, changing hairstyle, changing outfit, distorted anatomy, text, logo, watermark"),
-  MANHUA(
-      "premium Chinese romantic-fantasy manhua illustration with a polished webtoon-cover finish, "
-          + "semi-realistic anime and Chinese manhua aesthetic, elegant adult character rendering, "
-          + "delicate highly detailed facial features, large expressive eyes with glossy catchlights, "
-          + "smooth luminous skin with subtle natural shading, highly detailed hair with clean strands, "
-          + "fine line art with polished digital painting, soft cel shading blended with realistic volume, "
-          + "cinematic rim light and motivated key light, atmospheric depth, dramatic readable shadows, "
-          + "rich luxurious color grading, strong focal separation, premium serialized manhua quality, "
-          + "consistent face rendering, eye treatment, line quality, hair detail, skin rendering and lighting",
-      "photorealistic photography, 3D render, CGI, western superhero comic, chibi, childish proportions, "
-          + "flat vector art, watercolor, sketch-only, thick cartoon outlines, washed-out color, flat lighting, "
-          + "harsh HDR, uncontrolled bloom, overexposure, low-detail faces, blurry eyes, malformed anatomy, "
-          + "distorted hands, extra fingers, asymmetrical eyes, duplicated limbs, inconsistent character appearance, "
-          + "montage, collage, split screen, contact sheet, multiple panels, text, caption, logo, watermark");
+  CINEMATIC_ANIME(
+      "high-quality cinematic anime illustration with a delicate, emotional, visually poetic Japanese anime aesthetic, "
+          + "cinematic anime key visual with refined film-like composition, soft luminous atmospheric lighting, "
+          + "strong natural backlight with soft rim light, dreamy glow and restrained light bloom, "
+          + "expressive highly detailed glossy eyes with layered iris reflections and delicate eyelashes, "
+          + "elegant anime facial proportions with subtle blush and nuanced emotional expressions, "
+          + "flowing wind-swept hair rendered with many fine individual strands and luminous edge highlights, "
+          + "clean delicate line art combined with soft painterly anime rendering and refined cel shading, "
+          + "smooth gradient transitions, bright airy natural colors, warm sunlight, gentle pastel tones, "
+          + "shallow depth of field, soft cinematic bokeh, atmospheric perspective and strong focal separation, "
+          + "blurred foreground flowers, petals, leaves or light particles when appropriate to the scene, "
+          + "subtle drifting petals, dust motes, floating light or water droplets when contextually appropriate, "
+          + "poetic wistful intimate melancholic atmosphere, emotionally focused visual storytelling, "
+          + "polished high-detail digital anime artwork with consistent face rendering, eye treatment, "
+          + "hair detail, line quality, lighting language and character appearance across the series",
+      "photorealistic photography, realistic live-action look, 3D render, CGI, western superhero comic, "
+          + "chibi, childish proportions, flat vector art, watercolor-only rendering, sketch-only rendering, "
+          + "thick cartoon outlines, dull colors, muddy colors, neon oversaturation, flat lighting, harsh shadows, "
+          + "harsh HDR, uncontrolled bloom, overexposure, plastic skin, low-detail faces, blurry eyes, "
+          + "malformed anatomy, distorted hands, extra fingers, asymmetrical eyes, duplicated limbs, "
+          + "inconsistent character appearance, montage, collage, split screen, contact sheet, multiple panels, "
+          + "text, caption, subtitle, logo, watermark");
 
   private final String promptSuffix;
   private final String negativePrompt;
