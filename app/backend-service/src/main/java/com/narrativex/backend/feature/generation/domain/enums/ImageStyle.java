@@ -19,27 +19,25 @@ public enum ImageStyle {
       "photorealistic, harsh contrast, plastic CGI, oversaturated colors, random art style, "
           + "inconsistent face, changing hairstyle, changing outfit, distorted anatomy, text, logo, watermark"),
   CINEMATIC_ANIME(
-      "high-quality cinematic anime illustration with a delicate, emotional, visually poetic Japanese anime aesthetic, "
-          + "cinematic anime key visual with refined film-like composition, soft luminous atmospheric lighting, "
-          + "strong natural backlight with soft rim light, dreamy glow and restrained light bloom, "
-          + "expressive highly detailed glossy eyes with layered iris reflections and delicate eyelashes, "
-          + "elegant anime facial proportions with subtle blush and nuanced emotional expressions, "
-          + "flowing wind-swept hair rendered with many fine individual strands and luminous edge highlights, "
-          + "clean delicate line art combined with soft painterly anime rendering and refined cel shading, "
-          + "smooth gradient transitions, bright airy natural colors, warm sunlight, gentle pastel tones, "
-          + "shallow depth of field, soft cinematic bokeh, atmospheric perspective and strong focal separation, "
-          + "blurred foreground flowers, petals, leaves or light particles when appropriate to the scene, "
-          + "subtle drifting petals, dust motes, floating light or water droplets when contextually appropriate, "
-          + "poetic wistful intimate melancholic atmosphere, emotionally focused visual storytelling, "
-          + "polished high-detail digital anime artwork with consistent face rendering, eye treatment, "
-          + "hair detail, line quality, lighting language and character appearance across the series",
-      "photorealistic photography, realistic live-action look, 3D render, CGI, western superhero comic, "
-          + "chibi, childish proportions, flat vector art, watercolor-only rendering, sketch-only rendering, "
-          + "thick cartoon outlines, dull colors, muddy colors, neon oversaturation, flat lighting, harsh shadows, "
-          + "harsh HDR, uncontrolled bloom, overexposure, plastic skin, low-detail faces, blurry eyes, "
-          + "malformed anatomy, distorted hands, extra fingers, asymmetrical eyes, duplicated limbs, "
-          + "inconsistent character appearance, montage, collage, split screen, contact sheet, multiple panels, "
-          + "text, caption, subtitle, logo, watermark");
+      "masterwork 2.5D digital painting, high-end romantic webnovel cover art illustration, "
+          + "modern manhwa aesthetic, delicate semi-realistic character beauty with softly sculpted refined facial features, "
+          + "smooth porcelain skin with soft airbrushed shading and radiant luminous glow, "
+          + "large expressive glossy eyes with layered iris reflections, delicate eyelashes and brilliant catchlights, "
+          + "silky voluminous flowing hair rendered with fine brushwork and soft golden specular sheen, "
+          + "luxurious atmospheric lighting with a soft flattering key light, warm champagne gold rim lighting, "
+          + "subtle romantic bloom, soft creamy bokeh with floating golden light motes and subtle sparkles in the background, "
+          + "sophisticated deep color grading with rich espresso, charcoal, and warm amber tones, "
+          + "polished digital illustration finish avoiding flat 2D anime and avoiding raw live-action photograph, "
+          + "cohesive elegant romantic mood, consistent character appearance across the series, "
+          + "render the requested story scene only, without book-cover typography, title text or decorative lettering",
+      "raw live-action photograph, real human paparazzi photo, flat 2D cel anime, "
+          + "thick black cartoon outlines, chibi, childish proportions, western superhero comic, "
+          + "flat vector art, watercolor-only rendering, rough sketch, plastic toy look, waxy skin, "
+          + "uncanny face, low-detail face, blurry eyes, empty eyes, neon oversaturation, muddy colors, "
+          + "harsh flat lighting, crushed shadow detail, blown highlights, malformed anatomy, distorted hands, "
+          + "extra fingers, missing fingers, asymmetrical eyes, duplicated limbs, inconsistent character appearance, "
+          + "changing hairstyle, changing facial identity, changing outfit, montage, collage, split screen, "
+          + "contact sheet, multiple panels, text, caption, subtitle, title, decorative lettering, logo, watermark");
 
   private final String promptSuffix;
   private final String negativePrompt;

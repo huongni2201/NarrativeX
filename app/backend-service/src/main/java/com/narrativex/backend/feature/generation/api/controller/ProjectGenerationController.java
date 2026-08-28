@@ -92,11 +92,14 @@ public class ProjectGenerationController {
                         "Visual Beat not found in the current Chapter storyboard"));
 
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
+    String aspectRatio =
+        beat.aspectRatioOverride() != null ? beat.aspectRatioOverride().name() : null;
     var composedPrompt =
         visualPromptComposer.compose(
             ImageStyle.CINEMATIC_ANIME,
             beat.visualIntent(),
             beat.cameraAngle().name(),
+            aspectRatio,
             context);
     return ResponseEntity.ok(
         ApiResponse.success(

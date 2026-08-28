@@ -85,6 +85,24 @@ class VisualPromptComposerTest {
   }
 
   @Test
+  void addsStructuredAspectRatioToImagePrompt() {
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan reads the warning",
+            "LOW_ANGLE",
+            "RATIO_16_9",
+            VisualPromptContext.empty());
+
+    assertThat(result.prompt())
+        .contains(
+            "IMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a 16:9 aspect ratio.")
+        .contains("ASPECT RATIO: 16:9 horizontal widescreen format (16:9 aspect ratio).")
+        .contains(
+            "COMPOSITION RULE: create one single 16:9 frame only. Full bleed composition without black letterbox bars or borders.");
+  }
+
+  @Test
   void keepsPromptExecutableWhenSceneHasNoCanonYet() {
     var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", null);
 

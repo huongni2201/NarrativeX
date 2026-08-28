@@ -20,11 +20,16 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
   @Override
   public String promptFor(UUID projectId, VisualBeat visualBeat) {
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeat.getId());
+    String aspectRatio =
+        visualBeat.getAspectRatioOverride() != null
+            ? visualBeat.getAspectRatioOverride().name()
+            : null;
     var composedPrompt =
         visualPromptComposer.compose(
             ImageStyle.CINEMATIC_ANIME,
             visualBeat.getVisualIntent(),
             visualBeat.getCameraAngle().name(),
+            aspectRatio,
             context);
     return VisualPromptText.finalPrompt(composedPrompt);
   }

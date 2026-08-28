@@ -28,11 +28,20 @@ public class VisualPromptComposer {
 
   public ComposedVisualPrompt compose(
       ImageStyle style, String visualIntent, VisualPromptContext context) {
-    return compose(style, visualIntent, null, context);
+    return compose(style, visualIntent, null, null, context);
   }
 
   public ComposedVisualPrompt compose(
       ImageStyle style, String visualIntent, String cameraAngle, VisualPromptContext context) {
+    return compose(style, visualIntent, cameraAngle, null, context);
+  }
+
+  public ComposedVisualPrompt compose(
+      ImageStyle style,
+      String visualIntent,
+      String cameraAngle,
+      String aspectRatio,
+      VisualPromptContext context) {
     if (style == null) {
       throw new IllegalArgumentException("style must not be null");
     }
@@ -46,16 +55,23 @@ public class VisualPromptComposer {
             .map(selected -> selected.reference().assetId())
             .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
+    String normalizedRatio = normalizeRatio(aspectRatio);
+
     StringBuilder prompt = new StringBuilder(style.promptFor(visualIntent));
-    prompt.append(
-        "\nIMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat.");
+    prompt
+        .append("\nIMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a ")
+        .append(normalizedRatio)
+        .append(" aspect ratio.");
+    appendAspectRatio(prompt, normalizedRatio);
     appendCameraFraming(prompt, cameraAngle);
     appendLocation(prompt, safeContext.location());
     appendCharacters(prompt, safeContext.characters());
     appendReferenceMap(prompt, selectedReferences);
-    prompt.append(
-        "\nCOMPOSITION RULE: create one frame only. Do not create a montage, collage, split screen, "
-            + "contact sheet, or multiple panels.");
+    prompt
+        .append("\nCOMPOSITION RULE: create one single ")
+        .append(normalizedRatio)
+        .append(" frame only. Full bleed composition without black letterbox bars or borders. Do not create a montage, collage, split screen, ")
+        .append("contact sheet, or multiple panels.");
     prompt.append(
         "\nVISUAL VARIETY: avoid repetitive centered framing. Use the requested camera framing as a "
             + "deliberate shot variation; when neighboring beats are wide, prefer a tighter or "
@@ -78,6 +94,30 @@ public class VisualPromptComposer {
     return selectReferences(safeContext.characters()).stream()
         .map(SelectedReference::toBinding)
         .toList();
+  }
+
+  private static String normalizeRatio(String aspectRatio) {
+    if (aspectRatio == null || aspectRatio.isBlank()) {
+      return "16:9";
+    }
+    String trimmed = aspectRatio.trim();
+    if (trimmed.startsWith("RATIO_")) {
+      trimmed = trimmed.substring(6).replace('_', ':');
+    }
+    return trimmed;
+  }
+
+  private static void appendAspectRatio(StringBuilder prompt, String normalizedRatio) {
+    String description =
+        switch (normalizedRatio) {
+          case "16:9" -> "16:9 horizontal widescreen format (16:9 aspect ratio)";
+          case "9:16" -> "9:16 vertical full-screen portrait format (9:16 aspect ratio)";
+          case "1:1" -> "1:1 square format (1:1 aspect ratio)";
+          case "4:3" -> "4:3 standard landscape format (4:3 aspect ratio)";
+          case "3:4" -> "3:4 vertical portrait format (3:4 aspect ratio)";
+          default -> normalizedRatio + " format (" + normalizedRatio + " aspect ratio)";
+        };
+    prompt.append("\nASPECT RATIO: ").append(description).append('.');
   }
 
   private static void appendCameraFraming(StringBuilder prompt, String cameraAngle) {

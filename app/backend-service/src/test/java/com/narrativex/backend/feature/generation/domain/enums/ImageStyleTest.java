@@ -19,14 +19,23 @@ class ImageStyleTest {
   }
 
   @Test
-  void cinematicAnimeProfileIsOwnedByBackend() {
+  void cinematicAnimeProfileUsesSemiRealisticRomanceRendering() {
     assertThat(ImageStyle.CINEMATIC_ANIME.promptFor("A heroine stands in a sunlit flower field."))
-        .contains("cinematic anime illustration")
-        .contains("soft luminous atmospheric lighting")
-        .contains("glossy eyes")
-        .contains("wind-swept hair")
+        .contains("2.5D digital painting")
+        .contains("romantic webnovel cover art")
+        .contains("modern manhwa")
+        .contains("champagne gold rim lighting")
+        .contains("silky")
+        .contains("scene only")
         .contains("SCENE DESCRIPTION: A heroine stands in a sunlit flower field.");
+
     assertThat(ImageStyle.CINEMATIC_ANIME.negativePrompt())
-        .contains("photorealistic photography", "3D render", "multiple panels", "watermark");
+        .contains(
+            "raw live-action photograph",
+            "flat 2D cel anime",
+            "plastic toy look",
+            "multiple panels",
+            "title",
+            "watermark");
   }
 }

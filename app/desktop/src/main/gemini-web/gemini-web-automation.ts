@@ -27,7 +27,7 @@ const REFERENCE_UPLOAD_TIMEOUT_MS = 30_000;
 const MIN_CAPTURE_BYTES = 24 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
 const GEMINI_MODEL_OPTION_SELECTOR =
-  'button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="radio"]';
+  'button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="radio"], gem-menu-item';
 const GEMINI_GENERATED_IMAGE_SELECTOR = [
   "generated-image img",
   "single-image img",
@@ -329,13 +329,21 @@ export class GeminiWebAutomation {
 
         await this.navigateToGemini(cdp);
         await this.waitForComposerOrLogin(cdp);
+        await delay(600);
         await this.startFreshConversation(cdp);
         await this.waitForComposerOrLogin(cdp);
+        await delay(800);
         await this.activateImagesMode(cdp);
+        await delay(800);
         await this.selectImagePreset(cdp, GEMINI_IMAGE_PRESET);
+        await delay(800);
         await this.selectModel(cdp, GEMINI_IMAGE_MODEL);
+        await delay(800);
         await this.waitForComposerOrLogin(cdp);
         await this.attachReferences(cdp, references);
+        if (references.length > 0) {
+          await delay(800);
+        }
 
         const beforeDownload = await this.snapshotDownloads();
         const baseline = await this.generationSnapshot(cdp);
@@ -507,6 +515,21 @@ export class GeminiWebAutomation {
   }
 
   private async startFreshConversation(cdp: CdpClient): Promise<void> {
+    const isThread = await evaluate<boolean>(
+      cdp,
+      `(() => {
+        const path = window.location.pathname;
+        return path.length > 5 && path.startsWith("/app/");
+      })()`,
+    );
+
+    if (isThread) {
+      await cdp.send("Page.navigate", { url: "https://gemini.google.com/app" });
+      await delay(1200);
+      await this.waitForComposerOrLogin(cdp);
+      return;
+    }
+
     await evaluate(
       cdp,
       `(() => {
@@ -515,10 +538,22 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const patterns = ["new chat", "new conversation", "chat mới", "cuộc trò chuyện mới"];
-        const elements = [...document.querySelectorAll('button, a')];
+
+        const geminiLogo = document.querySelector('a[href="/app"], a[aria-label*="Gemini"]');
+        if (geminiLogo && visible(geminiLogo)) {
+          geminiLogo.click();
+          return true;
+        }
+
+        const patterns = ["new chat", "cuộc trò chuyện mới", "chat mới"];
+        const elements = [...document.querySelectorAll('button, a')].filter((el) => {
+          if (!visible(el)) return false;
+          const label = (el.getAttribute("aria-label") || "").toLowerCase();
+          if (label.includes("thanh bên") || label.includes("sidebar") || label.includes("mở thanh bên")) return false;
+          return true;
+        });
+
         const target = elements.find((element) => {
-          if (!visible(element)) return false;
           const value = String(element.getAttribute("aria-label") || "") + " " + String(element.textContent || "");
           const normalized = value.replace(/\\s+/g, " ").trim().toLowerCase();
           return patterns.some((pattern) => normalized.includes(pattern));
@@ -528,7 +563,7 @@ export class GeminiWebAutomation {
         return true;
       })()`,
     );
-    await delay(500);
+    await delay(800);
   }
 
   private async activateImagesMode(cdp: CdpClient): Promise<void> {
@@ -537,27 +572,25 @@ export class GeminiWebAutomation {
     while (Date.now() < deadline) {
       if (await this.isImageModeReady(cdp)) return;
 
+      // 1. Try to click "Tạo hình ảnh" directly if already on screen/menu
       if (await this.clickCreateImageAction(cdp)) {
-        if (await this.waitForImageModeReady(cdp, 5_000)) return;
+        if (await this.waitForImageModeReady(cdp, 4_000)) return;
         await delay(300);
         if (await this.isImageModeReady(cdp)) return;
-        continue;
       }
 
+      // 2. Open the tool menu (+ button or tools button)
       if (await this.openImageModeMenu(cdp)) {
-        await delay(350);
+        await delay(500);
 
         if (await this.clickCreateImageAction(cdp)) {
-          if (await this.waitForImageModeReady(cdp, 5_000)) return;
+          if (await this.waitForImageModeReady(cdp, 4_000)) return;
           await delay(300);
           if (await this.isImageModeReady(cdp)) return;
         }
-
-        await delay(250);
-        continue;
       }
 
-      await delay(250);
+      await delay(300);
     }
 
     throw geminiError(
@@ -589,7 +622,7 @@ export class GeminiWebAutomation {
 
         const allElements = [
           ...document.querySelectorAll(
-            'button, a, [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="listitem"], li, div, span, p, mat-list-item, gux-menu-item',
+            'button, a, [role="button"], [role="menuitem"], [role="menuitemcheckbox"], [role="option"], [role="tab"], [role="listitem"], li, div, span, p, mat-list-item, gux-menu-item',
           ),
         ].filter((element) => visible(element) && !element.disabled);
 
@@ -644,12 +677,11 @@ export class GeminiWebAutomation {
         });
 
         const target = candidates[0].element;
-        const clickable = target.closest('button, a, [role="button"], [role="menuitem"], [role="option"], [role="listitem"], li') || target;
+        const clickable = target.closest('button, a, [role="button"], [role="menuitem"], [role="menuitemcheckbox"], [role="option"], [role="listitem"], li, mat-list-item') || target;
 
-        clickable.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true, view: window }));
-        clickable.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-        clickable.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, cancelable: true, view: window }));
-        clickable.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+        clickable.scrollIntoView({ block: "center", inline: "center" });
+
+        // IMPORTANT: Click exactly ONCE. Do NOT loop over clickable and target (which would double-click menuitemcheckbox and toggle it off!)
         clickable.click();
         return true;
       })()`,
@@ -671,26 +703,39 @@ export class GeminiWebAutomation {
             rect.height > 4
           );
         };
-        const patterns = ["tools", "công cụ", "menu", "main menu", "trình đơn", "menu chính", "more", "more options", "tải lên", "upload"];
-        const elements = [...document.querySelectorAll('button, [role="button"], [role="menuitem"], [aria-haspopup="menu"], [aria-label], [title]')]
-          .filter((element) => visible(element) && !element.disabled);
-        const label = (element) => [
-          element.getAttribute("aria-label"), element.getAttribute("title"), element.getAttribute("data-tooltip"), element.textContent
-        ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-        const candidates = elements.filter((element) => {
-          const value = label(element);
-          return patterns.some((pattern) => value === pattern || value.includes(pattern));
+
+        // If the menu is already open, do not toggle it off
+        const existingMenuItems = [
+          ...document.querySelectorAll('[role="menuitemcheckbox"], [role="menuitem"], .toolbox-drawer-item-list-button')
+        ].filter(visible);
+        const hasOpenMenu = existingMenuItems.some((el) => {
+          const t = (el.innerText || el.textContent || "").trim().toLowerCase();
+          return t.includes("tạo hình ảnh") || t.includes("create image") || t.includes("tạo ảnh");
         });
-        const target = candidates.sort((a, b) => {
-          const areaA = a.getBoundingClientRect().width * a.getBoundingClientRect().height;
-          const areaB = b.getBoundingClientRect().width * b.getBoundingClientRect().height;
-          return areaA - areaB;
-        })[0];
-        if (!target) return false;
-        target.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true, view: window }));
-        target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-        target.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, cancelable: true, view: window }));
-        target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+        if (hasOpenMenu) return true;
+
+        // Target the tools button specifically in the composer input area
+        const toolButtons = [
+          ...document.querySelectorAll(
+            'button[aria-label*="tải lên" i], button[aria-label*="công cụ" i], button[aria-label*="tools" i], button[aria-label*="add" i], button[aria-label*="upload" i], button[aria-label*="thêm" i], [aria-haspopup="menu"]'
+          )
+        ].filter((element) => {
+          if (!visible(element) || element.disabled) return false;
+          const label = (element.getAttribute("aria-label") || "").toLowerCase();
+          if (label.includes("cài đặt") || label.includes("setting") || label.includes("thanh bên") || label.includes("sidebar")) {
+            return false;
+          }
+          return true;
+        });
+
+        if (!toolButtons.length) return false;
+
+        // Prefer button with "tải lên và công cụ" or inside composer input area
+        const target = toolButtons.find((el) => {
+          const label = (el.getAttribute("aria-label") || "").toLowerCase();
+          return label.includes("tải lên và công cụ") || label.includes("nội dung tải lên") || label.includes("uploads and tools");
+        }) || toolButtons[0];
+
         target.click();
         return true;
       })()`,
@@ -704,12 +749,34 @@ export class GeminiWebAutomation {
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          return (
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            style.opacity !== "0" &&
+            rect.width > 4 &&
+            rect.height > 4
+          );
         };
 
+        // 1. Check for Image chip in the composer
+        const chips = [...document.querySelectorAll('button')].filter(visible);
+        const hasImageChip = chips.some((b) => {
+          const aria = (b.getAttribute("aria-label") || "").toLowerCase();
+          const text = (b.innerText || b.textContent || "").trim().toLowerCase();
+          return (
+            aria.includes("bỏ chọn hình ảnh") ||
+            aria.includes("deselect image") ||
+            (text === "hình ảnh" && (b.className.includes("mat-tonal-button") || b.className.includes("mat-badge"))) ||
+            (text === "image" && (b.className.includes("mat-tonal-button") || b.className.includes("mat-badge")))
+          );
+        });
+
+        if (hasImageChip) return true;
+
+        // 2. Check if composer placeholder indicates image prompt mode
         const editors = [
           ...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]'),
-        ].filter((element) => visible(element));
+        ].filter(visible);
 
         const hasImagePromptEditor = editors.some((element) => {
           const value = [
@@ -727,6 +794,7 @@ export class GeminiWebAutomation {
             value.includes("mô tả hình ảnh") ||
             value.includes("mô tả hình ảnh của bạn") ||
             value.includes("describe your image") ||
+            value.includes("tạo hình ảnh") ||
             value.includes("create image") ||
             value.includes("image prompt")
           );
@@ -734,40 +802,15 @@ export class GeminiWebAutomation {
 
         if (hasImagePromptEditor) return true;
 
-        const chips = [
-          ...document.querySelectorAll('button, [role="button"], [role="tab"], [role="option"]'),
-        ].filter((element) => visible(element));
-
-        const imageChipSelected = chips.some((element) => {
-          const value = [
-            element.getAttribute("aria-label"),
-            element.getAttribute("title"),
-            element.textContent,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .replace(/\\s+/g, " ")
-            .trim()
-            .toLowerCase();
-
-          const selected =
-            element.getAttribute("aria-selected") === "true" ||
-            element.getAttribute("aria-pressed") === "true" ||
-            element.getAttribute("data-state") === "active" ||
-            element.getAttribute("data-selected") === "true";
-
-          return (
-            selected &&
-            (
-              value.includes("hình ảnh") ||
-              value.includes("ảnh") ||
-              value.includes("images") ||
-              value.includes("image")
-            )
-          );
+        // 3. Check for heading "Tạo hình ảnh" / "Create images" at top
+        const headings = [...document.querySelectorAll('h1, h2, h3, h4, div, p')].filter(visible);
+        const hasHeading = headings.some((element) => {
+          const text = (element.innerText || element.textContent || "").trim().toLowerCase();
+          const rect = element.getBoundingClientRect();
+          return (text === "tạo hình ảnh" || text === "create image" || text === "create images") && rect.top < 350 && rect.width > 50;
         });
 
-        return imageChipSelected;
+        return hasHeading;
       })()`,
     );
   }
@@ -794,15 +837,17 @@ export class GeminiWebAutomation {
             const rect = element.getBoundingClientRect();
             return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
           };
-          const nodes = [...document.querySelectorAll('button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], bard-mode-menu-button, input-area-switch')];
+          const modelBtn = document.querySelector('button.input-area-switch, button[aria-label*="chọn chế độ"], button[aria-label*="mode selector"], input-area-switch button');
+          if (modelBtn && visible(modelBtn)) {
+            modelBtn.click();
+            return true;
+          }
+          const nodes = [...document.querySelectorAll('button, [role="button"], bard-mode-menu-button, input-area-switch')];
           const target = nodes.find((element) => {
             if (!visible(element)) return false;
             const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
               .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-            return value === "pro" || value === "flash" || value === "thinking" ||
-              value.includes("model") || value.includes("mô hình") ||
-              element.tagName.toLowerCase() === "bard-mode-menu-button" ||
-              element.tagName.toLowerCase() === "input-area-switch";
+            return value === "pro" || value === "flash" || value === "thinking" || value.includes("mô hình") || value.includes("chọn chế độ");
           });
           if (!target) return false;
           target.click();
@@ -811,11 +856,13 @@ export class GeminiWebAutomation {
       );
 
       if (!opened) {
-        await delay(250);
+        await delay(300);
         continue;
       }
 
-      const optionDeadline = Math.min(deadline, Date.now() + 3_000);
+      await delay(600);
+
+      const optionDeadline = Math.min(deadline, Date.now() + 4_000);
       while (Date.now() < optionDeadline) {
         const candidates = await this.modelCandidates(cdp);
         const candidateIndex = findGeminiModelCandidateIndex(candidates, modelName);
@@ -836,7 +883,8 @@ export class GeminiWebAutomation {
             })()`,
           );
           if (selected) {
-            await delay(500);
+            await delay(600);
+            if (await this.isModelAlreadySelected(cdp, modelName)) return;
             return;
           }
         }
@@ -851,7 +899,7 @@ export class GeminiWebAutomation {
   }
 
   private async isModelAlreadySelected(cdp: CdpClient, modelName: string): Promise<boolean> {
-    const candidates = await evaluate<GeminiModelCandidate[]>(
+    return evaluate<boolean>(
       cdp,
       `(() => {
         const visible = (element) => {
@@ -859,17 +907,16 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        return [...document.querySelectorAll('button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], bard-mode-menu-button, input-area-switch')]
-          .filter(visible)
-          .map((element) => ({
-            role: "button",
-            label: String(element.innerText || element.textContent || ""),
-            ariaLabel: String(element.getAttribute("aria-label") || ""),
-            title: String(element.getAttribute("title") || ""),
-          }));
+
+        const modelBtn = document.querySelector('button.input-area-switch, button[aria-label*="chọn chế độ"], button[aria-label*="mode selector"], input-area-switch button');
+        if (!modelBtn || !visible(modelBtn)) return false;
+
+        const text = (modelBtn.innerText || modelBtn.textContent || "").trim().toLowerCase();
+        const aria = (modelBtn.getAttribute("aria-label") || "").toLowerCase();
+
+        return text === "pro" || text.startsWith("pro ") || aria.includes("hiện tại là pro") || aria.includes("currently pro");
       })()`,
     );
-    return findGeminiModelCandidateIndex(candidates, modelName) >= 0;
   }
 
   private async modelCandidates(cdp: CdpClient): Promise<GeminiModelCandidate[]> {
@@ -893,10 +940,34 @@ export class GeminiWebAutomation {
     );
   }
 
+  private async isPresetChipApplied(cdp: CdpClient, presetName: string): Promise<boolean> {
+    return evaluate<boolean>(
+      cdp,
+      `(() => {
+        const visible = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 2 && rect.height > 2;
+        };
+        const targets = [${JSON.stringify(presetName.toLowerCase())}, "cinematic", "điện ảnh"];
+        const composerChips = [
+          ...document.querySelectorAll('button[aria-label*="close" i], button[aria-label*="bỏ chọn" i], button[aria-label*="xóa" i], .input-area button, .composer button, form button')
+        ].filter(visible);
+        return composerChips.some((el) => {
+          const t = (el.innerText || el.textContent || "").trim().toLowerCase();
+          const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
+          return targets.some((target) => aria.includes(target) || t.includes(target));
+        });
+      })()`,
+    );
+  }
+
   private async selectImagePreset(cdp: CdpClient, presetName: string): Promise<void> {
     const deadline = Date.now() + GEMINI_UI_READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      const selected = await evaluate<boolean>(
+      if (await this.isPresetChipApplied(cdp, presetName)) return;
+
+      const clicked = await evaluate<boolean>(
         cdp,
         `(() => {
           const visible = (element) => {
@@ -905,7 +976,6 @@ export class GeminiWebAutomation {
             return (
               style.display !== "none" &&
               style.visibility !== "hidden" &&
-              style.opacity !== "0" &&
               rect.width > 2 &&
               rect.height > 2
             );
@@ -913,76 +983,55 @@ export class GeminiWebAutomation {
 
           const targets = [${JSON.stringify(presetName.toLowerCase())}, "cinematic", "điện ảnh"];
 
-          // 1. Check if the preset is already applied (e.g. chip in composer)
-          const allChips = [...document.querySelectorAll('button, [role="button"], [role="tab"], [role="option"], [data-state], span, div')].filter(visible);
-          const alreadyApplied = allChips.some((el) => {
-            const t = (el.innerText || el.textContent || "").trim().toLowerCase();
-            const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
-            const isChip = el.getAttribute("role") === "button" || el.tagName.toLowerCase() === "button" || (el.className && String(el.className).includes("chip"));
-            return isChip && (targets.includes(t) || targets.includes(aria));
+          // Find exact innermost leaf elements matching "Điện ảnh"
+          const candidates = [...document.querySelectorAll('*')].filter((el) => {
+            if (!visible(el)) return false;
+            // Ignore preview area in composer
+            if (el.closest('.file-preview-container, .user-query-container, .input-area')) return false;
+            const t = (el.innerText || el.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
+            return targets.some((target) => t === target);
           });
-          if (alreadyApplied) return true;
 
-          // 2. Find elements with EXACT text matching "điện ảnh" / "cinematic"
-          const allNodes = [...document.querySelectorAll('button, a, [role="button"], [role="option"], [role="radio"], [role="tab"], [tabindex], div, span, p, img')].filter(visible);
+          if (!candidates.length) return false;
 
-          const exactMatches = [];
-          for (const el of allNodes) {
-            const text = (el.innerText || el.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
-            const aria = (el.getAttribute("aria-label") || "").replace(/\\s+/g, " ").trim().toLowerCase();
-            const title = (el.getAttribute("title") || "").replace(/\\s+/g, " ").trim().toLowerCase();
-
-            if (targets.includes(text) || targets.includes(aria) || targets.includes(title)) {
-              exactMatches.push(el);
-            }
-          }
-
-          if (!exactMatches.length) {
-            // Fallback: startsWith or contains in short text (<= 30 chars)
-            for (const el of allNodes) {
-              const text = (el.innerText || el.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
-              if (text.length > 0 && text.length <= 30 && targets.some((t) => text === t || text.startsWith(t + " ") || text.includes(t))) {
-                exactMatches.push(el);
-              }
-            }
-          }
-
-          if (!exactMatches.length) return false;
-
-          // Pick the smallest node (innermost label / span)
-          exactMatches.sort((a, b) => {
+          // Pick smallest node (innermost label)
+          candidates.sort((a, b) => {
             const rA = a.getBoundingClientRect();
             const rB = b.getBoundingClientRect();
             return (rA.width * rA.height) - (rB.width * rB.height);
           });
 
-          const labelEl = exactMatches[0];
-          // Find the clickable card container
-          const card = labelEl.closest('button, [role="button"], [role="option"], [role="radio"], [tabindex], a') ||
-                       (labelEl.parentElement && labelEl.parentElement.getBoundingClientRect().width < 450 ? labelEl.parentElement : labelEl);
+          const leaf = candidates[0];
+          // Find single card container: limit width <= 320px to avoid row containers
+          let card = leaf;
+          let curr = leaf.parentElement;
+          while (curr && curr !== document.body) {
+            const r = curr.getBoundingClientRect();
+            if (r.width > 320 || r.height > 320) break;
+            card = curr;
+            curr = curr.parentElement;
+          }
 
           card.scrollIntoView({ block: "center", inline: "center" });
 
-          const rect = card.getBoundingClientRect();
-          const x = rect.left + rect.width / 2;
-          const y = rect.top + rect.height / 2;
-
-          for (const target of [card, labelEl]) {
-            target.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true, clientX: x, clientY: y, view: window }));
-            target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, clientX: x, clientY: y, view: window }));
-            target.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, cancelable: true, clientX: x, clientY: y, view: window }));
-            target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, clientX: x, clientY: y, view: window }));
-            target.click();
-          }
-
+          // Pure DOM event dispatching directly on the card element (no coordinates needed)
+          const opts = { bubbles: true, cancelable: true, composed: true, view: window };
+          card.dispatchEvent(new PointerEvent("pointerdown", opts));
+          card.dispatchEvent(new MouseEvent("mousedown", opts));
+          card.dispatchEvent(new PointerEvent("pointerup", opts));
+          card.dispatchEvent(new MouseEvent("mouseup", opts));
+          card.dispatchEvent(new MouseEvent("click", opts));
+          card.click();
           return true;
         })()`,
       );
-      if (selected) {
-        await delay(500);
-        return;
+
+      if (clicked) {
+        await delay(800);
+        if (await this.isPresetChipApplied(cdp, presetName)) return;
       }
-      await delay(300);
+
+      await delay(400);
     }
   }
 
@@ -1161,27 +1210,44 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const candidates = [...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
-          .filter((element) => visible(element));
+        const candidates = [
+          ...document.querySelectorAll('.ql-editor, rich-textarea [contenteditable="true"], [contenteditable="true"][role="textbox"], [contenteditable="true"], textarea, input[type="text"]')
+        ].filter((element) => visible(element));
+
         const score = (element) => {
           const value = [element.getAttribute("placeholder"), element.getAttribute("aria-label")]
             .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
           if (value.includes("mô tả hình ảnh") || value.includes("describe your image")) return 100;
-          if (element.getAttribute("role") === "textbox") return 20;
+          if (element.classList && element.classList.contains("ql-editor")) return 80;
+          if (element.getAttribute("role") === "textbox") return 50;
           return 0;
         };
         const editor = candidates.sort((a, b) => score(b) - score(a)).at(0);
         if (!editor) return false;
+
         editor.focus();
-        if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
+
+        if (editor.getAttribute("contenteditable") === "true") {
+          document.execCommand("selectAll", false, null);
+          const success = document.execCommand("insertText", false, prompt);
+          if (!success || !editor.innerText.trim()) {
+            editor.innerHTML = "<p>" + prompt + "</p>";
+            editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
+            editor.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        } else if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
           const prototype = editor instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
           const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
           if (setter) setter.call(editor, prompt); else editor.value = prompt;
+          editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+          editor.dispatchEvent(new Event("change", { bubbles: true }));
         } else {
           editor.textContent = prompt;
+          editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
         }
-        editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
-        editor.dispatchEvent(new Event("change", { bubbles: true }));
+
         return true;
       })()`,
     );
@@ -1189,7 +1255,7 @@ export class GeminiWebAutomation {
       throw geminiError("GEMINI_UI_CHANGED", "NarrativeX could not find the Gemini image prompt editor.");
     }
 
-    await delay(300);
+    await delay(400);
     const clicked = await evaluate<boolean>(
       cdp,
       `(() => {
@@ -1198,7 +1264,7 @@ export class GeminiWebAutomation {
           const rect = element.getBoundingClientRect();
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
         };
-        const patterns = ["send", "submit", "gửi"];
+        const patterns = ["send", "submit", "gửi", "gửi tin nhắn", "send message"];
         const button = [...document.querySelectorAll('button')].find((candidate) => {
           if (!visible(candidate) || candidate.disabled) return false;
           const value = [candidate.getAttribute("aria-label"), candidate.getAttribute("title"), candidate.textContent]
