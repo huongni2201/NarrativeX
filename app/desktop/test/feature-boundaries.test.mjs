@@ -63,3 +63,21 @@ test("StoryboardScreen delegates Gemini queue persistence and transitions to fea
   assert.match(source, /markQueueBeatCompleted/);
   assert.match(source, /markQueueBeatSkipped/);
 });
+
+test("StoryboardScreen delegates media and Gemini transport workflows to feature queries", () => {
+  const screenPath = join(
+    featuresRoot,
+    "storyboard",
+    "screens",
+    "StoryboardScreen.tsx",
+  );
+  const source = readFileSync(screenPath, "utf8");
+
+  assert.doesNotMatch(source, /import\s+\{\s*assetsApi\s*\}/);
+  assert.doesNotMatch(source, /import\s+\{\s*productionApi\s*\}/);
+  assert.doesNotMatch(source, /\bstoryboardApi\.geminiContext\s*\(/);
+  assert.doesNotMatch(source, /\bassetsApi\.registerLocal\s*\(/);
+  assert.doesNotMatch(source, /\bproductionApi\.updateBeatMedia\s*\(/);
+  assert.match(source, /useStoryboardMediaMutations/);
+  assert.match(source, /useStoryboardImagePreview/);
+});
