@@ -22,16 +22,10 @@ export function useCreateCharacter(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { canonicalName: string; aliases?: string[] }) =>
-      charactersApi.create(input),
+    mutationFn: (input: { canonicalName: string; aliases?: string[] }) => charactersApi.create(input),
     onSuccess: async (character) => {
-      await charactersApi.assign(projectId, {
-        characterId: character.id,
-        role: "SECONDARY",
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["projects", projectId, "characters"],
-      });
+      await charactersApi.assign(projectId, { characterId: character.id, role: "SECONDARY" });
+      await queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters"] });
     },
   });
 }
@@ -63,19 +57,14 @@ export function useCharacterPortrait(
   versionId: string | null,
 ) {
   const referencesQuery = useCharacterReferences(projectId, characterId, versionId);
-
   const portraitReference =
-    referencesQuery.data?.find((reference) => reference.role === "IDENTITY") ??
-    referencesQuery.data?.[0] ??
-    null;
-
+    referencesQuery.data?.find((reference) => reference.role === "IDENTITY") ?? referencesQuery.data?.[0] ?? null;
   const imageQuery = useQuery({
     queryKey: ["assets", portraitReference?.assetId ?? "none", "download-url"],
     queryFn: () => assetsApi.downloadUrl(portraitReference!.assetId),
     enabled: Boolean(portraitReference?.assetId),
     staleTime: 30_000,
   });
-
   return {
     ...imageQuery,
     isReferencesLoading: referencesQuery.isLoading,
@@ -97,16 +86,13 @@ export function useCharacterReferenceActions(
       queryClient.invalidateQueries({ queryKey: characterDetailKey(projectId, characterId) }),
       queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters"] }),
       versionId
-        ? queryClient.invalidateQueries({
-            queryKey: characterReferencesKey(projectId, characterId, versionId),
-          })
+        ? queryClient.invalidateQueries({ queryKey: characterReferencesKey(projectId, characterId, versionId) })
         : Promise.resolve(),
     ]);
   }
 
   const createVersion = useMutation({
-    mutationFn: (input: { bible: string; visualPrompt: string }) =>
-      charactersApi.createVersion(characterId, input),
+    mutationFn: (input: { bible: string; visualPrompt: string }) => charactersApi.createVersion(characterId, input),
     onSuccess: refresh,
   });
 
@@ -118,12 +104,7 @@ export function useCharacterReferenceActions(
       appearance?: Parameters<typeof generateCharacterIdentityReference>[0]["appearance"];
     }) => {
       if (!versionId) throw new Error("Character chưa có version để lưu reference.");
-      return generateCharacterIdentityReference({
-        projectId,
-        characterId,
-        versionId,
-        ...input,
-      });
+      return generateCharacterIdentityReference({ projectId, characterId, versionId, ...input });
     },
     onSuccess: refresh,
   });
@@ -144,6 +125,14 @@ export function useCharacterReferenceActions(
     onSuccess: refresh,
   });
 
+  const pin = useMutation({
+    mutationFn: () => {
+      if (!versionId) throw new Error("Character chưa có version để pin.");
+      return charactersApi.pinVersion(projectId, characterId, versionId);
+    },
+    onSuccess: refresh,
+  });
+
   const lockAndPin = useMutation({
     mutationFn: async () => {
       if (!versionId) throw new Error("Character chưa có version để lock.");
@@ -153,11 +142,5 @@ export function useCharacterReferenceActions(
     onSuccess: refresh,
   });
 
-  return {
-    createVersion,
-    generateIdentity,
-    importIdentity,
-    review,
-    lockAndPin,
-  };
+  return { createVersion, generateIdentity, importIdentity, review, pin, lockAndPin };
 }
