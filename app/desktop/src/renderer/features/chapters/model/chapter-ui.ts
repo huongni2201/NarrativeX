@@ -41,6 +41,11 @@ export function wordCount(value: string) {
   return normalized ? normalized.split(/\s+/u).length : 0;
 }
 
+export function chapterNumberLabel(orderIndex: number) {
+  const displayNumber = Math.max(0, Math.trunc(orderIndex)) + 1;
+  return `Chapter ${String(displayNumber).padStart(2, "0")}`;
+}
+
 export function formatDurationMs(durationMs: number | null | undefined) {
   if (!durationMs || durationMs <= 0) return "Thời lượng chưa xác định";
   const totalSeconds = Math.round(durationMs / 1000);
@@ -126,13 +131,11 @@ export function audioButtonLabel(input: {
   generatePending: boolean;
   trackedForSelected: boolean;
   processing: boolean;
-  blockedByAnotherChapter: boolean;
   ready: boolean;
 }) {
   if (input.generatePending || input.trackedForSelected || input.processing) {
     return "Đang tạo…";
   }
-  if (input.blockedByAnotherChapter) return "Đang bận…";
   if (input.ready) return "Tạo lại";
   return "Tạo audio";
 }
