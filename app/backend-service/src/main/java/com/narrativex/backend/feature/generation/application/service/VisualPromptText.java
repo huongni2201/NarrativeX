@@ -7,8 +7,10 @@ public final class VisualPromptText {
   private VisualPromptText() {}
 
   public static String finalPrompt(ComposedVisualPrompt composedPrompt) {
-    String prompt = composedPrompt.prompt();
-    String negativePrompt = composedPrompt.negativePrompt();
+    return finalPrompt(composedPrompt.prompt(), composedPrompt.negativePrompt());
+  }
+
+  public static String finalPrompt(String prompt, String negativePrompt) {
     if (negativePrompt == null || negativePrompt.isBlank()) return prompt;
     return prompt + "\nAVOID: " + negativePrompt.trim();
   }
