@@ -11,6 +11,10 @@ const studioSource = readFileSync(
   join(charactersRoot, "components", "CharacterReferenceStudio.tsx"),
   "utf8",
 );
+const screenSource = readFileSync(
+  join(charactersRoot, "screens", "CharactersScreen.tsx"),
+  "utf8",
+);
 
 test("character previews route LOCAL_ONLY assets through the Electron media protocol", () => {
   assert.match(queriesSource, /localAssetPreviewUrl/);
@@ -22,4 +26,20 @@ test("character previews route LOCAL_ONLY assets through the Electron media prot
 test("CharacterReferenceStudio uses the storage-aware character asset preview hook", () => {
   assert.doesNotMatch(studioSource, /assetsApi\.downloadUrl\s*\(/);
   assert.match(studioSource, /useCharacterAssetPreview/);
+});
+
+test("character cards resolve portraits from their own pinned character version", () => {
+  const cardSource = screenSource.slice(
+    screenSource.indexOf("function CharacterCard"),
+    screenSource.indexOf("function DetailRow"),
+  );
+
+  assert.match(
+    cardSource,
+    /useCharacterPortrait\(\s*projectId\s*,\s*character\.id\s*,\s*character\.pinnedCharacterVersionId\s*\?\?\s*null\s*\)/,
+  );
+  assert.doesNotMatch(
+    screenSource,
+    /portraitUrl=\{character\.id\s*===\s*selectedId\s*\?\s*portraitQuery\.url\s*:\s*null\}/,
+  );
 });

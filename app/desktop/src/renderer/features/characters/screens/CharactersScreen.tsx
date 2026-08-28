@@ -35,12 +35,14 @@ function CharacterPortrait({ src, alt, className }: Readonly<{ src: string | nul
   );
 }
 
-function CharacterCard({ character, selected, onSelect, portraitUrl }: Readonly<{
+function CharacterCard({ projectId, character, selected, onSelect }: Readonly<{
+  projectId: string;
   character: DesktopCharacter;
   selected: boolean;
   onSelect: () => void;
-  portraitUrl: string | null;
 }>) {
+  const portraitQuery = useCharacterPortrait(projectId, character.id, character.pinnedCharacterVersionId ?? null);
+
   return (
     <button
       type="button"
@@ -48,7 +50,7 @@ function CharacterCard({ character, selected, onSelect, portraitUrl }: Readonly<
       aria-pressed={selected}
       className={`grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40 hover:bg-surface-panel"}`}
     >
-      <CharacterPortrait src={portraitUrl} alt={`Ảnh đại diện của ${character.canonicalName}`} className="h-full min-h-24 w-[88px] rounded-lg" />
+      <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${character.canonicalName}`} className="h-full min-h-24 w-[88px] rounded-lg" />
       <div className="min-w-0">
         <span className="text-[9px] font-medium uppercase tracking-[.12em] text-muted-foreground">{normalizeLabel(character.status ?? "ACTIVE")}</span>
         <h2 className="mt-0.5 truncate text-sm font-semibold text-foreground">{character.canonicalName}</h2>
@@ -152,7 +154,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
               </div>
               <div className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-2 overflow-auto pr-1 xl:grid-cols-2 2xl:grid-cols-3">
                 {filteredCharacters.map((character) => (
-                  <CharacterCard key={character.id} character={character} selected={character.id === selectedId} onSelect={() => setSelectedId(character.id)} portraitUrl={character.id === selectedId ? portraitQuery.url : null} />
+                  <CharacterCard key={character.id} projectId={projectId} character={character} selected={character.id === selectedId} onSelect={() => setSelectedId(character.id)} />
                 ))}
               </div>
             </section>
