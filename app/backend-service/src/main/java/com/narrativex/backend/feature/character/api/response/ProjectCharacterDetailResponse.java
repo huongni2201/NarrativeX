@@ -26,6 +26,11 @@ public record ProjectCharacterDetailResponse(
     AppearanceResponse appearance) {
 
   public static ProjectCharacterDetailResponse from(ProjectCharacterReadModel model) {
+    return from(model, null);
+  }
+
+  public static ProjectCharacterDetailResponse from(
+      ProjectCharacterReadModel model, String prompt) {
     return new ProjectCharacterDetailResponse(
         model.characterId(),
         model.assignmentId(),
@@ -43,13 +48,18 @@ public record ProjectCharacterDetailResponse(
         model.rowVersion(),
         model.createdAt(),
         model.updatedAt(),
-        VersionResponse.from(model.version()),
+        VersionResponse.from(model.version(), prompt),
         AppearanceResponse.from(model.appearance()));
   }
 
   public record VersionResponse(
-      UUID id, Integer versionNumber, String status, String bible, String visualPrompt) {
-    static VersionResponse from(ProjectCharacterReadModel.Version version) {
+      UUID id,
+      Integer versionNumber,
+      String status,
+      String bible,
+      String visualPrompt,
+      String prompt) {
+    static VersionResponse from(ProjectCharacterReadModel.Version version, String prompt) {
       return version == null
           ? null
           : new VersionResponse(
@@ -57,7 +67,8 @@ public record ProjectCharacterDetailResponse(
               version.versionNumber(),
               version.status(),
               version.bible(),
-              version.visualPrompt());
+              version.visualPrompt(),
+              prompt);
     }
   }
 
