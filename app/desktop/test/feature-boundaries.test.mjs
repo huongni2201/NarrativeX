@@ -81,3 +81,31 @@ test("StoryboardScreen delegates media and Gemini transport workflows to feature
   assert.match(source, /useStoryboardMediaMutations/);
   assert.match(source, /useStoryboardImagePreview/);
 });
+
+test("StoryboardScreen composes focused presentation components", () => {
+  const storyboardRoot = join(featuresRoot, "storyboard");
+  const componentRoot = join(storyboardRoot, "components");
+  const requiredComponents = [
+    "StoryboardHeader.tsx",
+    "SceneRail.tsx",
+    "VisualBeatGrid.tsx",
+    "GeminiQueueBanner.tsx",
+  ];
+
+  for (const component of requiredComponents) {
+    assert.equal(
+      existsSync(join(componentRoot, component)),
+      true,
+      `storyboard/components/${component} must exist`,
+    );
+  }
+
+  const source = readFileSync(join(storyboardRoot, "screens", "StoryboardScreen.tsx"), "utf8");
+  assert.match(source, /<StoryboardHeader\b/);
+  assert.match(source, /<SceneRail\b/);
+  assert.match(source, /<VisualBeatGrid\b/);
+  assert.match(source, /<GeminiQueueBanner\b/);
+  assert.doesNotMatch(source, /function GeminiQueuePanel\s*\(/);
+  assert.doesNotMatch(source, /function VisualBeatCard\s*\(/);
+  assert.doesNotMatch(source, /function BeatImagePreview\s*\(/);
+});
