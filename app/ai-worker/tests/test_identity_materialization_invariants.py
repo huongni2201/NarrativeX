@@ -48,7 +48,10 @@ async def test_ai_created_project_character_is_not_prematurely_pinned() -> None:
 
     assert result == PROJECT_CHARACTER_ID
     assert connection.execute_calls == []
-    assert all("INSERT INTO character_versions" not in query for query, _ in connection.fetchval_calls)
+    assert all(
+        "INSERT INTO character_versions" not in query
+        for query, _ in connection.fetchval_calls
+    )
 
     project_query, project_args = next(
         (query, args)
