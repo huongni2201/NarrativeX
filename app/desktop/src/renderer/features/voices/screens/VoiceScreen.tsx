@@ -4,13 +4,10 @@ import type {
   DesktopChapterDetails,
   DesktopVoice,
 } from "@narrativex/client-contracts";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
-import { assetsApi } from "../../assets/api/assets.api";
-import { narrationApi } from "../../generation/api/narration.api";
 import { isActiveGenerationJobStatus } from "../../generation/generation-status";
 import { useGenerationJob } from "../../generation/queries/generation.queries";
 import {
@@ -28,12 +25,19 @@ import {
   playableSampleUrl,
   uniqueVoiceValues,
   type VoiceSortMode,
-} from "../voice-filters";
+} from "../model/voice-filters";
+import {
+  useImportVoiceAudioAsset,
+  useUploadVoiceReference,
+} from "../queries/voice-media.mutations";
+import {
+  useVoicePreviewResult,
+  useVoiceReferenceAsset,
+} from "../queries/voice-media.queries";
 
 const DEFAULT_VOICE_ID = "vieneu-ngoc-huyen-v2";
 const DEFAULT_PREVIEW_TEXT =
   "Xin chào, đây là giọng đọc mẫu được tạo từ đoạn giọng tham chiếu bạn vừa tải lên.";
-const PREVIEW_URL_REFRESH_SKEW_MS = 60_000;
 
 export function VoiceScreen({
   projectId,
@@ -49,7 +53,8 @@ export function VoiceScreen({
   const generate = useGenerateNarration();
   const generateBatch = useGenerateBatchNarration();
   const generatePreview = useGenerateVoicePreview();
-  const queryClient = useQueryClient();
+  const importAudio = useImportVoiceAudioAsset(projectId);
+  const uploadReference = useUploadVoiceReference();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -66,8 +71,6 @@ export function VoiceScreen({
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
-  const [assetBusy, setAssetBusy] = useState(false);
-  const [voiceReferenceBusy, setVoiceReferenceBusy] = useState(false);
   const [voiceReferenceAssetId, setVoiceReferenceAssetId] = useState<string | null>(null);
   const [voiceReferenceName, setVoiceReferenceName] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState(DEFAULT_PREVIEW_TEXT);
@@ -120,15 +123,7 @@ export function VoiceScreen({
   const parsedRate = Number.parseFloat(speakingRate);
   const normalizedRate = Number.isFinite(parsedRate) ? parsedRate : 1;
 
-  const voiceReferenceQuery = useQuery({
-    queryKey: ["assets", "voice-reference", voiceReferenceAssetId ?? "none"],
-    queryFn: () => assetsApi.get(voiceReferenceAssetId as string),
-    enabled: Boolean(voiceReferenceAssetId),
-    refetchInterval: (current) => {
-      const status = current.state.data?.status;
-      return status && status !== "READY" && status !== "REJECTED" ? 1_500 : false;
-    },
-  });
+  const voiceReferenceQuery = useVoiceReferenceAsset(voiceReferenceAssetId);
   const voiceReferenceReady = voiceReferenceQuery.data?.status === "READY";
   const referencePending = Boolean(voiceReferenceAssetId && !voiceReferenceReady);
 
@@ -150,22 +145,11 @@ export function VoiceScreen({
   }, [voiceReferenceAssetId, voiceReferenceQuery.data?.status, voiceReferenceQuery.isError]);
 
   const previewJobQuery = useGenerationJob(previewJobId);
-  const previewResultQuery = useQuery({
-    queryKey: ["voice-preview-result", projectId, previewJobId ?? "none"],
-    queryFn: () => narrationApi.getPreviewResult(projectId, previewJobId as string),
-    enabled: Boolean(previewJobId && previewJobQuery.data?.status === "COMPLETED"),
-    retry: 2,
-    staleTime: 8 * 60_000,
-    refetchOnWindowFocus: "always",
-    refetchInterval: (current) => {
-      const expiresAt = current.state.data?.expiresAt;
-      if (!expiresAt) return false;
-      const expiresAtMs = Date.parse(expiresAt);
-      if (!Number.isFinite(expiresAtMs)) return false;
-      return Math.max(expiresAtMs - Date.now() - PREVIEW_URL_REFRESH_SKEW_MS, 1_000);
-    },
-    refetchIntervalInBackground: false,
-  });
+  const previewResultQuery = useVoicePreviewResult(
+    projectId,
+    previewJobId,
+    previewJobQuery.data?.status === "COMPLETED",
+  );
 
   useEffect(() => {
     if (!previewJobId || !previewJobQuery.data) return;
@@ -176,6 +160,8 @@ export function VoiceScreen({
 
   const previewStatus = previewJobQuery.data?.status ?? null;
   const previewActive = isActiveGenerationJobStatus(previewStatus);
+  const assetBusy = importAudio.isPending;
+  const voiceReferenceBusy = uploadReference.isPending;
   const previewBusy =
     voiceReferenceBusy || referencePending || generatePreview.isPending || previewActive;
   const busy =
@@ -256,15 +242,13 @@ export function VoiceScreen({
 
   async function uploadVoiceReference() {
     if (voiceReferenceBusy) return;
-    setVoiceReferenceBusy(true);
     setNotice(null);
     try {
-      const uploaded = await window.narrativex.api.uploadVoiceReference();
+      const uploaded = await uploadReference.mutateAsync();
       if (!uploaded) return;
       setVoiceReferenceAssetId(uploaded.assetId);
       setVoiceReferenceName(uploaded.originalFilename);
       setPreviewJobId(null);
-      await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
       setNotice(
         uploaded.status === "READY"
           ? `${uploaded.originalFilename} đã sẵn sàng để clone giọng.`
@@ -272,8 +256,6 @@ export function VoiceScreen({
       );
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể upload giọng tham chiếu."));
-    } finally {
-      setVoiceReferenceBusy(false);
     }
   }
 
@@ -323,34 +305,11 @@ export function VoiceScreen({
 
   async function importAudioAsset() {
     if (assetBusy) return;
-    setAssetBusy(true);
     setNotice(null);
     try {
-      const selection = await window.narrativex.localStorage.selectAsset();
-      if (!selection) return;
-      if (selection.kind !== "AUDIO") {
-        throw new Error("Chỉ hỗ trợ file audio trong Voice & TTS.");
-      }
-      if (selection.sizeBytes > 50 * 1024 * 1024) {
-        throw new Error("File audio vượt quá giới hạn 50MB.");
-      }
-
-      const asset = await assetsApi.registerLocal({
-        projectId,
-        type: "AUDIO",
-        originalFilename: selection.originalFilename,
-        contentType: selection.contentType,
-        sizeBytes: selection.sizeBytes,
-        checksumSha256: selection.checksumSha256,
-        durationMs: selection.durationMs,
-      });
-      await window.narrativex.localStorage.commitSelectedAsset({
-        projectId,
-        assetId: asset.id,
-        kind: selection.kind,
-        selectionToken: selection.selectionToken,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
+      const imported = await importAudio.mutateAsync();
+      if (!imported) return;
+      const { selection } = imported;
       setNotice(
         `${selection.originalFilename} đã được import vào workspace${
           selection.durationMs ? ` (${formatDuration(selection.durationMs)})` : ""
@@ -358,8 +317,6 @@ export function VoiceScreen({
       );
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể import audio."));
-    } finally {
-      setAssetBusy(false);
     }
   }
 

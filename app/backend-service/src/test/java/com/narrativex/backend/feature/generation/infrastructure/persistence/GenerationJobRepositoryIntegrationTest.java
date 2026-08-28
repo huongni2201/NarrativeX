@@ -139,7 +139,8 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     String key = "generation-job-" + com.narrativex.backend.feature.common.uuid.UuidV7.random();
     GenerationJob first = repository.save(jobWithIdempotency(projectId, key, "owner-e"));
 
-    assertEquals(first.getId(), repository.findByIdempotencyKey(key).orElseThrow().getId());
+    assertEquals(
+        first.getId(), repository.findByIdempotencyKey(key, "owner-e").orElseThrow().getId());
     assertThrows(
         DuplicateKeyException.class,
         () -> repository.save(jobWithIdempotency(projectId, key, "owner-e")));
@@ -183,7 +184,8 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   }
 
   @Test
-  void advisoryLockSerializesTransactionsForSameIdempotencyKey() throws Exception {
+  void advisoryLockSerializesTransactionsForSameOwnerAndIdempotencyKey() throws Exception {
+    String ownerId = "owner-lock";
     String key = "lock-" + com.narrativex.backend.feature.common.uuid.UuidV7.random();
     CountDownLatch firstLocked = new CountDownLatch(1);
     CountDownLatch releaseFirst = new CountDownLatch(1);
@@ -196,7 +198,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             () ->
                 transactions.executeWithoutResult(
                     status -> {
-                      repository.acquireIdempotencyLock(key);
+                      repository.acquireIdempotencyLock(key, ownerId);
                       firstLocked.countDown();
                       await(releaseFirst);
                     }));
@@ -207,7 +209,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             () ->
                 transactions.executeWithoutResult(
                     status -> {
-                      repository.acquireIdempotencyLock(key);
+                      repository.acquireIdempotencyLock(key, ownerId);
                       secondAcquired.countDown();
                     }));
 

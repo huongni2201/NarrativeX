@@ -6,7 +6,7 @@ import {
   audioGenerationBlockMessage,
   narrationVoiceName,
 } from "../src/renderer/features/chapters/model/chapter-ui.ts";
-import { filterVoices, playableSampleUrl } from "../src/renderer/features/voices/voice-filters.ts";
+import { filterVoices, playableSampleUrl } from "../src/renderer/features/voices/model/voice-filters.ts";
 
 const workspace = {
   chapter: {

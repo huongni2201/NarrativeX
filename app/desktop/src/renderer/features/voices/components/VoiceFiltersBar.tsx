@@ -1,7 +1,7 @@
 import { ArrowDownAZ, ChevronDown, Grid2X2, List, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { VoiceSortMode } from "../voice-filters";
+import type { VoiceSortMode } from "../model/voice-filters";
 
 export type VoiceViewMode = "grid" | "list";
 
