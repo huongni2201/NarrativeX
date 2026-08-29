@@ -48,7 +48,12 @@ def resolve_project_voice_reference(
     relative_path = entry.get("relativePath")
     if not isinstance(relative_path, str) or not relative_path.strip():
         raise ProjectVoiceReferenceError("Project voice reference path is invalid")
-    source_path = (project_root / relative_path).resolve(strict=True)
+    try:
+        source_path = (project_root / relative_path).resolve(strict=True)
+    except OSError as exception:
+        raise ProjectVoiceReferenceError(
+            "Project voice reference is outside project storage or missing"
+        ) from exception
     if not source_path.is_file() or not source_path.is_relative_to(project_root):
         raise ProjectVoiceReferenceError("Project voice reference is outside project storage")
 
