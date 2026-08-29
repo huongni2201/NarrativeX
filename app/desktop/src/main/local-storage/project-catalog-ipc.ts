@@ -129,12 +129,8 @@ function isMetadata(value: unknown): value is LocalProjectCatalogMetadata | unde
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const metadata = value as Record<string, unknown>;
   return (
-    optionalNullableString(metadata.ownerId) &&
-    optionalNullableString(metadata.cloudProjectId) &&
-    (metadata.syncStatus === undefined ||
-      ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED", "ORPHANED"].includes(
-        String(metadata.syncStatus),
-      ))
+    Object.keys(metadata).every((key) => key === "ownerId") &&
+    optionalNullableString(metadata.ownerId)
   );
 }
 
