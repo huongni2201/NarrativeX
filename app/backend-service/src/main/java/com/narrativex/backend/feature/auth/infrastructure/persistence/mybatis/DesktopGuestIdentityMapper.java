@@ -21,9 +21,6 @@ public interface DesktopGuestIdentityMapper extends NarrativeXMyBatisMapper {
 
   int touch(@Param("deviceId") UUID deviceId, @Param("now") Instant now);
 
-  int deleteDuplicateChecksums(
-      @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
-
   int transferProjects(
       @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
 
@@ -36,6 +33,4 @@ public interface DesktopGuestIdentityMapper extends NarrativeXMyBatisMapper {
   int transferMediaAssets(
       @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
 
-  int transferMediaChecksums(
-      @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
 }

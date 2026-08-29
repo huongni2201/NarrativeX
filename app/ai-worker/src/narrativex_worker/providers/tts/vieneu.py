@@ -19,7 +19,6 @@ from narrativex_worker.narration.providers import (
     TtsProviderRejectedError,
     TtsRequest,
 )
-from narrativex_worker.providers.tts.r2_bootstrap import materialize_r2_reference
 
 
 class VieneuTtsProvider:
@@ -73,6 +72,8 @@ class VieneuTtsProvider:
     def capabilities(self) -> TtsProviderCapabilities:
         return TtsProviderCapabilities(
             supports_batch=True,
+            # VieNeu v3 Turbo does not expose a native rate argument. The adapter
+            # applies a pitch-preserving FFmpeg atempo filter after inference.
             supports_speaking_rate=True,
             supports_voice_reference=True,
             execution_semantics=TtsExecutionSemantics.LOCAL_RETRYABLE,
@@ -178,27 +179,17 @@ class VieneuTtsProvider:
             return
 
         if not reference_path_value:
-            raise RuntimeError(
-                f"Configured VieNeu voice {self.voice_name!r} is unavailable and "
-                "VIENEU_REFERENCE_AUDIO_PATH is not configured"
-            )
-
-        if reference_path_value.startswith("r2://"):
-            reference_path = materialize_r2_reference(
-                self.settings,
-                reference_path_value,
-                Path.home() / ".cache" / "narrativex" / "voices" / "reference.wav",
-            )
             self.logger.info(
-                "Materialized VieNeu preset bootstrap from R2 uri=%s",
-                reference_path_value,
+                "Configured VieNeu voice %r is not pre-enrolled; "
+                "reference audio will be supplied per narration job",
+                self.voice_name,
             )
-        else:
-            reference_path = Path(reference_path_value).expanduser()
-            if not reference_path.is_file():
-                raise RuntimeError(f"VieNeu reference audio does not exist: {reference_path}")
+            return
+        reference_path = Path(reference_path_value).expanduser()
+        if not reference_path.is_file():
+            raise RuntimeError(f"VieNeu reference audio does not exist: {reference_path}")
         if reference_path.suffix.lower() != ".wav":
-            raise RuntimeError("VIENEU_REFERENCE_AUDIO_PATH must point to a .wav file or r2:// key")
+            raise RuntimeError("VIENEU_REFERENCE_AUDIO_PATH must point to a .wav file")
 
         try:
             self._client.add_voice(

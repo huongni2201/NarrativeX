@@ -66,8 +66,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     jdbc.update("DELETE FROM media_storage_cleanup_tasks");
     jdbc.update("DELETE FROM media_upload_sessions WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM media_validation_jobs WHERE account_id = ?", ACCOUNT);
-    jdbc.update("DELETE FROM media_asset_checksums WHERE account_id = ?", ACCOUNT);
-    jdbc.update("DELETE FROM media_assets WHERE account_id = ?", ACCOUNT);
+    jdbc.update("DELETE FROM voice_reference_assets WHERE account_id = ?", ACCOUNT);
   }
 
   @Test
@@ -96,12 +95,12 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
           .isEqualTo(1);
       assertThat(
               count(
-                  "SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status = 'VALIDATING'",
+                  "SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ? AND status = 'VALIDATING'",
                   ACCOUNT))
           .isEqualTo(1);
       assertThat(
               count(
-                  "SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status IN ('PENDING_UPLOAD', 'UPLOADING')",
+                  "SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ? AND status IN ('PENDING_UPLOAD', 'UPLOADING')",
                   ACCOUNT))
           .isZero();
     } finally {
@@ -120,7 +119,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
         finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
 
     assertThat(retry.mediaAssetId()).isEqualTo(first.mediaAssetId());
-    assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ?", ACCOUNT))
+    assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ?", ACCOUNT))
         .isEqualTo(1);
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks")).isZero();
   }
@@ -144,9 +143,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
       UploadFinalizeView second = results.get(1).get();
 
       assertThat(first.mediaAssetId()).isEqualTo(second.mediaAssetId());
-      assertThat(count("SELECT COUNT(*) FROM media_asset_checksums WHERE account_id = ?", ACCOUNT))
-          .isEqualTo(1);
-      assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ?", ACCOUNT))
+      assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ?", ACCOUNT))
           .isEqualTo(1);
       assertThat(
               count(

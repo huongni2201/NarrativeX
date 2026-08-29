@@ -17,7 +17,7 @@ def validate_runtime_files(
 
     Google ADC may legitimately come from workload identity, so a credentials file is only
     validated when GOOGLE_APPLICATION_CREDENTIALS is explicitly configured. VieNeu reference
-    audio is required when this process hosts the narration role with the VieNeu provider.
+    audio is optional because narration jobs can materialize system/custom references from R2.
     """
 
     env = os.environ if environment is None else environment
@@ -42,11 +42,8 @@ def validate_runtime_files(
 
     if settings.has_worker_role("narration") and settings.tts_provider_mode == "vieneu":
         reference_path = (settings.vieneu_reference_audio_path or "").strip()
-        if not reference_path:
-            raise RuntimeError(
-                "VIENEU_REFERENCE_AUDIO_PATH is required for a VieNeu narration worker"
-            )
-        _require_regular_file(reference_path, "VIENEU_REFERENCE_AUDIO_PATH")
+        if reference_path:
+            _require_regular_file(reference_path, "VIENEU_REFERENCE_AUDIO_PATH")
 
 
 def _require_regular_file(raw_path: str, setting_name: str) -> Path:

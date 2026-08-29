@@ -98,12 +98,11 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
   }
 
   @Test
-  void ownershipTransferMovesWorkspaceRowsAndDeduplicatesChecksumRegistry() throws Exception {
+  void ownershipTransferMovesWorkspaceRowsWithoutChecksumRegistry() throws Exception {
     String guestUserId = desktopGuestIdentity.establish(TRANSFER_DEVICE_ID, SECRET);
     String targetUserId = "user-google-transfer";
     UUID projectId = UUID.fromString("00000000-0000-7000-8000-000000000201");
     UUID guestAssetId = UUID.fromString("00000000-0000-7000-8000-000000000202");
-    UUID targetAssetId = UUID.fromString("00000000-0000-7000-8000-000000000203");
     String checksum = "a".repeat(64);
 
     try (Connection connection = dataSource.getConnection()) {
@@ -141,20 +140,7 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
           guestUserId,
           projectId,
           "b".repeat(64));
-      insertLocalAsset(connection, guestAssetId, guestUserId, checksum, "guest.png");
-      insertLocalAsset(connection, targetAssetId, targetUserId, checksum, "target.png");
-      execute(
-          connection,
-          "INSERT INTO media_asset_checksums (account_id, sha256, media_asset_id) VALUES (?, ?, ?)",
-          guestUserId,
-          checksum,
-          guestAssetId);
-      execute(
-          connection,
-          "INSERT INTO media_asset_checksums (account_id, sha256, media_asset_id) VALUES (?, ?, ?)",
-          targetUserId,
-          checksum,
-          targetAssetId);
+      insertLocalAsset(connection, guestAssetId, guestUserId, projectId, checksum, "guest.png");
       connection.commit();
     }
 
@@ -179,20 +165,6 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
           targetUserId,
           scalarString(connection, "SELECT account_id FROM media_assets WHERE id = ?", guestAssetId));
       assertEquals(
-          0L,
-          scalarLong(
-              connection,
-              "SELECT COUNT(*) FROM media_asset_checksums WHERE account_id = ? AND sha256 = ?",
-              guestUserId,
-              checksum));
-      assertEquals(
-          1L,
-          scalarLong(
-              connection,
-              "SELECT COUNT(*) FROM media_asset_checksums WHERE account_id = ? AND sha256 = ?",
-              targetUserId,
-              checksum));
-      assertEquals(
           guestUserId,
           scalarString(
               connection,
@@ -202,18 +174,24 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
   }
 
   private static void insertLocalAsset(
-      Connection connection, UUID assetId, String accountId, String checksum, String filename)
+      Connection connection,
+      UUID assetId,
+      String accountId,
+      UUID projectId,
+      String checksum,
+      String filename)
       throws Exception {
     execute(
         connection,
         """
         INSERT INTO media_assets
-            (id, account_id, asset_type, origin, storage_mode, storage_key,
+            (id, account_id, project_id, asset_type, origin, storage_key,
              original_filename, content_type, size_bytes, sha256, status)
-        VALUES (?, ?, 'IMAGE', 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, ?, 'image/png', 1, ?, 'READY')
+        VALUES (?, ?, ?, 'IMAGE', 'LOCAL_ONLY', NULL, ?, 'image/png', 1, ?, 'READY')
         """,
         assetId,
         accountId,
+        projectId,
         filename,
         checksum);
   }
