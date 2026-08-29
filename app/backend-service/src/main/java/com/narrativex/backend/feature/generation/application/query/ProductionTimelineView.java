@@ -30,6 +30,8 @@ public record ProductionTimelineView(
       UUID narrationRequestId,
       UUID narrationAssetId,
       UUID narrationAlignmentId,
+      String subtitleText,
+      String subtitleSpansJson,
       int beatCount,
       int readyBeatCount,
       boolean readyForRender) {}
