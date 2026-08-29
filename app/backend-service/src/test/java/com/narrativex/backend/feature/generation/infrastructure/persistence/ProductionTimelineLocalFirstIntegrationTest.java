@@ -209,9 +209,10 @@ class ProductionTimelineLocalFirstIntegrationTest {
       long sizeBytes,
       String checksumSeed) {
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, ?, ?, 'LOCAL_ONLY', ?, NULL, ?, ?, ?, repeat(?, 64), ?, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, ?, ?, ?, 'LOCAL_ONLY', ?, NULL, ?, ?, ?, repeat(?, 64), ?, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
         id,
         OWNER,
+        PROJECT_ID,
         assetType,
         storageMode,
         filename,
