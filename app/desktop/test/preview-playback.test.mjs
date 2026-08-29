@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  globalPlayheadFromNarrationSeconds,
   imageTransformForBeat,
+  narrationSeekSeconds,
   narrationTimeMs,
   previewPlaybackState,
 } from "../src/renderer/features/editor/preview-playback.ts";
@@ -71,4 +73,16 @@ test("image motion is deterministic and narration is chapter relative", () => {
   );
   assert.equal(narrationTimeMs(15_000, 10_000, 20_000), 5_000);
   assert.equal(narrationTimeMs(25_000, 10_000, 20_000), 10_000);
+});
+
+test("narration seconds are the authoritative global playhead", () => {
+  assert.equal(globalPlayheadFromNarrationSeconds(12.25, 30_000, 50_000), 42_250);
+  assert.equal(globalPlayheadFromNarrationSeconds(99, 30_000, 50_000), 50_000);
+  assert.equal(globalPlayheadFromNarrationSeconds(-1, 30_000, 50_000), 30_000);
+});
+
+test("timeline seek maps back to chapter-local narration seconds", () => {
+  assert.equal(narrationSeekSeconds(42_250, 30_000, 50_000), 12.25);
+  assert.equal(narrationSeekSeconds(25_000, 30_000, 50_000), 0);
+  assert.equal(narrationSeekSeconds(55_000, 30_000, 50_000), 20);
 });
