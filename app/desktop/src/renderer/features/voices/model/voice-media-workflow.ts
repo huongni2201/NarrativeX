@@ -31,7 +31,7 @@ export interface PersistVoiceAudioAssetDeps {
 export async function persistVoiceAudioAsset(
   deps: PersistVoiceAudioAssetDeps,
   input: { projectId: string; selection: VoiceAudioSelection },
-): Promise<{ assetId: string; selection: VoiceAudioSelection }> {
+): Promise<{ assetId: string; asset: { id: string }; selection: VoiceAudioSelection }> {
   if (input.selection.kind !== "AUDIO") {
     throw new Error("Chỉ hỗ trợ file audio trong Voice & TTS.");
   }
@@ -56,5 +56,5 @@ export async function persistVoiceAudioAsset(
     selectionToken: input.selection.selectionToken,
   });
 
-  return { assetId: asset.id, selection: input.selection };
+  return { assetId: asset.id, asset, selection: input.selection };
 }
