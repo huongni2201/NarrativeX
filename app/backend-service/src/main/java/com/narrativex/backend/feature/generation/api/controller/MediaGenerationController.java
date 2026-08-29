@@ -62,8 +62,7 @@ public class MediaGenerationController {
                 request.maxAuthorizedCost(),
                 ImageStyle.from(request.imageStyle()),
                 request.effectiveVisualGenerationMode(),
-                request.effectiveImageProvider(),
-                request.imageGenerationStrategy()));
+                request.effectiveImageProvider()));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Media job queued", JobResponse.from(job)));
   }
