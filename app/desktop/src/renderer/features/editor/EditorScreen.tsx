@@ -102,7 +102,6 @@ export function EditorScreen({
   const previewSources = useEditorPreviewSources({
     projectId,
     mediaAssetId: selected?.mediaAssetId ?? null,
-    mediaStorageMode: selected?.storageMode,
     narrationChapterId: selectedChapter?.chapterId ?? null,
     narrationAssetId: selectedChapter?.narrationAssetId ?? null,
     narrationSizeBytes: selectedChapter?.audioSizeBytes ?? null,
