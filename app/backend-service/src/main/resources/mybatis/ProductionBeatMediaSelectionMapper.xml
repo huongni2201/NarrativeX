@@ -14,15 +14,12 @@
        AND ma.status = 'READY'
        AND ma.deleted_at IS NULL
        AND ma.asset_type IN ('IMAGE', 'VIDEO')
-       AND (
-         ma.storage_mode <> 'LOCAL_ONLY'
-         OR EXISTS (
-           SELECT 1
-             FROM local_media_materializations lmm
-            WHERE lmm.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-              AND lmm.media_asset_id = ma.id
-              AND lmm.state = 'AVAILABLE'
-         )
+       AND EXISTS (
+         SELECT 1
+           FROM local_media_materializations lmm
+          WHERE lmm.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND lmm.media_asset_id = ma.id
+            AND lmm.state = 'AVAILABLE'
        )
   </select>
 
