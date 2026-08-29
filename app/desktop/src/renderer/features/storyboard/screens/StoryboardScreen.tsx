@@ -19,7 +19,7 @@ import {
   markQueueBeatSkipped,
   reconcileQueue,
   restoreQueueForSession,
-  skipQueueBeatIfApproved,
+  skipQueueBeatIfMediaReady,
   type GeminiQueueState,
 } from "../model/gemini-queue";
 import { useStoryboardMediaMutations } from "../queries/storyboard-media.queries";
@@ -126,7 +126,7 @@ export function StoryboardScreen({
     [selectedSceneBeats],
   );
   const beatsPendingGeminiGeneration = useMemo(
-    () => beatsNeedingReview(allChapterBeats),
+    () => allChapterBeats.filter((beat) => !beat.previewMediaAssetId),
     [allChapterBeats],
   );
   const currentQueueBeatId = geminiQueue?.beatIds[geminiQueue.currentIndex] ?? null;
@@ -234,10 +234,10 @@ export function StoryboardScreen({
         continue;
       }
 
-      const queueAfterApprovalCheck = skipQueueBeatIfApproved(queue, beat);
-      if (queueAfterApprovalCheck !== queue) {
+      const queueAfterMediaCheck = skipQueueBeatIfMediaReady(queue, beat);
+      if (queueAfterMediaCheck !== queue) {
         processed.add(beatId);
-        queue = queueAfterApprovalCheck;
+        queue = queueAfterMediaCheck;
         publishGeminiQueue(queue);
         continue;
       }
