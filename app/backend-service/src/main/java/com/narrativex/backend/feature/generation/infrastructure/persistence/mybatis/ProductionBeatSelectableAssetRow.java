@@ -5,7 +5,6 @@ import java.util.UUID;
 public record ProductionBeatSelectableAssetRow(
     UUID mediaAssetId,
     String mediaType,
-    String storageMode,
     Long durationMs,
     long sizeBytes,
     String checksum) {}
