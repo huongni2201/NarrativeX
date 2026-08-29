@@ -77,7 +77,7 @@ def test_project_media_services_share_one_local_root() -> None:
         assert "MEDIA_STORAGE_MODE" not in service
 
 
-def test_narration_worker_keeps_r2_only_for_custom_voice_references() -> None:
+def test_narration_worker_reads_voice_references_from_r2_without_static_host_mount() -> None:
     compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
     narration_service = _service(compose_lines, "narration-worker")
 
@@ -87,4 +87,6 @@ def test_narration_worker_keeps_r2_only_for_custom_voice_references() -> None:
     assert "R2_ACCOUNT_ID:" in narration_service
     assert "R2_ACCESS_KEY_ID:" in narration_service
     assert "R2_SECRET_ACCESS_KEY:" in narration_service
-    assert "VIENEU_REFERENCE_AUDIO_PATH: /run/narrativex/voices/reference.wav" in narration_service
+    assert "VIENEU_REFERENCE_AUDIO_PATH:" not in narration_service
+    assert "VIENEU_REFERENCE_AUDIO_FILE" not in narration_service
+    assert "target: /run/narrativex/voices/reference.wav" not in narration_service
