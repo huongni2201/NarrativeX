@@ -9,6 +9,7 @@ import type {
 import { useGenerationJob } from "../generation/queries/generation.queries";
 import { productionApi } from "./api/production.api";
 import { createAutoEditPlan } from "./auto-edit-planner";
+import { buildRenderPreflightInput } from "./render-preflight";
 import { getRenderReadinessBlockers } from "./render-readiness";
 
 export function useRenderController({
@@ -83,22 +84,11 @@ export function useRenderController({
     setBusy(true);
     setFinalPath(null);
     setDestinationDirectory(destination.directory);
-    setNotice("Đang kiểm tra media và dung lượng trước khi render…");
+    setNotice("Đang kiểm tra runtime, media local và dung lượng trước khi render…");
     try {
-      const assetIds = [
-        ...timeline.beats.map((beat) => beat.mediaAssetId),
-        ...timeline.chapters.map((chapter) => chapter.narrationAssetId ?? null),
-      ].filter((assetId): assetId is string => Boolean(assetId));
-      const estimatedOutputBytes = Math.max(
-        64 * 1024 * 1024,
-        Math.round((timeline.totalDurationMs / 1000) * bitrateEstimateFor(resolution)),
+      const nextPreflight = await productionApi.preflight(
+        buildRenderPreflightInput(projectId, timeline, resolution),
       );
-      const nextPreflight = await productionApi.preflight({
-        projectId,
-        assetIds,
-        estimatedOutputBytes,
-        requiredTemporaryBytes: estimatedOutputBytes * 2,
-      });
       setPreflight(nextPreflight);
       if (!nextPreflight.ready) {
         setNotice(`Preflight blocked: ${nextPreflight.blockers.join(", ")}`);
@@ -139,17 +129,6 @@ export function useRenderController({
     autoEditPlan,
     startRender,
   };
-}
-
-function bitrateEstimateFor(resolution: RenderResolution): number {
-  switch (resolution) {
-    case "1440p":
-      return 3_500_000;
-    case "1080p":
-      return 2_200_000;
-    default:
-      return 1_500_000;
-  }
 }
 
 function resolutionLabel(resolution: RenderResolution): string {

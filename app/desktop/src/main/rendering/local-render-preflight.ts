@@ -2,6 +2,7 @@ import { statfs } from "node:fs/promises";
 import type {
   LocalRenderPreflight,
   LocalRenderPreflightAsset,
+  LocalRenderPreflightAssetInput,
   LocalRenderPreflightBlockerCode,
 } from "@narrativex/client-contracts";
 import type { ProjectStorage } from "../local-storage/project-storage";
@@ -11,6 +12,7 @@ import type { LocalExecutionConnectionState } from "../local-execution/service";
 export interface LocalRenderPreflightInput {
   projectId: string;
   assetIds: string[];
+  assets?: LocalRenderPreflightAssetInput[];
   estimatedOutputBytes: number;
   requiredTemporaryBytes: number;
 }
@@ -40,7 +42,14 @@ export class LocalRenderPreflightService {
     const blockers: LocalRenderPreflightBlockerCode[] = [];
     const warnings: string[] = [];
     const assets: LocalRenderPreflightAsset[] = [];
-    const assetIds = [...new Set(input.assetIds.filter(Boolean))];
+    const descriptors = dedupeAssets(
+      input.assets ?? input.assetIds.map((assetId) => ({
+        assetId,
+        storageMode: "LOCAL_ONLY" as const,
+        materializable: false,
+      })),
+    );
+
     if (!this.runtime.available || !this.runtime.ffmpegPath || !this.runtime.ffprobePath) {
       blockers.push("FFMPEG_UNAVAILABLE");
     }
@@ -62,14 +71,24 @@ export class LocalRenderPreflightService {
       blockers.push("DISK_UNKNOWN");
     }
 
-    for (const assetId of assetIds) {
+    for (const descriptor of descriptors) {
       try {
-        await this.storage.resolveAsset(input.projectId, assetId);
-        assets.push({ assetId, state: "AVAILABLE", message: null });
+        await this.storage.resolveAsset(input.projectId, descriptor.assetId);
+        assets.push({ assetId: descriptor.assetId, state: "AVAILABLE", message: null });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Asset không hợp lệ.";
-        const state = /missing|not registered/i.test(message) ? "MISSING" : "CORRUPT";
-        assets.push({ assetId, state, message });
+        const missing = /missing|not registered/i.test(message);
+        if (missing && descriptor.materializable && descriptor.storageMode !== "LOCAL_ONLY") {
+          assets.push({
+            assetId: descriptor.assetId,
+            state: "MATERIALIZABLE",
+            message: null,
+          });
+          continue;
+        }
+
+        const state = missing ? "MISSING" : "CORRUPT";
+        assets.push({ assetId: descriptor.assetId, state, message });
         const blocker = state === "MISSING" ? "ASSET_MISSING" : "ASSET_CORRUPT";
         if (!blockers.includes(blocker)) blockers.push(blocker);
       }
@@ -85,6 +104,29 @@ export class LocalRenderPreflightService {
       requiredTemporaryBytes: Math.max(0, input.requiredTemporaryBytes),
     };
   }
+}
+
+function dedupeAssets(assets: LocalRenderPreflightAssetInput[]): LocalRenderPreflightAssetInput[] {
+  const byId = new Map<string, LocalRenderPreflightAssetInput>();
+  for (const asset of assets) {
+    if (!asset.assetId) continue;
+    const current = byId.get(asset.assetId);
+    if (!current) {
+      byId.set(asset.assetId, asset);
+      continue;
+    }
+    byId.set(asset.assetId, {
+      assetId: asset.assetId,
+      storageMode:
+        current.storageMode === "LOCAL_ONLY" || asset.storageMode === "LOCAL_ONLY"
+          ? "LOCAL_ONLY"
+          : current.storageMode === "HYBRID" || asset.storageMode === "HYBRID"
+            ? "HYBRID"
+            : "REMOTE",
+      materializable: current.materializable || asset.materializable,
+    });
+  }
+  return [...byId.values()];
 }
 
 export function executorBlockerCode(

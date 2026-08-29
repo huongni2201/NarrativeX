@@ -1,4 +1,8 @@
-import type { DesktopProject, LocalRenderPreflight } from "@narrativex/client-contracts";
+import type {
+  DesktopProject,
+  LocalRenderPreflight,
+  LocalRenderPreflightAssetInput,
+} from "@narrativex/client-contracts";
 import type { GeminiWebLane as GeminiWebLaneType } from "../shared/gemini-web-lanes";
 export type { GeminiWebLane } from "../shared/gemini-web-lanes";
 
@@ -153,6 +157,7 @@ export interface FfmpegRuntimeStatus {
 export interface LocalRenderPreflightInput {
   projectId: string;
   assetIds: string[];
+  assets: LocalRenderPreflightAssetInput[];
   estimatedOutputBytes: number;
   requiredTemporaryBytes: number;
 }
