@@ -33,7 +33,10 @@ export function useUploadVoiceReference() {
     mutationFn: () => window.narrativex.api.uploadVoiceReference(),
     onSuccess: async (uploaded) => {
       if (!uploaded) return;
-      await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
+        queryClient.invalidateQueries({ queryKey: ["voice-references"] }),
+      ]);
     },
   });
 }
