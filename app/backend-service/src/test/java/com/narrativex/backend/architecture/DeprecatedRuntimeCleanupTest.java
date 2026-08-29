@@ -47,12 +47,12 @@ class DeprecatedRuntimeCleanupTest {
   }
 
   @Test
-  void projectRenderTargetIsImplicitlyLocalOnly() throws IOException {
+  void projectRenderTargetAndCloudCostAreRemoved() throws IOException {
     assertThat(
             Arrays.stream(CreateProjectRenderRequest.class.getRecordComponents())
                 .map(component -> component.getName())
                 .toList())
-        .doesNotContain("executionTarget");
+        .doesNotContain("executionTarget", "maxAuthorizedCost");
 
     String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
     assertThat(v5).doesNotContain("execution_target").doesNotContain("'CLOUD'");
