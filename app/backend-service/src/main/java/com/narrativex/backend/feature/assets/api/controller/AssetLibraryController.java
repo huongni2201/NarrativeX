@@ -45,23 +45,28 @@ public class AssetLibraryController {
   }
 
   @GetMapping("/{id}")
-  public ResponseEntity<ApiResponse<MediaAssetResponse>> get(@PathVariable UUID id) {
+  public ResponseEntity<ApiResponse<MediaAssetResponse>> get(
+      @PathVariable UUID id, @RequestParam UUID projectId) {
     return ResponseEntity.ok(
         ApiResponse.success(
-            "Asset retrieved successfully", MediaAssetResponse.from(useCase.find(id))));
+            "Asset retrieved successfully", MediaAssetResponse.from(useCase.find(projectId, id))));
   }
 
+  /**
+   * Short-lived transport URL for project-local worker/provider output. This is not an R2 project
+   * storage fallback; the storage key routes through the project-local media transport.
+   */
   @GetMapping("/{id}/download-url")
   public ResponseEntity<ApiResponse<MediaAssetDownloadUrlResponse>> downloadUrl(
-      @PathVariable UUID id) {
-    var asset = useCase.find(id);
-    if (!"READY".equals(asset.status()) || "LOCAL_ONLY".equals(asset.origin())) {
-      throw new ResourceNotFoundException("Asset is not available for download");
+      @PathVariable UUID id, @RequestParam UUID projectId) {
+    var asset = useCase.find(projectId, id);
+    if (!"READY".equals(asset.status()) || asset.storageKey() == null || asset.storageKey().isBlank()) {
+      throw new ResourceNotFoundException("Asset transport is not available");
     }
     Instant expiresAt = Instant.now().plus(Duration.ofMinutes(10));
     return ResponseEntity.ok(
         ApiResponse.success(
-            "Asset download URL created",
+            "Asset transport URL created",
             new MediaAssetDownloadUrlResponse(
                 mediaStorageAccess.createDownloadUrl(asset.storageKey(), expiresAt).toString(),
                 expiresAt,
@@ -88,8 +93,9 @@ public class AssetLibraryController {
   }
 
   @DeleteMapping("/{id}")
-  public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-    useCase.delete(id);
+  public ResponseEntity<ApiResponse<Void>> delete(
+      @PathVariable UUID id, @RequestParam UUID projectId) {
+    useCase.delete(projectId, id);
     return ResponseEntity.ok(ApiResponse.success("Asset deleted"));
   }
 }
