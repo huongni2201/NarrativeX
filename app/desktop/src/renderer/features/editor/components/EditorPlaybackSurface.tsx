@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import { planBeatTransitions } from "../../../../shared/transition-planner";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
+import { transitionBlackOpacity } from "../preview-transition";
 import { EditorMultiTrackTimeline } from "./EditorMultiTrackTimeline";
 import { EditorPreviewViewport } from "./EditorPreviewViewport";
 
@@ -43,9 +45,20 @@ export function EditorPlaybackSurface({
   onUploadMedia,
 }: Readonly<EditorPlaybackSurfaceProps>) {
   const orderedBeats = useMemo(() => sortEditorBeats(beats), [beats]);
+  const transitionByBeat = useMemo(
+    () => new Map(planBeatTransitions(orderedBeats).map((plan) => [plan.visualBeatId, plan])),
+    [orderedBeats],
+  );
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(scopeWindowStartMs);
   const lastSelectedBeatIdRef = useRef(selectedBeatId);
+  const activeTransitionOpacity = previewBeat
+    ? transitionBlackOpacity(
+        previewBeat,
+        transitionByBeat.get(previewBeat.visualBeatId) ?? { transitionInMs: 0, transitionOutMs: 0 },
+        playheadMs,
+      )
+    : 0;
 
   useEffect(() => {
     if (!orderedBeats.length) {
@@ -81,25 +94,25 @@ export function EditorPlaybackSurface({
     }
   }, [onSelectBeat, orderedBeats, playheadMs, selectedBeatId]);
 
-  const selectBeat = (beat: DesktopTimelineBeat) => {
+  const selectBeat = useCallback((beat: DesktopTimelineBeat) => {
     lastSelectedBeatIdRef.current = beat.visualBeatId;
     setPlayheadMs(beat.startMs);
     onSelectBeat(beat);
-  };
+  }, [onSelectBeat]);
 
-  const handlePrevBeat = () => {
+  const handlePrevBeat = useCallback(() => {
     const currentIndex = orderedBeats.findIndex((beat) => beat.visualBeatId === selectedBeatId);
     if (currentIndex > 0) selectBeat(orderedBeats[currentIndex - 1]);
-  };
+  }, [orderedBeats, selectBeat, selectedBeatId]);
 
-  const handleNextBeat = () => {
+  const handleNextBeat = useCallback(() => {
     const currentIndex = orderedBeats.findIndex((beat) => beat.visualBeatId === selectedBeatId);
     if (currentIndex >= 0 && currentIndex < orderedBeats.length - 1) {
       selectBeat(orderedBeats[currentIndex + 1]);
     }
-  };
+  }, [orderedBeats, selectBeat, selectedBeatId]);
 
-  const handleSeek = (targetMs: number) => {
+  const handleSeek = useCallback((targetMs: number) => {
     const clamped = Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, targetMs));
     setPlayheadMs(clamped);
     const beatAtTime = findEditorBeatAtTime(orderedBeats, clamped);
@@ -107,22 +120,24 @@ export function EditorPlaybackSurface({
       lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
       onSelectBeat(beatAtTime);
     }
-  };
+  }, [onSelectBeat, orderedBeats, scopeWindowEndMs, scopeWindowStartMs, selectedBeatId]);
 
-  const handleStepMs = (deltaMs: number) => handleSeek(playheadMs + deltaMs);
+  const handleStepMs = useCallback((deltaMs: number) => {
+    handleSeek(playheadMs + deltaMs);
+  }, [handleSeek, playheadMs]);
 
-  const handleNarrationClock = (globalMs: number) => {
+  const handleNarrationClock = useCallback((globalMs: number) => {
     const clamped = Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, globalMs));
     setPlayheadMs(clamped);
-  };
+  }, [scopeWindowEndMs, scopeWindowStartMs]);
 
-  const handleNarrationEnded = () => {
+  const handleNarrationEnded = useCallback(() => {
     if (narrationEndMs != null && narrationEndMs < scopeWindowEndMs) {
       handleSeek(Math.min(scopeWindowEndMs, narrationEndMs + 1));
       return;
     }
     setPlaying(false);
-  };
+  }, [handleSeek, narrationEndMs, scopeWindowEndMs]);
 
   return (
     <div className="nx-editor-playback-surface h-full min-h-0 min-w-0 overflow-hidden border-r border-border-subtle bg-background">
@@ -130,6 +145,7 @@ export function EditorPlaybackSurface({
         <EditorPreviewViewport
           selectedBeat={previewBeat}
           subtitleCues={subtitleCues}
+          transitionBlackOpacity={activeTransitionOpacity}
           mediaUrl={mediaUrl}
           narrationUrl={narrationUrl}
           narrationStartMs={narrationStartMs}
