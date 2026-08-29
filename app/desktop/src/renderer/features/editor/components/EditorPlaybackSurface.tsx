@@ -3,6 +3,7 @@ import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-co
 import { planBeatTransitions } from "../../../../shared/transition-planner";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
+import { shouldUseFallbackPlaybackClock } from "../preview-playback";
 import { transitionBlackOpacity } from "../preview-transition";
 import { EditorMultiTrackTimeline } from "./EditorMultiTrackTimeline";
 import { EditorPreviewViewport } from "./EditorPreviewViewport";
@@ -51,7 +52,14 @@ export function EditorPlaybackSurface({
   );
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(scopeWindowStartMs);
+  const [narrationClockFailed, setNarrationClockFailed] = useState(false);
   const lastSelectedBeatIdRef = useRef(selectedBeatId);
+  const hasNarration = Boolean(
+    narrationUrl &&
+      narrationStartMs != null &&
+      narrationEndMs != null &&
+      narrationEndMs > narrationStartMs,
+  );
   const activeTransitionOpacity = previewBeat
     ? transitionBlackOpacity(
         previewBeat,
@@ -59,6 +67,10 @@ export function EditorPlaybackSurface({
         playheadMs,
       )
     : 0;
+
+  useEffect(() => {
+    setNarrationClockFailed(false);
+  }, [narrationEndMs, narrationStartMs, narrationUrl]);
 
   useEffect(() => {
     if (!orderedBeats.length) {
@@ -87,7 +99,12 @@ export function EditorPlaybackSurface({
   }, [playheadMs, scopeWindowEndMs, scopeWindowStartMs]);
 
   useEffect(() => {
-    if (!playing || scopeWindowEndMs <= scopeWindowStartMs) return;
+    if (
+      !shouldUseFallbackPlaybackClock({ playing, hasNarration, narrationClockFailed }) ||
+      scopeWindowEndMs <= scopeWindowStartMs
+    ) {
+      return;
+    }
     const stepMs = 100;
     const timer = window.setInterval(() => {
       setPlayheadMs((current) => {
@@ -99,7 +116,7 @@ export function EditorPlaybackSurface({
       });
     }, stepMs);
     return () => window.clearInterval(timer);
-  }, [playing, scopeWindowEndMs, scopeWindowStartMs]);
+  }, [hasNarration, narrationClockFailed, playing, scopeWindowEndMs, scopeWindowStartMs]);
 
   useEffect(() => {
     const beatAtTime = findEditorBeatAtTime(orderedBeats, playheadMs);
@@ -142,12 +159,14 @@ export function EditorPlaybackSurface({
   }, [handleSeek, playheadMs]);
 
   const handleNarrationClock = useCallback((globalMs: number) => {
+    setNarrationClockFailed(false);
     const clamped = Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, globalMs));
     setPlayheadMs(clamped);
   }, [scopeWindowEndMs, scopeWindowStartMs]);
 
   const handleNarrationEnded = useCallback(() => {
     if (narrationEndMs != null && narrationEndMs < scopeWindowEndMs) {
+      setNarrationClockFailed(true);
       handleSeek(Math.min(scopeWindowEndMs, narrationEndMs + 1));
       return;
     }
@@ -180,7 +199,7 @@ export function EditorPlaybackSurface({
           onNarrationClock={handleNarrationClock}
           onNarrationEnded={handleNarrationEnded}
           onPlaybackError={() => {
-            // Keep timer running even if audio stream errors
+            setNarrationClockFailed(true);
           }}
         />
       </div>
