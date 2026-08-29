@@ -2,7 +2,9 @@ import inspect
 from pathlib import Path
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.narration.repository import NarrationWorkerRepository
+from narrativex_worker.narration.repository.implementation import (
+    NarrationWorkerRepository as NarrationWorkerRepositoryImplementation,
+)
 from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
 
 
@@ -20,7 +22,7 @@ def test_vieneu_worker_can_boot_without_static_reference_for_r2_job_voice() -> N
 
 
 def test_narration_claims_resolve_custom_or_system_voice_r2_key() -> None:
-    source = inspect.getsource(NarrationWorkerRepository)
+    source = inspect.getsource(NarrationWorkerRepositoryImplementation)
 
     assert source.count("LEFT JOIN voice_reference_assets vra") == 2
     assert source.count("LEFT JOIN voice_catalog vc") == 2
