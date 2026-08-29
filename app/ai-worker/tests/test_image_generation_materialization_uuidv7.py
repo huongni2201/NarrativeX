@@ -127,8 +127,8 @@ async def test_new_image_asset_is_project_scoped_without_account_wide_checksum_r
 
     normalized_insert = " ".join(media_asset_insert[0].split())
     assert "project_id" in normalized_insert
-    assert "storage_mode" in normalized_insert
-    assert "'PROJECT_LOCAL'" in normalized_insert
+    assert "storage_mode" not in normalized_insert
+    assert "PROJECT_LOCAL" not in normalized_insert
     assert PROJECT_ID in media_asset_insert[1]
     assert all("media_asset_checksums" not in query for query in connection.fetchrow_queries)
     assert all(
