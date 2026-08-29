@@ -208,14 +208,11 @@ public class GetProductionTimelineUseCase {
   private static ProductionTimelineView.Beat buildBeat(
       ChapterSource chapter, BeatSource source, long globalStartMs, long globalEndMs) {
     long durationMs = Math.max(1L, globalEndMs - globalStartMs);
-    boolean mediaMetadataReady =
+    boolean assetReady =
         source.mediaAssetId() != null
             && nonBlank(source.mediaType())
             && positive(source.sizeBytes())
             && nonBlank(source.checksum());
-    boolean storageReady =
-        "LOCAL_ONLY".equals(source.storageMode()) || nonBlank(source.storageKey());
-    boolean assetReady = mediaMetadataReady && storageReady;
 
     return new ProductionTimelineView.Beat(
         chapter.chapterId(),
@@ -229,7 +226,6 @@ public class GetProductionTimelineUseCase {
         source.assetStrategy(),
         source.mediaAssetId(),
         source.mediaType(),
-        source.storageMode(),
         source.sourceDurationMs(),
         nonBlank(source.fitMode()) ? source.fitMode() : "TRIM",
         Math.max(0L, source.trimStartMs()),
