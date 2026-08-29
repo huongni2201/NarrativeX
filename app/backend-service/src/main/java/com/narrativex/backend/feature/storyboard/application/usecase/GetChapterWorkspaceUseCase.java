@@ -70,7 +70,7 @@ public class GetChapterWorkspaceUseCase {
                         scene.durationSeconds(),
                         scene.status(),
                         scene.visualBeatCount(),
-                        scene.previewImageUrl()))
+                        scene.previewMediaAssetId()))
             .toList();
 
     boolean canAnalyze =
