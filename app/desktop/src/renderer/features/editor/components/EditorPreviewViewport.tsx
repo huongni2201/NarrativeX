@@ -13,6 +13,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
+import { activeSubtitleAt, type PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import {
   globalPlayheadFromNarrationSeconds,
   narrationSeekSeconds,
@@ -21,6 +22,7 @@ import {
 
 interface EditorPreviewViewportProps {
   selectedBeat: DesktopTimelineBeat | null;
+  subtitleCues: PlannedSubtitle[];
   mediaUrl: string | null;
   narrationUrl: string | null;
   narrationStartMs: number | null;
@@ -42,6 +44,7 @@ interface EditorPreviewViewportProps {
 
 export function EditorPreviewViewport({
   selectedBeat,
+  subtitleCues,
   mediaUrl,
   narrationUrl,
   narrationStartMs,
@@ -74,6 +77,7 @@ export function EditorPreviewViewport({
   const beatNumber = selectedBeat ? String(selectedBeat.beatIndex + 1).padStart(2, "0") : "01";
   const beatTitle = selectedBeat?.title || "Visual Beat";
   const playback = selectedBeat ? previewPlaybackState(selectedBeat, playheadMs) : null;
+  const activeSubtitle = activeSubtitleAt(subtitleCues, playheadMs);
 
   useEffect(() => setMediaFailed(false), [mediaUrl, selectedBeat?.visualBeatId]);
   useEffect(() => setAudioFailed(false), [narrationUrl, narrationStartMs]);
@@ -242,8 +246,17 @@ export function EditorPreviewViewport({
               </div>
             </div>
           )}
+
+          {activeSubtitle && (
+            <div className="pointer-events-none absolute inset-x-[8%] bottom-[7%] z-20 flex justify-center">
+              <span className="max-w-[90%] rounded-md bg-black/70 px-3 py-1.5 text-center text-[clamp(12px,1.5vw,22px)] font-semibold leading-snug text-white shadow-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+                {activeSubtitle.text}
+              </span>
+            </div>
+          )}
+
           {audioFailed && (
-            <div className="absolute inset-x-4 bottom-4 rounded-md border border-red-400/30 bg-black/80 px-3 py-2 text-center text-[10px] text-red-200">
+            <div className="absolute inset-x-4 bottom-4 z-30 rounded-md border border-red-400/30 bg-black/80 px-3 py-2 text-center text-[10px] text-red-200">
               Narration preview failed. Playback đã dừng để timeline không bị lệch audio.
             </div>
           )}
