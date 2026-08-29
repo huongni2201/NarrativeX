@@ -185,7 +185,6 @@ services:
       IMAGE_PROVIDER_MODE: disabled
       TTS_PROVIDER_MODE: vieneu
       NARRATION_MP3_BITRATE: ${NARRATION_MP3_BITRATE:-96k}
-      VIENEU_REFERENCE_AUDIO_PATH: /run/narrativex/voices/reference.wav
       VIENEU_BACKEND: ${VIENEU_BACKEND:-onnx}
       VIENEU_PRECISION: ${VIENEU_PRECISION:-int8}
       VIENEU_THREADS: ${VIENEU_THREADS:-4}
@@ -200,19 +199,13 @@ services:
       VIENEU_SAVE_VOICE_PROFILE: ${VIENEU_SAVE_VOICE_PROFILE:-false}
       VIENEU_FORCE_REENROLL: ${VIENEU_FORCE_REENROLL:-false}
       VIENEU_APPLY_WATERMARK: ${VIENEU_APPLY_WATERMARK:-false}
-      # R2 is read-only from the narration path and used only for selected custom voices.
+      # R2 is read-only from narration and supplies system/custom voice references per job.
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
       R2_BUCKET: ${R2_BUCKET:?Set R2_BUCKET in .env}
       R2_ENDPOINT: ${R2_ENDPOINT:-}
     volumes:
-      - type: bind
-        source: ${VIENEU_REFERENCE_AUDIO_FILE:?Set VIENEU_REFERENCE_AUDIO_FILE in .env for Ngọc Huyền v2}
-        target: /run/narrativex/voices/reference.wav
-        read_only: true
-        bind:
-          create_host_path: false
       - type: bind
         source: ${PROJECT_MEDIA_HOST_DIR:?Set PROJECT_MEDIA_HOST_DIR in .env}
         target: /data/narrativex/project-media

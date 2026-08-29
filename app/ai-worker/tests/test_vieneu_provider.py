@@ -150,9 +150,13 @@ def test_vieneu_resolves_catalog_ids_without_diacritics(voice_id: str, voice_nam
     assert client.batch_calls[-1][1] == voice_name
 
 
-def test_vieneu_missing_configured_voice_fails_fast() -> None:
-    with pytest.raises(RuntimeError, match="unavailable"):
-        VieneuTtsProvider(WorkerSettings(worker_env="test"), client=FakeVieneuClient())
+def test_vieneu_missing_configured_voice_defers_to_per_job_reference() -> None:
+    client = FakeVieneuClient()
+
+    provider = VieneuTtsProvider(WorkerSettings(worker_env="test"), client=client)
+
+    assert provider.voice_catalog_id == "vieneu-ngoc-huyen-v2"
+    assert client.add_voice_calls == []
 
 
 def test_vieneu_applies_non_default_speaking_rate(tmp_path: Path) -> None:

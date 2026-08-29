@@ -179,10 +179,12 @@ class VieneuTtsProvider:
             return
 
         if not reference_path_value:
-            raise RuntimeError(
-                f"Configured VieNeu voice {self.voice_name!r} is unavailable and "
-                "VIENEU_REFERENCE_AUDIO_PATH is not configured"
+            self.logger.info(
+                "Configured VieNeu voice %r is not pre-enrolled; "
+                "reference audio will be supplied per narration job",
+                self.voice_name,
             )
+            return
         reference_path = Path(reference_path_value).expanduser()
         if not reference_path.is_file():
             raise RuntimeError(f"VieNeu reference audio does not exist: {reference_path}")
