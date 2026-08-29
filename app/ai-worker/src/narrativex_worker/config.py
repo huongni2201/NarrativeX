@@ -149,12 +149,6 @@ class WorkerSettings(BaseSettings):
         description="Optional voice-reference R2 endpoint override",
     )
 
-    wan_video_enabled: bool = False
-    wan_endpoint_url: str | None = None
-    wan_model: str = "Wan2.2-TI2V-5B"
-    wan_api_token: SecretStr | None = None
-    wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
-
     @field_validator("worker_roles")
     @classmethod
     def validate_worker_roles(cls, value: str) -> str:
