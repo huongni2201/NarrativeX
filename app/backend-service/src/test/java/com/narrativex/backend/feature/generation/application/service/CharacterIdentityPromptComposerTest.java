@@ -10,7 +10,7 @@ class CharacterIdentityPromptComposerTest {
   private final CharacterIdentityPromptComposer composer = new CharacterIdentityPromptComposer();
 
   @Test
-  void composesNeutralCharacterIdentityReferenceWithoutNarrativeBibleBias() {
+  void composesPremiumCharacterReferenceWithoutNarrativeBibleBias() {
     var result =
         composer.compose(
             ImageStyle.CINEMATIC_ANIME,
@@ -33,8 +33,13 @@ class CharacterIdentityPromptComposerTest {
         .contains("AGE STATE: mid twenties")
         .contains("HAIRSTYLE STATE: straight shoulder-length black hair")
         .contains("INJURY / MARKINGS: small scar above left eyebrow")
-        .contains("balanced soft frontal lighting")
+        .contains("premium manhwa protagonist reference")
+        .contains("high-detail layered hair")
+        .contains("sharp readable eyes")
+        .contains("fashion-forward character styling")
+        .contains("polished cover-art finish")
         .contains("facial geometry and recognizable silhouette")
+        .doesNotContain("balanced soft frontal lighting")
         .doesNotContain("Reserved protagonist")
         .doesNotContain("lost her family")
         .endsWith("AVOID: " + ImageStyle.CINEMATIC_ANIME.negativePrompt());
