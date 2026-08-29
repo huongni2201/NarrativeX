@@ -30,12 +30,19 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
   @Override
   @Transactional(readOnly = true)
   public CursorPage<MediaAssetView> list(
-      String accountId, String type, String status, String search, String cursor, int limit) {
+      String accountId,
+      UUID projectId,
+      String type,
+      String status,
+      String search,
+      String cursor,
+      int limit) {
     validateLimit(limit);
     MediaAssetCursor key = MediaAssetCursorCodec.decode(cursor);
     List<MediaAssetRow> rows =
         mapper.findPage(
             accountId,
+            projectId,
             normalizeOptional(type),
             normalizeOptional(status),
             normalizeOptional(search),
@@ -101,6 +108,9 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     if (!List.of("AUDIO", "IMAGE", "VIDEO").contains(command.type())) {
       throw new IllegalArgumentException("Local asset type must be AUDIO, IMAGE, or VIDEO");
     }
+    if (command.projectId() == null) {
+      throw new IllegalArgumentException("Local project asset requires projectId");
+    }
     if (command.sizeBytes() <= 0
         || command.sha256() == null
         || !command.sha256().matches("^[0-9a-fA-F]{64}$")) {
@@ -109,6 +119,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     MediaAssetRow row = new MediaAssetRow();
     row.setId(command.proposedId() == null ? UUID.randomUUID() : command.proposedId());
     row.setAccountId(accountId);
+    row.setProjectId(command.projectId());
     row.setAssetType(command.type());
     row.setOriginalFilename(command.originalFilename());
     row.setContentType(command.contentType());
