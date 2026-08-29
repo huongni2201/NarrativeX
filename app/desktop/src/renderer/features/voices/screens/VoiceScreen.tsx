@@ -272,6 +272,15 @@ export function VoiceScreen({
     }
   }
 
+  function selectAccountVoice(assetId: string, originalFilename: string) {
+    if (voiceReferenceBusy) return;
+    setVoiceReference({ scope: "ACCOUNT", assetId });
+    setVoiceReferenceName(originalFilename);
+    setSelectedAssetIds([]);
+    setPreviewJobId(null);
+    setNotice(`${originalFilename} đang được dùng làm account voice reference từ R2.`);
+  }
+
   function clearVoiceReference() {
     if (voiceReferenceBusy) return;
     setVoiceReference(null);
@@ -484,6 +493,7 @@ export function VoiceScreen({
         previewUrl={previewResultQuery.data?.url ?? null}
         previewBusy={previewBusy}
         onToggleAsset={toggleAsset}
+        onSelectAccountVoice={selectAccountVoice}
         onCreateTake={() => void runSingle()}
         onResetFilters={resetFilters}
         onUploadVoiceReference={() => void uploadVoiceReference()}
