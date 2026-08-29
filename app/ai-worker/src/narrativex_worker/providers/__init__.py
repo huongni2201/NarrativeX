@@ -37,8 +37,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "narrativex_worker.providers.vertex_image",
         "VertexImageSubmissionUnknownError",
     ),
-    "WanProviderError": ("narrativex_worker.providers.wan", "WanProviderError"),
-    "WanVideoProvider": ("narrativex_worker.providers.wan", "WanVideoProvider"),
 }
 
 __all__ = sorted(_LAZY_EXPORTS)
