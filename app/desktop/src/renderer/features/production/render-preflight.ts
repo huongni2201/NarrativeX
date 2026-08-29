@@ -13,21 +13,13 @@ export function buildRenderPreflightInput(
   const assets: LocalRenderPreflightAssetInput[] = [];
 
   for (const beat of timeline.beats) {
-    if (!beat.mediaAssetId || !beat.storageMode) continue;
-    assets.push({
-      assetId: beat.mediaAssetId,
-      storageMode: beat.storageMode,
-      materializable: beat.storageMode !== "LOCAL_ONLY",
-    });
+    if (!beat.mediaAssetId) continue;
+    assets.push({ assetId: beat.mediaAssetId });
   }
 
   for (const chapter of timeline.chapters) {
     if (!chapter.narrationAssetId) continue;
-    assets.push({
-      assetId: chapter.narrationAssetId,
-      storageMode: "REMOTE",
-      materializable: true,
-    });
+    assets.push({ assetId: chapter.narrationAssetId });
   }
 
   const estimatedOutputBytes = estimateRenderOutputBytes(
