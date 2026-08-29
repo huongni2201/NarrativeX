@@ -588,7 +588,13 @@ export class GeminiWebAutomation {
 
     if (isThread) {
       await cdp.send("Page.navigate", { url: "https://gemini.google.com/app" });
-      await delay(1200);
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        await delay(300);
+        const currentPath = await evaluate<string>(cdp, "window.location.pathname");
+        if (currentPath === "/app" || currentPath === "/app/") break;
+      }
+      await delay(800);
       await this.waitForComposerOrLogin(cdp);
       return;
     }
@@ -1003,19 +1009,31 @@ export class GeminiWebAutomation {
           return style.display !== "none" && style.visibility !== "hidden" && rect.width > 2 && rect.height > 2;
         };
         const targets = [${JSON.stringify(presetName.toLowerCase())}, "cinematic", "điện ảnh"];
-        const composerChips = [
-          ...document.querySelectorAll('button[aria-label*="close" i], button[aria-label*="bỏ chọn" i], button[aria-label*="xóa" i], .input-area button, .composer button, form button')
+        const elements = [
+          ...document.querySelectorAll(
+            'button, mat-chip, .mat-mdc-chip, mat-basic-chip, gem-style-attachment, uploader-file-preview, [role="button"], [aria-label*="close" i], [aria-label*="bỏ chọn" i], [aria-label*="xóa" i], .input-area *, .composer *, form *'
+          )
         ].filter(visible);
-        return composerChips.some((el) => {
-          const t = (el.innerText || el.textContent || "").trim().toLowerCase();
+
+        return elements.some((el) => {
           const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
-          return targets.some((target) => aria.includes(target) || t.includes(target));
+          const t = (el.innerText || el.textContent || "").trim().toLowerCase();
+
+          if (aria.includes("close") || aria.includes("bỏ chọn") || aria.includes("xóa") || aria.includes("deselect") || aria.includes("remove")) {
+            return targets.some((target) => aria.includes(target) || t.includes(target));
+          }
+          if (el.closest('.input-area, .composer, form, .file-preview-container, .chips-container, uploader-file-preview, gem-style-attachment')) {
+            return targets.some((target) => t === target || t.includes(target) || aria.includes(target));
+          }
+          return false;
         });
       })()`,
     );
   }
 
   private async selectImagePreset(cdp: CdpClient, presetName: string): Promise<void> {
+    if (await this.isPresetChipApplied(cdp, presetName)) return;
+
     const deadline = Date.now() + GEMINI_UI_READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
       if (await this.isPresetChipApplied(cdp, presetName)) return;
@@ -1069,17 +1087,19 @@ export class GeminiWebAutomation {
           card.dispatchEvent(new PointerEvent("pointerup", opts));
           card.dispatchEvent(new MouseEvent("mouseup", opts));
           card.dispatchEvent(new MouseEvent("click", opts));
-          card.click();
           return true;
         })()`,
       );
 
       if (clicked) {
-        await delay(800);
-        if (await this.isPresetChipApplied(cdp, presetName)) return;
+        const verifyDeadline = Date.now() + 2_500;
+        while (Date.now() < verifyDeadline) {
+          await delay(250);
+          if (await this.isPresetChipApplied(cdp, presetName)) return;
+        }
       }
 
-      await delay(400);
+      await delay(300);
     }
   }
 
@@ -1106,6 +1126,10 @@ export class GeminiWebAutomation {
 
     const files = references.map((reference) => reference.path);
     const before = await this.attachmentSnapshot(cdp);
+
+    await cdp.send("DOM.enable").catch(() => undefined);
+    await cdp.send("DOM.getDocument").catch(() => undefined);
+
     let nodeId = await this.findFileInputNode(cdp);
     let backendNodeId: number | null = null;
 
@@ -1162,8 +1186,14 @@ export class GeminiWebAutomation {
     while (Date.now() < deadline) {
       const snapshot = await this.attachmentSnapshot(cdp);
       if (snapshot.error) throw geminiError("GEMINI_REFERENCE_UPLOAD_FAILED", snapshot.error);
-      if (snapshot.attachmentCount >= before.attachmentCount + references.length) return;
-      if (snapshot.sendEnabled && Date.now() + 2_000 >= deadline) return;
+      if (
+        snapshot.attachmentCount >= before.attachmentCount + references.length &&
+        !snapshot.uploading
+      ) {
+        await delay(800);
+        return;
+      }
+      if (snapshot.sendEnabled && !snapshot.uploading && Date.now() + 2_000 >= deadline) return;
       await delay(250);
     }
     throw geminiError(
@@ -1173,10 +1203,12 @@ export class GeminiWebAutomation {
   }
 
   private async findFileInputNode(cdp: CdpClient): Promise<number | null> {
+    await cdp.send("DOM.enable").catch(() => undefined);
+    await cdp.send("DOM.getDocument").catch(() => undefined);
     const evaluated = await cdp.send<{ result?: { objectId?: string } }>("Runtime.evaluate", {
       expression:
         `(() => { const inputs = [...document.querySelectorAll('input[type="file"]')]; ` +
-        `return inputs.find((input) => !input.disabled && (!input.accept || input.accept.includes("image") || input.accept.includes("*"))) || inputs.at(-1) || null; })()`,
+        `return inputs.find((input) => !input.disabled) || inputs.at(-1) || null; })()`,
       returnByValue: false,
     });
     const objectId = evaluated.result?.objectId;
@@ -1196,45 +1228,57 @@ export class GeminiWebAutomation {
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8 && !element.disabled;
         };
-        const words = [
-          "upload files", "upload file", "upload image", "attach files", "attach file",
-          "add files", "add file", "add image", "tải tệp", "tải lên", "tải ảnh",
-          "đính kèm", "thêm tệp", "thêm ảnh"
-        ];
-        const candidates = [...document.querySelectorAll('button, [role="button"], [role="menuitem"], [aria-label], [title]')]
-          .filter((element) => visible(element) && !element.disabled);
-        const label = (element) => [
-          element.getAttribute("aria-label"), element.getAttribute("title"),
-          element.getAttribute("data-tooltip"), element.textContent
-        ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-        const direct = candidates.find((element) => words.some((word) => label(element).includes(word)));
-        if (direct) { direct.click(); return true; }
-        const attachment = candidates.find((element) => {
-          const value = label(element);
-          return value.includes("attach") || value.includes("upload") || value.includes("đính kèm") || value.includes("thêm");
+        const dispatchClick = (el) => {
+          const opts = { bubbles: true, cancelable: true, composed: true, view: window };
+          el.dispatchEvent(new PointerEvent("pointerdown", opts));
+          el.dispatchEvent(new MouseEvent("mousedown", opts));
+          el.dispatchEvent(new PointerEvent("pointerup", opts));
+          el.dispatchEvent(new MouseEvent("mouseup", opts));
+          el.dispatchEvent(new MouseEvent("click", opts));
+        };
+
+        const buttons = [...document.querySelectorAll('.input-area button, form button, .composer button, button')].filter(visible);
+        const uploadBtn = buttons.find(b => {
+          const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+          return aria.includes('tải lên và công cụ') || aria.includes('nội dung tải lên') || aria.includes('uploads and tools');
+        }) || buttons.find(b => {
+          const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+          return (aria.includes('tải lên') || aria.includes('upload') || aria.includes('attach') || aria.includes('đính kèm')) && !aria.includes('spark');
         });
-        if (!attachment) return false;
-        attachment.click();
+
+        if (!uploadBtn) return false;
+        dispatchClick(uploadBtn);
         return true;
       })()`,
     );
     if (!clicked) return;
-    await delay(400);
+    await delay(500);
     if (await this.findFileInputNode(cdp)) return;
     await evaluate(
       cdp,
       `(() => {
-        const words = ["upload files", "upload image", "tải tệp", "tải ảnh", "thêm ảnh"];
-        const elements = [...document.querySelectorAll('[role="menuitem"], [role="option"], button')];
-        const target = elements.find((element) => {
-          const value = [element.getAttribute("aria-label"), element.getAttribute("title"), element.textContent]
-            .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-          return words.some((word) => value.includes(word));
+        const dispatchClick = (el) => {
+          const opts = { bubbles: true, cancelable: true, composed: true, view: window };
+          el.dispatchEvent(new PointerEvent("pointerdown", opts));
+          el.dispatchEvent(new MouseEvent("mousedown", opts));
+          el.dispatchEvent(new PointerEvent("pointerup", opts));
+          el.dispatchEvent(new MouseEvent("mouseup", opts));
+          el.dispatchEvent(new MouseEvent("click", opts));
+        };
+        const items = [...document.querySelectorAll('[role="menuitem"], [role="option"], button, mat-list-item')].filter(el => {
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+        });
+        const target = items.find(el => {
+          const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+          const text = (el.innerText || '').toLowerCase();
+          return aria.includes('tải tệp lên') || text.includes('tải tệp lên') || aria.includes('upload file') || text.includes('upload file');
         });
         if (!target) return false;
-        target.click();
+        dispatchClick(target);
         return true;
       })()`,
     );
@@ -1243,6 +1287,7 @@ export class GeminiWebAutomation {
 
   private async attachmentSnapshot(cdp: CdpClient): Promise<{
     attachmentCount: number;
+    uploading: boolean;
     sendEnabled: boolean;
     error: string | null;
   }> {
@@ -1256,7 +1301,9 @@ export class GeminiWebAutomation {
         };
         const attachmentSelectors = [
           '[aria-label*="remove" i]', '[aria-label*="attachment" i]', '[aria-label*="preview" i]',
-          '[data-test-id*="attachment" i]', '[data-testid*="attachment" i]', 'img[src^="blob:"]'
+          '[aria-label*="xóa" i]', '[aria-label*="tệp" i]', '[aria-label*="đính kèm" i]',
+          '[data-test-id*="attachment" i]', '[data-testid*="attachment" i]', 'img[src^="blob:"]',
+          '.attachment-container', '.file-preview', '.image-preview', 'uploader-file-preview', 'gem-style-attachment'
         ];
         const attachments = new Set();
         for (const selector of attachmentSelectors) {
@@ -1264,7 +1311,10 @@ export class GeminiWebAutomation {
             if (visible(element)) attachments.add(element);
           }
         }
-        const sendWords = ["send", "submit", "gửi"];
+        const spinners = [...document.querySelectorAll('mat-progress-spinner, mat-progress-bar, [role="progressbar"], .loading, .uploading')].filter(visible);
+        const uploading = spinners.length > 0;
+
+        const sendWords = ["send", "submit", "gửi", "gửi tin nhắn", "send message"];
         const sendEnabled = [...document.querySelectorAll('button')].some((button) => {
           if (!visible(button) || button.disabled) return false;
           const value = [button.getAttribute("aria-label"), button.getAttribute("title"), button.textContent]
@@ -1275,16 +1325,15 @@ export class GeminiWebAutomation {
         const error = body.includes("upload failed") || body.includes("failed to upload") || body.includes("tải lên thất bại")
           ? "Gemini reported that a character reference image failed to upload."
           : null;
-        return { attachmentCount: attachments.size, sendEnabled, error };
+        return { attachmentCount: attachments.size, uploading, sendEnabled, error };
       })()`,
     );
   }
 
   private async submitPrompt(cdp: CdpClient, prompt: string): Promise<void> {
-    const inserted = await evaluate<boolean>(
+    const focused = await evaluate<boolean>(
       cdp,
       `(() => {
-        const prompt = ${JSON.stringify(prompt)};
         const visible = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
@@ -1297,7 +1346,7 @@ export class GeminiWebAutomation {
         const score = (element) => {
           const value = [element.getAttribute("placeholder"), element.getAttribute("aria-label")]
             .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-          if (value.includes("mô tả hình ảnh") || value.includes("describe your image")) return 100;
+          if (value.includes("mô tả hình ảnh") || value.includes("describe your image") || value.includes("thêm ảnh và mô tả") || value.includes("mô tả các thay đổi") || value.includes("nhập câu lệnh")) return 100;
           if (element.classList && element.classList.contains("ql-editor")) return 80;
           if (element.getAttribute("role") === "textbox") return 50;
           return 0;
@@ -1306,64 +1355,85 @@ export class GeminiWebAutomation {
         if (!editor) return false;
 
         editor.focus();
+        const opts = { bubbles: true, cancelable: true, view: window };
+        editor.dispatchEvent(new MouseEvent("mousedown", opts));
+        editor.dispatchEvent(new MouseEvent("mouseup", opts));
+        editor.dispatchEvent(new MouseEvent("click", opts));
 
         if (editor.getAttribute("contenteditable") === "true") {
-          document.execCommand("selectAll", false, null);
-          const success = document.execCommand("insertText", false, prompt);
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(editor);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          document.execCommand("delete", false, null);
+
+          const success = document.execCommand("insertText", false, ${JSON.stringify(prompt)});
           if (!success || !editor.innerText.trim()) {
-            editor.innerHTML = "<p>" + prompt + "</p>";
-            editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
-            editor.dispatchEvent(new Event("input", { bubbles: true }));
+            editor.replaceChildren(document.createTextNode(${JSON.stringify(prompt)}));
           }
-        } else if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
-          const prototype = editor instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-          const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-          if (setter) setter.call(editor, prompt); else editor.value = prompt;
-          editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
-          editor.dispatchEvent(new Event("input", { bubbles: true }));
-          editor.dispatchEvent(new Event("change", { bubbles: true }));
-        } else {
-          editor.textContent = prompt;
-          editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
+          editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: ${JSON.stringify(prompt)} }));
           editor.dispatchEvent(new Event("input", { bubbles: true }));
         }
-
         return true;
       })()`,
     );
-    if (!inserted) {
+    if (!focused) {
       throw geminiError("GEMINI_UI_CHANGED", "NarrativeX could not find the Gemini image prompt editor.");
     }
 
+    await cdp.send("Input.insertText", { text: prompt }).catch(() => undefined);
     await delay(400);
-    const clicked = await evaluate<boolean>(
-      cdp,
-      `(() => {
-        const visible = (element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-        };
-        const patterns = ["send", "submit", "gửi", "gửi tin nhắn", "send message"];
-        const button = [...document.querySelectorAll('button')].find((candidate) => {
-          if (!visible(candidate) || candidate.disabled) return false;
-          const value = [candidate.getAttribute("aria-label"), candidate.getAttribute("title"), candidate.textContent]
-            .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
-          return patterns.some((pattern) => value === pattern || value.includes(pattern));
-        });
-        if (!button) return false;
-        button.click();
-        return true;
-      })()`,
-    );
-    if (clicked) return;
 
-    await cdp.send("Input.dispatchKeyEvent", {
-      type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
-    });
-    await cdp.send("Input.dispatchKeyEvent", {
-      type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
-    });
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const sendResult = await evaluate<{ isEditorEmpty: boolean; hasStopBtn: boolean }>(
+        cdp,
+        `(() => {
+          const visible = (element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
+          };
+          const dispatchClick = (el) => {
+            const opts = { bubbles: true, cancelable: true, composed: true, view: window };
+            el.dispatchEvent(new PointerEvent("pointerdown", opts));
+            el.dispatchEvent(new MouseEvent("mousedown", opts));
+            el.dispatchEvent(new PointerEvent("pointerup", opts));
+            el.dispatchEvent(new MouseEvent("mouseup", opts));
+            el.dispatchEvent(new MouseEvent("click", opts));
+          };
+          const patterns = ["send", "submit", "gửi", "gửi tin nhắn", "send message"];
+          const button = [...document.querySelectorAll('button')].find((candidate) => {
+            if (!visible(candidate) || candidate.disabled) return false;
+            const value = [candidate.getAttribute("aria-label"), candidate.getAttribute("title"), candidate.textContent]
+              .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim().toLowerCase();
+            return patterns.some((pattern) => value === pattern || value.includes(pattern));
+          });
+          if (button) {
+            dispatchClick(button);
+          }
+
+          const editor = document.querySelector('.ql-editor, [contenteditable="true"]');
+          const isEditorEmpty = !editor || !editor.innerText.trim();
+          const hasStopBtn = !document.querySelector('button[aria-label*="dừng" i], button[aria-label*="stop" i]');
+
+          return { isEditorEmpty, hasStopBtn };
+        })()`,
+      );
+
+      if (sendResult.hasStopBtn || sendResult.isEditorEmpty) {
+        return;
+      }
+
+      await cdp.send("Input.dispatchKeyEvent", {
+        type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+      });
+      await cdp.send("Input.dispatchKeyEvent", {
+        type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+      });
+      await delay(500);
+    }
   }
 
   private async generationSnapshot(cdp: CdpClient): Promise<GenerationSnapshot> {
