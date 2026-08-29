@@ -74,7 +74,7 @@ export function AssetsScreen({
   return (
     <FeaturePage
       title="Asset Browser"
-      description="Quản lý remote metadata và materialized file trên máy hiện tại trong cùng một feature."
+      description="Quản lý metadata và file project-local trên máy hiện tại trong cùng một feature."
       actions={
         <Button size="sm" onClick={() => void importAsset()} disabled={busy}>
           <Plus size={14} /> {busy ? "Importing…" : "Import asset"}
@@ -99,7 +99,7 @@ export function AssetsScreen({
                 <p className="text-[10px] text-muted-foreground">
                   {formatBytes(asset.sizeBytes)}
                   {asset.durationMs ? ` · ${formatDuration(asset.durationMs)}` : ""}
-                  {` · ${asset.status} · ${localState ?? asset.storageMode ?? "REMOTE"}`}
+                  {` · ${asset.status} · ${localState ?? "MISSING"}`}
                 </p>
                 {localState && localState !== "AVAILABLE" && (
                   <Button variant="outline" size="sm" onClick={() => void importAsset(asset.id)} disabled={busy}>
