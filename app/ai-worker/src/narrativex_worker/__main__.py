@@ -41,9 +41,9 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
 
         workers["analysis"] = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
     if settings.has_worker_role("narration"):
-        from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
+        from narrativex_worker.narration.scoped_local_runner import ScopedLocalNarrationWorkerRunner
 
-        narration_worker = LocalOptimizedNarrationWorkerRunner(
+        narration_worker = ScopedLocalNarrationWorkerRunner(
             settings=settings, concurrency_gate=concurrency_gate
         )
         if narration_worker.enabled:
