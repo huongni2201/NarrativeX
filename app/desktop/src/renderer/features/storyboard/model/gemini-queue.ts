@@ -12,6 +12,7 @@ export interface GeminiQueueState {
 type GeminiQueueBeat = {
   id: string;
   reviewStatus: "NEEDS_REVIEW" | "APPROVED";
+  previewMediaAssetId: string | null;
 };
 
 export function createGeminiQueue(
@@ -19,7 +20,7 @@ export function createGeminiQueue(
   beats: readonly GeminiQueueBeat[],
 ): GeminiQueueState | null {
   const beatIds = beats
-    .filter((beat) => beat.reviewStatus !== "APPROVED")
+    .filter((beat) => !beat.previewMediaAssetId)
     .map((beat) => beat.id);
   if (!beatIds.length) return null;
   return {
@@ -32,11 +33,11 @@ export function createGeminiQueue(
   };
 }
 
-export function skipQueueBeatIfApproved(
+export function skipQueueBeatIfMediaReady(
   state: GeminiQueueState,
   beat: GeminiQueueBeat,
 ): GeminiQueueState {
-  return beat.reviewStatus === "APPROVED"
+  return beat.previewMediaAssetId
     ? markQueueBeatSkipped(state, beat.id)
     : state;
 }
