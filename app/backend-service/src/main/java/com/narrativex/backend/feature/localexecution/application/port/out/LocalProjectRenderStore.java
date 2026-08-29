@@ -142,9 +142,6 @@ public interface LocalProjectRenderStore {
   record CompletionResult(
       String renderFingerprint,
       String storageKey,
-      String storageProvider,
-      String externalFileId,
-      String webViewLink,
       String mimeType,
       long sizeBytes,
       String checksumSha256,
