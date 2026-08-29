@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.response.VoiceReferenceAssetResponse;
 import com.narrativex.backend.feature.generation.application.usecase.GetVoiceReferenceAssetUseCase;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class VoiceReferenceUploadController {
   private final MediaUploadUseCase mediaUploadUseCase;
   private final GetVoiceReferenceAssetUseCase getVoiceReferenceAssetUseCase;
+
+  @GetMapping
+  public ResponseEntity<ApiResponse<List<VoiceReferenceAssetResponse>>> list() {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Voice references retrieved",
+            getVoiceReferenceAssetUseCase.list().stream()
+                .map(VoiceReferenceAssetResponse::from)
+                .toList()));
+  }
 
   @GetMapping("/{id}")
   public ResponseEntity<ApiResponse<VoiceReferenceAssetResponse>> get(@PathVariable UUID id) {
