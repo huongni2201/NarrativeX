@@ -8,12 +8,18 @@ export interface DesktopVoice {
 }
 
 export type ExecutionPreference = "AUTO" | "CLOUD" | "LOCAL";
+export type VoiceReferenceScope = "PROJECT" | "ACCOUNT";
+
+export interface VoiceReferenceInput {
+  scope: VoiceReferenceScope;
+  assetId: string;
+}
 
 export interface GenerateNarrationInput {
   chapterId: string;
   voiceId: string;
   speakingRate?: number;
-  voiceReferenceAssetId?: string;
+  voiceReference?: VoiceReferenceInput | null;
   executionPreference?: ExecutionPreference;
 }
 
@@ -22,7 +28,7 @@ export interface GenerateBatchNarrationInput {
   chapterIds: string[];
   voiceId: string;
   speakingRate?: number;
-  voiceReferenceAssetId?: string;
+  voiceReference?: VoiceReferenceInput | null;
   executionPreference?: ExecutionPreference;
 }
 
@@ -31,7 +37,7 @@ export interface GenerateVoicePreviewInput {
   voiceId: string;
   sampleText: string;
   speakingRate?: number;
-  voiceReferenceAssetId: string;
+  voiceReference: VoiceReferenceInput;
 }
 
 export interface VoicePreviewResult {
