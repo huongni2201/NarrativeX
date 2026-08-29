@@ -213,9 +213,6 @@ CREATE INDEX idx_final_artifacts_project_created
 CREATE INDEX idx_final_artifacts_chapter_created
     ON final_artifacts (chapter_id, created_at DESC, id DESC)
     WHERE chapter_id IS NOT NULL;
-CREATE INDEX idx_final_artifacts_external_file_id
-    ON final_artifacts (storage_provider, external_file_id)
-    WHERE external_file_id IS NOT NULL;
 CREATE INDEX idx_short_clip_requests_claimable
     ON short_clip_requests (status, created_at, id)
     WHERE status IN ('QUEUED', 'RUNNING');
