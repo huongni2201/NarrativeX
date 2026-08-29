@@ -15,28 +15,30 @@
         <result property="speakingRate" column="speaking_rate" />
         <result property="segmentationVersion" column="segmentation_version" />
         <result property="requestFingerprint" column="request_fingerprint" />
-        <result property="voiceReferenceAssetId" column="voice_reference_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="projectVoiceReferenceAssetId" column="project_voice_reference_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="accountVoiceReferenceAssetId" column="account_voice_reference_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
     </resultMap>
 
     <insert id="insertRequest">
         INSERT INTO narration_requests
             (id, project_id, chapter_id, chapter_row_version, source_hash, source_text,
              voice_id, language, speaking_rate, segmentation_version, request_fingerprint,
-             voice_reference_asset_id)
+             project_voice_reference_asset_id, account_voice_reference_asset_id)
         VALUES
             (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
              #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
              #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
              #{chapterRowVersion}, #{sourceHash}, #{sourceText},
              #{voiceId}, #{language}, #{speakingRate}, #{segmentationVersion}, #{requestFingerprint},
-             #{voiceReferenceAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler})
+             #{projectVoiceReferenceAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{accountVoiceReferenceAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler})
         ON CONFLICT (request_fingerprint) DO NOTHING
     </insert>
 
     <select id="findRequestByFingerprint" resultMap="narrationRequestRow">
         SELECT id, project_id, chapter_id, chapter_row_version, source_hash, source_text,
                voice_id, language, speaking_rate, segmentation_version, request_fingerprint,
-               voice_reference_asset_id
+               project_voice_reference_asset_id, account_voice_reference_asset_id
           FROM narration_requests
          WHERE request_fingerprint = #{requestFingerprint}
     </select>

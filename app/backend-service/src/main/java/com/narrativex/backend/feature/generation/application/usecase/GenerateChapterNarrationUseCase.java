@@ -22,6 +22,7 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
+import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.math.BigDecimal;
@@ -86,7 +87,7 @@ public class GenerateChapterNarrationUseCase {
             project.getSourceLanguage(),
             command.speakingRate(),
             SEGMENTATION_VERSION,
-            command.voiceReferenceAssetId());
+            command.voiceReference());
     String familyPrefix = command.preview() ? "voice-preview:" : "chapter-narration:";
     String baseIdempotencyKey = familyPrefix + fingerprint;
     boolean forceRegenerate = !command.preview() && command.forceRegenerate();
@@ -128,7 +129,7 @@ public class GenerateChapterNarrationUseCase {
                 command.speakingRate(),
                 SEGMENTATION_VERSION,
                 fingerprint,
-                command.voiceReferenceAssetId()));
+                command.voiceReference()));
 
     OperationPlan operationPlan =
         operationPlanRepository.save(
@@ -249,17 +250,28 @@ public class GenerateChapterNarrationUseCase {
       String userId,
       GenerateChapterNarrationCommand command,
       VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
-    if (command.voiceReferenceAssetId() == null) return;
+    if (command.voiceReference() == null) return;
     if (!voiceCapabilities.supportsVoiceClone()) {
       throw new IllegalArgumentException(
           "Selected narration voice does not support uploaded voice references");
     }
-    var asset = voiceReferenceAssetAccess.findOwned(userId, command.voiceReferenceAssetId());
+    var asset =
+        voiceReferenceAssetAccess.findOwned(
+            userId, command.projectId(), command.voiceReference());
     if (!"READY".equals(asset.status())) {
       throw new IllegalArgumentException("Voice reference asset must be READY");
     }
-    if (asset.storageKey() == null || asset.storageKey().isBlank()) {
-      throw new IllegalArgumentException("Voice reference asset is missing R2 storage metadata");
+    if (asset.sizeBytes() <= 0
+        || asset.sha256() == null
+        || !asset.sha256().matches("^[0-9a-fA-F]{64}$")) {
+      throw new IllegalArgumentException("Voice reference asset integrity metadata is invalid");
+    }
+    if (asset.scope() == VoiceReferenceScope.ACCOUNT
+        && (asset.storageKey() == null || asset.storageKey().isBlank())) {
+      throw new IllegalArgumentException("Account voice reference asset is missing R2 storage metadata");
+    }
+    if (asset.scope() == VoiceReferenceScope.PROJECT && asset.storageKey() != null) {
+      throw new IllegalArgumentException("Project voice reference must remain device-local");
     }
     if (!isSupportedVoiceReferenceContentType(asset.contentType())) {
       throw new IllegalArgumentException("Voice reference upload must be an MP3 or WAV file");

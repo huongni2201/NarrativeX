@@ -2,6 +2,7 @@
 
 import uuid
 from contextvars import ContextVar
+from dataclasses import replace
 
 from narrativex_worker.narration.models import AlignmentSpan
 from narrativex_worker.narration.repository.completion import NarrationCompletionMixin
@@ -30,14 +31,46 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
     async def claim_next(self, worker_id: str) -> ClaimedNarrationJob | None:
         claim_owner = self._new_claim_owner(worker_id)
         claimed = await super().claim_next(claim_owner)
+        if isinstance(claimed, ClaimedNarrationJob):
+            claimed = await self._attach_system_voice_reference(claimed)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         return claimed
 
     async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
         claim_owner = self._new_claim_owner(worker_id)
         claimed = await super().claim_due_reconciliation(claim_owner)
+        if isinstance(claimed, ClaimedNarrationJob):
+            claimed = await self._attach_system_voice_reference(claimed)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         return claimed
+
+    async def _attach_system_voice_reference(
+        self, claimed: ClaimedNarrationJob
+    ) -> ClaimedNarrationJob:
+        """Attach a catalog-owned R2 key only when the request has no custom reference.
+
+        PROJECT references stay device-local and ACCOUNT references retain their own R2
+        object metadata. A catalog reference is therefore a fallback for system voices,
+        never a replacement for an explicitly selected custom voice.
+        """
+        if (
+            claimed.voice_reference_scope is not None
+            or claimed.voice_reference_storage_key is not None
+        ):
+            return claimed
+
+        storage_key = await self._require_pool().fetchval(
+            """
+            SELECT NULLIF(metadata_json ->> 'referenceStorageKey', '')
+              FROM voice_catalog
+             WHERE id = $1
+               AND enabled = TRUE
+            """,
+            claimed.voice_id,
+        )
+        if storage_key is None:
+            return claimed
+        return replace(claimed, voice_reference_storage_key=str(storage_key))
 
     async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         return await super().heartbeat(stage_attempt_id, self._lease_owner(worker_id))

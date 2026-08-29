@@ -3,6 +3,7 @@ import type {
   DesktopAsset,
   DesktopChapterDetails,
   DesktopVoice,
+  VoiceReferenceInput,
 } from "@narrativex/client-contracts";
 import { MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -71,7 +72,7 @@ export function VoiceScreen({
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
-  const [voiceReferenceAssetId, setVoiceReferenceAssetId] = useState<string | null>(null);
+  const [voiceReference, setVoiceReference] = useState<VoiceReferenceInput | null>(null);
   const [voiceReferenceName, setVoiceReferenceName] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState(DEFAULT_PREVIEW_TEXT);
   const [previewJobId, setPreviewJobId] = useState<string | null>(null);
@@ -118,31 +119,42 @@ export function VoiceScreen({
   );
 
   const selectedVoice = voices.find((voice) => voice.id === voiceId) ?? null;
+  const selectedProjectVoiceAsset =
+    voiceReference?.scope === "PROJECT"
+      ? audioAssets.find((asset) => asset.id === voiceReference.assetId) ?? null
+      : null;
   const totalDurationMs = audioAssets.reduce((sum, asset) => sum + (asset.durationMs ?? 0), 0);
   const totalSizeBytes = audioAssets.reduce((sum, asset) => sum + asset.sizeBytes, 0);
   const parsedRate = Number.parseFloat(speakingRate);
   const normalizedRate = Number.isFinite(parsedRate) ? parsedRate : 1;
 
-  const voiceReferenceQuery = useVoiceReferenceAsset(voiceReferenceAssetId);
-  const voiceReferenceReady = voiceReferenceQuery.data?.status === "READY";
-  const referencePending = Boolean(voiceReferenceAssetId && !voiceReferenceReady);
+  const accountVoiceReferenceId =
+    voiceReference?.scope === "ACCOUNT" ? voiceReference.assetId : null;
+  const voiceReferenceQuery = useVoiceReferenceAsset(accountVoiceReferenceId);
+  const voiceReferenceReady =
+    voiceReference?.scope === "PROJECT"
+      ? selectedProjectVoiceAsset?.status === "READY"
+      : voiceReference?.scope === "ACCOUNT"
+        ? voiceReferenceQuery.data?.status === "READY"
+        : false;
+  const referencePending = Boolean(voiceReference && !voiceReferenceReady);
 
   useEffect(() => {
-    if (!voiceReferenceAssetId) return;
+    if (voiceReference?.scope !== "ACCOUNT") return;
     if (voiceReferenceQuery.data?.status === "REJECTED") {
       setNotice("Giọng tham chiếu bị từ chối khi kiểm tra file. Hãy chọn MP3/WAV sạch dài ít nhất 3 giây.");
-      setVoiceReferenceAssetId(null);
+      setVoiceReference(null);
       setVoiceReferenceName(null);
       setPreviewJobId(null);
       return;
     }
     if (voiceReferenceQuery.isError) {
       setNotice("Không thể xác nhận giọng tham chiếu. Hãy upload lại file.");
-      setVoiceReferenceAssetId(null);
+      setVoiceReference(null);
       setVoiceReferenceName(null);
       setPreviewJobId(null);
     }
-  }, [voiceReferenceAssetId, voiceReferenceQuery.data?.status, voiceReferenceQuery.isError]);
+  }, [voiceReference?.scope, voiceReferenceQuery.data?.status, voiceReferenceQuery.isError]);
 
   const previewJobQuery = useGenerationJob(previewJobId);
   const previewResultQuery = useVoicePreviewResult(
@@ -183,7 +195,7 @@ export function VoiceScreen({
           chapterId,
           voiceId,
           speakingRate: normalizedRate,
-          voiceReferenceAssetId: voiceReferenceAssetId ?? undefined,
+          voiceReference,
         },
       });
       setNotice(`Narration job ${job.jobId.slice(0, 8)} đã được queue.`);
@@ -201,7 +213,7 @@ export function VoiceScreen({
         chapterIds: chapters.map((chapter) => chapter.id),
         voiceId,
         speakingRate: normalizedRate,
-        voiceReferenceAssetId: voiceReferenceAssetId ?? undefined,
+        voiceReference,
       });
       setNotice(`${jobs.length} narration job đã được queue.`);
     } catch (error) {
@@ -213,7 +225,7 @@ export function VoiceScreen({
     if (
       !chapterId ||
       !voiceId ||
-      !voiceReferenceAssetId ||
+      !voiceReference ||
       !voiceReferenceReady ||
       !previewText.trim() ||
       previewBusy
@@ -230,7 +242,7 @@ export function VoiceScreen({
           voiceId,
           sampleText: previewText.trim(),
           speakingRate: normalizedRate,
-          voiceReferenceAssetId,
+          voiceReference,
         },
       });
       setPreviewJobId(job.jobId);
@@ -246,12 +258,13 @@ export function VoiceScreen({
     try {
       const uploaded = await uploadReference.mutateAsync();
       if (!uploaded) return;
-      setVoiceReferenceAssetId(uploaded.assetId);
+      setVoiceReference({ scope: "ACCOUNT", assetId: uploaded.assetId });
+      setSelectedAssetIds([]);
       setVoiceReferenceName(uploaded.originalFilename);
       setPreviewJobId(null);
       setNotice(
         uploaded.status === "READY"
-          ? `${uploaded.originalFilename} đã sẵn sàng để clone giọng.`
+          ? `${uploaded.originalFilename} đã sẵn sàng để clone giọng cho account.`
           : `${uploaded.originalFilename} đã upload. Đang kiểm tra audio…`,
       );
     } catch (error) {
@@ -259,10 +272,20 @@ export function VoiceScreen({
     }
   }
 
+  function selectAccountVoice(assetId: string, originalFilename: string) {
+    if (voiceReferenceBusy) return;
+    setVoiceReference({ scope: "ACCOUNT", assetId });
+    setVoiceReferenceName(originalFilename);
+    setSelectedAssetIds([]);
+    setPreviewJobId(null);
+    setNotice(`${originalFilename} đang được dùng làm account voice reference từ R2.`);
+  }
+
   function clearVoiceReference() {
     if (voiceReferenceBusy) return;
-    setVoiceReferenceAssetId(null);
+    setVoiceReference(null);
     setVoiceReferenceName(null);
+    setSelectedAssetIds([]);
     setPreviewJobId(null);
     setNotice("Đã bỏ giọng tham chiếu. Narration sẽ dùng voice preset đang chọn.");
   }
@@ -296,11 +319,17 @@ export function VoiceScreen({
   }
 
   function toggleAsset(assetId: string) {
-    setSelectedAssetIds((current) =>
-      current.includes(assetId)
-        ? current.filter((id) => id !== assetId)
-        : [...current, assetId],
-    );
+    const asset = audioAssets.find((candidate) => candidate.id === assetId);
+    if (!asset) return;
+    if (voiceReference?.scope === "PROJECT" && voiceReference.assetId === assetId) {
+      clearVoiceReference();
+      return;
+    }
+    setSelectedAssetIds([assetId]);
+    setVoiceReference({ scope: "PROJECT", assetId });
+    setVoiceReferenceName(asset.originalFilename);
+    setPreviewJobId(null);
+    setNotice(`${asset.originalFilename} đang được dùng làm project-local voice reference.`);
   }
 
   async function importAudioAsset() {
@@ -309,9 +338,13 @@ export function VoiceScreen({
     try {
       const imported = await importAudio.mutateAsync();
       if (!imported) return;
-      const { selection } = imported;
+      const { asset, selection } = imported;
+      setSelectedAssetIds([asset.id]);
+      setVoiceReference({ scope: "PROJECT", assetId: asset.id });
+      setVoiceReferenceName(selection.originalFilename);
+      setPreviewJobId(null);
       setNotice(
-        `${selection.originalFilename} đã được import vào workspace${
+        `${selection.originalFilename} đã được import và chọn làm project-local voice${
           selection.durationMs ? ` (${formatDuration(selection.durationMs)})` : ""
         }.`,
       );
@@ -343,7 +376,7 @@ export function VoiceScreen({
                 </span>
                 <h1 className="mt-1 text-[22px] font-semibold tracking-[-.02em]">Voice &amp; TTS</h1>
                 <p className="mt-1 text-[11px] text-text-secondary">
-                  Ngọc Huyền v2 là voice mặc định. Có thể upload giọng riêng để tạo sample và narration.
+                  Project voice lưu local; account voice upload lên R2 và dùng lại giữa các project.
                 </p>
               </div>
 
@@ -355,7 +388,7 @@ export function VoiceScreen({
                   className="h-9 bg-primary text-[10px] text-primary-foreground hover:bg-primary-hover"
                 >
                   <Upload size={13} />
-                  {assetBusy ? "Đang import…" : "Import audio"}
+                  {assetBusy ? "Đang import…" : "Import project voice"}
                 </Button>
                 <Button
                   variant="outline"
@@ -454,11 +487,13 @@ export function VoiceScreen({
         totalSizeBytes={totalSizeBytes}
         busy={busy}
         voiceReferenceName={voiceReferenceName}
+        voiceReferenceScope={voiceReference?.scope ?? null}
         previewText={previewText}
-        previewStatus={voiceReferenceQuery.data?.status === "READY" ? previewStatus : voiceReferenceQuery.data?.status ?? null}
+        previewStatus={voiceReferenceReady ? previewStatus : voiceReference?.scope === "ACCOUNT" ? voiceReferenceQuery.data?.status ?? null : selectedProjectVoiceAsset?.status ?? null}
         previewUrl={previewResultQuery.data?.url ?? null}
         previewBusy={previewBusy}
         onToggleAsset={toggleAsset}
+        onSelectAccountVoice={selectAccountVoice}
         onCreateTake={() => void runSingle()}
         onResetFilters={resetFilters}
         onUploadVoiceReference={() => void uploadVoiceReference()}

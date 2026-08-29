@@ -176,9 +176,12 @@ CREATE INDEX idx_media_validation_jobs_expired_leases
     WHERE status = 'RUNNING';
 CREATE INDEX idx_narration_requests_chapter_created
     ON narration_requests (chapter_id, created_at DESC);
-CREATE INDEX idx_narration_requests_voice_reference_asset
-    ON narration_requests (voice_reference_asset_id)
-    WHERE voice_reference_asset_id IS NOT NULL;
+CREATE INDEX idx_narration_requests_project_voice_reference
+    ON narration_requests (project_voice_reference_asset_id)
+    WHERE project_voice_reference_asset_id IS NOT NULL;
+CREATE INDEX idx_narration_requests_account_voice_reference
+    ON narration_requests (account_voice_reference_asset_id)
+    WHERE account_voice_reference_asset_id IS NOT NULL;
 CREATE INDEX idx_narration_sets_story_created
     ON narration_sets (story_id, created_at DESC);
 

@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.assets.infrastructure.persistence.adapter
 import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,20 @@ public class JdbcVoiceReferenceAssetRepository implements VoiceReferenceAssetRep
             id)
         .stream()
         .findFirst();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<VoiceReferenceAsset> listOwned(String accountId) {
+    return jdbcTemplate.query(
+        """
+        SELECT id, storage_key, original_filename, content_type, size_bytes, sha256, status
+          FROM voice_reference_assets
+         WHERE account_id = ? AND status <> 'DELETED'
+         ORDER BY created_at DESC, id DESC
+        """,
+        JdbcVoiceReferenceAssetRepository::map,
+        accountId);
   }
 
   @Override

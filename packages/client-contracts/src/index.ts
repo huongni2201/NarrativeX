@@ -9,6 +9,15 @@ export type {
   DesktopCharacterVersionReference,
 } from "./character";
 export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, RegisterLocalAssetRequest } from "./asset";
-export type { DesktopVoice, ExecutionPreference, GenerateBatchNarrationInput, GenerateNarrationInput, GenerateVoicePreviewInput, VoicePreviewResult } from "./narration";
+export type {
+  DesktopVoice,
+  ExecutionPreference,
+  GenerateBatchNarrationInput,
+  GenerateNarrationInput,
+  GenerateVoicePreviewInput,
+  VoicePreviewResult,
+  VoiceReferenceInput,
+  VoiceReferenceScope,
+} from "./narration";
 export type { AutoEditBeatDecision, AutoEditPlan, AutoEditStyle, BeatMediaFitMode, BeatMediaType, DesktopTimeline, DesktopTimelineBeat, LocalRenderPreflight, LocalRenderPreflightAsset, LocalRenderPreflightAssetInput, LocalRenderPreflightBlockerCode, ProjectRenderBeatOverride, RenderResolution, UpdateBeatMediaInput } from "./production";
 export type { AnalyzeChapterInput, CreateMediaJobInput, DesktopRenderJob, DesktopRenderJobStatus, GenerationJob, GenerationJobStatus, ImageGenerationProvider, MediaAspectRatio, MediaGenerationItem, MediaImageStyle, MediaJobCostEstimate, MediaJobDetails, MediaQualityTier, MediaReviewInput, VisualGenerationMode } from "./generation";

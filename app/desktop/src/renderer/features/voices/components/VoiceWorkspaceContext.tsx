@@ -3,6 +3,7 @@ import type {
   DesktopAsset,
   DesktopChapterDetails,
   DesktopVoice,
+  VoiceReferenceScope,
 } from "@narrativex/client-contracts";
 import {
   ArrowUpRight,
@@ -18,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatBytes, formatDuration } from "../model/voice-ui";
+import { useAccountVoiceReferences } from "../queries/voice-media.queries";
 
 type Props = Readonly<{
   selectedVoice: DesktopVoice | null;
@@ -31,11 +33,13 @@ type Props = Readonly<{
   totalSizeBytes: number;
   busy: boolean;
   voiceReferenceName: string | null;
+  voiceReferenceScope: VoiceReferenceScope | null;
   previewText: string;
   previewStatus: string | null;
   previewUrl: string | null;
   previewBusy: boolean;
   onToggleAsset: (assetId: string) => void;
+  onSelectAccountVoice: (assetId: string, originalFilename: string) => void;
   onCreateTake: () => void;
   onResetFilters: () => void;
   onUploadVoiceReference: () => void;
@@ -61,11 +65,13 @@ export function VoiceWorkspaceContext({
   totalSizeBytes,
   busy,
   voiceReferenceName,
+  voiceReferenceScope,
   previewText,
   previewStatus,
   previewUrl,
   previewBusy,
   onToggleAsset,
+  onSelectAccountVoice,
   onCreateTake,
   onResetFilters,
   onUploadVoiceReference,
@@ -78,6 +84,15 @@ export function VoiceWorkspaceContext({
   onTagFilter,
   onOpenAssets,
 }: Props) {
+  const accountVoices = useAccountVoiceReferences();
+  const reusableAccountVoices = (accountVoices.data ?? []).filter((asset) => asset.status === "READY");
+  const customVoiceLabel =
+    voiceReferenceScope === "PROJECT"
+      ? "Project voice · local"
+      : voiceReferenceScope === "ACCOUNT"
+        ? "Account voice · R2"
+        : "Custom voice";
+
   return (
     <aside className="min-h-0 overflow-auto bg-[var(--voice-context)] p-4">
       <section className="border-b border-border pb-4">
@@ -87,7 +102,7 @@ export function VoiceWorkspaceContext({
         <div className="mt-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">Voice</h2>
           <span className="text-[10px] text-text-muted">
-            {selectedAssetIds.length} file đã chọn
+            {selectedAssetIds.length} project file đã chọn
           </span>
         </div>
         <div className="mt-4 grid gap-3 text-[10px]">
@@ -134,10 +149,10 @@ export function VoiceWorkspaceContext({
         <div className="flex items-start justify-between gap-2">
           <div>
             <span className="text-[9px] font-bold uppercase tracking-[.14em] text-primary-hover">
-              Custom voice
+              {customVoiceLabel}
             </span>
             <p className="mt-1 text-[9px] leading-4 text-text-muted">
-              Upload 3–8 giây giọng sạch để VieNeu tạo giọng mẫu. MP3/WAV, tối đa 50MB.
+              Chọn audio bên dưới để dùng local trong project, hoặc chọn/upload account voice trên R2 để reuse giữa các project.
             </p>
           </div>
           {voiceReferenceName && (
@@ -153,6 +168,32 @@ export function VoiceWorkspaceContext({
           )}
         </div>
 
+        {reusableAccountVoices.length > 0 && (
+          <div className="mt-3 grid gap-1">
+            <span className="text-[9px] font-medium text-text-secondary">Account voices · R2</span>
+            {reusableAccountVoices.slice(0, 5).map((asset) => {
+              const selected = voiceReferenceScope === "ACCOUNT" && voiceReferenceName === asset.originalFilename;
+              return (
+                <button
+                  key={asset.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onSelectAccountVoice(asset.id, asset.originalFilename)}
+                  className={`flex items-center gap-2 rounded-md px-2 py-2 text-left text-[9px] disabled:opacity-40 ${
+                    selected
+                      ? "bg-primary-muted text-primary-hover"
+                      : "bg-surface-input text-text-secondary"
+                  }`}
+                >
+                  <Mic2 size={13} />
+                  <span className="min-w-0 flex-1 truncate">{asset.originalFilename}</span>
+                  {selected && <Check size={12} />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <button
           type="button"
           onClick={onUploadVoiceReference}
@@ -162,7 +203,9 @@ export function VoiceWorkspaceContext({
           <span>
             <Upload className="mx-auto mb-1.5 text-text-muted" size={18} />
             <span className="block truncate">
-              {voiceReferenceName ?? "Upload giọng tham chiếu"}
+              {voiceReferenceScope === "ACCOUNT" && voiceReferenceName
+                ? voiceReferenceName
+                : "Upload account voice (R2)"}
             </span>
           </span>
         </button>
@@ -238,7 +281,8 @@ export function VoiceWorkspaceContext({
 
       {audioAssets.length > 0 && (
         <section className="mt-5 border-t border-border pt-4">
-          <h3 className="mb-2 text-[10px] font-medium text-text-secondary">Audio assets</h3>
+          <h3 className="mb-1 text-[10px] font-medium text-text-secondary">Project voices · local</h3>
+          <p className="mb-2 text-[9px] text-text-muted">Chọn một AUDIO asset để clone giọng mà không upload lên R2.</p>
           <div className="grid gap-1">
             {audioAssets.slice(0, 4).map((asset) => {
               const selected = selectedAssetIds.includes(asset.id);

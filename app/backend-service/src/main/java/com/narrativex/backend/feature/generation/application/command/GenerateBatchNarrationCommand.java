@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.application.command;
 
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -9,4 +10,4 @@ public record GenerateBatchNarrationCommand(
     List<UUID> chapterIds,
     String voiceId,
     BigDecimal speakingRate,
-    UUID voiceReferenceAssetId) {}
+    VoiceReferenceSelection voiceReference) {}

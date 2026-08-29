@@ -23,53 +23,20 @@ public class NarrationRequestRow {
   private BigDecimal speakingRate;
   private String segmentationVersion;
   private String requestFingerprint;
-  private UUID voiceReferenceAssetId;
+  private UUID projectVoiceReferenceAssetId;
+  private UUID accountVoiceReferenceAssetId;
 
-  public UUID id() {
-    return id;
-  }
-
-  public UUID projectId() {
-    return projectId;
-  }
-
-  public UUID chapterId() {
-    return chapterId;
-  }
-
-  public long chapterRowVersion() {
-    return chapterRowVersion;
-  }
-
-  public String sourceHash() {
-    return sourceHash;
-  }
-
-  public String sourceText() {
-    return sourceText;
-  }
-
-  public String voiceId() {
-    return voiceId;
-  }
-
-  public String language() {
-    return language;
-  }
-
-  public BigDecimal speakingRate() {
-    return speakingRate;
-  }
-
-  public String segmentationVersion() {
-    return segmentationVersion;
-  }
-
-  public String requestFingerprint() {
-    return requestFingerprint;
-  }
-
-  public UUID voiceReferenceAssetId() {
-    return voiceReferenceAssetId;
-  }
+  public UUID id() { return id; }
+  public UUID projectId() { return projectId; }
+  public UUID chapterId() { return chapterId; }
+  public long chapterRowVersion() { return chapterRowVersion; }
+  public String sourceHash() { return sourceHash; }
+  public String sourceText() { return sourceText; }
+  public String voiceId() { return voiceId; }
+  public String language() { return language; }
+  public BigDecimal speakingRate() { return speakingRate; }
+  public String segmentationVersion() { return segmentationVersion; }
+  public String requestFingerprint() { return requestFingerprint; }
+  public UUID projectVoiceReferenceAssetId() { return projectVoiceReferenceAssetId; }
+  public UUID accountVoiceReferenceAssetId() { return accountVoiceReferenceAssetId; }
 }

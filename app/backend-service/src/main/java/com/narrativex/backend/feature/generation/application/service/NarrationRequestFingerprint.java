@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -37,7 +38,11 @@ public class NarrationRequestFingerprint {
       String language,
       BigDecimal speakingRate,
       String segmentationVersion,
-      UUID voiceReferenceAssetId) {
+      VoiceReferenceSelection voiceReference) {
+    String voiceReferenceKey =
+        voiceReference == null
+            ? "voiceRef=NONE"
+            : "voiceRef=" + voiceReference.scope().name() + ":" + voiceReference.assetId();
     String payload =
         String.join(
             "|",
@@ -48,7 +53,7 @@ public class NarrationRequestFingerprint {
             language,
             speakingRate.stripTrailingZeros().toPlainString(),
             segmentationVersion,
-            voiceReferenceAssetId == null ? "" : voiceReferenceAssetId.toString());
+            voiceReferenceKey);
     try {
       byte[] digest =
           MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8));

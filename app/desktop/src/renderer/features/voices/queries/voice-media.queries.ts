@@ -4,6 +4,14 @@ import { voicesApi } from "../api/voices.api";
 
 const PREVIEW_URL_REFRESH_SKEW_MS = 60_000;
 
+export function useAccountVoiceReferences() {
+  return useQuery({
+    queryKey: ["voice-references", "account"],
+    queryFn: voicesApi.listReferences,
+    staleTime: 30_000,
+  });
+}
+
 export function useVoiceReferenceAsset(assetId: string | null) {
   return useQuery({
     queryKey: ["voice-references", assetId ?? "none"],

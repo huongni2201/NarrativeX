@@ -40,7 +40,13 @@ class ClaimedNarrationJob:
     language: str
     speaking_rate: float
     request_fingerprint: str
+    voice_reference_scope: str | None = None
+    voice_reference_asset_id: uuid.UUID | None = None
+    voice_reference_status: str | None = None
     voice_reference_storage_key: str | None = None
+    voice_reference_content_type: str | None = None
+    voice_reference_size_bytes: int | None = None
+    voice_reference_checksum: str | None = None
 
 
 @dataclass(frozen=True)
@@ -104,18 +110,29 @@ class NarrationWorkerRepository:
                            nr.language,
                            nr.speaking_rate,
                            nr.request_fingerprint,
+                           CASE
+                               WHEN nr.account_voice_reference_asset_id IS NOT NULL THEN 'ACCOUNT'
+                               WHEN nr.project_voice_reference_asset_id IS NOT NULL THEN 'PROJECT'
+                               ELSE NULL
+                           END AS voice_reference_scope,
                            COALESCE(
-                               vra.storage_key,
-                               NULLIF(vc.metadata_json ->> 'referenceStorageKey', '')
-                           ) AS voice_reference_storage_key
+                               nr.account_voice_reference_asset_id,
+                               nr.project_voice_reference_asset_id
+                           ) AS voice_reference_asset_id,
+                           COALESCE(avr.status, pvr.status) AS voice_reference_status,
+                           avr.storage_key AS voice_reference_storage_key,
+                           COALESCE(avr.content_type, pvr.content_type) AS voice_reference_content_type,
+                           COALESCE(avr.size_bytes, pvr.size_bytes) AS voice_reference_size_bytes,
+                           COALESCE(avr.sha256, pvr.sha256) AS voice_reference_checksum
                       FROM stage_attempts sa
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN narration_operations no ON no.stage_attempt_id = sa.id
                       JOIN narration_requests nr ON nr.id = no.narration_request_id
-                      LEFT JOIN voice_reference_assets vra
-                        ON vra.id = nr.voice_reference_asset_id
-                       AND vra.status = 'READY'
-                      LEFT JOIN voice_catalog vc ON vc.id = nr.voice_id
+                      LEFT JOIN voice_reference_assets avr
+                        ON avr.id = nr.account_voice_reference_asset_id
+                      LEFT JOIN media_assets pvr
+                        ON pvr.id = nr.project_voice_reference_asset_id
+                       AND pvr.project_id = nr.project_id
                      WHERE gj.job_type = 'NARRATION_GENERATE'
                        AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
                        AND sa.stage_name = 'NARRATION_TTS'
@@ -169,19 +186,30 @@ class NarrationWorkerRepository:
                            nr.language,
                            nr.speaking_rate,
                            nr.request_fingerprint,
+                           CASE
+                               WHEN nr.account_voice_reference_asset_id IS NOT NULL THEN 'ACCOUNT'
+                               WHEN nr.project_voice_reference_asset_id IS NOT NULL THEN 'PROJECT'
+                               ELSE NULL
+                           END AS voice_reference_scope,
                            COALESCE(
-                               vra.storage_key,
-                               NULLIF(vc.metadata_json ->> 'referenceStorageKey', '')
-                           ) AS voice_reference_storage_key
+                               nr.account_voice_reference_asset_id,
+                               nr.project_voice_reference_asset_id
+                           ) AS voice_reference_asset_id,
+                           COALESCE(avr.status, pvr.status) AS voice_reference_status,
+                           avr.storage_key AS voice_reference_storage_key,
+                           COALESCE(avr.content_type, pvr.content_type) AS voice_reference_content_type,
+                           COALESCE(avr.size_bytes, pvr.size_bytes) AS voice_reference_size_bytes,
+                           COALESCE(avr.sha256, pvr.sha256) AS voice_reference_checksum
                       FROM provider_operations po
                       JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN narration_operations no ON no.stage_attempt_id = sa.id
                       JOIN narration_requests nr ON nr.id = no.narration_request_id
-                      LEFT JOIN voice_reference_assets vra
-                        ON vra.id = nr.voice_reference_asset_id
-                       AND vra.status = 'READY'
-                      LEFT JOIN voice_catalog vc ON vc.id = nr.voice_id
+                      LEFT JOIN voice_reference_assets avr
+                        ON avr.id = nr.account_voice_reference_asset_id
+                      LEFT JOIN media_assets pvr
+                        ON pvr.id = nr.project_voice_reference_asset_id
+                       AND pvr.project_id = nr.project_id
                      WHERE po.status = 'UNKNOWN'
                        AND po.next_reconcile_at IS NOT NULL
                        AND po.next_reconcile_at <= CURRENT_TIMESTAMP
@@ -261,9 +289,35 @@ class NarrationWorkerRepository:
             language=str(row["language"]),
             speaking_rate=float(row["speaking_rate"]),
             request_fingerprint=str(row["request_fingerprint"]),
+            voice_reference_scope=(
+                str(row["voice_reference_scope"])
+                if row["voice_reference_scope"] is not None
+                else None
+            ),
+            voice_reference_asset_id=row["voice_reference_asset_id"],
+            voice_reference_status=(
+                str(row["voice_reference_status"])
+                if row["voice_reference_status"] is not None
+                else None
+            ),
             voice_reference_storage_key=(
                 str(row["voice_reference_storage_key"])
                 if row["voice_reference_storage_key"] is not None
+                else None
+            ),
+            voice_reference_content_type=(
+                str(row["voice_reference_content_type"])
+                if row["voice_reference_content_type"] is not None
+                else None
+            ),
+            voice_reference_size_bytes=(
+                int(row["voice_reference_size_bytes"])
+                if row["voice_reference_size_bytes"] is not None
+                else None
+            ),
+            voice_reference_checksum=(
+                str(row["voice_reference_checksum"])
+                if row["voice_reference_checksum"] is not None
                 else None
             ),
         )
