@@ -15,21 +15,40 @@ import tools.jackson.databind.json.JsonMapper;
 
 class VisualPromptComposerTest {
 
-  private final VisualPromptComposer composer = new VisualPromptComposer(JsonMapper.builder().build());
+  private final VisualPromptComposer composer =
+      new VisualPromptComposer(JsonMapper.builder().build());
 
   @Test
   void compilesStableCanonAppearanceAndReferencePrecedence() {
     var identityId = UUID.fromString("11111111-1111-1111-1111-111111111111");
     var context =
         new VisualPromptContext(
-            new LocationCanon(UuidV7.random(), "Kitchen", "old apartment kitchen", "warm practical kitchen with dark walnut cabinets"),
-            List.of(new CharacterCanon(
-                UuidV7.random(), UuidV7.random(), "Lan", 4,
-                "oval face, dark eyes, shoulder-length black hair",
-                "beige cardigan and white blouse", "mid twenties",
-                "straight shoulder-length black hair", null, "beige cardigan", "PRIMARY",
-                List.of(new CharacterReference(identityId, "IDENTITY", 0,
-                    "private/characters/lan.png", "image/png", "a".repeat(64))))));
+            new LocationCanon(
+                UuidV7.random(),
+                "Kitchen",
+                "old apartment kitchen",
+                "warm practical kitchen with dark walnut cabinets"),
+            List.of(
+                new CharacterCanon(
+                    UuidV7.random(),
+                    UuidV7.random(),
+                    "Lan",
+                    4,
+                    "oval face, dark eyes, shoulder-length black hair",
+                    "beige cardigan and white blouse",
+                    "mid twenties",
+                    "straight shoulder-length black hair",
+                    null,
+                    "beige cardigan",
+                    "PRIMARY",
+                    List.of(
+                        new CharacterReference(
+                            identityId,
+                            "IDENTITY",
+                            0,
+                            "private/characters/lan.png",
+                            "image/png",
+                            "a".repeat(64))))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan opens the letter", context);
 
@@ -48,21 +67,44 @@ class VisualPromptComposerTest {
         .contains("STYLE PROFILE controls rendering language only and must never redesign identity")
         .doesNotContain("age: mid twenties")
         .doesNotContain("wardrobe: beige cardigan");
-    assertThat(result.characterSnapshotJson()).contains("\"canonicalName\":\"Lan\"").contains(identityId.toString());
+    assertThat(result.characterSnapshotJson())
+        .contains("\"canonicalName\":\"Lan\"")
+        .contains("\"versionNumber\":4")
+        .contains("\"beatRole\":\"PRIMARY\"")
+        .contains(identityId.toString())
+        .contains("private/characters/lan.png")
+        .contains("\"sha256\":\"" + "a".repeat(64) + "\"");
     assertThat(result.referenceBindings()).hasSize(1);
+    assertThat(result.referenceBindings().getFirst().assetId()).isEqualTo(identityId);
+    assertThat(result.referenceBindings().getFirst().canonicalName()).isEqualTo("Lan");
   }
 
   @Test
   void addsStructuredCameraFramingToImagePrompt() {
-    var result = composer.compose(ImageStyle.CINEMATIC, "Lan reads the warning", "LOW_ANGLE", VisualPromptContext.empty());
-    assertThat(result.prompt()).contains("CAMERA: low-angle view; camera below the subject looking upward.");
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan reads the warning",
+            "LOW_ANGLE",
+            VisualPromptContext.empty());
+
+    assertThat(result.prompt())
+        .contains("CAMERA: low-angle view; camera below the subject looking upward.");
   }
 
   @Test
   void addsStructuredAspectRatioToImagePrompt() {
-    var result = composer.compose(ImageStyle.CINEMATIC, "Lan reads the warning", "LOW_ANGLE", "RATIO_16_9", VisualPromptContext.empty());
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan reads the warning",
+            "LOW_ANGLE",
+            "RATIO_16_9",
+            VisualPromptContext.empty());
+
     assertThat(result.prompt())
-        .contains("IMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a 16:9 aspect ratio.")
+        .contains(
+            "IMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a 16:9 aspect ratio.")
         .contains("ASPECT RATIO: 16:9 horizontal widescreen format (16:9 aspect ratio).")
         .contains("COMPOSITION RULES: create one single 16:9 frame only.");
   }
@@ -70,6 +112,7 @@ class VisualPromptComposerTest {
   @Test
   void keepsPromptExecutableWhenSceneHasNoCanonYet() {
     var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", null);
+
     assertThat(result.prompt())
         .contains("SCENE DIRECTION: Empty hallway at dawn")
         .contains("CONSISTENCY PRECEDENCE")
@@ -77,6 +120,34 @@ class VisualPromptComposerTest {
         .doesNotContain("LOCATION CANON")
         .doesNotContain("REFERENCE IMAGE MAP");
     assertThat(result.characterSnapshotJson()).isEqualTo("{\"characters\":[]}");
+    assertThat(result.referenceBindings()).isEmpty();
+  }
+
+  @Test
+  void escapesCharacterSnapshotAsValidJsonText() {
+    var context =
+        new VisualPromptContext(
+            null,
+            List.of(
+                new CharacterCanon(
+                    UuidV7.random(),
+                    UuidV7.random(),
+                    "Lan \"L\"",
+                    1,
+                    "line one\nline two",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "SECONDARY",
+                    List.of())));
+
+    var result = composer.compose(ImageStyle.CINEMATIC, "Portrait", context);
+
+    assertThat(result.characterSnapshotJson())
+        .contains("Lan \\\"L\\\"")
+        .contains("line one\\nline two");
   }
 
   @Test
@@ -85,12 +156,24 @@ class VisualPromptComposerTest {
     var lanProfile = reference("10000000-0000-0000-0000-000000000002", "PROFILE", 1, "b");
     var lanExpression = reference("10000000-0000-0000-0000-000000000003", "EXPRESSION", 0, "c");
     var minhIdentity = reference("20000000-0000-0000-0000-000000000001", "IDENTITY", 5, "d");
-    var context = new VisualPromptContext(null, List.of(
-        canon(UuidV7.random(), "Lan", "PRIMARY", List.of(lanExpression, lanProfile, lanIdentity)),
-        canon(UuidV7.random(), "Minh", "SECONDARY", List.of(minhIdentity))));
+    var context =
+        new VisualPromptContext(
+            null,
+            List.of(
+                canon(
+                    UuidV7.random(),
+                    "Lan",
+                    "PRIMARY",
+                    List.of(lanExpression, lanProfile, lanIdentity)),
+                canon(UuidV7.random(), "Minh", "SECONDARY", List.of(minhIdentity))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan and Minh speak", context);
 
+    assertThat(result.characterSnapshotJson())
+        .contains(lanIdentity.assetId().toString())
+        .contains(minhIdentity.assetId().toString())
+        .contains(lanProfile.assetId().toString())
+        .doesNotContain(lanExpression.assetId().toString());
     assertThat(result.referenceBindings())
         .extracting(VisualPromptComposer.ReferenceBinding::assetId)
         .containsExactly(lanIdentity.assetId(), minhIdentity.assetId(), lanProfile.assetId());
@@ -102,19 +185,57 @@ class VisualPromptComposerTest {
 
   @Test
   void fallsBackToStructuredAppearanceWhenCombinedAppearancePromptIsMissing() {
-    var character = new CharacterCanon(
-        UuidV7.random(), UuidV7.random(), "Lan", 1, "stable face", null,
-        "mid twenties", "loose ponytail", "scar above eyebrow", "dark coat", "PRIMARY", List.of());
-    var result = composer.compose(ImageStyle.CINEMATIC, "Lan waits", new VisualPromptContext(null, List.of(character)));
-    assertThat(result.prompt()).contains("- Lan: age: mid twenties; hairstyle: loose ponytail; injury: scar above eyebrow; wardrobe: dark coat");
+    var character =
+        new CharacterCanon(
+            UuidV7.random(),
+            UuidV7.random(),
+            "Lan",
+            1,
+            "stable face",
+            null,
+            "mid twenties",
+            "loose ponytail",
+            "scar above eyebrow",
+            "dark coat",
+            "PRIMARY",
+            List.of());
+
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan waits",
+            new VisualPromptContext(null, List.of(character)));
+
+    assertThat(result.prompt())
+        .contains(
+            "- Lan: age: mid twenties; hairstyle: loose ponytail; injury: scar above eyebrow; wardrobe: dark coat");
   }
 
-  private static CharacterCanon canon(UUID assignmentId, String name, String beatRole, List<CharacterReference> references) {
-    return new CharacterCanon(assignmentId, UuidV7.random(), name, 1, name + " visual canon", null, null, null, null, null, beatRole, references);
+  private static CharacterCanon canon(
+      UUID assignmentId, String name, String beatRole, List<CharacterReference> references) {
+    return new CharacterCanon(
+        assignmentId,
+        UuidV7.random(),
+        name,
+        1,
+        name + " visual canon",
+        null,
+        null,
+        null,
+        null,
+        null,
+        beatRole,
+        references);
   }
 
-  private static CharacterReference reference(String assetId, String role, int priority, String digestChar) {
-    return new CharacterReference(UUID.fromString(assetId), role, priority,
-        "private/characters/" + role.toLowerCase() + ".png", "image/png", digestChar.repeat(64));
+  private static CharacterReference reference(
+      String assetId, String role, int priority, String digestChar) {
+    return new CharacterReference(
+        UUID.fromString(assetId),
+        role,
+        priority,
+        "private/characters/" + role.toLowerCase() + ".png",
+        "image/png",
+        digestChar.repeat(64));
   }
 }
