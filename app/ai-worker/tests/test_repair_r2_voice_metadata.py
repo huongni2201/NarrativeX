@@ -18,7 +18,10 @@ class _RecordingS3Client:
         self.copy_request: dict[str, Any] | None = None
 
     def get_object(self, **kwargs: Any) -> dict[str, Any]:
-        assert kwargs == {"Bucket": "voice-references", "Key": "narration/vieneu-previews/test.wav"}
+        assert kwargs == {
+            "Bucket": "voice-references",
+            "Key": "narration/vieneu-previews/test.wav",
+        }
         return {
             "Body": _Body(self.content),
             "ContentLength": len(self.content),
@@ -33,7 +36,10 @@ class _RecordingS3Client:
         return {}
 
     def head_object(self, **kwargs: Any) -> dict[str, Any]:
-        assert kwargs == {"Bucket": "voice-references", "Key": "narration/vieneu-previews/test.wav"}
+        assert kwargs == {
+            "Bucket": "voice-references",
+            "Key": "narration/vieneu-previews/test.wav",
+        }
         return {
             "ContentLength": len(self.content),
             "ContentType": self.content_type,
