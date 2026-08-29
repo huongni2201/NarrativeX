@@ -28,27 +28,16 @@ export interface LocalProjectStorageStatus {
   artifactCount: number;
 }
 
-export type LocalProjectSyncStatus =
-  | "LOCAL_ONLY"
-  | "DIRTY"
-  | "SYNCING"
-  | "SYNCED"
-  | "SYNC_FAILED";
-
 export interface LocalProjectCatalogEntry {
   project: DesktopProject;
   workspacePath: string;
   ownerId: string | null;
-  cloudProjectId: string | null;
-  syncStatus: LocalProjectSyncStatus;
   registeredAt: string;
   lastOpenedAt: string;
 }
 
 export interface LocalProjectCatalogMetadata {
   ownerId?: string | null;
-  cloudProjectId?: string | null;
-  syncStatus?: LocalProjectSyncStatus;
 }
 
 export interface LocalStorageSummary {
