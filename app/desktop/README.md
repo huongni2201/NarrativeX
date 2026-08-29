@@ -59,7 +59,7 @@ Current storage tooling includes project verification, storage accounting, compl
 
 ## Gemini Web image generation
 
-The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the serial `Gemini All` queue; it does not create an API media job or cost estimate. Electron main owns a visible Chrome profile and drives Gemini through local CDP. The user signs in manually when needed; NarrativeX never fills provider credentials.
+The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the serial `Gemini All` queue; it does not create an API media job or cost estimate. Electron main owns one visible Chrome profile with isolated Character and Storyboard Gemini tabs/lane resources, so identity and storyboard generation can run concurrently without sharing prompts, captures, or downloads. The user signs in manually when needed; NarrativeX never fills provider credentials.
 
 The main process applies the locked Chinese romantic-fantasy manhua series style wrapper, treats the scene block as untrusted narrative input, waits for a full-size download, validates the image and SHA-256, then exposes only a short-lived sender-bound selection token to the renderer. The renderer registers asset metadata with the backend and asks main to commit bytes into ProjectStorage. `NARRATIVEX_CHROME_PATH` can override Chrome discovery.
 
