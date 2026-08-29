@@ -9,8 +9,6 @@ CREATE INDEX idx_local_devices_user
 CREATE INDEX idx_local_devices_last_seen
     ON local_devices (last_seen_at DESC)
     WHERE revoked_at IS NULL;
-CREATE INDEX idx_local_media_materializations_device_project_state
-    ON local_media_materializations (local_device_id, project_id, state, media_asset_id);
 CREATE INDEX idx_desktop_guest_installations_last_seen
     ON desktop_guest_installations (last_seen_at DESC);
 CREATE INDEX idx_desktop_auth_handoffs_expires_at
@@ -164,6 +162,9 @@ CREATE INDEX idx_media_assets_account_status
 CREATE INDEX idx_media_assets_account_created_visible
     ON media_assets (account_id, created_at DESC, id DESC)
     WHERE status <> 'DELETED' AND deleted_at IS NULL;
+CREATE INDEX idx_media_assets_project_ready
+    ON media_assets (project_id, asset_type, status, created_at DESC)
+    WHERE deleted_at IS NULL;
 CREATE INDEX idx_production_beat_media_selection_asset
     ON production_beat_media_selections (media_asset_id);
 CREATE INDEX idx_character_version_reference_asset
