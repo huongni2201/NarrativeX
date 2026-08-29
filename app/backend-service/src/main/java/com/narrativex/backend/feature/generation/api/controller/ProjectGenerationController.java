@@ -71,7 +71,6 @@ public class ProjectGenerationController {
         .body(ApiResponse.success("Story analysis job accepted", JobResponse.from(job)));
   }
 
-  /** Backward-compatible direct-call overload retained for controller contract tests and callers. */
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(UUID projectId, UUID chapterId) {
     return analyzeChapter(projectId, chapterId, null);
   }
@@ -88,13 +87,10 @@ public class ProjectGenerationController {
             .filter(candidate -> candidate.id().equals(visualBeatId))
             .findFirst()
             .orElseThrow(
-                () ->
-                    new ResourceNotFoundException(
-                        "Visual Beat not found in the current Chapter storyboard"));
+                () -> new ResourceNotFoundException("Visual Beat not found in the current Chapter storyboard"));
 
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
-    String aspectRatio =
-        beat.aspectRatioOverride() != null ? beat.aspectRatioOverride().name() : null;
+    String aspectRatio = beat.aspectRatioOverride() != null ? beat.aspectRatioOverride().name() : null;
     var composedPrompt =
         visualPromptComposer.compose(
             ImageStyle.CINEMATIC_ANIME,
@@ -126,7 +122,7 @@ public class ProjectGenerationController {
                 chapterId,
                 request.voiceId(),
                 request.effectiveSpeakingRate(),
-                request.voiceReferenceAssetId(),
+                request.voiceReference(),
                 forceRegenerate));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Narration job accepted", JobResponse.from(job)));
@@ -136,10 +132,10 @@ public class ProjectGenerationController {
   public ResponseEntity<ApiResponse<JobResponse>> previewVoice(
       @PathVariable UUID projectId, @Valid @RequestBody GenerateVoicePreviewRequest request) {
     log.info(
-        "Requesting voice preview for chapter {} in project {} with reference asset {}",
+        "Requesting voice preview for chapter {} in project {} with reference {}",
         request.chapterId(),
         projectId,
-        request.voiceReferenceAssetId());
+        request.voiceReference());
     var job =
         generateChapterNarrationUseCase.execute(
             new GenerateChapterNarrationCommand(
@@ -147,7 +143,7 @@ public class ProjectGenerationController {
                 request.chapterId(),
                 request.voiceId(),
                 request.effectiveSpeakingRate(),
-                request.voiceReferenceAssetId(),
+                request.voiceReference(),
                 request.sampleText()));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Voice preview job accepted", JobResponse.from(job)));
@@ -172,7 +168,7 @@ public class ProjectGenerationController {
                 request.chapterIds(),
                 request.voiceId(),
                 request.effectiveSpeakingRate(),
-                request.voiceReferenceAssetId()));
+                request.voiceReference()));
     var response =
         jobs.stream()
             .map(item -> new BatchNarrationJobResponse(item.chapterId(), JobResponse.from(item.job())))
