@@ -90,7 +90,6 @@ class GetProductionTimelineAlignedTimingTest {
         staleAudioDurationMs,
         UUID.randomUUID(),
         "IMAGE",
-        "REMOTE",
         null,
         "TRIM",
         0L,
