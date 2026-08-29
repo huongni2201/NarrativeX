@@ -244,6 +244,7 @@ git commit -m "fix(desktop): persist Storyboard Gemini queue transitions"
 
 **Files:**
 - Modify: `app/desktop/src/renderer/features/storyboard/queries/storyboard-media.queries.ts:14-28,65-126` to expose a non-blocking refresh helper and replace awaited `onSettled` invalidations.
+- Create: `app/desktop/src/renderer/features/storyboard/model/storyboard-media-refresh.ts` for the pure fire-and-handle background refresh wrapper.
 - Modify: `app/desktop/src/renderer/features/storyboard/queries/storyboard-media.mutations.ts:1-220` only if the generation dependency needs the explicit `lane: "STORYBOARD"` contract or a durable-success result boundary.
 - Test: `app/desktop/test/storyboard-media-workflow.test.mjs` for a refresh rejection that leaves the generation promise resolved and the queue completion path available.
 

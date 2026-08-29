@@ -427,6 +427,7 @@ export class GeminiWebAutomation {
       lane.active = false;
       lane.targetId = null;
     }
+    await this.sessionWritePromise;
     await rm(this.sessionFile, { force: true });
   }
 

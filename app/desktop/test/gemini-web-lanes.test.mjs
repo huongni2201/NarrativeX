@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { GEMINI_WEB_LANES, isGeminiWebLane } from "../src/shared/gemini-web-lanes.ts";
 
 const preloadTypes = readFileSync("src/preload/types.ts", "utf8");
 const sharedLanes = readFileSync("src/shared/gemini-web-lanes.ts", "utf8");
@@ -21,6 +22,14 @@ test("generation input requires an explicit supported lane", () => {
   assert.match(preloadTypes, /interface GeminiWebGenerateImageInput[\s\S]*lane:\s*GeminiWebLane/);
   assert.match(ipc, /isGeminiWebLane\(input\.lane\)/);
   assert.doesNotMatch(ipc, /input\.lane\s*\?\?/);
+});
+
+test("lane guard accepts only Character and Storyboard", () => {
+  assert.deepEqual(GEMINI_WEB_LANES, ["CHARACTER", "STORYBOARD"]);
+  assert.equal(isGeminiWebLane("CHARACTER"), true);
+  assert.equal(isGeminiWebLane("STORYBOARD"), true);
+  assert.equal(isGeminiWebLane("character"), false);
+  assert.equal(isGeminiWebLane(undefined), false);
 });
 
 test("Character and Storyboard send their own lane", () => {
