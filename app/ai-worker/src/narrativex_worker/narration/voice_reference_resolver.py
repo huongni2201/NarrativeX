@@ -33,7 +33,9 @@ def resolve_project_voice_reference(
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exception:
-        raise ProjectVoiceReferenceError("Project voice manifest is unavailable or invalid") from exception
+        raise ProjectVoiceReferenceError(
+            "Project voice manifest is unavailable or invalid"
+        ) from exception
 
     _validate_manifest_identity(manifest, project_id)
     assets = manifest.get("assets")
