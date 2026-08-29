@@ -171,16 +171,6 @@ class WorkerSettings(BaseSettings):
     def has_worker_role(self, role: str) -> bool:
         return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
 
-    @property
-    def media_storage_mode(self) -> Literal["local"]:
-        """Compatibility view for narration internals; project media is local-only."""
-        return "local"
-
-    @property
-    def media_local_dir(self) -> str:
-        """Compatibility alias for narration internals using the explicit local root."""
-        return self.project_media_local_dir
-
     @computed_field  # type: ignore[prop-decorator]
     @property
     def resolved_r2_endpoint(self) -> str | None:
