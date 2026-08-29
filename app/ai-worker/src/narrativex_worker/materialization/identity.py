@@ -552,7 +552,7 @@ async def materialize_locations(
             """
             UPDATE project_locations
                SET description = $3,
-                   visual_prompt = $4,
+                   visual_prompt = COALESCE(NULLIF(visual_prompt, ''), $4),
                    updated_at = CURRENT_TIMESTAMP,
                    row_version = row_version + 1
              WHERE project_id = $1 AND id = $2 AND status = 'ACTIVE'
