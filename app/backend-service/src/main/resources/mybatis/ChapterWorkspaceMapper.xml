@@ -31,7 +31,7 @@
     <resultMap id="chapterWorkspacePreviewRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow">
         <id property="id" column="id"/><result property="orderIndex" column="order_index"/><result property="title" column="title"/>
         <result property="durationSeconds" column="duration_seconds"/><result property="status" column="status"/>
-        <result property="visualBeatCount" column="visual_beat_count"/><result property="previewImageUrl" column="preview_image_url"/>
+        <result property="visualBeatCount" column="visual_beat_count"/><result property="previewMediaAssetId" column="preview_media_asset_id"/>
     </resultMap>
     <select id="aggregate" resultMap="chapterWorkspaceAggregateRow">
         WITH current_chapter AS (
@@ -295,7 +295,8 @@
     <select id="previewScenes" resultMap="chapterWorkspacePreviewRow">
         SELECT s.id, s.order_index, s.title, s.duration_seconds, s.status,
                COUNT(vb.id)::int AS visual_beat_count,
-               CAST(NULL AS VARCHAR) AS preview_image_url
+               (array_agg(vb.preview_media_asset_id ORDER BY vb.order_index, vb.id)
+                   FILTER (WHERE vb.preview_media_asset_id IS NOT NULL))[1] AS preview_media_asset_id
           FROM chapters c JOIN scenes s ON s.storyboard_revision_id = c.current_storyboard_revision_id
           LEFT JOIN visual_beats vb ON vb.scene_id = s.id
          WHERE c.id = #{chapterId} AND c.deleted_at IS NULL AND s.status &lt;&gt; 'OUTDATED'
