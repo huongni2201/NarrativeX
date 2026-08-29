@@ -69,6 +69,7 @@ ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "src/narrativex_worker/materialization/identity.py" = ["I001"]
+"src/narrativex_worker/narration/repository/implementation.py" = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"
