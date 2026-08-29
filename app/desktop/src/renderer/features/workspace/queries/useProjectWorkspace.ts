@@ -41,16 +41,16 @@ type WorkspaceQueryRequirements = Readonly<{
 
 const CATALOG_STALE_TIME_MS = 5 * 60 * 1000;
 
-export const assetLibraryQueryKey = (userId: string, scope: AssetLibraryScope) =>
-  ["assets", "library", userId, scope] as const;
+export const assetLibraryQueryKey = (
+  userId: string,
+  projectId: string,
+  scope: AssetLibraryScope,
+) => ["assets", "library", userId, projectId, scope] as const;
 
 const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
     timeline: true,
     chapters: false,
-    // Editor needs both visual media and narration assets. Restricting this to
-    // "visual" makes LOCAL_ONLY narration look remote and causes preview URL
-    // requests to hit an endpoint that cannot serve that local asset.
     assetScope: "all",
     characters: false,
     voices: false,
@@ -157,8 +157,12 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
       projectAvailable && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
-    queryKey: assetLibraryQueryKey(currentUserId ?? "anonymous", assetScope),
-    queryFn: () => assetsApi.listAll(assetScope),
+    queryKey: assetLibraryQueryKey(
+      currentUserId ?? "anonymous",
+      projectId ?? "none",
+      assetScope,
+    ),
+    queryFn: () => assetsApi.listAll(projectId as string, assetScope),
     enabled: projectAvailable && hasAssets && Boolean(currentUserId),
   });
   const charactersQuery = useQuery({
