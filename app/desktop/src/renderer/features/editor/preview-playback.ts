@@ -110,6 +110,18 @@ export function shouldResyncNarration(
   return Math.abs(currentSeconds - desiredSeconds) > thresholdSeconds;
 }
 
+export function shouldUseFallbackPlaybackClock({
+  playing,
+  hasNarration,
+  narrationClockFailed,
+}: {
+  playing: boolean;
+  hasNarration: boolean;
+  narrationClockFailed: boolean;
+}): boolean {
+  return playing && (!hasNarration || narrationClockFailed);
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
