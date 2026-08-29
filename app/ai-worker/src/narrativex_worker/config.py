@@ -101,6 +101,7 @@ class WorkerSettings(BaseSettings):
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE", "NARRATION_PROVIDER_MODE"),
     )
+    tts_pricing_catalog_version: str = "vieneu-local-2026-08-23"
     narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
     vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
     vieneu_voice_name: str = "Ngọc Huyền v2"
@@ -175,6 +176,16 @@ class WorkerSettings(BaseSettings):
 
     def has_worker_role(self, role: str) -> bool:
         return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
+
+    @property
+    def media_storage_mode(self) -> Literal["local"]:
+        """Compatibility view for narration internals; project media is local-only."""
+        return "local"
+
+    @property
+    def media_local_dir(self) -> str:
+        """Compatibility alias for narration internals using the explicit local root."""
+        return self.project_media_local_dir
 
     @computed_field  # type: ignore[prop-decorator]
     @property
