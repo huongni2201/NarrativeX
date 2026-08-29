@@ -22,8 +22,7 @@ public record MediaAssetView(
     Integer height,
     String validationErrorCode,
     String validationErrorDetail,
-    Instant validatedAt,
-    String storageMode) {
+    Instant validatedAt) {
   public MediaAssetView(
       UUID id,
       String type,
@@ -48,7 +47,6 @@ public record MediaAssetView(
         durationMs,
         status,
         createdAt,
-        null,
         null,
         null,
         null,
