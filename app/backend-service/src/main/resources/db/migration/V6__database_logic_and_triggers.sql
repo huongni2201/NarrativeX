@@ -49,21 +49,6 @@ CREATE TRIGGER trg_media_generation_items_identity_immutable
 BEFORE UPDATE ON media_generation_items
 FOR EACH ROW EXECUTE FUNCTION reject_media_generation_item_snapshot_update();
 
-CREATE OR REPLACE FUNCTION reject_render_input_snapshot_update()
-RETURNS TRIGGER AS $$
-BEGIN
-    RAISE EXCEPTION '% is immutable; create a new render generation job instead', TG_TABLE_NAME;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_render_input_snapshots_immutable
-BEFORE UPDATE ON render_input_snapshots
-FOR EACH ROW EXECUTE FUNCTION reject_render_input_snapshot_update();
-
-CREATE TRIGGER trg_render_input_snapshot_beats_immutable
-BEFORE UPDATE ON render_input_snapshot_beats
-FOR EACH ROW EXECUTE FUNCTION reject_render_input_snapshot_update();
-
 CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal()
 RETURNS TRIGGER
 LANGUAGE plpgsql
