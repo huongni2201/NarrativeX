@@ -59,13 +59,16 @@ def test_removed_provider_settings_stay_removed() -> None:
         "google_tts_endpoint",
         "google_tts_timeout_seconds",
         "tts_pricing_catalog_version",
-        "wan_video_enabled",
-        "wan_endpoint_url",
-        "wan_model",
-        "wan_api_token",
-        "wan_request_timeout_seconds",
     ):
         assert not hasattr(settings, field_name)
+
+
+def test_wan_provider_settings_remain_available() -> None:
+    settings = WorkerSettings()
+
+    assert settings.wan_video_enabled is False
+    assert settings.wan_model == "Wan2.2-TI2V-5B"
+    assert settings.wan_request_timeout_seconds == 30.0
 
 
 def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
