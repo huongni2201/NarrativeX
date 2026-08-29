@@ -17,6 +17,7 @@ import {
   type PersistStoryboardImageDeps,
 } from "./storyboard-media.mutations";
 import { resolveStoryboardImagePreview } from "../model/storyboard-image-preview";
+import { runBackgroundRefresh } from "../model/storyboard-media-refresh";
 import { storyboardKeys } from "./storyboard.queries";
 
 async function invalidateStoryboardMedia(
@@ -31,6 +32,23 @@ async function invalidateStoryboardMedia(
       : Promise.resolve(),
     queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
   ]);
+}
+
+export function refreshStoryboardMediaInBackground(
+  queryClient: QueryClient,
+  projectId: string,
+  chapterId: string | null,
+  context: string,
+): void {
+  runBackgroundRefresh(() => invalidateStoryboardMedia(queryClient, projectId, chapterId), (error) => {
+    console.warn("Storyboard media cache refresh failed", {
+      context,
+      lane: "STORYBOARD",
+      projectId,
+      chapterId,
+      error,
+    });
+  });
 }
 
 function createPersistDeps(): PersistStoryboardImageDeps {
@@ -88,9 +106,9 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
       });
       return { assetId };
     },
-    onSettled: async (result, error) => {
+    onSettled: (result, error) => {
       if (!result && !error) return;
-      await invalidateStoryboardMedia(queryClient, projectId, chapterId);
+      refreshStoryboardMediaInBackground(queryClient, projectId, chapterId, "manual-import");
     },
   });
 
@@ -131,8 +149,8 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
         },
       );
     },
-    onSettled: async () => {
-      await invalidateStoryboardMedia(queryClient, projectId, chapterId);
+    onSettled: () => {
+      refreshStoryboardMediaInBackground(queryClient, projectId, chapterId, "gemini-generate");
     },
   });
 
