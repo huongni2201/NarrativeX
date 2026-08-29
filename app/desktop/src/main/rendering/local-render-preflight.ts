@@ -11,7 +11,8 @@ import type { LocalExecutionConnectionState } from "../local-execution/service";
 
 export interface LocalRenderPreflightInput {
   projectId: string;
-  assets: LocalRenderPreflightAssetInput[];
+  assetIds: string[];
+  assets?: LocalRenderPreflightAssetInput[];
   estimatedOutputBytes: number;
   requiredTemporaryBytes: number;
 }
@@ -41,7 +42,13 @@ export class LocalRenderPreflightService {
     const blockers: LocalRenderPreflightBlockerCode[] = [];
     const warnings: string[] = [];
     const assets: LocalRenderPreflightAsset[] = [];
-    const descriptors = dedupeAssets(input.assets);
+    const descriptors = dedupeAssets(
+      input.assets ?? input.assetIds.map((assetId) => ({
+        assetId,
+        storageMode: "LOCAL_ONLY" as const,
+        materializable: false,
+      })),
+    );
 
     if (!this.runtime.available || !this.runtime.ffmpegPath || !this.runtime.ffprobePath) {
       blockers.push("FFMPEG_UNAVAILABLE");
