@@ -41,13 +41,22 @@ class MyBatisMediaAssetRepositoryTest {
 
   @Test
   void cursorPageUsesCreatedAtAndUuidTieBreakAndReturnsNextCursor() {
+    UUID projectId = UUID.randomUUID();
     MediaAssetRow second = row(UUID.randomUUID(), "READY", Instant.parse("2025-12-31T00:00:00Z"));
     MediaAssetRow third = row(UUID.randomUUID(), "READY", Instant.parse("2025-12-30T00:00:00Z"));
-    when(mapper.findPage(eq(ACCOUNT), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
+    when(mapper.findPage(
+            eq(ACCOUNT),
+            eq(projectId),
+            eq(null),
+            eq(null),
+            eq(null),
+            eq(null),
+            eq(null),
+            eq(3)))
         .thenReturn(List.of(validating, second, third));
 
     CursorPage<com.narrativex.backend.feature.assets.application.query.MediaAssetView> page =
-        repository.list(ACCOUNT, null, null, null, null, 2);
+        repository.list(ACCOUNT, projectId, null, null, null, null, 2);
 
     assertThat(page.content()).extracting("id").containsExactly(firstId, second.getId());
     assertThat(page.nextCursor()).isNotBlank();
