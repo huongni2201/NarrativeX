@@ -89,7 +89,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
         value.getAspectRatioOverride() == null ? null : value.getAspectRatioOverride().name());
     row.setQualityTierOverride(
         value.getQualityTierOverride() == null ? null : value.getQualityTierOverride().name());
-    row.setPreviewAssetId(value.getPreviewAssetId());
     row.setPreviewMediaAssetId(value.getPreviewMediaAssetId());
     if (value.getId() == null) {
       row.setId(null);
@@ -140,7 +139,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
                 ? null
                 : ImageQualityTier.valueOf(row.getQualityTierOverride()),
             VisualBeatReviewStatus.valueOf(row.getReviewStatus()));
-    beat.attachPreviewAsset(row.getPreviewAssetId());
     if (row.getPreviewMediaAssetId() != null) {
       beat.attachPreviewMediaAsset(row.getPreviewMediaAssetId());
     }
