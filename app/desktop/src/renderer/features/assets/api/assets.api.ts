@@ -39,13 +39,19 @@ function parseAssets(value: unknown) {
   };
 }
 
-async function listAllByType(type?: DesktopAsset["type"]): Promise<DesktopAsset[]> {
+async function listAllByType(
+  projectId: string,
+  type?: DesktopAsset["type"],
+): Promise<DesktopAsset[]> {
   const assets: DesktopAsset[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
 
   do {
-    const params = new URLSearchParams({ limit: String(ASSET_PAGE_LIMIT) });
+    const params = new URLSearchParams({
+      projectId,
+      limit: String(ASSET_PAGE_LIMIT),
+    });
     if (type) params.set("type", type);
     if (cursor) params.set("cursor", cursor);
 
@@ -63,19 +69,26 @@ async function listAllByType(type?: DesktopAsset["type"]): Promise<DesktopAsset[
   return assets;
 }
 
-async function listAll(scope: AssetLibraryScope = "all"): Promise<DesktopAsset[]> {
-  if (scope === "audio") return listAllByType("AUDIO");
+async function listAll(
+  projectId: string,
+  scope: AssetLibraryScope = "all",
+): Promise<DesktopAsset[]> {
+  if (scope === "audio") return listAllByType(projectId, "AUDIO");
   if (scope === "visual") {
-    const groups = await Promise.all([listAllByType("IMAGE"), listAllByType("VIDEO")]);
+    const groups = await Promise.all([
+      listAllByType(projectId, "IMAGE"),
+      listAllByType(projectId, "VIDEO"),
+    ]);
     return groups.flat().sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
-  return listAllByType();
+  return listAllByType(projectId);
 }
 
 export function toRegisterLocalAssetRequest(
   input: LocalAssetRegistration,
 ): RegisterLocalAssetRequest {
   return {
+    projectId: input.projectId,
     type: input.type,
     originalFilename: input.originalFilename,
     contentType: input.contentType,
@@ -86,8 +99,6 @@ export function toRegisterLocalAssetRequest(
 }
 
 export const assetsApi = {
-  list: (params = "limit=100") =>
-    apiRequest<unknown>(`/api/v1/assets?${params}`).then(parseAssets),
   listAll,
 
   get: (assetId: string) =>
