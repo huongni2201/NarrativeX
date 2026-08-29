@@ -31,7 +31,7 @@ public class UpdateProductionBeatMediaUseCase {
     String ownerId = currentUserId.get();
     ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
     ProductionTimelineView.Beat beat = requireBeat(timeline, visualBeatId);
-    SelectableMediaAsset asset = requireSelectableAsset(ownerId, mediaAssetId);
+    SelectableMediaAsset asset = requireSelectableAsset(projectId, ownerId, mediaAssetId);
     BeatMediaFitMode normalizedFitMode = fitMode == null ? BeatMediaFitMode.TRIM : fitMode;
     validateSelection(beat.durationMs(), asset, normalizedFitMode, trimStartMs);
     repository.upsert(projectId, visualBeatId, mediaAssetId, normalizedFitMode, trimStartMs);
@@ -59,7 +59,7 @@ public class UpdateProductionBeatMediaUseCase {
       if (beat.mediaAssetId() == null) {
         throw invalid("Auto Edit cannot fit a beat without a selected media asset.");
       }
-      SelectableMediaAsset asset = requireSelectableAsset(ownerId, beat.mediaAssetId());
+      SelectableMediaAsset asset = requireSelectableAsset(projectId, ownerId, beat.mediaAssetId());
       BeatMediaFitMode fitMode =
           override.fitMode() == null
               ? currentFitMode(beat)
@@ -92,14 +92,15 @@ public class UpdateProductionBeatMediaUseCase {
     repository.clear(projectId, visualBeatId);
   }
 
-  private SelectableMediaAsset requireSelectableAsset(String ownerId, UUID mediaAssetId) {
+  private SelectableMediaAsset requireSelectableAsset(
+      UUID projectId, String ownerId, UUID mediaAssetId) {
     return repository
-        .findSelectableAsset(ownerId, mediaAssetId)
+        .findSelectableAsset(projectId, ownerId, mediaAssetId)
         .orElseThrow(
             () ->
                 new GenerationAdmissionDeniedException(
                     "INVALID_BEAT_MEDIA_SELECTION",
-                    "The selected image/video asset is not READY or does not belong to this account."));
+                    "The selected image/video asset is not READY, unavailable in this project, or does not belong to this account."));
   }
 
   private static ProductionTimelineView.Beat requireBeat(

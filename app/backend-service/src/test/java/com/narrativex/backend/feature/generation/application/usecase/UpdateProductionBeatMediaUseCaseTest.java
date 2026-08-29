@@ -35,7 +35,7 @@ class UpdateProductionBeatMediaUseCaseTest {
     when(currentUserId.get()).thenReturn("owner");
     when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
-    when(repository.findSelectableAsset("owner", mediaAssetId))
+    when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
         .thenReturn(
             java.util.Optional.of(
                 new SelectableMediaAsset(
@@ -56,7 +56,7 @@ class UpdateProductionBeatMediaUseCaseTest {
     when(currentUserId.get()).thenReturn("owner");
     when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
-    when(repository.findSelectableAsset("owner", mediaAssetId))
+    when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
         .thenReturn(
             java.util.Optional.of(
                 new SelectableMediaAsset(
@@ -83,7 +83,7 @@ class UpdateProductionBeatMediaUseCaseTest {
     when(currentUserId.get()).thenReturn("owner");
     when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
-    when(repository.findSelectableAsset("owner", mediaAssetId))
+    when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
         .thenReturn(
             java.util.Optional.of(
                 new SelectableMediaAsset(
@@ -121,12 +121,12 @@ class UpdateProductionBeatMediaUseCaseTest {
                 List.of(
                     beat(chapterId, firstBeatId, firstAssetId, 0L, 10_000L),
                     beat(chapterId, secondBeatId, secondAssetId, 10_000L, 10_000L))));
-    when(repository.findSelectableAsset("owner", firstAssetId))
+    when(repository.findSelectableAsset(projectId, "owner", firstAssetId))
         .thenReturn(
             java.util.Optional.of(
                 new SelectableMediaAsset(
                     firstAssetId, "VIDEO", "LOCAL_ONLY", 20_000L, 123L, "e".repeat(64))));
-    when(repository.findSelectableAsset("owner", secondAssetId))
+    when(repository.findSelectableAsset(projectId, "owner", secondAssetId))
         .thenReturn(
             java.util.Optional.of(
                 new SelectableMediaAsset(
