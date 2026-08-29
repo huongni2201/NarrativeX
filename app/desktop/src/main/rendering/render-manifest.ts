@@ -23,7 +23,7 @@ export interface LocalRenderManifest {
   readonly subtitles: readonly PlannedSubtitle[];
   readonly effects: {
     readonly transitionPolicy: "CHAPTER_FADE_BLACK_V1";
-    readonly subtitlePolicy: "MOV_TEXT_ALIGNMENT_V1";
+    readonly subtitlePolicy: "BURN_IN_ALIGNMENT_V1";
   };
   readonly output: { readonly format: "mp4"; readonly mimeType: "video/mp4" };
 }
@@ -79,7 +79,7 @@ export function buildLocalRenderManifest(
   const subtitles = planSubtitles(renderChapters);
   const effects = {
     transitionPolicy: "CHAPTER_FADE_BLACK_V1" as const,
-    subtitlePolicy: "MOV_TEXT_ALIGNMENT_V1" as const,
+    subtitlePolicy: "BURN_IN_ALIGNMENT_V1" as const,
   };
   const fingerprintSource = canonicalize({
     version: 1,
