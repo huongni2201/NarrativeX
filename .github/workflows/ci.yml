@@ -54,20 +54,7 @@ jobs:
           cache-dependency-path: app/backend-service/pom.xml
 
       - name: Verify
-        run: |
-          set -o pipefail
-          ./mvnw --batch-mode --no-transfer-progress verify 2>&1 | tee backend-verify.log
-
-      - name: Upload backend verify diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-verify-diagnostics
-          path: |
-            app/backend-service/backend-verify.log
-            app/backend-service/target/surefire-reports
-          if-no-files-found: warn
-          retention-days: 1
+        run: ./mvnw --batch-mode --no-transfer-progress verify
 
   ai-worker:
     name: AI worker checks
