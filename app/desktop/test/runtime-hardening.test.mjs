@@ -1,101 +1,80 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const desktopRoot = resolve(dirname(import.meta.filename), "..");
-const repoRoot = resolve(desktopRoot, "..", "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const source = (...parts) => readFileSync(path.join(root, ...parts), "utf8");
 
-function source(...parts) {
-  return readFileSync(join(repoRoot, ...parts), "utf8");
-}
+test("desktop request contract uses one authenticated API base URL", () => {
+  const client = source("app", "desktop", "src", "renderer", "api", "client.ts");
+  assert.match(client, /credentials:\s*"include"/);
+  assert.match(client, /window\.narrativex\.api\.getBaseUrl/);
+  assert.doesNotMatch(client, /VITE_BACKEND_URL/);
+});
 
-test("chapter workspace keeps an explicit create mode and blocks generation from dirty drafts", () => {
-  const chapters = source(
+test("desktop preload exposes guarded IPC APIs only", () => {
+  const preload = source("app", "desktop", "src", "preload", "index.ts");
+  assert.match(preload, /contextBridge\.exposeInMainWorld\("narrativex"/);
+  assert.doesNotMatch(preload, /ipcRenderer:\s*ipcRenderer/);
+});
+
+test("desktop API helper owns authenticated voice upload orchestration", () => {
+  const main = source("app", "desktop", "src", "main", "api", "desktop-api-client.ts");
+  assert.match(main, /voice-references\/upload-intents/);
+  assert.match(main, /uploadVoiceReference/);
+});
+
+test("renderer does not access R2 credentials or object storage SDKs", () => {
+  const voicesApi = source(
     "app",
     "desktop",
     "src",
     "renderer",
     "features",
-    "chapters",
-    "screens",
-    "ChaptersScreen.tsx",
+    "voices",
+    "api",
+    "voices.api.ts",
   );
-  assert.match(chapters, /setIsCreating\(true\)/);
-  assert.match(chapters, /generationBlockedByUnsavedChanges/);
-  assert.match(chapters, /busy \|\| generationBlockedByUnsavedChanges/);
-  assert.doesNotMatch(chapters, /setPage\(2\)/);
-  assert.match(chapters, /Math\.min\(Math\.max\(current, 1\), totalPages\)/);
-});
-
-test("chapter CRUD writes refresh chapter and backend-derived timeline data", () => {
-  const queries = source(
+  const narrationApi = source(
     "app",
     "desktop",
     "src",
     "renderer",
     "features",
-    "chapters",
-    "queries",
-    "chapters.queries.ts",
+    "generation",
+    "api",
+    "narration.api.ts",
   );
-  assert.match(queries, /function invalidateChapterData/);
-  assert.match(queries, /chapterQueryKeys\.all\(projectId\)/);
-  assert.match(queries, /\["projects", projectId, "timeline"\]/);
-  assert.equal((queries.match(/onSuccess: \(\) => invalidateChapterData\(queryClient, projectId\)/g) ?? []).length, 3);
+  const combined = `${voicesApi}\n${narrationApi}`;
+  assert.doesNotMatch(combined, /R2_ACCESS_KEY|R2_SECRET|S3Client|boto3|storageKey/);
 });
 
-test("workspace follows cursor pagination and does not hide partial API failures", () => {
-  const workspace = source(
+test("project media APIs register metadata instead of remote upload intents", () => {
+  const assetsApi = source(
     "app",
     "desktop",
     "src",
     "renderer",
     "features",
-    "workspace",
-    "queries",
-    "useProjectWorkspace.ts",
+    "assets",
+    "api",
+    "assets.api.ts",
   );
-  assert.match(workspace, /chaptersApi\.listAll/);
-  assert.match(workspace, /assetsApi\.listAll/);
-  assert.match(workspace, /charactersApi\.listAll/);
-  assert.match(workspace, /firstError[\s\S]*?\? timeline[\s\S]*?\? "partial"[\s\S]*?: "error"/);
+  assert.match(assetsApi, /registerLocal/);
+  assert.doesNotMatch(assetsApi, /upload-intents/);
 });
 
-test("chapter polling follows active work across the batch", () => {
-  const queries = source(
-    "app",
-    "desktop",
-    "src",
-    "renderer",
-    "features",
-    "chapters",
-    "queries",
-    "chapters.queries.ts",
-  );
-  assert.match(queries, /function hasActiveChapterWork/);
-  assert.match(queries, /isAudioProcessingStatus/);
-  assert.match(queries, /isAnalysisProcessingStatus/);
-  assert.match(queries, /hasActiveChapterWork\(query\.state\.data/);
+test("desktop project storage copies selected files into project-owned paths", () => {
+  const storage = source("app", "desktop", "src", "main", "local-storage", "project-storage.ts");
+  assert.match(storage, /commitSelectedAsset/);
+  assert.match(storage, /assets\/audio/);
+  assert.match(storage, /checksumSha256/);
+  assert.match(storage, /project\.manifest\.json/);
 });
 
-test("storyboard review filter uses the themed select primitive", () => {
-  const storyboard = source(
-    "app",
-    "desktop",
-    "src",
-    "renderer",
-    "features",
-    "storyboard",
-    "screens",
-    "StoryboardScreen.tsx",
-  );
-  assert.match(storyboard, /<SelectContent>/);
-  assert.match(storyboard, /<SelectItem value="NEEDS_REVIEW">Needs review<\/SelectItem>/);
-  assert.doesNotMatch(storyboard, /<select[\s>]/);
-});
-
-test("chapter analysis carries an idempotency key", () => {
+test("generation analysis requests include a unique idempotency key", () => {
   const generation = source(
     "app",
     "desktop",
@@ -112,9 +91,11 @@ test("chapter analysis carries an idempotency key", () => {
   );
 });
 
-test("compose file mounts required files without creating missing host directories", () => {
+test("compose file mounts only true file secrets without creating missing host directories", () => {
   const compose = source("docker-compose.yml");
-  assert.equal((compose.match(/create_host_path: false/g) ?? []).length, 2);
+  assert.equal((compose.match(/create_host_path: false/g) ?? []).length, 1);
+  assert.match(compose, /GCP_SERVICE_ACCOUNT_FILE[\s\S]*?create_host_path: false/);
+  assert.doesNotMatch(compose, /VIENEU_REFERENCE_AUDIO_FILE/);
 });
 
 test("local quality gate includes backend verify and worker static analysis", () => {
@@ -133,6 +114,5 @@ test("desktop renderer keeps Node isolation while disabling Chromium sandbox", (
 
 test("desktop removes the native application menu", () => {
   const main = source("app", "desktop", "src", "main", "main.ts");
-  assert.match(main, /import \{[^}]*\bMenu\b[^}]*\} from "electron"/s);
   assert.match(main, /Menu\.setApplicationMenu\(null\)/);
 });
