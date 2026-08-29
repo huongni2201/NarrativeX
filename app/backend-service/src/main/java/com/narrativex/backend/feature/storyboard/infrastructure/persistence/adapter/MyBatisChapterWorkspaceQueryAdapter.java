@@ -80,7 +80,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
         row.getDurationSeconds(),
         row.getStatus(),
         row.getVisualBeatCount(),
-        row.getPreviewImageUrl());
+        row.getPreviewMediaAssetId());
   }
 
   private static String progressStatus(

@@ -218,7 +218,9 @@ class StoryboardApiIntegrationTest {
   @Test
   void chapterWorkspaceProjectsNarrationAndRenderStateFromDurableRows() throws Exception {
     jdbcTemplate.update(
-        "UPDATE visual_beats SET preview_asset_id = ? WHERE id = ?", PROJECT_ASSET, BEAT_1);
+        "UPDATE visual_beats SET preview_media_asset_id = ? WHERE id = ?",
+        PREVIEW_MEDIA_ASSET,
+        BEAT_1);
 
     mockMvc
         .perform(get("/api/v1/projects/" + PROJECT_1 + "/chapters/" + CHAPTER_1 + "/workspace"))
@@ -236,9 +238,9 @@ class StoryboardApiIntegrationTest {
                 .value("00000000-0000-4000-8000-000000000005"))
         .andExpect(jsonPath("$.data.pipeline.render.artifactId").value(FINAL_ARTIFACT.toString()))
         .andExpect(
-            jsonPath("$.data.previewScenes[0].previewImageUrl")
-                .value(
-                    "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop"))
+            jsonPath("$.data.previewScenes[0].previewMediaAssetId")
+                .value(PREVIEW_MEDIA_ASSET.toString()))
+        .andExpect(jsonPath("$.data.previewScenes[0].previewImageUrl").doesNotExist())
         .andExpect(jsonPath("$.data.capabilities.canGenerateVisuals").value(false))
         .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(false))
         .andExpect(

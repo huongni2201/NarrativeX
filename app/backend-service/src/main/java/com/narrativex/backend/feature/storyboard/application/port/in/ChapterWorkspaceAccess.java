@@ -52,7 +52,7 @@ public interface ChapterWorkspaceAccess {
       Integer durationSeconds,
       String status,
       int visualBeatCount,
-      String previewImageUrl) {}
+      UUID previewMediaAssetId) {}
 
   record Analysis(
       String status,

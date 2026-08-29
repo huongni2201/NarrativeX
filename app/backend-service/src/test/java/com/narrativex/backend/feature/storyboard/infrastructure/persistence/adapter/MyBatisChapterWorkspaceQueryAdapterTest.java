@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceAggregateRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -59,5 +60,24 @@ class MyBatisChapterWorkspaceQueryAdapterTest {
     var snapshot = new MyBatisChapterWorkspaceQueryAdapter(mapper).get(PROJECT_ID, CHAPTER_ID);
 
     assertEquals("adam", snapshot.projection().audio().voiceId());
+  }
+
+  @Test
+  void previewSceneKeepsCanonicalPreviewMediaAssetIdentity() {
+    UUID previewMediaAssetId = UuidV7.random();
+    ChapterWorkspaceAggregateRow aggregate = new ChapterWorkspaceAggregateRow();
+    ChapterWorkspacePreviewRow preview = new ChapterWorkspacePreviewRow();
+    preview.setId(UuidV7.random());
+    preview.setTitle("Scene");
+    preview.setStatus("DRAFT");
+    preview.setPreviewMediaAssetId(previewMediaAssetId);
+
+    ChapterWorkspaceMapper mapper = mock(ChapterWorkspaceMapper.class);
+    when(mapper.aggregate(PROJECT_ID, CHAPTER_ID)).thenReturn(aggregate);
+    when(mapper.previewScenes(PROJECT_ID, CHAPTER_ID)).thenReturn(List.of(preview));
+
+    var snapshot = new MyBatisChapterWorkspaceQueryAdapter(mapper).get(PROJECT_ID, CHAPTER_ID);
+
+    assertEquals(previewMediaAssetId, snapshot.previewScenes().getFirst().previewMediaAssetId());
   }
 }
