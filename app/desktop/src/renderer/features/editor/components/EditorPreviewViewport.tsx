@@ -23,6 +23,7 @@ import {
 interface EditorPreviewViewportProps {
   selectedBeat: DesktopTimelineBeat | null;
   subtitleCues: PlannedSubtitle[];
+  transitionBlackOpacity: number;
   mediaUrl: string | null;
   narrationUrl: string | null;
   narrationStartMs: number | null;
@@ -45,6 +46,7 @@ interface EditorPreviewViewportProps {
 export function EditorPreviewViewport({
   selectedBeat,
   subtitleCues,
+  transitionBlackOpacity,
   mediaUrl,
   narrationUrl,
   narrationStartMs,
@@ -246,6 +248,12 @@ export function EditorPreviewViewport({
               </div>
             </div>
           )}
+
+          <div
+            className="pointer-events-none absolute inset-0 z-10 bg-black"
+            style={{ opacity: transitionBlackOpacity }}
+            aria-hidden="true"
+          />
 
           {activeSubtitle && (
             <div className="pointer-events-none absolute inset-x-[8%] bottom-[7%] z-20 flex justify-center">
