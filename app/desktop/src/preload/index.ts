@@ -88,6 +88,8 @@ const bridge: NarrativeXDesktopBridge = {
     preflight: (input) => ipcRenderer.invoke("desktop:render:preflight", input),
     recoveryStatus: () => ipcRenderer.invoke("desktop:render:recovery-status"),
     cancel: (jobId: string) => ipcRenderer.invoke("desktop:render:cancel", jobId),
+    chooseDestination: () => ipcRenderer.invoke("desktop:render:choose-destination"),
+    deliverArtifact: (input) => ipcRenderer.invoke("desktop:render:deliver-artifact", input),
   },
   system: {
     copyText: (text: string) =>
