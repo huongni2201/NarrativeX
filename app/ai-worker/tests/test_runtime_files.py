@@ -49,7 +49,13 @@ def test_vertex_allows_adc_without_explicit_credentials_file() -> None:
     validate_runtime_files(settings, environment={})  # type: ignore[arg-type]
 
 
-def test_vieneu_reference_audio_must_be_regular_file(tmp_path) -> None:
+def test_vieneu_allows_r2_job_reference_without_static_local_file() -> None:
+    settings = _Settings(tts_provider_mode="vieneu", roles={"narration"})
+
+    validate_runtime_files(settings, environment={})  # type: ignore[arg-type]
+
+
+def test_vieneu_reference_audio_must_be_regular_file_when_configured(tmp_path) -> None:
     reference_directory = tmp_path / "reference.wav"
     reference_directory.mkdir()
     settings = _Settings(
