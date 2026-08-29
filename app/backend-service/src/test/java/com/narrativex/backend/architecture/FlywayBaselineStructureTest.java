@@ -64,7 +64,8 @@ class FlywayBaselineStructureTest {
     assertTrue(
         v4.contains(
             "project_voice_reference_asset_id UUID REFERENCES media_assets(id)"));
-    assertFalse(v4.contains("voice_reference_asset_id UUID REFERENCES media_assets(id)"));
+    assertFalse(
+        v4.contains("\n    voice_reference_asset_id UUID REFERENCES media_assets(id),"));
     assertTrue(v4.contains("CREATE TABLE notifications"));
     assertTrue(v4.contains("CREATE TABLE final_artifacts"));
 
