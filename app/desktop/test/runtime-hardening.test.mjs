@@ -112,9 +112,12 @@ test("chapter analysis carries an idempotency key", () => {
   );
 });
 
-test("compose file mounts required files without creating missing host directories", () => {
+test("compose only uses strict file mounts for files that still exist at runtime", () => {
   const compose = source("docker-compose.yml");
-  assert.equal((compose.match(/create_host_path: false/g) ?? []).length, 2);
+  assert.equal((compose.match(/create_host_path: false/g) ?? []).length, 1);
+  assert.match(compose, /source: \$\{GCP_SERVICE_ACCOUNT_FILE:[^\n]+\}[\s\S]*?create_host_path: false/);
+  assert.doesNotMatch(compose, /VIENEU_REFERENCE_AUDIO_FILE/);
+  assert.doesNotMatch(compose, /\/run\/narrativex\/voices\/reference\.wav/);
 });
 
 test("local quality gate includes backend verify and worker static analysis", () => {
