@@ -1098,6 +1098,7 @@ export class GeminiWebAutomation {
     const files = references.map((reference) => reference.path);
     const before = await this.attachmentSnapshot(cdp);
     let nodeId = await this.findFileInputNode(cdp);
+    let backendNodeId: number | null = null;
 
     if (!nodeId) {
       await cdp.send("Page.setInterceptFileChooserDialog", { enabled: true });
@@ -1121,13 +1122,13 @@ export class GeminiWebAutomation {
         });
 
         await this.revealFileInput(cdp);
-        nodeId = await chooserNode;
+        backendNodeId = await chooserNode;
       } finally {
         await cdp.send("Page.setInterceptFileChooserDialog", { enabled: false }).catch(() => undefined);
       }
     }
 
-    if (!nodeId) {
+    if (!backendNodeId && !nodeId) {
       const deadline = Date.now() + 2_000;
       while (!nodeId && Date.now() < deadline) {
         nodeId = await this.findFileInputNode(cdp);
@@ -1135,16 +1136,17 @@ export class GeminiWebAutomation {
       }
     }
 
-    if (!nodeId) {
+    if (!backendNodeId && !nodeId) {
       throw geminiError(
         "GEMINI_REFERENCE_UPLOAD_CONTROL_NOT_FOUND",
         "NarrativeX could not find Gemini's image attachment input.",
       );
     }
 
+    const fileInputTarget = backendNodeId ? { backendNodeId } : { nodeId };
     await cdp.send("DOM.setFileInputFiles", {
       files,
-      backendNodeId: nodeId,
+      ...fileInputTarget,
     });
 
     const deadline = Date.now() + REFERENCE_UPLOAD_TIMEOUT_MS;
