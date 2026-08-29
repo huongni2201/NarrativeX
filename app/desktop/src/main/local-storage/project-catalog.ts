@@ -4,40 +4,27 @@ import { join } from "node:path";
 import type { DesktopProject } from "@narrativex/client-contracts";
 import { ProjectStorage } from "./project-storage.ts";
 
-const CATALOG_SCHEMA_VERSION = 1 as const;
-const PROJECT_SNAPSHOT_SCHEMA_VERSION = 1 as const;
+const CATALOG_SCHEMA_VERSION = 2 as const;
+const PROJECT_SNAPSHOT_SCHEMA_VERSION = 2 as const;
 const PROJECT_SNAPSHOT_FILENAME = "project.json";
 const CATALOG_FILENAME = "project-registry.json";
-
-type ProjectSyncStatus =
-  | "LOCAL_ONLY"
-  | "DIRTY"
-  | "SYNCING"
-  | "SYNCED"
-  | "SYNC_FAILED"
-  | "ORPHANED";
 
 export interface LocalProjectCatalogEntry {
   project: DesktopProject;
   workspacePath: string;
   ownerId: string | null;
-  cloudProjectId: string | null;
-  syncStatus: ProjectSyncStatus;
   registeredAt: string;
   lastOpenedAt: string;
 }
 
 export interface LocalProjectCatalogMetadata {
   ownerId?: string | null;
-  cloudProjectId?: string | null;
-  syncStatus?: ProjectSyncStatus;
 }
 
 interface PersistedProjectEntry {
   project: DesktopProject;
   ownerId: string | null;
-  cloudProjectId: string | null;
-  syncStatus: ProjectSyncStatus;
+  archived: boolean;
   registeredAt: string;
   lastOpenedAt: string;
 }
@@ -70,7 +57,7 @@ export class ProjectCatalog {
   async lastOpened(): Promise<LocalProjectCatalogEntry | null> {
     const catalog = await this.readCatalogWithRecovery();
     const selected = catalog.lastProjectId ? catalog.projects[catalog.lastProjectId] : undefined;
-    if (selected && selected.syncStatus !== "ORPHANED") return this.toPublicEntry(selected);
+    if (selected && !selected.archived) return this.toPublicEntry(selected);
     const projects = this.visibleEntries(catalog);
     return projects[0] ?? null;
   }
@@ -88,11 +75,7 @@ export class ProjectCatalog {
       const entry: PersistedProjectEntry = {
         project: cloneProject(project),
         ownerId: metadata.ownerId !== undefined ? metadata.ownerId : existing?.ownerId ?? null,
-        cloudProjectId:
-          metadata.cloudProjectId !== undefined
-            ? metadata.cloudProjectId
-            : existing?.cloudProjectId ?? null,
-        syncStatus: metadata.syncStatus ?? existing?.syncStatus ?? "LOCAL_ONLY",
+        archived: false,
         registeredAt: existing?.registeredAt ?? now,
         lastOpenedAt: existing?.lastOpenedAt ?? now,
       };
@@ -103,74 +86,11 @@ export class ProjectCatalog {
     });
   }
 
-  async reconcile(
-    projects: DesktopProject[],
-    metadata: LocalProjectCatalogMetadata = {},
-  ): Promise<LocalProjectCatalogEntry[]> {
-    for (const project of projects) assertProject(project);
-    for (const project of projects) await this.storage.ensureProject(project.id);
-
-    return this.withWriteLock(async () => {
-      const catalog = await this.readCatalogWithRecovery();
-      const remoteById = new Map(projects.map((project) => [project.id, project]));
-      const now = new Date().toISOString();
-
-      // A successful remote list is authoritative for cloud-backed projects.
-      // Keep genuinely local-only projects, but hide cloud projects that disappeared remotely.
-      for (const [projectId, existing] of Object.entries(catalog.projects)) {
-        const remoteProject = remoteById.get(projectId);
-
-        if (remoteProject) {
-          const entry: PersistedProjectEntry = {
-            project: cloneProject(remoteProject),
-            ownerId: metadata.ownerId !== undefined ? metadata.ownerId : existing.ownerId,
-            cloudProjectId:
-              metadata.cloudProjectId !== undefined
-                ? metadata.cloudProjectId
-                : existing.cloudProjectId ?? remoteProject.id,
-            syncStatus: metadata.syncStatus ?? "SYNCED",
-            registeredAt: existing.registeredAt,
-            lastOpenedAt: existing.lastOpenedAt,
-          };
-          catalog.projects[projectId] = entry;
-          await this.persistEntry(projectId, entry);
-          remoteById.delete(projectId);
-          continue;
-        }
-
-        const isCloudBacked =
-          existing.cloudProjectId !== null || existing.syncStatus !== "LOCAL_ONLY";
-        if (!isCloudBacked) continue;
-
-        existing.syncStatus = "ORPHANED";
-        if (catalog.lastProjectId === projectId) catalog.lastProjectId = null;
-        await this.persistEntry(projectId, existing);
-      }
-
-      for (const project of remoteById.values()) {
-        const entry: PersistedProjectEntry = {
-          project: cloneProject(project),
-          ownerId: metadata.ownerId ?? null,
-          cloudProjectId:
-            metadata.cloudProjectId !== undefined ? metadata.cloudProjectId : project.id,
-          syncStatus: metadata.syncStatus ?? "SYNCED",
-          registeredAt: now,
-          lastOpenedAt: now,
-        };
-        catalog.projects[project.id] = entry;
-        await this.persistEntry(project.id, entry);
-      }
-
-      await this.writeCatalog(catalog);
-      return this.visibleEntries(catalog);
-    });
-  }
-
   async touch(projectId: string): Promise<LocalProjectCatalogEntry> {
     return this.withWriteLock(async () => {
       const catalog = await this.readCatalogWithRecovery();
       const existing = catalog.projects[projectId];
-      if (!existing || existing.syncStatus === "ORPHANED") {
+      if (!existing || existing.archived) {
         throw new Error(`Local project ${projectId} is not registered.`);
       }
       await this.storage.ensureProject(projectId);
@@ -188,7 +108,7 @@ export class ProjectCatalog {
       const existing = catalog.projects[projectId];
       if (!existing) return;
 
-      existing.syncStatus = "ORPHANED";
+      existing.archived = true;
       if (catalog.lastProjectId === projectId) catalog.lastProjectId = null;
       await this.persistEntry(projectId, existing);
       await this.writeCatalog(catalog);
@@ -197,14 +117,17 @@ export class ProjectCatalog {
 
   private visibleEntries(catalog: ProjectCatalogDocument): LocalProjectCatalogEntry[] {
     return Object.values(catalog.projects)
-      .filter((entry) => entry.syncStatus !== "ORPHANED")
+      .filter((entry) => !entry.archived)
       .map((entry) => this.toPublicEntry(entry))
       .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt));
   }
 
   private toPublicEntry(entry: PersistedProjectEntry): LocalProjectCatalogEntry {
     return {
-      ...clonePersistedEntry(entry),
+      project: cloneProject(entry.project),
+      ownerId: entry.ownerId,
+      registeredAt: entry.registeredAt,
+      lastOpenedAt: entry.lastOpenedAt,
       workspacePath: this.storage.projectDirectory(entry.project.id),
     };
   }
@@ -250,7 +173,7 @@ export class ProjectCatalog {
     }
 
     const latest = Object.values(catalog.projects)
-      .filter((entry) => entry.syncStatus !== "ORPHANED")
+      .filter((entry) => !entry.archived)
       .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt))[0];
     catalog.lastProjectId = latest?.project.id ?? null;
     await this.writeCatalog(catalog);
@@ -303,8 +226,7 @@ function snapshotToEntry(snapshot: PersistedProjectSnapshot): PersistedProjectEn
   return {
     project: cloneProject(snapshot.project),
     ownerId: snapshot.ownerId,
-    cloudProjectId: snapshot.cloudProjectId,
-    syncStatus: snapshot.syncStatus,
+    archived: snapshot.archived,
     registeredAt: snapshot.registeredAt,
     lastOpenedAt: snapshot.lastOpenedAt,
   };
@@ -314,8 +236,7 @@ function clonePersistedEntry(entry: PersistedProjectEntry): PersistedProjectEntr
   return {
     project: cloneProject(entry.project),
     ownerId: entry.ownerId,
-    cloudProjectId: entry.cloudProjectId,
-    syncStatus: entry.syncStatus,
+    archived: entry.archived,
     registeredAt: entry.registeredAt,
     lastOpenedAt: entry.lastOpenedAt,
   };
@@ -376,16 +297,9 @@ function isPersistedEntry(value: unknown): value is PersistedProjectEntry {
   return (
     isProject(entry.project) &&
     (entry.ownerId === null || typeof entry.ownerId === "string") &&
-    (entry.cloudProjectId === null || typeof entry.cloudProjectId === "string") &&
-    isSyncStatus(entry.syncStatus) &&
+    typeof entry.archived === "boolean" &&
     typeof entry.registeredAt === "string" &&
     typeof entry.lastOpenedAt === "string"
-  );
-}
-
-function isSyncStatus(value: unknown): value is ProjectSyncStatus {
-  return ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED", "ORPHANED"].includes(
-    String(value),
   );
 }
 
