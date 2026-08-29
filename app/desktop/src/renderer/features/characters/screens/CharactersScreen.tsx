@@ -1,11 +1,27 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
 import { BookOpen, LockKeyhole, Plus, Search, Shirt, Sparkles, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
+import { charactersApi } from "../api/characters.api";
+import { CharacterGeminiQueueBanner } from "../components/CharacterGeminiQueueBanner";
 import { CharacterReferenceStudio } from "../components/CharacterReferenceStudio";
+import {
+  createCharacterGeminiQueue,
+  markCharacterQueueCompleted,
+  markCharacterQueueSkipped,
+  reconcileCharacterQueue,
+  restoreCharacterQueueForSession,
+  type CharacterGeminiQueueState,
+} from "../model/character-gemini-queue";
 import { useCharacterDetail, useCharacterPortrait, useCreateCharacter } from "../queries/characters.queries";
+import { generateCharacterIdentityReference } from "../services/character-reference-generation";
+import {
+  loadCharacterGeminiQueue,
+  saveCharacterGeminiQueue,
+} from "../store/character-gemini-queue.persistence";
 
 function normalizeLabel(value?: string | null) {
   return value ? value.replaceAll("_", " ") : "—";
@@ -19,6 +35,10 @@ function formatDate(value?: string | null) {
 
 function parseList(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function CharacterPortrait({ src, alt, className }: Readonly<{ src: string | null; alt: string; className: string }>) {
@@ -73,13 +93,24 @@ function DetailRow({ label, value }: Readonly<{ label: string; value: ReactNode 
   );
 }
 
+type QueueGenerationResult = "generated" | "skipped" | "failed";
+
 export function CharactersScreen({ projectId, characters }: Readonly<{ projectId: string; characters: DesktopCharacter[] }>) {
+  const queryClient = useQueryClient();
   const createCharacter = useCreateCharacter(projectId);
   const [name, setName] = useState("");
   const [aliases, setAliases] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(characters[0]?.id ?? null);
+  const [geminiQueue, setGeminiQueue] = useState<CharacterGeminiQueueState | null>(null);
+  const [generatingCharacterId, setGeneratingCharacterId] = useState<string | null>(null);
+  const geminiRunTokenRef = useRef(0);
+
+  function publishGeminiQueue(next: CharacterGeminiQueueState | null) {
+    setGeminiQueue(next);
+    saveCharacterGeminiQueue(projectId, next);
+  }
 
   useEffect(() => {
     if (!characters.length) {
@@ -88,6 +119,11 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
     }
     if (!selectedId || !characters.some((character) => character.id === selectedId)) setSelectedId(characters[0].id);
   }, [characters, selectedId]);
+
+  useEffect(() => {
+    const restored = loadCharacterGeminiQueue(projectId);
+    publishGeminiQueue(restored ? restoreCharacterQueueForSession(restored) : null);
+  }, [projectId]);
 
   const filteredCharacters = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -98,6 +134,24 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
         .some((value) => value?.toLocaleLowerCase().includes(query)),
     );
   }, [characters, search]);
+
+  const characterById = useMemo(() => new Map(characters.map((character) => [character.id, character])), [characters]);
+  const currentQueueCharacterId = geminiQueue?.characterIds[geminiQueue.currentIndex] ?? null;
+  const currentQueueCharacter = currentQueueCharacterId ? characterById.get(currentQueueCharacterId) ?? null : null;
+  const queueProcessedCount = geminiQueue ? geminiQueue.completedCharacterIds.length + geminiQueue.skippedCharacterIds.length : 0;
+  const geminiQueueActive = Boolean(geminiQueue && geminiQueue.status !== "COMPLETED");
+
+  useEffect(() => {
+    if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
+    const reconciled = reconcileCharacterQueue(geminiQueue, new Set(characters.map((character) => character.id)));
+    if (reconciled !== geminiQueue) publishGeminiQueue(reconciled);
+  }, [characters, geminiQueue]);
+
+  useEffect(() => {
+    if (currentQueueCharacterId && geminiQueueActive && selectedId !== currentQueueCharacterId) {
+      setSelectedId(currentQueueCharacterId);
+    }
+  }, [currentQueueCharacterId, geminiQueueActive, selectedId]);
 
   const selectedSummary = characters.find((character) => character.id === selectedId) ?? null;
   const detailQuery = useCharacterDetail(projectId, selectedId);
@@ -120,6 +174,129 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
     }
   }
 
+  async function refreshCharacter(characterId: string, versionId: string) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters"] }),
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters", characterId] }),
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters", characterId, "versions", versionId, "references"] }),
+    ]);
+  }
+
+  async function generateCharacterIdentity(characterId: string): Promise<QueueGenerationResult> {
+    if (generatingCharacterId) return "failed";
+    setGeneratingCharacterId(characterId);
+    setSelectedId(characterId);
+    try {
+      const character = await charactersApi.detail(projectId, characterId);
+      const version = character.version;
+      if (!version?.id) {
+        setNotice(`Character All · Skip “${character.canonicalName}”: chưa có character version.`);
+        return "skipped";
+      }
+
+      const references = await charactersApi.versionReferences(characterId, version.id);
+      if (references.some((reference) => reference.role.toUpperCase() === "IDENTITY")) {
+        setNotice(`Character All · Skip “${character.canonicalName}”: đã có IDENTITY reference.`);
+        return "skipped";
+      }
+
+      if (version.status === "REVIEW" || version.status === "LOCKED") {
+        setNotice(`Character All · Skip “${character.canonicalName}”: version đang ${normalizeLabel(version.status)}.`);
+        return "skipped";
+      }
+
+      const prompt = version.prompt?.trim() ?? "";
+      if (!prompt) {
+        setNotice(`Character All tạm dừng tại “${character.canonicalName}”: backend chưa trả generation prompt.`);
+        return "failed";
+      }
+
+      setNotice(`Character All · Đang generate IDENTITY cho “${character.canonicalName}”…`);
+      await generateCharacterIdentityReference({ projectId, characterId, versionId: version.id, prompt });
+      await refreshCharacter(characterId, version.id);
+      setNotice(`Character All · Đã generate IDENTITY cho “${character.canonicalName}”.`);
+      return "generated";
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể generate character identity reference."));
+      return "failed";
+    } finally {
+      setGeneratingCharacterId(null);
+    }
+  }
+
+  async function runGeminiQueue(initialQueue: CharacterGeminiQueueState, runToken: number) {
+    let queue: CharacterGeminiQueueState = { ...initialQueue, status: "RUNNING" };
+    const processed = new Set([...queue.completedCharacterIds, ...queue.skippedCharacterIds]);
+
+    for (let index = queue.currentIndex; index < queue.characterIds.length; index += 1) {
+      if (runToken !== geminiRunTokenRef.current) return;
+      const characterId = queue.characterIds[index];
+      if (processed.has(characterId)) continue;
+      if (!characterById.has(characterId)) {
+        processed.add(characterId);
+        queue = markCharacterQueueSkipped(queue, characterId);
+        publishGeminiQueue(queue);
+        continue;
+      }
+
+      queue = { ...queue, currentIndex: index, status: "RUNNING" };
+      publishGeminiQueue(queue);
+      const result = await generateCharacterIdentity(characterId);
+      if (runToken !== geminiRunTokenRef.current) return;
+
+      if (result === "generated") {
+        processed.add(characterId);
+        queue = markCharacterQueueCompleted(queue, characterId);
+        publishGeminiQueue(queue);
+        continue;
+      }
+      if (result === "skipped") {
+        processed.add(characterId);
+        queue = markCharacterQueueSkipped(queue, characterId);
+        publishGeminiQueue(queue);
+        continue;
+      }
+
+      publishGeminiQueue({ ...queue, status: "PAUSED" });
+      return;
+    }
+
+    if (runToken !== geminiRunTokenRef.current) return;
+    const completedQueue: CharacterGeminiQueueState = { ...queue, currentIndex: queue.characterIds.length, status: "COMPLETED" };
+    publishGeminiQueue(completedQueue);
+    setNotice(`Character All hoàn tất: ${completedQueue.completedCharacterIds.length} generated, ${completedQueue.skippedCharacterIds.length} skipped.`);
+  }
+
+  async function startGeminiAll() {
+    const queue = createCharacterGeminiQueue(projectId, characters);
+    if (!queue) return;
+    publishGeminiQueue(queue);
+    await runGeminiQueue(queue, ++geminiRunTokenRef.current);
+  }
+
+  async function resumeGeminiAll() {
+    if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
+    const resumed = { ...geminiQueue, status: "RUNNING" as const };
+    publishGeminiQueue(resumed);
+    await runGeminiQueue(resumed, ++geminiRunTokenRef.current);
+  }
+
+  async function skipCurrentGeminiCharacter() {
+    if (!geminiQueue || !currentQueueCharacterId || geminiQueue.status === "COMPLETED") return;
+    const skipped = markCharacterQueueSkipped(geminiQueue, currentQueueCharacterId);
+    publishGeminiQueue(skipped);
+    if (skipped.status === "COMPLETED") return;
+    const resumed = { ...skipped, status: "RUNNING" as const };
+    publishGeminiQueue(resumed);
+    await runGeminiQueue(resumed, ++geminiRunTokenRef.current);
+  }
+
+  function stopGeminiAll() {
+    geminiRunTokenRef.current += 1;
+    if (geminiQueue && geminiQueue.status !== "COMPLETED") publishGeminiQueue({ ...geminiQueue, status: "PAUSED" });
+    setNotice("Đã dừng Character All. Tác vụ Gemini đang chạy sẽ không tiếp tục sang character kế tiếp.");
+  }
+
   return (
     <FeaturePage title="Character Library" description="Quản lý canonical identity, reference approval và continuity trước khi generate storyboard.">
       <div className="flex h-full min-h-0 flex-col gap-3">
@@ -133,13 +310,25 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
               Aliases
               <Input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="Tên gọi khác, phân cách bằng dấu phẩy" />
             </label>
-            <Button type="submit" disabled={!name.trim() || createCharacter.isPending}><Plus size={14} /> {createCharacter.isPending ? "Creating…" : "Create character"}</Button>
+            <Button type="submit" disabled={!name.trim() || createCharacter.isPending || geminiQueueActive}><Plus size={14} /> {createCharacter.isPending ? "Creating…" : "Create character"}</Button>
           </form>
           <div className="relative min-w-[240px] flex-[0_1_360px]">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên, alias, vai trò, nhóm…" className="pl-9" />
           </div>
         </div>
+
+        <CharacterGeminiQueueBanner
+          queue={geminiQueue}
+          currentCharacterName={currentQueueCharacter?.canonicalName ?? null}
+          processedCount={queueProcessedCount}
+          busy={Boolean(generatingCharacterId)}
+          onStart={() => void startGeminiAll()}
+          onResume={() => void resumeGeminiAll()}
+          onSkip={() => void skipCurrentGeminiCharacter()}
+          onStop={stopGeminiAll}
+          onDismiss={() => publishGeminiQueue(null)}
+        />
 
         {notice && <p role="status" aria-live="polite" className="px-1 text-[10px] text-muted-foreground">{notice}</p>}
 
@@ -182,7 +371,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                   {detailQuery.isError && <div className="border-b border-border-subtle bg-destructive/5 px-4 py-2 text-[10px] text-destructive">Không tải được dữ liệu chi tiết. Đang hiển thị dữ liệu tóm tắt.</div>}
 
                   <div className="grid gap-3 p-3 2xl:grid-cols-2">
-                    <CharacterReferenceStudio projectId={projectId} character={detail} />
+                    <CharacterReferenceStudio projectId={projectId} character={detail} generationLocked={geminiQueueActive} />
 
                     <div className="rounded-lg border border-border bg-surface-dark p-3">
                       <div className="mb-2 flex items-center gap-2"><Tags size={14} className="text-primary-hover" /><h3 className="text-xs font-semibold">Project identity</h3></div>
