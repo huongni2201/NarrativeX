@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { assetsApi } from "../../assets/api/assets.api";
 import { narrationApi } from "../../generation/api/narration.api";
+import { voicesApi } from "../api/voices.api";
 
 const PREVIEW_URL_REFRESH_SKEW_MS = 60_000;
 
 export function useVoiceReferenceAsset(assetId: string | null) {
   return useQuery({
-    queryKey: ["assets", "voice-reference", assetId ?? "none"],
-    queryFn: () => assetsApi.get(assetId as string),
+    queryKey: ["voice-references", assetId ?? "none"],
+    queryFn: () => voicesApi.getReference(assetId as string),
     enabled: Boolean(assetId),
     refetchInterval: (current) => {
       const status = current.state.data?.status;

@@ -4,10 +4,7 @@ import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCu
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursorCodec;
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
-import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
-import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -25,17 +22,23 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaAssetAccess {
   private final MediaAssetMapper mapper;
-  private final MediaAssetTransitionService transitionService;
 
   @Override
   @Transactional(readOnly = true)
   public CursorPage<MediaAssetView> list(
-      String accountId, String type, String status, String search, String cursor, int limit) {
+      String accountId,
+      UUID projectId,
+      String type,
+      String status,
+      String search,
+      String cursor,
+      int limit) {
     validateLimit(limit);
     MediaAssetCursor key = MediaAssetCursorCodec.decode(cursor);
     List<MediaAssetRow> rows =
         mapper.findPage(
             accountId,
+            projectId,
             normalizeOptional(type),
             normalizeOptional(status),
             normalizeOptional(search),
@@ -59,56 +62,22 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
 
   @Override
   @Transactional
-  public MediaAssetView createOrReuseVerifiedAsset(
-      String accountId, CreateVerifiedMediaAsset command) {
-    String sha256 = command.sha256().toLowerCase(Locale.ROOT);
-    UUID canonicalId = mapper.claimChecksum(accountId, sha256, command.proposedId());
-    if (canonicalId == null) {
-      canonicalId = mapper.findCanonicalAssetId(accountId, sha256);
-    }
-    if (canonicalId == null) {
-      throw new IllegalStateException("Checksum claim disappeared before asset materialization");
-    }
-
-    if (canonicalId.equals(command.proposedId())) {
-      MediaAssetRow row =
-          new MediaAssetRow(
-              command.proposedId(),
-              accountId,
-              command.type(),
-              command.origin(),
-              command.storageKey(),
-              command.originalFilename(),
-              command.contentType(),
-              command.sizeBytes(),
-              sha256,
-              command.durationMs(),
-              MediaAssetStatus.VALIDATING.name(),
-              null,
-              null,
-              null);
-      UUID insertedId = mapper.insertVerified(row);
-      if (insertedId == null || !insertedId.equals(canonicalId)) {
-        throw new IllegalStateException("Canonical checksum claim was not materialized");
-      }
-    }
-    return requireOwned(accountId, canonicalId);
-  }
-
-  @Override
-  @Transactional
   public MediaAssetView createLocalAsset(String accountId, CreateLocalMediaAsset command) {
     if (!List.of("AUDIO", "IMAGE", "VIDEO").contains(command.type())) {
-      throw new IllegalArgumentException("Local asset type must be AUDIO, IMAGE, or VIDEO");
+      throw new IllegalArgumentException("Project asset type must be AUDIO, IMAGE, or VIDEO");
+    }
+    if (command.projectId() == null) {
+      throw new IllegalArgumentException("Project asset requires projectId");
     }
     if (command.sizeBytes() <= 0
         || command.sha256() == null
         || !command.sha256().matches("^[0-9a-fA-F]{64}$")) {
-      throw new IllegalArgumentException("Local asset size and SHA-256 are invalid");
+      throw new IllegalArgumentException("Project asset size and SHA-256 are invalid");
     }
     MediaAssetRow row = new MediaAssetRow();
     row.setId(command.proposedId() == null ? UUID.randomUUID() : command.proposedId());
     row.setAccountId(accountId);
+    row.setProjectId(command.projectId());
     row.setAssetType(command.type());
     row.setOriginalFilename(command.originalFilename());
     row.setContentType(command.contentType());
@@ -116,74 +85,30 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     row.setSha256(command.sha256().toLowerCase(Locale.ROOT));
     row.setDurationMs(command.durationMs());
     mapper.insertLocal(row);
-    return requireOwned(accountId, row.getId());
-  }
-
-  @Override
-  @Transactional
-  public MediaAssetView startUpload(String accountId, UUID id) {
-    return transition(accountId, id, MediaAssetStatus.UPLOADING, mapper::markUploading);
-  }
-
-  @Override
-  @Transactional
-  public MediaAssetView startValidation(String accountId, UUID id) {
-    return transition(accountId, id, MediaAssetStatus.VALIDATING, mapper::markValidating);
+    return requireOwned(accountId, command.projectId(), row.getId());
   }
 
   @Override
   @Transactional(readOnly = true)
-  public MediaAssetView findOwned(String accountId, UUID id) {
-    return toView(requireOwnedRow(accountId, id));
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public MediaAssetView findVerifiedByChecksum(String accountId, String sha256) {
-    MediaAssetRow row = mapper.findVerifiedByChecksum(accountId, sha256);
-    return row == null ? null : toView(row);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public boolean isReferencedByReadyAsset(String storageKey) {
-    return mapper.isReferencedByReadyAsset(storageKey);
+  public MediaAssetView findOwned(String accountId, UUID projectId, UUID id) {
+    return toView(requireOwnedRow(accountId, projectId, id));
   }
 
   @Override
   @Transactional
-  public MediaAssetView reject(String accountId, UUID id) {
-    return transition(accountId, id, MediaAssetStatus.REJECTED, mapper::reject);
-  }
-
-  @Override
-  @Transactional
-  public void delete(String accountId, UUID id) {
-    MediaAssetRow current = requireOwnedRow(accountId, id);
-    transitionService.requireAllowed(statusOf(current), MediaAssetStatus.DELETED);
-    if (mapper.softDelete(accountId, id) != 1) {
-      throw optimisticConflict(id);
+  public void delete(String accountId, UUID projectId, UUID id) {
+    requireOwnedRow(accountId, projectId, id);
+    if (mapper.softDelete(accountId, projectId, id) != 1) {
+      throw new OptimisticLockingFailureException(
+          "Media asset " + id + " was modified concurrently or is still referenced");
     }
-    mapper.releaseChecksum(accountId, id);
-  }
-
-  private MediaAssetView transition(
-      String accountId, UUID id, MediaAssetStatus nextStatus, TransitionOperation operation) {
-    MediaAssetRow current = requireOwnedRow(accountId, id);
-    transitionService.requireAllowed(statusOf(current), nextStatus);
-    if (operation.update(accountId, id) != 1) {
-      throw optimisticConflict(id);
-    }
-    return requireOwned(accountId, id);
   }
 
   @Override
   @Transactional(readOnly = true)
   public Optional<MediaAssetSummary> findOwnedSummary(String ownerId, UUID assetId) {
-    MediaAssetRow row = mapper.findOwned(ownerId, assetId);
-    if (row == null) {
-      return Optional.empty();
-    }
+    MediaAssetRow row = mapper.findOwnedByAccount(ownerId, assetId);
+    if (row == null) return Optional.empty();
     return Optional.of(
         new MediaAssetSummary(
             row.getId(),
@@ -193,18 +118,14 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
             row.getDetectedContentType()));
   }
 
-  private MediaAssetRow requireOwnedRow(String accountId, UUID id) {
-    MediaAssetRow row = mapper.findOwned(accountId, id);
-    if (row == null) throw new ResourceNotFoundException("Asset not found");
+  private MediaAssetRow requireOwnedRow(String accountId, UUID projectId, UUID id) {
+    MediaAssetRow row = mapper.findOwned(accountId, projectId, id);
+    if (row == null) throw new ResourceNotFoundException("Project asset not found");
     return row;
   }
 
-  private MediaAssetView requireOwned(String accountId, UUID id) {
-    return toView(requireOwnedRow(accountId, id));
-  }
-
-  private static MediaAssetStatus statusOf(MediaAssetRow row) {
-    return MediaAssetStatus.valueOf(row.getStatus());
+  private MediaAssetView requireOwned(String accountId, UUID projectId, UUID id) {
+    return toView(requireOwnedRow(accountId, projectId, id));
   }
 
   private static MediaAssetView toView(MediaAssetRow row) {
@@ -227,27 +148,16 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
         row.getHeight(),
         row.getValidationErrorCode(),
         row.getValidationErrorDetail(),
-        row.getValidatedAt(),
-        row.getStorageMode());
-  }
-
-  private static OptimisticLockingFailureException optimisticConflict(UUID id) {
-    return new OptimisticLockingFailureException(
-        "Media asset " + id + " was modified concurrently");
+        row.getValidatedAt());
   }
 
   private static String normalizeOptional(String value) {
-    return value == null || value.isBlank() ? null : value.trim().toUpperCase();
+    return value == null || value.isBlank() ? null : value.trim().toUpperCase(Locale.ROOT);
   }
 
   private static void validateLimit(int limit) {
     if (limit < 1 || limit > 100) {
       throw new IllegalArgumentException("limit must be between 1 and 100");
     }
-  }
-
-  @FunctionalInterface
-  private interface TransitionOperation {
-    int update(String accountId, UUID id);
   }
 }

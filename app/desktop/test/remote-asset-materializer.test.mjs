@@ -10,10 +10,11 @@ import { ProjectStorage } from "../src/main/local-storage/project-storage.ts";
 
 const projectId = "00000000-0000-0000-0000-000000000003";
 
-function backendApi(downloadUrl) {
+function backendApi(downloadUrl, requestedPaths = []) {
   return {
     async request({ path }) {
-      if (path.endsWith("/download-url")) {
+      requestedPaths.push(path);
+      if (path.includes("/download-url?")) {
         return { status: 200, bodyText: JSON.stringify({ success: true, data: { url: downloadUrl, filename: "image.png" } }) };
       }
       return { status: 200, bodyText: JSON.stringify({ success: true, data: { id: "asset-1", type: "IMAGE", contentType: "image/png", sizeBytes: 1, sha256: "a".repeat(64), status: "READY" } }) };
@@ -21,7 +22,7 @@ function backendApi(downloadUrl) {
   };
 }
 
-test("remote materialization reuses an already-local character reference without backend download", async () => {
+test("project materialization reuses an already-local character reference without backend handoff", async () => {
   const root = await mkdtemp(join(tmpdir(), "narrativex-local-reference-"));
   const source = join(root, "character.png");
   await writeFile(source, Buffer.from("character-reference"));
@@ -113,22 +114,30 @@ test("chapter narration materialization resolves the project-local audio through
   }
 });
 
-test("remote materialization rejects URLs that are not safe main-process downloads", async () => {
+test("project asset handoff includes project scope and rejects unsafe URLs", async () => {
   const storage = new ProjectStorage("./.test-remote-materializer");
-  const materializer = new RemoteAssetMaterializer(storage, backendApi("http://evil.example/image.png"));
+  const requestedPaths = [];
+  const materializer = new RemoteAssetMaterializer(
+    storage,
+    backendApi("http://evil.example/image.png", requestedPaths),
+  );
   await assert.rejects(
-    materializer.materialize({ projectId, assetId: "asset-1", downloadUrl: "https://renderer-controlled.example/file" }),
+    materializer.materialize({ projectId, assetId: "asset-1" }),
     /HTTPS outside localhost/i,
   );
+  assert.deepEqual(requestedPaths, [
+    `/api/v1/assets/asset-1?projectId=${projectId}`,
+    `/api/v1/assets/asset-1/download-url?projectId=${projectId}`,
+  ]);
 });
 
-test("remote materialization rejects credential-bearing signed URL metadata", async () => {
+test("project asset handoff rejects credential-bearing signed URL metadata", async () => {
   const storage = new ProjectStorage("./.test-remote-materializer");
   const materializer = new RemoteAssetMaterializer(storage, backendApi("https://user:password@example.com/image.png"));
   await assert.rejects(materializer.materialize({ projectId, assetId: "asset-1" }), /credentials/i);
 });
 
-test("remote materialization rejects path-like identifiers before backend lookup", async () => {
+test("project materialization rejects path-like identifiers before backend lookup", async () => {
   let requests = 0;
   const storage = new ProjectStorage("./.test-remote-materializer");
   const materializer = new RemoteAssetMaterializer(storage, {

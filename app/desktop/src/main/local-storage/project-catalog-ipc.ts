@@ -36,12 +36,6 @@ export function registerProjectCatalogIpc(
     if (!isCatalogUpsertInput(input)) throw new Error("Invalid local project catalog input.");
     return catalog.upsert(input.project, input.metadata);
   });
-  registerTrustedIpcHandler("desktop:projects-local:reconcile", trustPolicy, (input) => {
-    if (!isCatalogReconcileInput(input)) {
-      throw new Error("Invalid local project catalog reconcile input.");
-    }
-    return catalog.reconcile(input.projects, input.metadata);
-  });
 
   registerTrustedIpcHandlerWithEvent(
     "desktop:render:choose-destination",
@@ -99,19 +93,6 @@ function isCatalogUpsertInput(value: unknown): value is {
   return isProject(input.project) && isMetadata(input.metadata);
 }
 
-function isCatalogReconcileInput(value: unknown): value is {
-  projects: DesktopProject[];
-  metadata?: LocalProjectCatalogMetadata;
-} {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const input = value as Record<string, unknown>;
-  return (
-    Array.isArray(input.projects) &&
-    input.projects.every(isProject) &&
-    isMetadata(input.metadata)
-  );
-}
-
 function isRenderDeliveryInput(value: unknown): value is {
   token: string;
   projectId: string;
@@ -148,12 +129,8 @@ function isMetadata(value: unknown): value is LocalProjectCatalogMetadata | unde
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const metadata = value as Record<string, unknown>;
   return (
-    optionalNullableString(metadata.ownerId) &&
-    optionalNullableString(metadata.cloudProjectId) &&
-    (metadata.syncStatus === undefined ||
-      ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED", "ORPHANED"].includes(
-        String(metadata.syncStatus),
-      ))
+    Object.keys(metadata).every((key) => key === "ownerId") &&
+    optionalNullableString(metadata.ownerId)
   );
 }
 

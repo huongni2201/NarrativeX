@@ -4,7 +4,6 @@
   <select id="listBeatMedia" resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderBeatMediaRow">
     SELECT visual_beat_id AS visualBeatId,
            media_type AS mediaType,
-           storage_mode AS storageMode,
            source_duration_ms AS sourceDurationMs,
            fit_mode AS fitMode,
            trim_start_ms AS trimStartMs

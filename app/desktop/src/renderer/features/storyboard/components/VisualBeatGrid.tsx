@@ -256,11 +256,9 @@ function BeatImagePreview({
   const timelineImageAssetId =
     timelineBeat?.mediaType === "IMAGE" ? timelineBeat.mediaAssetId : null;
   const previewAssetId = beat.previewMediaAssetId ?? timelineImageAssetId;
-  const previewStorageMode = beat.previewMediaAssetId ? null : timelineBeat?.storageMode;
   const preview = useStoryboardImagePreview({
     projectId,
     assetId: previewAssetId,
-    storageMode: previewStorageMode,
     enabled: Boolean(previewAssetId),
   });
 

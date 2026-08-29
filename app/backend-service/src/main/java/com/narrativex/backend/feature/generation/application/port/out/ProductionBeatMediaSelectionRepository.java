@@ -20,7 +20,6 @@ public interface ProductionBeatMediaSelectionRepository {
   record SelectableMediaAsset(
       UUID mediaAssetId,
       String mediaType,
-      String storageMode,
       Long durationMs,
       long sizeBytes,
       String checksum) {}

@@ -221,9 +221,6 @@ function validateBeatMedia(beat: ClaimedProjectRenderBeat): void {
   if (beat.mediaType !== "IMAGE" && beat.mediaType !== "VIDEO") {
     throw new Error(`Visual beat ${beat.visualBeatId} has an unsupported media type.`);
   }
-  if (!["REMOTE", "PROJECT_LOCAL", "LOCAL_ONLY", "HYBRID"].includes(beat.storageMode)) {
-    throw new Error(`Visual beat ${beat.visualBeatId} has an invalid storage mode.`);
-  }
   if (!Number.isFinite(beat.trimStartMs) || beat.trimStartMs < 0) {
     throw new Error(`Visual beat ${beat.visualBeatId} has an invalid trim start.`);
   }

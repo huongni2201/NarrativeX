@@ -23,13 +23,14 @@ class AssetLibraryControllerContractTest {
       new AssetLibraryController(useCase, mediaStorageAccess);
 
   @Test
-  void registerLocalReturnsCreatedEnvelopeAndForwardsRequest() {
+  void registerLocalReturnsCreatedEnvelopeAndForwardsProjectScope() {
     UUID assetId = UUID.randomUUID();
+    UUID projectId = UUID.randomUUID();
     var view =
         new MediaAssetView(
             assetId,
             "IMAGE",
-            "LOCAL_ONLY",
+            "USER_UPLOAD",
             null,
             "scene.png",
             "image/png",
@@ -38,16 +39,18 @@ class AssetLibraryControllerContractTest {
             null,
             "READY",
             Instant.parse("2026-08-25T00:00:00Z"));
-    when(useCase.registerLocal(any(), any(), any(), any(Long.TYPE), any(), any())).thenReturn(view);
+    when(useCase.registerLocal(any(), any(), any(), any(), any(Long.TYPE), any(), any()))
+        .thenReturn(view);
 
     var response =
         controller.registerLocal(
             new RegisterLocalAssetRequest(
-                "IMAGE", "scene.png", "image/png", 1024, "a".repeat(64), null));
+                projectId, "IMAGE", "scene.png", "image/png", 1024, "a".repeat(64), null));
 
     assertEquals(HttpStatus.CREATED, response.getStatusCode());
     assertEquals(assetId, response.getBody().data().id());
-    assertEquals("LOCAL_ONLY", response.getBody().data().origin());
-    verify(useCase).registerLocal("IMAGE", "scene.png", "image/png", 1024, "a".repeat(64), null);
+    assertEquals("USER_UPLOAD", response.getBody().data().origin());
+    verify(useCase)
+        .registerLocal(projectId, "IMAGE", "scene.png", "image/png", 1024, "a".repeat(64), null);
   }
 }

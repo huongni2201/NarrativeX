@@ -1,6 +1,5 @@
 import {
   useMutation,
-  useQuery,
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -163,53 +162,15 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
 export function useStoryboardImagePreview({
   projectId,
   assetId,
-  storageMode,
-  enabled,
 }: Readonly<{
   projectId: string;
   assetId: string | null | undefined;
-  storageMode: string | null | undefined;
   enabled: boolean;
 }>) {
-  const asset = useQuery({
-    queryKey: ["assets", assetId ?? "none"],
-    queryFn: () => assetsApi.get(assetId as string),
-    enabled: Boolean(assetId && enabled && !storageMode),
-  });
-  const resolvedStorageMode = storageMode ?? asset.data?.storageMode ?? asset.data?.origin;
-  const resolvedInitialPreview = assetId
-    ? resolveStoryboardImagePreview({
-      projectId,
-      assetId,
-      storageMode: resolvedStorageMode,
-      remoteUrl: null,
-    })
-    : null;
-  const remotePreview = useQuery({
-    queryKey: ["assets", assetId ?? "none", "download-url"],
-    queryFn: () => assetsApi.downloadUrl(assetId as string),
-    enabled: Boolean(
-      assetId &&
-      enabled &&
-      resolvedStorageMode &&
-      resolvedInitialPreview?.requiresRemoteUrl
-    ),
-    staleTime: 30_000,
-  });
-
-  const preview = assetId
-    ? resolveStoryboardImagePreview({
-      projectId,
-      assetId,
-      storageMode: resolvedStorageMode,
-      remoteUrl: remotePreview.data?.url,
-    })
-    : null;
-
+  const preview = assetId ? resolveStoryboardImagePreview({ projectId, assetId }) : null;
   return {
-    ...remotePreview,
-    isLoading: asset.isLoading || remotePreview.isLoading,
-    isError: asset.isError || remotePreview.isError,
+    isLoading: false,
+    isError: false,
     data: preview?.url ? { url: preview.url } : undefined,
   };
 }

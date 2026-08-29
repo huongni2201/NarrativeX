@@ -64,7 +64,6 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
                     row.getAudioDurationMs(),
                     row.getMediaAssetId(),
                     row.getMediaType(),
-                    row.getStorageMode(),
                     row.getSourceDurationMs(),
                     row.getFitMode(),
                     row.getTrimStartMs(),

@@ -5,10 +5,14 @@ from uuid import UUID
 
 import pytest
 
-from narrativex_worker.image_generation_repository.materialization import ImageMaterializationMixin
+from narrativex_worker.image_generation_repository.materialization import (
+    ImageMaterializationMixin,
+)
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageGenerationResult
 from narrativex_worker.schema import ModerationDecision
+
+PROJECT_ID = UUID("018f0000-0000-7000-8000-000000000005")
 
 
 class _Transaction:
@@ -22,11 +26,13 @@ class _Transaction:
 class _Connection:
     def __init__(self) -> None:
         self.execute_calls: list[tuple[str, tuple[Any, ...]]] = []
+        self.fetchrow_queries: list[str] = []
 
     def transaction(self) -> _Transaction:
         return _Transaction()
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
+        self.fetchrow_queries.append(query)
         if "SELECT mgi.id" in query:
             return {
                 "id": UUID("018f0000-0000-7000-8000-000000000001"),
@@ -36,12 +42,10 @@ class _Connection:
                 "visual_beat_id": UUID("018f0000-0000-7000-8000-000000000002"),
                 "generation_job_id": UUID("018f0000-0000-7000-8000-000000000003"),
                 "media_plan_id": UUID("018f0000-0000-7000-8000-000000000004"),
-                "project_id": UUID("018f0000-0000-7000-8000-000000000005"),
+                "project_id": PROJECT_ID,
                 "requested_by_user_id": "user-1",
                 "chapter_id": UUID("018f0000-0000-7000-8000-000000000006"),
             }
-        if "FROM media_asset_checksums" in query:
-            return None
         raise AssertionError(f"Unexpected fetchrow query: {query}")
 
     async def execute(self, query: str, *args: Any) -> str:
@@ -77,7 +81,7 @@ class _Repository(ImageMaterializationMixin):
 
 
 @pytest.mark.asyncio
-async def test_new_image_asset_and_lineage_use_uuidv7_and_project_local_storage() -> None:
+async def test_new_image_asset_is_project_scoped_without_account_wide_checksum_reuse() -> None:
     connection = _Connection()
     repository = _Repository(connection)
     stored = DurableMediaResult(
@@ -120,6 +124,14 @@ async def test_new_image_asset_and_lineage_use_uuidv7_and_project_local_storage(
     assert media_asset_id.version == 7
     assert lineage_id.version == 7
     assert lineage_insert[1][1] == media_asset_id
+
     normalized_insert = " ".join(media_asset_insert[0].split())
-    assert "storage_mode" in normalized_insert
-    assert "'PROJECT_LOCAL'" in normalized_insert
+    assert "project_id" in normalized_insert
+    assert "storage_mode" not in normalized_insert
+    assert "PROJECT_LOCAL" not in normalized_insert
+    assert PROJECT_ID in media_asset_insert[1]
+    assert all("media_asset_checksums" not in query for query in connection.fetchrow_queries)
+    assert all(
+        "INSERT INTO media_asset_checksums" not in query
+        for query, _args in connection.execute_calls
+    )

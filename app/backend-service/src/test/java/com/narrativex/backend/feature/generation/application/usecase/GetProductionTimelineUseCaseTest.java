@@ -40,7 +40,7 @@ class GetProductionTimelineUseCaseTest {
   }
 
   @Test
-  void rendersExactLocalFirstTimelineWithoutMediaPlan() {
+  void rendersExactProjectLocalTimelineWithoutMediaPlan() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -72,7 +72,6 @@ class GetProductionTimelineUseCaseTest {
     assertThat(timeline.beats())
         .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
         .containsExactly(List.of(0L, 4_000L, 4_000L), List.of(4_000L, 10_000L, 6_000L));
-    assertThat(timeline.beats()).allMatch(beat -> "LOCAL_ONLY".equals(beat.storageMode()));
   }
 
   @Test
@@ -80,23 +79,10 @@ class GetProductionTimelineUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(
-            List.of(
-                chapter(
-                    storyVersionId,
-                    chapterId,
-                    0,
-                    10_000L,
-                    "audio/chapter.mp3",
-                    "a".repeat(64),
-                    2)));
+        .thenReturn(List.of(chapter(storyVersionId, chapterId, 0, 10_000L, "audio/chapter.mp3", "a".repeat(64), 2)));
     when(sourceRepository.findBeats(projectId, "owner"))
-        .thenReturn(
-            List.of(
-                beat(chapterId, 0, 0, null, null, "b".repeat(64)),
-                beat(chapterId, 0, 1, null, null, "c".repeat(64))));
+        .thenReturn(List.of(beat(chapterId, 0, 0, null, null, "b".repeat(64)), beat(chapterId, 0, 1, null, null, "c".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
@@ -112,23 +98,10 @@ class GetProductionTimelineUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(
-            List.of(
-                chapter(
-                    storyVersionId,
-                    chapterId,
-                    0,
-                    10_000L,
-                    "audio/chapter.mp3",
-                    "a".repeat(64),
-                    2)));
+        .thenReturn(List.of(chapter(storyVersionId, chapterId, 0, 10_000L, "audio/chapter.mp3", "a".repeat(64), 2)));
     when(sourceRepository.findBeats(projectId, "owner"))
-        .thenReturn(
-            List.of(
-                beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64)),
-                beat(chapterId, 0, 1, 5_000L, 10_000L, "c".repeat(64))));
+        .thenReturn(List.of(beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64)), beat(chapterId, 0, 1, 5_000L, 10_000L, "c".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
@@ -142,18 +115,8 @@ class GetProductionTimelineUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(
-            List.of(
-                chapter(
-                    storyVersionId,
-                    chapterId,
-                    0,
-                    10_000L,
-                    "audio/chapter.mp3",
-                    "a".repeat(64),
-                    2)));
+        .thenReturn(List.of(chapter(storyVersionId, chapterId, 0, 10_000L, "audio/chapter.mp3", "a".repeat(64), 2)));
     BeatSource ready = beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64));
     BeatSource missing =
         new BeatSource(
@@ -171,7 +134,6 @@ class GetProductionTimelineUseCaseTest {
             4_000L,
             10_000L,
             6_000L,
-            null,
             null,
             null,
             null,
@@ -229,10 +191,9 @@ class GetProductionTimelineUseCaseTest {
       Long audioEndMs,
       String checksum) {
     UUID visualBeatId = UUID.randomUUID();
-    Long durationMs =
-        audioStartMs != null && audioEndMs != null && audioEndMs > audioStartMs
-            ? audioEndMs - audioStartMs
-            : null;
+    Long durationMs = audioStartMs != null && audioEndMs != null && audioEndMs > audioStartMs
+        ? audioEndMs - audioStartMs
+        : null;
     return new BeatSource(
         chapterId,
         chapterOrderIndex,
@@ -250,7 +211,6 @@ class GetProductionTimelineUseCaseTest {
         durationMs,
         UUID.randomUUID(),
         "IMAGE",
-        "LOCAL_ONLY",
         null,
         "TRIM",
         0L,

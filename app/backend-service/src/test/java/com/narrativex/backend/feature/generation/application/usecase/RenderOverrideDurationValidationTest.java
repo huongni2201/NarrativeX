@@ -41,7 +41,6 @@ class RenderOverrideDurationValidationTest {
             "USER_SELECTED",
             assetId,
             "VIDEO",
-            "LOCAL_ONLY",
             8_000L,
             "FREEZE_END",
             0L,
@@ -69,7 +68,7 @@ class RenderOverrideDurationValidationTest {
         .thenReturn(
             Optional.of(
                 new SelectableMediaAsset(
-                    assetId, "VIDEO", "LOCAL_ONLY", 8_000L, 100L, "a".repeat(64))));
+                    assetId, "VIDEO", 8_000L, 100L, "a".repeat(64))));
 
     useCase.applyRenderOverrides(
         projectId, List.of(new RenderBeatOverride(beatId, 6_000L, null, "TRIM", 0L)));

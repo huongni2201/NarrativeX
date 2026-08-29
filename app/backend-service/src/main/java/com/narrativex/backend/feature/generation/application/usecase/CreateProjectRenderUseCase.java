@@ -228,7 +228,9 @@ public class CreateProjectRenderUseCase {
         ProductionTimelineView.Beat beat = chapterBeats.get(index);
         RenderBeatOverride override = overrideByBeat.get(beat.visualBeatId());
         long weight =
-            override != null && override.durationMs() != null ? override.durationMs() : beat.durationMs();
+            override != null && override.durationMs() != null
+                ? override.durationMs()
+                : beat.durationMs();
         weights[index] = weight;
         totalWeight = Math.addExact(totalWeight, weight);
       }
@@ -269,7 +271,6 @@ public class CreateProjectRenderUseCase {
                 beat.assetStrategy(),
                 beat.mediaAssetId(),
                 beat.mediaType(),
-                beat.storageMode(),
                 beat.sourceDurationMs(),
                 beat.fitMode(),
                 beat.trimStartMs(),
@@ -363,8 +364,6 @@ public class CreateProjectRenderUseCase {
                         + beat.mediaAssetId()
                         + ":"
                         + beat.mediaType()
-                        + ":"
-                        + beat.storageMode()
                         + ":"
                         + beat.checksum()
                         + ":"

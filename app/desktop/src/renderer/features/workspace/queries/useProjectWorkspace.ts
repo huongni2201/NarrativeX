@@ -41,16 +41,16 @@ type WorkspaceQueryRequirements = Readonly<{
 
 const CATALOG_STALE_TIME_MS = 5 * 60 * 1000;
 
-export const assetLibraryQueryKey = (userId: string, scope: AssetLibraryScope) =>
-  ["assets", "library", userId, scope] as const;
+export const assetLibraryQueryKey = (
+  userId: string,
+  projectId: string,
+  scope: AssetLibraryScope,
+) => ["assets", "library", userId, projectId, scope] as const;
 
 const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
     timeline: true,
     chapters: false,
-    // Editor needs both visual media and narration assets. Restricting this to
-    // "visual" makes LOCAL_ONLY narration look remote and causes preview URL
-    // requests to hit an endpoint that cannot serve that local asset.
     assetScope: "all",
     characters: false,
     voices: false,
@@ -138,6 +138,7 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
   const currentUser = useCurrentUserQuery();
   const projectQuery = useProjectQuery(projectId);
   const enabled = Boolean(projectId);
+  const projectAvailable = enabled && projectQuery.isSuccess;
   const requirements = QUERY_REQUIREMENTS[screen];
   const hasAssets = requirements.assetScope !== null;
   const assetScope = requirements.assetScope ?? "all";
@@ -146,35 +147,39 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
   const timelineQuery = useQuery({
     queryKey: ["projects", projectId, "timeline"],
     queryFn: () => productionApi.getTimeline(projectId as string),
-    enabled: enabled && requirements.timeline,
+    enabled: projectAvailable && requirements.timeline,
   });
   const chaptersQuery = useQuery({
     queryKey: ["projects", projectId, "chapters", timelineQuery.data?.storyVersionId],
     queryFn: () =>
       chaptersApi.listAll(projectId as string, timelineQuery.data?.storyVersionId as string),
     enabled:
-      enabled && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
+      projectAvailable && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
-    queryKey: assetLibraryQueryKey(currentUserId ?? "anonymous", assetScope),
-    queryFn: () => assetsApi.listAll(assetScope),
-    enabled: enabled && hasAssets && Boolean(currentUserId),
+    queryKey: assetLibraryQueryKey(
+      currentUserId ?? "anonymous",
+      projectId ?? "none",
+      assetScope,
+    ),
+    queryFn: () => assetsApi.listAll(projectId as string, assetScope),
+    enabled: projectAvailable && hasAssets && Boolean(currentUserId),
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],
     queryFn: () => charactersApi.listAll(projectId as string),
-    enabled: enabled && requirements.characters,
+    enabled: projectAvailable && requirements.characters,
   });
   const voicesQuery = useQuery({
     queryKey: ["voices"],
     queryFn: voicesApi.list,
-    enabled: enabled && requirements.voices,
+    enabled: projectAvailable && requirements.voices,
     staleTime: CATALOG_STALE_TIME_MS,
   });
   const presetsQuery = useQuery({
     queryKey: ["presets"],
     queryFn: presetsApi.list,
-    enabled: enabled && requirements.presets,
+    enabled: projectAvailable && requirements.presets,
     staleTime: CATALOG_STALE_TIME_MS,
   });
 

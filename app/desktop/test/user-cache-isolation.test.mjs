@@ -16,11 +16,15 @@ test("auth identity changes remove account-scoped query data", () => {
   assert.doesNotMatch(authGuard, /await\s+queryClient\.invalidateQueries\(\)/);
 });
 
-test("asset library cache key includes the current user identity", () => {
+test("asset library cache key includes user and project identity", () => {
   assert.match(
     workspaceQueries,
-    /\[\s*["']assets["']\s*,\s*["']library["']\s*,\s*userId\s*,\s*scope\s*\]/,
+    /\[\s*["']assets["']\s*,\s*["']library["']\s*,\s*userId\s*,\s*projectId\s*,\s*scope\s*\]/,
   );
-  assert.match(workspaceQueries, /assetLibraryQueryKey\(currentUserId\s*\?\?\s*["']anonymous["']/);
-  assert.match(workspaceQueries, /enabled:\s*enabled\s*&&\s*hasAssets\s*&&\s*Boolean\(currentUserId\)/);
+  assert.match(workspaceQueries, /currentUserId\s*\?\?\s*["']anonymous["']/);
+  assert.match(workspaceQueries, /projectId\s*\?\?\s*["']none["']/);
+  assert.match(
+    workspaceQueries,
+    /enabled:\s*projectAvailable\s*&&\s*hasAssets\s*&&\s*Boolean\(currentUserId\)/,
+  );
 });

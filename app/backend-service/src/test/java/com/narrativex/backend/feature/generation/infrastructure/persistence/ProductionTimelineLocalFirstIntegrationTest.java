@@ -84,7 +84,6 @@ class ProductionTimelineLocalFirstIntegrationTest {
             });
     assertThat(beats).hasSize(2);
     assertThat(beats.get(0).getMediaAssetId()).isEqualTo(PREVIEW_A);
-    assertThat(beats.get(0).getStorageMode()).isEqualTo("LOCAL_ONLY");
     assertThat(beats.get(0).getAudioStartMs()).isZero();
     assertThat(beats.get(0).getAudioEndMs()).isEqualTo(4_000L);
     assertThat(beats.get(0).isMediaSelectionActive()).isFalse();
@@ -149,9 +148,9 @@ class ProductionTimelineLocalFirstIntegrationTest {
   }
 
   private void seedMedia() {
-    insertMedia(PREVIEW_A, "preview-a.png", "IMAGE", "LOCAL_ONLY", null, 2048L, "1");
-    insertMedia(PREVIEW_B, "preview-b.png", "IMAGE", "LOCAL_ONLY", null, 2048L, "2");
-    insertMedia(OVERRIDE, "override.mp4", "VIDEO", "LOCAL_ONLY", 12_000L, 4096L, "3");
+    insertMedia(PREVIEW_A, "preview-a.png", "IMAGE", null, 2048L, "1");
+    insertMedia(PREVIEW_B, "preview-b.png", "IMAGE", null, 2048L, "2");
+    insertMedia(OVERRIDE, "override.mp4", "VIDEO", 12_000L, 4096L, "3");
   }
 
   private void seedVisualBeats() {
@@ -204,16 +203,15 @@ class ProductionTimelineLocalFirstIntegrationTest {
       UUID id,
       String filename,
       String assetType,
-      String storageMode,
       Long durationMs,
       long sizeBytes,
       String checksumSeed) {
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, ?, ?, 'LOCAL_ONLY', ?, NULL, ?, ?, ?, repeat(?, 64), ?, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, ?, ?, ?, 'USER_UPLOAD', NULL, ?, ?, ?, repeat(?, 64), ?, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
         id,
         OWNER,
+        PROJECT_ID,
         assetType,
-        storageMode,
         filename,
         "VIDEO".equals(assetType) ? "video/mp4" : "image/png",
         sizeBytes,

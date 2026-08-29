@@ -56,7 +56,7 @@
     INSERT INTO project_render_input_beats (
       generation_job_id, chapter_id, scene_index, beat_index, visual_beat_id, media_asset_id,
       global_start_ms, global_end_ms, duration_ms, camera_movement,
-      media_type, storage_mode, source_duration_ms, fit_mode, trim_start_ms,
+      media_type, source_duration_ms, fit_mode, trim_start_ms,
       media_selection_active, storage_key, size_bytes, checksum
     ) VALUES (
       #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
@@ -65,7 +65,7 @@
       #{beat.visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{beat.mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{beat.startMs}, #{beat.endMs}, #{beat.durationMs}, #{beat.cameraMovement},
-      #{beat.mediaType}, #{beat.storageMode}, #{beat.sourceDurationMs}, #{beat.fitMode},
+      #{beat.mediaType}, #{beat.sourceDurationMs}, #{beat.fitMode},
       #{beat.trimStartMs}, #{beat.mediaSelectionActive},
       #{beat.storageKey}, #{beat.sizeBytes}, #{beat.checksum}
     )

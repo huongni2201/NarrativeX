@@ -45,7 +45,6 @@
     <result property="audioDurationMs" column="audio_duration_ms" />
     <result property="mediaAssetId" column="media_asset_id" />
     <result property="mediaType" column="media_type" />
-    <result property="storageMode" column="storage_mode" />
     <result property="sourceDurationMs" column="source_duration_ms" />
     <result property="fitMode" column="fit_mode" />
     <result property="trimStartMs" column="trim_start_ms" />
@@ -147,6 +146,7 @@
                      JOIN media_assets ma ON ma.id = pbms.media_asset_id
                     WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND pbms.visual_beat_id = vb.id
+                      AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
@@ -157,6 +157,7 @@
                    SELECT 1
                      FROM media_assets ma
                     WHERE ma.id = vb.preview_media_asset_id
+                      AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
@@ -221,7 +222,6 @@
            cb.audio_duration_ms,
            COALESCE(chosen.media_asset_id, preview.media_asset_id) AS media_asset_id,
            COALESCE(chosen.media_type, preview.media_type) AS media_type,
-           COALESCE(chosen.storage_mode, preview.storage_mode) AS storage_mode,
            COALESCE(chosen.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
            CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode ELSE 'TRIM' END AS fit_mode,
            CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms ELSE 0 END AS trim_start_ms,
@@ -233,7 +233,6 @@
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
-               ma.storage_mode,
                ma.duration_ms AS source_duration_ms,
                pbms.fit_mode,
                pbms.trim_start_ms,
@@ -244,6 +243,7 @@
           JOIN media_assets ma ON ma.id = pbms.media_asset_id
          WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND pbms.visual_beat_id = cb.visual_beat_id
+           AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
@@ -255,13 +255,13 @@
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
-               ma.storage_mode,
                ma.duration_ms AS source_duration_ms,
                ma.storage_key,
                ma.size_bytes,
                ma.sha256 AS checksum
           FROM media_assets ma
          WHERE ma.id = cb.preview_media_asset_id
+           AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL

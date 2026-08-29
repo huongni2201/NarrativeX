@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
-import { assetsApi } from "../../assets/api/assets.api";
 import { materializeChapterNarrationPreview } from "../model/chapter-narration-preview";
 
 export interface EditorPreviewSources {
@@ -13,7 +12,6 @@ export interface EditorPreviewSources {
 export function useEditorPreviewSources({
   projectId,
   mediaAssetId,
-  mediaStorageMode,
   narrationChapterId,
   narrationAssetId,
   narrationSizeBytes,
@@ -21,24 +19,15 @@ export function useEditorPreviewSources({
 }: Readonly<{
   projectId: string | null;
   mediaAssetId: string | null;
-  mediaStorageMode?: string | null;
   narrationChapterId: string | null;
   narrationAssetId: string | null;
   narrationSizeBytes: number | null;
   narrationChecksum: string | null;
 }>): EditorPreviewSources {
-  const mediaIsLocalOnly = mediaStorageMode === "LOCAL_ONLY";
-  const localMediaUrl =
+  const mediaUrl =
     projectId && mediaAssetId
       ? localAssetPreviewUrl(projectId, mediaAssetId)
       : null;
-
-  const remoteMedia = useQuery({
-    queryKey: ["assets", mediaAssetId ?? "none", "download-url"],
-    queryFn: () => assetsApi.downloadUrl(mediaAssetId as string),
-    enabled: Boolean(projectId && mediaAssetId && !mediaIsLocalOnly),
-    staleTime: 30_000,
-  });
 
   const localNarration = useQuery({
     queryKey: [
@@ -72,12 +61,8 @@ export function useEditorPreviewSources({
     staleTime: Infinity,
   });
 
-  const mediaUrl =
-    (mediaIsLocalOnly ? localMediaUrl : remoteMedia.data?.url ?? localMediaUrl) ?? null;
   const narrationUrl = localNarration.data ?? null;
-  const loading =
-    (Boolean(mediaAssetId && !mediaIsLocalOnly) && remoteMedia.isLoading) ||
-    (Boolean(narrationAssetId) && localNarration.isLoading);
+  const loading = Boolean(narrationAssetId) && localNarration.isLoading;
   const messages: string[] = [];
   if (!loading && mediaAssetId && !mediaUrl) {
     messages.push("Không lấy được media preview URL.");

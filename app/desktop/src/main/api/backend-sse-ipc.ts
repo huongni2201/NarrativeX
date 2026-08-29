@@ -176,7 +176,6 @@ function registerVoiceReferenceUploadIpc(
           method: "POST",
           headers: { ...mutationHeaders, "Idempotency-Key": idempotencyKey },
           body: JSON.stringify({
-            type: "AUDIO",
             originalFilename,
             contentType,
             expectedSizeBytes: fileInfo.size,

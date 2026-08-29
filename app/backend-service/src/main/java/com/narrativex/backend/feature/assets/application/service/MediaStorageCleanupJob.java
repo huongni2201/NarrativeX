@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.assets.application.service;
 
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository.CleanupTask;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -13,7 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Deletes rejected or duplicate objects only after their durable DB decision commits. */
+/** Deletes rejected or duplicate R2 voice objects only after their durable DB decision commits. */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -27,7 +27,7 @@ public class MediaStorageCleanupJob {
 
   private final MediaStorageCleanupTaskRepository tasks;
   private final ObjectStoragePort objectStorage;
-  private final MediaAssetRepository assets;
+  private final VoiceReferenceAssetRepository voiceReferences;
 
   @Scheduled(fixedDelayString = "${narrativex.storage.upload-cleanup-delay-ms:300000}")
   public void cleanup() {
@@ -35,7 +35,7 @@ public class MediaStorageCleanupJob {
     List<CleanupTask> claimed = tasks.claimDue(BATCH_SIZE, now, now.plus(LEASE));
     for (CleanupTask task : claimed) {
       try {
-        if (assets.isReferencedByReadyAsset(task.storageKey())) {
+        if (voiceReferences.isReferencedByReadyAsset(task.storageKey())) {
           tasks.markCompleted(task.id(), task.attemptCount(), Instant.now());
           continue;
         }

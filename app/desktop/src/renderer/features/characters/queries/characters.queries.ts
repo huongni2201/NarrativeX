@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
-import { assetsApi } from "../../assets/api/assets.api";
 import { charactersApi } from "../api/characters.api";
 import {
   generateCharacterIdentityReference,
@@ -53,30 +52,10 @@ export function useCharacterReferences(
 }
 
 export function useCharacterAssetPreview(projectId: string, assetId: string | null) {
-  const assetQuery = useQuery({
-    queryKey: ["assets", assetId ?? "none", "metadata"],
-    queryFn: () => assetsApi.get(assetId as string),
-    enabled: Boolean(projectId && assetId),
-    staleTime: 30_000,
-  });
-  const isLocalOnly =
-    assetQuery.data?.storageMode === "LOCAL_ONLY" || assetQuery.data?.origin === "LOCAL_ONLY";
-  const remoteQuery = useQuery({
-    queryKey: ["assets", assetId ?? "none", "download-url"],
-    queryFn: () => assetsApi.downloadUrl(assetId as string),
-    enabled: Boolean(projectId && assetId && assetQuery.data && !isLocalOnly),
-    staleTime: 30_000,
-  });
-
   return {
-    url:
-      assetId && isLocalOnly
-        ? localAssetPreviewUrl(projectId, assetId)
-        : remoteQuery.data?.url ?? null,
-    isLoading:
-      assetQuery.isLoading ||
-      Boolean(assetQuery.data && !isLocalOnly && remoteQuery.isLoading),
-    isError: assetQuery.isError || remoteQuery.isError,
+    url: assetId ? localAssetPreviewUrl(projectId, assetId) : null,
+    isLoading: false,
+    isError: false,
   };
 }
 

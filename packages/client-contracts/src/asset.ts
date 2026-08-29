@@ -8,13 +8,13 @@ export interface DesktopAsset {
   status: string;
   createdAt: string;
   durationMs: number | null;
-  storageMode?: "REMOTE" | "LOCAL_ONLY" | "HYBRID";
   storageKey?: string | null;
   sha256?: string;
 }
 
-/** Wire request for POST /api/v1/assets/local. Mirrors RegisterLocalAssetRequest on backend. */
+/** Wire request for POST /api/v1/assets/local. Project media is always project-scoped. */
 export interface RegisterLocalAssetRequest {
+  projectId: string;
   type: "AUDIO" | "IMAGE" | "VIDEO";
   originalFilename: string;
   contentType: string;
@@ -23,18 +23,9 @@ export interface RegisterLocalAssetRequest {
   durationMs?: number | null;
 }
 
-/** Desktop-local registration context. projectId/assetId must never be sent to the backend DTO. */
+/** Desktop-local registration context. assetId remains a client-side materialization identity. */
 export interface LocalAssetRegistration extends RegisterLocalAssetRequest {
-  projectId: string;
   assetId?: string;
-}
-
-export interface LocalMaterializationStatus {
-  assetId: string;
-  state: "AVAILABLE" | "MISSING" | "CORRUPT";
-  sizeBytes: number | null;
-  checksumSha256: string | null;
-  confirmedAt: string | null;
 }
 
 export interface DesktopPreset {

@@ -6,10 +6,13 @@ import com.narrativex.backend.feature.assets.api.response.UploadIntentResponse;
 import com.narrativex.backend.feature.assets.application.command.CreateUploadIntentCommand;
 import com.narrativex.backend.feature.assets.application.usecase.MediaUploadUseCase;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.generation.api.response.VoiceReferenceAssetResponse;
+import com.narrativex.backend.feature.generation.application.usecase.GetVoiceReferenceAssetUseCase;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +25,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/voice-references")
 public class VoiceReferenceUploadController {
   private final MediaUploadUseCase mediaUploadUseCase;
+  private final GetVoiceReferenceAssetUseCase getVoiceReferenceAssetUseCase;
+
+  @GetMapping("/{id}")
+  public ResponseEntity<ApiResponse<VoiceReferenceAssetResponse>> get(@PathVariable UUID id) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Voice reference retrieved",
+            VoiceReferenceAssetResponse.from(getVoiceReferenceAssetUseCase.execute(id))));
+  }
 
   @PostMapping("/upload-intents")
   public ResponseEntity<ApiResponse<UploadIntentResponse>> createUploadIntent(
@@ -33,7 +45,7 @@ public class VoiceReferenceUploadController {
             UploadIntentResponse.from(
                 mediaUploadUseCase.createIntent(
                     new CreateUploadIntentCommand(
-                        request.type(),
+                        "AUDIO",
                         request.originalFilename(),
                         request.contentType(),
                         request.expectedSizeBytes(),

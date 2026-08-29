@@ -23,7 +23,6 @@ public class MyBatisProductionBeatMediaSelectionAdapter
         new SelectableMediaAsset(
             row.mediaAssetId(),
             row.mediaType(),
-            row.storageMode(),
             row.durationMs(),
             row.sizeBytes(),
             row.checksum()));

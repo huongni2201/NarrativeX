@@ -1,4 +1,4 @@
-"""PostgreSQL integration tests for media-validation lease fencing."""
+"""PostgreSQL integration tests for voice-reference validation lease fencing."""
 
 import os
 from collections.abc import AsyncIterator
@@ -30,28 +30,26 @@ async def media_database() -> AsyncIterator[str]:
             DROP TABLE IF EXISTS media_storage_cleanup_tasks;
             DROP TABLE IF EXISTS media_upload_sessions;
             DROP TABLE IF EXISTS media_validation_jobs;
-            DROP TABLE IF EXISTS media_assets;
+            DROP TABLE IF EXISTS voice_reference_assets;
 
-            CREATE TABLE media_assets (
+            CREATE TABLE voice_reference_assets (
                 id UUID PRIMARY KEY,
                 account_id TEXT NOT NULL,
                 status VARCHAR(24) NOT NULL,
                 detected_content_type TEXT,
                 detected_container TEXT,
                 detected_codec TEXT,
-                width INTEGER,
-                height INTEGER,
-                duration_ms BIGINT,
                 validation_error_code TEXT,
                 validation_error_detail TEXT,
                 validated_at TIMESTAMPTZ,
-                checksum_verified_at TIMESTAMPTZ
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                row_version BIGINT NOT NULL DEFAULT 0
             );
 
             CREATE TABLE media_validation_jobs (
                 id UUID PRIMARY KEY,
                 account_id TEXT NOT NULL,
-                media_asset_id UUID NOT NULL UNIQUE REFERENCES media_assets(id),
+                media_asset_id UUID NOT NULL UNIQUE REFERENCES voice_reference_assets(id),
                 storage_key TEXT NOT NULL,
                 declared_type TEXT NOT NULL,
                 declared_content_type TEXT NOT NULL,
@@ -96,7 +94,7 @@ async def media_database() -> AsyncIterator[str]:
             DROP TABLE IF EXISTS media_storage_cleanup_tasks;
             DROP TABLE IF EXISTS media_upload_sessions;
             DROP TABLE IF EXISTS media_validation_jobs;
-            DROP TABLE IF EXISTS media_assets;
+            DROP TABLE IF EXISTS voice_reference_assets;
             """
         )
         await connection.close()
@@ -109,7 +107,7 @@ async def seed_job(database_url: str, *, attempts: int = 0) -> tuple[UUID, UUID]
     try:
         await connection.execute(
             """
-            INSERT INTO media_assets (id, account_id, status)
+            INSERT INTO voice_reference_assets (id, account_id, status)
             VALUES ($1, 'media-test-account', 'VALIDATING')
             """,
             asset_id,
@@ -128,7 +126,7 @@ async def seed_job(database_url: str, *, attempts: int = 0) -> tuple[UUID, UUID]
                 id, account_id, media_asset_id, storage_key, declared_type,
                 declared_content_type, expected_size_bytes, expected_sha256, attempts
             )
-            VALUES ($1, 'media-test-account', $2, 'media/test-object', 'AUDIO',
+            VALUES ($1, 'media-test-account', $2, 'voices/test/reference.mp3', 'AUDIO',
                     'audio/mpeg', 1024, $3, $4)
             """,
             job_id,
@@ -180,7 +178,7 @@ async def test_stale_worker_cannot_complete_after_lease_reclaim(media_database: 
             SELECT j.status, j.worker_id, j.lease_token, a.status AS asset_status,
                    s.status AS session_status, COUNT(c.id) AS cleanup_count
               FROM media_validation_jobs j
-              JOIN media_assets a ON a.id = j.media_asset_id
+              JOIN voice_reference_assets a ON a.id = j.media_asset_id
               JOIN media_upload_sessions s ON s.media_asset_id = a.id
               LEFT JOIN media_storage_cleanup_tasks c ON c.storage_key = j.storage_key
              WHERE j.id = $1
@@ -224,10 +222,10 @@ async def test_complete_handles_production_varchar_asset_status(media_database: 
         state = await repository._require_pool().fetchrow(
             """
             SELECT j.status, j.worker_id, j.lease_token,
-                   a.status AS asset_status, a.checksum_verified_at,
+                   a.status AS asset_status, a.validated_at,
                    s.status AS session_status
               FROM media_validation_jobs j
-              JOIN media_assets a ON a.id = j.media_asset_id
+              JOIN voice_reference_assets a ON a.id = j.media_asset_id
               JOIN media_upload_sessions s ON s.media_asset_id = a.id
              WHERE j.id = $1
             """,
@@ -241,7 +239,7 @@ async def test_complete_handles_production_varchar_asset_status(media_database: 
     assert state["worker_id"] is None
     assert state["lease_token"] is None
     assert state["asset_status"] == "READY"
-    assert state["checksum_verified_at"] is not None
+    assert state["validated_at"] is not None
     assert state["session_status"] == "READY"
     assert asset_id == claimed.media_asset_id
 
@@ -268,7 +266,7 @@ async def test_stale_worker_cannot_exhaust_retry_after_lease_reclaim(media_datab
             SELECT j.status, a.status AS asset_status, s.status AS session_status,
                    COUNT(c.id) AS cleanup_count
               FROM media_validation_jobs j
-              JOIN media_assets a ON a.id = j.media_asset_id
+              JOIN voice_reference_assets a ON a.id = j.media_asset_id
               JOIN media_upload_sessions s ON s.media_asset_id = a.id
               LEFT JOIN media_storage_cleanup_tasks c ON c.storage_key = j.storage_key
              WHERE j.id = $1

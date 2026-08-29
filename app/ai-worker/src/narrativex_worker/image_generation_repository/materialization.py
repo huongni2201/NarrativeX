@@ -49,45 +49,30 @@ class ImageMaterializationMixin(ImageRepositoryMixin):
                     if existing and existing["sha256"] == stored.checksum:
                         return stored
                     raise RuntimeError("IMAGE_MATERIALIZATION_CONFLICT")
-                asset = await connection.fetchrow(
+
+                # Project media is intentionally isolated. Do not reuse a media_asset row
+                # from another project merely because the account/checksum matches.
+                asset_id = uuid7()
+                await connection.execute(
                     """
-                    SELECT media_asset_id
-                      FROM media_asset_checksums
-                     WHERE account_id = $1 AND sha256 = $2
+                    INSERT INTO media_assets
+                        (id, account_id, project_id, asset_type, origin, storage_key,
+                         original_filename, content_type, size_bytes, sha256, status, width,
+                         height, checksum_verified_at)
+                    VALUES ($1, $2, $3, 'IMAGE', 'IMAGE_GENERATED', $4, $5, $6,
+                            $7, $8, 'READY', $9, $10, CURRENT_TIMESTAMP)
                     """,
+                    asset_id,
                     row["requested_by_user_id"],
+                    row["project_id"],
+                    stored.storage_key,
+                    f"{item_key}.png",
+                    stored.mime_type,
+                    len(provider_result.content),
                     stored.checksum,
+                    stored.width,
+                    stored.height,
                 )
-                asset_id = asset["media_asset_id"] if asset else uuid7()
-                if asset is None:
-                    await connection.execute(
-                        """
-                        INSERT INTO media_assets
-                            (id, account_id, asset_type, origin, storage_mode, storage_key,
-                             original_filename, content_type, size_bytes, sha256, status, width,
-                             height, checksum_verified_at)
-                        VALUES ($1, $2, 'IMAGE', 'IMAGE_GENERATED', 'PROJECT_LOCAL', $3, $4, $5,
-                                $6, $7, 'READY', $8, $9, CURRENT_TIMESTAMP)
-                        """,
-                        asset_id,
-                        row["requested_by_user_id"],
-                        stored.storage_key,
-                        f"{item_key}.png",
-                        stored.mime_type,
-                        len(provider_result.content),
-                        stored.checksum,
-                        stored.width,
-                        stored.height,
-                    )
-                    await connection.execute(
-                        """
-                        INSERT INTO media_asset_checksums (account_id, sha256, media_asset_id)
-                        VALUES ($1, $2, $3)
-                        """,
-                        row["requested_by_user_id"],
-                        stored.checksum,
-                        asset_id,
-                    )
                 await connection.execute(
                     """
                     INSERT INTO media_asset_lineage

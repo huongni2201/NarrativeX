@@ -35,7 +35,6 @@ public record ProductionTimelineView(
       int beatCount,
       int readyBeatCount,
       boolean readyForRender) {
-    /** Compatibility constructor for callers that do not consume subtitle alignment yet. */
     public Chapter(
         UUID chapterId,
         int orderIndex,
@@ -93,7 +92,6 @@ public record ProductionTimelineView(
       String assetStrategy,
       UUID mediaAssetId,
       String mediaType,
-      String storageMode,
       Long sourceDurationMs,
       String fitMode,
       long trimStartMs,
@@ -105,7 +103,6 @@ public record ProductionTimelineView(
       long endMs,
       long durationMs,
       boolean assetReady) {
-    /** Compatibility constructor for image-only callers while editor media metadata is adopted. */
     public Beat(
         UUID chapterId,
         int chapterOrderIndex,
@@ -136,7 +133,6 @@ public record ProductionTimelineView(
           assetStrategy,
           mediaAssetId,
           mediaAssetId == null ? null : "IMAGE",
-          storageKey == null ? null : "REMOTE",
           null,
           "TRIM",
           0L,

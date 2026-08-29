@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.command.CreateUploadIntentCommand;
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.CreateUploadSession;
@@ -17,6 +16,8 @@ import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSes
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedUpload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository.VoiceReferenceAsset;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
 import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
@@ -41,7 +42,7 @@ class MediaUploadUseCaseTest {
 
   @Mock private CurrentUserId currentUserId;
   @Mock private MediaUploadSessionRepository sessions;
-  @Mock private MediaAssetRepository assets;
+  @Mock private VoiceReferenceAssetRepository voiceReferences;
   @Mock private MediaStorageCleanupTaskRepository cleanupTasks;
   @Mock private ObjectStoragePort objectStorage;
 
@@ -55,23 +56,21 @@ class MediaUploadUseCaseTest {
             currentUserId,
             sessions,
             objectStorage,
-            new MediaUploadFinalizationService(sessions, assets, cleanupTasks));
+            new MediaUploadFinalizationService(sessions, voiceReferences, cleanupTasks));
     lenient()
-        .when(assets.createOrReuseVerifiedAsset(any(), any()))
+        .when(voiceReferences.createOrReuse(any(), any()))
         .thenAnswer(
             invocation ->
-                new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
-                    invocation.getArgument(1),
-                    "AUDIO",
-                    "USER_UPLOAD",
-                    "storage",
+                new VoiceReferenceAsset(
+                    invocation.<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
+                        .proposedId(),
+                    invocation.<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
+                        .storageKey(),
                     "voice.wav",
                     "audio/wav",
                     128,
                     SHA,
-                    null,
-                    "VALIDATING",
-                    Instant.now()));
+                    "VALIDATING"));
   }
 
   @Test
@@ -168,7 +167,7 @@ class MediaUploadUseCaseTest {
   }
 
   @Test
-  void finalizeCreatesValidatingAssetOnlyAfterStorageMetadataMatches() {
+  void finalizeCreatesValidatingVoiceReferenceOnlyAfterStorageMetadataMatches() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
@@ -178,32 +177,28 @@ class MediaUploadUseCaseTest {
             new StoredObject(
                 session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     UUID assetId = UUID.randomUUID();
-    when(assets.createOrReuseVerifiedAsset(any(), any()))
+    when(voiceReferences.createOrReuse(any(), any()))
         .thenReturn(
-            new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
+            new VoiceReferenceAsset(
                 assetId,
-                session.assetType(),
-                "USER_UPLOAD",
                 session.storageKey(),
                 session.originalFilename(),
                 session.contentType(),
                 session.expectedSize(),
                 SHA,
-                null,
-                "PENDING_UPLOAD",
-                Instant.now()));
+                "VALIDATING"));
     when(sessions.markValidating(ACCOUNT, sessionId, assetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("VALIDATING");
     assertThat(response.mediaAssetId()).isEqualTo(assetId);
-    verify(assets).createOrReuseVerifiedAsset(any(), any());
+    verify(voiceReferences).createOrReuse(any(), any());
     verify(sessions).markValidating(ACCOUNT, sessionId, assetId);
   }
 
   @Test
-  void finalizeReusesExistingVerifiedAssetForDuplicateChecksum() {
+  void finalizeReusesExistingVerifiedVoiceReferenceForDuplicateChecksum() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     UUID existingAssetId = UUID.randomUUID();
@@ -213,27 +208,23 @@ class MediaUploadUseCaseTest {
         .thenReturn(
             new StoredObject(
                 session.storageKey(), session.expectedSize(), session.contentType(), SHA));
-    when(assets.createOrReuseVerifiedAsset(any(), any()))
+    when(voiceReferences.createOrReuse(any(), any()))
         .thenReturn(
-            new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
+            new VoiceReferenceAsset(
                 existingAssetId,
-                session.assetType(),
-                "USER_UPLOAD",
                 "voices/account-a/existing",
                 session.originalFilename(),
                 session.contentType(),
                 session.expectedSize(),
                 SHA,
-                null,
-                "READY",
-                Instant.now()));
+                "READY"));
     when(sessions.markReady(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
-    verify(assets).createOrReuseVerifiedAsset(any(), any());
+    verify(voiceReferences).createOrReuse(any(), any());
     verify(cleanupTasks).enqueue(any(), org.mockito.ArgumentMatchers.eq("DUPLICATE_UPLOAD"), any());
   }
 
@@ -248,20 +239,16 @@ class MediaUploadUseCaseTest {
             new StoredObject(
                 session.storageKey(), session.expectedSize(), "audio/wav; charset=binary", SHA));
     UUID assetId = UUID.randomUUID();
-    when(assets.createOrReuseVerifiedAsset(any(), any()))
+    when(voiceReferences.createOrReuse(any(), any()))
         .thenReturn(
-            new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
+            new VoiceReferenceAsset(
                 assetId,
-                session.assetType(),
-                "USER_UPLOAD",
                 session.storageKey(),
                 session.originalFilename(),
                 session.contentType(),
                 session.expectedSize(),
                 SHA,
-                null,
-                "VALIDATING",
-                Instant.now()));
+                "VALIDATING"));
     when(sessions.markValidating(ACCOUNT, sessionId, assetId)).thenReturn(true);
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
@@ -269,7 +256,7 @@ class MediaUploadUseCaseTest {
   }
 
   @Test
-  void finalizeRejectsChecksumMismatchWithoutPersistingAsset() {
+  void finalizeRejectsChecksumMismatchWithoutPersistingVoiceReference() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
@@ -289,7 +276,7 @@ class MediaUploadUseCaseTest {
     verify(sessions).markRejected(ACCOUNT, sessionId);
     verify(cleanupTasks)
         .enqueue(any(), org.mockito.ArgumentMatchers.eq("UPLOAD_VERIFICATION_FAILED"), any());
-    verify(assets, never()).createOrReuseVerifiedAsset(any(), any());
+    verify(voiceReferences, never()).createOrReuse(any(), any());
   }
 
   @Test
