@@ -14,3 +14,10 @@ test("selection tokens are sender-bound, operation-bound, expiring and single-us
   const otherOperationToken = store.create(10, "asset-import", { sourcePath: "C:/private/input.png" });
   assert.throws(() => store.consume(otherOperationToken, 10, "archive"), /operation/i);
 });
+
+test("peeking selection metadata does not consume a valid token", () => {
+  const store = new SelectionTokenStore();
+  const token = store.create(10, "gemini-image-import", { lane: "CHARACTER" });
+  assert.deepEqual(store.peek(token, 10, "gemini-image-import"), { lane: "CHARACTER" });
+  assert.deepEqual(store.consume(token, 10, "gemini-image-import"), { lane: "CHARACTER" });
+});
