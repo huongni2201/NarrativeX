@@ -55,8 +55,6 @@ const bridge: NarrativeXDesktopBridge = {
     lastOpened: () => ipcRenderer.invoke("desktop:projects-local:last-opened"),
     upsert: (project, metadata) =>
       ipcRenderer.invoke("desktop:projects-local:upsert", { project, metadata }),
-    reconcile: (projects, metadata) =>
-      ipcRenderer.invoke("desktop:projects-local:reconcile", { projects, metadata }),
     touch: (projectId: string) => ipcRenderer.invoke("desktop:projects-local:touch", projectId),
     markArchived: (projectId: string) =>
       ipcRenderer.invoke("desktop:projects-local:mark-archived", projectId),
