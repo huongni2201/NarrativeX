@@ -46,3 +46,13 @@ test("Gemini first-load UI controls are polled instead of checked only once", ()
   assert.match(automationSource, /GEMINI_UI_READY_TIMEOUT_MS/);
   assert.match(automationSource, /while \(Date\.now\(\) < deadline\)/);
 });
+
+test("Gemini reference upload intercepts the dynamic native file chooser", () => {
+  assert.match(automationSource, /Page\.setInterceptFileChooserDialog/);
+  assert.match(automationSource, /Page\.fileChooserOpened/);
+  assert.match(automationSource, /backendNodeId/);
+});
+
+test("Gemini reference upload keeps DOM nodeId fallback separate from chooser backendNodeId", () => {
+  assert.match(automationSource, /backendNodeId\s*\?\s*\{\s*backendNodeId\s*\}\s*:\s*\{\s*nodeId\s*\}/);
+});

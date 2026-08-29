@@ -635,14 +635,12 @@ export class GeminiWebAutomation {
     while (Date.now() < deadline) {
       if (await this.isImageModeReady(cdp)) return;
 
-      // 1. Try to click "Tạo hình ảnh" directly if already on screen/menu
       if (await this.clickCreateImageAction(cdp)) {
         if (await this.waitForImageModeReady(cdp, 4_000)) return;
         await delay(300);
         if (await this.isImageModeReady(cdp)) return;
       }
 
-      // 2. Open the tool menu (+ button or tools button)
       if (await this.openImageModeMenu(cdp)) {
         await delay(500);
 
@@ -743,8 +741,6 @@ export class GeminiWebAutomation {
         const clickable = target.closest('button, a, [role="button"], [role="menuitem"], [role="menuitemcheckbox"], [role="option"], [role="listitem"], li, mat-list-item') || target;
 
         clickable.scrollIntoView({ block: "center", inline: "center" });
-
-        // IMPORTANT: Click exactly ONCE. Do NOT loop over clickable and target (which would double-click menuitemcheckbox and toggle it off!)
         clickable.click();
         return true;
       })()`,
@@ -767,7 +763,6 @@ export class GeminiWebAutomation {
           );
         };
 
-        // If the menu is already open, do not toggle it off
         const existingMenuItems = [
           ...document.querySelectorAll('[role="menuitemcheckbox"], [role="menuitem"], .toolbox-drawer-item-list-button')
         ].filter(visible);
@@ -777,7 +772,6 @@ export class GeminiWebAutomation {
         });
         if (hasOpenMenu) return true;
 
-        // Target the tools button specifically in the composer input area
         const toolButtons = [
           ...document.querySelectorAll(
             'button[aria-label*="tải lên" i], button[aria-label*="công cụ" i], button[aria-label*="tools" i], button[aria-label*="add" i], button[aria-label*="upload" i], button[aria-label*="thêm" i], [aria-haspopup="menu"]'
@@ -793,7 +787,6 @@ export class GeminiWebAutomation {
 
         if (!toolButtons.length) return false;
 
-        // Prefer button with "tải lên và công cụ" or inside composer input area
         const target = toolButtons.find((el) => {
           const label = (el.getAttribute("aria-label") || "").toLowerCase();
           return label.includes("tải lên và công cụ") || label.includes("nội dung tải lên") || label.includes("uploads and tools");
@@ -821,7 +814,6 @@ export class GeminiWebAutomation {
           );
         };
 
-        // 1. Check for Image chip in the composer
         const chips = [...document.querySelectorAll('button')].filter(visible);
         const hasImageChip = chips.some((b) => {
           const aria = (b.getAttribute("aria-label") || "").toLowerCase();
@@ -836,7 +828,6 @@ export class GeminiWebAutomation {
 
         if (hasImageChip) return true;
 
-        // 2. Check if composer placeholder indicates image prompt mode
         const editors = [
           ...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]'),
         ].filter(visible);
@@ -865,7 +856,6 @@ export class GeminiWebAutomation {
 
         if (hasImagePromptEditor) return true;
 
-        // 3. Check for heading "Tạo hình ảnh" / "Create images" at top
         const headings = [...document.querySelectorAll('h1, h2, h3, h4, div, p')].filter(visible);
         const hasHeading = headings.some((element) => {
           const text = (element.innerText || element.textContent || "").trim().toLowerCase();
@@ -1046,10 +1036,8 @@ export class GeminiWebAutomation {
 
           const targets = [${JSON.stringify(presetName.toLowerCase())}, "cinematic", "điện ảnh"];
 
-          // Find exact innermost leaf elements matching "Điện ảnh"
           const candidates = [...document.querySelectorAll('*')].filter((el) => {
             if (!visible(el)) return false;
-            // Ignore preview area in composer
             if (el.closest('.file-preview-container, .user-query-container, .input-area')) return false;
             const t = (el.innerText || el.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
             return targets.some((target) => t === target);
@@ -1057,7 +1045,6 @@ export class GeminiWebAutomation {
 
           if (!candidates.length) return false;
 
-          // Pick smallest node (innermost label)
           candidates.sort((a, b) => {
             const rA = a.getBoundingClientRect();
             const rB = b.getBoundingClientRect();
@@ -1065,7 +1052,6 @@ export class GeminiWebAutomation {
           });
 
           const leaf = candidates[0];
-          // Find single card container: limit width <= 320px to avoid row containers
           let card = leaf;
           let curr = leaf.parentElement;
           while (curr && curr !== document.body) {
@@ -1077,7 +1063,6 @@ export class GeminiWebAutomation {
 
           card.scrollIntoView({ block: "center", inline: "center" });
 
-          // Pure DOM event dispatching directly on the card element (no coordinates needed)
           const opts = { bubbles: true, cancelable: true, composed: true, view: window };
           card.dispatchEvent(new PointerEvent("pointerdown", opts));
           card.dispatchEvent(new MouseEvent("mousedown", opts));
@@ -1119,26 +1104,58 @@ export class GeminiWebAutomation {
       }
     }
 
+    const files = references.map((reference) => reference.path);
+    const before = await this.attachmentSnapshot(cdp);
     let nodeId = await this.findFileInputNode(cdp);
+    let backendNodeId: number | null = null;
+
     if (!nodeId) {
-      await this.revealFileInput(cdp);
-      const deadline = Date.now() + 5_000;
-      while (!nodeId && Date.now() < deadline) {
-        nodeId = await this.findFileInputNode(cdp);
-        if (!nodeId) await delay(150);
+      await cdp.send("Page.setInterceptFileChooserDialog", { enabled: true });
+      try {
+        const chooserNode = new Promise<number | null>((resolve) => {
+          let settled = false;
+          const finish = (value: number | null) => {
+            if (settled) return;
+            settled = true;
+            unsubscribe();
+            resolve(value);
+          };
+          const unsubscribe = cdp.on<{ backendNodeId?: number }>("Page.fileChooserOpened", (event) => {
+            finish(
+              typeof event.backendNodeId === "number" && event.backendNodeId > 0
+                ? event.backendNodeId
+                : null,
+            );
+          });
+          setTimeout(() => finish(null), 5_000);
+        });
+
+        await this.revealFileInput(cdp);
+        backendNodeId = await chooserNode;
+      } finally {
+        await cdp.send("Page.setInterceptFileChooserDialog", { enabled: false }).catch(() => undefined);
       }
     }
-    if (!nodeId) {
+
+    if (!backendNodeId && !nodeId) {
+      const deadline = Date.now() + 2_000;
+      while (!nodeId && Date.now() < deadline) {
+        nodeId = await this.findFileInputNode(cdp);
+        if (!nodeId) await delay(100);
+      }
+    }
+
+    if (!backendNodeId && !nodeId) {
       throw geminiError(
         "GEMINI_REFERENCE_UPLOAD_CONTROL_NOT_FOUND",
         "NarrativeX could not find Gemini's image attachment input.",
       );
     }
 
-    const before = await this.attachmentSnapshot(cdp);
+    const fileInputTarget = backendNodeId ? { backendNodeId } : { nodeId };
     await cdp.send("DOM.setFileInputFiles", {
-      files: references.map((reference) => reference.path),
-      nodeId,
+      files,
+      ...fileInputTarget,
     });
 
     const deadline = Date.now() + REFERENCE_UPLOAD_TIMEOUT_MS;
