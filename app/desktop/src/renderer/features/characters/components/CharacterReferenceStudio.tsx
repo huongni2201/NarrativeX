@@ -19,9 +19,11 @@ function statusLabel(status?: string | null) {
 export function CharacterReferenceStudio({
   projectId,
   character,
+  generationLocked = false,
 }: Readonly<{
   projectId: string;
   character: DesktopCharacterDetail;
+  generationLocked?: boolean;
 }>) {
   const versionId = character.version?.id ?? null;
   const status = character.version?.status ?? null;
@@ -43,6 +45,7 @@ export function CharacterReferenceStudio({
   );
   const identityPreview = useCharacterAssetPreview(projectId, identity?.assetId ?? null);
   const busy =
+    generationLocked ||
     actions.createVersion.isPending ||
     actions.generateIdentity.isPending ||
     actions.importIdentity.isPending ||
@@ -138,30 +141,14 @@ export function CharacterReferenceStudio({
         <div className="mt-3 grid gap-3">
           <label className="grid gap-1 text-[9px] text-text-muted">
             Character bible
-            <textarea
-              value={bible}
-              onChange={(event) => setBible(event.target.value)}
-              rows={4}
-              className="min-h-20 resize-y rounded-md border border-input bg-background px-3 py-2 text-[10px] text-foreground outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Canonical identity, stable traits, personality cues…"
-            />
+            <textarea value={bible} onChange={(event) => setBible(event.target.value)} rows={4} className="min-h-20 resize-y rounded-md border border-input bg-background px-3 py-2 text-[10px] text-foreground outline-none focus:ring-2 focus:ring-ring" placeholder="Canonical identity, stable traits, personality cues…" />
           </label>
           <label className="grid gap-1 text-[9px] text-text-muted">
             Visual identity prompt
-            <textarea
-              value={visualPrompt}
-              onChange={(event) => setVisualPrompt(event.target.value)}
-              rows={4}
-              className="min-h-20 resize-y rounded-md border border-input bg-background px-3 py-2 text-[10px] text-foreground outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Face, hair, age, body proportions and defining visual traits…"
-            />
+            <textarea value={visualPrompt} onChange={(event) => setVisualPrompt(event.target.value)} rows={4} className="min-h-20 resize-y rounded-md border border-input bg-background px-3 py-2 text-[10px] text-foreground outline-none focus:ring-2 focus:ring-ring" placeholder="Face, hair, age, body proportions and defining visual traits…" />
           </label>
           <div>
-            <Button
-              size="sm"
-              onClick={() => void createDraft()}
-              disabled={busy || !bible.trim() || !visualPrompt.trim()}
-            >
+            <Button size="sm" onClick={() => void createDraft()} disabled={busy || !bible.trim() || !visualPrompt.trim()}>
               {actions.createVersion.isPending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
               Create Draft Version
             </Button>
@@ -179,9 +166,7 @@ export function CharacterReferenceStudio({
                 </div>
               )}
             </div>
-            <div className="border-t border-border px-3 py-2 text-[9px] text-text-muted">
-              <strong className="text-foreground">IDENTITY</strong> · priority 0 · required
-            </div>
+            <div className="border-t border-border px-3 py-2 text-[9px] text-text-muted"><strong className="text-foreground">IDENTITY</strong> · priority 0 · required</div>
           </div>
 
           <div className="min-w-0">
@@ -207,14 +192,12 @@ export function CharacterReferenceStudio({
                   </Button>
                 </>
               )}
-
               {isReview && (
                 <Button size="sm" onClick={() => void lockAndUse()} disabled={busy || !identity}>
                   {actions.lockAndPin.isPending ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
                   Lock & Use in Project
                 </Button>
               )}
-
               {isLocked && !isPinned && (
                 <Button size="sm" onClick={() => void useInProject()} disabled={busy}>
                   {actions.pin.isPending ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
@@ -223,21 +206,14 @@ export function CharacterReferenceStudio({
               )}
             </div>
 
-            {isReview && (
-              <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">
-                Reference đã được approve. Lock sẽ làm version immutable và cho phép Storyboard tự động gửi ảnh này lên Gemini.
+            {generationLocked && (
+              <p className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-2 text-[9px] leading-4 text-primary-hover">
+                Generate All đang chạy. Các action thủ công tạm khóa để tránh conflict với Gemini Web queue.
               </p>
             )}
-            {isLocked && isPinned && (
-              <p className="mt-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[9px] leading-4 text-emerald-500">
-                Canonical identity đã LOCKED và pin vào project. Visual Beat có nhân vật này sẽ tự động resolve và upload reference.
-              </p>
-            )}
-            {isLocked && !isPinned && (
-              <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">
-                Version đã LOCKED nhưng chưa được pin vào project. Bấm Use in Project để hoàn tất continuity flow.
-              </p>
-            )}
+            {isReview && <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">Reference đã được approve. Lock sẽ làm version immutable và cho phép Storyboard tự động gửi ảnh này lên Gemini.</p>}
+            {isLocked && isPinned && <p className="mt-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[9px] leading-4 text-emerald-500">Canonical identity đã LOCKED và pin vào project. Visual Beat có nhân vật này sẽ tự động resolve và upload reference.</p>}
+            {isLocked && !isPinned && <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">Version đã LOCKED nhưng chưa được pin vào project. Bấm Use in Project để hoàn tất continuity flow.</p>}
           </div>
         </div>
       )}
