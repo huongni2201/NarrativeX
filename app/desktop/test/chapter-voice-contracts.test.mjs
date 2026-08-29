@@ -60,7 +60,7 @@ const workspace = {
       durationSeconds: 30,
       status: "DRAFT",
       visualBeatCount: 1,
-      previewImageUrl: null,
+      previewMediaAssetId: "00000000-0000-4000-8000-000000091007",
     },
   ],
   capabilities: {
@@ -78,6 +78,10 @@ test("chapter workspace parser accepts resumable analysis and narration metadata
   assert.equal(parsed.projectName, "Test");
   assert.equal(parsed.pipeline.analysis.visualGenerationMode, "IMAGE");
   assert.equal(parsed.pipeline.analysis.imageProvider, "GEMINI_WEB");
+  assert.equal(
+    parsed.previewScenes[0].previewMediaAssetId,
+    "00000000-0000-4000-8000-000000091007",
+  );
 
   const active = structuredClone(workspace);
   active.pipeline.audio.status = "STALLED";
@@ -96,6 +100,11 @@ test("chapter workspace parser accepts resumable analysis and narration metadata
   const missingMediaPlanIdentity = structuredClone(workspace);
   delete missingMediaPlanIdentity.pipeline.visualGeneration.mediaPlanId;
   assert.throws(() => parseChapterWorkspace(missingMediaPlanIdentity), /contract/);
+
+  const legacyPreviewShape = structuredClone(workspace);
+  delete legacyPreviewShape.previewScenes[0].previewMediaAssetId;
+  legacyPreviewShape.previewScenes[0].previewImageUrl = "https://legacy.example/preview.png";
+  assert.throws(() => parseChapterWorkspace(legacyPreviewShape), /contract/);
 });
 
 test("voice tag filtering updates the result set", () => {
