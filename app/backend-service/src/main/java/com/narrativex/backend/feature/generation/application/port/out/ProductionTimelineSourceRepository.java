@@ -25,9 +25,55 @@ public interface ProductionTimelineSourceRepository {
       UUID narrationRequestId,
       UUID narrationAssetId,
       UUID narrationAlignmentId,
+      String subtitleText,
+      String subtitleSpansJson,
       Long fallbackDurationMs,
       int beatCount,
-      int readyBeatCount) {}
+      int readyBeatCount) {
+    public ChapterSource(
+        UUID storyVersionId,
+        UUID chapterId,
+        int orderIndex,
+        String title,
+        long rowVersion,
+        String sourceHash,
+        UUID mediaPlanId,
+        Integer mediaPlanRevision,
+        String aspectRatio,
+        Long audioDurationMs,
+        String audioStorageKey,
+        Long audioSizeBytes,
+        String audioChecksum,
+        UUID narrationRequestId,
+        UUID narrationAssetId,
+        UUID narrationAlignmentId,
+        Long fallbackDurationMs,
+        int beatCount,
+        int readyBeatCount) {
+      this(
+          storyVersionId,
+          chapterId,
+          orderIndex,
+          title,
+          rowVersion,
+          sourceHash,
+          mediaPlanId,
+          mediaPlanRevision,
+          aspectRatio,
+          audioDurationMs,
+          audioStorageKey,
+          audioSizeBytes,
+          audioChecksum,
+          narrationRequestId,
+          narrationAssetId,
+          narrationAlignmentId,
+          null,
+          null,
+          fallbackDurationMs,
+          beatCount,
+          readyBeatCount);
+    }
+  }
 
   record BeatSource(
       UUID chapterId,
