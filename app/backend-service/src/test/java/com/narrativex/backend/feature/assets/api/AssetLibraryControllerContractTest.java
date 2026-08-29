@@ -30,7 +30,7 @@ class AssetLibraryControllerContractTest {
         new MediaAssetView(
             assetId,
             "IMAGE",
-            "LOCAL_ONLY",
+            "USER_UPLOAD",
             null,
             "scene.png",
             "image/png",
@@ -49,7 +49,7 @@ class AssetLibraryControllerContractTest {
 
     assertEquals(HttpStatus.CREATED, response.getStatusCode());
     assertEquals(assetId, response.getBody().data().id());
-    assertEquals("LOCAL_ONLY", response.getBody().data().origin());
+    assertEquals("USER_UPLOAD", response.getBody().data().origin());
     verify(useCase)
         .registerLocal(projectId, "IMAGE", "scene.png", "image/png", 1024, "a".repeat(64), null);
   }
