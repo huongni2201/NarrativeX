@@ -245,7 +245,7 @@ CREATE TABLE chapter_media_heads (
 );
 
 -- -----------------------------------------------------------------------------
--- Project render snapshots and desktop/cloud execution routing
+-- Project render snapshots and Desktop execution assignment
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE project_render_input_snapshots (
@@ -258,11 +258,10 @@ CREATE TABLE project_render_input_snapshots (
     total_duration_ms BIGINT NOT NULL CHECK (total_duration_ms > 0),
     chapter_count INTEGER NOT NULL CHECK (chapter_count > 0),
     beat_count INTEGER NOT NULL CHECK (beat_count > 0),
-    execution_target VARCHAR(24) NOT NULL DEFAULT 'CLOUD',
-    assigned_local_device_id UUID REFERENCES local_devices(id),
+    assigned_local_device_id UUID NOT NULL REFERENCES local_devices(id),
     render_profile_json JSONB NOT NULL DEFAULT '{
       "schemaVersion": 1,
-      "engine": "ffmpeg-python",
+      "engine": "electron-ffmpeg",
       "rendererVersion": "project-image-motion-v2-frame-quantized",
       "fps": 30,
       "video": {
@@ -307,13 +306,7 @@ CREATE TABLE project_render_input_snapshots (
     CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p')),
     CONSTRAINT ck_project_render_input_format CHECK (render_format = 'mp4'),
     CONSTRAINT ck_project_render_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
-    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1),
-    CONSTRAINT ck_project_render_execution_target CHECK (execution_target IN ('CLOUD', 'LOCAL_DEVICE')),
-    CONSTRAINT ck_project_render_execution_assignment CHECK (
-        (execution_target = 'CLOUD' AND assigned_local_device_id IS NULL)
-        OR
-        (execution_target = 'LOCAL_DEVICE' AND assigned_local_device_id IS NOT NULL)
-    )
+    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1)
 );
 
 CREATE TABLE project_render_input_chapters (
@@ -364,7 +357,7 @@ CREATE TABLE project_render_input_beats (
     size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
     checksum VARCHAR(128) NOT NULL,
     media_type VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
+    storage_mode VARCHAR(24) NOT NULL DEFAULT 'PROJECT_LOCAL',
     source_duration_ms BIGINT,
     fit_mode VARCHAR(24) NOT NULL DEFAULT 'TRIM',
     trim_start_ms BIGINT NOT NULL DEFAULT 0,
@@ -372,7 +365,7 @@ CREATE TABLE project_render_input_beats (
     PRIMARY KEY (generation_job_id, visual_beat_id),
     CONSTRAINT ck_project_render_beat_range CHECK (global_end_ms > global_start_ms),
     CONSTRAINT ck_project_render_input_beat_media_type CHECK (media_type IN ('IMAGE', 'VIDEO')),
-    CONSTRAINT ck_project_render_input_beat_storage_mode CHECK (storage_mode IN ('REMOTE', 'LOCAL_ONLY', 'HYBRID')),
+    CONSTRAINT ck_project_render_input_beat_storage_mode CHECK (storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')),
     CONSTRAINT ck_project_render_input_beat_source_duration CHECK (source_duration_ms IS NULL OR source_duration_ms > 0),
     CONSTRAINT ck_project_render_input_beat_fit_mode CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
     CONSTRAINT ck_project_render_input_beat_trim_start CHECK (trim_start_ms >= 0)
