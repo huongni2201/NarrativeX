@@ -65,7 +65,7 @@ class RenderOverrideDurationValidationTest {
                 true,
                 List.of(),
                 List.of(beat)));
-    when(repository.findSelectableAsset("owner", assetId))
+    when(repository.findSelectableAsset(projectId, "owner", assetId))
         .thenReturn(
             Optional.of(
                 new SelectableMediaAsset(
