@@ -156,6 +156,7 @@ export interface FfmpegRuntimeStatus {
 
 export interface LocalRenderPreflightInput {
   projectId: string;
+  assetIds: string[];
   assets: LocalRenderPreflightAssetInput[];
   estimatedOutputBytes: number;
   requiredTemporaryBytes: number;
