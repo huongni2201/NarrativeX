@@ -34,20 +34,22 @@ export function useCreateProject() {
     mutationFn: async (input: CreateProjectInput) => {
       const project = await projectsApi.create(input);
       try {
-        await window.narrativex.localProjects.upsert(project, {
-          cloudProjectId: null,
-          syncStatus: "LOCAL_ONLY",
-        });
+        await window.narrativex.localProjects.upsert(project);
         await window.narrativex.localProjects.touch(project.id);
       } catch (error) {
         console.warn(
           "Project was created but could not be persisted to this device's local catalog.",
           error,
         );
-        throw new Error(
-          "Project was created but could not be registered on this device.",
-          { cause: error },
-        );
+        try {
+          await projectsApi.remove(project.id);
+        } catch (rollbackError) {
+          console.error(
+            "Could not archive backend project after local registration failed.",
+            rollbackError,
+          );
+        }
+        throw new Error("Project could not be registered on this device.");
       }
       return project;
     },
