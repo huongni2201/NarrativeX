@@ -1,4 +1,4 @@
--- NarrativeX pre-release baseline: database functions, immutability guards, settlement, notifications, and generation events.
+-- NarrativeX pre-release baseline: database functions, immutability guards, settlement, notifications, generation events, and final schema normalization.
 
 CREATE OR REPLACE FUNCTION reject_media_plan_update()
 RETURNS TRIGGER AS $$
@@ -302,3 +302,66 @@ EXECUTE FUNCTION notify_generation_job_change();
 
 COMMENT ON COLUMN project_render_input_snapshots.assigned_local_device_id IS
     'Paired Desktop device assigned to execute this immutable local project render.';
+
+-- -----------------------------------------------------------------------------
+-- Device-local project-media hard cut (pre-release baseline finalization)
+-- Project media is project-owned/local. Custom voice references are account-owned/R2.
+-- -----------------------------------------------------------------------------
+CREATE TABLE voice_reference_assets (
+    id UUID PRIMARY KEY,
+    account_id VARCHAR(128) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(160) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    detected_content_type VARCHAR(160),
+    detected_container VARCHAR(64),
+    detected_codec VARCHAR(64),
+    validation_error_code VARCHAR(96),
+    validation_error_detail VARCHAR(1024),
+    validated_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    row_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_voice_reference_assets_account_checksum UNIQUE (account_id, sha256),
+    CONSTRAINT ck_voice_reference_assets_size CHECK (size_bytes > 0),
+    CONSTRAINT ck_voice_reference_assets_sha CHECK (char_length(sha256) = 64),
+    CONSTRAINT ck_voice_reference_assets_storage_key CHECK (storage_key LIKE 'voices/%'),
+    CONSTRAINT ck_voice_reference_assets_status CHECK (
+        status IN ('VALIDATING', 'READY', 'REJECTED', 'DELETED')
+    )
+);
+
+ALTER TABLE media_upload_sessions
+    DROP CONSTRAINT IF EXISTS media_upload_sessions_media_asset_id_fkey;
+ALTER TABLE media_upload_sessions
+    ADD CONSTRAINT media_upload_sessions_media_asset_id_fkey
+    FOREIGN KEY (media_asset_id) REFERENCES voice_reference_assets(id) ON DELETE SET NULL;
+
+ALTER TABLE media_validation_jobs
+    DROP CONSTRAINT IF EXISTS media_validation_jobs_media_asset_id_fkey;
+ALTER TABLE media_validation_jobs
+    ADD CONSTRAINT media_validation_jobs_media_asset_id_fkey
+    FOREIGN KEY (media_asset_id) REFERENCES voice_reference_assets(id) ON DELETE CASCADE;
+
+ALTER TABLE narration_requests
+    DROP CONSTRAINT IF EXISTS narration_requests_voice_reference_asset_id_fkey;
+ALTER TABLE narration_requests
+    ADD CONSTRAINT narration_requests_voice_reference_asset_id_fkey
+    FOREIGN KEY (voice_reference_asset_id) REFERENCES voice_reference_assets(id) ON DELETE SET NULL;
+
+DROP TABLE media_asset_checksums;
+
+ALTER TABLE media_assets DROP CONSTRAINT IF EXISTS ck_media_assets_storage_scope;
+ALTER TABLE media_assets DROP CONSTRAINT IF EXISTS ck_media_assets_storage_mode;
+ALTER TABLE media_assets ALTER COLUMN project_id SET NOT NULL;
+ALTER TABLE media_assets DROP COLUMN storage_mode;
+
+ALTER TABLE project_render_input_beats
+    DROP CONSTRAINT IF EXISTS ck_project_render_input_beats_storage_mode;
+ALTER TABLE project_render_input_beats
+    DROP COLUMN IF EXISTS storage_mode;
+
+DROP TABLE IF EXISTS local_media_materializations CASCADE;
