@@ -9,6 +9,8 @@ export interface DesktopChapter {
   narrationAssetId?: string | null;
   audioSizeBytes?: number | null;
   audioChecksum?: string | null;
+  subtitleText?: string | null;
+  subtitleSpansJson?: string | null;
 }
 
 export interface DesktopChapterDetails {

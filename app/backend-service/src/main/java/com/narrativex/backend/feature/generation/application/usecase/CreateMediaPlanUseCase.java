@@ -5,7 +5,6 @@ import com.narrativex.backend.feature.generation.application.command.CreateMedia
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
-import com.narrativex.backend.feature.generation.application.service.VisualAssetReuseResolver;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
@@ -18,8 +17,6 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
+  private static final String GENERATE_NEW = "GENERATE_NEW";
+
   private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
@@ -52,12 +51,7 @@ public class CreateMediaPlanUseCase {
       throw new GenerationAdmissionDeniedException(
           "SOURCE_STALE", "The storyboard source is stale; refresh the chapter before generating.");
     }
-    var reuseDecisions =
-        VisualAssetReuseResolver.plan(
-            planningSource.scenes(),
-            command.imageGenerationProvider(),
-            command.imageGenerationStrategy());
-    var scenes = resolveScenes(command, planningSource, reuseDecisions);
+    var scenes = resolveScenes(command, planningSource);
     if (scenes.isEmpty() || scenes.stream().allMatch(scene -> scene.beats().isEmpty())) {
       throw new GenerationAdmissionDeniedException(
           "STORYBOARD_NOT_READY",
@@ -97,12 +91,10 @@ public class CreateMediaPlanUseCase {
                 planningSource.narrationAlignmentRunId()));
 
     log.info(
-        "Created media plan id={} (revision={}, mode={}, generationProvider={}, strategy={}, generatedImages={}, totalBeats={}) for chapterId={}, projectId={}",
+        "Created media plan id={} (revision={}, mode={}, generatedImages={}, totalBeats={}) for chapterId={}, projectId={}",
         savedPlan.id(),
         revision,
         command.productionMode(),
-        command.imageGenerationProvider(),
-        command.imageGenerationStrategy(),
         workload.imageGenerateCount(),
         scenes.stream().mapToInt(scene -> scene.beats().size()).sum(),
         command.chapterId(),
@@ -111,24 +103,20 @@ public class CreateMediaPlanUseCase {
   }
 
   private List<MediaScenePlan> resolveScenes(
-      CreateMediaPlanCommand command,
-      MediaPlanningSource planningSource,
-      Map<UUID, VisualAssetReuseResolver.Decision> reuseDecisions) {
+      CreateMediaPlanCommand command, MediaPlanningSource planningSource) {
     List<MediaScenePlan> resolved = new ArrayList<>();
     for (var scene : planningSource.scenes()) {
       List<MediaBeatPlan> beats = new ArrayList<>();
       for (var beat : scene.beats()) {
         var context =
             visualPromptContextRepository.findForBeat(command.projectId(), beat.visualBeatId());
-        var reuseDecision = reuseDecisions.get(beat.visualBeatId());
-        if (reuseDecision == null) {
-          reuseDecision = VisualAssetReuseResolver.resolve(null, beat);
-        }
         var composed =
             visualPromptComposer.compose(
                 command.imageStyle(), beat.visualIntent(), beat.cameraAngle(), context);
         String cameraMovement =
-            resolveCameraMovement(beat.cameraMovement(), reuseDecision.assetStrategy());
+            beat.cameraMovement() == null || beat.cameraMovement().isBlank()
+                ? "NONE"
+                : beat.cameraMovement();
         beats.add(
             new MediaBeatPlan(
                 beat.visualBeatId(),
@@ -136,7 +124,7 @@ public class CreateMediaPlanUseCase {
                 beat.visualIntent(),
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
-                reuseDecision.assetStrategy(),
+                GENERATE_NEW,
                 "prompt-v8-" + command.imageStyle().name().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
@@ -161,7 +149,7 @@ public class CreateMediaPlanUseCase {
                     + "\"}",
                 composed.characterSnapshotJson(),
                 null,
-                reuseDecision.sourceVisualBeatId()));
+                null));
       }
       resolved.add(
           new MediaScenePlan(
@@ -174,14 +162,6 @@ public class CreateMediaPlanUseCase {
     return List.copyOf(resolved);
   }
 
-  private static String resolveCameraMovement(String requested, String assetStrategy) {
-    String movement = requested == null || requested.isBlank() ? "NONE" : requested;
-    if (VisualAssetReuseResolver.REFRAME_DERIVED.equals(assetStrategy) && "NONE".equals(movement)) {
-      return "PUSH_IN";
-    }
-    return movement;
-  }
-
   private static MediaWorkload calculateWorkload(List<MediaScenePlan> scenes) {
     long narrationCharacters = 0L;
     int imageGenerateCount = 0;
@@ -190,12 +170,7 @@ public class CreateMediaPlanUseCase {
 
     for (var scene : scenes) {
       if (scene.narration() != null) narrationCharacters += scene.narration().length();
-      imageGenerateCount +=
-          (int)
-              scene.beats().stream()
-                  .filter(
-                      beat -> VisualAssetReuseResolver.GENERATE_NEW.equals(beat.assetStrategy()))
-                  .count();
+      imageGenerateCount += scene.beats().size();
 
       int duration = scene.durationSeconds() == null ? 0 : scene.durationSeconds();
       boolean usesI2v =

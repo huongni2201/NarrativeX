@@ -14,8 +14,7 @@ public record CreateMediaJobCommand(
     BigDecimal maxAuthorizedCost,
     ImageStyle imageStyle,
     String visualGenerationMode,
-    String imageProvider,
-    String imageGenerationStrategy) {
+    String imageProvider) {
 
   public CreateMediaJobCommand(
       UUID projectId,
@@ -36,8 +35,7 @@ public record CreateMediaJobCommand(
         maxAuthorizedCost,
         imageStyle,
         "IMAGE",
-        "API",
-        null);
+        "API");
   }
 
   public CreateMediaJobCommand(

@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
-import com.narrativex.backend.feature.common.application.TextInputEstimator;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterContentImportResponse;
@@ -55,10 +54,9 @@ public class ImportChapterContentUseCase {
   }
 
   private void validateSourceSize(String content) {
-    if (content.codePointCount(0, content.length()) > limits.getMaxStoryCharacters()
-        || TextInputEstimator.estimateTokensConservatively(content)
-            > limits.getMaxEstimatedInputTokens()) {
-      throw new IllegalArgumentException("Chapter exceeds the configured content limit");
+    if (content == null) throw new IllegalArgumentException("content must not be null");
+    if (content.codePointCount(0, content.length()) > limits.getMaxStoryCharacters()) {
+      throw new IllegalArgumentException("Chapter exceeds the configured Unicode character limit");
     }
   }
 }

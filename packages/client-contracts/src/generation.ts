@@ -30,10 +30,6 @@ export interface GenerationJob {
 
 export type VisualGenerationMode = "IMAGE" | "VIDEO";
 export type ImageGenerationProvider = "GEMINI_WEB" | "API";
-export type ImageGenerationStrategy =
-  | "GENERATE_NEW"
-  | "REUSE_APPROVED"
-  | "REFRAME_DERIVED";
 
 export interface AnalyzeChapterInput {
   visualGenerationMode: VisualGenerationMode;
@@ -52,7 +48,6 @@ export interface CreateMediaJobInput {
   imageStyle?: MediaImageStyle;
   visualGenerationMode: VisualGenerationMode;
   imageProvider?: ImageGenerationProvider | null;
-  imageGenerationStrategy?: ImageGenerationStrategy | null;
 }
 
 export interface MediaJobCostEstimate {

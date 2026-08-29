@@ -13,8 +13,7 @@ public record CreateMediaJobRequest(
     @NotNull @DecimalMin(value = "0.000001") BigDecimal maxAuthorizedCost,
     @Pattern(regexp = "CINEMATIC|STORYBOOK_WATERCOLOR") String imageStyle,
     @Pattern(regexp = "IMAGE|VIDEO") String visualGenerationMode,
-    @Pattern(regexp = "GEMINI_WEB|API") String imageProvider,
-    @Pattern(regexp = "GENERATE_NEW|REUSE_APPROVED|REFRAME_DERIVED") String imageGenerationStrategy) {
+    @Pattern(regexp = "GEMINI_WEB|API") String imageProvider) {
 
   public String effectiveVisualGenerationMode() {
     return visualGenerationMode == null || visualGenerationMode.isBlank()

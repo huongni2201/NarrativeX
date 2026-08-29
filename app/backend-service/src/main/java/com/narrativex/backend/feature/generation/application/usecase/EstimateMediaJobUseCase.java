@@ -5,7 +5,6 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
 import com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
-import com.narrativex.backend.feature.generation.application.service.VisualAssetReuseResolver;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +24,8 @@ public class EstimateMediaJobUseCase {
     chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
         command.projectId(), command.chapterId(), currentUserId.get());
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
-    int generatedImageCount = VisualAssetReuseResolver.countGenerated(planningSource.scenes());
+    int generatedImageCount =
+        planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
     var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     return ApiResponse.success(
         new MediaCostEstimateResponse(

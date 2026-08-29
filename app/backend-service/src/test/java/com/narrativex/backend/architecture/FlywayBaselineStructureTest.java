@@ -83,6 +83,10 @@ class FlywayBaselineStructureTest {
     assertTrue(v8.contains("'VIENEU'"));
     assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
     assertFalse(v8.contains("\"supportsSpeakingRate\":false"));
+    assertTrue(v8.contains("(1, 'NORMAL', 1"));
+    assertTrue(v8.contains("(3, 'PRO', 1"));
+    assertTrue(v8.contains("(11, 'ULTRA', 1"));
+    assertFalse(v8.matches("(?s).*\\(\\d+, 'STANDARD', \\d+,.*"));
 
     String allSchema = v1 + v2 + v3 + v4 + v5 + v6;
     assertFalse(allSchema.contains("narrativex_uuid_v7"));
