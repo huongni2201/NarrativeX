@@ -117,12 +117,11 @@ projects.owner_id
 characters.owner_id
 chapter_creation_idempotency.owner_id
 media_assets.account_id
-media_asset_checksums.account_id / canonical rows
 ```
 
 Cloud/account-bound state such as `media_upload_sessions`, generation jobs, provider operations, quota/billing rows and account preferences is not claimed by the guest transfer. Those workflows require `ROLE_USER` before creation.
 
-Checksum collisions are deduplicated before `media_asset_checksums.account_id` is moved. Project IDs, chapter IDs, character IDs and asset IDs do not change, so the renderer does not need to redirect or reconstruct the editor route after login.
+Project media is local-first and no checksum registry is transferred. Project IDs, chapter IDs, character IDs and asset IDs do not change, so the renderer does not need to redirect or reconstruct the editor route after login.
 
 The `desktop_guest_installations` row remains associated with the installation after a Google claim. If the user later logs out, the same installation guest can resume and create new guest-only work; previously transferred Google-owned projects remain owned by the account. A later login transfers only new guest-owned rows.
 
