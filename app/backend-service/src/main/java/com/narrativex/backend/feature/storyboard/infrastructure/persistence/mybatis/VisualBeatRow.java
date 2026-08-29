@@ -20,7 +20,6 @@ public class VisualBeatRow {
   private String cameraAngle;
   private String aspectRatioOverride;
   private String qualityTierOverride;
-  private UUID previewAssetId;
   private UUID previewMediaAssetId;
   private Instant createdAt;
   private Instant updatedAt;
