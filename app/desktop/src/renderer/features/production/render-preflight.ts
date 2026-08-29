@@ -42,9 +42,6 @@ export function buildRenderPreflightInput(
     assets,
     estimatedOutputBytes,
     requiredTemporaryBytes: estimatedOutputBytes * 2,
-  } as LocalRenderPreflightInput & {
-    assetIds: string[];
-    assets: LocalRenderPreflightAssetInput[];
   };
 }
 
