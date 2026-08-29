@@ -60,6 +60,63 @@ class ProductionTimelineLocalFirstIntegrationTest {
 
   @BeforeEach
   void seed() {
+    seedProjectGraph();
+    seedMedia();
+    seedVisualBeats();
+    seedNarration();
+    clearOverride(BEAT_A);
+    clearOverride(BEAT_B);
+  }
+
+  @Test
+  void returnsPreviewMediaWithoutMediaPlan() {
+    var chapters = mapper.findChapters(PROJECT_ID, OWNER);
+    var beats = mapper.findBeats(PROJECT_ID, OWNER);
+
+    assertThat(chapters)
+        .singleElement()
+        .satisfies(
+            chapter -> {
+              assertThat(chapter.getMediaPlanId()).isNull();
+              assertThat(chapter.getMediaPlanRevision()).isNull();
+              assertThat(chapter.getBeatCount()).isEqualTo(2);
+              assertThat(chapter.getReadyBeatCount()).isEqualTo(2);
+            });
+    assertThat(beats).hasSize(2);
+    assertThat(beats.get(0).getMediaAssetId()).isEqualTo(PREVIEW_A);
+    assertThat(beats.get(0).getStorageMode()).isEqualTo("LOCAL_ONLY");
+    assertThat(beats.get(0).getAudioStartMs()).isZero();
+    assertThat(beats.get(0).getAudioEndMs()).isEqualTo(4_000L);
+    assertThat(beats.get(0).isMediaSelectionActive()).isFalse();
+    assertThat(beats.get(1).getMediaAssetId()).isEqualTo(PREVIEW_B);
+  }
+
+  @Test
+  void manualOverrideWinsOverPreview() {
+    selectOverride(BEAT_A, OVERRIDE, 500L);
+
+    var overridden = mapper.findBeats(PROJECT_ID, OWNER).get(0);
+
+    assertThat(overridden.getMediaAssetId()).isEqualTo(OVERRIDE);
+    assertThat(overridden.isMediaSelectionActive()).isTrue();
+    assertThat(overridden.getFitMode()).isEqualTo("TRIM");
+    assertThat(overridden.getTrimStartMs()).isEqualTo(500L);
+  }
+
+  @Test
+  void resetFallsBackToPreview() {
+    selectOverride(BEAT_A, OVERRIDE, 500L);
+    clearOverride(BEAT_A);
+
+    var reset = mapper.findBeats(PROJECT_ID, OWNER).get(0);
+
+    assertThat(reset.getMediaAssetId()).isEqualTo(PREVIEW_A);
+    assertThat(reset.isMediaSelectionActive()).isFalse();
+    assertThat(reset.getFitMode()).isEqualTo("TRIM");
+    assertThat(reset.getTrimStartMs()).isZero();
+  }
+
+  private void seedProjectGraph() {
     jdbcTemplate.update(
         "INSERT INTO auth_users (id, email, display_name, enabled) VALUES (?, ?, 'Local First', true) ON CONFLICT (id) DO NOTHING",
         OWNER,
@@ -89,11 +146,15 @@ class ProductionTimelineLocalFirstIntegrationTest {
         SCENE_ID,
         CHAPTER_ID,
         REVISION_ID);
+  }
 
+  private void seedMedia() {
     insertMedia(PREVIEW_A, "preview-a.png", "IMAGE", "LOCAL_ONLY", null, 2048L, "1");
     insertMedia(PREVIEW_B, "preview-b.png", "IMAGE", "LOCAL_ONLY", null, 2048L, "2");
     insertMedia(OVERRIDE, "override.mp4", "VIDEO", "LOCAL_ONLY", 12_000L, 4096L, "3");
+  }
 
+  private void seedVisualBeats() {
     jdbcTemplate.update(
         "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, text_start, text_end, audio_start_ms, audio_end_ms, preview_media_asset_id) VALUES (?, ?, 0, 'Beat A', 'A', 'APPROVED', 'BASIC_MOTION', 'PAN', 0, 10, 0, 4000, ?) ON CONFLICT (id) DO UPDATE SET preview_media_asset_id = EXCLUDED.preview_media_asset_id",
         BEAT_A,
@@ -104,7 +165,9 @@ class ProductionTimelineLocalFirstIntegrationTest {
         BEAT_B,
         SCENE_ID,
         PREVIEW_B);
+  }
 
+  private void seedNarration() {
     jdbcTemplate.update(
         "INSERT INTO project_assets (id, project_id, name, asset_type, storage_key, url, mime_type, status, metadata_json) VALUES (?, ?, 'chapter.wav', 'AUDIO', 'local/audio/chapter.wav', NULL, 'audio/wav', 'ACTIVE', '{}'::jsonb) ON CONFLICT (id) DO NOTHING",
         AUDIO_PROJECT_ASSET,
@@ -119,52 +182,22 @@ class ProductionTimelineLocalFirstIntegrationTest {
         NARRATION_ASSET,
         NARRATION_REQUEST,
         AUDIO_PROJECT_ASSET);
-    jdbcTemplate.update(
-        "DELETE FROM production_beat_media_selections WHERE project_id = ? AND visual_beat_id IN (?, ?)",
-        PROJECT_ID,
-        BEAT_A,
-        BEAT_B);
   }
 
-  @Test
-  void returnsPreviewMediaWithoutMediaPlanAndHonorsOverrideReset() {
-    var chapters = mapper.findChapters(PROJECT_ID, OWNER);
-    var beats = mapper.findBeats(PROJECT_ID, OWNER);
-
-    assertThat(chapters).singleElement().satisfies(chapter -> {
-      assertThat(chapter.getMediaPlanId()).isNull();
-      assertThat(chapter.getMediaPlanRevision()).isNull();
-      assertThat(chapter.getBeatCount()).isEqualTo(2);
-      assertThat(chapter.getReadyBeatCount()).isEqualTo(2);
-    });
-    assertThat(beats).hasSize(2);
-    assertThat(beats.get(0).getMediaAssetId()).isEqualTo(PREVIEW_A);
-    assertThat(beats.get(0).getStorageMode()).isEqualTo("LOCAL_ONLY");
-    assertThat(beats.get(0).getAudioStartMs()).isZero();
-    assertThat(beats.get(0).getAudioEndMs()).isEqualTo(4_000L);
-    assertThat(beats.get(0).isMediaSelectionActive()).isFalse();
-
+  private void selectOverride(UUID visualBeatId, UUID mediaAssetId, long trimStartMs) {
     jdbcTemplate.update(
-        "INSERT INTO production_beat_media_selections (project_id, visual_beat_id, media_asset_id, fit_mode, trim_start_ms) VALUES (?, ?, ?, 'TRIM', 500) ON CONFLICT (project_id, visual_beat_id) DO UPDATE SET media_asset_id = EXCLUDED.media_asset_id, fit_mode = EXCLUDED.fit_mode, trim_start_ms = EXCLUDED.trim_start_ms",
+        "INSERT INTO production_beat_media_selections (project_id, visual_beat_id, media_asset_id, fit_mode, trim_start_ms) VALUES (?, ?, ?, 'TRIM', ?) ON CONFLICT (project_id, visual_beat_id) DO UPDATE SET media_asset_id = EXCLUDED.media_asset_id, fit_mode = EXCLUDED.fit_mode, trim_start_ms = EXCLUDED.trim_start_ms",
         PROJECT_ID,
-        BEAT_A,
-        OVERRIDE);
+        visualBeatId,
+        mediaAssetId,
+        trimStartMs);
+  }
 
-    var overridden = mapper.findBeats(PROJECT_ID, OWNER).get(0);
-    assertThat(overridden.getMediaAssetId()).isEqualTo(OVERRIDE);
-    assertThat(overridden.isMediaSelectionActive()).isTrue();
-    assertThat(overridden.getTrimStartMs()).isEqualTo(500L);
-
+  private void clearOverride(UUID visualBeatId) {
     jdbcTemplate.update(
         "DELETE FROM production_beat_media_selections WHERE project_id = ? AND visual_beat_id = ?",
         PROJECT_ID,
-        BEAT_A);
-
-    var reset = mapper.findBeats(PROJECT_ID, OWNER).get(0);
-    assertThat(reset.getMediaAssetId()).isEqualTo(PREVIEW_A);
-    assertThat(reset.isMediaSelectionActive()).isFalse();
-    assertThat(reset.getFitMode()).isEqualTo("TRIM");
-    assertThat(reset.getTrimStartMs()).isZero();
+        visualBeatId);
   }
 
   private void insertMedia(
