@@ -43,7 +43,6 @@
     <result property="audioDurationMs" column="audio_duration_ms" />
     <result property="mediaAssetId" column="media_asset_id" />
     <result property="mediaType" column="media_type" />
-    <result property="storageMode" column="storage_mode" />
     <result property="sourceDurationMs" column="source_duration_ms" />
     <result property="fitMode" column="fit_mode" />
     <result property="trimStartMs" column="trim_start_ms" />
@@ -146,7 +145,6 @@
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
-                      AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
                       AND ma.size_bytes > 0
                       AND ma.sha256 IS NOT NULL
                  ) OR EXISTS (
@@ -158,7 +156,6 @@
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
-                      AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
                       AND ma.size_bytes > 0
                       AND ma.sha256 IS NOT NULL
                  )
@@ -219,7 +216,6 @@
            cb.audio_duration_ms,
            COALESCE(chosen.media_asset_id, preview.media_asset_id) AS media_asset_id,
            COALESCE(chosen.media_type, preview.media_type) AS media_type,
-           COALESCE(chosen.storage_mode, preview.storage_mode) AS storage_mode,
            COALESCE(chosen.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
            CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode ELSE 'TRIM' END AS fit_mode,
            CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms ELSE 0 END AS trim_start_ms,
@@ -231,7 +227,6 @@
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
-               ma.storage_mode,
                ma.duration_ms AS source_duration_ms,
                pbms.fit_mode,
                pbms.trim_start_ms,
@@ -247,7 +242,6 @@
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')
-           AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
            AND ma.size_bytes > 0
            AND ma.sha256 IS NOT NULL
          LIMIT 1
@@ -255,7 +249,6 @@
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
-               ma.storage_mode,
                ma.duration_ms AS source_duration_ms,
                ma.storage_key,
                ma.size_bytes,
@@ -267,7 +260,6 @@
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')
-           AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
            AND ma.size_bytes > 0
            AND ma.sha256 IS NOT NULL
          LIMIT 1
