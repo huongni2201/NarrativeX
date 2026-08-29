@@ -13,11 +13,10 @@ export interface BeatTransitionPlan {
 }
 
 /**
- * Plans only duration-preserving transitions. Chapter boundaries use a short
- * fade-through-black that is compiled inside the adjacent segments, so the
- * global narration clock never changes and concat can remain stream-copy.
- * Regular beat/scene boundaries stay as CUT until a future xfade pipeline can
- * explicitly model overlapping timeline duration.
+ * Plans duration-preserving transitions only. Scene changes get a subtle
+ * fade-through-black and chapter changes get a slightly stronger one. The fades
+ * are compiled inside adjacent segments, so narration timing never changes and
+ * final concat can remain deterministic.
  */
 export function planBeatTransitions(
   beats: readonly TransitionPlanningBeat[],
@@ -32,20 +31,23 @@ export function planBeatTransitions(
   for (let index = 1; index < beats.length; index += 1) {
     const previous = beats[index - 1];
     const current = beats[index];
-    if (previous.chapterId === current.chapterId) continue;
+    const chapterChanged = previous.chapterId !== current.chapterId;
+    const sceneChanged = chapterChanged || previous.sceneIndex !== current.sceneIndex;
+    if (!sceneChanged) continue;
 
-    const previousFadeMs = safeEdgeFade(previous.durationMs);
-    const currentFadeMs = safeEdgeFade(current.durationMs);
-    if (previousFadeMs <= 0 || currentFadeMs <= 0) continue;
+    const fadeMs = chapterChanged
+      ? Math.min(safeChapterFade(previous.durationMs), safeChapterFade(current.durationMs))
+      : Math.min(safeSceneFade(previous.durationMs), safeSceneFade(current.durationMs));
+    if (fadeMs <= 0) continue;
 
     plans[index - 1] = {
       ...plans[index - 1],
-      transitionOutMs: previousFadeMs,
+      transitionOutMs: fadeMs,
       transitionType: "FADE_BLACK",
     };
     plans[index] = {
       ...plans[index],
-      transitionInMs: currentFadeMs,
+      transitionInMs: fadeMs,
       transitionType: "FADE_BLACK",
     };
   }
@@ -53,7 +55,12 @@ export function planBeatTransitions(
   return plans;
 }
 
-function safeEdgeFade(durationMs: number): number {
+function safeChapterFade(durationMs: number): number {
   if (!Number.isFinite(durationMs) || durationMs < 600) return 0;
-  return Math.max(80, Math.min(180, Math.floor(durationMs * 0.08)));
+  return Math.max(100, Math.min(180, Math.floor(durationMs * 0.08)));
+}
+
+function safeSceneFade(durationMs: number): number {
+  if (!Number.isFinite(durationMs) || durationMs < 600) return 0;
+  return Math.max(100, Math.min(140, Math.floor(durationMs * 0.03)));
 }
