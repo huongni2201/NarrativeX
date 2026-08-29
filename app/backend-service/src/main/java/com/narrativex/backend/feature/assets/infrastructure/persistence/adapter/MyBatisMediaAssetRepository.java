@@ -192,9 +192,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
   @Transactional(readOnly = true)
   public Optional<MediaAssetSummary> findOwnedSummary(String ownerId, UUID assetId) {
     MediaAssetRow row = mapper.findOwned(ownerId, assetId);
-    if (row == null) {
-      return Optional.empty();
-    }
+    if (row == null) return Optional.empty();
     return Optional.of(
         new MediaAssetSummary(
             row.getId(),
@@ -238,8 +236,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
         row.getHeight(),
         row.getValidationErrorCode(),
         row.getValidationErrorDetail(),
-        row.getValidatedAt(),
-        row.getStorageMode());
+        row.getValidatedAt());
   }
 
   private static OptimisticLockingFailureException optimisticConflict(UUID id) {
