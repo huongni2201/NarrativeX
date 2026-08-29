@@ -6,8 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+/** Voice-reference upload intent. The media kind is inherently audio. */
 public record CreateUploadIntentRequest(
-    @NotBlank @Pattern(regexp = "AUDIO|IMAGE|VIDEO") String type,
     @NotBlank @Size(max = 255) String originalFilename,
     @NotBlank @Size(max = 160) String contentType,
     @Positive @Max(1073741824L) long expectedSizeBytes,
