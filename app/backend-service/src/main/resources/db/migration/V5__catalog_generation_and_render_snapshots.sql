@@ -200,7 +200,7 @@ CREATE TABLE project_render_input_snapshots (
       "subtitles": {"mode": "none"}
     }'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p')),
+    CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p', '1440p')),
     CONSTRAINT ck_project_render_input_format CHECK (render_format = 'mp4'),
     CONSTRAINT ck_project_render_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
     CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1)
