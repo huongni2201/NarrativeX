@@ -7,7 +7,7 @@ import {
   markQueueBeatSkipped,
   reconcileQueue,
   restoreQueueForSession,
-  skipQueueBeatIfApproved,
+  skipQueueBeatIfMediaReady,
 } from "../src/renderer/features/storyboard/model/gemini-queue.ts";
 import {
   geminiQueueStorageKey,
@@ -46,31 +46,38 @@ test("a running Gemini queue restores paused after a renderer restart", () => {
   assert.equal(restoreQueueForSession(queue()).status, "PAUSED");
 });
 
-test("a new Gemini All queue excludes beats that are already approved", () => {
+test("a new Gemini All queue includes approved beats that still need media", () => {
   const created = createGeminiQueue("chapter-1", [
-    { id: "beat-1", reviewStatus: "NEEDS_REVIEW" },
-    { id: "beat-2", reviewStatus: "APPROVED" },
-    { id: "beat-3", reviewStatus: "NEEDS_REVIEW" },
+    { id: "beat-1", reviewStatus: "NEEDS_REVIEW", previewMediaAssetId: null },
+    { id: "beat-2", reviewStatus: "APPROVED", previewMediaAssetId: null },
+    { id: "beat-3", reviewStatus: "APPROVED", previewMediaAssetId: "asset-3" },
   ]);
 
-  assert.deepEqual(created, queue({ beatIds: ["beat-1", "beat-3"] }));
+  assert.deepEqual(created, queue({ beatIds: ["beat-1", "beat-2"] }));
   assert.equal(
-    createGeminiQueue("chapter-1", [{ id: "beat-2", reviewStatus: "APPROVED" }]),
+    createGeminiQueue("chapter-1", [
+      { id: "beat-3", reviewStatus: "APPROVED", previewMediaAssetId: "asset-3" },
+    ]),
     null,
   );
 });
 
-test("a persisted Gemini queue skips a beat that was approved before resume", () => {
+test("a persisted Gemini queue skips a beat that acquired media before resume", () => {
   const state = queue();
-  const skipped = skipQueueBeatIfApproved(state, {
+  const skipped = skipQueueBeatIfMediaReady(state, {
     id: "beat-1",
     reviewStatus: "APPROVED",
+    previewMediaAssetId: "asset-1",
   });
 
   assert.deepEqual(skipped.skippedBeatIds, ["beat-1"]);
   assert.equal(skipped.currentIndex, 1);
   assert.equal(
-    skipQueueBeatIfApproved(state, { id: "beat-1", reviewStatus: "NEEDS_REVIEW" }),
+    skipQueueBeatIfMediaReady(state, {
+      id: "beat-1",
+      reviewStatus: "APPROVED",
+      previewMediaAssetId: null,
+    }),
     state,
   );
 });
@@ -134,4 +141,16 @@ test("Storyboard queue transitions publish to local storage from the runner", ()
   assert.match(source, /publishGeminiQueue\(queue\)/);
   assert.match(source, /generated[\s\S]*markQueueBeatCompleted[\s\S]*publishGeminiQueue/);
   assert.doesNotMatch(source, /useEffect\(\(\) => \{[\s\S]*saveGeminiQueue\(projectId, selectedChapterId, geminiQueue\)/);
+});
+
+test("Storyboard Generate Gemini All targets missing preview media instead of review status", () => {
+  const source = readFileSync(
+    "src/renderer/features/storyboard/screens/StoryboardScreen.tsx",
+    "utf8",
+  );
+  assert.match(
+    source,
+    /beatsPendingGeminiGeneration[\s\S]*allChapterBeats\.filter\(\(beat\) => !beat\.previewMediaAssetId\)/,
+  );
+  assert.match(source, /skipQueueBeatIfMediaReady\(queue, beat\)/);
 });
