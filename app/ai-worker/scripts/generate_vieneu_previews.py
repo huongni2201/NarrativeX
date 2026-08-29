@@ -1,16 +1,22 @@
-"""Generate one short, local VieNeu preview WAV per catalog voice.
+"""Generate and optionally publish one short VieNeu preview WAV per catalog voice.
 
-The generated files are upload artifacts only. Upload them to R2 and then set the matching
-``voice_catalog.sample_url`` values; this script never creates a narration job or charges quota.
+The generated files are upload artifacts only. ``--publish-r2`` stores them through the immutable
+voice-reference adapter with SHA-256 metadata. This script never creates a narration job or charges
+quota.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 from pathlib import Path
 
 from vieneu import Vieneu
+
+from narrativex_worker.config import get_settings
+from narrativex_worker.narration.storage import S3MediaStorage
+from narrativex_worker.workspace import sha256_file
 
 PREVIEW_TEXT = "Xin chào, đây là giọng đọc thử của NarrativeX."
 R2_PREFIX = "narration/vieneu-previews"
@@ -39,6 +45,21 @@ VOICE_NAMES = {
 }
 
 
+async def publish_preview(
+    storage: S3MediaStorage,
+    preview_path: Path,
+    storage_key: str,
+) -> dict[str, str | int]:
+    checksum = sha256_file(preview_path)
+    asset = await storage.put_file_immutable(
+        storage_key=storage_key,
+        file_path=preview_path,
+        checksum=checksum,
+        mime_type="audio/wav",
+    )
+    return {"sha256": asset.checksum, "sizeBytes": asset.size_bytes}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -54,6 +75,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--backend", choices=("auto", "onnx", "pytorch"), default="auto")
     parser.add_argument("--precision", choices=("int8", "fp32"), default="int8")
+    parser.add_argument(
+        "--publish-r2",
+        action="store_true",
+        help="Publish generated previews to the configured immutable R2 voice-reference store",
+    )
     return parser.parse_args()
 
 
@@ -67,7 +93,8 @@ def main() -> None:
         max_batch_size=1,
     )
     available = {str(item[1]) for item in client.list_preset_voices()}
-    generated: list[dict[str, str]] = []
+    generated: list[dict[str, str | int]] = []
+    storage = S3MediaStorage(get_settings()) if args.publish_r2 else None
 
     for voice_id, voice_name in VOICE_NAMES.items():
         output_path = args.output_dir / f"{voice_id}.wav"
@@ -88,12 +115,21 @@ def main() -> None:
 
         audio = client.infer(PREVIEW_TEXT, voice=voice_name)
         client.save(audio, output_path)
+        storage_key = f"{R2_PREFIX}/{output_path.name}"
+        integrity: dict[str, str | int] = {
+            "sha256": sha256_file(output_path),
+            "sizeBytes": output_path.stat().st_size,
+        }
+        if storage is not None:
+            integrity = asyncio.run(publish_preview(storage, output_path, storage_key))
+            print(f"Published {storage_key}")
         generated.append(
             {
                 "voiceId": voice_id,
                 "voiceName": voice_name,
                 "filename": output_path.name,
-                "r2Key": f"{R2_PREFIX}/{output_path.name}",
+                "r2Key": storage_key,
+                **integrity,
             }
         )
         print(f"Generated {output_path}")

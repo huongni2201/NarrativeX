@@ -80,7 +80,7 @@ USER_PROVIDED_AUDIO
 
 VieNeu supports system-managed voices and authorized reference-audio flows. Reference audio must be handled as sensitive input, kept out of arbitrary durable job payloads and used only with appropriate consent.
 
-Catalog preview generation is a development/asset-maintenance task. Run `scripts/generate_vieneu_previews.py` when preview files need to be regenerated for upload; its `artifacts/` output is generated and intentionally not tracked in Git.
+Catalog preview generation is a development/asset-maintenance task. Run `scripts/generate_vieneu_previews.py` to regenerate local preview files and a checksum manifest; its `artifacts/` output is intentionally not tracked in Git. Pass `--publish-r2` to publish through the immutable voice-reference adapter. Publishing requires the normal `R2_ACCOUNT_ID` or `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` settings, and writes the required lowercase SHA-256 as R2 object metadata.
 
 ## Media and storage scope
 
