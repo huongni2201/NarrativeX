@@ -67,7 +67,7 @@ public class GetProductionTimelineUseCase {
 
       List<ProductionTimelineView.Beat> plannedBeats =
           timingRepresentable
-              ? planBeatTiming(chapter, chapterBeats, chapterStartMs, chapterDurationMs)
+              ? planBeatTiming(chapter, chapterBeats, chapterStartMs, chapterDurationMs, exactTiming)
               : List.of();
       beats.addAll(plannedBeats);
 
@@ -125,10 +125,11 @@ public class GetProductionTimelineUseCase {
       ChapterSource chapter,
       List<BeatSource> sources,
       long chapterStartMs,
-      long chapterDurationMs) {
+      long chapterDurationMs,
+      boolean exactTiming) {
     if (sources.isEmpty()) return List.of();
 
-    if (hasCompleteAlignedClock(sources, chapterDurationMs)) {
+    if (exactTiming) {
       List<ProductionTimelineView.Beat> aligned = new ArrayList<>(sources.size());
       for (BeatSource source : sources) {
         long relativeStartMs = source.audioStartMs();
