@@ -56,10 +56,10 @@ class ImageMaterializationMixin(ImageRepositoryMixin):
                 await connection.execute(
                     """
                     INSERT INTO media_assets
-                        (id, account_id, project_id, asset_type, origin, storage_mode, storage_key,
+                        (id, account_id, project_id, asset_type, origin, storage_key,
                          original_filename, content_type, size_bytes, sha256, status, width,
                          height, checksum_verified_at)
-                    VALUES ($1, $2, $3, 'IMAGE', 'IMAGE_GENERATED', 'PROJECT_LOCAL', $4, $5, $6,
+                    VALUES ($1, $2, $3, 'IMAGE', 'IMAGE_GENERATED', $4, $5, $6,
                             $7, $8, 'READY', $9, $10, CURRENT_TIMESTAMP)
                     """,
                     asset_id,
