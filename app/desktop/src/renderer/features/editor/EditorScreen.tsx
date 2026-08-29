@@ -23,6 +23,7 @@ import {
 import { EditorMediaAttachError } from "./model/editor-media-workflow";
 import { useEditorMediaMutations } from "./queries/editor-media.mutations";
 import { useEditorPreviewSources } from "./queries/editor-preview.queries";
+import { useEditorSubtitles } from "./queries/editor-subtitles.queries";
 
 export interface MediaMutationNotice {
   beatId: string;
@@ -47,6 +48,11 @@ export function EditorScreen({
   const [renderOpen, setRenderOpen] = useState(false);
   const beats = timeline?.beats ?? [];
   const chapters = timeline?.chapters ?? [];
+  const subtitles = useEditorSubtitles({
+    projectId,
+    storyVersionId: timeline?.storyVersionId ?? null,
+    chapters,
+  });
   const orderedBeats = useMemo(() => sortEditorBeats(beats), [beats]);
   const selectableAssets = useMemo(
     () => workspace.assets.filter((asset) => asset.type === "IMAGE" || asset.type === "VIDEO"),
@@ -300,13 +306,14 @@ export function EditorScreen({
       <EditorPlaybackSurface
         beats={orderedBeats}
         chapters={chapters}
+        subtitleCues={subtitles.cues}
         selectedBeatId={selectedId}
         previewBeat={previewBeat}
         mediaUrl={previewSources.mediaUrl}
         narrationUrl={previewSources.narrationUrl}
         narrationStartMs={selectedChapter?.startMs ?? null}
         narrationEndMs={selectedChapter?.endMs ?? null}
-        previewLoading={previewSources.loading}
+        previewLoading={previewSources.loading || subtitles.loading}
         previewMessage={previewSources.message}
         totalDurationMs={totalMs}
         scopeWindowStartMs={scopeWindow.startMs}
