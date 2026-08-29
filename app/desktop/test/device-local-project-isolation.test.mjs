@@ -21,12 +21,23 @@ test("project discovery is device-local and does not reconcile backend project l
     "queries",
     "projects.queries.ts",
   );
+  const api = source(
+    "app",
+    "desktop",
+    "src",
+    "renderer",
+    "features",
+    "projects",
+    "api",
+    "projects.api.ts",
+  );
 
   assert.match(queries, /window\.narrativex\.localProjects\.list\(\)/);
-  assert.match(queries, /syncStatus: "LOCAL_ONLY"/);
+  assert.match(queries, /window\.narrativex\.localProjects\.upsert\(project\)/);
   assert.doesNotMatch(queries, /projectsApi\.list\(\)/);
   assert.doesNotMatch(queries, /localProjects\.reconcile\(/);
   assert.doesNotMatch(queries, /mergeProjects\(/);
+  assert.doesNotMatch(api, /\blist\s*:/);
 });
 
 test("project detail requires local registration before backend access", () => {
@@ -67,4 +78,32 @@ test("workspace resource queries wait for the device-local project gate", () => 
   assert.match(workspace, /enabled: projectAvailable && requirements\.characters/);
   assert.match(workspace, /enabled: projectAvailable && requirements\.voices/);
   assert.match(workspace, /enabled: projectAvailable && requirements\.presets/);
+});
+
+test("renderer bridge exposes no project synchronization surface", () => {
+  const preload = source("app", "desktop", "src", "preload", "index.ts");
+  const types = source("app", "desktop", "src", "preload", "types.ts");
+  const ipc = source(
+    "app",
+    "desktop",
+    "src",
+    "main",
+    "local-storage",
+    "project-catalog-ipc.ts",
+  );
+  const catalog = source(
+    "app",
+    "desktop",
+    "src",
+    "main",
+    "local-storage",
+    "project-catalog.ts",
+  );
+
+  assert.doesNotMatch(preload, /projects-local:reconcile/);
+  assert.doesNotMatch(types, /LocalProjectSyncStatus|cloudProjectId|syncStatus/);
+  assert.doesNotMatch(ipc, /projects-local:reconcile|cloudProjectId|syncStatus/);
+  assert.doesNotMatch(catalog, /\breconcile\s*\(|cloudProjectId|syncStatus/);
+  assert.match(catalog, /CATALOG_SCHEMA_VERSION = 2/);
+  assert.match(catalog, /PROJECT_SNAPSHOT_SCHEMA_VERSION = 2/);
 });
