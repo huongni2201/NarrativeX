@@ -406,13 +406,19 @@ public class CreateProjectRenderUseCase {
 
   private static boolean qualityAllowed(String requestedResolution, String maximumQuality) {
     if (maximumQuality == null || maximumQuality.isBlank()) return false;
-    int requested = "1080p".equalsIgnoreCase(requestedResolution) ? 3 : 1;
+    int requested =
+        switch (requestedResolution.toLowerCase(Locale.ROOT)) {
+          case "720p" -> 1;
+          case "1080p" -> 3;
+          case "1440p" -> 4;
+          default -> Integer.MAX_VALUE;
+        };
     int maximum =
         switch (maximumQuality.toUpperCase(Locale.ROOT)) {
           case "DRAFT", "720P" -> 1;
           case "STANDARD" -> 2;
           case "HIGH", "1080P" -> 3;
-          case "ULTRA" -> 4;
+          case "ULTRA", "1440P", "2K", "QHD" -> 4;
           default -> 0;
         };
     return maximum >= requested;
