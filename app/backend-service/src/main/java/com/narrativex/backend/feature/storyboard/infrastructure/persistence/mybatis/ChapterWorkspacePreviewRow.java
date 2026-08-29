@@ -13,5 +13,5 @@ public class ChapterWorkspacePreviewRow {
   private Integer durationSeconds;
   private String status;
   private int visualBeatCount;
-  private String previewImageUrl;
+  private UUID previewMediaAssetId;
 }
