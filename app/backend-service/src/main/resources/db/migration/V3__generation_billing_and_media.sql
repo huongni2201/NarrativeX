@@ -212,9 +212,10 @@ CREATE TABLE quota_reservations (
 CREATE TABLE media_assets (
     id UUID PRIMARY KEY,
     account_id VARCHAR(128) NOT NULL,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     asset_type VARCHAR(16) NOT NULL,
     origin VARCHAR(24) NOT NULL,
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'PROJECT_LOCAL',
+    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
     storage_key VARCHAR(512),
     original_filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(160) NOT NULL,
@@ -235,10 +236,19 @@ CREATE TABLE media_assets (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED', 'LOCAL_ONLY')),
-    CONSTRAINT ck_media_assets_storage_mode CHECK (
-        (storage_mode IN ('REMOTE', 'HYBRID') AND storage_key IS NOT NULL)
-        OR (storage_mode = 'PROJECT_LOCAL' AND storage_key IS NOT NULL)
-        OR (storage_mode = 'LOCAL_ONLY' AND storage_key IS NULL)
+    CONSTRAINT ck_media_assets_storage_scope CHECK (
+        (storage_mode = 'REMOTE'
+            AND project_id IS NULL
+            AND asset_type = 'AUDIO'
+            AND storage_key IS NOT NULL)
+        OR
+        (storage_mode = 'PROJECT_LOCAL'
+            AND project_id IS NOT NULL
+            AND storage_key IS NOT NULL)
+        OR
+        (storage_mode = 'LOCAL_ONLY'
+            AND project_id IS NOT NULL
+            AND storage_key IS NULL)
     ),
     CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
     CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
@@ -270,23 +280,6 @@ CREATE TABLE production_beat_media_selections (
     CONSTRAINT ck_production_beat_media_selection_fit_mode
         CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
     CONSTRAINT ck_production_beat_media_selection_trim_start CHECK (trim_start_ms >= 0)
-);
-
--- Server-side registry of which paired desktop device currently has a materialized
--- local copy. Absolute filesystem paths stay on the desktop and are never persisted here.
-CREATE TABLE local_media_materializations (
-    id UUID PRIMARY KEY,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    media_asset_id UUID NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
-    local_device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE CASCADE,
-    state VARCHAR(16) NOT NULL,
-    size_bytes BIGINT,
-    checksum_sha256 VARCHAR(64),
-    confirmed_at TIMESTAMP WITH TIME ZONE,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_local_media_materializations UNIQUE (project_id, media_asset_id, local_device_id),
-    CONSTRAINT ck_local_media_materializations_state CHECK (state IN ('AVAILABLE', 'MISSING', 'CORRUPT')),
-    CONSTRAINT ck_local_media_materializations_checksum CHECK (checksum_sha256 IS NULL OR checksum_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE character_version_reference_assets (
