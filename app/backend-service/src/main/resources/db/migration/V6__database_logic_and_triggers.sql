@@ -305,7 +305,7 @@ COMMENT ON COLUMN project_render_input_snapshots.assigned_local_device_id IS
 
 -- -----------------------------------------------------------------------------
 -- Device-local project-media hard cut (pre-release baseline finalization)
--- Project media is project-owned/local. Custom voice references are account-owned/R2.
+-- Project media is project-owned/local. Custom account voice references are R2-backed.
 -- -----------------------------------------------------------------------------
 CREATE TABLE voice_reference_assets (
     id UUID PRIMARY KEY,
@@ -347,10 +347,12 @@ ALTER TABLE media_validation_jobs
     FOREIGN KEY (media_asset_id) REFERENCES voice_reference_assets(id) ON DELETE CASCADE;
 
 ALTER TABLE narration_requests
-    DROP CONSTRAINT IF EXISTS narration_requests_voice_reference_asset_id_fkey;
-ALTER TABLE narration_requests
-    ADD CONSTRAINT narration_requests_voice_reference_asset_id_fkey
-    FOREIGN KEY (voice_reference_asset_id) REFERENCES voice_reference_assets(id) ON DELETE SET NULL;
+    ADD COLUMN account_voice_reference_asset_id UUID REFERENCES voice_reference_assets(id),
+    ADD CONSTRAINT ck_narration_requests_single_voice_reference
+    CHECK (
+        project_voice_reference_asset_id IS NULL
+        OR account_voice_reference_asset_id IS NULL
+    );
 
 DROP TABLE media_asset_checksums;
 
