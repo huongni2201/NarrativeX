@@ -25,6 +25,8 @@ public interface ProductionTimelineSourceRepository {
       UUID narrationRequestId,
       UUID narrationAssetId,
       UUID narrationAlignmentId,
+      String subtitleText,
+      String subtitleSpansJson,
       Long fallbackDurationMs,
       int beatCount,
       int readyBeatCount) {}
