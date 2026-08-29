@@ -6,6 +6,7 @@ import type {
   RenderResolution,
   UpdateBeatMediaInput,
 } from "@narrativex/client-contracts";
+import type { LocalRenderPreflightInput } from "../../../../preload/types";
 import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
 
@@ -91,10 +92,6 @@ export const productionApi = {
     });
   },
 
-  preflight: (input: {
-    projectId: string;
-    assetIds: string[];
-    estimatedOutputBytes: number;
-    requiredTemporaryBytes: number;
-  }): Promise<LocalRenderPreflight> => window.narrativex.render.preflight(input),
+  preflight: (input: LocalRenderPreflightInput): Promise<LocalRenderPreflight> =>
+    window.narrativex.render.preflight(input),
 };
