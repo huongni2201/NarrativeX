@@ -87,7 +87,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "storage_key",
-        help="R2 object key to repair, for example narration/vieneu-previews/vieneu-ngoc-huyen-v2.wav",
+        help=(
+            "R2 object key to repair, for example "
+            "narration/vieneu-previews/vieneu-ngoc-huyen-v2.wav"
+        ),
     )
     return parser.parse_args()
 
