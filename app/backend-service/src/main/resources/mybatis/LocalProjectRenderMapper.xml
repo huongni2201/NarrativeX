@@ -186,9 +186,6 @@
           resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderArtifactRow">
     SELECT fa.render_fingerprint AS renderFingerprint,
            fa.storage_key AS storageKey,
-           fa.storage_provider AS storageProvider,
-           fa.external_file_id AS externalFileId,
-           fa.web_view_link AS webViewLink,
            fa.mime_type AS mimeType,
            fa.size_bytes AS sizeBytes,
            fa.checksum_sha256 AS checksumSha256,
@@ -209,12 +206,12 @@
       project_id, chapter_id, generation_job_id, render_manifest_id,
       artifact_type, render_fingerprint, storage_key, mime_type,
       size_bytes, checksum_sha256, duration_ms, width, height, fps,
-      status, storage_provider, external_file_id, web_view_link
+      status
     )
     SELECT gj.project_id, NULL, gj.id, NULL,
            'PROJECT_VIDEO', #{renderFingerprint}, #{storageKey}, #{mimeType},
            #{sizeBytes}, #{checksumSha256}, #{durationMs}, #{width}, #{height}, #{fps},
-           'READY', #{storageProvider}, #{externalFileId}, #{webViewLink}
+           'READY'
       FROM generation_jobs gj
       JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
      WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
