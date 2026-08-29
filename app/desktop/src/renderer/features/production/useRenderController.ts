@@ -22,7 +22,6 @@ export function useRenderController({
 }>) {
   const [resolution, setResolution] = useState<RenderResolution>("1080p");
   const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("AUTO");
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const [job, setJob] = useState<DesktopRenderJob | null>(null);
   const [preflight, setPreflight] = useState<LocalRenderPreflight | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -129,8 +128,6 @@ export function useRenderController({
     setResolution,
     autoEditStyle,
     setAutoEditStyle,
-    subtitlesEnabled,
-    setSubtitlesEnabled,
     liveJob,
     preflight,
     notice,
