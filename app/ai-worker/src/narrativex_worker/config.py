@@ -101,10 +101,6 @@ class WorkerSettings(BaseSettings):
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE", "NARRATION_PROVIDER_MODE"),
     )
-    google_tts_project_id: str | None = None
-    google_tts_endpoint: str = "https://texttospeech.googleapis.com"
-    google_tts_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    tts_pricing_catalog_version: str = "vieneu-local-2026-08-23"
     narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
     vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
     vieneu_voice_name: str = "Ngọc Huyền v2"
@@ -152,12 +148,6 @@ class WorkerSettings(BaseSettings):
         description="Optional voice-reference R2 endpoint override",
     )
 
-    wan_video_enabled: bool = False
-    wan_endpoint_url: str | None = None
-    wan_model: str = "Wan2.2-TI2V-5B"
-    wan_api_token: SecretStr | None = None
-    wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
-
     @field_validator("worker_roles")
     @classmethod
     def validate_worker_roles(cls, value: str) -> str:
@@ -179,16 +169,6 @@ class WorkerSettings(BaseSettings):
 
     def has_worker_role(self, role: str) -> bool:
         return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
-
-    @property
-    def media_storage_mode(self) -> Literal["local"]:
-        """Compatibility view for old worker internals; project media is hard-wired local."""
-        return "local"
-
-    @property
-    def media_local_dir(self) -> str:
-        """Compatibility alias while narration internals migrate to the explicit local root."""
-        return self.project_media_local_dir
 
     @computed_field  # type: ignore[prop-decorator]
     @property
