@@ -29,130 +29,13 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
 
     async def claim_next(self, worker_id: str) -> ClaimedNarrationJob | None:
         claim_owner = self._new_claim_owner(worker_id)
-        pool = self._require_pool()
-        async with pool.acquire() as connection:
-            async with connection.transaction():
-                row = await connection.fetchrow(
-                    """
-                    SELECT sa.id AS stage_attempt_id,
-                           sa.status AS stage_attempt_status,
-                           sa.row_version AS stage_attempt_row_version,
-                           gj.id AS generation_job_id,
-                           gj.status AS generation_job_status,
-                           gj.row_version AS generation_job_row_version,
-                           gj.job_id,
-                           nr.id AS narration_request_id,
-                           nr.project_id,
-                           nr.chapter_id,
-                           nr.chapter_row_version,
-                           nr.source_hash,
-                           nr.source_text,
-                           nr.voice_id,
-                           nr.language,
-                           nr.speaking_rate,
-                           nr.request_fingerprint,
-                           COALESCE(
-                               vra.storage_key,
-                               NULLIF(vc.metadata_json ->> 'referenceStorageKey', '')
-                           ) AS voice_reference_storage_key
-                      FROM stage_attempts sa
-                      JOIN generation_jobs gj ON gj.id = sa.generation_job_id
-                      JOIN narration_operations no ON no.stage_attempt_id = sa.id
-                      JOIN narration_requests nr ON nr.id = no.narration_request_id
-                      LEFT JOIN voice_reference_assets vra
-                        ON vra.id = nr.voice_reference_asset_id
-                       AND vra.status = 'READY'
-                      LEFT JOIN voice_catalog vc ON vc.id = nr.voice_id
-                     WHERE gj.job_type = 'NARRATION_GENERATE'
-                       AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
-                       AND sa.stage_name = 'NARRATION_TTS'
-                       AND (
-                           sa.status IN ('QUEUED', 'STALLED')
-                           OR (
-                               sa.status = 'RUNNING'
-                               AND (
-                                   sa.heartbeat_at IS NULL
-                                   OR sa.heartbeat_at
-                                      < CURRENT_TIMESTAMP - ($1 * INTERVAL '1 second')
-                               )
-                           )
-                       )
-                     ORDER BY sa.created_at, sa.id
-                     FOR UPDATE OF sa SKIP LOCKED
-                     LIMIT 1
-                    """,
-                    self.lease_seconds,
-                )
-                if row is None:
-                    self._claim_owner.set(None)
-                    return None
-                claimed = await self._claim_candidate(
-                    connection,
-                    row,
-                    claim_owner,
-                    current_step="NARRATION_TTS",
-                )
+        claimed = await super().claim_next(claim_owner)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         return claimed
 
     async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
         claim_owner = self._new_claim_owner(worker_id)
-        pool = self._require_pool()
-        async with pool.acquire() as connection:
-            async with connection.transaction():
-                row = await connection.fetchrow(
-                    """
-                    SELECT sa.id AS stage_attempt_id,
-                           sa.status AS stage_attempt_status,
-                           sa.row_version AS stage_attempt_row_version,
-                           gj.id AS generation_job_id,
-                           gj.status AS generation_job_status,
-                           gj.row_version AS generation_job_row_version,
-                           gj.job_id,
-                           nr.id AS narration_request_id,
-                           nr.project_id,
-                           nr.chapter_id,
-                           nr.chapter_row_version,
-                           nr.source_hash,
-                           nr.source_text,
-                           nr.voice_id,
-                           nr.language,
-                           nr.speaking_rate,
-                           nr.request_fingerprint,
-                           COALESCE(
-                               vra.storage_key,
-                               NULLIF(vc.metadata_json ->> 'referenceStorageKey', '')
-                           ) AS voice_reference_storage_key
-                      FROM provider_operations po
-                      JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
-                      JOIN generation_jobs gj ON gj.id = sa.generation_job_id
-                      JOIN narration_operations no ON no.stage_attempt_id = sa.id
-                      JOIN narration_requests nr ON nr.id = no.narration_request_id
-                      LEFT JOIN voice_reference_assets vra
-                        ON vra.id = nr.voice_reference_asset_id
-                       AND vra.status = 'READY'
-                      LEFT JOIN voice_catalog vc ON vc.id = nr.voice_id
-                     WHERE po.status = 'UNKNOWN'
-                       AND po.next_reconcile_at IS NOT NULL
-                       AND po.next_reconcile_at <= CURRENT_TIMESTAMP
-                       AND gj.job_type = 'NARRATION_GENERATE'
-                       AND gj.status = 'UNKNOWN'
-                       AND sa.stage_name = 'NARRATION_TTS'
-                       AND sa.status = 'UNKNOWN'
-                     ORDER BY po.next_reconcile_at, po.id
-                     FOR UPDATE OF sa SKIP LOCKED
-                     LIMIT 1
-                    """
-                )
-                if row is None:
-                    self._claim_owner.set(None)
-                    return None
-                claimed = await self._claim_candidate(
-                    connection,
-                    row,
-                    claim_owner,
-                    current_step="NARRATION_TTS_RECONCILE",
-                )
+        claimed = await super().claim_due_reconciliation(claim_owner)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         return claimed
 
