@@ -137,6 +137,8 @@ export function EditorPreviewViewport({
           return;
         }
         console.warn("Narration audio play error:", error);
+        setAudioFailed(true);
+        onPlaybackError("Không thể phát narration audio cho preview. Đã chuyển sang timer đồng bộ.");
       });
     }
   }, [audioFailed, narrationEndMs, narrationStartMs, narrationUrl, onPlaybackError, playheadMs, playing]);
