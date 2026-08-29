@@ -1,27 +1,10 @@
 # NarrativeX AI Worker Codebase
 
-## Authority and role
+## Authority
 
-The Python worker executes durable AI/media work authorized by Spring backend plans. It is not a public HTTP/FastAPI service and it is not product/domain authority. PostgreSQL remains the durable execution source of truth.
+The Python worker executes durable AI/media work authorized by the Spring backend. PostgreSQL remains the durable execution source of truth. The worker is not a public API and is not product/domain authority.
 
-## Runtime and dependencies
-
-- Python `>=3.12`.
-- Package: `narrativex-worker` built with Hatchling.
-- Validation/config: Pydantic v2 + Pydantic Settings.
-- PostgreSQL: asyncpg.
-- HTTP: HTTPX.
-- Google auth: `google-auth` / ADC or workload identity.
-- Quality: pytest/pytest-asyncio, Ruff and mypy.
-- Entry points: `python -m narrativex_worker` and `narrativex-worker`.
-
-The worker dependency manifest does not make FastAPI/Starlette/Uvicorn part of the runtime architecture.
-
-Exact versions belong in `app/ai-worker/pyproject.toml`; do not duplicate version pins here as migration targets.
-
-## Worker roles
-
-The supported worker roles are:
+## Supported roles
 
 ```text
 analysis
@@ -30,154 +13,69 @@ media-validation
 image-generation
 ```
 
-The same source tree is packaged into role-specific runtimes. Current Compose/config separates general/image and narration concurrency using role-appropriate settings such as:
+There is no current Python video-generation/I2V role and no Wan provider. `VIDEO` remains a valid analysis/editor intent for Electron web/browser generation; that intent must not be removed just because the Python provider path is gone.
+
+## Chapter analysis
 
 ```text
-GENERAL_WORKER_CONCURRENCY
-NARRATION_WORKER_CONCURRENCY
-WORKER_ROLES
-```
-
-Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start. Translation is not a supported worker role in the current product baseline. Video generation/I2V is also not a Python worker role in the current runtime; the former Wan adapter and generic video-provider port have been removed.
-
-## Chapter Analyze
-
-```text
-Backend durable admission
-  -> OperationPlan + GenerationJob + StageAttempt
-  -> worker polls PostgreSQL
-  -> FOR UPDATE ... SKIP LOCKED claim
-  -> lease owner + heartbeat
-  -> persisted saved Chapter source request
-  -> provider execution
-  -> Pydantic structured-result validation
-  -> Chapter rowVersion/sourceHash stale guard
+Backend admission
+  -> GenerationJob + StageAttempt
+  -> worker claim/lease
+  -> saved Chapter source
+  -> provider structured result
+  -> stale-source guard
   -> Character/Location/Scene/VisualBeat materialization
-  -> terminal durable state
 ```
 
-The analysis source is the authoritative saved `chapters.source_text/source_hash`; there is no translation/content-variant selection layer. Dropped delivery hints do not lose queued work because PostgreSQL is authoritative.
+## Provider-operation fence
 
-## Provider operation fence
-
-External paid/provider work follows a fail-closed durable fence:
-
-```text
-RESERVED
-  -> persist the submission fence before external call
-  -> SUBMITTED / RUNNING when durable provider identity is known
-  -> COMPLETED / FAILED
-  -> UNKNOWN when acceptance/outcome is ambiguous
-```
-
-Rules:
-
-- never blind-resubmit `UNKNOWN`, `SUBMITTED` or `RUNNING` work;
-- reconcile using durable operation/request identity when the provider supports it;
-- keep unsupported ambiguous outcomes visible for explicit attention rather than manufacturing success/failure;
-- mutate provider operation state using status/row-version CAS rules;
-- treat `COMPLETED` and `FAILED` as terminal;
-- stale reconciliation responses must not overwrite newer durable state;
-- stage lease loss cancels claimed processing and prevents new submissions from the stale worker.
-
-Image and narration paths apply this boundary with workflow-specific reconciliation/finalization rules.
+External provider work persists request identity before submission. Ambiguous outcomes remain `UNKNOWN` and reconcile before resubmission. Lease loss prevents stale owners from creating new durable side effects or finalizing success.
 
 ## Image generation
 
-The image role executes backend-authorized `SHOT_IMAGE_GENERATE` work through the configured Vertex image adapter and durable batch/reconciliation path.
-
 ```text
-queued media-generation items
-  -> stage lease
-  -> deterministic request fingerprint
-  -> provider-operation submission fence
-  -> Vertex batch staging/execution
-  -> durable reconciliation
-  -> validate/correlate image output
+backend-authorized image items
+  -> worker claim
+  -> provider operation fence
+  -> Vertex execution/reconciliation
+  -> validate/correlate image
+  -> project-local media result
   -> stable MediaAsset + lineage
-  -> retained remote materialization when required
-  -> item/stage/job aggregation
 ```
 
-Provider batch correlation fails closed when rows are missing/duplicate/unmatchable. One completed provider batch cannot complete a parent job while other items remain pending.
-
-Remote R2 output is a server/provider durability boundary. Desktop workflows may then materialize the accepted MediaAsset locally through authorized Desktop/backend flows; the worker never owns the Desktop machine path.
+Generated image bytes are written to the configured project-media local root. They are not uploaded to R2.
 
 ## Narration
 
 ```text
 TTS
-  -> VieNeu execution
+  -> VieNeu/provider execution
   -> validate/normalize
-  -> retained remote materialization where required
+  -> project-local narration output
   -> alignment
-
-USER_PROVIDED_AUDIO
-  -> ordered registered parts
-  -> logical global clock
-  -> alignment
-  -> no TTS_GENERATE for covered scope
 ```
 
-Narration generation consumes saved Chapter content directly. Narration provider ambiguity uses the same durable operation rules. Infrastructure failures after an external TTS side effect must not cause blind paid resubmission.
+Generated narration uses `PROJECT_MEDIA_LOCAL_DIR` as its canonical storage root. The removed `media_storage_mode` / `media_local_dir` compatibility aliases must not be restored.
 
-The worker may process user-owned voice references in ephemeral job storage when the authorized narration request allows it. Real-person samples require appropriate consent and must not become arbitrary durable payload secrets.
+Account-owned custom voice references are separate: an authorized reference may be read from R2 and copied into local/ephemeral execution storage for inference. Generated narration output still remains project-local.
 
-## Claim, lease and concurrency
+## Storage boundary
 
-Worker claims use PostgreSQL row locking/`SKIP LOCKED` plus observed status/version fences. Parent GenerationJob and StageAttempt transitions must stay consistent; stale cancellation/failure must not be resurrected by a broad claim predicate.
+```text
+worker generated image/audio   -> project-media local root
+worker scratch                 -> ephemeral workspace
+voice reference/custom voice   -> R2 only when account remote storage is required
+Desktop project bytes          -> Electron ProjectStorage
+final MP4                      -> Electron project artifacts
+```
 
-Heartbeat/terminal mutations carry worker/lease identity where the role owns a claim. Lease loss stops the old owner from creating durable side effects or terminalizing success.
+The worker never owns the Desktop absolute path and never stores final video.
 
-Retry/backoff behavior uses shared deterministic bounded policies where implemented; arbitrary `sleep()`-driven correctness is not acceptable for tests or state-machine fencing.
+## Final rendering
 
-## Runtime files and local scratch
+Final project rendering belongs to Electron main under backend assignment/lease. Python does not execute project FFmpeg renders and there is no server-side Chapter-render pipeline.
 
-Worker-local files are ephemeral execution scratch/cache. Runtime-file helpers validate paths/sizes/media constraints and must not be confused with Desktop ProjectStorage.
-
-- Desktop local project bytes are owned by Electron main.
-- Worker scratch is disposable.
-- Retained remote server/provider media may use R2.
-
-The worker does not decide the Desktop storage topology.
-
-## Final project rendering
-
-Final project video rendering belongs to Electron main under backend assignment/lease. The AI worker does not own Desktop `LOCAL_DEVICE` rendering, Desktop project paths or final MP4 bytes. There is no current Python video-generation/I2V provider adapter or fallback path; current image motion and final composition run through the Desktop FFmpeg pipeline.
-
-The product contract may keep I2V as a deferred capability, but reintroducing it requires a new explicit authorized runtime design. It must not be implemented by reviving the removed Wan adapter as an implicit fallback.
-
-## Worker authority boundary
-
-### Worker owns
-
-- durable claimed AI/media stage execution;
-- provider invocation/reconciliation through currently supported adapters;
-- structured response/media validation;
-- stale-source/lease fences during execution;
-- provider/server materialization under persisted backend authorization.
-
-### Worker does not own
-
-- guest/account authentication or authorization;
-- project ownership policy;
-- public product APIs or HTTP sessions;
-- entitlement/billing policy authority;
-- Flyway schema ownership;
-- Desktop native paths/ProjectStorage/device credentials;
-- final project render execution;
-- video-generation/I2V provider execution in the current runtime;
-- chapter translation/content variants;
-- arbitrary paid-work escalation.
-
-## Current gaps
-
-- complete actual-usage reconciliation across all operation types;
-- arbitrary multi-part user-audio production slicing/stitching hardening;
-- richer generated-media review/reuse lineage;
-- broader provider failure/recovery/observability evidence.
-
-## Verification expectations
+## Verification
 
 ```bash
 pytest
@@ -186,4 +84,4 @@ ruff format --check .
 mypy src tests
 ```
 
-Tests should cover claim/lease loss, provider submission ambiguity, stale source rejection, deterministic validation failures, reconciliation, shutdown behavior and role-specific optional dependency boundaries.
+Tests should protect role boundaries, lease loss, provider ambiguity, local project-media storage and the absence of removed Python video-provider/runtime compatibility code.
