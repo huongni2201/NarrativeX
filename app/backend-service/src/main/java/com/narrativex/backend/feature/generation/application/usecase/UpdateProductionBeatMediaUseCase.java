@@ -33,7 +33,7 @@ public class UpdateProductionBeatMediaUseCase {
     ProductionTimelineView.Beat beat = requireBeat(timeline, visualBeatId);
     SelectableMediaAsset asset = requireSelectableAsset(ownerId, mediaAssetId);
     BeatMediaFitMode normalizedFitMode = fitMode == null ? BeatMediaFitMode.TRIM : fitMode;
-    validateSelection(beat, beat.durationMs(), asset, normalizedFitMode, trimStartMs);
+    validateSelection(beat.durationMs(), asset, normalizedFitMode, trimStartMs);
     repository.upsert(projectId, visualBeatId, mediaAssetId, normalizedFitMode, trimStartMs);
   }
 
@@ -68,7 +68,7 @@ public class UpdateProductionBeatMediaUseCase {
           override.trimStartMs() == null ? beat.trimStartMs() : override.trimStartMs();
       long effectiveDurationMs =
           override.durationMs() == null ? beat.durationMs() : override.durationMs();
-      validateSelection(beat, effectiveDurationMs, asset, fitMode, trimStartMs);
+      validateSelection(effectiveDurationMs, asset, fitMode, trimStartMs);
       pending.add(
           new PendingMediaUpdate(
               override.visualBeatId(), beat.mediaAssetId(), fitMode, trimStartMs));
@@ -124,7 +124,6 @@ public class UpdateProductionBeatMediaUseCase {
   }
 
   private static void validateSelection(
-      ProductionTimelineView.Beat beat,
       long effectiveDurationMs,
       SelectableMediaAsset asset,
       BeatMediaFitMode fitMode,
@@ -138,11 +137,10 @@ public class UpdateProductionBeatMediaUseCase {
       }
       return;
     }
-    validateVideoFit(beat, effectiveDurationMs, asset.durationMs(), fitMode, trimStartMs);
+    validateVideoFit(effectiveDurationMs, asset.durationMs(), fitMode, trimStartMs);
   }
 
   private static void validateVideoFit(
-      ProductionTimelineView.Beat beat,
       long effectiveDurationMs,
       Long sourceDurationMs,
       BeatMediaFitMode fitMode,
