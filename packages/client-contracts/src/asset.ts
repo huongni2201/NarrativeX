@@ -8,12 +8,11 @@ export interface DesktopAsset {
   status: string;
   createdAt: string;
   durationMs: number | null;
-  storageMode?: "REMOTE" | "LOCAL_ONLY" | "PROJECT_LOCAL";
   storageKey?: string | null;
   sha256?: string;
 }
 
-/** Wire request for POST /api/v1/assets/local. Project-local media is always project-scoped. */
+/** Wire request for POST /api/v1/assets/local. Project media is always project-scoped. */
 export interface RegisterLocalAssetRequest {
   projectId: string;
   type: "AUDIO" | "IMAGE" | "VIDEO";
