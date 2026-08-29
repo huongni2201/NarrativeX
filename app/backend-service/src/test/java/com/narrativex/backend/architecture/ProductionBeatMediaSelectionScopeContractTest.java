@@ -16,18 +16,21 @@ class ProductionBeatMediaSelectionScopeContractTest {
   private static final Path MAPPER_DIR = Path.of("src/main/resources/mybatis");
   private static final Path SELECTION_MAPPER =
       MAPPER_DIR.resolve("ProductionBeatMediaSelectionMapper.xml");
-  private static final Path MEDIA_SCHEMA =
-      Path.of("src/main/resources/db/migration/V3__generation_billing_and_media.sql");
+  private static final Path HARD_CUTOVER_SCHEMA =
+      Path.of("src/main/resources/db/migration/V9__device_local_project_media_hard_cutover.sql");
 
   @Test
   void projectMediaUsesDirectProjectOwnershipWithoutStorageMode() throws IOException {
     String mapper = Files.readString(SELECTION_MAPPER);
-    String schema = Files.readString(MEDIA_SCHEMA);
+    String migration = Files.readString(HARD_CUTOVER_SCHEMA);
 
     assertTrue(mapper.contains("ma.project_id = #{projectId"));
     assertFalse(mapper.contains("local_media_materializations"));
     assertFalse(mapper.contains("storage_mode"));
-    assertFalse(schema.contains("storage_mode"));
+    assertTrue(migration.contains("ALTER TABLE media_assets ALTER COLUMN project_id SET NOT NULL"));
+    assertTrue(migration.contains("ALTER TABLE media_assets DROP COLUMN storage_mode"));
+    assertTrue(migration.contains("DROP TABLE IF EXISTS local_media_materializations"));
+    assertTrue(migration.contains("CREATE TABLE voice_reference_assets"));
   }
 
   @Test
