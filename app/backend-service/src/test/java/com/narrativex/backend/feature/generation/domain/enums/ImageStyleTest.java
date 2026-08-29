@@ -19,17 +19,22 @@ class ImageStyleTest {
   }
 
   @Test
-  void cinematicAnimeProfileUsesSceneAdaptiveRenderingWithoutRomanceBias() {
+  void cinematicAnimeProfileUsesPremiumManhwaCoverRendering() {
     String prompt =
         ImageStyle.CINEMATIC_ANIME.promptFor("A heroine stands in a moonlit abandoned house.");
 
     assertThat(prompt)
-        .contains("2.5D digital painting")
-        .contains("modern manhwa")
-        .contains("age-appropriate facial structure")
-        .contains("physically motivated lighting")
+        .contains("premium modern manhwa and webnovel cover illustration")
+        .contains("idealized protagonist design")
+        .contains("sharp expressive eyes")
+        .contains("layered iris detail")
+        .contains("high-detail layered hair")
+        .contains("fashion-forward wardrobe")
+        .contains("strong subject-background separation")
+        .contains("controlled rim lighting")
+        .contains("rich high-contrast color design")
+        .contains("main-character presence")
         .contains("consistent face geometry")
-        .contains("adapted to the scene mood")
         .doesNotContain("champagne gold")
         .doesNotContain("romantic bloom")
         .contains("SCENE DESCRIPTION: A heroine stands in a moonlit abandoned house.");
@@ -37,7 +42,12 @@ class ImageStyleTest {
     assertThat(ImageStyle.CINEMATIC_ANIME.negativePrompt())
         .contains(
             "raw live-action photograph",
+            "plain realistic portrait",
+            "ordinary office portrait",
+            "generic stock illustration",
             "flat 2D cel anime",
+            "low-detail hair",
+            "waxy skin",
             "age regression",
             "face redesign",
             "changing facial identity",
