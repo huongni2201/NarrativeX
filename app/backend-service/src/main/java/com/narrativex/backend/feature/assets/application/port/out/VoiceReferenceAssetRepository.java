@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.assets.application.port.out;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -8,6 +9,8 @@ public interface VoiceReferenceAssetRepository {
   VoiceReferenceAsset createOrReuse(String accountId, CreateVoiceReference command);
 
   Optional<VoiceReferenceAsset> findOwned(String accountId, UUID id);
+
+  List<VoiceReferenceAsset> listOwned(String accountId);
 
   boolean isReferencedByReadyAsset(String storageKey);
 
