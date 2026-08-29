@@ -16,14 +16,14 @@ const screenSource = readFileSync(
   "utf8",
 );
 
-test("character previews route LOCAL_ONLY assets through the Electron media protocol", () => {
-  assert.match(queriesSource, /localAssetPreviewUrl/);
-  assert.match(queriesSource, /assetsApi\.get\s*\(/);
-  assert.match(queriesSource, /storageMode\s*===\s*["']LOCAL_ONLY["']/);
+test("character previews resolve directly through the project-local media protocol", () => {
   assert.match(queriesSource, /localAssetPreviewUrl\s*\(\s*projectId\s*,\s*assetId/);
+  assert.doesNotMatch(queriesSource, /assetsApi\.get\s*\(/);
+  assert.doesNotMatch(queriesSource, /assetsApi\.downloadUrl\s*\(/);
+  assert.doesNotMatch(queriesSource, /storageMode|LOCAL_ONLY|REMOTE|HYBRID|PROJECT_LOCAL/);
 });
 
-test("CharacterReferenceStudio uses the storage-aware character asset preview hook", () => {
+test("CharacterReferenceStudio uses the project-local character asset preview hook", () => {
   assert.doesNotMatch(studioSource, /assetsApi\.downloadUrl\s*\(/);
   assert.match(studioSource, /useCharacterAssetPreview/);
 });
