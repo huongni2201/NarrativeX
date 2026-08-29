@@ -1,5 +1,5 @@
 -- NarrativeX pre-release baseline: query/access-path indexes and index-backed invariants.
--- All referenced tables are created by V1-V5.
+-- All referenced tables are created by V1-V5 and finalized by V6.
 
 -- Local execution devices and desktop session runtime
 CREATE INDEX idx_local_device_pairing_codes_user
@@ -169,8 +169,6 @@ CREATE INDEX idx_production_beat_media_selection_asset
     ON production_beat_media_selections (media_asset_id);
 CREATE INDEX idx_character_version_reference_asset
     ON character_version_reference_assets (media_asset_id);
-CREATE INDEX idx_media_asset_checksums_asset
-    ON media_asset_checksums (media_asset_id);
 CREATE INDEX idx_media_validation_jobs_claimable
     ON media_validation_jobs (status, next_attempt_at, created_at, id);
 CREATE INDEX idx_media_validation_jobs_expired_leases
