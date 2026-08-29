@@ -409,6 +409,7 @@ export function ImagesScreen({
                       className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
                     >
                       <MediaItemPreview
+                        projectId={projectId}
                         mediaAssetId={item.mediaAssetId}
                         visualBeatId={item.visualBeatId}
                         executionStatus={item.executionStatus}
@@ -463,18 +464,20 @@ export function ImagesScreen({
 }
 
 function MediaItemPreview({
+  projectId,
   mediaAssetId,
   visualBeatId,
   executionStatus,
 }: Readonly<{
+  projectId: string;
   mediaAssetId: string | null;
   visualBeatId: string;
   executionStatus: string;
 }>) {
   const [imageFailed, setImageFailed] = useState(false);
   const preview = useQuery({
-    queryKey: ["assets", mediaAssetId ?? "none", "download-url"],
-    queryFn: () => assetsApi.downloadUrl(mediaAssetId as string),
+    queryKey: ["projects", projectId, "assets", mediaAssetId ?? "none", "download-url"],
+    queryFn: () => assetsApi.downloadUrl(projectId, mediaAssetId as string),
     enabled: Boolean(mediaAssetId) && executionStatus === "READY",
     staleTime: 30_000,
     refetchOnWindowFocus: false,
