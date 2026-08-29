@@ -38,7 +38,7 @@ NARRATION_WORKER_CONCURRENCY
 WORKER_ROLES
 ```
 
-Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start. Translation is not a supported worker role in the current product baseline.
+Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start. Translation is not a supported worker role in the current product baseline. Video generation/I2V is also not a Python worker role in the current runtime; the former Wan adapter and generic video-provider port have been removed.
 
 ## Chapter Analyze
 
@@ -143,14 +143,16 @@ The worker does not decide the Desktop storage topology.
 
 ## Final project rendering
 
-Final project video rendering belongs to Electron main under backend assignment/lease. The AI worker does not own Desktop `LOCAL_DEVICE` rendering, Desktop project paths or final MP4 bytes.
+Final project video rendering belongs to Electron main under backend assignment/lease. The AI worker does not own Desktop `LOCAL_DEVICE` rendering, Desktop project paths or final MP4 bytes. There is no current Python video-generation/I2V provider adapter or fallback path; current image motion and final composition run through the Desktop FFmpeg pipeline.
+
+The product contract may keep I2V as a deferred capability, but reintroducing it requires a new explicit authorized runtime design. It must not be implemented by reviving the removed Wan adapter as an implicit fallback.
 
 ## Worker authority boundary
 
 ### Worker owns
 
 - durable claimed AI/media stage execution;
-- provider invocation/reconciliation through adapters;
+- provider invocation/reconciliation through currently supported adapters;
 - structured response/media validation;
 - stale-source/lease fences during execution;
 - provider/server materialization under persisted backend authorization.
@@ -164,6 +166,7 @@ Final project video rendering belongs to Electron main under backend assignment/
 - Flyway schema ownership;
 - Desktop native paths/ProjectStorage/device credentials;
 - final project render execution;
+- video-generation/I2V provider execution in the current runtime;
 - chapter translation/content variants;
 - arbitrary paid-work escalation.
 
@@ -172,8 +175,7 @@ Final project video rendering belongs to Electron main under backend assignment/
 - complete actual-usage reconciliation across all operation types;
 - arbitrary multi-part user-audio production slicing/stitching hardening;
 - richer generated-media review/reuse lineage;
-- broader provider failure/recovery/observability evidence;
-- optional I2V runtime hardening only when the product enables that path.
+- broader provider failure/recovery/observability evidence.
 
 ## Verification expectations
 
