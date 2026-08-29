@@ -100,6 +100,17 @@ class FlywayBaselineStructureTest {
     assertTrue(storyVersions.contains("CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))"));
   }
 
+  @Test
+  void renderSnapshotChaptersAllowMissingLegacyMediaPlan() throws IOException {
+    String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
+
+    assertTrue(v5.contains("media_plan_id UUID REFERENCES media_plans(id)"));
+    assertFalse(v5.contains("media_plan_id UUID NOT NULL REFERENCES media_plans(id)"));
+    assertTrue(
+        v5.contains(
+            "media_plan_revision INTEGER CHECK (media_plan_revision IS NULL OR media_plan_revision > 0)"));
+  }
+
   private static String read(String name) throws IOException {
     return Files.readString(FlywayMigrationContract.migration(name));
   }

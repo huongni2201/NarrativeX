@@ -77,7 +77,6 @@ export const productionApi = {
       `/api/v1/projects/${encodeURIComponent(projectId)}/production/render`,
       {
         method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({
           resolution,
           format: "mp4",
