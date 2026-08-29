@@ -67,9 +67,15 @@ export interface AutoEditPlan {
   renderOverrides: ProjectRenderBeatOverride[];
 }
 
+export interface LocalRenderPreflightAssetInput {
+  assetId: string;
+  storageMode: BeatMediaStorageMode;
+  materializable: boolean;
+}
+
 export interface LocalRenderPreflightAsset {
   assetId: string;
-  state: "AVAILABLE" | "MISSING" | "CORRUPT";
+  state: "AVAILABLE" | "MATERIALIZABLE" | "MISSING" | "CORRUPT";
   message: string | null;
 }
 
