@@ -30,6 +30,23 @@ export class RemoteAssetMaterializer {
   async materialize(input: RemoteAssetMaterializationInput) {
     validateInputId(input.projectId, PROJECT_ID_PATTERN, "projectId");
     validateInputId(input.assetId, OPAQUE_ID_PATTERN, "assetId");
+
+    const manifest = await this.storage.ensureProject(input.projectId);
+    const local = manifest.assets[input.assetId];
+    if (local) {
+      await this.storage.resolveAsset(input.projectId, input.assetId, {
+        sizeBytes: local.sizeBytes,
+        checksumSha256: local.checksumSha256,
+      });
+      return {
+        assetId: local.assetId,
+        kind: local.kind,
+        relativePath: local.relativePath,
+        sizeBytes: local.sizeBytes,
+        checksumSha256: local.checksumSha256,
+      };
+    }
+
     const asset = await this.getAsset(input.assetId);
     const kind = asset.type;
     if (kind === "OTHER") throw new Error("Remote asset type is not supported by Desktop materialization.");
@@ -39,7 +56,6 @@ export class RemoteAssetMaterializer {
     if (url.username || url.password || url.hash) throw new Error("Remote asset URL contains unsupported credentials or fragment.");
     if (!Number.isSafeInteger(asset.sizeBytes) || asset.sizeBytes <= 0) throw new Error("Remote asset size is invalid.");
     if (!/^[0-9a-f]{64}$/i.test(asset.sha256)) throw new Error("Remote asset checksum is invalid.");
-    await this.storage.ensureProject(input.projectId);
     const temporaryPath = join(this.storage.projectDirectory(input.projectId), "work", `.remote-asset-${input.assetId}-${Date.now()}${safeExtension(download.filename)}`);
     try {
       const response = await fetch(url, { redirect: "error" });
