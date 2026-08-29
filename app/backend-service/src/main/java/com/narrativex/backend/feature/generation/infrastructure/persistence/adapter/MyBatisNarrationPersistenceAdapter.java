@@ -1,9 +1,11 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationOperationRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
+import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationOperationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow;
@@ -47,6 +49,7 @@ public class MyBatisNarrationPersistenceAdapter
   }
 
   private static NarrationRequestRow toRow(NarrationRequest request) {
+    VoiceReferenceSelection selection = request.voiceReference();
     return new NarrationRequestRow(
         request.id(),
         request.projectId(),
@@ -59,10 +62,25 @@ public class MyBatisNarrationPersistenceAdapter
         request.speakingRate(),
         request.segmentationVersion(),
         request.requestFingerprint(),
-        request.voiceReferenceAssetId());
+        selection != null && selection.scope() == VoiceReferenceScope.PROJECT
+            ? selection.assetId()
+            : null,
+        selection != null && selection.scope() == VoiceReferenceScope.ACCOUNT
+            ? selection.assetId()
+            : null);
   }
 
   private static NarrationRequest toDomain(NarrationRequestRow row) {
+    VoiceReferenceSelection selection = null;
+    if (row.projectVoiceReferenceAssetId() != null) {
+      selection =
+          new VoiceReferenceSelection(
+              VoiceReferenceScope.PROJECT, row.projectVoiceReferenceAssetId());
+    } else if (row.accountVoiceReferenceAssetId() != null) {
+      selection =
+          new VoiceReferenceSelection(
+              VoiceReferenceScope.ACCOUNT, row.accountVoiceReferenceAssetId());
+    }
     return new NarrationRequest(
         row.id(),
         row.projectId(),
@@ -75,6 +93,6 @@ public class MyBatisNarrationPersistenceAdapter
         row.speakingRate(),
         row.segmentationVersion(),
         row.requestFingerprint(),
-        row.voiceReferenceAssetId());
+        selection);
   }
 }
