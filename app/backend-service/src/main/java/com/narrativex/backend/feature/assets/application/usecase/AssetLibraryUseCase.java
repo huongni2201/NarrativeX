@@ -28,8 +28,10 @@ public class AssetLibraryUseCase {
   }
 
   @Transactional(readOnly = true)
-  public MediaAssetView find(UUID id) {
-    return repository.findOwned(currentUserId.get(), id);
+  public MediaAssetView find(UUID projectId, UUID id) {
+    String ownerId = currentUserId.get();
+    projectAccess.findOwnedProject(projectId, ownerId);
+    return repository.findOwned(ownerId, projectId, id);
   }
 
   @Transactional
@@ -57,22 +59,9 @@ public class AssetLibraryUseCase {
   }
 
   @Transactional
-  public MediaAssetView startUpload(UUID id) {
-    return repository.startUpload(currentUserId.get(), id);
-  }
-
-  @Transactional
-  public MediaAssetView startValidation(UUID id) {
-    return repository.startValidation(currentUserId.get(), id);
-  }
-
-  @Transactional
-  public MediaAssetView reject(UUID id) {
-    return repository.reject(currentUserId.get(), id);
-  }
-
-  @Transactional
-  public void delete(UUID id) {
-    repository.delete(currentUserId.get(), id);
+  public void delete(UUID projectId, UUID id) {
+    String ownerId = currentUserId.get();
+    projectAccess.findOwnedProject(projectId, ownerId);
+    repository.delete(ownerId, projectId, id);
   }
 }
