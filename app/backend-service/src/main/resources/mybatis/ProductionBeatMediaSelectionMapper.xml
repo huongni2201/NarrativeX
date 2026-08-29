@@ -10,17 +10,12 @@
            ma.sha256 AS checksum
       FROM media_assets ma
      WHERE ma.id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
        AND ma.account_id = #{ownerId}
        AND ma.status = 'READY'
        AND ma.deleted_at IS NULL
        AND ma.asset_type IN ('IMAGE', 'VIDEO')
-       AND EXISTS (
-         SELECT 1
-           FROM local_media_materializations lmm
-          WHERE lmm.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-            AND lmm.media_asset_id = ma.id
-            AND lmm.state = 'AVAILABLE'
-       )
+       AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
   </select>
 
   <insert id="upsert">
