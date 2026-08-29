@@ -104,12 +104,18 @@ class NarrationWorkerRepository:
                            nr.language,
                            nr.speaking_rate,
                            nr.request_fingerprint,
-                           ma.storage_key AS voice_reference_storage_key
+                           COALESCE(
+                               vra.storage_key,
+                               NULLIF(vc.metadata_json ->> 'referenceStorageKey', '')
+                           ) AS voice_reference_storage_key
                       FROM stage_attempts sa
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN narration_operations no ON no.stage_attempt_id = sa.id
                       JOIN narration_requests nr ON nr.id = no.narration_request_id
-                      LEFT JOIN media_assets ma ON ma.id = nr.voice_reference_asset_id
+                      LEFT JOIN voice_reference_assets vra
+                        ON vra.id = nr.voice_reference_asset_id
+                       AND vra.status = 'READY'
+                      LEFT JOIN voice_catalog vc ON vc.id = nr.voice_id
                      WHERE gj.job_type = 'NARRATION_GENERATE'
                        AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
                        AND sa.stage_name = 'NARRATION_TTS'
@@ -163,13 +169,19 @@ class NarrationWorkerRepository:
                            nr.language,
                            nr.speaking_rate,
                            nr.request_fingerprint,
-                           ma.storage_key AS voice_reference_storage_key
+                           COALESCE(
+                               vra.storage_key,
+                               NULLIF(vc.metadata_json ->> 'referenceStorageKey', '')
+                           ) AS voice_reference_storage_key
                       FROM provider_operations po
                       JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN narration_operations no ON no.stage_attempt_id = sa.id
                       JOIN narration_requests nr ON nr.id = no.narration_request_id
-                      LEFT JOIN media_assets ma ON ma.id = nr.voice_reference_asset_id
+                      LEFT JOIN voice_reference_assets vra
+                        ON vra.id = nr.voice_reference_asset_id
+                       AND vra.status = 'READY'
+                      LEFT JOIN voice_catalog vc ON vc.id = nr.voice_id
                      WHERE po.status = 'UNKNOWN'
                        AND po.next_reconcile_at IS NOT NULL
                        AND po.next_reconcile_at <= CURRENT_TIMESTAMP
