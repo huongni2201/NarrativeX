@@ -45,7 +45,7 @@ class MyBatisMediaAssetRepositoryTest {
   void createLocalAssetPersistsProjectOwnershipWithoutChecksumReuse() {
     UUID projectId = UUID.randomUUID();
     UUID assetId = UUID.randomUUID();
-    when(mapper.insertLocal(any())).thenReturn(1);
+    when(mapper.insertLocal(any())).thenReturn(assetId);
     when(mapper.findOwned(eq(ACCOUNT), eq(projectId), any(UUID.class)))
         .thenAnswer(
             invocation ->
