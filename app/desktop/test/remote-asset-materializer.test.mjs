@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { RemoteAssetMaterializer } from "../src/main/local-storage/remote-asset-materializer.ts";
 import { ProjectStorage } from "../src/main/local-storage/project-storage.ts";
 
@@ -15,6 +18,39 @@ function backendApi(downloadUrl) {
     },
   };
 }
+
+test("remote materialization reuses an already-local character reference without backend download", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-local-reference-"));
+  const source = join(root, "character.png");
+  await writeFile(source, Buffer.from("character-reference"));
+  const storage = new ProjectStorage(join(root, "projects"));
+  const registered = await storage.registerAsset(projectId, {
+    assetId: "asset-1",
+    kind: "IMAGE",
+    sourcePath: source,
+  });
+  let requests = 0;
+  const materializer = new RemoteAssetMaterializer(storage, {
+    async request() {
+      requests += 1;
+      throw new Error("backend should not be called for an already-local reference");
+    },
+  });
+
+  try {
+    const result = await materializer.materialize({ projectId, assetId: "asset-1" });
+    assert.equal(requests, 0);
+    assert.deepEqual(result, {
+      assetId: registered.assetId,
+      kind: registered.kind,
+      relativePath: registered.relativePath,
+      sizeBytes: registered.sizeBytes,
+      checksumSha256: registered.checksumSha256,
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("remote materialization rejects URLs that are not safe main-process downloads", async () => {
   const storage = new ProjectStorage("./.test-remote-materializer");
