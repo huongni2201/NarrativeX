@@ -102,6 +102,14 @@ export function narrationSeekSeconds(
   return narrationTimeMs(globalPlayheadMs, chapterStartMs, chapterEndMs) / 1000;
 }
 
+export function shouldResyncNarration(
+  currentSeconds: number,
+  desiredSeconds: number,
+  thresholdSeconds = 0.35,
+): boolean {
+  return Math.abs(currentSeconds - desiredSeconds) > thresholdSeconds;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
