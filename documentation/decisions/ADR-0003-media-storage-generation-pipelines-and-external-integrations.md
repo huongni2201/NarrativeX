@@ -1,105 +1,92 @@
-# ADR-0003: Media storage, generation pipelines and external provider integrations
+# ADR-0003: Media generation, local materialization and external provider storage
 
-- **Status:** Accepted; amended 2026-08-26 for Desktop local-only final rendering
-- **Date:** 2026-08-20 (consolidated 2026-08-22; amended 2026-08-26)
-- **Scope:** Remote generated-media transport, narration pipelines, provider integrations and media materialization.
+- **Status:** Accepted; amended 2026-08-29 for project-local generated media
+- **Date:** 2026-08-20; amended 2026-08-26 and 2026-08-29
+- **Scope:** Provider execution, generated project media, narration and account-owned voice references.
 - **Desktop boundary:** [ADR-0012](./ADR-0012-desktop-local-first-media-and-render-execution.md)
 
 ## Context
 
-NarrativeX produces generated images, character references, narration, uploaded audio, alignment data, render intermediates and final video. Provider/worker execution sometimes requires durable remote bytes because worker container disks are ephemeral, while the product editor and final renderer are now Desktop-local.
+NarrativeX is a Desktop editor. Generated images, generated narration, imported media, render work and final video are project media and should not have parallel remote-storage ownership once the project-local architecture is available.
 
-The previous architecture also retained a remote final-video storage/render path. That path has been removed. This ADR now covers only remote generated-media transport and provider execution; it does not define final-video storage.
+Earlier iterations used Cloudflare R2 as a general generated-media transport and also retained remote final-video assumptions. Those paths are no longer part of the current runtime.
+
+The only current R2 use case is authenticated account-owned **voice-reference/custom-voice** storage, where a reference must survive independently of one local project workspace.
 
 ## Decision
 
-### 1. Remote generated-media transport
+### 1. Project media is local
+
+```text
+AI-generated image bytes     -> shared project-local media root -> Desktop ProjectStorage
+Generated narration bytes    -> shared project-local media root -> Desktop ProjectStorage
+Imported image/audio/video   -> Desktop ProjectStorage
+Render work/cache            -> Desktop project workspace/work
+Final MP4                    -> Desktop project workspace/artifacts
+```
+
+PostgreSQL stores stable identity, ownership, lineage, checksums and execution metadata. Absolute machine paths are never durable backend identities.
+
+### 2. R2 is voice-reference/custom-voice storage only
 
 ```text
 Cloudflare R2
-  -> generated image bytes
-  -> generated narration bytes
-  -> provider/worker media that needs remote durability before materialization
-
-PostgreSQL
-  -> authoritative metadata, ownership, lineage, checksums,
-     provider identity and execution state
-
-Worker filesystem
-  -> ephemeral scratch only
-
-Electron project workspace
-  -> accepted/project media after Desktop materialization
-  -> render work/cache
-  -> final MP4
+  -> authenticated account-owned voice references
+  -> custom-voice source material when remote account storage is required
 ```
 
-R2 is a provider/worker transport and durability boundary, not the source of truth for final Desktop project storage.
+Generated project images, generated narration, imported project media and final MP4 files are **not** uploaded to R2 as transport or durability storage.
 
-### 2. Desktop materialization
+Provider/R2 credentials never enter the renderer.
 
-Accepted generated media required by the editor/final render is materialized into `ProjectStorage` and registered in `project.manifest.json` using stable asset IDs, project-relative paths, size and SHA-256.
+### 3. Worker-generated project media
 
-Absolute machine paths never become backend identities.
+Workers may write generated project media to the configured shared project-media root. The backend persists a logical `PROJECT_LOCAL` storage key plus integrity metadata. Desktop then materializes/verifies the accepted media into its project workspace.
 
-### 3. Server-owned visual style profiles
+The shared worker/backend path is an implementation transport inside the local deployment boundary; it is not a second project store and absolute paths remain private to privileged processes.
 
-Media generation accepts an allow-listed visual style code and resolves it on the backend to a versioned prompt policy. The resolved style is snapshotted with the authorized generation request; clients do not become the source of truth for provider policy.
+### 4. Native Desktop imports
 
-### 4. Upload and validation
+Desktop-native imports use Electron main for selection, inspection/hash and ProjectStorage commit. They do not require an R2 upload in order to become production media.
 
-Remote upload/provider flows use backend-authorized intents/state and validate expected size/type/checksum before READY. Worker validation runs under durable leases and isolated scratch workspaces.
+### 5. Voice references
 
-Desktop-native imports do not need remote upload merely to become usable project media. Electron main performs inspect/hash, backend stable identity registration and local workspace commit.
+Voice-reference upload/finalization remains an authenticated backend-controlled R2 workflow. Narration workers may copy the authorized reference into ephemeral/local execution storage for inference, but generated narration output returns to project-local media.
 
-### 5. Narration and multi-part audio
+### 6. Visual generation
 
-Narration remains timing authority.
+Backend/API image generation uses durable provider-operation state and reconciliation. Gemini Web image generation and supported web/browser video-generation flows execute through Electron main/browser automation. Web-provider credentials or session cookies do not enter backend/worker payloads.
 
-```text
-NarrationStrategy
-  TTS
-  USER_PROVIDED_AUDIO
-```
+`VIDEO` remains a valid visual intent. It is separate from the removed Python/Wan I2V runtime.
 
-Generated narration may use VieNeu/provider execution and R2 transport before Desktop materialization. Multi-part uploaded audio is modeled as ordered parts on one logical timeline; file boundaries are not Chapter boundaries.
+### 7. Final rendering
 
-### 6. Vertex image execution
-
-Authorized image generation uses the configured Vertex provider path with durable provider-operation state and reconciliation. Provider output may be staged remotely, then materialized into the Desktop workspace for project use.
-
-### 7. Final video boundary
-
-Final project rendering belongs to Electron main under backend assignment/lease control.
+Final project rendering belongs to Electron main under backend assignment/lease control:
 
 ```text
 materialized local project media
   -> Electron FFmpeg/ffprobe
-  -> local project artifacts/<jobId>/final.mp4
-  -> backend FinalArtifact metadata only
+  -> local artifacts/<jobId>/final.mp4
+  -> backend final-artifact metadata only
 ```
 
-The backend and Python workers do not store, proxy, preview-stream or upload final MP4 bytes. Publishing/uploading is a separate explicit workflow from an exported local artifact.
-
-### 8. Notifications and progress
-
-PostgreSQL remains authoritative for generation/job state. SSE/polling may deliver progress to clients but is not a durable event store. Desktop local execution reports progress/lease state to the same backend authority.
+There is no server/cloud final-render executor, remote final-video fallback, or backend final-video byte proxy.
 
 ## Invariants
 
-1. PostgreSQL is the authoritative record of ownership, plans, job state and media identity metadata.
-2. Worker scratch disks are ephemeral.
-3. R2 is limited to generated/provider media transport and durability before local materialization.
-4. Final MP4 bytes are Desktop-local only.
-5. Narration timing drives visual timing; arbitrary fixed image durations are not authoritative.
-6. Ambiguous paid-provider outcomes remain `UNKNOWN` until reconciliation.
+1. PostgreSQL owns durable identity/policy/job state, not project bytes.
+2. Generated/imported project media is local-first.
+3. R2 is limited to account-owned voice-reference/custom-voice storage.
+4. Final MP4 bytes are Desktop-local.
+5. Narration timing drives visual timing.
+6. Provider ambiguity remains `UNKNOWN` until reconciled.
 7. Provider/R2 credentials never enter renderer code.
-8. Local absolute paths are never persisted to backend state.
-9. Final playback/export reads the local artifact directly.
+8. Absolute Desktop paths are never backend identities.
+9. VIDEO/web generation support must not resurrect a Python video provider implicitly.
 
 ## Consequences
 
-There is one final-render/storage model: Desktop local-first. Remote storage remains only where provider/worker media transport genuinely requires it. This removes duplicate render executors, duplicate final-video storage adapters and backend byte-proxy responsibilities.
+NarrativeX has one project-media ownership model and one final-render model. Removing general-purpose R2 transport reduces duplicate storage paths, cleanup work and contradictory metadata while preserving the account-scoped voice-reference use case that genuinely requires remote durability.
 
 ## Related decisions
 
