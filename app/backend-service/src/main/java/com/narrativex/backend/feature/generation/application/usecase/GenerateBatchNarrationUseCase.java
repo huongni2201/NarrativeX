@@ -31,7 +31,7 @@ public class GenerateBatchNarrationUseCase {
                           chapterId,
                           command.voiceId(),
                           command.speakingRate(),
-                          command.voiceReferenceAssetId()));
+                          command.voiceReference()));
               return new ChapterNarrationJob(chapterId, job);
             })
         .toList();
