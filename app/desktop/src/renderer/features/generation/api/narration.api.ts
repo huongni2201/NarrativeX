@@ -16,7 +16,7 @@ export const narrationApi = {
         body: JSON.stringify({
           voiceId: input.voiceId,
           speakingRate: input.speakingRate,
-          voiceReferenceAssetId: input.voiceReferenceAssetId,
+          voiceReference: input.voiceReference,
         }),
       },
     ),
@@ -30,7 +30,7 @@ export const narrationApi = {
           chapterIds: input.chapterIds,
           voiceId: input.voiceId,
           speakingRate: input.speakingRate,
-          voiceReferenceAssetId: input.voiceReferenceAssetId,
+          voiceReference: input.voiceReference,
         }),
       },
     ),
