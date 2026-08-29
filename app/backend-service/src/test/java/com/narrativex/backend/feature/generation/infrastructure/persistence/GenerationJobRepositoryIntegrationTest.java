@@ -62,7 +62,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     GenerationJob saved =
         repository.save(
             GenerationJob.create(
-                projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-a"));
+                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT, "owner-a"));
 
     assertNotNull(saved.getId());
     assertEquals(0L, saved.getRowVersion());
@@ -78,7 +78,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     GenerationJob saved =
         repository.save(
             GenerationJob.create(
-                projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-b"));
+                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT, "owner-b"));
     GenerationJob running = copyWithStatus(saved, JobStatus.RUNNING);
 
     GenerationJob updated = repository.save(running);
@@ -97,7 +97,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             0L,
             com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             projectId,
-            JobType.STORY_ANALYZE,
+            JobType.CHAPTER_ANALYZE,
             JobStatus.QUEUED,
             ResourceClass.CPU_LIGHT,
             0,
@@ -123,7 +123,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     GenerationJob saved =
         repository.save(
             GenerationJob.create(
-                projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-d"));
+                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT, "owner-d"));
 
     assertTrue(repository.findByJobIdAndOwner(saved.getJobId(), "owner-d").isPresent());
     assertTrue(repository.findByJobIdAndOwner(saved.getJobId(), "other-owner").isEmpty());
@@ -278,7 +278,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         0L,
         com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         projectId,
-        JobType.STORY_ANALYZE,
+        JobType.CHAPTER_ANALYZE,
         JobStatus.QUEUED,
         ResourceClass.CPU_LIGHT,
         0,

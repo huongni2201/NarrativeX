@@ -27,7 +27,7 @@ class MediaPlanTest {
         new ArrayList<MediaBeatPlan>(
             List.of(
                 new MediaBeatPlan(
-                    beatId, 0, "Character enters", "AI_VIDEO", MotionStrategy.IMAGE_TO_VIDEO)));
+                    beatId, 0, "Character enters", "AI_VIDEO", MotionStrategy.BASIC_IMAGE_MOTION)));
     var scenes =
         new ArrayList<MediaScenePlan>(
             List.of(new MediaScenePlan(sceneId, 0, "Narration", 5, beats)));
@@ -37,7 +37,7 @@ class MediaPlanTest {
             chapterId,
             4L,
             "abc123",
-            ProductionMode.HYBRID_LOCAL_I2V,
+            ProductionMode.IMAGE_MOTION,
             1,
             scenes,
             new MediaWorkload(9, 1, 0, 0, 5),

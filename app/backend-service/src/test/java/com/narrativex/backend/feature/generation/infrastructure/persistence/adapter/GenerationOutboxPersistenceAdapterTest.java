@@ -23,7 +23,7 @@ class GenerationOutboxPersistenceAdapterTest {
   void enqueuesAStableIdempotentEventKey() {
     GenerationJob job =
         GenerationJob.create(
-            UuidV7.random(), JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "user-1");
+            UuidV7.random(), JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT, "user-1");
     when(mapper.enqueue(any(GenerationOutboxRow.class))).thenReturn(1);
 
     new GenerationOutboxPersistenceAdapter(mapper).enqueue(job);
@@ -34,6 +34,6 @@ class GenerationOutboxPersistenceAdapterTest {
                 row ->
                     row.getAggregateId().equals(job.getJobId().toString())
                         && row.getEventKey().equals("generation-job:" + job.getJobId() + ":queued")
-                        && row.getJobType() == JobType.STORY_ANALYZE));
+                        && row.getJobType() == JobType.CHAPTER_ANALYZE));
   }
 }

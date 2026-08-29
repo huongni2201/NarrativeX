@@ -100,6 +100,7 @@ class LocationAnalysis(BaseModel):
     key: str = Field(pattern=ENTITY_KEY_PATTERN)
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=4000)
+    visual_prompt: str = Field(default="", max_length=8000)
 
 
 class VisualBeatCharacterRef(BaseModel):

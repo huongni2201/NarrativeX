@@ -24,7 +24,7 @@ class GenerationJobMediaPlanTest {
             chapterId,
             8L,
             "source-hash",
-            ProductionMode.HYBRID_LOCAL_I2V,
+            ProductionMode.IMAGE_MOTION,
             4,
             List.of(),
             new MediaWorkload(0, 0, 0, 0, 0),
@@ -46,6 +46,6 @@ class GenerationJobMediaPlanTest {
     assertThat(job.getSourceHash()).isEqualTo("source-hash");
     assertThat(job.getMediaPlanId()).isEqualTo(plan.id());
     assertThat(job.getMediaPlanRevision()).isEqualTo(4);
-    assertThat(job.getProductionMode()).isEqualTo(ProductionMode.HYBRID_LOCAL_I2V);
+    assertThat(job.getProductionMode()).isEqualTo(ProductionMode.IMAGE_MOTION);
   }
 }

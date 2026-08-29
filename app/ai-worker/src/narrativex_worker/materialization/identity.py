@@ -455,6 +455,11 @@ async def materialize_locations(
         project_location_id = existing_by_key.get(location.key)
         basis = "EXACT_KEY"
         confidence = 1.0
+        visual_prompt = (
+            location.visual_prompt.strip()
+            or location.description.strip()
+            or location.name
+        )
 
         if project_location_id is None:
             match = _unique_candidate_match(
@@ -472,12 +477,13 @@ async def materialize_locations(
                     """
                     INSERT INTO project_locations
                       (project_id, name, description, visual_prompt, status)
-                    VALUES ($1, $2, $3, $3, 'ACTIVE')
+                    VALUES ($1, $2, $3, $4, 'ACTIVE')
                     RETURNING id
                     """,
                     project_id,
                     location.name,
                     location.description or None,
+                    visual_prompt,
                 )
                 basis = "CREATED"
                 confidence = 1.0
@@ -546,7 +552,7 @@ async def materialize_locations(
             """
             UPDATE project_locations
                SET description = $3,
-                   visual_prompt = $3,
+                   visual_prompt = COALESCE(NULLIF(visual_prompt, ''), $4),
                    updated_at = CURRENT_TIMESTAMP,
                    row_version = row_version + 1
              WHERE project_id = $1 AND id = $2 AND status = 'ACTIVE'
@@ -554,6 +560,7 @@ async def materialize_locations(
             project_id,
             project_location_id,
             location.description or None,
+            visual_prompt,
         )
 
     return materialized

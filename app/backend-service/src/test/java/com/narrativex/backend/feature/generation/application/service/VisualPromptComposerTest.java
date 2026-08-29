@@ -19,12 +19,15 @@ class VisualPromptComposerTest {
       new VisualPromptComposer(JsonMapper.builder().build());
 
   @Test
-  void enrichesStillImagePromptWithStableCharacterAndLocationCanon() {
+  void compilesStableCanonAppearanceAndReferencePrecedence() {
     var identityId = UUID.fromString("11111111-1111-1111-1111-111111111111");
     var context =
         new VisualPromptContext(
             new LocationCanon(
-                UuidV7.random(), "Kitchen", "old apartment kitchen", "warm practical lighting"),
+                UuidV7.random(),
+                "Kitchen",
+                "old apartment kitchen",
+                "warm practical kitchen with dark walnut cabinets"),
             List.of(
                 new CharacterCanon(
                     UuidV7.random(),
@@ -50,15 +53,20 @@ class VisualPromptComposerTest {
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan opens the letter", context);
 
     assertThat(result.prompt())
-        .contains("SCENE DESCRIPTION: Lan opens the letter")
-        .contains("LOCATION CONTINUITY: Kitchen — warm practical lighting")
-        .contains("CHARACTER CONTINUITY")
-        .contains("REFERENCE IMAGE MAP")
+        .startsWith("STYLE PROFILE:")
+        .contains("SCENE DIRECTION: Lan opens the letter")
+        .contains("LOCATION CANON: Kitchen — warm practical kitchen with dark walnut cabinets")
+        .contains("CHARACTER IDENTITY LOCKS:")
+        .contains("- Lan [PRIMARY]: oval face, dark eyes, shoulder-length black hair")
+        .contains("CURRENT APPEARANCE STATE:")
+        .contains("- Lan: beige cardigan and white blouse")
+        .contains("REFERENCE IMAGE MAP:")
         .contains("REF_01 = Lan [PRIMARY]")
-        .contains("Never merge, swap, or transfer identities")
-        .contains("oval face, dark eyes")
-        .contains("wardrobe: beige cardigan")
-        .contains("CONTINUITY RULES");
+        .contains("Do not copy its background, crop, pose, expression, or lighting")
+        .contains("CONSISTENCY PRECEDENCE:")
+        .contains("STYLE PROFILE controls rendering language only and must never redesign identity")
+        .doesNotContain("age: mid twenties")
+        .doesNotContain("wardrobe: beige cardigan");
     assertThat(result.characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
         .contains("\"versionNumber\":4")
@@ -81,7 +89,7 @@ class VisualPromptComposerTest {
             VisualPromptContext.empty());
 
     assertThat(result.prompt())
-        .contains("CAMERA FRAMING: low-angle view; camera below the subject looking upward.");
+        .contains("CAMERA: low-angle view; camera below the subject looking upward.");
   }
 
   @Test
@@ -98,8 +106,7 @@ class VisualPromptComposerTest {
         .contains(
             "IMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a 16:9 aspect ratio.")
         .contains("ASPECT RATIO: 16:9 horizontal widescreen format (16:9 aspect ratio).")
-        .contains(
-            "COMPOSITION RULE: create one single 16:9 frame only. Full bleed composition without black letterbox bars or borders.");
+        .contains("COMPOSITION RULES: create one single 16:9 frame only.");
   }
 
   @Test
@@ -107,10 +114,10 @@ class VisualPromptComposerTest {
     var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", null);
 
     assertThat(result.prompt())
-        .contains("SCENE DESCRIPTION: Empty hallway at dawn")
-        .contains("CONTINUITY RULES")
-        .doesNotContain("CHARACTER CONTINUITY")
-        .doesNotContain("LOCATION CONTINUITY")
+        .contains("SCENE DIRECTION: Empty hallway at dawn")
+        .contains("CONSISTENCY PRECEDENCE")
+        .doesNotContain("CHARACTER IDENTITY LOCKS")
+        .doesNotContain("LOCATION CANON")
         .doesNotContain("REFERENCE IMAGE MAP");
     assertThat(result.characterSnapshotJson()).isEqualTo("{\"characters\":[]}");
     assertThat(result.referenceBindings()).isEmpty();
@@ -145,15 +152,19 @@ class VisualPromptComposerTest {
 
   @Test
   void givesEachCharacterAnIdentityAnchorBeforeUsingSecondaryReferences() {
-    var lanIdentity = reference("10000000-0000-0000-0000-000000000001", "IDENTITY", 0, "a");
+    var lanIdentity = reference("10000000-0000-0000-0000-000000000001", "IDENTITY", 9, "a");
     var lanProfile = reference("10000000-0000-0000-0000-000000000002", "PROFILE", 1, "b");
-    var lanExpression = reference("10000000-0000-0000-0000-000000000003", "EXPRESSION", 2, "c");
-    var minhIdentity = reference("20000000-0000-0000-0000-000000000001", "IDENTITY", 0, "d");
+    var lanExpression = reference("10000000-0000-0000-0000-000000000003", "EXPRESSION", 0, "c");
+    var minhIdentity = reference("20000000-0000-0000-0000-000000000001", "IDENTITY", 5, "d");
     var context =
         new VisualPromptContext(
             null,
             List.of(
-                canon(UuidV7.random(), "Lan", "PRIMARY", List.of(lanIdentity, lanProfile, lanExpression)),
+                canon(
+                    UuidV7.random(),
+                    "Lan",
+                    "PRIMARY",
+                    List.of(lanExpression, lanProfile, lanIdentity)),
                 canon(UuidV7.random(), "Minh", "SECONDARY", List.of(minhIdentity))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan and Minh speak", context);
@@ -170,6 +181,34 @@ class VisualPromptComposerTest {
         .contains("REF_01 = Lan [PRIMARY]")
         .contains("REF_02 = Minh [SECONDARY]")
         .contains("REF_03 = Lan [PRIMARY]");
+  }
+
+  @Test
+  void fallsBackToStructuredAppearanceWhenCombinedAppearancePromptIsMissing() {
+    var character =
+        new CharacterCanon(
+            UuidV7.random(),
+            UuidV7.random(),
+            "Lan",
+            1,
+            "stable face",
+            null,
+            "mid twenties",
+            "loose ponytail",
+            "scar above eyebrow",
+            "dark coat",
+            "PRIMARY",
+            List.of());
+
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan waits",
+            new VisualPromptContext(null, List.of(character)));
+
+    assertThat(result.prompt())
+        .contains(
+            "- Lan: age: mid twenties; hairstyle: loose ponytail; injury: scar above eyebrow; wardrobe: dark coat");
   }
 
   private static CharacterCanon canon(

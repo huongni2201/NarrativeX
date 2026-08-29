@@ -39,7 +39,7 @@ class GenerationJobControllerContractTest {
             0L,
             jobId,
             projectId,
-            JobType.STORY_ANALYZE,
+            JobType.CHAPTER_ANALYZE,
             JobStatus.RUNNING,
             ResourceClass.FAST_CPU,
             40,
