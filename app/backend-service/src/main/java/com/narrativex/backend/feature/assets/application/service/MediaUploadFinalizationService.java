@@ -1,14 +1,14 @@
 package com.narrativex.backend.feature.assets.application.service;
 
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository.ValidationRequest;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
-import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository.CreateVoiceReference;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository.VoiceReferenceAsset;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -20,30 +20,30 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Owns the short authoritative transaction after remote object verification. */
+/** Owns the short authoritative transaction after an R2 voice-reference object is verified. */
 @Service
 public class MediaUploadFinalizationService {
   private final MediaUploadSessionRepository sessions;
-  private final MediaAssetRepository assets;
+  private final VoiceReferenceAssetRepository voiceReferences;
   private final MediaStorageCleanupTaskRepository cleanupTasks;
   private final MediaValidationJobRepository validationJobs;
   private final Clock clock = Clock.systemUTC();
 
   public MediaUploadFinalizationService(
       MediaUploadSessionRepository sessions,
-      MediaAssetRepository assets,
+      VoiceReferenceAssetRepository voiceReferences,
       MediaStorageCleanupTaskRepository cleanupTasks) {
-    this(sessions, assets, cleanupTasks, null);
+    this(sessions, voiceReferences, cleanupTasks, null);
   }
 
   @org.springframework.beans.factory.annotation.Autowired
   public MediaUploadFinalizationService(
       MediaUploadSessionRepository sessions,
-      MediaAssetRepository assets,
+      VoiceReferenceAssetRepository voiceReferences,
       MediaStorageCleanupTaskRepository cleanupTasks,
       MediaValidationJobRepository validationJobs) {
     this.sessions = sessions;
-    this.assets = assets;
+    this.voiceReferences = voiceReferences;
     this.cleanupTasks = cleanupTasks;
     this.validationJobs = validationJobs;
   }
@@ -95,47 +95,44 @@ public class MediaUploadFinalizationService {
     }
 
     String checksum = storedObject.sha256().toLowerCase(Locale.ROOT);
-    MediaAssetView canonicalAsset =
-        assets.createOrReuseVerifiedAsset(
+    VoiceReferenceAsset canonical =
+        voiceReferences.createOrReuse(
             accountId,
-            new CreateVerifiedMediaAsset(
+            new CreateVoiceReference(
                 UuidV7.random(),
-                locked.assetType(),
-                "USER_UPLOAD",
                 locked.storageKey(),
                 locked.originalFilename(),
                 normalizeContentType(storedObject.contentType()),
                 storedObject.sizeBytes(),
-                checksum,
-                null));
-    if (!canonicalAsset.storageKey().equals(locked.storageKey())) {
+                checksum));
+    if (!canonical.storageKey().equals(locked.storageKey())) {
       scheduleCleanup(locked.storageKey(), "DUPLICATE_UPLOAD");
     }
-    if ("READY".equals(canonicalAsset.status())) {
-      if (!sessions.markReady(accountId, locked.id(), canonicalAsset.id())) {
+    if ("READY".equals(canonical.status())) {
+      if (!sessions.markReady(accountId, locked.id(), canonical.id())) {
         throw new ResourceConflictException("Upload finalization state changed unexpectedly");
       }
-      return new UploadFinalizeView(locked.id(), "READY", canonicalAsset.id());
+      return new UploadFinalizeView(locked.id(), "READY", canonical.id());
     }
-    if ("REJECTED".equals(canonicalAsset.status())) {
+    if ("REJECTED".equals(canonical.status())) {
       if (!sessions.markRejected(accountId, locked.id())) {
         throw new ResourceConflictException("Upload finalization state changed unexpectedly");
       }
       return rejectedView(locked);
     }
-    markSessionValidating(accountId, locked, canonicalAsset.id());
+    markSessionValidating(accountId, locked, canonical.id());
     if (validationJobs != null) {
       validationJobs.enqueue(
           new ValidationRequest(
-              canonicalAsset.id(),
+              canonical.id(),
               accountId,
-              canonicalAsset.storageKey(),
-              canonicalAsset.type(),
-              canonicalAsset.contentType(),
-              canonicalAsset.sizeBytes(),
-              canonicalAsset.sha256()));
+              canonical.storageKey(),
+              "AUDIO",
+              canonical.contentType(),
+              canonical.sizeBytes(),
+              canonical.sha256()));
     }
-    return new UploadFinalizeView(locked.id(), "VALIDATING", canonicalAsset.id());
+    return new UploadFinalizeView(locked.id(), "VALIDATING", canonical.id());
   }
 
   private UploadFinalizeView rejectAndScheduleCleanup(
@@ -147,8 +144,8 @@ public class MediaUploadFinalizationService {
     return rejectedView(locked);
   }
 
-  private void markSessionValidating(String accountId, UploadSession locked, UUID mediaAssetId) {
-    if (!sessions.markValidating(accountId, locked.id(), mediaAssetId)) {
+  private void markSessionValidating(String accountId, UploadSession locked, UUID assetId) {
+    if (!sessions.markValidating(accountId, locked.id(), assetId)) {
       throw new ResourceConflictException("Upload finalization state changed unexpectedly");
     }
   }
@@ -165,7 +162,7 @@ public class MediaUploadFinalizationService {
 
   private static UploadFinalizeView authoritativeView(UploadSession session) {
     if (session.mediaAssetId() == null) {
-      throw new IllegalStateException("Finalized upload session has no media asset");
+      throw new IllegalStateException("Finalized upload session has no voice reference asset");
     }
     return new UploadFinalizeView(session.id(), session.status(), session.mediaAssetId());
   }
