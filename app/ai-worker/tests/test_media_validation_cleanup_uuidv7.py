@@ -24,7 +24,7 @@ class _FakeConnection:
         raise AssertionError(f"Unexpected fetchrow query: {query}")
 
     async def fetchval(self, query: str, *args: object):
-        if "UPDATE media_assets" in query:
+        if "UPDATE voice_reference_assets" in query:
             return self.job.media_asset_id
         raise AssertionError(f"Unexpected fetchval query: {query}")
 
@@ -47,7 +47,7 @@ def _job(*, attempts: int) -> ClaimedMediaValidationJob:
         id=uuid4(),
         account_id="account-a",
         media_asset_id=uuid4(),
-        storage_key="media/uploads/rejected",
+        storage_key="voices/rejected/reference.mp3",
         declared_type="AUDIO",
         declared_content_type="audio/mpeg",
         expected_size_bytes=128,
