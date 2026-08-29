@@ -5,6 +5,5 @@ import java.util.UUID;
 public interface VoiceReferenceAssetAccess {
   VoiceReferenceAsset findOwned(String accountId, UUID id);
 
-  record VoiceReferenceAsset(
-      String type, String contentType, String status, String origin, String storageKey) {}
+  record VoiceReferenceAsset(String contentType, String status, String storageKey) {}
 }
