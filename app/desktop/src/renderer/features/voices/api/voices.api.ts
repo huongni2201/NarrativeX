@@ -44,6 +44,14 @@ export const voicesApi = {
       );
       return value;
     }),
+  listReferences: () =>
+    apiRequest<unknown>("/api/v1/voice-references").then((value) => {
+      assertContract(
+        Array.isArray(value) && value.every(isVoiceReferenceAsset),
+        "Voice references response không đúng contract.",
+      );
+      return value;
+    }),
   getReference: (assetId: string) =>
     apiRequest<unknown>(`/api/v1/voice-references/${encodeURIComponent(assetId)}`).then((value) => {
       assertContract(isVoiceReferenceAsset(value), "Voice reference response không đúng contract.");
