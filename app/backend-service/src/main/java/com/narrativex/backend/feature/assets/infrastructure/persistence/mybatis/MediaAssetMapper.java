@@ -7,18 +7,7 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
-  UUID claimChecksum(
-      @Param("accountId") String accountId,
-      @Param("sha256") String sha256,
-      @Param("mediaAssetId") UUID mediaAssetId);
-
-  UUID findCanonicalAssetId(@Param("accountId") String accountId, @Param("sha256") String sha256);
-
-  UUID insertVerified(MediaAssetRow row);
-
   UUID insertLocal(MediaAssetRow row);
-
-  int releaseChecksum(@Param("accountId") String accountId, @Param("id") UUID id);
 
   List<MediaAssetRow> findPage(
       @Param("accountId") String accountId,
@@ -30,20 +19,15 @@ public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
       @Param("cursorId") UUID cursorId,
       @Param("limit") int limit);
 
-  MediaAssetRow findOwned(@Param("accountId") String accountId, @Param("id") UUID id);
+  MediaAssetRow findOwned(
+      @Param("accountId") String accountId,
+      @Param("projectId") UUID projectId,
+      @Param("id") UUID id);
 
-  MediaAssetRow findVerifiedByChecksum(
-      @Param("accountId") String accountId, @Param("sha256") String sha256);
+  MediaAssetRow findOwnedByAccount(@Param("accountId") String accountId, @Param("id") UUID id);
 
-  boolean isReferencedByReadyAsset(@Param("storageKey") String storageKey);
-
-  int markUploading(@Param("accountId") String accountId, @Param("id") UUID id);
-
-  int markValidating(@Param("accountId") String accountId, @Param("id") UUID id);
-
-  int approve(@Param("accountId") String accountId, @Param("id") UUID id);
-
-  int reject(@Param("accountId") String accountId, @Param("id") UUID id);
-
-  int softDelete(@Param("accountId") String accountId, @Param("id") UUID id);
+  int softDelete(
+      @Param("accountId") String accountId,
+      @Param("projectId") UUID projectId,
+      @Param("id") UUID id);
 }
