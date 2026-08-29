@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildMuxNarrationArgs,
   escapeSubtitleFilterPath,
-} from "../src/main/rendering/audio-muxer.ts";
+} from "../src/shared/audio-muxer-args.ts";
 
 test("final mux burns subtitles into video when an SRT path is provided", () => {
   const args = buildMuxNarrationArgs("video.mp4", "audio.m4a", "subtitles.srt", "final.mp4");
