@@ -1,6 +1,7 @@
 import asyncio
 import importlib.util
 import json
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -35,6 +36,11 @@ class _FakeVieneu:
 
 
 def _load_preview_script() -> ModuleType:
+    if "vieneu" not in sys.modules:
+        vieneu_module = ModuleType("vieneu")
+        setattr(vieneu_module, "Vieneu", _FakeVieneu)
+        sys.modules["vieneu"] = vieneu_module
+
     script_path = Path(__file__).parents[1] / "scripts" / "generate_vieneu_previews.py"
     spec = importlib.util.spec_from_file_location("generate_vieneu_previews", script_path)
     assert spec is not None and spec.loader is not None
@@ -62,8 +68,9 @@ def test_publish_preview_adds_integrity_metadata_to_r2(tmp_path: Path) -> None:
         )
     )
 
+    checksum = "673a354df5f01bcc927461cbf39fca6ef82c68428e24534803b771161ca7970a"
     assert published == {
-        "sha256": "673a354df5f01bcc927461cbf39fca6ef82c68428e24534803b771161ca7970a",
+        "sha256": checksum,
         "sizeBytes": 13,
     }
     assert client.put_request == {
@@ -71,7 +78,7 @@ def test_publish_preview_adds_integrity_metadata_to_r2(tmp_path: Path) -> None:
         "Key": "narration/vieneu-previews/vieneu-ngoc-huyen-v2.wav",
         "ContentLength": 13,
         "ContentType": "audio/wav",
-        "Metadata": {"sha256": "673a354df5f01bcc927461cbf39fca6ef82c68428e24534803b771161ca7970a"},
+        "Metadata": {"sha256": checksum},
         "IfNoneMatch": "*",
     }
     assert client.uploaded_content == b"voice-preview"
@@ -102,6 +109,7 @@ def test_publish_flag_uploads_generated_preview_and_records_integrity(
 
     module.main()
 
+    checksum = "673a354df5f01bcc927461cbf39fca6ef82c68428e24534803b771161ca7970a"
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["files"] == [
         {
@@ -109,11 +117,9 @@ def test_publish_flag_uploads_generated_preview_and_records_integrity(
             "voiceName": "Ngọc Huyền",
             "filename": "vieneu-ngoc-huyen.wav",
             "r2Key": "narration/vieneu-previews/vieneu-ngoc-huyen.wav",
-            "sha256": "673a354df5f01bcc927461cbf39fca6ef82c68428e24534803b771161ca7970a",
+            "sha256": checksum,
             "sizeBytes": 13,
         }
     ]
     assert client.put_request is not None
-    assert client.put_request["Metadata"] == {
-        "sha256": "673a354df5f01bcc927461cbf39fca6ef82c68428e24534803b771161ca7970a"
-    }
+    assert client.put_request["Metadata"] == {"sha256": checksum}
