@@ -1,4 +1,4 @@
-"""Optimized local narration execution with local project output and R2 voice references."""
+"""Optimized local narration execution with local project output and scoped voice references."""
 
 import asyncio
 from pathlib import Path
@@ -23,13 +23,17 @@ from narrativex_worker.narration.segmenter import utf16_length
 from narrativex_worker.narration.storage import MediaAssetConflictError, S3MediaStorage
 from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
-    prepare_mp3_reference,
+    prepare_voice_reference,
+)
+from narrativex_worker.narration.voice_reference_resolver import (
+    ProjectVoiceReferenceError,
+    resolve_project_voice_reference,
 )
 from narrativex_worker.workspace import sha256_file
 
 
 class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
-    """Batch local TTS, persist project audio locally, and read custom voices from R2."""
+    """Batch local TTS, persist project audio locally, and resolve scoped custom voices."""
 
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
@@ -44,12 +48,12 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
         assert project_media_storage is not None
         self.logger.info(
             "Starting local narration job=%s request=%s voiceId=%s sourceChars=%s "
-            "hasVoiceReference=%s",
+            "voiceReferenceScope=%s",
             claimed.job_id,
             claimed.narration_request_id,
             claimed.voice_id,
             len(claimed.source_text),
-            claimed.voice_reference_storage_key is not None,
+            claimed.voice_reference_scope,
         )
         async with self.workspace.create_job_dir(str(claimed.narration_request_id)) as job_dir:
             reference_audio_path = await self._prepare_reference(claimed, job_dir)
@@ -179,11 +183,49 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             )
 
     async def _prepare_reference(self, claimed: ClaimedNarrationJob, job_dir: Path) -> Path | None:
-        if claimed.voice_reference_storage_key is None:
+        if claimed.voice_reference_scope is None:
             return None
-        voice_reference_storage = S3MediaStorage(self.settings)
-        source_path = job_dir / "voice-reference.mp3"
+        self._validate_claimed_voice_reference(claimed)
         reference_audio_path = job_dir / "voice-reference.wav"
+
+        if claimed.voice_reference_scope == "PROJECT":
+            assert claimed.voice_reference_asset_id is not None
+            assert claimed.voice_reference_size_bytes is not None
+            assert claimed.voice_reference_checksum is not None
+            try:
+                source_path = await asyncio.to_thread(
+                    resolve_project_voice_reference,
+                    projects_root=Path(self.settings.project_media_local_dir),
+                    project_id=claimed.project_id,
+                    asset_id=claimed.voice_reference_asset_id,
+                    expected_size_bytes=claimed.voice_reference_size_bytes,
+                    expected_sha256=claimed.voice_reference_checksum,
+                )
+            except (OSError, ProjectVoiceReferenceError) as exception:
+                raise NarrationPermanentError(str(exception)) from exception
+        elif claimed.voice_reference_scope == "ACCOUNT":
+            source_path = await self._download_account_reference(claimed, job_dir)
+        else:
+            raise NarrationPermanentError("Unknown voice reference scope")
+
+        try:
+            await asyncio.to_thread(
+                prepare_voice_reference,
+                source_path,
+                reference_audio_path,
+                content_type=claimed.voice_reference_content_type,
+            )
+        except VoiceReferenceAudioError as exception:
+            raise NarrationPermanentError(str(exception)) from exception
+        return reference_audio_path
+
+    async def _download_account_reference(
+        self, claimed: ClaimedNarrationJob, job_dir: Path
+    ) -> Path:
+        if not claimed.voice_reference_storage_key:
+            raise NarrationPermanentError("Account voice reference is missing R2 storage metadata")
+        source_path = job_dir / "voice-reference-source"
+        voice_reference_storage = S3MediaStorage(self.settings)
         self.logger.info(
             "Downloading account voice reference from R2 job=%s request=%s storageKey=%s",
             claimed.job_id,
@@ -210,11 +252,29 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             raise NarrationPermanentError(
                 "Voice reference audio could not be downloaded"
             ) from exception
-        try:
-            await asyncio.to_thread(prepare_mp3_reference, source_path, reference_audio_path)
-        except VoiceReferenceAudioError as exception:
-            raise NarrationPermanentError(str(exception)) from exception
-        return reference_audio_path
+
+        assert claimed.voice_reference_size_bytes is not None
+        assert claimed.voice_reference_checksum is not None
+        if source_path.stat().st_size != claimed.voice_reference_size_bytes:
+            raise NarrationPermanentError("Account voice reference size does not match metadata")
+        checksum = await asyncio.to_thread(sha256_file, source_path)
+        if checksum != claimed.voice_reference_checksum.lower():
+            raise NarrationPermanentError("Account voice reference checksum does not match metadata")
+        return source_path
+
+    @staticmethod
+    def _validate_claimed_voice_reference(claimed: ClaimedNarrationJob) -> None:
+        if claimed.voice_reference_asset_id is None:
+            raise NarrationPermanentError("Voice reference asset id is missing")
+        if claimed.voice_reference_status != "READY":
+            raise NarrationPermanentError("Voice reference asset is not READY")
+        if claimed.voice_reference_size_bytes is None or claimed.voice_reference_size_bytes <= 0:
+            raise NarrationPermanentError("Voice reference size metadata is invalid")
+        checksum = claimed.voice_reference_checksum or ""
+        if len(checksum) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in checksum):
+            raise NarrationPermanentError("Voice reference checksum metadata is invalid")
+        if claimed.voice_reference_scope == "PROJECT" and claimed.voice_reference_storage_key:
+            raise NarrationPermanentError("Project voice reference must not contain R2 metadata")
 
     async def _materialize_local_batches(
         self,
