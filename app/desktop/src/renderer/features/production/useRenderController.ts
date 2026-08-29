@@ -57,14 +57,15 @@ export function useRenderController({
     }
     deliveringJobRef.current = liveJob.jobId;
     const token = destinationToken;
-    setDestinationToken(null);
     void window.narrativex.render
       .deliverArtifact({ token, projectId, jobId: liveJob.jobId, projectName })
       .then(({ path }) => {
+        setDestinationToken(null);
         setFinalPath(path);
         setNotice(`Render hoàn tất: ${path}`);
       })
       .catch((error: unknown) => {
+        deliveringJobRef.current = null;
         setNotice(toMessage(error));
       });
   }, [destinationToken, liveJob, projectId, projectName]);
