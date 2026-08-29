@@ -51,23 +51,20 @@ def test_narration_compatibility_aliases_point_to_local_project_media() -> None:
     assert settings.media_local_dir == "/tmp/project-media"
 
 
-def test_removed_google_tts_settings_stay_removed() -> None:
+def test_removed_provider_settings_stay_removed() -> None:
     settings = WorkerSettings()
 
     for field_name in (
         "google_tts_project_id",
         "google_tts_endpoint",
         "google_tts_timeout_seconds",
+        "wan_video_enabled",
+        "wan_endpoint_url",
+        "wan_model",
+        "wan_api_token",
+        "wan_request_timeout_seconds",
     ):
         assert not hasattr(settings, field_name)
-
-
-def test_wan_provider_settings_remain_available() -> None:
-    settings = WorkerSettings()
-
-    assert settings.wan_video_enabled is False
-    assert settings.wan_model == "Wan2.2-TI2V-5B"
-    assert settings.wan_request_timeout_seconds == 30.0
 
 
 def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
