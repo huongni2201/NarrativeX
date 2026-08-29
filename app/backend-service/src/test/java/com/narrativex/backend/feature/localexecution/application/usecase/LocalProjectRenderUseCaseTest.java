@@ -54,13 +54,11 @@ class LocalProjectRenderUseCaseTest {
     UUID deviceId = UUID.randomUUID();
     UUID jobId = UUID.randomUUID();
     UUID leaseToken = UUID.randomUUID();
-    LocalProjectRenderStore.CompletionResult result =
-        new LocalProjectRenderStore.CompletionResult(
+    String storageKey = "artifacts/" + jobId + "/final.mp4";
+    LocalProjectRenderUseCase.CompletionResult result =
+        new LocalProjectRenderUseCase.CompletionResult(
             "a".repeat(64),
-            "artifacts/" + jobId + "/final.mp4",
-            "LOCAL_DESKTOP",
-            null,
-            null,
+            storageKey,
             "video/mp4",
             1024L,
             "b".repeat(64),
@@ -73,7 +71,22 @@ class LocalProjectRenderUseCaseTest {
 
     useCase.complete("device-token", jobId, leaseToken, result);
 
-    verify(store).complete(jobId, deviceId, "desktop:" + deviceId, leaseToken, result);
+    verify(store)
+        .complete(
+            jobId,
+            deviceId,
+            "desktop:" + deviceId,
+            leaseToken,
+            new LocalProjectRenderStore.CompletionResult(
+                "a".repeat(64),
+                storageKey,
+                "video/mp4",
+                1024L,
+                "b".repeat(64),
+                60_000L,
+                1920,
+                1080,
+                30));
   }
 
   @Test
