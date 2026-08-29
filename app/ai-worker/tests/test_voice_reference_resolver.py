@@ -15,7 +15,12 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _write_project_voice(root: Path, project_id: uuid.UUID, asset_id: uuid.UUID, data: bytes) -> Path:
+def _write_project_voice(
+    root: Path,
+    project_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    data: bytes,
+) -> Path:
     project = root / str(project_id)
     audio = project / "assets" / "audio"
     audio.mkdir(parents=True)
