@@ -138,6 +138,7 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
   const currentUser = useCurrentUserQuery();
   const projectQuery = useProjectQuery(projectId);
   const enabled = Boolean(projectId);
+  const projectAvailable = enabled && projectQuery.isSuccess;
   const requirements = QUERY_REQUIREMENTS[screen];
   const hasAssets = requirements.assetScope !== null;
   const assetScope = requirements.assetScope ?? "all";
@@ -146,35 +147,35 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
   const timelineQuery = useQuery({
     queryKey: ["projects", projectId, "timeline"],
     queryFn: () => productionApi.getTimeline(projectId as string),
-    enabled: enabled && requirements.timeline,
+    enabled: projectAvailable && requirements.timeline,
   });
   const chaptersQuery = useQuery({
     queryKey: ["projects", projectId, "chapters", timelineQuery.data?.storyVersionId],
     queryFn: () =>
       chaptersApi.listAll(projectId as string, timelineQuery.data?.storyVersionId as string),
     enabled:
-      enabled && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
+      projectAvailable && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
     queryKey: assetLibraryQueryKey(currentUserId ?? "anonymous", assetScope),
     queryFn: () => assetsApi.listAll(assetScope),
-    enabled: enabled && hasAssets && Boolean(currentUserId),
+    enabled: projectAvailable && hasAssets && Boolean(currentUserId),
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],
     queryFn: () => charactersApi.listAll(projectId as string),
-    enabled: enabled && requirements.characters,
+    enabled: projectAvailable && requirements.characters,
   });
   const voicesQuery = useQuery({
     queryKey: ["voices"],
     queryFn: voicesApi.list,
-    enabled: enabled && requirements.voices,
+    enabled: projectAvailable && requirements.voices,
     staleTime: CATALOG_STALE_TIME_MS,
   });
   const presetsQuery = useQuery({
     queryKey: ["presets"],
     queryFn: presetsApi.list,
-    enabled: enabled && requirements.presets,
+    enabled: projectAvailable && requirements.presets,
     staleTime: CATALOG_STALE_TIME_MS,
   });
 
