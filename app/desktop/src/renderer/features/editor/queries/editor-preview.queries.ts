@@ -18,18 +18,18 @@ export function useEditorPreviewSources({
 }: Readonly<{
   projectId: string | null;
   mediaAssetId: string | null;
-  mediaStorageMode: string | null | undefined;
+  mediaStorageMode?: string | null;
   narrationAssetId: string | null;
-  narrationStorageMode: string | null | undefined;
+  narrationStorageMode?: string | null;
 }>): EditorPreviewSources {
   const mediaIsLocalOnly = mediaStorageMode === "LOCAL_ONLY";
   const narrationIsLocalOnly = narrationStorageMode === "LOCAL_ONLY";
   const localMediaUrl =
-    projectId && mediaIsLocalOnly && mediaAssetId
+    projectId && mediaAssetId
       ? localAssetPreviewUrl(projectId, mediaAssetId)
       : null;
   const localNarrationUrl =
-    projectId && narrationIsLocalOnly && narrationAssetId
+    projectId && narrationAssetId
       ? localAssetPreviewUrl(projectId, narrationAssetId)
       : null;
 
@@ -39,6 +39,7 @@ export function useEditorPreviewSources({
     enabled: Boolean(projectId && mediaAssetId && !mediaIsLocalOnly),
     staleTime: 30_000,
   });
+
   const remoteNarration = useQuery({
     queryKey: ["assets", narrationAssetId ?? "none", "download-url"],
     queryFn: () => assetsApi.downloadUrl(narrationAssetId as string),
@@ -46,15 +47,18 @@ export function useEditorPreviewSources({
     staleTime: 30_000,
   });
 
-  const mediaUrl = localMediaUrl ?? remoteMedia.data?.url ?? null;
-  const narrationUrl = localNarrationUrl ?? remoteNarration.data?.url ?? null;
-  const loading = remoteMedia.isLoading || remoteNarration.isLoading;
+  const mediaUrl =
+    (mediaIsLocalOnly ? localMediaUrl : remoteMedia.data?.url ?? localMediaUrl) ?? null;
+  const narrationUrl =
+    (narrationIsLocalOnly
+      ? localNarrationUrl
+      : remoteNarration.data?.url ?? localNarrationUrl) ?? null;
+  const loading =
+    (Boolean(mediaAssetId && !mediaIsLocalOnly) && remoteMedia.isLoading) ||
+    (Boolean(narrationAssetId && !narrationIsLocalOnly) && remoteNarration.isLoading);
   const messages: string[] = [];
   if (!loading && mediaAssetId && !mediaUrl) {
     messages.push("Không lấy được media preview URL.");
-  }
-  if (!loading && narrationAssetId && !narrationUrl) {
-    messages.push("Không lấy được narration preview URL.");
   }
 
   return {

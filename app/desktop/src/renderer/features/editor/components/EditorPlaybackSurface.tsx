@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
 import { EditorMultiTrackTimeline } from "./EditorMultiTrackTimeline";
 import { EditorPreviewViewport } from "./EditorPreviewViewport";
@@ -43,6 +42,7 @@ export function EditorPlaybackSurface({
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(scopeWindowStartMs);
   const scopeDurationMs = Math.max(0, scopeWindowEndMs - scopeWindowStartMs);
+  const lastSelectedBeatIdRef = useRef(selectedBeatId);
 
   useEffect(() => {
     if (!orderedBeats.length) {
@@ -51,13 +51,19 @@ export function EditorPlaybackSurface({
       return;
     }
 
-    const selected = orderedBeats.find((beat) => beat.visualBeatId === selectedBeatId);
-    if (!selected) return;
-    const currentBeat = findEditorBeatAtTime(orderedBeats, playheadMs);
-    if (currentBeat?.visualBeatId !== selectedBeatId) {
-      setPlayheadMs(selected.startMs);
+    if (lastSelectedBeatIdRef.current !== selectedBeatId) {
+      lastSelectedBeatIdRef.current = selectedBeatId;
+      if (!playing) {
+        const selected = orderedBeats.find((beat) => beat.visualBeatId === selectedBeatId);
+        if (selected) {
+          const currentBeat = findEditorBeatAtTime(orderedBeats, playheadMs);
+          if (currentBeat?.visualBeatId !== selectedBeatId) {
+            setPlayheadMs(selected.startMs);
+          }
+        }
+      }
     }
-  }, [orderedBeats, playheadMs, scopeWindowStartMs, selectedBeatId]);
+  }, [orderedBeats, playheadMs, playing, scopeWindowStartMs, selectedBeatId]);
 
   useEffect(() => {
     if (scopeWindowEndMs <= scopeWindowStartMs) return;
@@ -68,24 +74,29 @@ export function EditorPlaybackSurface({
 
   useEffect(() => {
     if (!playing || scopeDurationMs <= 0) return;
+    const stepMs = 100;
     const timer = window.setInterval(() => {
-      setPlayheadMs((current) =>
-        current >= scopeWindowEndMs
-          ? scopeWindowStartMs
-          : Math.min(scopeWindowEndMs, current + 250),
-      );
-    }, 250);
+      setPlayheadMs((current) => {
+        if (current >= scopeWindowEndMs) {
+          setPlaying(false);
+          return scopeWindowStartMs;
+        }
+        return Math.min(scopeWindowEndMs, current + stepMs);
+      });
+    }, stepMs);
     return () => window.clearInterval(timer);
   }, [playing, scopeDurationMs, scopeWindowEndMs, scopeWindowStartMs]);
 
   useEffect(() => {
     const beatAtTime = findEditorBeatAtTime(orderedBeats, playheadMs);
     if (beatAtTime && beatAtTime.visualBeatId !== selectedBeatId) {
+      lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
       onSelectBeat(beatAtTime);
     }
   }, [onSelectBeat, orderedBeats, playheadMs, selectedBeatId]);
 
   const selectBeat = (beat: DesktopTimelineBeat) => {
+    lastSelectedBeatIdRef.current = beat.visualBeatId;
     setPlayheadMs(beat.startMs);
     onSelectBeat(beat);
   };
@@ -113,6 +124,7 @@ export function EditorPlaybackSurface({
     setPlayheadMs(clamped);
     const beatAtTime = findEditorBeatAtTime(orderedBeats, clamped);
     if (beatAtTime && beatAtTime.visualBeatId !== selectedBeatId) {
+      lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
       onSelectBeat(beatAtTime);
     }
   };

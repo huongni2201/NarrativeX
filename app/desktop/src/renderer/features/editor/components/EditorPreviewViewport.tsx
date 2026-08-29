@@ -96,23 +96,45 @@ export function EditorPreviewViewport({
 
   useEffect(() => {
     const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = muted;
+  }, [muted]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
     if (!audio || narrationStartMs == null || narrationEndMs == null) return;
 
-    const desiredSeconds = narrationTimeMs(playheadMs, narrationStartMs, narrationEndMs) / 1000;
-    if (Number.isFinite(desiredSeconds) && Math.abs(audio.currentTime - desiredSeconds) > 0.3) {
-      try {
-        audio.currentTime = desiredSeconds;
-      } catch {
-        // Retry after metadata becomes available.
+    const isWithinChapter = playheadMs >= narrationStartMs && playheadMs < narrationEndMs;
+    const desiredSeconds = Math.max(0, (playheadMs - narrationStartMs) / 1000);
+
+    if (playing && isWithinChapter) {
+      const diff = Math.abs(audio.currentTime - desiredSeconds);
+      if (diff > 1.2 || audio.paused) {
+        try {
+          audio.currentTime = desiredSeconds;
+        } catch {
+          // Retry when audio metadata is ready
+        }
+      }
+      if (audio.paused) {
+        void audio.play().catch((err) => {
+          console.warn("Audio play blocked or failed:", err);
+        });
+      }
+    } else {
+      if (!audio.paused) {
+        audio.pause();
+      }
+      const diff = Math.abs(audio.currentTime - desiredSeconds);
+      if (diff > 0.5) {
+        try {
+          audio.currentTime = desiredSeconds;
+        } catch {
+          // Ignore seek while unloaded
+        }
       }
     }
-    audio.muted = muted;
-    if (playing) {
-      void audio.play().catch(() => undefined);
-    } else {
-      audio.pause();
-    }
-  }, [muted, narrationEndMs, narrationStartMs, narrationUrl, playheadMs, playing]);
+  }, [narrationEndMs, narrationStartMs, narrationUrl, playheadMs, playing]);
 
   const objectFit = fitMode === "Fill" ? "cover" : "contain";
   const showMedia = Boolean(mediaUrl && selectedBeat?.mediaType && !mediaFailed);
@@ -129,12 +151,15 @@ export function EditorPreviewViewport({
 
   return (
     <div className="nx-editor-preview-viewport flex min-h-0 flex-col bg-background px-5 py-2">
-      {narrationUrl && !audioFailed && (
+      {narrationUrl && (
         <audio
+          key={narrationUrl}
           ref={audioRef}
           src={narrationUrl}
           preload="auto"
-          onError={() => setAudioFailed(true)}
+          onError={(e) => {
+            console.warn("EditorPreviewViewport audio load error:", narrationUrl, e);
+          }}
           className="hidden"
         />
       )}
@@ -229,15 +254,6 @@ export function EditorPreviewViewport({
                     ? "Không tải được media preview. Render source vẫn được giữ nguyên."
                     : previewMessage || selectedBeat?.visualIntent || "Chưa có media để preview."}
                 </p>
-              </div>
-            </div>
-          )}
-
-          {showMedia && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/70 to-transparent px-4 pb-3 pt-10">
-              <div className="flex items-end justify-between gap-3 text-[9px] text-white/80">
-                <span>{selectedBeat?.cameraMovement || "NONE"}</span>
-                <span>{selectedBeat?.fitMode || "TRIM"}</span>
               </div>
             </div>
           )}
