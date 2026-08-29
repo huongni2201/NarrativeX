@@ -220,7 +220,6 @@ export interface NarrativeXDesktopBridge {
     list(): Promise<LocalProjectCatalogEntry[]>;
     lastOpened(): Promise<LocalProjectCatalogEntry | null>;
     upsert(project: DesktopProject, metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry>;
-    reconcile(projects: DesktopProject[], metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry[]>;
     touch(projectId: string): Promise<LocalProjectCatalogEntry>;
     markArchived(projectId: string): Promise<void>;
   };
