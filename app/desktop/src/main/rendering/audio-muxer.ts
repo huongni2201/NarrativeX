@@ -49,15 +49,20 @@ export function buildMuxNarrationArgs(
   return [
     "-i", videoPath,
     "-i", audioPath,
-    "-i", subtitlePath,
+    "-vf", `subtitles=filename='${escapeSubtitleFilterPath(subtitlePath)}'`,
     "-map", "0:v:0",
     "-map", "1:a:0",
-    "-map", "2:s:0",
-    "-c:v", "copy",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
     "-c:a", "aac",
-    "-c:s", "mov_text",
-    "-metadata:s:s:0", "language=und",
     "-shortest",
     "-y", output,
   ];
+}
+
+export function escapeSubtitleFilterPath(path: string): string {
+  return path
+    .replace(/\\/g, "/")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "\\'");
 }
