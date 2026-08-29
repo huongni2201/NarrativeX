@@ -31,7 +31,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
     async def claim_next(self, worker_id: str) -> ClaimedNarrationJob | None:
         claim_owner = self._new_claim_owner(worker_id)
         claimed = await super().claim_next(claim_owner)
-        if claimed is not None:
+        if isinstance(claimed, ClaimedNarrationJob):
             claimed = await self._attach_system_voice_reference(claimed)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         return claimed
@@ -39,7 +39,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
     async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
         claim_owner = self._new_claim_owner(worker_id)
         claimed = await super().claim_due_reconciliation(claim_owner)
-        if claimed is not None:
+        if isinstance(claimed, ClaimedNarrationJob):
             claimed = await self._attach_system_voice_reference(claimed)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         return claimed
