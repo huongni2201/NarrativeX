@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateProjectRenderRequest(
-    @NotBlank @Pattern(regexp = "720p|1080p") String resolution,
+    @NotBlank @Pattern(regexp = "720p|1080p|1440p") String resolution,
     @NotBlank @Pattern(regexp = "mp4") String format,
     @NotNull UUID localDeviceId,
     @Valid @Size(max = 2000) List<BeatOverride> beatOverrides) {
