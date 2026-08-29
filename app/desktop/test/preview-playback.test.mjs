@@ -7,6 +7,7 @@ import {
   narrationTimeMs,
   previewPlaybackState,
   shouldResyncNarration,
+  shouldUseFallbackPlaybackClock,
 } from "../src/renderer/features/editor/preview-playback.ts";
 
 function beat(overrides = {}) {
@@ -92,4 +93,42 @@ test("live narration only resyncs for a meaningful seek gap", () => {
   assert.equal(shouldResyncNarration(12.0, 12.1), false);
   assert.equal(shouldResyncNarration(12.0, 12.36), true);
   assert.equal(shouldResyncNarration(20.0, 5.0), true);
+});
+
+test("fallback clock stays off while narration is authoritative", () => {
+  assert.equal(
+    shouldUseFallbackPlaybackClock({
+      playing: true,
+      hasNarration: true,
+      narrationClockFailed: false,
+    }),
+    false,
+  );
+});
+
+test("fallback clock runs only without usable narration", () => {
+  assert.equal(
+    shouldUseFallbackPlaybackClock({
+      playing: true,
+      hasNarration: false,
+      narrationClockFailed: false,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldUseFallbackPlaybackClock({
+      playing: true,
+      hasNarration: true,
+      narrationClockFailed: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldUseFallbackPlaybackClock({
+      playing: false,
+      hasNarration: false,
+      narrationClockFailed: false,
+    }),
+    false,
+  );
 });
