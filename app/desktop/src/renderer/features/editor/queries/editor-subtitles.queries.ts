@@ -13,30 +13,32 @@ export function useEditorSubtitles({
   storyVersionId: string | null;
   chapters: DesktopTimeline["chapters"];
 }>): { cues: PlannedSubtitle[]; loading: boolean } {
+  const needsTextFallback = chapters.some((chapter) => !chapter.subtitleText?.trim());
   const sources = useQuery({
     queryKey: ["editor", "subtitle-sources", projectId ?? "none", storyVersionId ?? "none"],
     queryFn: () => chaptersApi.listAll(projectId as string, storyVersionId as string),
-    enabled: Boolean(projectId && storyVersionId && chapters.length),
+    enabled: Boolean(projectId && storyVersionId && chapters.length && needsTextFallback),
     staleTime: 60_000,
   });
 
   const cues = useMemo(() => {
-    if (!sources.data?.length) return [];
-    const textByChapter = new Map(sources.data.map((chapter) => [chapter.id, chapter.sourceText]));
+    const textByChapter = new Map(
+      (sources.data ?? []).map((chapter) => [chapter.id, chapter.sourceText]),
+    );
     return planSubtitles(
       chapters.flatMap((chapter) => {
-        const subtitleText = textByChapter.get(chapter.chapterId);
+        const subtitleText = chapter.subtitleText ?? textByChapter.get(chapter.chapterId);
         if (!subtitleText?.trim()) return [];
         return [{
           chapterId: chapter.chapterId,
           globalStartMs: chapter.startMs,
           globalEndMs: chapter.endMs,
           subtitleText,
-          subtitleSpansJson: null,
+          subtitleSpansJson: chapter.subtitleSpansJson ?? null,
         }];
       }),
     );
   }, [chapters, sources.data]);
 
-  return { cues, loading: sources.isLoading };
+  return { cues, loading: needsTextFallback && sources.isLoading };
 }
