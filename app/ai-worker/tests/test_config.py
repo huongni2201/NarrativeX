@@ -51,6 +51,23 @@ def test_removed_media_storage_compatibility_aliases_stay_removed() -> None:
     assert not hasattr(settings, "media_local_dir")
 
 
+def test_removed_provider_settings_stay_removed() -> None:
+    settings = WorkerSettings()
+
+    for field_name in (
+        "google_tts_project_id",
+        "google_tts_endpoint",
+        "google_tts_timeout_seconds",
+        "tts_pricing_catalog_version",
+        "wan_video_enabled",
+        "wan_endpoint_url",
+        "wan_model",
+        "wan_api_token",
+        "wan_request_timeout_seconds",
+    ):
+        assert not hasattr(settings, field_name)
+
+
 def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TTS_PROVIDER_MODE", "google")
 
