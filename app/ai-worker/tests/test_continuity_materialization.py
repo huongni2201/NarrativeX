@@ -6,6 +6,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
+from narrativex_worker.materialization.identity import materialize_locations
 from narrativex_worker.materialization.storyboard import materialize_storyboard
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.repository import ClaimedChapterAnalysisJob
@@ -47,6 +48,7 @@ def continuity_result() -> ChapterAnalysisResult:
                     "key": "old-house",
                     "name": "Old House",
                     "description": "An abandoned wooden house.",
+                    "visual_prompt": "weathered timber walls, narrow porch, broken green shutters",
                 }
             ],
             "scenes": [
@@ -181,6 +183,53 @@ class StoryboardConnection:
 
     async def executemany(self, query: str, args: Any) -> None:
         self.executemany_calls.append((query, args))
+
+
+class LocationConnection:
+    def __init__(self) -> None:
+        self.project_location_id = UUID("00000000-0000-4000-8000-000000000301")
+        self.location_write_args: tuple[object, ...] | None = None
+
+    async def fetch(self, query: str, *args: object) -> list[dict[str, object]]:
+        if "project_location_ai_identities" in query and "SELECT ai_key" in query:
+            return []
+        if "FROM project_locations pl" in query:
+            return []
+        raise AssertionError(query)
+
+    async def fetchval(self, query: str, *args: object) -> object:
+        if "INSERT INTO project_locations" in query:
+            assert args[1] == "Old House"
+            assert args[2] == "An abandoned wooden house."
+            assert args[3] == "weathered timber walls, narrow porch, broken green shutters"
+            return self.project_location_id
+        if "SELECT project_location_id" in query:
+            return self.project_location_id
+        raise AssertionError(query)
+
+    async def execute(self, query: str, *args: object) -> str:
+        if "INSERT INTO project_location_ai_identities" in query:
+            return "INSERT 1"
+        if "UPDATE project_location_ai_identities" in query:
+            return "UPDATE 1"
+        if "UPDATE project_locations" in query:
+            self.location_write_args = args
+            return "UPDATE 1"
+        raise AssertionError(query)
+
+
+@pytest.mark.asyncio
+async def test_location_materializer_keeps_description_separate_from_visual_canon() -> None:
+    connection = LocationConnection()
+    result = await materialize_locations(connection, claimed_job(), continuity_result())
+
+    assert result == {"old-house": connection.project_location_id}
+    assert connection.location_write_args is not None
+    assert connection.location_write_args[2] == "An abandoned wooden house."
+    assert (
+        connection.location_write_args[3]
+        == "weathered timber walls, narrow porch, broken green shutters"
+    )
 
 
 @pytest.mark.asyncio
