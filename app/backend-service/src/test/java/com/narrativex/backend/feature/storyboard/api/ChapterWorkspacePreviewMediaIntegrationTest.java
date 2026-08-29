@@ -93,10 +93,11 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
         CHAPTER_ID,
         REVISION_ID);
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, status) "
-            + "VALUES (?, ?, 'IMAGE', 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, 'preview.png', 'image/png', 1024, repeat('b', 64), 'READY')",
+        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, status) "
+            + "VALUES (?, ?, ?, 'IMAGE', 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, 'preview.png', 'image/png', 1024, repeat('b', 64), 'READY')",
         MEDIA_ASSET_ID,
-        USER_ID);
+        USER_ID,
+        PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, preview_media_asset_id) "
             + "VALUES (?, ?, 1, 'Beat', 'Preview media regression', 'DRAFT', ?)",
