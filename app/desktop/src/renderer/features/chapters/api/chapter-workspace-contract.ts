@@ -110,7 +110,7 @@ function isWorkspacePreviewScene(value: unknown): value is ChapterWorkspacePrevi
     isNullableNumber(value.durationSeconds) &&
     isString(value.status) &&
     isNumber(value.visualBeatCount) &&
-    isNullableString(value.previewImageUrl)
+    isNullableString(value.previewMediaAssetId)
   );
 }
 
