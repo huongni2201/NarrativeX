@@ -32,6 +32,7 @@ public class AssetLibraryController {
 
   @GetMapping
   public ResponseEntity<ApiResponse<MediaAssetResponse.Page>> list(
+      @RequestParam UUID projectId,
       @RequestParam(required = false) String type,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String search,
@@ -40,7 +41,7 @@ public class AssetLibraryController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Assets retrieved successfully",
-            MediaAssetResponse.Page.from(useCase.list(type, status, search, cursor, limit))));
+            MediaAssetResponse.Page.from(useCase.list(projectId, type, status, search, cursor, limit))));
   }
 
   @GetMapping("/{id}")
@@ -77,6 +78,7 @@ public class AssetLibraryController {
                 "Local asset registered",
                 MediaAssetResponse.from(
                     useCase.registerLocal(
+                        request.projectId(),
                         request.type(),
                         request.originalFilename(),
                         request.contentType(),
