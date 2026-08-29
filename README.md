@@ -2,128 +2,92 @@
 
 NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
 
-The Electron application is the only supported editor client. Spring Boot remains the authoritative control plane for durable business metadata, ownership, policy and execution state. Project media and final rendering use a local-first Desktop boundary.
+The Electron application is the only supported editor client. Spring Boot is the authoritative control plane for ownership, policy, durable jobs and metadata. Project media and final rendering are local-first on Desktop.
 
 ## Repository map
 
 | Area | Responsibility |
 | --- | --- |
-| `app/desktop` | Electron + React + TypeScript editor; guest bootstrap, local project storage, native capabilities and local FFmpeg execution through Electron main |
-| `app/backend-service` | Spring Boot modular monolith; auth/ownership, domain metadata, policy, jobs, leases, quotas and durable state |
-| `app/ai-worker` | Python AI/media worker; chapter analysis, image generation, narration and generated-media validation |
-| `packages/client-contracts` | Shared typed Desktop/backend contracts |
-| `contracts` | Versioned backend ↔ worker payload contracts |
-| `documentation` | Product, domain, architecture, workflows, current-state maps and ADRs |
-| `docker-compose.yml` | Backend/AI-worker runtime |
+| `app/desktop` | Electron + React + TypeScript editor; guest bootstrap, local project storage, Gemini Web automation, native capabilities and local FFmpeg execution |
+| `app/backend-service` | Spring Boot modular monolith; auth/ownership, domain metadata, policy, jobs, leases, quotas and Flyway schema |
+| `app/ai-worker` | Python worker; chapter analysis, image generation, narration and media validation |
+| `packages/client-contracts` | Shared Desktop/backend contracts |
+| `contracts` | Backend ↔ worker payload contracts |
+| `documentation` | Product, architecture, workflows, current-state maps and ADRs |
 
-## Primary runtime topology
+## Runtime topology
 
 ```text
 Electron Desktop
-  renderer: editor UI / routing / query state
-        |
-        v
-  preload: narrow typed capability bridge
-        |
-        v
-  main: guest credential, OAuth deep link, native filesystem,
-        backend session transport, project storage, FFmpeg/ffprobe
-        |
-        +------------------------+
-        |                        |
-        v                        v
-Spring Boot Backend         Local project workspace
-  -> PostgreSQL               -> images/audio/video
-     domain/jobs/session      -> render work/cache
-     OAuth handoffs           -> final MP4 artifacts
-  -> Python AI workers
+  renderer -> UI / routes / query + editor draft state
+      |
+  preload  -> narrow typed capability bridge
+      |
+  main     -> auth transport / native files / ProjectStorage /
+              Gemini Web Chrome-CDP / FFmpeg-ffprobe / local render
+      |
+      +------------------------------+
+      |                              |
+Spring Boot Backend             Local project workspace
+  -> PostgreSQL                   -> images/audio/video
+  -> Python workers               -> render work/cache
+                                  -> final MP4
 ```
 
-PostgreSQL is authoritative for users, projects, source versions, ownership, entitlement/policy, server sessions, one-time Desktop OAuth handoffs, render assignment, leases and durable job/artifact metadata. Python workers claim durable jobs directly from PostgreSQL. Electron local storage is authoritative for machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis is not required by the MVP runtime.
+PostgreSQL is authoritative for durable business/control state. Workers claim durable work from PostgreSQL. Electron local storage owns machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis is not required by the MVP runtime.
 
 ## Guest-first authentication
 
-NarrativeX Desktop opens into a stable installation-scoped guest workspace. The guest principal exists for ownership continuity and is **not** a second login provider.
+NarrativeX opens into a stable installation-scoped guest workspace. Google is the only end-user account sign-in provider. Account/provider-consuming actions are backend-gated; Desktop can open the Google login flow without discarding the active editor context.
 
-Google is the only end-user sign-in provider. Account-bound or provider-consuming actions are backend-gated to `ROLE_USER`; when a guest reaches one of those actions, Desktop opens the login modal over the current route.
+Google tokens never enter the renderer. Guest installation credentials, user sessions and local-render device credentials remain separate.
 
-```text
-Desktop start
-  -> GET /api/v1/auth/me
-  -> if needed POST /api/v1/auth/desktop/guest
-  -> stable ROLE_GUEST session
-  -> free project/chapter/local-workspace editing
+See `documentation/workflows/AUTHENTICATION.md`.
 
-Gated action
-  -> 403 AUTHENTICATION_REQUIRED
-  -> LoginModal
-  -> system browser /api/v1/auth/desktop/start
-  -> Google OIDC
-  -> narrativex://auth/callback?code=<one-time-code>
-  -> POST /api/v1/auth/desktop/exchange
-  -> transfer eligible guest-owned workspace metadata
-  -> ROLE_USER session, same project/editor route
-```
-
-Google access/refresh tokens never enter Electron. The installation guest secret and local-execution device credentials are separate credentials with separate responsibilities. `NX_SESSION` and hashed, short-lived Desktop OAuth handoffs are stored in PostgreSQL.
-
-See `documentation/workflows/AUTHENTICATION.md` for the current contract.
-
-## Desktop local-first media contract
+## Local project-media contract
 
 ```text
-Generated/imported project images   -> local project workspace
-Project narration/audio             -> local project workspace
-Imported project media              -> local project workspace
-Render intermediates/cache          -> local project workspace/work
-Final rendered MP4                  -> local project workspace/artifacts
-Metadata / ownership / job state    -> PostgreSQL
+Generated project images        -> shared/local project media -> Desktop ProjectStorage
+Generated narration             -> shared/local project media -> Desktop ProjectStorage
+Imported image/audio/video      -> Desktop ProjectStorage
+Render work/cache               -> Desktop project workspace/work
+Final MP4                       -> Desktop project workspace/artifacts
+Voice reference/custom voice    -> Cloudflare R2 when remote account storage is required
+Business/job/artifact metadata  -> PostgreSQL
 ```
 
-Workspace layout:
+R2 is **not** the project-media store and is not a transport for generated project images, narration or final MP4 files. It is retained only for authenticated account-owned voice-reference/custom-voice assets.
+
+`project.manifest.json` maps stable backend IDs to project-relative paths, sizes and SHA-256 checksums. Absolute machine paths never become durable backend identities.
+
+## Visual generation
+
+Analyze Chapter keeps the visual intent explicit:
+
+- `IMAGE` supports backend/API image generation and Gemini Web image generation.
+- `VIDEO` remains a supported analysis/editor intent for web/browser-driven video generation workflows.
+- Python workers do not host a video-generation/I2V provider role.
+- Final composition/rendering always uses Electron main + FFmpeg/ffprobe.
+
+Do not reintroduce Wan or another Python video provider as an implicit fallback for the Desktop render path.
+
+## Final render
 
 ```text
-<userData>/projects/<projectId>/
-  project.manifest.json
-  assets/
-    images/
-    audio/
-    video/
-  artifacts/
-    <jobId>/final.mp4
-  work/
+backend-authorized project render
+  -> paired Desktop device assignment
+  -> claim + lease
+  -> local asset integrity/preflight
+  -> FFmpeg/ffprobe
+  -> artifacts/<jobId>/final.mp4
+  -> backend final-artifact metadata only
 ```
 
-`project.manifest.json` maps backend IDs to project-relative paths, sizes and SHA-256 checksums. Absolute local filesystem paths must not become durable backend identifiers.
+There is no server/cloud final-render executor and no remote final-video storage fallback.
 
-Cloudflare R2 is used only as remote transport/durable storage for generated AI media such as images and narration audio before Desktop materializes those bytes into the local workspace. Final MP4 bytes are never stored or proxied by the backend; playback and export read the local artifact directly.
+## Development
 
-## Current creator/editor foundations
-
-The current Desktop code includes:
-
-- project/chapter authoring and project catalog state;
-- guest-first session bootstrap and in-context Google sign-in;
-- chapter analysis and generation admission flows;
-- image generation/review plus remote-to-local materialization;
-- Desktop Gemini Web image generation through Chrome/CDP, including locked series style, Generate All and protected prompt copy;
-- generated narration/voice preview and local audio import safeguards;
-- authenticated generation SSE with reconnect/watchdog status recovery;
-- native local asset registration;
-- production timeline editing including beat media selection, probed media duration, duration/camera/fit draft state, Auto Edit planning and undo/redo;
-- local render preflight, lease-controlled FFmpeg execution and final artifact metadata registration;
-- immutable narration subtitle snapshots and local UTF-8 SRT generation during render;
-- render journal discovery, segment caching and project storage verification/cleanup;
-- workspace backup/restore/archive-copy foundations;
-- source-owned Tailwind/shadcn-style renderer component structure.
-
-Chapter generation consumes the saved chapter source directly. NarrativeX does not maintain a translation/content-variant workflow in the current product baseline.
-
-Remaining product work is tracked in `documentation/product/ROADMAP.md`, not in completed migration plans.
-
-## Run Desktop in development
-
-Start the backend/required server dependencies, then run Desktop:
+Start backend/worker dependencies, then Desktop:
 
 ```powershell
 docker compose up -d --build
@@ -132,9 +96,7 @@ npm ci
 npm run dev
 ```
 
-The default Compose topology requires PostgreSQL but no Redis service.
-
-Verify the backend before opening Desktop:
+Backend health:
 
 ```powershell
 Invoke-WebRequest http://localhost:8080/actuator/health
@@ -146,28 +108,27 @@ Desktop quality gate:
 npm run check
 ```
 
-Default backend URL:
-
-```text
-NARRATIVEX_BACKEND_URL=http://localhost:8080
-```
-
-Local project rendering additionally requires FFmpeg/ffprobe and:
+Local final rendering requires FFmpeg/ffprobe and:
 
 ```text
 NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 ```
 
-## Production backend ingress
+## Database baseline
 
-Production Compose contains no browser frontend, Caddy layer, or bundled ingress service. Deployments must provide HTTPS ingress separately and set `NARRATIVEX_PUBLIC_BASE_URL` to that origin so it matches the Google OAuth redirect URI.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V8** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
 
-## Persistence
+At the first production deployment, freeze the accepted baseline and make future schema changes append-only from the next migration version.
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. The current pre-release baseline is responsibility-separated across `V1__identity_and_access.sql` through `V6__database_logic_and_triggers.sql`, followed by `V7__indexes.sql` and deterministic `V8__seed_catalog.sql`. Project-render subtitle fields, the Chapter Workspace covering index and VieNeu speaking-rate capability are folded directly into that final baseline rather than represented as patch migrations. Until the first production deployment, disposable local/test databases are recreated when the baseline is rewritten; after the first production deployment, applied migrations become immutable and future changes are append-only. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
+## Guardrails
 
-## Product guardrails
+- Chapter → Scene → VisualBeat remains the production hierarchy.
+- Narration timing is the master clock.
+- A VisualBeat may use image or video media.
+- Do not assume fixed image count or fixed image duration.
+- Reviewed/generated history must not be silently overwritten.
+- Workers and Desktop executors perform only backend-authorized work.
+- Final project video bytes stay local.
 
-NarrativeX is not a fixed-duration or fixed-image-count generator. Narration timing is the master clock. Expensive work pins source identity and must not silently overwrite immutable reviewed history. Workers and Desktop executors perform backend-authorized work; they do not invent paid operations.
-
-The canonical product/architecture baseline is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Accepted ADRs refine that baseline. For factual AS-IS implementation claims, current code, Flyway migrations and automated tests outrank derived documentation.
+Canonical product direction: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`.
+Active remaining work: `documentation/product/ROADMAP.md`.
