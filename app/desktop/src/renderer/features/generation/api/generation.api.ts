@@ -12,17 +12,14 @@ export interface CurrentMediaJob {
   jobId: string | null;
 }
 
-export function normalizeCreateMediaJobInput(
-  input: CreateMediaJobInput,
-): Omit<CreateMediaJobInput, "imageGenerationStrategy"> {
-  const { imageGenerationStrategy: _obsoleteStrategy, ...request } = input;
-  if (request.visualGenerationMode !== "IMAGE") {
-    return { ...request, imageProvider: null };
+export function normalizeCreateMediaJobInput(input: CreateMediaJobInput): CreateMediaJobInput {
+  if (input.visualGenerationMode !== "IMAGE") {
+    return { ...input, imageProvider: null };
   }
 
   return {
-    ...request,
-    imageProvider: request.imageProvider ?? "API",
+    ...input,
+    imageProvider: input.imageProvider ?? "API",
   };
 }
 
