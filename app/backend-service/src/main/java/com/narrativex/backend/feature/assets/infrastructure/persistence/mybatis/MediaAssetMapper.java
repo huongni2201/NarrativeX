@@ -22,6 +22,7 @@ public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
 
   List<MediaAssetRow> findPage(
       @Param("accountId") String accountId,
+      @Param("projectId") UUID projectId,
       @Param("type") String type,
       @Param("status") String status,
       @Param("search") String search,
