@@ -146,7 +146,9 @@ export function chooseMediaFit(
 }
 
 export function chooseCameraMovement(
-  beat: Pick<DesktopTimelineBeat, "mediaType" | "cameraMovement" | "title" | "visualIntent">,
+  beat: Pick<DesktopTimelineBeat, "mediaType" | "cameraMovement" | "title" | "visualIntent"> & {
+    beatIndex?: number;
+  },
   style: AutoEditStyle = "CINEMATIC",
 ): string {
   if (beat.mediaType === "VIDEO") return "NONE";
@@ -154,16 +156,23 @@ export function chooseCameraMovement(
   const authored = normalizedCameraMovement(beat.cameraMovement);
   if (authored !== "NONE") return authored;
   const resolvedStyle = resolveAutoEditStyle(beat, style);
-  if (resolvedStyle === "BALANCED") return "NONE";
-
   const text = `${beat.title}\n${beat.visualIntent}`;
+
   if (REVEAL_TERMS.test(text)) return "PUSH_IN";
   if (ISOLATION_TERMS.test(text)) return "PULL_OUT";
   if (PORTRAIT_TERMS.test(text)) return resolvedStyle === "DYNAMIC" ? "PUSH_IN" : "PARALLAX";
   if (VERTICAL_TERMS.test(text)) return "TILT";
   if (ESTABLISH_TERMS.test(text)) return "PAN";
   if (resolvedStyle === "DYNAMIC" && ACTION_TERMS.test(text)) return "TRACK";
-  return "NONE";
+
+  const index = Math.max(0, beat.beatIndex ?? 0);
+  const fallbackByStyle: Record<ResolvedAutoEditStyle, readonly string[]> = {
+    BALANCED: ["PAN", "PUSH_IN", "PULL_OUT"],
+    CINEMATIC: ["PUSH_IN", "PARALLAX", "PAN", "PULL_OUT"],
+    DYNAMIC: ["TRACK", "PUSH_IN", "PAN"],
+  };
+  const sequence = fallbackByStyle[resolvedStyle];
+  return sequence[index % sequence.length];
 }
 
 function toRenderOverride(
