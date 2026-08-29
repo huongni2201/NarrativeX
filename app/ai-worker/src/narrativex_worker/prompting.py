@@ -97,7 +97,7 @@ def _visual_beat_density_guidance(request: ChapterAnalysisRequest) -> str:
         round(word_count * 60_000 / _NARRATION_WORDS_PER_MINUTE),
     )
     target_beat_ms = _target_visual_beat_ms(estimated_duration_ms)
-    target = max(2, round(estimated_duration_ms / target_beat_ms))
+    target = max(2, math.ceil(estimated_duration_ms / target_beat_ms))
     lower_ratio = 0.88 if estimated_duration_ms >= 30 * 60_000 else 0.86
     upper_ratio = 1.08 if estimated_duration_ms >= 30 * 60_000 else 1.12
     lower = max(2, math.floor(target * lower_ratio))
@@ -106,17 +106,23 @@ def _visual_beat_density_guidance(request: ChapterAnalysisRequest) -> str:
         " Plan visual-beat density for watchable long-form video pacing. Estimate narration "
         f"duration from the source at {_NARRATION_WORDS_PER_MINUTE} words/minute: "
         f"ESTIMATED_NARRATION_DURATION_MS={estimated_duration_ms}. Use an adaptive pacing target "
-        f"of TARGET_VISUAL_BEAT_MS={target_beat_ms}; aim for about TARGET_VISUAL_BEATS={target} "
-        f"across the whole chapter, with a preferred semantic range of {lower}-{upper} beats. "
-        "This is a pacing target, not a quota: deviate when the story truly needs it, but do not "
-        "collapse long narration into a handful of static keyframes. Long-form pacing must become "
-        "progressively calmer instead of extrapolating an 8-second short-form cadence forever. "
+        f"of TARGET_VISUAL_BEAT_MS={target_beat_ms}. Use TARGET_VISUAL_BEATS={target}, "
+        f"MIN_VISUAL_BEATS={lower}, and MAX_VISUAL_BEATS={upper} for the whole chapter. "
+        "Treat MIN_VISUAL_BEATS as a strong planning floor, not optional guidance. Distribute beats "
+        "roughly in proportion to each scene's narration length and narrative activity so long "
+        "scenes do not collapse into one or two static images. If the planned total is below "
+        "MIN_VISUAL_BEATS, revisit substantial scenes and split overly broad beats at source-backed "
+        "changes in action, reaction, reveal/detail, emotional emphasis, POV/focus, composition, "
+        "or transition state. Do not create fake scenes merely to increase the count. Before "
+        "returning JSON, count the total visual_beats across all scenes; if it is still below "
+        "MIN_VISUAL_BEATS, refine again unless doing so would require inventing story events. "
         "Use shorter beats for action, reveals, reactions, or strong composition changes, and "
-        "allow longer beats for stable dialogue, exposition, atmosphere, or intentionally slow "
-        "moments. These are seed visual beats; the narration-aligned planner may later split or "
-        "merge them using actual audio timing, and the asset resolver may reuse/reframe an image "
+        "allow longer beats for genuinely stable dialogue, exposition, atmosphere, or intentionally "
+        "slow moments. These are seed visual beats; the narration-aligned planner may later split "
+        "or merge them using actual audio timing, and the asset resolver may reuse/reframe an image "
         "across multiple beats. Do not mechanically create a beat for every sentence, and do not "
-        "invent events merely to reach the target. "
+        "invent events merely to reach the target. Long-form pacing must become progressively "
+        "calmer instead of extrapolating an 8-second short-form cadence forever. "
     )
 
 

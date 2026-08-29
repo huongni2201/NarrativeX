@@ -118,6 +118,16 @@ def test_short_form_density_keeps_eight_second_target() -> None:
     assert "TARGET_VISUAL_BEATS=49" in prompt
 
 
+def test_seven_minute_density_enforces_floor_and_self_check() -> None:
+    prompt = build_chapter_analysis_prompt(_request("word " * 980))
+    assert "TARGET_VISUAL_BEATS=53" in prompt
+    assert "MIN_VISUAL_BEATS=45" in prompt
+    assert "MAX_VISUAL_BEATS=60" in prompt
+    assert "If the planned total is below MIN_VISUAL_BEATS" in prompt
+    assert "count the total visual_beats" in prompt
+    assert "split overly broad beats" in prompt
+
+
 def test_one_hour_density_uses_twelve_second_target_instead_of_four_hundred_plus_beats() -> None:
     prompt = build_chapter_analysis_prompt(_request("word " * 8400))
     assert "ESTIMATED_NARRATION_DURATION_MS=3600000" in prompt
