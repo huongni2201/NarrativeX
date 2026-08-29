@@ -1,22 +1,40 @@
 package com.narrativex.backend.architecture;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import org.junit.jupiter.api.Test;
+import org.xml.sax.SAXException;
 
 class ProductionBeatMediaSelectionScopeContractTest {
-  @Test
-  void localOnlySelectionRequiresAvailabilityInCurrentProject() throws IOException {
-    String mapper =
-        Files.readString(
-            Path.of("src/main/resources/mybatis/ProductionBeatMediaSelectionMapper.xml"));
+  private static final Path MAPPER =
+      Path.of("src/main/resources/mybatis/ProductionBeatMediaSelectionMapper.xml");
 
-    assertTrue(mapper.contains("ma.storage_mode <> 'LOCAL_ONLY'"));
+  @Test
+  void projectLocalSelectionRequiresAvailabilityInCurrentProject() throws IOException {
+    String mapper = Files.readString(MAPPER);
+
+    assertFalse(mapper.contains("ma.storage_mode <> 'LOCAL_ONLY'"));
     assertTrue(mapper.contains("lmm.project_id = #{projectId"));
     assertTrue(mapper.contains("lmm.media_asset_id = ma.id"));
     assertTrue(mapper.contains("lmm.state = 'AVAILABLE'"));
+  }
+
+  @Test
+  void mapperRemainsWellFormedXml()
+      throws IOException, ParserConfigurationException, SAXException {
+    var factory = DocumentBuilderFactory.newInstance();
+    factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+    factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+
+    try (var input = Files.newInputStream(MAPPER)) {
+      factory.newDocumentBuilder().parse(input);
+    }
   }
 }
