@@ -43,14 +43,6 @@
          WHERE device_id = #{deviceId}
     </update>
 
-    <delete id="deleteDuplicateChecksums">
-        DELETE FROM media_asset_checksums source
-         USING media_asset_checksums target
-         WHERE source.account_id = #{sourceUserId}
-           AND target.account_id = #{targetUserId}
-           AND source.sha256 = target.sha256
-    </delete>
-
     <update id="transferProjects">
         UPDATE projects SET owner_id = #{targetUserId} WHERE owner_id = #{sourceUserId}
     </update>
@@ -69,7 +61,4 @@
         UPDATE media_assets SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
     </update>
 
-    <update id="transferMediaChecksums">
-        UPDATE media_asset_checksums SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
-    </update>
 </mapper>

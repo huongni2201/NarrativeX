@@ -41,11 +41,9 @@ public class MybatisDesktopGuestIdentityAdapter
 
   @Override
   public void transfer(String sourceUserId, String targetUserId) {
-    mapper.deleteDuplicateChecksums(sourceUserId, targetUserId);
     mapper.transferProjects(sourceUserId, targetUserId);
     mapper.transferCharacters(sourceUserId, targetUserId);
     mapper.transferChapterIdempotency(sourceUserId, targetUserId);
     mapper.transferMediaAssets(sourceUserId, targetUserId);
-    mapper.transferMediaChecksums(sourceUserId, targetUserId);
   }
 }
