@@ -12,6 +12,10 @@ import {
   type GeminiModelCandidate,
 } from "./gemini-web-model-selection";
 import { hasCompletedGeminiGeneration } from "./gemini-web-generation-state";
+import {
+  GEMINI_WEB_LANES,
+  type GeminiWebLane,
+} from "../../shared/gemini-web-lanes";
 
 const GEMINI_URL = "https://gemini.google.com/app";
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -56,6 +60,7 @@ type DevToolsVersion = {
 };
 
 type DevToolsTarget = {
+  id?: string;
   type?: string;
   url?: string;
   webSocketDebuggerUrl?: string;
@@ -63,6 +68,13 @@ type DevToolsTarget = {
 
 type PersistedSession = {
   port: number;
+  targets?: Partial<Record<GeminiWebLane, string>>;
+};
+
+type GeminiLaneState = {
+  active: boolean;
+  targetId: string | null;
+  downloadDirectory: string;
 };
 
 type CdpEnvelope = {
@@ -275,22 +287,34 @@ class NetworkImageTracker {
 
 export class GeminiWebAutomation {
   private chromeProcess: ChildProcess | null = null;
-  private active = false;
   private readonly profileDirectory: string;
-  private readonly downloadDirectory: string;
   private readonly sessionFile: string;
   private port: number | null = null;
+  private chromeStartPromise: Promise<number> | null = null;
+  private sessionWritePromise: Promise<void> = Promise.resolve();
+  private readonly lanes = new Map<GeminiWebLane, GeminiLaneState>();
 
   constructor(rootDirectory: string) {
     this.profileDirectory = join(rootDirectory, "chrome-profile");
-    this.downloadDirectory = join(rootDirectory, "downloads");
     this.sessionFile = join(rootDirectory, "session.json");
+    for (const lane of GEMINI_WEB_LANES) {
+      this.lanes.set(lane, {
+        active: false,
+        targetId: null,
+        downloadDirectory: join(rootDirectory, "lanes", lane.toLowerCase(), "downloads"),
+      });
+    }
   }
 
   async generateImage(
+    lane: GeminiWebLane,
     prompt: string,
     references: readonly GeminiWebReferenceFile[] = [],
   ): Promise<GeminiWebGenerationResult> {
+    const laneState = this.lanes.get(lane);
+    if (!laneState) {
+      throw geminiError("GEMINI_LANE_INVALID", "Gemini generation lane is not supported.");
+    }
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       throw geminiError("GEMINI_PROMPT_EMPTY", "Gemini prompt must not be empty.");
@@ -301,17 +325,17 @@ export class GeminiWebAutomation {
         "NarrativeX sends at most three locked character reference images per Visual Beat.",
       );
     }
-    if (this.active) {
+    if (laneState.active) {
       throw geminiError(
         "GEMINI_BUSY",
-        "Gemini Web is already generating another image. Wait for the current Visual Beat to finish.",
+        `Gemini Web ${lane} is already generating another image. Wait for the current request to finish.`,
       );
     }
 
-    this.active = true;
+    laneState.active = true;
     try {
       const port = await this.ensureChrome();
-      const page = await this.ensureGeminiPage(port);
+      const page = await this.ensureGeminiPage(port, lane);
       const cdp = await CdpClient.connect(page.webSocketDebuggerUrl as string);
       const networkTracker = new NetworkImageTracker(cdp);
       try {
@@ -324,7 +348,7 @@ export class GeminiWebAutomation {
         });
         await cdp.send("Page.setDownloadBehavior", {
           behavior: "allow",
-          downloadPath: this.downloadDirectory,
+          downloadPath: laneState.downloadDirectory,
         });
 
         await this.navigateToGemini(cdp);
@@ -345,7 +369,7 @@ export class GeminiWebAutomation {
           await delay(800);
         }
 
-        const beforeDownload = await this.snapshotDownloads();
+        const beforeDownload = await this.snapshotDownloads(laneState.downloadDirectory);
         const baseline = await this.generationSnapshot(cdp);
         networkTracker.start();
         await this.submitPrompt(cdp, normalizedPrompt);
@@ -358,18 +382,24 @@ export class GeminiWebAutomation {
             captured.bytes,
             captured.candidate.mimeType,
             captured.candidate.url,
+            laneState.downloadDirectory,
           );
           if (sourcePath) return { sourcePath, captureMethod: "NETWORK" };
         }
 
-        const sourcePath = await this.captureGeneratedImageFallback(cdp, baseline, beforeDownload);
+        const sourcePath = await this.captureGeneratedImageFallback(
+          cdp,
+          baseline,
+          beforeDownload,
+          laneState.downloadDirectory,
+        );
         return { sourcePath, captureMethod: "DOWNLOAD" };
       } finally {
         networkTracker.dispose();
         cdp.close();
       }
     } finally {
-      this.active = false;
+      laneState.active = false;
     }
   }
 
@@ -393,16 +423,32 @@ export class GeminiWebAutomation {
     if (this.chromeProcess && !this.chromeProcess.killed) this.chromeProcess.kill();
     this.chromeProcess = null;
     this.port = null;
+    for (const lane of this.lanes.values()) {
+      lane.active = false;
+      lane.targetId = null;
+    }
+    await this.sessionWritePromise;
     await rm(this.sessionFile, { force: true });
   }
 
   private async ensureChrome(): Promise<number> {
     await Promise.all([
       mkdir(this.profileDirectory, { recursive: true }),
-      mkdir(this.downloadDirectory, { recursive: true }),
+      ...[...this.lanes.values()].map((lane) => mkdir(lane.downloadDirectory, { recursive: true })),
     ]);
 
     if (this.port && (await this.devToolsAvailable(this.port))) return this.port;
+    if (this.chromeStartPromise) return this.chromeStartPromise;
+
+    this.chromeStartPromise = this.startChrome();
+    try {
+      return await this.chromeStartPromise;
+    } finally {
+      this.chromeStartPromise = null;
+    }
+  }
+
+  private async startChrome(): Promise<number> {
     const persistedPort = await this.readPersistedPort();
     if (persistedPort && (await this.devToolsAvailable(persistedPort))) {
       this.port = persistedPort;
@@ -426,7 +472,7 @@ export class GeminiWebAutomation {
         "--no-first-run",
         "--no-default-browser-check",
         "--new-window",
-        GEMINI_URL,
+        "about:blank",
       ],
       { stdio: "ignore", windowsHide: false },
     );
@@ -435,7 +481,7 @@ export class GeminiWebAutomation {
     });
     this.chromeProcess = chrome;
     this.port = port;
-    await writeFile(this.sessionFile, JSON.stringify({ port } satisfies PersistedSession), "utf8");
+    await this.writePersistedSession();
 
     const deadline = Date.now() + CHROME_START_TIMEOUT_MS;
     while (Date.now() < deadline) {
@@ -448,30 +494,38 @@ export class GeminiWebAutomation {
     throw geminiError("CHROME_START_TIMEOUT", "Chrome opened but NarrativeX could not connect to it.");
   }
 
-  private async ensureGeminiPage(port: number): Promise<DevToolsTarget> {
+  private async ensureGeminiPage(port: number, lane: GeminiWebLane): Promise<DevToolsTarget> {
+    const laneState = this.lanes.get(lane);
+    if (!laneState) throw geminiError("GEMINI_LANE_INVALID", "Gemini generation lane is not supported.");
     const targets = await this.fetchJson<DevToolsTarget[]>(port, "/json");
-    const gemini = targets.find(
-      (target) =>
-        target.type === "page" &&
-        typeof target.url === "string" &&
-        target.url.includes("gemini.google.com") &&
-        typeof target.webSocketDebuggerUrl === "string",
-    );
-    if (gemini?.webSocketDebuggerUrl) return gemini;
-
-    const page = targets.find(
-      (target) => target.type === "page" && typeof target.webSocketDebuggerUrl === "string",
-    );
-    if (page?.webSocketDebuggerUrl) return page;
+    const persisted = await this.readPersistedSession();
+    const targetId = laneState.targetId ?? persisted?.targets?.[lane];
+    if (targetId) {
+      const target = targets.find(
+        (candidate) =>
+          candidate.id === targetId &&
+          candidate.type === "page" &&
+          typeof candidate.webSocketDebuggerUrl === "string",
+      );
+      if (target?.webSocketDebuggerUrl) {
+        laneState.targetId = targetId;
+        await this.writePersistedSession();
+        return target;
+      }
+      laneState.targetId = null;
+      await this.writePersistedSession();
+    }
 
     const created = await this.fetchJson<DevToolsTarget>(
       port,
       `/json/new?${encodeURIComponent(GEMINI_URL)}`,
       "PUT",
     );
-    if (!created.webSocketDebuggerUrl) {
+    if (!created.id || !created.webSocketDebuggerUrl) {
       throw geminiError("GEMINI_TAB_UNAVAILABLE", "Chrome did not expose a Gemini tab for automation.");
     }
+    laneState.targetId = created.id;
+    await this.writePersistedSession();
     return created;
   }
 
@@ -1343,11 +1397,16 @@ export class GeminiWebAutomation {
     );
   }
 
-  private async persistCapturedImage(bytes: Buffer, mimeType: string, url: string): Promise<string | null> {
+  private async persistCapturedImage(
+    bytes: Buffer,
+    mimeType: string,
+    url: string,
+    downloadDirectory: string,
+  ): Promise<string | null> {
     const extension = imageExtensionForMimeType(mimeType) ?? extensionForUrl(url);
     if (!extension || bytes.length < MIN_CAPTURE_BYTES || bytes.length > MAX_CAPTURE_BYTES) return null;
     const sourcePath = join(
-      this.downloadDirectory,
+      downloadDirectory,
       `gemini-network-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}${extension}`,
     );
     await writeFile(sourcePath, bytes);
@@ -1359,16 +1418,17 @@ export class GeminiWebAutomation {
     cdp: CdpClient,
     baseline: GenerationSnapshot,
     beforeDownload: Set<string>,
+    downloadDirectory: string,
   ): Promise<string> {
     if (await this.downloadVisibleGeneratedImage(cdp, baseline)) {
       try {
-        return await this.waitForDownloadedImage(beforeDownload);
+        return await this.waitForDownloadedImage(beforeDownload, downloadDirectory);
       } catch {
         // Gemini may block an in-page fetch. Screenshot fallback below still keeps the beat usable.
       }
     }
 
-    const screenshotPath = await this.captureVisibleGeneratedImage(cdp, baseline);
+    const screenshotPath = await this.captureVisibleGeneratedImage(cdp, baseline, downloadDirectory);
     if (screenshotPath) return screenshotPath;
 
     throw geminiError(
@@ -1426,6 +1486,7 @@ export class GeminiWebAutomation {
   private async captureVisibleGeneratedImage(
     cdp: CdpClient,
     baseline: GenerationSnapshot,
+    downloadDirectory: string,
   ): Promise<string | null> {
     const clip = await evaluate<{ x: number; y: number; width: number; height: number; scale: number } | null>(
       cdp,
@@ -1464,27 +1525,27 @@ export class GeminiWebAutomation {
     });
     if (!screenshot?.data) return null;
 
-    const fallbackPath = join(this.downloadDirectory, `gemini-image-fallback-${Date.now()}.png`);
+    const fallbackPath = join(downloadDirectory, `gemini-image-fallback-${Date.now()}.png`);
     const bytes = Buffer.from(screenshot.data, "base64");
     if (bytes.length < MIN_CAPTURE_BYTES) return null;
     await writeFile(fallbackPath, bytes);
     return fallbackPath;
   }
 
-  private async snapshotDownloads(): Promise<Set<string>> {
-    const entries = await readdir(this.downloadDirectory, { withFileTypes: true });
+  private async snapshotDownloads(downloadDirectory: string): Promise<Set<string>> {
+    const entries = await readdir(downloadDirectory, { withFileTypes: true });
     return new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
   }
 
-  private async waitForDownloadedImage(before: Set<string>): Promise<string> {
+  private async waitForDownloadedImage(before: Set<string>, downloadDirectory: string): Promise<string> {
     const deadline = Date.now() + DOWNLOAD_TIMEOUT_MS;
     let stablePath: string | null = null;
     let stableSize = -1;
     while (Date.now() < deadline) {
-      const entries = await readdir(this.downloadDirectory, { withFileTypes: true });
+      const entries = await readdir(downloadDirectory, { withFileTypes: true });
       const candidates = entries
         .filter((entry) => entry.isFile() && !before.has(entry.name))
-        .map((entry) => join(this.downloadDirectory, entry.name));
+        .map((entry) => join(downloadDirectory, entry.name));
       for (const candidate of candidates) {
         const extension = extname(candidate).toLowerCase();
         if (!IMAGE_EXTENSIONS.has(extension) || candidate.endsWith(".crdownload")) continue;
@@ -1503,12 +1564,32 @@ export class GeminiWebAutomation {
   }
 
   private async readPersistedPort(): Promise<number | null> {
+    const value = await this.readPersistedSession();
+    return value && Number.isInteger(value.port) && Number(value.port) > 0 ? Number(value.port) : null;
+  }
+
+  private async readPersistedSession(): Promise<Partial<PersistedSession> | null> {
     try {
       const value = JSON.parse(await readFile(this.sessionFile, "utf8")) as Partial<PersistedSession>;
-      return Number.isInteger(value.port) && Number(value.port) > 0 ? Number(value.port) : null;
+      return value && typeof value === "object" ? value : null;
     } catch {
       return null;
     }
+  }
+
+  private async writePersistedSession(): Promise<void> {
+    if (!this.port) return;
+    const port = this.port;
+    const targets = Object.fromEntries(
+      [...this.lanes.entries()]
+        .filter(([, lane]) => lane.targetId)
+        .map(([lane, state]) => [lane, state.targetId as string]),
+    ) as Partial<Record<GeminiWebLane, string>>;
+    const write = this.sessionWritePromise.then(() =>
+      writeFile(this.sessionFile, JSON.stringify({ port, targets } satisfies PersistedSession), "utf8"),
+    );
+    this.sessionWritePromise = write.then(() => undefined, () => undefined);
+    await write;
   }
 
   private async devToolsAvailable(port: number): Promise<boolean> {

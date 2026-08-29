@@ -16,6 +16,16 @@ export class SelectionTokenStore<T> {
     return token;
   }
 
+  peek(token: string, senderId: number, operation: string): T {
+    const selection = this.selections.get(token);
+    if (!selection || selection.expiresAt < Date.now()) {
+      throw new Error("Local selection expired. Choose the file again.");
+    }
+    if (selection.senderId !== senderId) throw new Error("Local selection belongs to another window.");
+    if (selection.operation !== operation) throw new Error("Local selection cannot be used for this operation.");
+    return selection.value;
+  }
+
   consume(token: string, senderId: number, operation: string): T {
     const selection = this.selections.get(token);
     this.selections.delete(token);

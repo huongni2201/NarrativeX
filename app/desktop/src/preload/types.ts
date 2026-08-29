@@ -1,4 +1,6 @@
 import type { DesktopProject, LocalRenderPreflight } from "@narrativex/client-contracts";
+import type { GeminiWebLane as GeminiWebLaneType } from "../shared/gemini-web-lanes";
+export type { GeminiWebLane } from "../shared/gemini-web-lanes";
 
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
@@ -113,6 +115,7 @@ export interface GeminiWebReferenceInput {
 }
 
 export interface GeminiWebGenerateImageInput {
+  lane: GeminiWebLaneType;
   prompt: string;
   projectId?: string;
   references?: GeminiWebReferenceInput[];
@@ -227,6 +230,7 @@ export interface NarrativeXDesktopBridge {
   geminiWeb: {
     generateImage(input: GeminiWebGenerateImageInput): Promise<LocalAssetSelection>;
     commitImage(input: {
+      lane: GeminiWebLaneType;
       projectId: string;
       assetId: string;
       selectionToken: string;

@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   generateGeminiStoryboardImage,
   persistStoryboardImage,
 } from "../src/renderer/features/storyboard/queries/storyboard-media.mutations.ts";
+import { runBackgroundRefresh } from "../src/renderer/features/storyboard/model/storyboard-media-refresh.ts";
 
 const imageSelection = {
   selectionToken: "selection-1",
@@ -55,6 +57,7 @@ test("persistStoryboardImage keeps register -> trusted commit -> beat selection 
     durationMs: null,
   });
   assert.deepEqual(calls[1][1], {
+    lane: "STORYBOARD",
     projectId: "project-1",
     assetId: "asset-1",
     selectionToken: "selection-1",
@@ -72,6 +75,32 @@ test("persistStoryboardImage keeps register -> trusted commit -> beat selection 
     "beat-1",
     { mediaAssetId: "asset-1", fitMode: "TRIM", trimStartMs: 0 },
   ]);
+});
+
+test("Storyboard cache refresh is handled in the background", () => {
+  const source = readFileSync(
+    "src/renderer/features/storyboard/queries/storyboard-media.queries.ts",
+    "utf8",
+  );
+  assert.match(source, /export function refreshStoryboardMediaInBackground/);
+  assert.doesNotMatch(source, /onSettled:\s*async/);
+});
+
+test("a rejected cache refresh cannot reject the caller", async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    runBackgroundRefresh(
+      async () => { throw new Error("offline"); },
+      (error) => warnings.push(["refresh", { error }]),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0][0], "refresh");
 });
 
 test("manual image persistence uses ProjectStorage commit instead of Gemini commit", async () => {
