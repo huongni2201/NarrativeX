@@ -18,6 +18,7 @@ import {
   globalPlayheadFromNarrationSeconds,
   narrationSeekSeconds,
   previewPlaybackState,
+  shouldResyncNarration,
 } from "../preview-playback";
 
 interface EditorPreviewViewportProps {
@@ -123,12 +124,14 @@ export function EditorPreviewViewport({
     }
 
     if (audioFailed) return;
-    if (audio.paused) {
+    if (shouldResyncNarration(audio.currentTime, desiredSeconds)) {
       try {
         audio.currentTime = desiredSeconds;
       } catch {
-        // play() will retry once metadata is ready.
+        // Metadata can arrive after an active timeline seek.
       }
+    }
+    if (audio.paused) {
       void audio.play().catch((error: unknown) => {
         const message = error instanceof Error ? error.message : "Narration audio could not play.";
         setAudioFailed(true);
