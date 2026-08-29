@@ -25,7 +25,6 @@ class FlywayBaselineStructureTest {
     String v6 = read("V6__database_logic_and_triggers.sql");
     String v7 = read("V7__indexes.sql");
     String v8 = read("V8__seed_catalog.sql");
-    String v9 = read("V9__visual_beat_preview_media.sql");
 
     for (String schema : new String[] {v1, v2, v3, v4, v5, v6}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
@@ -34,7 +33,6 @@ class FlywayBaselineStructureTest {
     assertFalse(v8.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
     assertFalse(v8.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v8.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
-    assertFalse(v9.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
 
     assertTrue(v1.contains("CREATE TABLE auth_users"));
     assertTrue(v1.contains("CREATE TABLE desktop_guest_installations"));
@@ -47,6 +45,8 @@ class FlywayBaselineStructureTest {
     assertTrue(v2.contains("CREATE TABLE scenes"));
     assertTrue(v2.contains("CREATE TABLE media_plans"));
     assertTrue(v2.contains("reuse_source_visual_beat_id UUID"));
+    assertTrue(v2.contains("production_mode VARCHAR(32) NOT NULL CHECK (production_mode = 'IMAGE_MOTION')"));
+    assertFalse(v2.contains("HYBRID_LOCAL_I2V"));
 
     assertTrue(v3.contains("CREATE TABLE generation_jobs"));
     assertTrue(v3.contains("idempotency_key VARCHAR(512)"));
@@ -55,6 +55,11 @@ class FlywayBaselineStructureTest {
     assertTrue(v3.contains("ck_generation_jobs_analysis_preferences_consistent"));
     assertTrue(v3.contains("CREATE TABLE plan_entitlements"));
     assertTrue(v3.contains("CREATE TABLE production_beat_media_selections"));
+    assertTrue(v3.contains("DROP COLUMN preview_asset_id"));
+    assertTrue(v3.contains("ADD COLUMN preview_media_asset_id UUID"));
+    assertTrue(v3.contains("REFERENCES media_assets(id) ON DELETE SET NULL"));
+    assertFalse(v3.contains("STORY_ANALYZE"));
+    assertFalse(v3.contains("HYBRID_LOCAL_I2V"));
 
     assertTrue(v4.contains("CREATE TABLE narration_requests"));
     assertTrue(v4.contains("speaking_rate NUMERIC(8, 4) NOT NULL"));
@@ -70,7 +75,8 @@ class FlywayBaselineStructureTest {
 
     assertTrue(v6.contains("CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal"));
     assertTrue(v6.contains("CREATE TRIGGER trg_generation_jobs_finalize_quota"));
-    assertTrue(v6.contains("NEW.job_type IN ('CHAPTER_RENDER', 'RENDER_PROJECT')"));
+    assertTrue(v6.contains("NEW.job_type = 'RENDER_PROJECT'"));
+    assertFalse(v6.contains("CHAPTER_RENDER"));
 
     assertTrue(v7.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
     assertTrue(v7.contains("CREATE INDEX idx_production_beat_media_selection_asset"));
@@ -79,9 +85,6 @@ class FlywayBaselineStructureTest {
     assertTrue(v8.contains("'VIENEU'"));
     assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
     assertFalse(v8.contains("\"supportsSpeakingRate\":false"));
-
-    assertTrue(v9.contains("ADD COLUMN preview_media_asset_id UUID"));
-    assertTrue(v9.contains("REFERENCES media_assets(id) ON DELETE SET NULL"));
 
     String allSchema = v1 + v2 + v3 + v4 + v5 + v6;
     assertFalse(allSchema.contains("narrativex_uuid_v7"));
