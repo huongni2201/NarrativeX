@@ -21,6 +21,8 @@
     <result property="narrationRequestId" column="narration_request_id" />
     <result property="narrationAssetId" column="narration_asset_id" />
     <result property="narrationAlignmentId" column="narration_alignment_id" />
+    <result property="subtitleText" column="subtitle_text" />
+    <result property="subtitleSpansJson" column="subtitle_spans_json" />
     <result property="fallbackDurationMs" column="fallback_duration_ms" />
     <result property="beatCount" column="beat_count" />
     <result property="readyBeatCount" column="ready_beat_count" />
@@ -76,6 +78,7 @@
            c.title,
            c.row_version,
            c.source_hash,
+           c.source_text AS subtitle_text,
            NULL::uuid AS media_plan_id,
            NULL::integer AS media_plan_revision,
            CASE p.image_aspect_ratio
@@ -92,6 +95,7 @@
            narration.narration_request_id,
            narration.narration_asset_id,
            narration.narration_alignment_id,
+           narration.subtitle_spans_json,
            COALESCE(narration.duration_ms, NULLIF(c.estimated_duration_ms, 0), scene_duration.duration_ms, 0) AS fallback_duration_ms,
            COALESCE(storyboard_counts.beat_count, 0) AS beat_count,
            COALESCE(storyboard_counts.ready_beat_count, 0) AS ready_beat_count
@@ -102,6 +106,7 @@
         SELECT nr.id AS narration_request_id,
                na.id AS narration_asset_id,
                alignment.id AS narration_alignment_id,
+               alignment.subtitle_spans_json,
                pa.storage_key,
                na.size_bytes,
                na.checksum,
@@ -110,7 +115,8 @@
           JOIN narration_assets na ON na.narration_request_id = nr.id
           JOIN project_assets pa ON pa.id = na.project_asset_id
           LEFT JOIN LATERAL (
-            SELECT nal.id
+            SELECT nal.id,
+                   nal.spans_json::text AS subtitle_spans_json
               FROM narration_alignments nal
              WHERE nal.narration_asset_id = na.id AND nal.source_hash = nr.source_hash
              ORDER BY nal.created_at DESC, nal.id DESC
