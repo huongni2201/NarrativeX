@@ -23,3 +23,27 @@ def test_core_startup_does_not_import_optional_role_dependencies() -> None:
     assert top_level_imports.isdisjoint(
         {"torch", "torchaudio", "vieneu", "numpy", "PIL", "pydub", "ffmpeg"}
     )
+
+
+def test_removed_wan_video_adapter_stays_removed() -> None:
+    providers_root = WORKER_ROOT / "src/narrativex_worker/providers"
+    assert not (providers_root / "wan.py").exists()
+
+    provider_namespace = (providers_root / "__init__.py").read_text(encoding="utf-8")
+    assert "WanVideoProvider" not in provider_namespace
+    assert "WanProviderError" not in provider_namespace
+
+
+def test_removed_video_provider_port_stays_removed() -> None:
+    providers_root = WORKER_ROOT / "src/narrativex_worker/providers"
+    provider_namespace = (providers_root / "__init__.py").read_text(encoding="utf-8")
+    provider_ports = (providers_root / "ports.py").read_text(encoding="utf-8")
+
+    for symbol in (
+        "VideoGenerationProvider",
+        "VideoGenerationRequest",
+        "VideoProviderOperation",
+        "supports_video_generation",
+    ):
+        assert symbol not in provider_namespace
+        assert symbol not in provider_ports

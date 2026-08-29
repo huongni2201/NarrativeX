@@ -23,9 +23,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "ProviderCapabilities": ("narrativex_worker.providers.ports", "ProviderCapabilities"),
     "ProviderEstimate": ("narrativex_worker.providers.ports", "ProviderEstimate"),
     "ProviderOperation": ("narrativex_worker.providers.ports", "ProviderOperation"),
-    "VideoGenerationProvider": ("narrativex_worker.providers.ports", "VideoGenerationProvider"),
-    "VideoGenerationRequest": ("narrativex_worker.providers.ports", "VideoGenerationRequest"),
-    "VideoProviderOperation": ("narrativex_worker.providers.ports", "VideoProviderOperation"),
     "VertexGeminiProvider": ("narrativex_worker.providers.vertex", "VertexGeminiProvider"),
     "VertexProviderError": ("narrativex_worker.providers.vertex", "VertexProviderError"),
     "VertexImageProvider": ("narrativex_worker.providers.vertex_image", "VertexImageProvider"),
@@ -37,8 +34,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "narrativex_worker.providers.vertex_image",
         "VertexImageSubmissionUnknownError",
     ),
-    "WanProviderError": ("narrativex_worker.providers.wan", "WanProviderError"),
-    "WanVideoProvider": ("narrativex_worker.providers.wan", "WanVideoProvider"),
 }
 
 __all__ = sorted(_LAZY_EXPORTS)

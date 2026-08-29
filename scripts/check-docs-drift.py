@@ -13,6 +13,7 @@ CURRENT_FILES = [
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "AI_CONTEXT.md",
+    ROOT / "app" / "ai-worker" / "README.md",
     ROOT / "app" / "desktop" / "README.md",
     ROOT / "documentation" / "README.md",
     ROOT / "documentation" / "TRACEABILITY.md",

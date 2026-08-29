@@ -67,7 +67,7 @@ The hook invokes `scripts/verify-local.ps1`; application code never changes Git 
 - Extend the preload bridge only with narrow, typed capabilities.
 - Electron main owns native filesystem access, system-browser/deep-link handling, backend session transport, device credentials and final FFmpeg execution.
 - Desktop project media and final MP4 artifacts are local-first. Backend contracts use stable asset IDs/checksums and opaque project-relative artifact keys, never absolute local paths.
-- AI-generated images/narration may use R2 while remote provider/worker execution requires durable transport, then must be materialized for local project use.
+- Remote provider/worker media transport may use R2 only where the authorized flow requires durable bytes across that boundary; accepted project media must be materialized for local project use before final rendering.
 - Backend FinalArtifact persistence is metadata-only; final video bytes are not stored or proxied by backend/worker services.
 - Google OAuth is the only user-facing login flow. Do not reintroduce password login/register/forgot-password UI or runtime routes.
 - Device tokens are local-execution credentials and must not be confused with user OAuth/session credentials.
