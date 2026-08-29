@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Python worker executes durable AI/media work authorized by the Spring backend. It is not a public HTTP/FastAPI service and it never owns Desktop native paths, authentication policy or project ownership.
+The Python worker executes durable AI/media work authorized by the Spring backend. It is not a public HTTP/FastAPI service and it never owns Desktop native paths, authentication policy, project ownership or final project rendering.
 
 For the architecture-level worker map, see `../../documentation/codebase/AI_WORKER_CODEBASE.md`.
 
@@ -11,9 +11,8 @@ For the architecture-level worker map, see `../../documentation/codebase/AI_WORK
 - Chapter analysis and continuity/storyboard materialization;
 - durable ProviderOperation submission/reconciliation fences;
 - Vertex Gemini image generation through the configured batch path;
-- Google TTS / VieNeu narration and alignment;
+- VieNeu narration and alignment;
 - user-provided narration timeline/alignment foundations;
-- retained server/cloud FFmpeg rendering with ffprobe validation;
 - media validation and runtime-file handling;
 - character-reference-aware image request foundations;
 - bounded PostgreSQL claim/lease/heartbeat execution;
@@ -21,15 +20,21 @@ For the architecture-level worker map, see `../../documentation/codebase/AI_WORK
 
 ## Roles and concurrency
 
-The repository is one Python source tree but runtime packaging is role-specific. Compose/config separates general/image, narration and render worker concurrency.
+The repository is one Python source tree but runtime packaging is role-specific. The supported runtime roles are:
 
-Important runtime controls include:
+```text
+analysis
+narration
+media-validation
+image-generation
+```
+
+Compose/config separates general/image and narration concurrency. Important runtime controls include:
 
 ```text
 WORKER_ROLES
 GENERAL_WORKER_CONCURRENCY
 NARRATION_WORKER_CONCURRENCY
-RENDER_WORKER_CONCURRENCY
 WORKER_LEASE_SECONDS
 WORKER_POLL_INTERVAL_SECONDS
 ```
@@ -48,19 +53,19 @@ backend-authorized image work
   -> durable reconciliation
   -> validate/correlate output
   -> stable MediaAsset/lineage
-  -> retained remote materialization where required
+  -> authorized materialization for project use
 ```
 
 A paid submission must never happen before the durable fence is committed. Ambiguous outcomes remain `UNKNOWN` and reconcile rather than being blindly retried.
 
-GCS batch staging is temporary provider infrastructure, not the NarrativeX product-media store. R2 may hold retained server/provider media; Desktop can subsequently materialize an accepted MediaAsset into its own local project workspace.
+GCS batch staging is temporary provider infrastructure, not NarrativeX project storage. Remote object transport may be used only where the configured provider/media flow explicitly requires durable bytes across worker/provider boundaries. Accepted project media is materialized into the local-first project flow before final rendering.
 
 ## Narration
 
 ```text
 TTS
-  -> Google TTS or VieNeu
-  -> VieNeu speaking-rate adjustment when requested (0.25x–2.0x)
+  -> VieNeu
+  -> speaking-rate adjustment when requested (0.25x–2.0x)
   -> validate/normalize
   -> alignment
 
@@ -73,25 +78,25 @@ USER_PROVIDED_AUDIO
 
 VieNeu supports system-managed voices and authorized reference-audio flows. Reference audio must be handled as sensitive input, kept out of arbitrary durable job payloads and used only with appropriate consent.
 
-Catalog preview generation is a development/asset-maintenance task, not a browser-specific product architecture requirement.
+Catalog preview generation is a development/asset-maintenance task. Run `scripts/generate_vieneu_previews.py` when preview files need to be regenerated for upload; its `artifacts/` output is generated and intentionally not tracked in Git.
 
-## Durable media scope
+## Media and storage scope
 
-The worker's storage contract is scoped to **server/provider execution**:
+The worker never owns Desktop ProjectStorage. Current storage boundaries are:
 
 ```text
-retained server/provider pipeline media -> Cloudflare R2
-retained cloud-render final MP4         -> Google Drive
-worker-local files                      -> ephemeral scratch/cache
+Desktop project/final bytes              -> Electron ProjectStorage
+shared generated-media handoff           -> configured project-media local root where applicable
+remote generated-media/provider transport -> R2 only when the authorized flow requires it
+Vertex batch staging                      -> temporary GCS staging
+worker-local files                        -> ephemeral scratch/cache
 ```
 
-This does **not** make R2/Drive authoritative for Desktop project bytes. The primary Desktop flow materializes project media/final local renders under Electron ProjectStorage.
+R2 is not authoritative for Desktop project bytes or final MP4 files. Voice-reference/custom-voice flows may use R2 through the explicitly routed backend/worker storage boundary.
 
-## Render role
+## Final project rendering
 
-The worker render role is the retained cloud/server executor. It consumes backend-pinned input, runs FFmpeg/ffprobe and uses the configured final-video storage adapter.
-
-Desktop `LOCAL_DEVICE` rendering is separate and runs in Electron main under backend assignment/lease.
+Final project rendering belongs to Electron main under backend assignment/lease. The Python worker has no final-render role, does not resolve Desktop project paths and does not persist final MP4 bytes.
 
 ## Provider safety
 
