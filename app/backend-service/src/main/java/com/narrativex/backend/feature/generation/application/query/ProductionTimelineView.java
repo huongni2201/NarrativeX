@@ -34,7 +34,52 @@ public record ProductionTimelineView(
       String subtitleSpansJson,
       int beatCount,
       int readyBeatCount,
-      boolean readyForRender) {}
+      boolean readyForRender) {
+    /** Compatibility constructor for callers that do not consume subtitle alignment yet. */
+    public Chapter(
+        UUID chapterId,
+        int orderIndex,
+        String title,
+        long rowVersion,
+        String sourceHash,
+        UUID mediaPlanId,
+        Integer mediaPlanRevision,
+        long startMs,
+        long endMs,
+        Long audioDurationMs,
+        String audioStorageKey,
+        Long audioSizeBytes,
+        String audioChecksum,
+        UUID narrationRequestId,
+        UUID narrationAssetId,
+        UUID narrationAlignmentId,
+        int beatCount,
+        int readyBeatCount,
+        boolean readyForRender) {
+      this(
+          chapterId,
+          orderIndex,
+          title,
+          rowVersion,
+          sourceHash,
+          mediaPlanId,
+          mediaPlanRevision,
+          startMs,
+          endMs,
+          audioDurationMs,
+          audioStorageKey,
+          audioSizeBytes,
+          audioChecksum,
+          narrationRequestId,
+          narrationAssetId,
+          narrationAlignmentId,
+          null,
+          null,
+          beatCount,
+          readyBeatCount,
+          readyForRender);
+    }
+  }
 
   public record Beat(
       UUID chapterId,
