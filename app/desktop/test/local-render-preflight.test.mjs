@@ -47,25 +47,32 @@ test("preflight returns stable identity blockers instead of parsing messages", a
   assert.deepEqual(result.blockers, ["USER_MISMATCH", "DEVICE_MISMATCH"]);
 });
 
-test("remote materializable assets do not fail preflight when not cached locally", async () => {
+test("every missing project render asset blocks render", async () => {
   const missingStorage = storageWithResolver(async () => {
     throw new Error("Asset is missing or not registered.");
   });
   const service = new LocalRenderPreflightService(runtime, missingStorage);
 
   const result = await service.check(
-    input([
-      {
-        assetId: "remote-audio",
-        storageMode: "REMOTE",
-        materializable: true,
-      },
-      {
-        assetId: "hybrid-image",
-        storageMode: "HYBRID",
-        materializable: true,
-      },
-    ]),
+    input([{ assetId: "audio-1" }, { assetId: "image-1" }]),
+    onlineContext,
+  );
+
+  assert.equal(result.ready, false);
+  assert.ok(result.blockers.includes("ASSET_MISSING"));
+  assert.deepEqual(
+    result.assets.map(({ assetId, state }) => ({ assetId, state })),
+    [
+      { assetId: "audio-1", state: "MISSING" },
+      { assetId: "image-1", state: "MISSING" },
+    ],
+  );
+});
+
+test("available project assets pass local integrity preflight", async () => {
+  const service = new LocalRenderPreflightService(runtime, storage);
+  const result = await service.check(
+    input([{ assetId: "local-image" }, { assetId: "local-audio" }]),
     onlineContext,
   );
 
@@ -74,28 +81,8 @@ test("remote materializable assets do not fail preflight when not cached locally
   assert.deepEqual(
     result.assets.map(({ assetId, state }) => ({ assetId, state })),
     [
-      { assetId: "remote-audio", state: "MATERIALIZABLE" },
-      { assetId: "hybrid-image", state: "MATERIALIZABLE" },
+      { assetId: "local-image", state: "AVAILABLE" },
+      { assetId: "local-audio", state: "AVAILABLE" },
     ],
   );
-});
-
-test("missing local-only assets still block render", async () => {
-  const missingStorage = storageWithResolver(async () => {
-    throw new Error("Asset is missing or not registered.");
-  });
-  const service = new LocalRenderPreflightService(runtime, missingStorage);
-
-  const result = await service.check(
-    input([{ assetId: "local-image", storageMode: "LOCAL_ONLY", materializable: false }]),
-    onlineContext,
-  );
-
-  assert.equal(result.ready, false);
-  assert.ok(result.blockers.includes("ASSET_MISSING"));
-  assert.deepEqual(result.assets[0], {
-    assetId: "local-image",
-    state: "MISSING",
-    message: "Asset is missing or not registered.",
-  });
 });
