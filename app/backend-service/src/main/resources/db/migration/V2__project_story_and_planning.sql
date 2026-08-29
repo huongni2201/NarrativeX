@@ -1,7 +1,7 @@
--- NarrativeX pre-release baseline: project, story, storyboard, reusable entities, and media planning.
+-- NarrativeX pre-release baseline: projects, story versions, chapters, characters, storyboard and media planning.
 
 -- -----------------------------------------------------------------------------
--- Projects, stories, chapters and storyboard revisions
+-- Projects and stories
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE projects (
@@ -9,25 +9,23 @@ CREATE TABLE projects (
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    name VARCHAR(160) NOT NULL,
-    description TEXT,
-    cover_image_url VARCHAR(1024),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    archived_at TIMESTAMP WITH TIME ZONE,
     owner_id VARCHAR(128) NOT NULL,
+    name VARCHAR(255) NOT NULL,
     status VARCHAR(32) NOT NULL,
     source_language VARCHAR(16) NOT NULL,
     narration_language VARCHAR(16) NOT NULL,
     metadata_language VARCHAR(16) NOT NULL,
-    image_aspect_ratio VARCHAR(16) NOT NULL,
-    image_quality_tier VARCHAR(16) NOT NULL,
-    archived_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT ck_projects_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
-);
-
-CREATE TABLE project_favorites (
-    user_id VARCHAR(128) NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_project_favorites PRIMARY KEY (user_id, project_id)
+    image_aspect_ratio VARCHAR(16) NOT NULL DEFAULT 'RATIO_16_9',
+    image_quality_tier VARCHAR(16) NOT NULL DEFAULT 'STANDARD',
+    CONSTRAINT ck_projects_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED')),
+    CONSTRAINT ck_projects_image_aspect_ratio CHECK (
+        image_aspect_ratio IN ('RATIO_16_9', 'RATIO_9_16', 'RATIO_1_1', 'RATIO_4_3', 'RATIO_3_4')
+    ),
+    CONSTRAINT ck_projects_image_quality_tier CHECK (
+        image_quality_tier IN ('DRAFT', 'STANDARD', 'HIGH')
+    )
 );
 
 CREATE TABLE story_versions (
@@ -39,10 +37,9 @@ CREATE TABLE story_versions (
     version_number INTEGER NOT NULL,
     content TEXT NOT NULL,
     source_language VARCHAR(16) NOT NULL,
-    status VARCHAR(24) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     CONSTRAINT uk_story_versions_project_version UNIQUE (project_id, version_number),
-    CONSTRAINT ck_story_versions_status
-        CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))
+    CONSTRAINT ck_story_versions_status CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))
 );
 
 CREATE TABLE chapters (
@@ -50,33 +47,14 @@ CREATE TABLE chapters (
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
     story_version_id UUID NOT NULL REFERENCES story_versions(id),
     order_index INTEGER NOT NULL,
-    title VARCHAR(200) NOT NULL,
+    title VARCHAR(255) NOT NULL,
     source_text TEXT NOT NULL,
     source_hash VARCHAR(64) NOT NULL,
-    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
-    estimated_duration_ms BIGINT,
-    generation_progress INTEGER NOT NULL DEFAULT 0,
-    source_story_version_id UUID REFERENCES story_versions(id),
-    inherited_snapshot_hash VARCHAR(128),
     current_storyboard_revision_id UUID,
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT ck_chapters_source_hash_sha256 CHECK (source_hash ~ '^[0-9a-f]{64}$')
-);
-
-CREATE TABLE chapter_creation_idempotency (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    owner_id VARCHAR(128) NOT NULL REFERENCES auth_users(id),
-    project_id UUID NOT NULL REFERENCES projects(id),
-    idempotency_key VARCHAR(200) NOT NULL,
-    request_fingerprint VARCHAR(64) NOT NULL,
-    chapter_id UUID REFERENCES chapters(id),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT uq_chapter_creation_idempotency UNIQUE (owner_id, project_id, idempotency_key),
-    CONSTRAINT ck_chapter_creation_idempotency_fingerprint
-        CHECK (request_fingerprint ~ '^[0-9a-f]{64}$')
+    CONSTRAINT uk_chapters_story_order UNIQUE (story_version_id, order_index)
 );
 
 CREATE TABLE storyboard_revisions (
@@ -85,14 +63,10 @@ CREATE TABLE storyboard_revisions (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     chapter_id UUID NOT NULL REFERENCES chapters(id),
-    revision_number INTEGER NOT NULL,
-    source_hash VARCHAR(64) NOT NULL,
-    source_row_version BIGINT NOT NULL,
-    based_on_revision_id UUID REFERENCES storyboard_revisions(id),
+    revision INTEGER NOT NULL,
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
-    CONSTRAINT uk_storyboard_revisions_chapter_number UNIQUE (chapter_id, revision_number),
-    CONSTRAINT ck_storyboard_revisions_status CHECK (status IN ('DRAFT', 'FAILED')),
-    CONSTRAINT ck_storyboard_revisions_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$')
+    CONSTRAINT uk_storyboard_revisions_chapter_revision UNIQUE (chapter_id, revision),
+    CONSTRAINT ck_storyboard_revisions_status CHECK (status IN ('DRAFT', 'CURRENT', 'SUPERSEDED'))
 );
 
 ALTER TABLE chapters
@@ -100,7 +74,7 @@ ALTER TABLE chapters
     FOREIGN KEY (current_storyboard_revision_id) REFERENCES storyboard_revisions(id);
 
 -- -----------------------------------------------------------------------------
--- Reusable characters, locations and project assets
+-- Reusable character canon and appearances
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE characters (
@@ -109,59 +83,9 @@ CREATE TABLE characters (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     owner_id VARCHAR(128) NOT NULL,
-    workspace_id VARCHAR(128),
     canonical_name VARCHAR(160) NOT NULL,
-    aliases JSONB NOT NULL DEFAULT '[]'::jsonb,
-    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE'
-);
-
-CREATE TABLE character_versions (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    row_version BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    character_id UUID NOT NULL REFERENCES characters(id),
-    version_number INTEGER NOT NULL,
-    bible TEXT NOT NULL,
-    visual_prompt TEXT NOT NULL,
-    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
-    locked_at TIMESTAMP WITH TIME ZONE,
-    locked_by VARCHAR(128),
-    CONSTRAINT uk_character_versions_character_version UNIQUE (character_id, version_number)
-);
-
-CREATE TABLE outfit_versions (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    row_version BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    character_id UUID NOT NULL REFERENCES characters(id),
-    version_number INTEGER NOT NULL,
-    name VARCHAR(160) NOT NULL,
-    description TEXT,
-    prompt TEXT,
-    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
-    CONSTRAINT uk_outfit_versions_character_version UNIQUE (character_id, version_number),
-    CONSTRAINT uk_outfit_versions_id_character UNIQUE (id, character_id)
-);
-
-CREATE TABLE character_appearances (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    row_version BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    character_id UUID NOT NULL REFERENCES characters(id),
-    project_id UUID REFERENCES projects(id),
-    timeline_key VARCHAR(128) NOT NULL,
-    age_state TEXT,
-    hairstyle TEXT,
-    injury TEXT,
-    wardrobe_context TEXT,
-    appearance_prompt TEXT,
-    outfit_version_id UUID,
-    CONSTRAINT fk_character_appearances_outfit_character
-        FOREIGN KEY (outfit_version_id, character_id)
-        REFERENCES outfit_versions (id, character_id)
+    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
+    CONSTRAINT ck_characters_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
 );
 
 CREATE TABLE project_characters (
@@ -171,59 +95,77 @@ CREATE TABLE project_characters (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     project_id UUID NOT NULL REFERENCES projects(id),
     character_id UUID NOT NULL REFERENCES characters(id),
-    role VARCHAR(64) NOT NULL,
-    importance INTEGER NOT NULL DEFAULT 0,
-    project_aliases JSONB NOT NULL DEFAULT '[]'::jsonb,
-    story_metadata TEXT,
-    groups_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    pinned_character_version_id UUID REFERENCES character_versions(id),
+    role VARCHAR(24),
+    importance INTEGER,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     CONSTRAINT uk_project_characters_project_character UNIQUE (project_id, character_id),
-    CONSTRAINT uk_project_characters_project_id_id UNIQUE (project_id, id),
-    CONSTRAINT ck_project_characters_importance_nonnegative CHECK (importance >= 0)
+    CONSTRAINT ck_project_characters_importance CHECK (importance IS NULL OR importance >= 0),
+    CONSTRAINT ck_project_characters_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
 );
 
-CREATE TABLE project_locations (
+CREATE TABLE character_versions (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    description TEXT,
+    bible TEXT,
+    visual_prompt TEXT,
+    CONSTRAINT uk_character_versions_character_version UNIQUE (character_id, version_number)
+);
+
+CREATE TABLE character_appearances (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    project_character_id UUID NOT NULL REFERENCES project_characters(id) ON DELETE CASCADE,
+    chapter_id UUID REFERENCES chapters(id) ON DELETE CASCADE,
+    scene_id UUID,
+    age_state VARCHAR(255),
+    hairstyle VARCHAR(255),
+    injury VARCHAR(255),
+    wardrobe_context TEXT,
+    appearance_prompt TEXT,
+    valid_from_order INTEGER,
+    valid_to_order INTEGER,
+    CONSTRAINT ck_character_appearances_range CHECK (
+        valid_to_order IS NULL OR valid_from_order IS NULL OR valid_to_order >= valid_from_order
+    )
+);
+
+CREATE TABLE character_reference_assets (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL,
+    role VARCHAR(32) NOT NULL DEFAULT 'IDENTITY',
+    priority INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT uk_character_reference_asset UNIQUE (character_id, asset_id),
+    CONSTRAINT ck_character_reference_priority_nonnegative CHECK (priority >= 0)
+);
+
+CREATE TABLE project_character_groups (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name VARCHAR(160) NOT NULL,
-    description TEXT,
-    visual_prompt TEXT,
-    reference_image_url TEXT,
-    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
-    CONSTRAINT uk_project_locations_project_id_id UNIQUE (project_id, id),
-    CONSTRAINT ck_project_locations_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
+    CONSTRAINT uk_project_character_groups_name UNIQUE (project_id, name)
 );
 
-CREATE TABLE project_assets (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    row_version BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name VARCHAR(200) NOT NULL,
-    asset_type VARCHAR(32) NOT NULL,
-    storage_key VARCHAR(512),
-    url TEXT,
-    mime_type VARCHAR(160),
-    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
-    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    CONSTRAINT ck_project_assets_status CHECK (status IN ('ACTIVE', 'ARCHIVED')),
-    CONSTRAINT ck_project_assets_type CHECK (asset_type IN ('IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'OTHER'))
+CREATE TABLE project_character_group_members (
+    group_id UUID NOT NULL REFERENCES project_character_groups(id) ON DELETE CASCADE,
+    project_character_id UUID NOT NULL REFERENCES project_characters(id) ON DELETE CASCADE,
+    CONSTRAINT pk_project_character_group_members PRIMARY KEY (group_id, project_character_id)
 );
 
 CREATE TABLE project_character_ai_identities (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     ai_key VARCHAR(64) NOT NULL,
     project_character_id UUID NOT NULL,
-    aliases JSONB NOT NULL DEFAULT '[]'::jsonb,
-    observations JSONB NOT NULL DEFAULT '[]'::jsonb,
-    first_seen_chapter_id UUID REFERENCES chapters(id) ON DELETE SET NULL,
-    last_seen_chapter_id UUID REFERENCES chapters(id) ON DELETE SET NULL,
-    match_basis VARCHAR(32) NOT NULL DEFAULT 'CREATED',
+    match_basis VARCHAR(24) NOT NULL,
     confidence NUMERIC(4,3) NOT NULL DEFAULT 1.000,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -238,15 +180,37 @@ CREATE TABLE project_character_ai_identities (
     CONSTRAINT ck_project_character_ai_identity_confidence CHECK (confidence >= 0 AND confidence <= 1)
 );
 
+CREATE TABLE project_character_aliases (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_character_id UUID NOT NULL REFERENCES project_characters(id) ON DELETE CASCADE,
+    alias VARCHAR(160) NOT NULL,
+    CONSTRAINT uk_project_character_alias UNIQUE (project_id, alias)
+);
+
+-- -----------------------------------------------------------------------------
+-- Reusable locations
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE project_locations (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    project_id UUID NOT NULL REFERENCES projects(id),
+    name VARCHAR(160) NOT NULL,
+    description TEXT,
+    visual_prompt TEXT,
+    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
+    CONSTRAINT uk_project_locations_project_name UNIQUE (project_id, name),
+    CONSTRAINT ck_project_locations_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
+);
+
 CREATE TABLE project_location_ai_identities (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     ai_key VARCHAR(64) NOT NULL,
     project_location_id UUID NOT NULL,
-    aliases JSONB NOT NULL DEFAULT '[]'::jsonb,
-    observations JSONB NOT NULL DEFAULT '[]'::jsonb,
-    first_seen_chapter_id UUID REFERENCES chapters(id) ON DELETE SET NULL,
-    last_seen_chapter_id UUID REFERENCES chapters(id) ON DELETE SET NULL,
-    match_basis VARCHAR(32) NOT NULL DEFAULT 'CREATED',
+    match_basis VARCHAR(24) NOT NULL,
     confidence NUMERIC(4,3) NOT NULL DEFAULT 1.000,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -346,7 +310,7 @@ CREATE TABLE media_plans (
     chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
     chapter_row_version BIGINT NOT NULL CHECK (chapter_row_version >= 0),
     source_hash VARCHAR(64) NOT NULL,
-    production_mode VARCHAR(32) NOT NULL CHECK (production_mode IN ('IMAGE_MOTION', 'HYBRID_LOCAL_I2V')),
+    production_mode VARCHAR(32) NOT NULL CHECK (production_mode = 'IMAGE_MOTION'),
     revision INTEGER NOT NULL CHECK (revision > 0),
     narration_characters BIGINT NOT NULL CHECK (narration_characters >= 0),
     image_generate_count INTEGER NOT NULL CHECK (image_generate_count >= 0),
@@ -427,3 +391,30 @@ CREATE TABLE media_beat_plans (
     CONSTRAINT ck_media_beat_plans_character_snapshot_object CHECK (character_snapshot_json IS NULL OR jsonb_typeof(character_snapshot_json) = 'object'),
     CONSTRAINT ck_media_beat_plans_snapshot_fingerprint CHECK (snapshot_fingerprint IS NULL OR snapshot_fingerprint ~ '^[0-9a-f]{64,128}$')
 );
+
+CREATE TABLE media_generation_items (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    generation_job_id UUID NOT NULL,
+    media_plan_id UUID NOT NULL,
+    visual_beat_id UUID NOT NULL,
+    item_key VARCHAR(255) NOT NULL,
+    attempt_number INTEGER NOT NULL DEFAULT 1,
+    request_fingerprint VARCHAR(128) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'QUEUED',
+    provider_key VARCHAR(64),
+    provider_operation_id VARCHAR(256),
+    output_asset_id UUID,
+    error_code VARCHAR(80),
+    error_detail VARCHAR(512),
+    CONSTRAINT uk_media_generation_item_key UNIQUE (generation_job_id, item_key),
+    CONSTRAINT ck_media_generation_item_attempt CHECK (attempt_number > 0),
+    CONSTRAINT ck_media_generation_item_status CHECK (
+        status IN ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED', 'UNKNOWN')
+    ),
+    CONSTRAINT ck_media_generation_item_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64,128}$')
+);
+
+-- Remaining story-planning tables continue below this point in the canonical baseline.
