@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import UUID
@@ -9,6 +10,12 @@ from narrativex_worker.repository import WorkerRepository
 from narrativex_worker.repository.implementation import (
     WorkerRepository as WorkerRepositoryImplementation,
 )
+
+
+def test_analysis_preferences_require_current_baseline_schema() -> None:
+    source = inspect.getsource(WorkerRepository._hydrate_analysis_preferences)
+
+    assert "UndefinedColumnError" not in source
 
 
 @pytest.mark.asyncio
