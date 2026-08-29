@@ -16,13 +16,13 @@ class ProductionBeatMediaSelectionScopeContractTest {
       Path.of("src/main/resources/mybatis/ProductionBeatMediaSelectionMapper.xml");
 
   @Test
-  void projectLocalSelectionRequiresAvailabilityInCurrentProject() throws IOException {
+  void projectLocalSelectionRequiresDirectProjectOwnership() throws IOException {
     String mapper = Files.readString(MAPPER);
 
     assertFalse(mapper.contains("ma.storage_mode <> 'LOCAL_ONLY'"));
-    assertTrue(mapper.contains("lmm.project_id = #{projectId"));
-    assertTrue(mapper.contains("lmm.media_asset_id = ma.id"));
-    assertTrue(mapper.contains("lmm.state = 'AVAILABLE'"));
+    assertFalse(mapper.contains("local_media_materializations"));
+    assertTrue(mapper.contains("ma.project_id = #{projectId"));
+    assertTrue(mapper.contains("ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')"));
   }
 
   @Test
