@@ -68,6 +68,36 @@ The backend owns the final Gemini Web prompt text for both Visual Beats and gene
 
 The Desktop renderer must submit the backend-returned final prompt verbatim. It must not rebuild, append, or maintain a parallel style prompt. This keeps Generate, Generate All, and Character identity generation visually consistent and gives one backend source of truth for style-policy changes.
 
+### Prompt Architecture V2
+
+The still-image prompt is compiled from durable canonical state plus beat-local direction. Narrative text is not allowed to redefine visual identity on every frame.
+
+```text
+ImageStyle
+   + CharacterVersion.visualPrompt       (permanent identity)
+   + CharacterAppearance                 (current timeline state)
+   + ProjectLocation.visualPrompt        (reusable location canon)
+   + VisualBeat.visualIntent             (beat-local scene delta)
+   + camera/aspect ratio
+   + deterministic reference bindings
+        -> backend VisualPromptComposer
+        -> final provider prompt
+```
+
+Prompt precedence is explicit:
+
+1. attached reference images are authoritative evidence for visible facial identity and established visible traits;
+2. Character identity canon defines permanent traits not clear in the references;
+3. current appearance defines temporary wardrobe, hairstyle state, age state, injury and other timeline-specific changes;
+4. Visual Beat scene direction controls current action, pose, expression, composition, environment state and lighting;
+5. ImageStyle controls rendering language only and must never redesign identity.
+
+`visualIntent` is therefore a scene delta, not a second complete character prompt. It must refer to established characters by name and must not restate or redesign permanent face geometry, body proportions, skin tone, hair color or stable hair silhouette. Character narrative `bible` text remains useful for story continuity but is not injected into the character identity-reference image prompt, because motivations/backstory can cause unsupported visual inference.
+
+Location analysis stores narrative `description` separately from reusable `visual_prompt`. Location visual canon should capture stable architecture, layout, materials, important furniture/props and spatial landmarks; temporary event lighting, current character action and camera composition belong to the Visual Beat instead.
+
+The character identity-reference task uses the same `CINEMATIC_ANIME` rendering profile as storyboard frames but a neutral composition policy: one character, unobstructed readable face, restrained expression, simple background and soft frontal lighting. Dramatic story composition belongs to Visual Beats, not to the canonical identity anchor.
+
 ### Beat-scoped character reference flow
 
 Character identity is established before storyboard image generation. Chapter analysis now records only the characters actually visible in each Visual Beat and assigns each participant a `PRIMARY`, `SECONDARY`, or `BACKGROUND` role. These rows are materialized into `visual_beat_characters`; old/manual beats without explicit rows fall back to the parent Scene cast for compatibility.
@@ -81,7 +111,7 @@ Visual Beat
   -> resolve current CharacterAppearance / OutfitVersion state
   -> select reference assets deterministically
        1. one highest-priority identity anchor per visible character
-       2. additional references by priority
+       2. additional references by semantic role then priority
        3. hard cap: 3 attachments per generated frame
   -> assign attachment order REF_01, REF_02, REF_03
   -> materialize those immutable MediaAssets into local ProjectStorage
@@ -90,7 +120,7 @@ Visual Beat
   -> submit generation
 ```
 
-The prompt names every attachment explicitly, for example `REF_01 = Lan [PRIMARY]`, and instructs the model never to merge or swap identities. Reference images are identity evidence rather than composition templates. A beat with no visible established character sends no character reference and explicitly tells the model not to invent one.
+The prompt names every attachment explicitly, for example `REF_01 = Lan [PRIMARY]`, and instructs the model never to merge or swap identities. Reference images are identity evidence rather than composition templates: their background, crop, pose, facial expression and lighting should not be copied unless the current scene explicitly asks for them. A beat with no visible established character sends no character reference and does not acquire a fabricated character canon.
 
 Reference upload happens before the generation DOM/network baseline is captured. This is important: uploaded reference previews must never be mistaken for the newly generated image.
 
