@@ -38,7 +38,6 @@ function timeline() {
         assetStrategy: "GENERATE_NEW",
         mediaAssetId: "image-1",
         mediaType: "IMAGE",
-        storageMode: "LOCAL_ONLY",
         sourceDurationMs: null,
         fitMode: "TRIM",
         trimStartMs: 0,
@@ -52,25 +51,25 @@ function timeline() {
   };
 }
 
-test("preflight request distinguishes local media from remote narration", () => {
+test("preflight request carries only local project asset identities", () => {
   const result = buildRenderPreflightInput("project-1", timeline(), "1080p");
   assert.deepEqual(result.assets, [
-    { assetId: "image-1", storageMode: "LOCAL_ONLY", materializable: false },
-    { assetId: "audio-1", storageMode: "REMOTE", materializable: true },
+    { assetId: "image-1" },
+    { assetId: "audio-1" },
   ]);
   assert.equal(result.estimatedOutputBytes, estimateRenderOutputBytes(60_000, "1080p"));
   assert.equal(result.requiredTemporaryBytes, result.estimatedOutputBytes * 2);
 });
 
-test("remote and hybrid beat media are materializable", () => {
-  const remote = timeline();
-  remote.beats = [
-    { ...remote.beats[0], mediaAssetId: "remote-image", storageMode: "REMOTE" },
-    { ...remote.beats[0], visualBeatId: "beat-2", mediaAssetId: "hybrid-video", mediaType: "VIDEO", storageMode: "HYBRID" },
+test("multiple visual assets stay storage-mode free", () => {
+  const local = timeline();
+  local.beats = [
+    { ...local.beats[0], mediaAssetId: "image-2" },
+    { ...local.beats[0], visualBeatId: "beat-2", mediaAssetId: "video-1", mediaType: "VIDEO" },
   ];
-  const result = buildRenderPreflightInput("project-1", remote, "1440p");
+  const result = buildRenderPreflightInput("project-1", local, "1440p");
   assert.deepEqual(result.assets.slice(0, 2), [
-    { assetId: "remote-image", storageMode: "REMOTE", materializable: true },
-    { assetId: "hybrid-video", storageMode: "HYBRID", materializable: true },
+    { assetId: "image-2" },
+    { assetId: "video-1" },
   ]);
 });
