@@ -255,14 +255,11 @@ public class GenerateChapterNarrationUseCase {
           "Selected narration voice does not support uploaded voice references");
     }
     var asset = voiceReferenceAssetAccess.findOwned(userId, command.voiceReferenceAssetId());
-    if (!"AUDIO".equals(asset.type()) || !"READY".equals(asset.status())) {
-      throw new IllegalArgumentException("Voice reference asset must be a READY audio asset");
+    if (!"READY".equals(asset.status())) {
+      throw new IllegalArgumentException("Voice reference asset must be READY");
     }
-    if ("LOCAL_ONLY".equals(asset.origin())
-        || asset.storageKey() == null
-        || asset.storageKey().isBlank()) {
-      throw new IllegalArgumentException(
-          "Voice reference asset must be uploaded before narration can use it");
+    if (asset.storageKey() == null || asset.storageKey().isBlank()) {
+      throw new IllegalArgumentException("Voice reference asset is missing R2 storage metadata");
     }
     if (!isSupportedVoiceReferenceContentType(asset.contentType())) {
       throw new IllegalArgumentException("Voice reference upload must be an MP3 or WAV file");
