@@ -2,8 +2,6 @@ import type {
   AnalyzeChapterInput,
   CreateMediaJobInput,
   GenerationJob,
-  ImageGenerationProvider,
-  ImageGenerationStrategy,
   MediaJobCostEstimate,
   MediaJobDetails,
   MediaReviewInput,
@@ -14,24 +12,14 @@ export interface CurrentMediaJob {
   jobId: string | null;
 }
 
-export function normalizeImageStrategy(
-  provider: ImageGenerationProvider,
-  strategy: ImageGenerationStrategy | null | undefined,
-): ImageGenerationStrategy {
-  if (provider === "GEMINI_WEB") return "GENERATE_NEW";
-  return strategy ?? "GENERATE_NEW";
-}
-
 export function normalizeCreateMediaJobInput(input: CreateMediaJobInput): CreateMediaJobInput {
   if (input.visualGenerationMode !== "IMAGE") {
-    return { ...input, imageProvider: null, imageGenerationStrategy: null };
+    return { ...input, imageProvider: null };
   }
 
-  const provider = input.imageProvider ?? "API";
   return {
     ...input,
-    imageProvider: provider,
-    imageGenerationStrategy: normalizeImageStrategy(provider, input.imageGenerationStrategy),
+    imageProvider: input.imageProvider ?? "API",
   };
 }
 

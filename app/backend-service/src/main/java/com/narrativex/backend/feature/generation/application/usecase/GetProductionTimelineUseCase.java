@@ -104,6 +104,8 @@ public class GetProductionTimelineUseCase {
               chapter.narrationRequestId(),
               chapter.narrationAssetId(),
               chapter.narrationAlignmentId(),
+              chapter.subtitleText(),
+              chapter.subtitleSpansJson(),
               chapter.beatCount(),
               chapter.readyBeatCount(),
               chapterReady));

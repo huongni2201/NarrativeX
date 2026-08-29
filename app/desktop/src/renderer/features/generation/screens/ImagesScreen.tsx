@@ -4,7 +4,6 @@ import type {
   DesktopChapterDetails,
   DesktopTimeline,
   ImageGenerationProvider,
-  ImageGenerationStrategy,
   MediaAspectRatio,
   MediaImageStyle,
   MediaJobCostEstimate,
@@ -52,15 +51,12 @@ export function ImagesScreen({
   const [qualityTier, setQualityTier] = useState<MediaQualityTier>("STANDARD");
   const [imageStyle, setImageStyle] = useState<MediaImageStyle>("CINEMATIC");
   const [imageProvider, setImageProvider] = useState<ImageGenerationProvider>("API");
-  const [imageStrategy, setImageStrategy] = useState<ImageGenerationStrategy>("GENERATE_NEW");
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<MediaJobCostEstimate | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
 
-  const effectiveStrategy: ImageGenerationStrategy =
-    imageProvider === "GEMINI_WEB" ? "GENERATE_NEW" : imageStrategy;
   const currentMediaJob = useCurrentMediaJob(projectId, chapterId || null);
   const effectiveMediaJobId = mediaJobId ?? currentMediaJob.data?.jobId ?? null;
   const analysisJob = useGenerationJob(analysisJobId);
@@ -80,9 +76,6 @@ export function ImagesScreen({
   }, [chapterId]);
 
   useEffect(() => {
-    if (imageProvider === "GEMINI_WEB") {
-      setImageStrategy("GENERATE_NEW");
-    }
     setCostEstimate(null);
     setMediaJobId(null);
     mediaIntentRef.current = null;
@@ -91,7 +84,7 @@ export function ImagesScreen({
   useEffect(() => {
     setCostEstimate(null);
     mediaIntentRef.current = null;
-  }, [imageStrategy, imageStyle, qualityTier, timeline?.aspectRatio]);
+  }, [imageStyle, qualityTier, timeline?.aspectRatio]);
 
   useEffect(() => {
     if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) {
@@ -158,7 +151,7 @@ export function ImagesScreen({
 
   async function generateImages() {
     if (imageProvider === "GEMINI_WEB") {
-      setNotice("Gemini Web luôn Generate New và chạy theo từng Visual Beat trong Storyboard. Không có API media job cho provider này.");
+      setNotice("Gemini Web tạo ảnh mới cho từng Visual Beat trong Storyboard. Không có API media job cho provider này.");
       return;
     }
     if (!chapterId || mediaBusy || mediaSubmissionBlocked || analysisBusy || !beats.length) return;
@@ -179,7 +172,6 @@ export function ImagesScreen({
         qualityTier,
         imageStyle,
         imageProvider,
-        effectiveStrategy,
         aspectRatio,
         latestEstimate.estimatedCost,
       ].join(":");
@@ -199,12 +191,11 @@ export function ImagesScreen({
           imageStyle,
           visualGenerationMode: "IMAGE",
           imageProvider,
-          imageGenerationStrategy: effectiveStrategy,
         },
       });
       setMediaJobId(job.jobId);
       setNotice(
-        `Media job ${job.jobId.slice(0, 8)} đã được queue với ${formatStrategy(effectiveStrategy)} và cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`,
+        `Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới. Cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`,
       );
     } catch (error) {
       setNotice(toMessage(error));
@@ -244,7 +235,7 @@ export function ImagesScreen({
   return (
     <FeaturePage
       title="Image Generation"
-      description="Chọn provider/strategy, phân tích chapter và tạo hoặc import image assets cho từng visual beat."
+      description="Chọn provider, phân tích chapter và tạo hoặc import một image asset mới cho từng visual beat."
       actions={
         <Button
           size="sm"
@@ -287,22 +278,6 @@ export function ImagesScreen({
               <SelectContent>
                 <SelectItem value="GEMINI_WEB">Gemini Web</SelectItem>
                 <SelectItem value="API">API</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Generation strategy">
-            <Select
-              value={effectiveStrategy}
-              disabled={imageProvider === "GEMINI_WEB"}
-              onValueChange={(value) => setImageStrategy(value as ImageGenerationStrategy)}
-            >
-              <SelectTrigger className="min-w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GENERATE_NEW">Generate New</SelectItem>
-                <SelectItem value="REUSE_APPROVED">Reuse Approved</SelectItem>
-                <SelectItem value="REFRAME_DERIVED">Reframe Derived</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -355,7 +330,7 @@ export function ImagesScreen({
 
         {imageProvider === "GEMINI_WEB" && (
           <div className="rounded-md border border-primary/25 bg-primary/5 p-3 text-[10px] leading-4 text-muted-foreground">
-            Web image generation always creates a new image for each visual beat. Reuse/reframe controls are disabled. Generate và import output trong Storyboard.
+            Web image generation luôn tạo ảnh mới cho từng visual beat. Generate và import output trong Storyboard.
           </div>
         )}
 
@@ -403,7 +378,7 @@ export function ImagesScreen({
                     {beat.visualIntent}
                   </p>
                   <p className="mt-1 text-[9px] text-muted-foreground">
-                    {formatProvider(imageProvider)} · {formatStrategy(effectiveStrategy)}
+                    {formatProvider(imageProvider)} · Generate New
                   </p>
                 </div>
               ))}
@@ -572,12 +547,6 @@ function asAspectRatio(value: string | undefined): MediaAspectRatio {
 
 function formatProvider(value: ImageGenerationProvider) {
   return value === "GEMINI_WEB" ? "Gemini Web" : "API";
-}
-
-function formatStrategy(value: ImageGenerationStrategy) {
-  if (value === "REUSE_APPROVED") return "Reuse Approved";
-  if (value === "REFRAME_DERIVED") return "Reframe Derived";
-  return "Generate New";
 }
 
 function toMessage(error: unknown) {

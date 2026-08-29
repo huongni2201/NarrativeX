@@ -12,7 +12,6 @@ import com.narrativex.backend.feature.generation.application.port.out.MediaGener
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
-import com.narrativex.backend.feature.generation.application.service.VisualAssetReuseResolver;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
@@ -64,15 +63,6 @@ public class CreateMediaJobUseCase {
     }
 
     String imageProvider = normalizeImageProvider(command.imageProvider());
-    String imageStrategy;
-    try {
-      imageStrategy =
-          VisualAssetReuseResolver.normalizeStrategy(imageProvider, command.imageGenerationStrategy());
-    } catch (IllegalArgumentException exception) {
-      throw new GenerationAdmissionDeniedException(
-          "UNSUPPORTED_MEDIA_STRATEGY", exception.getMessage());
-    }
-
     if ("GEMINI_WEB".equals(imageProvider)) {
       throw new GenerationAdmissionDeniedException(
           "EXTERNAL_IMAGE_PROVIDER",
@@ -80,7 +70,7 @@ public class CreateMediaJobUseCase {
     }
 
     String idempotencyKey = requireIdempotencyKey(command.idempotencyKey());
-    String requestFingerprint = fingerprint(command, imageProvider, imageStrategy);
+    String requestFingerprint = fingerprint(command, imageProvider);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
@@ -125,9 +115,7 @@ public class CreateMediaJobUseCase {
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
-    int generatedImageCount =
-        VisualAssetReuseResolver.countGenerated(
-            planningSource.scenes(), imageProvider, imageStrategy);
+    int generatedImageCount = beatCount;
     var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     BigDecimal expectedCost = imageProfile.estimateCost(generatedImageCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
@@ -158,9 +146,7 @@ public class CreateMediaJobUseCase {
                 imageProfile.model(),
                 imageProfile.pricingSnapshot(),
                 imageProfile.pricingFingerprint(),
-                command.imageStyle(),
-                imageProvider,
-                imageStrategy));
+                command.imageStyle()));
     var reservation =
         quotaReservation
             .reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
@@ -204,13 +190,12 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, provider={}, strategy={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
+        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, provider={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
         generatedImageCount,
         imageProvider,
-        imageStrategy,
         command.qualityTier(),
         imageProfile.model(),
         expectedCost,
@@ -245,8 +230,7 @@ public class CreateMediaJobUseCase {
     return value;
   }
 
-  private static String fingerprint(
-      CreateMediaJobCommand command, String imageProvider, String imageStrategy) {
+  private static String fingerprint(CreateMediaJobCommand command, String imageProvider) {
     return sha256(
         command.projectId()
             + ":"
@@ -261,8 +245,6 @@ public class CreateMediaJobUseCase {
             + command.imageStyle()
             + ":"
             + imageProvider
-            + ":"
-            + imageStrategy
             + ":"
             + command.maxAuthorizedCost().toPlainString());
   }

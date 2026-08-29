@@ -23,7 +23,7 @@
     </resultMap>
 
     <select id="findCurrent" resultMap="quotaCurrentRow">
-        SELECT upa.plan_key,
+        SELECT CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END AS plan_key,
                upa.status,
                upa.period_start::date AS period_start,
                upa.period_end::date AS period_end,
@@ -45,7 +45,8 @@
                             AND qr.status = 'RESERVED'), 0) AS credits_reserved
           FROM user_plan_assignments upa
           JOIN plan_entitlements pe
-            ON pe.plan_key = upa.plan_key AND pe.version = upa.entitlement_version
+            ON pe.plan_key = CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END
+           AND pe.version = CASE WHEN upa.plan_key = 'STANDARD' THEN 1 ELSE upa.entitlement_version END
           LEFT JOIN usage_windows uw
             ON uw.user_id = upa.user_id AND uw.period_key = #{periodKey}
          WHERE upa.user_id = #{userId}
@@ -62,10 +63,12 @@
     </resultMap>
 
     <select id="findActivePlanForUpdate" resultMap="activePlanRow">
-        SELECT upa.plan_key,
+        SELECT CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END AS plan_key,
                pe.monthly_credits
           FROM user_plan_assignments upa
-          JOIN plan_entitlements pe ON pe.plan_key = upa.plan_key AND pe.version = upa.entitlement_version
+          JOIN plan_entitlements pe
+            ON pe.plan_key = CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END
+           AND pe.version = CASE WHEN upa.plan_key = 'STANDARD' THEN 1 ELSE upa.entitlement_version END
          WHERE upa.user_id = #{userId}
            AND upa.status = 'ACTIVE'
            AND (upa.period_start IS NULL OR upa.period_start &lt;= CURRENT_TIMESTAMP)
@@ -78,7 +81,9 @@
     <select id="findMonthlyCreditsForUpdate" resultType="java.math.BigDecimal">
         SELECT pe.monthly_credits
           FROM user_plan_assignments upa
-          JOIN plan_entitlements pe ON pe.plan_key = upa.plan_key AND pe.version = upa.entitlement_version
+          JOIN plan_entitlements pe
+            ON pe.plan_key = CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END
+           AND pe.version = CASE WHEN upa.plan_key = 'STANDARD' THEN 1 ELSE upa.entitlement_version END
          WHERE upa.user_id = #{userId}
            AND upa.status = 'ACTIVE'
            AND (upa.period_start IS NULL OR upa.period_start &lt;= CURRENT_TIMESTAMP)
