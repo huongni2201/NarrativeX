@@ -56,11 +56,13 @@ public class VisualPromptComposer {
 
     StringBuilder prompt = new StringBuilder();
     prompt.append("STYLE PROFILE: ").append(style.promptSuffix());
+    SharedCharacterRenderingLanguage.appendTo(prompt, style);
     prompt
         .append("\nIMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a ")
         .append(normalizedRatio)
         .append(" aspect ratio.");
     prompt.append("\nSCENE DIRECTION: ").append(visualIntent.trim());
+    appendStoryboardCharacterQualityRules(prompt, style);
     appendAspectRatio(prompt, normalizedRatio);
     appendCameraFraming(prompt, cameraAngle);
     appendLocation(prompt, safeContext.location());
@@ -126,6 +128,17 @@ public class VisualPromptComposer {
     prompt.append("\nCAMERA: ").append(instruction).append('.');
   }
 
+  private static void appendStoryboardCharacterQualityRules(StringBuilder prompt, ImageStyle style) {
+    if (style != ImageStyle.CINEMATIC_ANIME) return;
+    prompt.append(
+        "\nSTORYBOARD CHARACTER QUALITY RULES:"
+            + "\n- preserve the same premium manhwa character rendering language used by canonical character references"
+            + "\n- this is a scene illustration, but any visible face must still look like polished commercial webnovel key art rather than generic anime"
+            + "\n- keep subject readability strong even when the frame includes environment context"
+            + "\n- if the scene is a close-up or medium shot, prioritize face readability, eye fidelity, hair structure, and expression nuance"
+            + "\n- if the scene is a wide shot, keep identity consistent without flattening the character into a low-detail generic figure");
+  }
+
   private static List<SelectedReference> selectReferences(List<CharacterCanon> characters) {
     List<SelectedReference> selected = new ArrayList<>();
     Set<UUID> selectedIds = new LinkedHashSet<>();
@@ -184,7 +197,9 @@ public class VisualPromptComposer {
       if (hasText(selected.reference().role())) prompt.append("; reference role=").append(selected.reference().role());
     }
     prompt.append(
-        "\nREFERENCE USAGE: use each reference as identity evidence for facial geometry, hair identity, skin tone, age, body proportions, and permanent distinguishing traits. Do not copy its background, crop, pose, expression, or lighting unless SCENE DIRECTION explicitly requires them.");
+        "\nREFERENCE USAGE: use each reference as identity evidence for facial geometry, eye shape and proportion, hairline, layered hair strand structure, skin tone, age, body proportions, and permanent distinguishing traits. Do not copy its background, crop, pose, expression, or lighting unless SCENE DIRECTION explicitly requires them.");
+    prompt.append(
+        "\nFACE FIDELITY RULE: when a referenced character face is visible, preserve the reference-level maturity, eye proportion, facial construction, and hair silhouette rather than drifting into a generic anime face.");
     prompt.append(
         "\nREFERENCE IDENTITY RULES: each REF maps only to its named character. Never merge, swap, or transfer identities between references.");
   }
@@ -230,7 +245,7 @@ public class VisualPromptComposer {
 
   private static void appendConsistencyPrecedence(StringBuilder prompt) {
     prompt.append(
-        "\nCONSISTENCY PRECEDENCE: reference images are authoritative for visible identity; CHARACTER IDENTITY LOCKS define permanent traits not clear in references; CURRENT APPEARANCE STATE defines temporary wardrobe, hairstyle state, age state, and injuries; SCENE DIRECTION controls current pose, action, expression, camera, environment state, and lighting; STYLE PROFILE controls rendering language only and must never redesign identity.");
+        "\nCONSISTENCY PRECEDENCE: reference images are authoritative for visible identity; CHARACTER IDENTITY LOCKS define permanent traits not clear in references; CURRENT APPEARANCE STATE defines temporary wardrobe, hairstyle state, age state, and injuries; CHARACTER RENDERING LANGUAGE controls face quality, eye proportion, hair structure, skin rendering, and premium manhwa finish when present; SCENE DIRECTION controls current pose, action, expression, camera, environment state, and lighting; STYLE PROFILE controls rendering language only and must never redesign identity.");
   }
 
   private String characterSnapshotJson(List<CharacterCanon> characters, Set<UUID> selectedReferenceIds) {
