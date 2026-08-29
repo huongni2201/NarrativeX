@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
 import { EditorMultiTrackTimeline } from "./EditorMultiTrackTimeline";
 import { EditorPreviewViewport } from "./EditorPreviewViewport";
@@ -7,6 +8,7 @@ import { EditorPreviewViewport } from "./EditorPreviewViewport";
 interface EditorPlaybackSurfaceProps {
   beats: DesktopTimelineBeat[];
   chapters: DesktopTimeline["chapters"];
+  subtitleCues: PlannedSubtitle[];
   selectedBeatId: string;
   previewBeat: DesktopTimelineBeat | null;
   mediaUrl: string | null;
@@ -25,6 +27,7 @@ interface EditorPlaybackSurfaceProps {
 export function EditorPlaybackSurface({
   beats,
   chapters,
+  subtitleCues,
   selectedBeatId,
   previewBeat,
   mediaUrl,
@@ -126,6 +129,7 @@ export function EditorPlaybackSurface({
       <div className="nx-editor-preview-panel min-h-0 overflow-hidden">
         <EditorPreviewViewport
           selectedBeat={previewBeat}
+          subtitleCues={subtitleCues}
           mediaUrl={mediaUrl}
           narrationUrl={narrationUrl}
           narrationStartMs={narrationStartMs}
@@ -156,6 +160,7 @@ export function EditorPlaybackSurface({
         <EditorMultiTrackTimeline
           beats={orderedBeats}
           chapters={chapters}
+          subtitleCues={subtitleCues}
           playheadMs={playheadMs}
           totalDurationMs={totalDurationMs}
           selectedBeatId={selectedBeatId}
