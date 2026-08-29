@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.narrativex.backend.feature.generation.api.request.AnalyzeChapterRequest;
 import com.narrativex.backend.feature.generation.api.request.CreateProjectRenderRequest;
-import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalProjectRenderStore;
 import com.narrativex.backend.support.FlywayMigrationContract;
 import java.io.IOException;
@@ -48,11 +47,15 @@ class DeprecatedRuntimeCleanupTest {
   }
 
   @Test
-  void projectRenderExecutionTargetIsLocalOnly() {
-    assertThat(RenderExecutionTarget.values()).containsExactly(RenderExecutionTarget.LOCAL_DEVICE);
+  void projectRenderTargetIsImplicitlyLocalOnly() throws IOException {
+    assertThat(
+            Arrays.stream(CreateProjectRenderRequest.class.getRecordComponents())
+                .map(component -> component.getName())
+                .toList())
+        .doesNotContain("executionTarget");
 
-    CreateProjectRenderRequest request = new CreateProjectRenderRequest("1080p", "mp4", null);
-    assertThat(request.executionTarget()).isEqualTo("LOCAL_DEVICE");
+    String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
+    assertThat(v5).doesNotContain("execution_target").doesNotContain("'CLOUD'");
   }
 
   @Test
