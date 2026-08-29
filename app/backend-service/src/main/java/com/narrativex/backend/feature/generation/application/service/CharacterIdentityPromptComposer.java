@@ -46,6 +46,7 @@ public class CharacterIdentityPromptComposer {
     for (String detail : appearance) {
       prompt.append('\n').append(detail);
     }
+    SharedCharacterRenderingLanguage.appendTo(prompt, style);
     prompt.append(
         "\nREFERENCE COMPOSITION:"
             + "\n- exactly one character"
