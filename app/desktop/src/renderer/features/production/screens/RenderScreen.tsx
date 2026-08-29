@@ -4,6 +4,7 @@ import type {
   DesktopRenderJob,
   DesktopTimeline,
   LocalRenderPreflight,
+  RenderResolution,
 } from "@narrativex/client-contracts";
 import { ExternalLink, Film, HardDrive, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ export function RenderScreen({
   projectId: string;
   timeline: DesktopTimeline | null;
 }>) {
-  const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
+  const [resolution, setResolution] = useState<RenderResolution>("1080p");
   const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("AUTO");
   const [job, setJob] = useState<DesktopRenderJob | null>(null);
   const [preflight, setPreflight] = useState<LocalRenderPreflight | null>(null);
@@ -66,7 +67,7 @@ export function RenderScreen({
       ].filter((assetId): assetId is string => Boolean(assetId));
       const estimatedOutputBytes = Math.max(
         64 * 1024 * 1024,
-        Math.round((timeline.totalDurationMs / 1000) * 1_500_000),
+        Math.round((timeline.totalDurationMs / 1000) * bitrateEstimateFor(resolution)),
       );
       const nextPreflight = await productionApi.preflight({
         projectId,
@@ -140,11 +141,12 @@ export function RenderScreen({
           </label>
           <label className="grid gap-1 text-[10px] text-muted-foreground">
             Resolution
-            <Select value={resolution} onValueChange={(value) => setResolution(value as typeof resolution)}>
+            <Select value={resolution} onValueChange={(value) => setResolution(value as RenderResolution)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="720p">720p</SelectItem>
-                <SelectItem value="1080p">1080p</SelectItem>
+                <SelectItem value="720p">720p · HD</SelectItem>
+                <SelectItem value="1080p">1080p · Full HD</SelectItem>
+                <SelectItem value="1440p">2K · 1440p (QHD)</SelectItem>
               </SelectContent>
             </Select>
           </label>
@@ -230,6 +232,17 @@ export function RenderScreen({
 
 function Metric({ label, value, icon }: Readonly<{ label: string; value: string; icon: React.ReactNode }>) {
   return <div className="flex items-center gap-3 rounded-md border border-border-subtle bg-popover p-3"><span className="text-primary-hover">{icon}</span><div><span className="block text-[9px] text-muted-foreground">{label}</span><strong className="text-xs">{value}</strong></div></div>;
+}
+
+function bitrateEstimateFor(resolution: RenderResolution): number {
+  switch (resolution) {
+    case "1440p":
+      return 3_500_000;
+    case "1080p":
+      return 2_200_000;
+    default:
+      return 1_500_000;
+  }
 }
 
 function clampProgress(value: number) {
