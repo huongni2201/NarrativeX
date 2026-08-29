@@ -98,19 +98,24 @@ export function toRegisterLocalAssetRequest(
   };
 }
 
+function projectAssetPath(projectId: string, assetId: string, suffix = "") {
+  const params = new URLSearchParams({ projectId });
+  return `/api/v1/assets/${encodeURIComponent(assetId)}${suffix}?${params.toString()}`;
+}
+
 export const assetsApi = {
   listAll,
 
-  get: (assetId: string) =>
-    apiRequest<DesktopAsset>(`/api/v1/assets/${encodeURIComponent(assetId)}`),
+  get: (projectId: string, assetId: string) =>
+    apiRequest<DesktopAsset>(projectAssetPath(projectId, assetId)),
 
-  downloadUrl: (assetId: string) =>
+  downloadUrl: (projectId: string, assetId: string) =>
     apiRequest<{
       url: string;
       expiresAt: string;
       contentType: string;
       filename: string;
-    }>(`/api/v1/assets/${encodeURIComponent(assetId)}/download-url`),
+    }>(projectAssetPath(projectId, assetId, "/download-url")),
 
   registerLocal: (input: LocalAssetRegistration) =>
     apiRequest<DesktopAsset>("/api/v1/assets/local", {
