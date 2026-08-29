@@ -28,36 +28,36 @@ public class CharacterIdentityPromptComposer {
       throw new IllegalArgumentException("visualPrompt must not be blank");
     }
 
-    List<String> details = new ArrayList<>();
-    details.add("Canonical identity: " + visualPrompt.trim());
-    addLabeled(details, "Appearance", appearancePrompt);
-    addLabeled(details, "Age state", ageState);
-    addLabeled(details, "Hairstyle", hairstyle);
-    addLabeled(details, "Injury/markings", injury);
+    List<String> appearance = new ArrayList<>();
+    addLabeled(appearance, "CURRENT APPEARANCE", appearancePrompt);
+    addLabeled(appearance, "AGE STATE", ageState);
+    addLabeled(appearance, "HAIRSTYLE STATE", hairstyle);
+    addLabeled(appearance, "INJURY / MARKINGS", injury);
 
     StringBuilder prompt =
         new StringBuilder("GLOBAL VISUAL STYLE: ").append(style.promptSuffix());
     prompt
-        .append("\nCHARACTER REFERENCE TASK")
+        .append("\nCHARACTER IDENTITY REFERENCE TASK")
         .append("\nGenerate exactly one canonical identity reference for the established character below.")
-        .append("\nCharacter: ")
-        .append(canonicalName.trim());
-    for (String detail : details) {
+        .append("\nCHARACTER: ")
+        .append(canonicalName.trim())
+        .append("\nIDENTITY LOCK: ")
+        .append(visualPrompt.trim());
+    for (String detail : appearance) {
       prompt.append('\n').append(detail);
-    }
-    if (bible != null && !bible.isBlank()) {
-      prompt.append("\nCharacter bible context: ").append(bible.trim());
     }
     prompt.append(
         "\nREFERENCE COMPOSITION:"
-            + "\n- one character only"
+            + "\n- exactly one character"
             + "\n- head and upper torso clearly visible"
             + "\n- neutral or subtle expression"
             + "\n- slight three-quarter angle"
-            + "\n- face unobstructed and easy to recognize"
-            + "\n- clean simple background"
-            + "\n- no story action or unrelated props"
+            + "\n- face unobstructed and both eyes clearly readable"
+            + "\n- clean understated background"
+            + "\n- balanced soft frontal lighting with no extreme shadow or rim light obscuring the face"
+            + "\n- no dramatic story action and no unrelated props"
             + "\n- no text, captions, logos, watermarks, contact sheet, or second character"
+            + "\nIDENTITY PRIORITY: facial geometry and recognizable silhouette are more important than dramatic composition."
             + "\nPURPOSE: this image becomes canonical identity evidence for later storyboard frames."
             + "\nPreserve specified traits exactly. Do not invent or redesign defining identity traits.");
 
