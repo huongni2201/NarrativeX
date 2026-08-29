@@ -86,8 +86,8 @@ export class RenderJournalStore {
   ): Promise<RenderJournal> {
     const next: RenderJournal = {
       ...current,
-      stage: "FAILED",
-      terminalState: "KNOWN_FAILURE",
+      stage: retryable ? failedStage : "FAILED",
+      terminalState: retryable ? undefined : "KNOWN_FAILURE",
       errorCode,
       failedStage,
       errorDetail: sanitizeJournalDetail(errorDetail),
