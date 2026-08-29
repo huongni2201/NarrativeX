@@ -1,9 +1,8 @@
 import hashlib
-import importlib.util
 from io import BytesIO
-from pathlib import Path
-from types import ModuleType
 from typing import Any
+
+from narrativex_worker.maintenance.r2_voice_metadata import repair_object_metadata
 
 
 class _Body(BytesIO):
@@ -42,21 +41,11 @@ class _RecordingS3Client:
         }
 
 
-def _load_script() -> ModuleType:
-    script_path = Path(__file__).parents[1] / "scripts" / "repair_r2_voice_metadata.py"
-    spec = importlib.util.spec_from_file_location("repair_r2_voice_metadata", script_path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def test_repair_object_adds_sha256_without_changing_voice_bytes() -> None:
-    module = _load_script()
     content = b"legacy voice reference"
     client = _RecordingS3Client(content)
 
-    result = module.repair_object_metadata(
+    result = repair_object_metadata(
         client,
         bucket="voice-references",
         storage_key="narration/vieneu-previews/test.wav",
@@ -83,13 +72,12 @@ def test_repair_object_adds_sha256_without_changing_voice_bytes() -> None:
 
 
 def test_repair_object_is_idempotent_when_sha256_is_already_correct() -> None:
-    module = _load_script()
     content = b"already repaired voice"
     checksum = hashlib.sha256(content).hexdigest()
     client = _RecordingS3Client(content)
     client.metadata = {"sha256": checksum, "owner": "catalog"}
 
-    result = module.repair_object_metadata(
+    result = repair_object_metadata(
         client,
         bucket="voice-references",
         storage_key="narration/vieneu-previews/test.wav",
