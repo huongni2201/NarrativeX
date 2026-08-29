@@ -19,25 +19,29 @@ public enum ImageStyle {
       "photorealistic, harsh contrast, plastic CGI, oversaturated colors, random art style, "
           + "inconsistent face, changing hairstyle, changing outfit, distorted anatomy, text, logo, watermark"),
   CINEMATIC_ANIME(
-      "masterwork 2.5D digital painting, high-end romantic webnovel cover art illustration, "
-          + "modern manhwa aesthetic, delicate semi-realistic character beauty with softly sculpted refined facial features, "
-          + "smooth porcelain skin with soft airbrushed shading and radiant luminous glow, "
-          + "large expressive glossy eyes with layered iris reflections, delicate eyelashes and brilliant catchlights, "
-          + "silky voluminous flowing hair rendered with fine brushwork and soft golden specular sheen, "
-          + "luxurious atmospheric lighting with a soft flattering key light, warm champagne gold rim lighting, "
-          + "subtle romantic bloom, soft creamy bokeh with floating golden light motes and subtle sparkles in the background, "
-          + "sophisticated deep color grading with rich espresso, charcoal, and warm amber tones, "
-          + "polished digital illustration finish avoiding flat 2D anime and avoiding raw live-action photograph, "
-          + "cohesive elegant romantic mood, consistent character appearance across the series, "
-          + "render the requested story scene only, without book-cover typography, title text or decorative lettering",
+      "masterwork 2.5D digital painting, premium semi-realistic modern manhwa and cinematic webnovel illustration, "
+          + "refined painterly rendering with natural age-appropriate facial structure and clearly modeled facial planes, "
+          + "expressive proportionate eyes with layered iris detail, delicate eyelashes and readable catchlights, "
+          + "detailed layered hair strands with a stable recognizable silhouette, natural anatomical proportions and subtle skin shading, "
+          + "consistent face geometry and character identity across the series, "
+          + "cinematic physically motivated lighting appropriate to the requested scene with controlled highlights and readable shadow detail, "
+          + "subtle atmospheric depth and bloom only when appropriate to the story moment, "
+          + "rich cinematic color grading adapted to the scene mood with controlled saturation, "
+          + "detailed painterly environments with coherent spatial depth and atmospheric perspective, "
+          + "polished digital illustration finish avoiding flat 2D anime and avoiding raw live-action photography, "
+          + "preserve established face, body proportions, hair silhouette, wardrobe state and location continuity, "
+          + "do not force romantic, golden, glamorous or beauty-shot lighting when incompatible with the scene, "
+          + "render the requested story scene only without book-cover typography, title text or decorative lettering",
       "raw live-action photograph, real human paparazzi photo, flat 2D cel anime, "
           + "thick black cartoon outlines, chibi, childish proportions, western superhero comic, "
           + "flat vector art, watercolor-only rendering, rough sketch, plastic toy look, waxy skin, "
-          + "uncanny face, low-detail face, blurry eyes, empty eyes, neon oversaturation, muddy colors, "
-          + "harsh flat lighting, crushed shadow detail, blown highlights, malformed anatomy, distorted hands, "
-          + "extra fingers, missing fingers, asymmetrical eyes, duplicated limbs, inconsistent character appearance, "
-          + "changing hairstyle, changing facial identity, changing outfit, montage, collage, split screen, "
-          + "contact sheet, multiple panels, text, caption, subtitle, title, decorative lettering, logo, watermark");
+          + "uncanny face, low-detail face, blurry eyes, empty eyes, generic stock anime face, beauty filter altering identity, "
+          + "unrequested makeup changes, age regression, age progression, face redesign, hair recolor, costume redesign, "
+          + "neon oversaturation, muddy colors, harsh flat lighting, crushed shadow detail, blown highlights, "
+          + "malformed anatomy, distorted hands, extra fingers, missing fingers, asymmetrical eyes, duplicated limbs, "
+          + "inconsistent character appearance, changing hairstyle, changing facial identity, changing outfit, "
+          + "montage, collage, split screen, contact sheet, multiple panels, text, caption, subtitle, title, "
+          + "decorative lettering, logo, watermark");
 
   private final String promptSuffix;
   private final String negativePrompt;
