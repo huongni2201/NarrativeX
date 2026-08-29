@@ -53,9 +53,7 @@ class ProjectGenerationControllerContractTest {
             narrationUseCase,
             batchNarrationUseCase,
             voicePreviewResultUseCase,
-            storyboardUseCase,
-            visualPromptContextRepository,
-            visualPromptComposer);
+            (requestedProjectId, requestedChapterId, visualBeatId) -> null);
 
     var response = controller.analyzeChapter(projectId, chapterId);
 

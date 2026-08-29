@@ -128,10 +128,12 @@ class StoryboardApiIntegrationTest {
         PROJECT_ASSET,
         PROJECT_1);
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES ('00000000-0000-4000-8000-000000004001', 'seed-user-01', 'AUDIO', 'USER_UPLOAD', 'accounts/seed-user-01/uploads/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING");
+        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES ('00000000-0000-4000-8000-000000004001', 'seed-user-01', ?, 'AUDIO', 'USER_UPLOAD', 'narration/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+        PROJECT_1);
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, 'seed-user-01', 'IMAGE', 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, 'gemini.png', 'image/png', 2048, repeat('4', 64), NULL, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
-        PREVIEW_MEDIA_ASSET);
+        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, 'seed-user-01', ?, 'IMAGE', 'LOCAL_ONLY', NULL, 'gemini.png', 'image/png', 2048, repeat('4', 64), NULL, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+        PREVIEW_MEDIA_ASSET,
+        PROJECT_1);
     jdbcTemplate.update(
         "INSERT INTO narration_requests (id, project_id, chapter_id, chapter_row_version, source_hash, source_text, voice_id, language, speaking_rate, segmentation_version, request_fingerprint) VALUES ('00000000-0000-4000-8000-000000002001', ?, ?, 0, repeat('a', 64), 'Text', 'voice', 'vi-VN', 1.0, 'v1', repeat('1', 64)) ON CONFLICT (id) DO NOTHING",
         PROJECT_1,
@@ -156,7 +158,7 @@ class StoryboardApiIntegrationTest {
         PROJECT_1,
         CHAPTER_1);
     jdbcTemplate.update(
-        "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, render_manifest_id, artifact_type, render_fingerprint, storage_key, storage_provider, external_file_id, mime_type, size_bytes, checksum_sha256, duration_ms, width, height, fps, status) VALUES (?, ?, ?, ?, ?, 'CHAPTER_VIDEO', repeat('6', 64), 'gdrive:drive-file-28001', 'GOOGLE_DRIVE', 'drive-file-28001', 'video/mp4', 24800000, repeat('7', 64), 42000, 1920, 1080, 24.0, 'READY') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, render_manifest_id, artifact_type, render_fingerprint, storage_key, mime_type, size_bytes, checksum_sha256, duration_ms, width, height, fps, status) VALUES (?, ?, ?, ?, ?, 'CHAPTER_VIDEO', repeat('6', 64), 'renders/drive-file-28001.mp4', 'video/mp4', 24800000, repeat('7', 64), 42000, 1920, 1080, 24.0, 'READY') ON CONFLICT (id) DO NOTHING",
         FINAL_ARTIFACT,
         PROJECT_1,
         CHAPTER_1,

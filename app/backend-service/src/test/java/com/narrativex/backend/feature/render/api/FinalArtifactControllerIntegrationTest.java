@@ -149,7 +149,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
             + " resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, ?,"
-            + " ?, 'CHAPTER_RENDER', 'COMPLETED', 'CPU_RENDER', 100, 'seed-user-01',"
+            + " ?, 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER', 100, 'seed-user-01',"
             + " 'seed-user-01') ON CONFLICT (id) DO NOTHING",
         id,
         jobId,
@@ -161,16 +161,15 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
       Long id, UUID projectId, UUID chapterId, UUID jobId, String status, String fileName) {
     jdbcTemplate.update(
         "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, artifact_type,"
-            + " render_fingerprint, storage_key, storage_provider, external_file_id, mime_type,"
+            + " render_fingerprint, storage_key, mime_type,"
             + " size_bytes, checksum_sha256, duration_ms, width, height, fps, status) VALUES (?, ?,"
-            + " ?, ?, 'CHAPTER_VIDEO', repeat('b', 64), ?, 'LOCAL', ?, 'video/mp4', 2048,"
+            + " ?, ?, 'CHAPTER_VIDEO', repeat('b', 64), ?, 'video/mp4', 2048,"
             + " repeat('c', 64), 1000, 1920, 1080, 24.0, ?) ON CONFLICT (id) DO NOTHING",
         id,
         projectId,
         chapterId,
         jobId,
         "local/" + fileName,
-        FINAL_ROOT.resolve(fileName).toString(),
         status);
   }
 

@@ -197,7 +197,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
             "audio/wav",
             128,
             SHA,
-            "media/uploads/" + id,
+            "voices/" + ACCOUNT + "/" + id,
             null,
             Instant.now().plusSeconds(900)));
   }

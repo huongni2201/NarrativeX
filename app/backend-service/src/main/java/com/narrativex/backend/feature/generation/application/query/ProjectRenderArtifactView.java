@@ -6,7 +6,7 @@ public record ProjectRenderArtifactView(
     Long id,
     UUID projectId,
     UUID generationJobId,
-    String webViewLink,
+    String storageKey,
     String mimeType,
     long sizeBytes,
     String checksumSha256,

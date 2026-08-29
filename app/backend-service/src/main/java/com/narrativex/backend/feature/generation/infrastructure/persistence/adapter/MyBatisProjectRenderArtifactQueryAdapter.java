@@ -24,7 +24,7 @@ public class MyBatisProjectRenderArtifactQueryAdapter
             row.getId(),
             row.getProjectId(),
             row.getGenerationJobId(),
-            row.getWebViewLink(),
+            row.getStorageKey(),
             row.getMimeType(),
             row.getSizeBytes(),
             row.getChecksumSha256(),

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.VoiceReferenceAssetMapper">
+  <resultMap id="voiceReferenceAssetRow" type="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.VoiceReferenceAssetRow">
+    <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
+    <result property="storageKey" column="storage_key" />
+    <result property="originalFilename" column="original_filename" />
+    <result property="contentType" column="content_type" />
+    <result property="sizeBytes" column="size_bytes" />
+    <result property="sha256" column="sha256" />
+    <result property="status" column="status" />
+  </resultMap>
+
+  <insert id="insert">
+    INSERT INTO voice_reference_assets
+      (id, account_id, storage_key, original_filename, content_type, size_bytes, sha256, status)
+    VALUES
+      (#{command.proposedId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+       #{accountId}, #{command.storageKey}, #{command.originalFilename}, #{command.contentType},
+       #{command.sizeBytes}, #{checksum}, 'VALIDATING')
+    ON CONFLICT (account_id, sha256) DO NOTHING
+  </insert>
+
+  <select id="findOwned" resultMap="voiceReferenceAssetRow">
+    SELECT id, storage_key, original_filename, content_type, size_bytes, sha256, status
+      FROM voice_reference_assets
+     WHERE account_id = #{accountId}
+       AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+       AND status &lt;&gt; 'DELETED'
+  </select>
+
+  <select id="findByChecksum" resultMap="voiceReferenceAssetRow">
+    SELECT id, storage_key, original_filename, content_type, size_bytes, sha256, status
+      FROM voice_reference_assets
+     WHERE account_id = #{accountId} AND sha256 = #{sha256} AND status &lt;&gt; 'DELETED'
+  </select>
+
+  <select id="listOwned" resultMap="voiceReferenceAssetRow">
+    SELECT id, storage_key, original_filename, content_type, size_bytes, sha256, status
+      FROM voice_reference_assets
+     WHERE account_id = #{accountId} AND status &lt;&gt; 'DELETED'
+     ORDER BY created_at DESC, id DESC
+  </select>
+
+  <select id="isReferencedByReadyAsset" resultType="boolean">
+    SELECT EXISTS (
+      SELECT 1 FROM voice_reference_assets WHERE storage_key = #{storageKey} AND status = 'READY'
+    )
+  </select>
+</mapper>

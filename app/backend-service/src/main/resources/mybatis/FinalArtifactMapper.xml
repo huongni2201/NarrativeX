@@ -10,9 +10,6 @@
         <result property="artifactType" column="artifact_type"/>
         <result property="renderFingerprint" column="render_fingerprint"/>
         <result property="storageKey" column="storage_key"/>
-        <result property="storageProvider" column="storage_provider"/>
-        <result property="externalFileId" column="external_file_id"/>
-        <result property="webViewLink" column="web_view_link"/>
         <result property="mimeType" column="mime_type"/>
         <result property="sizeBytes" column="size_bytes"/>
         <result property="checksumSha256" column="checksum_sha256"/>
@@ -25,7 +22,7 @@
     </resultMap>
     <select id="findOwned" resultMap="finalArtifactRow">
         SELECT fa.id, fa.project_id, fa.chapter_id, fa.artifact_type, fa.render_fingerprint,
-               fa.storage_key, fa.storage_provider, fa.external_file_id, fa.web_view_link,
+               fa.storage_key,
                fa.mime_type, fa.size_bytes, fa.checksum_sha256, fa.duration_ms,
                fa.width, fa.height, fa.status, fa.created_at, fa.updated_at
           FROM final_artifacts fa
