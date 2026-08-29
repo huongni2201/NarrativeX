@@ -24,7 +24,6 @@ public final class VisualBeat extends DomainEntity {
   private final AspectRatio aspectRatioOverride;
   private final ImageQualityTier qualityTierOverride;
   private VisualBeatReviewStatus reviewStatus;
-  private UUID previewAssetId;
   private UUID previewMediaAssetId;
 
   public VisualBeat(UUID sceneId, int orderIndex, String visualIntent) {
@@ -172,14 +171,6 @@ public final class VisualBeat extends DomainEntity {
 
   public VisualBeatReviewStatus getReviewStatus() {
     return reviewStatus;
-  }
-
-  public UUID getPreviewAssetId() {
-    return previewAssetId;
-  }
-
-  public void attachPreviewAsset(UUID previewAssetId) {
-    this.previewAssetId = previewAssetId;
   }
 
   public UUID getPreviewMediaAssetId() {
