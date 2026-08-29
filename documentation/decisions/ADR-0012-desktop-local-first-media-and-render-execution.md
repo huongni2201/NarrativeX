@@ -1,22 +1,25 @@
 # ADR-0012: Desktop local-first project media and final render execution
 
 **Status:** Accepted and completed as the only final-render storage model  
-**Date:** 2026-08-24; amended 2026-08-26  
-**Supersedes:** remote/server final-video rendering and storage assumptions from earlier architecture.
+**Date:** 2026-08-24; amended 2026-08-26 and 2026-08-29  
+**Supersedes:** remote/server final-video rendering, project-media synchronization, and remote project-media storage assumptions from earlier architecture.
 
 ## Context
 
-NarrativeX uses Electron Desktop as its only editor. Long-form projects contain large images, narration, imported media, render intermediates and final MP4 files. Sending final video bytes through remote storage or backend proxy endpoints adds transfer cost, latency and duplicate execution/storage paths without helping the Desktop editing workflow.
+NarrativeX uses Electron Desktop as its only editor. Long-form projects contain large images, narration, imported media, render intermediates and final MP4 files. Sending project bytes through remote storage or synchronizing them between Desktop installations adds transfer cost, latency and duplicate ownership paths without helping the local editing workflow.
 
-The backend must remain authoritative for ownership, source versions, job admission, render policy, device assignment, leases and durable execution/artifact metadata. Desktop therefore owns project bytes and final rendering while backend contracts use stable identities and integrity metadata.
+The backend remains authoritative for authenticated ownership, source versions, job admission, render policy, durable queues, leases and execution/artifact metadata. Desktop owns the project workspace and project bytes. Different Desktop installations signed into the same account do not synchronize project workspaces or project media.
+
+The only media intentionally shared across devices is account-owned custom voice/reference media, which is stored through the R2 voice-reference boundary defined by ADR-0003.
 
 ## Decision
 
-### 1. Desktop project media is local-first
+### 1. Desktop project media is device-local
 
 ```text
 <userData>/projects/<projectId>/
   project.manifest.json
+  project.json
   assets/
     images/
     audio/
@@ -36,19 +39,28 @@ checksumSha256
 updatedAt
 ```
 
-The manifest is a local byte-location index, not a second domain database.
+The local project catalog determines which projects are visible/openable on that Desktop installation. Backend project records are not imported into another device's local catalog simply because the same account owns them.
+
+A project created on Device A is not discovered by Device B. Device B starts with its own local project catalog and creates independent project data.
 
 ### 2. Backend contracts never contain absolute local paths
 
-Backend contracts identify local inputs by stable asset IDs plus size/checksum metadata. Electron main resolves those IDs inside the project workspace.
+Backend contracts identify local inputs by stable IDs plus size/checksum metadata. Electron main resolves those IDs inside the project workspace.
 
-Absolute filesystem paths must never be persisted to PostgreSQL or sent as durable backend state. Final-artifact completion records provider/identity metadata, checksum, size and an opaque local artifact key; the backend does not own the file bytes.
+Absolute filesystem paths must never be persisted to PostgreSQL or sent as durable backend state. Final-artifact completion records identity metadata, checksum, size and an opaque local artifact key; the backend does not own the file bytes.
 
-### 3. Electron main owns local storage and final execution
+### 3. Project media has one storage boundary
+
+Generated narration, generated images, imported project media, render inputs, render intermediates and final video are project-local media. Production project-media flows must not switch to `REMOTE`, `HYBRID`, or R2 fallback modes.
+
+Media selection must require that the chosen media identity is READY, owned by the account, and available in the current project-local boundary before it becomes a production beat selection.
+
+### 4. Electron main owns local storage and final execution
 
 Electron main owns:
 
 - project workspace creation;
+- local project catalog persistence;
 - asset import/registration and generated-media materialization;
 - manifest reads/writes;
 - workspace-boundary/path traversal protection;
@@ -62,7 +74,7 @@ Electron main owns:
 
 The renderer receives only narrow typed capabilities through preload. It never receives unrestricted Node.js/filesystem/process access.
 
-### 4. Backend remains execution authority
+### 5. Backend remains execution authority
 
 A final render is not an offline ad-hoc render from renderer state. The backend admits and assigns the job to an authorized local device. The assigned device claims it with its device token and lease token.
 
@@ -81,13 +93,13 @@ backend assigns render job
 
 Lease loss aborts local execution. A device that no longer owns the lease may not finalize success.
 
-### 5. Remote storage is generated-media transport only
+### 6. R2 is voice-reference/custom-voice storage only
 
-AI/provider execution may use Cloudflare R2 when remote bytes must survive worker/provider boundaries. Accepted media required by the project is materialized into Desktop storage before final rendering.
+R2 is reserved for reusable account-owned custom voice/reference assets. Those assets may be used from multiple devices signed into the same account because their ownership boundary is the account, not a project workspace.
 
-There is no remote final-video storage fallback and no server-side final-render executor.
+Project images, generated narration, imported project media, render intermediates and final video are not uploaded to R2 for synchronization, transport or durability.
 
-### 6. Final video delivery is local
+### 7. Final video delivery is local
 
 Preview/open/reveal/export reads the final local MP4 through Electron capabilities. The backend does not expose final-video byte download/preview proxy endpoints.
 
@@ -98,6 +110,7 @@ Publishing/uploading a finished video is a separate explicit workflow operating 
 Current implementation includes:
 
 - `ProjectStorage` project workspaces and atomic schema-versioned manifests;
+- a Desktop local project catalog used as the project discovery boundary;
 - workspace-boundary, size and SHA-256 validation;
 - Electron main native file/folder and storage capabilities;
 - device identity, heartbeat and execution state;
@@ -115,16 +128,18 @@ Richer process/OS-crash recovery/resume and long-duration soak validation remain
 
 ### Positive
 
+- One project-media ownership model per Desktop installation.
+- Same-account devices do not accidentally merge project workspaces or media.
 - One final-render executor and one final-video byte location.
-- Long-form final video avoids remote round trips and backend proxy load.
+- Long-form project media avoids remote round trips and backend proxy load.
 - Backend policy/job authority is preserved without machine-specific paths.
 - Local files are integrity-checked and sandboxed to one project workspace.
-- Server worker/runtime/config surface is smaller.
+- Custom voice remains reusable across devices without sharing project data.
 
 ### Negative
 
-- Project/final media is machine-local unless an explicit synchronization/export feature is added.
-- Reinstall/device migration and backup require separate product policy.
+- Project/final media is intentionally machine-local.
+- Reinstall/device migration and backup require a separate explicit product feature.
 - Desktop must manage disk usage, cleanup and crash recovery safely.
 
 ## Invariants
@@ -138,11 +153,13 @@ Richer process/OS-crash recovery/resume and long-duration soak validation remain
 7. Lease loss prevents successful completion.
 8. Final MP4 bytes remain local unless an explicit user export/publish workflow copies them elsewhere.
 9. Backend FinalArtifact persistence is metadata-only.
-10. R2 is limited to generated-media transport/durability before Desktop materialization.
+10. Project discovery is device-local; backend project lists are not synchronization feeds.
+11. Project media never uses R2 fallback or cross-device synchronization.
+12. R2 is limited to account-owned custom voice/reference storage and its validation/download lifecycle.
 
 ## Related decisions
 
 - [ADR-0001: System topology, durable execution and persistence](./ADR-0001-system-topology-execution-and-persistence.md)
 - [ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)
-- [ADR-0010: Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)
-- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0011-google-oauth-only-desktop-auth.md)
+- [ADR-0010: Electron desktop editor client boundary](./ADR-0010-electron-desktop-editor-client-boundary.md)
+- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0011-google-oauth-only-desktop-authentication.md)
