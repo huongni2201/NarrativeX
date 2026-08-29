@@ -38,7 +38,7 @@ class _FakeVieneu:
 def _load_preview_script() -> ModuleType:
     if "vieneu" not in sys.modules:
         vieneu_module = ModuleType("vieneu")
-        setattr(vieneu_module, "Vieneu", _FakeVieneu)
+        vieneu_module.Vieneu = _FakeVieneu
         sys.modules["vieneu"] = vieneu_module
 
     script_path = Path(__file__).parents[1] / "scripts" / "generate_vieneu_previews.py"
