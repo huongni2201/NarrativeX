@@ -105,7 +105,7 @@ export function narrationSeekSeconds(
 export function shouldResyncNarration(
   currentSeconds: number,
   desiredSeconds: number,
-  thresholdSeconds = 0.35,
+  thresholdSeconds = 0.1,
 ): boolean {
   return Math.abs(currentSeconds - desiredSeconds) > thresholdSeconds;
 }

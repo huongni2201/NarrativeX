@@ -89,9 +89,9 @@ test("timeline seek maps back to chapter-local narration seconds", () => {
   assert.equal(narrationSeekSeconds(55_000, 30_000, 50_000), 20);
 });
 
-test("live narration only resyncs for a meaningful seek gap", () => {
-  assert.equal(shouldResyncNarration(12.0, 12.1), false);
-  assert.equal(shouldResyncNarration(12.0, 12.36), true);
+test("live narration resyncs once drift exceeds 100 ms", () => {
+  assert.equal(shouldResyncNarration(12.0, 12.09), false);
+  assert.equal(shouldResyncNarration(12.0, 12.11), true);
   assert.equal(shouldResyncNarration(20.0, 5.0), true);
 });
 
