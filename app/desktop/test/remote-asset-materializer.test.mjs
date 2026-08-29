@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createServer } from "node:http";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RemoteAssetMaterializer } from "../src/main/local-storage/remote-asset-materializer.ts";
@@ -48,6 +50,65 @@ test("remote materialization reuses an already-local character reference without
       checksumSha256: registered.checksumSha256,
     });
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("chapter narration materialization resolves the project-local audio through its chapter workspace", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-chapter-narration-"));
+  const storage = new ProjectStorage(join(root, "projects"));
+  const chapterId = "00000000-0000-4000-8000-000000000004";
+  const assetId = "00000000-0000-4000-8000-000000000005";
+  const audioBytes = Buffer.from("generated-chapter-narration");
+  const checksumSha256 = createHash("sha256").update(audioBytes).digest("hex");
+  const server = createServer((_request, response) => {
+    response.writeHead(200, {
+      "Content-Type": "audio/mpeg",
+      "Content-Length": String(audioBytes.length),
+    });
+    response.end(audioBytes);
+  });
+  await new Promise((resolvePromise) => server.listen(0, "127.0.0.1", resolvePromise));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const audioUrl = `http://127.0.0.1:${address.port}/chapter.mp3`;
+  const requestedPaths = [];
+  const materializer = new RemoteAssetMaterializer(storage, {
+    async request({ path }) {
+      requestedPaths.push(path);
+      return {
+        status: 200,
+        bodyText: JSON.stringify({
+          success: true,
+          data: {
+            pipeline: {
+              audio: { status: "READY", audioUrl },
+            },
+          },
+        }),
+      };
+    },
+  });
+
+  try {
+    const result = await materializer.materializeChapterNarration({
+      projectId,
+      chapterId,
+      assetId,
+      sizeBytes: audioBytes.length,
+      checksumSha256,
+    });
+
+    assert.deepEqual(requestedPaths, [
+      `/api/v1/projects/${projectId}/chapters/${chapterId}/workspace`,
+    ]);
+    assert.equal(result.kind, "AUDIO");
+    assert.deepEqual(
+      await readFile(await storage.resolveAsset(projectId, assetId)),
+      audioBytes,
+    );
+  } finally {
+    server.close();
     await rm(root, { recursive: true, force: true });
   }
 });

@@ -15,6 +15,12 @@ export interface RemoteAssetMaterializationInput {
   assetId: string;
 }
 
+export interface ChapterNarrationMaterializationInput extends RemoteAssetMaterializationInput {
+  chapterId: string;
+  sizeBytes: number;
+  checksumSha256: string;
+}
+
 export class RemoteAssetMaterializer {
   private readonly storage: ProjectStorage;
   private readonly backendApi: DesktopBackendApiService;
@@ -74,6 +80,121 @@ export class RemoteAssetMaterializer {
       if (checksum !== asset.sha256.toLowerCase()) throw new Error("Remote asset checksum does not match backend metadata.");
       const registered = await this.storage.registerAsset(input.projectId, { assetId: input.assetId, kind, sourcePath: temporaryPath, checksumSha256: checksum });
       return { assetId: registered.assetId, kind: registered.kind, relativePath: registered.relativePath, sizeBytes: registered.sizeBytes, checksumSha256: registered.checksumSha256 };
+    } finally {
+      await rm(temporaryPath, { force: true }).catch(() => undefined);
+    }
+  }
+
+  async materializeChapterNarration(input: ChapterNarrationMaterializationInput) {
+    validateInputId(input.projectId, PROJECT_ID_PATTERN, "projectId");
+    validateInputId(input.chapterId, PROJECT_ID_PATTERN, "chapterId");
+    validateInputId(input.assetId, OPAQUE_ID_PATTERN, "assetId");
+    if (!Number.isSafeInteger(input.sizeBytes) || input.sizeBytes <= 0) {
+      throw new Error("Chapter narration size is invalid.");
+    }
+    const checksum = input.checksumSha256.toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(checksum)) {
+      throw new Error("Chapter narration checksum is invalid.");
+    }
+
+    const manifest = await this.storage.ensureProject(input.projectId);
+    const local = manifest.assets[input.assetId];
+    if (local) {
+      await this.storage.resolveAsset(input.projectId, input.assetId, {
+        sizeBytes: input.sizeBytes,
+        checksumSha256: checksum,
+      });
+      return {
+        assetId: local.assetId,
+        kind: local.kind,
+        relativePath: local.relativePath,
+        sizeBytes: local.sizeBytes,
+        checksumSha256: local.checksumSha256,
+      };
+    }
+
+    const response = await this.backendApi.request({
+      path: `/api/v1/projects/${encodeURIComponent(input.projectId)}/chapters/${encodeURIComponent(input.chapterId)}/workspace`,
+    });
+    const data = parseApiData(response.status, response.bodyText);
+    if (!isRecord(data) || !isRecord(data.pipeline) || !isRecord(data.pipeline.audio)) {
+      throw new Error("Chapter narration workspace metadata is invalid.");
+    }
+    const audio = data.pipeline.audio;
+    if (audio.status !== "READY" || typeof audio.audioUrl !== "string") {
+      throw new Error("Chapter narration is not ready for local materialization.");
+    }
+
+    const url = new URL(audio.audioUrl);
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopbackHost(url.hostname))) {
+      throw new Error("Chapter narration URL must use HTTPS outside localhost.");
+    }
+    if (url.username || url.password || url.hash) {
+      throw new Error("Chapter narration URL contains unsupported credentials or fragment.");
+    }
+
+    const temporaryPath = join(
+      this.storage.projectDirectory(input.projectId),
+      "work",
+      `.chapter-narration-${input.assetId}-${Date.now()}.mp3`,
+    );
+    try {
+      const download = await fetch(url, { redirect: "error" });
+      if (!download.ok || !download.body) {
+        throw new Error(`Chapter narration download failed (${download.status}).`);
+      }
+      if (new URL(download.url).origin !== url.origin) {
+        throw new Error("Chapter narration download origin changed unexpectedly.");
+      }
+      const declaredSize = download.headers.get("content-length");
+      if (declaredSize && Number(declaredSize) !== input.sizeBytes) {
+        throw new Error("Chapter narration size does not match backend metadata.");
+      }
+      const contentType = download.headers
+        .get("content-type")
+        ?.split(";", 1)[0]
+        ?.trim()
+        .toLowerCase();
+      if (contentType && !["audio/mpeg", "audio/mp3"].includes(contentType)) {
+        throw new Error("Chapter narration content type is invalid.");
+      }
+      let bytes = 0;
+      const guard = new Transform({
+        transform(chunk: Buffer, _encoding, callback) {
+          bytes += chunk.length;
+          callback(bytes > input.sizeBytes ? new Error("Chapter narration exceeded expected size.") : null, chunk);
+        },
+      });
+      await mkdir(join(this.storage.projectDirectory(input.projectId), "work"), {
+        recursive: true,
+      });
+      await pipeline(
+        Readable.fromWeb(
+          download.body as import("node:stream/web").ReadableStream<Uint8Array>,
+        ),
+        guard,
+        createWriteStream(temporaryPath),
+      );
+      if (bytes !== input.sizeBytes) {
+        throw new Error("Chapter narration byte count does not match backend metadata.");
+      }
+      const actualChecksum = await sha256File(temporaryPath);
+      if (actualChecksum !== checksum) {
+        throw new Error("Chapter narration checksum does not match backend metadata.");
+      }
+      const registered = await this.storage.registerAsset(input.projectId, {
+        assetId: input.assetId,
+        kind: "AUDIO",
+        sourcePath: temporaryPath,
+        checksumSha256: checksum,
+      });
+      return {
+        assetId: registered.assetId,
+        kind: registered.kind,
+        relativePath: registered.relativePath,
+        sizeBytes: registered.sizeBytes,
+        checksumSha256: registered.checksumSha256,
+      };
     } finally {
       await rm(temporaryPath, { force: true }).catch(() => undefined);
     }

@@ -135,6 +135,13 @@ export interface LocalRemoteMaterializationInput {
   assetId: string;
 }
 
+export interface LocalChapterNarrationMaterializationInput
+  extends LocalRemoteMaterializationInput {
+  chapterId: string;
+  sizeBytes: number;
+  checksumSha256: string;
+}
+
 export interface FfmpegRuntimeStatus {
   available: boolean;
   ffmpegPath: string | null;
@@ -222,6 +229,7 @@ export interface NarrativeXDesktopBridge {
     restoreBackup(): Promise<LocalProjectRestoreResult | null>;
     archiveProject(projectId: string): Promise<LocalProjectArchiveResult | null>;
     materializeRemoteAsset(input: LocalRemoteMaterializationInput): Promise<LocalAssetImportResult>;
+    materializeChapterNarration(input: LocalChapterNarrationMaterializationInput): Promise<LocalAssetImportResult>;
     repairSelectedAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO"; selectionToken: string }): Promise<LocalAssetImportResult>;
     selectAsset(): Promise<LocalAssetSelection | null>;
     commitSelectedAsset(input: {

@@ -41,6 +41,8 @@ The preview contract is asynchronous: Desktop submits `POST /api/v1/projects/{pr
 
 Generated/project narration bytes used by final rendering live on the local machine under the configured project-media root and are referenced through stable backend identity plus integrity metadata. PostgreSQL stores logical keys and metadata, never host/container absolute paths.
 
+Before Editor playback, Electron main materializes generated Chapter narration into Desktop ProjectStorage and verifies its size and checksum. The renderer then plays it through the `narrativex-media://` protocol; it must not use a backend download URL as the ongoing Chapter preview source. Remote HTTP(S) playback remains limited to temporary voice samples and account-owned voice-reference workflows.
+
 ## Custom voice reference storage
 
 Custom voice references are reusable account assets rather than project working media.

@@ -87,6 +87,21 @@ export function EditorPlaybackSurface({
   }, [playheadMs, scopeWindowEndMs, scopeWindowStartMs]);
 
   useEffect(() => {
+    if (!playing || scopeWindowEndMs <= scopeWindowStartMs) return;
+    const stepMs = 100;
+    const timer = window.setInterval(() => {
+      setPlayheadMs((current) => {
+        if (current >= scopeWindowEndMs) {
+          setPlaying(false);
+          return scopeWindowStartMs;
+        }
+        return Math.min(scopeWindowEndMs, current + stepMs);
+      });
+    }, stepMs);
+    return () => window.clearInterval(timer);
+  }, [playing, scopeWindowEndMs, scopeWindowStartMs]);
+
+  useEffect(() => {
     const beatAtTime = findEditorBeatAtTime(orderedBeats, playheadMs);
     if (beatAtTime && beatAtTime.visualBeatId !== selectedBeatId) {
       lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
@@ -157,10 +172,6 @@ export function EditorPlaybackSurface({
           scopeWindowEndMs={scopeWindowEndMs}
           playing={playing}
           onTogglePlay={() => {
-            if (!narrationUrl) {
-              setPlaying(false);
-              return;
-            }
             setPlaying((current) => !current);
           }}
           onPrevBeat={handlePrevBeat}
@@ -168,7 +179,9 @@ export function EditorPlaybackSurface({
           onStepMs={handleStepMs}
           onNarrationClock={handleNarrationClock}
           onNarrationEnded={handleNarrationEnded}
-          onPlaybackError={() => setPlaying(false)}
+          onPlaybackError={() => {
+            // Keep timer running even if audio stream errors
+          }}
         />
       </div>
 

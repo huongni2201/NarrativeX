@@ -459,6 +459,16 @@ void app.whenReady().then(async () => {
     if (!isRemoteMaterializationInput(input) || !remoteAssetMaterializer) throw new Error("Invalid remote asset materialization input.");
     return remoteAssetMaterializer.materialize(input);
   });
+  registerTrustedIpcHandler(
+    "desktop:local-storage:materialize-chapter-narration",
+    trustPolicy,
+    async (input) => {
+      if (!isChapterNarrationMaterializationInput(input) || !remoteAssetMaterializer) {
+        throw new Error("Invalid chapter narration materialization input.");
+      }
+      return remoteAssetMaterializer.materializeChapterNarration(input);
+    },
+  );
   registerTrustedIpcHandlerWithEvent("desktop:local-storage:repair-selected-asset", trustPolicy, async (event, input) => {
     if (!isSelectedAssetCommitInput(input)) throw new Error("Invalid selected asset repair input.");
     const selection = pendingAssetSelections.consume(input.selectionToken, event.sender.id, "asset-import");
@@ -678,4 +688,22 @@ function isRemoteMaterializationInput(value: unknown): value is { projectId: str
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
   return typeof input.projectId === "string" && typeof input.assetId === "string";
+}
+
+function isChapterNarrationMaterializationInput(value: unknown): value is {
+  projectId: string;
+  chapterId: string;
+  assetId: string;
+  sizeBytes: number;
+  checksumSha256: string;
+} {
+  if (!value || typeof value !== "object") return false;
+  const input = value as Record<string, unknown>;
+  return (
+    typeof input.projectId === "string" &&
+    typeof input.chapterId === "string" &&
+    typeof input.assetId === "string" &&
+    typeof input.sizeBytes === "number" &&
+    typeof input.checksumSha256 === "string"
+  );
 }

@@ -133,9 +133,10 @@ export function EditorPreviewViewport({
     }
     if (audio.paused) {
       void audio.play().catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : "Narration audio could not play.";
-        setAudioFailed(true);
-        onPlaybackError(message);
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.warn("Narration audio play error:", error);
       });
     }
   }, [audioFailed, narrationEndMs, narrationStartMs, narrationUrl, onPlaybackError, playheadMs, playing]);
@@ -182,7 +183,8 @@ export function EditorPreviewViewport({
           src={narrationUrl}
           preload="auto"
           onEnded={onNarrationEnded}
-          onError={() => {
+          onError={(e) => {
+            console.warn("Narration audio load error for URL:", narrationUrl, e);
             setAudioFailed(true);
             onPlaybackError("Không tải được narration audio cho preview.");
           }}
@@ -242,6 +244,7 @@ export function EditorPreviewViewport({
                   </defs>
                   <path d="M0 150 C140 90 230 190 380 135 S620 70 900 115" fill="none" stroke="url(#preview-wave-gradient-1)" strokeWidth="2.5" />
                   <path d="M0 165 C150 110 240 210 400 150 S650 80 900 130" fill="none" stroke="url(#preview-wave-gradient-2)" strokeWidth="1.5" />
+                  <path d="M0 180 C130 135 250 225 420 170 S680 100 900 150" fill="none" stroke="url(#preview-wave-gradient-2)" strokeWidth="1" />
                 </svg>
               </div>
               <div className="relative z-10 max-w-lg px-6 text-center">
@@ -268,7 +271,7 @@ export function EditorPreviewViewport({
 
           {audioFailed && (
             <div className="absolute inset-x-4 bottom-4 z-30 rounded-md border border-red-400/30 bg-black/80 px-3 py-2 text-center text-[10px] text-red-200">
-              Narration preview failed. Playback đã dừng để timeline không bị lệch audio.
+              Không tải được luồng audio cho chương này. Playback vẫn đang chạy bằng timer đồng bộ.
             </div>
           )}
         </div>
@@ -279,7 +282,7 @@ export function EditorPreviewViewport({
         <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2">
           <button type="button" onClick={onPrevBeat} className="nx-icon-button text-text-muted hover:text-foreground" title="Previous beat"><SkipBack size={15} /></button>
           <button type="button" onClick={() => onStepMs(-500)} className="nx-icon-button text-text-muted hover:text-foreground" title="Step back"><ChevronsLeft size={16} /></button>
-          <button type="button" onClick={onTogglePlay} disabled={!narrationUrl || audioFailed} className="mx-1 flex size-9 items-center justify-center rounded-full bg-primary text-white shadow-[0_0_16px_rgba(255,138,0,0.35)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40" title={playing ? "Pause" : "Play"}>{playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5 fill-white" />}</button>
+          <button type="button" onClick={onTogglePlay} className="mx-1 flex size-9 items-center justify-center rounded-full bg-primary text-white shadow-[0_0_16px_rgba(255,138,0,0.35)] transition hover:bg-primary-hover active:scale-95" title={playing ? "Pause" : "Play"}>{playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5 fill-white" />}</button>
           <button type="button" onClick={() => onStepMs(500)} className="nx-icon-button text-text-muted hover:text-foreground" title="Step forward"><ChevronsRight size={16} /></button>
           <button type="button" onClick={onNextBeat} className="nx-icon-button text-text-muted hover:text-foreground" title="Next beat"><SkipForward size={15} /></button>
           <button type="button" onClick={() => setMuted(!muted)} className="nx-icon-button ml-1 text-text-muted hover:text-foreground" title={muted ? "Unmute narration" : "Mute narration"}>{muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>

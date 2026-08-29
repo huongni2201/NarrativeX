@@ -99,19 +99,14 @@ export function EditorScreen({
         : null,
     [chapters, selected],
   );
-  const narrationAsset = useMemo(
-    () =>
-      selectedChapter?.narrationAssetId
-        ? workspace.assets.find((asset) => asset.id === selectedChapter.narrationAssetId) ?? null
-        : null,
-    [selectedChapter?.narrationAssetId, workspace.assets],
-  );
   const previewSources = useEditorPreviewSources({
     projectId,
     mediaAssetId: selected?.mediaAssetId ?? null,
     mediaStorageMode: selected?.storageMode,
+    narrationChapterId: selectedChapter?.chapterId ?? null,
     narrationAssetId: selectedChapter?.narrationAssetId ?? null,
-    narrationStorageMode: narrationAsset?.storageMode,
+    narrationSizeBytes: selectedChapter?.audioSizeBytes ?? null,
+    narrationChecksum: selectedChapter?.audioChecksum ?? null,
   });
   const autoDecision = useMemo(
     () => (selected ? createBeatDecision(selected, "AUTO") : null),

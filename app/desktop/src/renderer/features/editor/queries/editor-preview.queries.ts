@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
 import { assetsApi } from "../../assets/api/assets.api";
+import { materializeChapterNarrationPreview } from "../model/chapter-narration-preview";
 
 export interface EditorPreviewSources {
   mediaUrl: string | null;
@@ -13,24 +14,23 @@ export function useEditorPreviewSources({
   projectId,
   mediaAssetId,
   mediaStorageMode,
+  narrationChapterId,
   narrationAssetId,
-  narrationStorageMode,
+  narrationSizeBytes,
+  narrationChecksum,
 }: Readonly<{
   projectId: string | null;
   mediaAssetId: string | null;
   mediaStorageMode?: string | null;
+  narrationChapterId: string | null;
   narrationAssetId: string | null;
-  narrationStorageMode?: string | null;
+  narrationSizeBytes: number | null;
+  narrationChecksum: string | null;
 }>): EditorPreviewSources {
   const mediaIsLocalOnly = mediaStorageMode === "LOCAL_ONLY";
-  const narrationIsLocalOnly = narrationStorageMode === "LOCAL_ONLY";
   const localMediaUrl =
     projectId && mediaAssetId
       ? localAssetPreviewUrl(projectId, mediaAssetId)
-      : null;
-  const localNarrationUrl =
-    projectId && narrationAssetId
-      ? localAssetPreviewUrl(projectId, narrationAssetId)
       : null;
 
   const remoteMedia = useQuery({
@@ -40,25 +40,50 @@ export function useEditorPreviewSources({
     staleTime: 30_000,
   });
 
-  const remoteNarration = useQuery({
-    queryKey: ["assets", narrationAssetId ?? "none", "download-url"],
-    queryFn: () => assetsApi.downloadUrl(narrationAssetId as string),
-    enabled: Boolean(projectId && narrationAssetId && !narrationIsLocalOnly),
-    staleTime: 30_000,
+  const localNarration = useQuery({
+    queryKey: [
+      "projects",
+      projectId ?? "none",
+      "assets",
+      narrationAssetId ?? "none",
+      "materialized",
+    ],
+    queryFn: () =>
+      materializeChapterNarrationPreview(
+        {
+          materializeChapterNarration: (input) =>
+            window.narrativex.localStorage.materializeChapterNarration(input),
+        },
+        {
+          projectId,
+          chapterId: narrationChapterId,
+          assetId: narrationAssetId,
+          sizeBytes: narrationSizeBytes,
+          checksumSha256: narrationChecksum,
+        },
+      ),
+    enabled: Boolean(
+      projectId &&
+      narrationChapterId &&
+      narrationAssetId &&
+      narrationSizeBytes &&
+      narrationChecksum,
+    ),
+    staleTime: Infinity,
   });
 
   const mediaUrl =
     (mediaIsLocalOnly ? localMediaUrl : remoteMedia.data?.url ?? localMediaUrl) ?? null;
-  const narrationUrl =
-    (narrationIsLocalOnly
-      ? localNarrationUrl
-      : remoteNarration.data?.url ?? localNarrationUrl) ?? null;
+  const narrationUrl = localNarration.data ?? null;
   const loading =
     (Boolean(mediaAssetId && !mediaIsLocalOnly) && remoteMedia.isLoading) ||
-    (Boolean(narrationAssetId && !narrationIsLocalOnly) && remoteNarration.isLoading);
+    (Boolean(narrationAssetId) && localNarration.isLoading);
   const messages: string[] = [];
   if (!loading && mediaAssetId && !mediaUrl) {
     messages.push("Không lấy được media preview URL.");
+  }
+  if (!loading && narrationAssetId && (localNarration.isError || !narrationUrl)) {
+    messages.push("Không materialize được narration audio vào project local.");
   }
 
   return {
