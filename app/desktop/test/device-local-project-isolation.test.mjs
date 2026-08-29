@@ -107,3 +107,11 @@ test("renderer bridge exposes no project synchronization surface", () => {
   assert.match(catalog, /CATALOG_SCHEMA_VERSION = 2/);
   assert.match(catalog, /PROJECT_SNAPSHOT_SCHEMA_VERSION = 2/);
 });
+
+test("project media contracts contain no storage-mode abstraction", () => {
+  const assetContracts = source("packages", "client-contracts", "src", "asset.ts");
+  const productionContracts = source("packages", "client-contracts", "src", "production.ts");
+
+  assert.doesNotMatch(assetContracts, /storageMode|LOCAL_ONLY|PROJECT_LOCAL|HYBRID/);
+  assert.doesNotMatch(productionContracts, /BeatMediaStorageMode|storageMode|LOCAL_ONLY|PROJECT_LOCAL|HYBRID/);
+});
