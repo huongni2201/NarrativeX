@@ -65,7 +65,7 @@ class GenerationJobEventStreamServiceTest {
         rowVersion,
         jobId,
         projectId,
-        JobType.STORY_ANALYZE,
+        JobType.CHAPTER_ANALYZE,
         status,
         ResourceClass.FAST_CPU,
         progress,
