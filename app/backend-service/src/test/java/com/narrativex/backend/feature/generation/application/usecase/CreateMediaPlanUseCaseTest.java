@@ -36,7 +36,7 @@ import tools.jackson.databind.ObjectMapper;
 class CreateMediaPlanUseCaseTest {
 
   @Test
-  void pinsLockedChapterSnapshotAndResolvesExecutionStrategy() {
+  void pinsLockedChapterSnapshotAndResolvesCurrentExecutionStrategy() {
     var currentUserId = mock(CurrentUserId.class);
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
@@ -106,7 +106,7 @@ class CreateMediaPlanUseCaseTest {
             new CreateMediaPlanCommand(
                 projectId,
                 chapterId,
-                ProductionMode.HYBRID_LOCAL_I2V,
+                ProductionMode.IMAGE_MOTION,
                 new BigDecimal("1.25"),
                 "16:9",
                 "STANDARD",
@@ -119,14 +119,14 @@ class CreateMediaPlanUseCaseTest {
     assertThat(plan.chapterId()).isEqualTo(chapterId);
     assertThat(plan.chapterRowVersion()).isEqualTo(7L);
     assertThat(plan.revision()).isEqualTo(3);
-    assertThat(plan.productionMode()).isEqualTo(ProductionMode.HYBRID_LOCAL_I2V);
+    assertThat(plan.productionMode()).isEqualTo(ProductionMode.IMAGE_MOTION);
     assertThat(plan.scenes()).hasSize(1);
     assertThat(plan.scenes().getFirst().beats()).hasSize(1);
     assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
-        .isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
+        .isEqualTo(MotionStrategy.BASIC_IMAGE_MOTION);
     assertThat(plan.scenes().getFirst().beats().getFirst().promptSnapshot())
         .contains("Vietnamese woman with oval face")
-        .contains("beat role: PRIMARY");
+        .contains("[PRIMARY]");
     assertThat(plan.scenes().getFirst().beats().getFirst().characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
         .contains("\"versionNumber\":3")
