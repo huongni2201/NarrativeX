@@ -5,11 +5,12 @@ from uuid import UUID
 
 import pytest
 
-from narrativex_worker.image_generation_repository.materialization import ImageMaterializationMixin
+from narrativex_worker.image_generation_repository.materialization import (
+    ImageMaterializationMixin,
+)
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageGenerationResult
 from narrativex_worker.schema import ModerationDecision
-
 
 PROJECT_ID = UUID("018f0000-0000-7000-8000-000000000005")
 
