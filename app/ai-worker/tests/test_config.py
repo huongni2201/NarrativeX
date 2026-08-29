@@ -44,6 +44,13 @@ def test_project_media_local_dir_is_explicit(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.project_media_local_dir == "/tmp/narrativex-project-media"
 
 
+def test_removed_media_storage_compatibility_aliases_stay_removed() -> None:
+    settings = WorkerSettings()
+
+    assert not hasattr(settings, "media_storage_mode")
+    assert not hasattr(settings, "media_local_dir")
+
+
 def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TTS_PROVIDER_MODE", "google")
 
