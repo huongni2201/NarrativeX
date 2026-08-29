@@ -24,6 +24,7 @@ The final output must preserve the narration timeline as the master clock. Previ
 - The renderer currently plans CUT for regular beat boundaries and FADE_BLACK at chapter boundaries.
 - The existing `RenderScreen` already performs readiness checks, local preflight, render job creation, progress tracking, and output reveal.
 - Local render is FFmpeg-based and narration timing is authoritative.
+- The backend render request currently accepts only `720p|1080p`; 2K support therefore requires an end-to-end contract update rather than a UI-only option.
 
 ## Architecture
 
@@ -141,6 +142,32 @@ If project name is unavailable, use `narrativex-render-<yyyyMMdd-HHmmss>.mp4`.
 
 Existing internal render working directories/journals remain unchanged. The user destination is the final delivery target, not a replacement for temporary render workspace.
 
+### 6. Render resolution contract
+
+Expose three render quality presets end-to-end:
+
+```ts
+type RenderResolution = "720p" | "1080p" | "1440p";
+```
+
+UI labels:
+
+- `720p · HD`
+- `1080p · Full HD`
+- `2K · 1440p (QHD)`
+
+For a 16:9 project the concrete output sizes are:
+
+- `720p` -> `1280x720`
+- `1080p` -> `1920x1080`
+- `1440p` -> `2560x1440`
+
+For portrait or other supported aspect ratios, preserve the project aspect ratio and use the selected preset as the target short-edge class rather than stretching the frame. The implementation must keep width and height even so FFmpeg/H.264 encoders remain valid.
+
+In this design, the product label **2K** means **QHD 2560x1440**, not DCI 2K 2048x1080. This matches the common desktop/video-export expectation and keeps the existing 720p -> 1080p -> 1440p quality ladder consistent.
+
+Required contract changes include the backend request validation, desktop/client render types, renderer output-size resolver, UI selector, tests, and any render snapshot metadata that restricts resolution values.
+
 ## UI
 
 ### Editor toolbar
@@ -151,7 +178,7 @@ Add a primary `Render` button in the Editor top/right action area.
 
 Fields:
 
-- Resolution: 720p / 1080p
+- Resolution: 720p / 1080p / 2K (1440p QHD)
 - Auto Edit: Auto / Cinematic / Balanced / Dynamic
 - Subtitles: On / Off
 - Destination: read-only selected folder display
@@ -174,6 +201,7 @@ Active subtitle is centered above the lower safe margin. Motion/transition effec
 - Destination path write failure fails finalization with a clear error while preserving the internal completed render artifact when possible.
 - Missing subtitle cues do not block render; subtitle toggle becomes disabled with a descriptive message.
 - Transition planning falls back to CUT if a transition would violate minimum-duration safety rules.
+- Unsupported or malformed render resolution values are rejected before a render job is queued.
 
 ## Testing
 
@@ -187,7 +215,10 @@ Add focused tests for:
 - folder-picker IPC cancellation and selected path return;
 - render start refusing to queue before a destination is selected;
 - render finalization copying/moving final MP4 to the selected destination;
+- backend/API acceptance of `1440p` and rejection of unsupported resolution values;
+- 16:9 2K output resolving to `2560x1440`;
+- non-16:9 output preserving aspect ratio with encoder-safe even dimensions;
 - RenderScreen and Editor using the same render controller;
 - renderer transition/subtitle command generation.
 
-Run desktop unit tests, typecheck/build, and existing render regression tests before completion.
+Run desktop unit tests, backend render-request/use-case tests, typecheck/build, and existing render regression tests before completion.
