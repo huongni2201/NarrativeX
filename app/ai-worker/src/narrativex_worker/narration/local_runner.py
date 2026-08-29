@@ -259,7 +259,9 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             raise NarrationPermanentError("Account voice reference size does not match metadata")
         checksum = await asyncio.to_thread(sha256_file, source_path)
         if checksum != claimed.voice_reference_checksum.lower():
-            raise NarrationPermanentError("Account voice reference checksum does not match metadata")
+            raise NarrationPermanentError(
+                "Account voice reference checksum does not match metadata"
+            )
         return source_path
 
     @staticmethod
