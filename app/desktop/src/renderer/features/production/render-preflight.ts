@@ -34,12 +34,17 @@ export function buildRenderPreflightInput(
     timeline.totalDurationMs,
     resolution,
   );
+  const assetIds = [...new Set(assets.map((asset) => asset.assetId))];
 
   return {
     projectId,
+    assetIds,
     assets,
     estimatedOutputBytes,
     requiredTemporaryBytes: estimatedOutputBytes * 2,
+  } as LocalRenderPreflightInput & {
+    assetIds: string[];
+    assets: LocalRenderPreflightAssetInput[];
   };
 }
 
