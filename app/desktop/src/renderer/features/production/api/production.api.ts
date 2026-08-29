@@ -3,6 +3,7 @@ import type {
   DesktopTimeline,
   LocalRenderPreflight,
   ProjectRenderBeatOverride,
+  RenderResolution,
   UpdateBeatMediaInput,
 } from "@narrativex/client-contracts";
 import { apiCommand, apiRequest } from "../../../api/client";
@@ -52,7 +53,7 @@ export const productionApi = {
   startRender: async (
     projectId: string,
     beatOverrides: ProjectRenderBeatOverride[] = [],
-    resolution: "720p" | "1080p" = "1080p",
+    resolution: RenderResolution = "1080p",
   ) => {
     const status = await window.narrativex.localExecution.status();
     if (!status.projectRenderEnabled) {

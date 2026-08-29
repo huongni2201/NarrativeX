@@ -154,6 +154,11 @@ export interface RenderRecoveryStatus {
   unfinished: Array<{ projectId: string; jobId: string; stage: string; recoveryAction: string; updatedAt: string; renderFingerprint: string }>;
 }
 
+export interface RenderDestinationSelection {
+  token: string;
+  directory: string;
+}
+
 export interface DesktopApiRequest {
   path: string;
   method?: string;
@@ -241,6 +246,13 @@ export interface NarrativeXDesktopBridge {
     preflight(input: LocalRenderPreflightInput): Promise<LocalRenderPreflight>;
     recoveryStatus(): Promise<RenderRecoveryStatus>;
     cancel(jobId: string): Promise<boolean>;
+    chooseDestination(): Promise<RenderDestinationSelection | null>;
+    deliverArtifact(input: {
+      token: string;
+      projectId: string;
+      jobId: string;
+      projectName?: string;
+    }): Promise<{ path: string }>;
   };
   system: {
     copyText(text: string): Promise<void>;

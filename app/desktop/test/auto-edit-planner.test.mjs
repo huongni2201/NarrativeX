@@ -38,6 +38,22 @@ test("image beats use narration duration and semantic motion", () => {
   assert.equal(chooseCameraMovement(input, "CINEMATIC"), "PUSH_IN");
 });
 
+test("ordinary still beats receive gentle deterministic motion instead of staying static", () => {
+  const first = beat({
+    title: "Office morning",
+    visualIntent: "Two colleagues stand beside a desk.",
+    beatIndex: 0,
+  });
+  const second = beat({
+    title: "Office morning",
+    visualIntent: "Two colleagues stand beside a desk.",
+    beatIndex: 1,
+  });
+
+  assert.equal(chooseCameraMovement(first, "BALANCED"), "PAN");
+  assert.equal(chooseCameraMovement(second, "BALANCED"), "PUSH_IN");
+});
+
 test("automatic style follows narrative intent without user input", () => {
   assert.equal(
     resolveAutoEditStyle({ title: "Escape", visualIntent: "The hero runs through an explosion" }),

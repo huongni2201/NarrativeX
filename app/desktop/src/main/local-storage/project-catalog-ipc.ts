@@ -1,12 +1,20 @@
 import type { DesktopProject } from "@narrativex/client-contracts";
+import { dialog } from "electron";
+import { dirname } from "node:path";
+import { deliverRenderArtifact } from "../rendering/render-destination";
 import {
   registerTrustedIpcHandler,
+  registerTrustedIpcHandlerWithEvent,
   type RendererTrustPolicy,
 } from "../security/renderer-security";
+import { SelectionTokenStore } from "../security/selection-token-store";
 import {
   ProjectCatalog,
   type LocalProjectCatalogMetadata,
 } from "./project-catalog";
+import { ProjectStorage } from "./project-storage";
+
+const pendingRenderDestinations = new SelectionTokenStore<{ directory: string }>();
 
 export function registerProjectCatalogIpc(
   trustPolicy: RendererTrustPolicy,
@@ -34,6 +42,52 @@ export function registerProjectCatalogIpc(
     }
     return catalog.reconcile(input.projects, input.metadata);
   });
+
+  registerTrustedIpcHandlerWithEvent(
+    "desktop:render:choose-destination",
+    trustPolicy,
+    async (event) => {
+      const selected = await dialog.showOpenDialog({
+        title: "Choose final video folder",
+        properties: ["openDirectory", "createDirectory"],
+      });
+      const directory = selected.filePaths[0];
+      if (selected.canceled || !directory) return null;
+      return {
+        token: pendingRenderDestinations.create(
+          event.sender.id,
+          "render-delivery",
+          { directory },
+          60 * 60_000,
+        ),
+        directory,
+      };
+    },
+  );
+
+  registerTrustedIpcHandlerWithEvent(
+    "desktop:render:deliver-artifact",
+    trustPolicy,
+    async (event, input) => {
+      if (!isRenderDeliveryInput(input)) throw new Error("Invalid render delivery request.");
+      const destination = pendingRenderDestinations.consume(
+        input.token,
+        event.sender.id,
+        "render-delivery",
+      );
+      const project = (await catalog.list()).find((entry) => entry.project.id === input.projectId);
+      if (!project) throw new Error("Local project is not available for render delivery.");
+
+      const storage = new ProjectStorage(dirname(project.workspacePath));
+      const sourcePath = await storage.resolveArtifact(input.projectId, input.jobId);
+      const path = await deliverRenderArtifact({
+        sourcePath,
+        destinationDirectory: destination.directory,
+        projectName: input.projectName ?? project.project.name,
+      });
+      return { path };
+    },
+  );
 }
 
 function isCatalogUpsertInput(value: unknown): value is {
@@ -55,6 +109,25 @@ function isCatalogReconcileInput(value: unknown): value is {
     Array.isArray(input.projects) &&
     input.projects.every(isProject) &&
     isMetadata(input.metadata)
+  );
+}
+
+function isRenderDeliveryInput(value: unknown): value is {
+  token: string;
+  projectId: string;
+  jobId: string;
+  projectName?: string;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const input = value as Record<string, unknown>;
+  return (
+    typeof input.token === "string" &&
+    input.token.length > 0 &&
+    typeof input.projectId === "string" &&
+    input.projectId.length > 0 &&
+    typeof input.jobId === "string" &&
+    input.jobId.length > 0 &&
+    (input.projectName === undefined || typeof input.projectName === "string")
   );
 }
 

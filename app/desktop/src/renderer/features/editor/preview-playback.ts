@@ -84,6 +84,32 @@ export function narrationTimeMs(
   return clamp(playheadMs - chapterStartMs, 0, Math.max(0, chapterEndMs - chapterStartMs));
 }
 
+export function globalPlayheadFromNarrationSeconds(
+  currentTimeSeconds: number,
+  chapterStartMs: number,
+  chapterEndMs: number,
+): number {
+  const chapterDurationMs = Math.max(0, chapterEndMs - chapterStartMs);
+  const localMs = clamp(currentTimeSeconds * 1000, 0, chapterDurationMs);
+  return chapterStartMs + localMs;
+}
+
+export function narrationSeekSeconds(
+  globalPlayheadMs: number,
+  chapterStartMs: number,
+  chapterEndMs: number,
+): number {
+  return narrationTimeMs(globalPlayheadMs, chapterStartMs, chapterEndMs) / 1000;
+}
+
+export function shouldResyncNarration(
+  currentSeconds: number,
+  desiredSeconds: number,
+  thresholdSeconds = 0.35,
+): boolean {
+  return Math.abs(currentSeconds - desiredSeconds) > thresholdSeconds;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }

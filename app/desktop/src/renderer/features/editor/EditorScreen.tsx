@@ -3,7 +3,11 @@ import type {
   BeatMediaFitMode,
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
+import { Film } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { createBeatDecision } from "../production/auto-edit-planner";
+import { RenderDialog } from "../production/components/RenderDialog";
+import { useRenderController } from "../production/useRenderController";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 import { EditorExplorerPanel } from "./components/EditorExplorerPanel";
 import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
@@ -19,6 +23,7 @@ import {
 import { EditorMediaAttachError } from "./model/editor-media-workflow";
 import { useEditorMediaMutations } from "./queries/editor-media.mutations";
 import { useEditorPreviewSources } from "./queries/editor-preview.queries";
+import { useEditorSubtitles } from "./queries/editor-subtitles.queries";
 
 export interface MediaMutationNotice {
   beatId: string;
@@ -34,8 +39,20 @@ export function EditorScreen({
 }>) {
   const timeline = workspace.timeline;
   const projectId = timeline?.projectId ?? null;
+  const projectName = workspace.projects.find((project) => project.id === projectId)?.name;
+  const renderController = useRenderController({
+    projectId: projectId ?? "",
+    timeline,
+    projectName,
+  });
+  const [renderOpen, setRenderOpen] = useState(false);
   const beats = timeline?.beats ?? [];
   const chapters = timeline?.chapters ?? [];
+  const subtitles = useEditorSubtitles({
+    projectId,
+    storyVersionId: timeline?.storyVersionId ?? null,
+    chapters,
+  });
   const orderedBeats = useMemo(() => sortEditorBeats(beats), [beats]);
   const selectableAssets = useMemo(
     () => workspace.assets.filter((asset) => asset.type === "IMAGE" || asset.type === "VIDEO"),
@@ -45,8 +62,6 @@ export function EditorScreen({
   const selectedIdRef = useRef("");
   const mediaMutationRequestRef = useRef(0);
   const [query, setQuery] = useState("");
-  // Review should naturally continue across chapter boundaries. Beat/scene/chapter
-  // scopes remain modelled in editor-timeline for future explicit focus controls.
   const [scope] = useState<EditorScope>("project");
   const [mediaBusy, setMediaBusy] = useState(false);
   const [mediaNotice, setMediaNotice] = useState<MediaMutationNotice | null>(null);
@@ -174,9 +189,7 @@ export function EditorScreen({
         retry,
       });
     } finally {
-      if (isCurrentMediaMutation(requestId, beatId)) {
-        setMediaBusy(false);
-      }
+      if (isCurrentMediaMutation(requestId, beatId)) setMediaBusy(false);
     }
   }
 
@@ -214,12 +227,7 @@ export function EditorScreen({
             retryAttach,
           );
         };
-        setMediaNotice({
-          beatId,
-          tone: "error",
-          message: error.message,
-          retry: retryAttach,
-        });
+        setMediaNotice({ beatId, tone: "error", message: error.message, retry: retryAttach });
       } else {
         setMediaNotice({
           beatId,
@@ -228,9 +236,7 @@ export function EditorScreen({
         });
       }
     } finally {
-      if (isCurrentMediaMutation(requestId, beatId)) {
-        setMediaBusy(false);
-      }
+      if (isCurrentMediaMutation(requestId, beatId)) setMediaBusy(false);
     }
   }
 
@@ -243,9 +249,7 @@ export function EditorScreen({
     const action = () => mediaMutations.chooseExistingAsset.mutateAsync({ beat, asset });
     const successMessage = (result: Awaited<ReturnType<typeof action>>) =>
       `${result.originalFilename} đã được gắn; Auto Edit chọn ${result.fitMode}.`;
-    const retry = () => {
-      void withMediaMutation(beatId, action, successMessage, retry);
-    };
+    const retry = () => void withMediaMutation(beatId, action, successMessage, retry);
     await withMediaMutation(beatId, action, successMessage, retry);
   }
 
@@ -254,14 +258,13 @@ export function EditorScreen({
     const beat = selected;
     const beatId = beat.visualBeatId;
     const action = () => mediaMutations.updateFitMode.mutateAsync({ beat, fitMode });
-    const retry = () => {
+    const retry = () =>
       void withMediaMutation(
         beatId,
         action,
         `Manual override đã chuyển fit mode sang ${fitMode}.`,
         retry,
       );
-    };
     await withMediaMutation(
       beatId,
       action,
@@ -274,14 +277,24 @@ export function EditorScreen({
     if (!projectId || !selected) return;
     const beatId = selected.visualBeatId;
     const action = () => mediaMutations.resetMedia.mutateAsync({ beatId });
-    const retry = () => {
+    const retry = () =>
       void withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
-    };
     await withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
   }
 
   return (
-    <div className="nx-editor-layout grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
+    <div className="nx-editor-layout relative grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
+      <div className="absolute right-[calc(var(--editor-inspector-width)+16px)] top-3 z-50">
+        <Button
+          size="sm"
+          onClick={() => setRenderOpen(true)}
+          disabled={!projectId || !timeline}
+          className="shadow-lg"
+        >
+          <Film size={14} /> Render
+        </Button>
+      </div>
+
       <EditorExplorerPanel
         hierarchy={filteredHierarchy}
         selectedBeatId={selectedId}
@@ -293,13 +306,14 @@ export function EditorScreen({
       <EditorPlaybackSurface
         beats={orderedBeats}
         chapters={chapters}
+        subtitleCues={subtitles.cues}
         selectedBeatId={selectedId}
         previewBeat={previewBeat}
         mediaUrl={previewSources.mediaUrl}
         narrationUrl={previewSources.narrationUrl}
         narrationStartMs={selectedChapter?.startMs ?? null}
         narrationEndMs={selectedChapter?.endMs ?? null}
-        previewLoading={previewSources.loading}
+        previewLoading={previewSources.loading || subtitles.loading}
         previewMessage={previewSources.message}
         totalDurationMs={totalMs}
         scopeWindowStartMs={scopeWindow.startMs}
@@ -318,6 +332,12 @@ export function EditorScreen({
         onChooseAsset={chooseExistingAsset}
         onUpdateFitMode={updateFitMode}
         onResetSource={resetToGeneratedSource}
+      />
+
+      <RenderDialog
+        open={renderOpen}
+        onClose={() => setRenderOpen(false)}
+        controller={renderController}
       />
     </div>
   );

@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import { planBeatTransitions } from "../../../../shared/transition-planner";
+import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
+import { transitionBlackOpacity } from "../preview-transition";
 import { EditorMultiTrackTimeline } from "./EditorMultiTrackTimeline";
 import { EditorPreviewViewport } from "./EditorPreviewViewport";
 
 interface EditorPlaybackSurfaceProps {
   beats: DesktopTimelineBeat[];
   chapters: DesktopTimeline["chapters"];
+  subtitleCues: PlannedSubtitle[];
   selectedBeatId: string;
   previewBeat: DesktopTimelineBeat | null;
   mediaUrl: string | null;
@@ -24,6 +29,7 @@ interface EditorPlaybackSurfaceProps {
 export function EditorPlaybackSurface({
   beats,
   chapters,
+  subtitleCues,
   selectedBeatId,
   previewBeat,
   mediaUrl,
@@ -39,10 +45,20 @@ export function EditorPlaybackSurface({
   onUploadMedia,
 }: Readonly<EditorPlaybackSurfaceProps>) {
   const orderedBeats = useMemo(() => sortEditorBeats(beats), [beats]);
+  const transitionByBeat = useMemo(
+    () => new Map(planBeatTransitions(orderedBeats).map((plan) => [plan.visualBeatId, plan])),
+    [orderedBeats],
+  );
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(scopeWindowStartMs);
-  const scopeDurationMs = Math.max(0, scopeWindowEndMs - scopeWindowStartMs);
   const lastSelectedBeatIdRef = useRef(selectedBeatId);
+  const activeTransitionOpacity = previewBeat
+    ? transitionBlackOpacity(
+        previewBeat,
+        transitionByBeat.get(previewBeat.visualBeatId) ?? { transitionInMs: 0, transitionOutMs: 0 },
+        playheadMs,
+      )
+    : 0;
 
   useEffect(() => {
     if (!orderedBeats.length) {
@@ -57,9 +73,7 @@ export function EditorPlaybackSurface({
         const selected = orderedBeats.find((beat) => beat.visualBeatId === selectedBeatId);
         if (selected) {
           const currentBeat = findEditorBeatAtTime(orderedBeats, playheadMs);
-          if (currentBeat?.visualBeatId !== selectedBeatId) {
-            setPlayheadMs(selected.startMs);
-          }
+          if (currentBeat?.visualBeatId !== selectedBeatId) setPlayheadMs(selected.startMs);
         }
       }
     }
@@ -73,21 +87,6 @@ export function EditorPlaybackSurface({
   }, [playheadMs, scopeWindowEndMs, scopeWindowStartMs]);
 
   useEffect(() => {
-    if (!playing || scopeDurationMs <= 0) return;
-    const stepMs = 100;
-    const timer = window.setInterval(() => {
-      setPlayheadMs((current) => {
-        if (current >= scopeWindowEndMs) {
-          setPlaying(false);
-          return scopeWindowStartMs;
-        }
-        return Math.min(scopeWindowEndMs, current + stepMs);
-      });
-    }, stepMs);
-    return () => window.clearInterval(timer);
-  }, [playing, scopeDurationMs, scopeWindowEndMs, scopeWindowStartMs]);
-
-  useEffect(() => {
     const beatAtTime = findEditorBeatAtTime(orderedBeats, playheadMs);
     if (beatAtTime && beatAtTime.visualBeatId !== selectedBeatId) {
       lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
@@ -95,31 +94,25 @@ export function EditorPlaybackSurface({
     }
   }, [onSelectBeat, orderedBeats, playheadMs, selectedBeatId]);
 
-  const selectBeat = (beat: DesktopTimelineBeat) => {
+  const selectBeat = useCallback((beat: DesktopTimelineBeat) => {
     lastSelectedBeatIdRef.current = beat.visualBeatId;
     setPlayheadMs(beat.startMs);
     onSelectBeat(beat);
-  };
+  }, [onSelectBeat]);
 
-  const handlePrevBeat = () => {
+  const handlePrevBeat = useCallback(() => {
     const currentIndex = orderedBeats.findIndex((beat) => beat.visualBeatId === selectedBeatId);
     if (currentIndex > 0) selectBeat(orderedBeats[currentIndex - 1]);
-  };
+  }, [orderedBeats, selectBeat, selectedBeatId]);
 
-  const handleNextBeat = () => {
+  const handleNextBeat = useCallback(() => {
     const currentIndex = orderedBeats.findIndex((beat) => beat.visualBeatId === selectedBeatId);
     if (currentIndex >= 0 && currentIndex < orderedBeats.length - 1) {
       selectBeat(orderedBeats[currentIndex + 1]);
     }
-  };
+  }, [orderedBeats, selectBeat, selectedBeatId]);
 
-  const handleStepMs = (deltaMs: number) => {
-    setPlayheadMs((current) =>
-      Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, current + deltaMs)),
-    );
-  };
-
-  const handleSeek = (targetMs: number) => {
+  const handleSeek = useCallback((targetMs: number) => {
     const clamped = Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, targetMs));
     setPlayheadMs(clamped);
     const beatAtTime = findEditorBeatAtTime(orderedBeats, clamped);
@@ -127,13 +120,32 @@ export function EditorPlaybackSurface({
       lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
       onSelectBeat(beatAtTime);
     }
-  };
+  }, [onSelectBeat, orderedBeats, scopeWindowEndMs, scopeWindowStartMs, selectedBeatId]);
+
+  const handleStepMs = useCallback((deltaMs: number) => {
+    handleSeek(playheadMs + deltaMs);
+  }, [handleSeek, playheadMs]);
+
+  const handleNarrationClock = useCallback((globalMs: number) => {
+    const clamped = Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, globalMs));
+    setPlayheadMs(clamped);
+  }, [scopeWindowEndMs, scopeWindowStartMs]);
+
+  const handleNarrationEnded = useCallback(() => {
+    if (narrationEndMs != null && narrationEndMs < scopeWindowEndMs) {
+      handleSeek(Math.min(scopeWindowEndMs, narrationEndMs + 1));
+      return;
+    }
+    setPlaying(false);
+  }, [handleSeek, narrationEndMs, scopeWindowEndMs]);
 
   return (
     <div className="nx-editor-playback-surface h-full min-h-0 min-w-0 overflow-hidden border-r border-border-subtle bg-background">
       <div className="nx-editor-preview-panel min-h-0 overflow-hidden">
         <EditorPreviewViewport
           selectedBeat={previewBeat}
+          subtitleCues={subtitleCues}
+          transitionBlackOpacity={activeTransitionOpacity}
           mediaUrl={mediaUrl}
           narrationUrl={narrationUrl}
           narrationStartMs={narrationStartMs}
@@ -144,10 +156,19 @@ export function EditorPlaybackSurface({
           scopeWindowStartMs={scopeWindowStartMs}
           scopeWindowEndMs={scopeWindowEndMs}
           playing={playing}
-          onTogglePlay={() => setPlaying((current) => !current)}
+          onTogglePlay={() => {
+            if (!narrationUrl) {
+              setPlaying(false);
+              return;
+            }
+            setPlaying((current) => !current);
+          }}
           onPrevBeat={handlePrevBeat}
           onNextBeat={handleNextBeat}
           onStepMs={handleStepMs}
+          onNarrationClock={handleNarrationClock}
+          onNarrationEnded={handleNarrationEnded}
+          onPlaybackError={() => setPlaying(false)}
         />
       </div>
 
@@ -155,6 +176,7 @@ export function EditorPlaybackSurface({
         <EditorMultiTrackTimeline
           beats={orderedBeats}
           chapters={chapters}
+          subtitleCues={subtitleCues}
           playheadMs={playheadMs}
           totalDurationMs={totalDurationMs}
           selectedBeatId={selectedBeatId}
