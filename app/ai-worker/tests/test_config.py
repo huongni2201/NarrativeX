@@ -44,21 +44,20 @@ def test_project_media_local_dir_is_explicit(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.project_media_local_dir == "/tmp/narrativex-project-media"
 
 
-def test_removed_media_storage_compatibility_aliases_stay_removed() -> None:
-    settings = WorkerSettings()
+def test_narration_compatibility_aliases_point_to_local_project_media() -> None:
+    settings = WorkerSettings(project_media_local_dir="/tmp/project-media")
 
-    assert not hasattr(settings, "media_storage_mode")
-    assert not hasattr(settings, "media_local_dir")
+    assert settings.media_storage_mode == "local"
+    assert settings.media_local_dir == "/tmp/project-media"
 
 
-def test_removed_provider_settings_stay_removed() -> None:
+def test_removed_google_tts_settings_stay_removed() -> None:
     settings = WorkerSettings()
 
     for field_name in (
         "google_tts_project_id",
         "google_tts_endpoint",
         "google_tts_timeout_seconds",
-        "tts_pricing_catalog_version",
     ):
         assert not hasattr(settings, field_name)
 
