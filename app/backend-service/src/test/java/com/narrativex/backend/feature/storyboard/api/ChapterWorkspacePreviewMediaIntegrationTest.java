@@ -106,13 +106,14 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
   }
 
   @Test
-  void workspaceDoesNotReadRemovedLegacyPreviewAssetColumn() throws Exception {
+  void workspaceProjectsCanonicalPreviewMediaAssetIdentity() throws Exception {
     mockMvc
         .perform(get("/api/v1/projects/" + PROJECT_ID + "/chapters/" + CHAPTER_ID + "/workspace"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.previewScenes[0].visualBeatCount").value(1))
-        .andExpect(jsonPath("$.data.previewScenes[0].previewImageUrl").isEmpty());
+        .andExpect(jsonPath("$.data.previewScenes[0].previewMediaAssetId").value(MEDIA_ASSET_ID.toString()))
+        .andExpect(jsonPath("$.data.previewScenes[0].previewImageUrl").doesNotExist());
   }
 
   private static UUID testUuid(long suffix) {
