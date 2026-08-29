@@ -18,6 +18,8 @@ For the architecture-level worker map, see `../../documentation/codebase/AI_WORK
 - bounded PostgreSQL claim/lease/heartbeat execution;
 - shared deterministic retry/reconciliation behavior where implemented.
 
+There is no current Python video-generation/I2V provider role. The former Wan adapter and its provider port are not part of the active worker runtime.
+
 ## Roles and concurrency
 
 The repository is one Python source tree but runtime packaging is role-specific. The supported runtime roles are:
@@ -96,7 +98,7 @@ R2 is not authoritative for Desktop project bytes or final MP4 files. Voice-refe
 
 ## Final project rendering
 
-Final project rendering belongs to Electron main under backend assignment/lease. The Python worker has no final-render role, does not resolve Desktop project paths and does not persist final MP4 bytes.
+Final project rendering belongs to Electron main under backend assignment/lease. The Python worker has no final-render role, no video-generation/I2V provider adapter, does not resolve Desktop project paths and does not persist final MP4 bytes. Current image motion and final composition are executed through the Desktop FFmpeg pipeline.
 
 ## Provider safety
 
@@ -105,7 +107,7 @@ Final project rendering belongs to Electron main under backend assignment/lease.
 - cancel claimed processing on lease loss;
 - fail closed on invalid or uncorrelated provider output;
 - never invent work outside persisted backend authorization;
-- never silently upgrade an image-motion plan to I2V.
+- do not resurrect a removed I2V provider path as an implicit fallback for the FFmpeg render flow.
 
 ## Quality gates
 
