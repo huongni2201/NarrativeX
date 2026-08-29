@@ -161,5 +161,5 @@ Richer process/OS-crash recovery/resume and long-duration soak validation remain
 
 - [ADR-0001: System topology, durable execution and persistence](./ADR-0001-system-topology-execution-and-persistence.md)
 - [ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)
-- [ADR-0010: Electron desktop editor client boundary](./ADR-0010-electron-desktop-editor-client-boundary.md)
-- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0011-google-oauth-only-desktop-authentication.md)
+- [ADR-0010: Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)
+- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0011-google-oauth-only-desktop-auth.md)
