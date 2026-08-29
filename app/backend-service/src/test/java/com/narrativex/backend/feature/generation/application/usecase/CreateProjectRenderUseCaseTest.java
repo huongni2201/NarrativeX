@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
-import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import java.util.List;
 import java.util.UUID;
@@ -57,35 +56,31 @@ class CreateProjectRenderUseCaseTest {
   }
 
   @Test
-  void projectRenderRequestFingerprintChangesWithResolutionTimelineAndExecutionTarget() {
+  void projectRenderRequestFingerprintChangesWithResolutionTimelineAndAssignedDevice() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     UUID firstBeatId = UUID.randomUUID();
     UUID secondBeatId = UUID.randomUUID();
     UUID localDeviceId = UUID.randomUUID();
+    UUID otherDeviceId = UUID.randomUUID();
     ProductionTimelineView timeline =
         timeline(projectId, storyVersionId, chapterId, firstBeatId, secondBeatId);
     String originalTimelineFingerprint = CreateProjectRenderUseCase.timelineFingerprint(timeline);
     String render720 =
         CreateProjectRenderUseCase.requestFingerprint(
-            new CreateProjectRenderCommand(projectId, "720p", "mp4", null, null),
+            new CreateProjectRenderCommand(
+                projectId, "720p", "mp4", null, localDeviceId, List.of()),
             originalTimelineFingerprint);
     String render1080 =
         CreateProjectRenderUseCase.requestFingerprint(
-            new CreateProjectRenderCommand(projectId, "1080p", "mp4", null, null),
+            new CreateProjectRenderCommand(
+                projectId, "1080p", "mp4", null, localDeviceId, List.of()),
             originalTimelineFingerprint);
-    String renderLocal =
+    String renderOtherDevice =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId,
-                "720p",
-                "mp4",
-                null,
-                null,
-                RenderExecutionTarget.LOCAL_DEVICE,
-                localDeviceId,
-                List.of()),
+                projectId, "720p", "mp4", null, otherDeviceId, List.of()),
             originalTimelineFingerprint);
 
     ProductionTimelineView edited =
@@ -93,24 +88,21 @@ class CreateProjectRenderUseCaseTest {
             timeline, List.of(new RenderBeatOverride(firstBeatId, 10_000L, null)));
     String editedRender720 =
         CreateProjectRenderUseCase.requestFingerprint(
-            new CreateProjectRenderCommand(projectId, "720p", "mp4", null, null),
+            new CreateProjectRenderCommand(
+                projectId, "720p", "mp4", null, localDeviceId, List.of()),
             CreateProjectRenderUseCase.timelineFingerprint(edited));
 
     assertThat(render720)
         .hasSize(64)
         .isNotEqualTo(render1080)
         .isNotEqualTo(editedRender720)
-        .isNotEqualTo(renderLocal);
+        .isNotEqualTo(renderOtherDevice);
   }
 
   @Test
-  void localProjectRenderUsesSeparateStageAndOperationIdentity() {
-    assertThat(
-            CreateProjectRenderUseCase.operationType(
-                RenderExecutionTarget.LOCAL_DEVICE, "1080p", "mp4"))
-        .isEqualTo("RENDER_PROJECT_LOCAL_1080P_MP4");
+  void projectRenderUsesOnlyLocalStageAndOperationIdentity() {
     assertThat(CreateProjectRenderUseCase.operationType("1080p", "mp4"))
-        .isEqualTo("RENDER_PROJECT_1080P_MP4");
+        .isEqualTo("RENDER_PROJECT_LOCAL_1080P_MP4");
   }
 
   @Test

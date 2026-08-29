@@ -3,9 +3,6 @@ package com.narrativex.backend.feature.localexecution.infrastructure.persistence
 public record LocalProjectRenderArtifactRow(
     String renderFingerprint,
     String storageKey,
-    String storageProvider,
-    String externalFileId,
-    String webViewLink,
     String mimeType,
     long sizeBytes,
     String checksumSha256,

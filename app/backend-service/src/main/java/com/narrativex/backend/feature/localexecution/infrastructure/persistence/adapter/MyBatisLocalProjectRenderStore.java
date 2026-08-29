@@ -124,9 +124,6 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
               deviceId,
               result.renderFingerprint(),
               result.storageKey(),
-              result.storageProvider(),
-              result.externalFileId(),
-              result.webViewLink(),
               result.mimeType(),
               result.sizeBytes(),
               result.checksumSha256(),
@@ -180,9 +177,6 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
       LocalProjectRenderArtifactRow existing, CompletionResult result) {
     return Objects.equals(existing.renderFingerprint(), result.renderFingerprint())
         && Objects.equals(existing.storageKey(), result.storageKey())
-        && Objects.equals(existing.storageProvider(), result.storageProvider())
-        && Objects.equals(existing.externalFileId(), result.externalFileId())
-        && Objects.equals(existing.webViewLink(), result.webViewLink())
         && Objects.equals(existing.mimeType(), result.mimeType())
         && existing.sizeBytes() == result.sizeBytes()
         && Objects.equals(existing.checksumSha256(), result.checksumSha256())

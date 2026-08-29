@@ -17,7 +17,6 @@ import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
-import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
@@ -45,10 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateProjectRenderUseCase {
-  private static final String CLOUD_STAGE_NAME = "RENDER_PROJECT";
   private static final String LOCAL_STAGE_NAME = "RENDER_PROJECT_LOCAL";
   private static final String PROJECT_RENDER_CAPABILITY = "PROJECT_RENDER";
-  private static final long BILLING_WINDOW_MS = 30L * 60L * 1000L;
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 512;
 
   private final CurrentUserId currentUserId;
@@ -67,8 +64,7 @@ public class CreateProjectRenderUseCase {
   public GenerationJob execute(CreateProjectRenderCommand command) {
     String userId = currentUserId.get();
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
-    RenderExecutionTarget executionTarget = command.executionTarget();
-    validateExecutionTarget(userId, executionTarget, command.localDeviceId());
+    validateLocalDevice(userId, command.localDeviceId());
 
     ProductionTimelineView sourceTimeline =
         getProductionTimelineUseCase.executeOwned(command.projectId(), userId);
@@ -77,7 +73,6 @@ public class CreateProjectRenderUseCase {
           "PROJECT_RENDER_INPUT_NOT_READY",
           "Project rendering requires READY narration and visual media for every production timeline beat.");
     }
-    validateMediaForExecutionTarget(sourceTimeline, executionTarget);
     ProductionTimelineView timeline = applyBeatOverrides(sourceTimeline, command.beatOverrides());
 
     var quota =
@@ -90,16 +85,6 @@ public class CreateProjectRenderUseCase {
     if (!qualityAllowed(command.resolution(), quota.maxVideoQuality())) {
       throw new GenerationAdmissionDeniedException(
           "ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
-    }
-
-    BigDecimal renderCost =
-        executionTarget == RenderExecutionTarget.LOCAL_DEVICE
-            ? BigDecimal.ZERO
-            : estimateRenderCost(command.resolution(), timeline.totalDurationMs());
-    if (command.maxAuthorizedCost() != null
-        && renderCost.compareTo(command.maxAuthorizedCost()) > 0) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The requested render authorization cap is below the server estimate.");
     }
 
     String timelineFingerprint = timelineFingerprint(timeline);
@@ -118,13 +103,14 @@ public class CreateProjectRenderUseCase {
       return existingJob;
     }
 
+    BigDecimal renderCost = BigDecimal.ZERO;
     var reservation =
         quotaReservation
             .reserve(userId, renderCost, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
-                        "COST_LIMIT", "Project render quota is exhausted."));
+                        "COST_LIMIT", "Project render concurrency quota is exhausted."));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -155,26 +141,24 @@ public class CreateProjectRenderUseCase {
         timeline,
         command.resolution(),
         command.format(),
-        executionTarget,
         command.localDeviceId());
 
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
                 command.projectId(),
-                operationType(executionTarget, command.resolution(), command.format()),
-                renderCost.multiply(BigDecimal.valueOf(0.8)),
-                renderCost,
-                command.maxAuthorizedCost() == null ? renderCost : command.maxAuthorizedCost()));
+                operationType(command.resolution(), command.format()),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
-    stageAttemptRepository.create(StageAttempt.create(job.getId(), stageName(executionTarget), 1));
+    stageAttemptRepository.create(StageAttempt.create(job.getId(), LOCAL_STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created project render job id={} projectId={} target={} deviceId={} durationMs={} chapters={} beats={} overrides={}",
+        "Created local project render job id={} projectId={} deviceId={} durationMs={} chapters={} beats={} overrides={}",
         job.getId(),
         command.projectId(),
-        executionTarget,
         command.localDeviceId(),
         timeline.totalDurationMs(),
         timeline.chapters().size(),
@@ -183,34 +167,10 @@ public class CreateProjectRenderUseCase {
     return job;
   }
 
-  private static void validateMediaForExecutionTarget(
-      ProductionTimelineView timeline, RenderExecutionTarget executionTarget) {
-    if (executionTarget != RenderExecutionTarget.CLOUD) return;
-    if (timeline.beats().stream().anyMatch(beat -> "LOCAL_ONLY".equals(beat.storageMode()))) {
-      throw new GenerationAdmissionDeniedException(
-          "CLOUD_RENDER_LOCAL_MEDIA",
-          "Cloud rendering cannot use LOCAL_ONLY beat media. Render on the paired Desktop or upload the asset first.");
-    }
-    if (timeline.beats().stream().anyMatch(beat -> "VIDEO".equals(beat.mediaType()))) {
-      throw new GenerationAdmissionDeniedException(
-          "CLOUD_VIDEO_MEDIA_UNSUPPORTED",
-          "Uploaded video beats currently require LOCAL_DEVICE rendering.");
-    }
-  }
-
-  private void validateExecutionTarget(
-      String userId, RenderExecutionTarget executionTarget, UUID localDeviceId) {
-    if (executionTarget == RenderExecutionTarget.CLOUD) {
-      if (localDeviceId != null) {
-        throw new GenerationAdmissionDeniedException(
-            "INVALID_RENDER_EXECUTION_TARGET",
-            "CLOUD project render must not specify a local device.");
-      }
-      return;
-    }
+  private void validateLocalDevice(String userId, UUID localDeviceId) {
     if (localDeviceId == null) {
       throw new GenerationAdmissionDeniedException(
-          "LOCAL_DEVICE_REQUIRED", "LOCAL_DEVICE project render requires a paired desktop device.");
+          "LOCAL_DEVICE_REQUIRED", "Project render requires a paired Desktop device.");
     }
     try {
       localDeviceAccess.requireEligibleOwnedDevice(userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
@@ -339,20 +299,8 @@ public class CreateProjectRenderUseCase {
         List.copyOf(adjustedBeats));
   }
 
-  static BigDecimal estimateRenderCost(String resolution, long durationMs) {
-    long units = Math.max(1L, (durationMs + BILLING_WINDOW_MS - 1L) / BILLING_WINDOW_MS);
-    BigDecimal unitCost =
-        "1080p".equalsIgnoreCase(resolution) ? BigDecimal.valueOf(0.50) : BigDecimal.valueOf(0.25);
-    return unitCost.multiply(BigDecimal.valueOf(units));
-  }
-
   static String operationType(String resolution, String format) {
-    return operationType(RenderExecutionTarget.CLOUD, resolution, format);
-  }
-
-  static String operationType(
-      RenderExecutionTarget executionTarget, String resolution, String format) {
-    return stageName(executionTarget)
+    return LOCAL_STAGE_NAME
         + "_"
         + resolution.toUpperCase(Locale.ROOT)
         + "_"
@@ -369,9 +317,7 @@ public class CreateProjectRenderUseCase {
             + ":"
             + command.format().toLowerCase(Locale.ROOT)
             + ":"
-            + command.executionTarget().name()
-            + ":"
-            + (command.localDeviceId() == null ? "-" : command.localDeviceId()));
+            + command.localDeviceId());
   }
 
   private static String idempotencyKey(
@@ -446,10 +392,6 @@ public class CreateProjectRenderUseCase {
             + chapters
             + ":"
             + beats);
-  }
-
-  private static String stageName(RenderExecutionTarget executionTarget) {
-    return executionTarget == RenderExecutionTarget.LOCAL_DEVICE ? LOCAL_STAGE_NAME : CLOUD_STAGE_NAME;
   }
 
   private static String sha256(String value) {

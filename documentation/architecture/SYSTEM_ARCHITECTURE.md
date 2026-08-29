@@ -1,228 +1,109 @@
 # NarrativeX System Architecture — V1.12
 
-**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
+NarrativeX is Desktop-only at the editor boundary. Spring Boot is the durable control plane; Electron main owns privileged local project-media and final-render execution.
 
-NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritative control plane for durable business/domain state, while Electron Desktop owns machine-local project bytes and native execution behind a strict main/preload/renderer boundary.
-
-## Logical topology
+## Topology
 
 ```text
-                         Google OIDC
-                            ^
-                            |
-                       system browser
-                            |
-+-------------------------------------------------------+
-|                  Electron Desktop                     |
-|                                                       |
-| renderer: UI / routes / query/editor state            |
-|                 |                                     |
-|                 v                                     |
-| preload: narrow typed bridge                          |
-|                 |                                     |
-|                 v                                     |
-| main: guest credential / OAuth callback / native fs / |
-|       ProjectStorage / backup / local execution /     |
-|       FFmpeg / ffprobe                                |
-+----------------------+--------------------------------+
-                       |
-                       v
-              Spring Boot Backend
-              -> PostgreSQL authoritative state
-                 + HTTP sessions + OAuth handoffs
-                 + durable queues/outbox
-              -> Python AI/provider execution
+Electron Desktop
+  renderer -> UI / route / query / draft state
+      |
+  preload  -> narrow typed capabilities
+      |
+  main     -> auth transport / native files / ProjectStorage /
+              Chrome-CDP web providers / FFmpeg-ffprobe
+      |
+      +------------------------------+
+      |                              |
+Spring Boot Backend             Local project workspace
+  -> PostgreSQL                   -> images/audio/video
+  -> Python workers               -> work/cache
+                                  -> final MP4
 
-Electron main
-  -> <userData>/projects/<projectId>/
-       project.manifest.json
-       assets/
-       work/
-       artifacts/
+Cloudflare R2
+  -> account-owned voice references/custom voices only
 ```
 
-Redis is not part of the MVP runtime. Python workers discover and claim durable work directly from PostgreSQL using polling/lease queries. No Redis, broker, `LISTEN`, or `NOTIFY` path is required by the current worker topology.
+Redis is not part of the MVP runtime. Workers discover durable work from PostgreSQL.
 
-Cloudflare R2 is limited to remote generated-media transport/durability for AI-produced images and narration before those bytes are materialized into the Desktop project workspace. Final video rendering and final MP4 bytes stay on the Desktop machine.
+## Backend authority
 
-## Authority boundaries
+Backend owns:
 
-### Spring backend
+- guest/account ownership and Google-only account authentication policy;
+- Projects, Chapters, continuity/storyboard and production choices;
+- quotas/admission and durable generation state;
+- provider-operation reconciliation;
+- local-device assignment, render leases and terminal state;
+- stable media identity/checksums/lineage;
+- final-artifact metadata;
+- Flyway schema.
 
-The backend owns:
+It does not own absolute Desktop paths or final-video bytes.
 
-- signed-in Google users plus internal stable guest principals;
-- PostgreSQL-backed session/authorization policy and guest/account role gates;
-- one-time hashed Desktop OAuth handoff state;
-- ownership transfer when an eligible guest workspace is claimed after Google sign-in;
-- Projects, Chapters, source versions, storyboard/continuity state and production choices;
-- saved Chapter source identity (`source_text`, `source_hash`);
-- entitlement/quota/cost admission;
-- MediaPlan/production policy;
-- GenerationJob/StageAttempt/ProviderOperation lifecycle;
-- transactional outbox evidence and its post-commit finalization;
-- local-device registration/revocation and render assignment;
-- render leases, progress and terminal job state;
-- durable asset identity/checksums/lineage plus final-artifact metadata;
-- owner-scoped generation status snapshots delivered through SSE (transport only; PostgreSQL remains authoritative);
-- Flyway schema ownership.
+## Electron main
 
-The backend never treats an absolute Desktop filesystem path as a durable asset identity and never stores or proxies final MP4 bytes. The current product has no translation/content-variant layer; analysis and narration consume the saved Chapter directly.
+Electron main owns:
 
-### Electron main
+- guest installation credential and backend session transport;
+- system-browser/deep-link auth integration;
+- native file/folder selection and hashing;
+- ProjectStorage/ProjectCatalog and manifest integrity;
+- Gemini Web/browser automation including supported web video-generation flows;
+- local device credentials and render claim/lease/progress lifecycle;
+- FFmpeg/ffprobe, render journal/cache, final MP4 open/reveal/export.
 
-Electron main owns machine-local privileged capabilities:
+## Python workers
 
-- stable installation guest secret protected by OS secure storage;
-- system-browser OAuth/deep-link handling;
-- backend session transport on behalf of the renderer;
-- native file/folder selection and local asset inspection/hash;
-- project workspace/catalog/manifest operations;
-- backup/restore/archive-copy and storage verification/cleanup;
-- local device credential and assigned-job execution;
-- FFmpeg/ffprobe process execution;
-- render journal/cache and local final-artifact validation/open/reveal/export behavior.
-
-Local byte ownership does not make Electron main a second domain database.
-
-### Preload
-
-Preload is an allow-list of typed task-specific capabilities. It must not expose arbitrary Node.js, filesystem, environment, shell or process primitives.
-
-### Renderer
-
-The renderer owns editor UX, routing, React Query cache, local UI/draft state, timeline/preview/inspector interactions and explicit invocation of preload capabilities.
-
-Security baseline:
+Current worker roles:
 
 ```text
-contextIsolation = true
-nodeIntegration  = false
-sandbox          = false
+analysis
+narration
+media-validation
+image-generation
 ```
 
-The Chromium renderer sandbox is currently disabled for Desktop startup compatibility on environments where Electron's renderer sandbox cannot initialize. Renderer code still has no Node integration; native capabilities remain behind the narrow, trust-checked preload/main IPC boundary. Treat all renderer-loaded story, prompt, reference and provider output as untrusted.
+Workers do not execute final project rendering and do not host a current video/I2V provider role. `VIDEO` remains an analysis/editor intent for web/browser generation and mixed-media production.
 
-### Python workers
-
-Workers execute backend-authorized asynchronous provider/media roles: analysis, image generation, narration/alignment and generated-media validation. They poll/claim durable PostgreSQL rows and do not translate chapter content, execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
-
-## Guest-first authentication architecture
-
-Desktop can open into a usable guest workspace without an account login screen.
+## Project-media boundary
 
 ```text
-Desktop start
-  -> GET /api/v1/auth/me
-  -> if no usable session: POST /api/v1/auth/desktop/guest
-  -> backend verifies/creates desktop_guest_installations
-  -> Spring Session JDBC stores NX_SESSION in PostgreSQL
-  -> stable ROLE_GUEST session
+Generated images                -> shared project-local media -> Desktop ProjectStorage
+Generated narration             -> shared project-local media -> Desktop ProjectStorage
+Imported media                  -> Desktop ProjectStorage
+Render work/cache               -> Desktop project workspace/work
+Final MP4                       -> Desktop project workspace/artifacts
+Voice reference/custom voice    -> R2 when account remote storage is required
+Metadata                        -> PostgreSQL
 ```
 
-Guest free mutations are explicit backend allowlists. Account-bound/provider-consuming operations remain `ROLE_USER` only.
+R2 is not used as generated-project-media transport.
+
+## Final render
 
 ```text
-Gated action
-  -> 403 AUTHENTICATION_REQUIRED
-  -> renderer LoginModal stays over current route
-  -> main opens /api/v1/auth/desktop/start
-  -> Google OIDC in system browser
-  -> narrativex://auth/callback?code=...
-  -> hashed 90-second handoff atomically consumed from PostgreSQL
-  -> /api/v1/auth/desktop/exchange
-  -> eligible guest ownership transfer
-  -> ROLE_USER session
-  -> invalidate/refetch without discarding editor route
-```
-
-Google is the only end-user account sign-in provider. Guest identity is an installation-scoped ownership/session mechanism, not a password/OAuth alternative.
-
-Google tokens never enter Electron. The guest installation secret, user session and local-execution device credential are distinct credentials.
-
-## Desktop local-first media boundary
-
-```text
-backend stable identity + integrity metadata
-  -> Electron main
-  -> project.manifest.json
-  -> project-relative file
-  -> workspace boundary + size + SHA-256 verification
-```
-
-Primary Desktop storage:
-
-```text
-project images/audio/video       -> local workspace
-render work + segment cache      -> local workspace/work
-final MP4                        -> local workspace/artifacts
-backup/archive snapshots         -> Desktop-managed local storage
-business/job/artifact metadata   -> PostgreSQL
-```
-
-## Production timeline and local render
-
-Production timeline state is backend-authoritative where persisted, including explicit beat media selections defined in the project/story/planning baseline. Renderer draft state may add temporary camera/duration/fit edits. Auto Edit derives narration-aware overrides, and the backend applies those overrides atomically with immutable render snapshot creation.
-
-```text
-backend admits + assigns local render
+backend admits project render
+  -> eligible paired Desktop assigned
   -> device claims lease
-  -> Desktop preflight verifies runtime/disk/assets
-  -> resolve stable asset IDs through manifest
-  -> write/update atomic render journal
-  -> reuse immutable segment-cache hits when valid
-  -> FFmpeg render missing segments
-  -> concat video
-  -> derive subtitle cues from immutable narration text/alignment snapshot
-  -> write UTF-8 SRT when renderable cues exist
-  -> mux video + narration + subtitle track
-  -> ffprobe + checksum final MP4
-  -> register final-artifact metadata
-  -> report completion under current lease
-  -> preview/export local MP4 directly
+  -> preflight runtime/disk/assets
+  -> resolve stable IDs/checksums
+  -> FFmpeg/ffprobe
+  -> subtitle mux where available
+  -> local final MP4
+  -> backend artifact metadata
 ```
 
-Lease loss prevents successful finalization. In-process cancellation and unfinished-journal discovery exist. Richer recovery/resume behavior for abrupt process/OS failure remains product hardening work.
+There is no cloud/server final-render executor, no server Chapter-render pipeline and no remote final-video fallback.
 
-## Native asset materialization
+## Database baseline
 
-Desktop imports do not send arbitrary machine paths to the backend.
+The pre-production Flyway baseline is V1–V8. Patch-only V9 history is folded into the owning baseline migrations. After first production deployment, applied migrations become immutable and subsequent changes are append-only.
 
-```text
-native selection
-  -> main inspects/hash + short-lived selection token
-  -> backend registers stable LOCAL_ONLY media identity
-  -> main commits bytes into ProjectStorage
-  -> manifest records project-relative path + integrity
-```
+## Remaining hardening
 
-Implemented image/narration workflows materialize required generated media locally before it participates in final rendering. Remote generated-media transport does not change ownership of final project bytes.
-
-## Persistence and migrations
-
-Production application persistence is MyBatis + explicit PostgreSQL SQL. Current pre-release Flyway baseline:
-
-```text
-V1__identity_and_access.sql
-V2__project_story_and_planning.sql
-V3__generation_billing_and_media.sql
-V4__narration_notifications_and_artifacts.sql
-V5__catalog_generation_and_render_snapshots.sql
-V6__database_logic_and_triggers.sql
-V7__indexes.sql
-V8__seed_catalog.sql
-```
-
-V1-V6 separate identity/domain/execution/narration/render/database-logic responsibilities; V7 contains indexes and V8 deterministic catalog/system seed data. Project-render subtitle snapshots are part of V5, the Chapter Workspace covering lookup is part of V7, and VieNeu voices are seeded with `supportsSpeakingRate=true`; narration requests persist a positive `speaking_rate`. Translation/content-variant schema is absent.
-
-Because NarrativeX has not deployed this baseline to production, migrations may still be reorganized for a cleaner final schema and disposable development/test databases should be recreated when checksums/history change. At the first production deployment, freeze the accepted baseline and make all future schema evolution append-only.
-
-## Remaining architecture hardening
-
-- packaged build/signing/auto-update and protocol/OAuth integration coverage;
-- richer crash/restart recovery semantics across every local render stage;
-- adaptive narration-driven scene/beat planning and review;
+- packaged build/signing/auto-update and protocol/OAuth coverage;
+- richer crash/restart render resume behavior;
+- adaptive narration-driven scene/beat planning;
 - richer asset reuse/reframe/edit lineage;
-- complete billing/actual-usage reconciliation and operational evidence.
-
-Current remaining work is tracked in `../product/ROADMAP.md`; completed migration plans are intentionally retired.
+- complete billing/actual-usage reconciliation and operations evidence.

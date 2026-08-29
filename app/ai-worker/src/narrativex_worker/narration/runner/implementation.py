@@ -45,7 +45,6 @@ from narrativex_worker.narration.storage import (
     LocalMediaStorage,
     MediaAssetConflictError,
     MediaStorage,
-    S3MediaStorage,
 )
 from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
@@ -93,11 +92,7 @@ class NarrationWorkerRunner:
                 self.pricing = VieneuTtsPricingCatalog(settings.tts_pricing_catalog_version)
             else:
                 raise RuntimeError(f"Unsupported TTS provider mode: {settings.tts_provider_mode}")
-            self.storage = (
-                LocalMediaStorage(settings.media_local_dir)
-                if settings.media_storage_mode == "local"
-                else S3MediaStorage(settings)
-            )
+            self.storage = LocalMediaStorage(settings.project_media_local_dir)
         self.segmenter = NarrationSegmenter()
         self.validator = NarrationAlignmentValidator()
         self.audio = FfmpegAudioAssembler()

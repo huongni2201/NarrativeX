@@ -51,15 +51,6 @@ public class LocalProjectRenderUseCase {
     store.complete(jobId, device.id(), workerId(device.id()), leaseToken, result.toStoreResult());
   }
 
-  /** Compatibility overload for application tests and adapters still using the outbound DTO. */
-  public void complete(
-      String deviceToken,
-      UUID jobId,
-      UUID leaseToken,
-      LocalProjectRenderStore.CompletionResult result) {
-    complete(deviceToken, jobId, leaseToken, CompletionResult.from(result));
-  }
-
   public void cancel(String deviceToken, UUID jobId, UUID leaseToken) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
     if (!store.cancel(jobId, device.id(), workerId(device.id()), leaseToken)) {
@@ -248,9 +239,6 @@ public class LocalProjectRenderUseCase {
   public record CompletionResult(
       String renderFingerprint,
       String localArtifactKey,
-      String storageProvider,
-      String externalFileId,
-      String webViewLink,
       String mimeType,
       long sizeBytes,
       String checksumSha256,
@@ -258,29 +246,10 @@ public class LocalProjectRenderUseCase {
       int width,
       int height,
       int fps) {
-    static CompletionResult from(LocalProjectRenderStore.CompletionResult value) {
-      return new CompletionResult(
-          value.renderFingerprint(),
-          value.storageKey(),
-          value.storageProvider(),
-          value.externalFileId(),
-          value.webViewLink(),
-          value.mimeType(),
-          value.sizeBytes(),
-          value.checksumSha256(),
-          value.durationMs(),
-          value.width(),
-          value.height(),
-          value.fps());
-    }
-
     LocalProjectRenderStore.CompletionResult toStoreResult() {
       return new LocalProjectRenderStore.CompletionResult(
           renderFingerprint,
           localArtifactKey,
-          storageProvider,
-          externalFileId,
-          webViewLink,
           mimeType,
           sizeBytes,
           checksumSha256,

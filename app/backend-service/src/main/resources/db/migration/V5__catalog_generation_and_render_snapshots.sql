@@ -1,4 +1,4 @@
--- NarrativeX pre-release baseline: catalog/read models, upload lifecycle, media generation, and immutable render snapshots.
+-- NarrativeX pre-release baseline: catalog/read models, upload lifecycle, media generation, and immutable project-render snapshots.
 
 -- -----------------------------------------------------------------------------
 -- Catalog read models and upload lifecycle
@@ -134,110 +134,7 @@ CREATE TABLE media_asset_lineage (
     CONSTRAINT ck_media_asset_lineage_prompt_snapshot_size CHECK (prompt_snapshot IS NULL OR length(prompt_snapshot) <= 16000)
 );
 
--- -----------------------------------------------------------------------------
--- Chapter render admission snapshots
--- -----------------------------------------------------------------------------
-
-CREATE TABLE render_input_snapshots (
-    generation_job_id UUID PRIMARY KEY REFERENCES generation_jobs(id) ON DELETE CASCADE,
-    media_plan_id UUID NOT NULL REFERENCES media_plans(id),
-    media_plan_revision INTEGER NOT NULL CHECK (media_plan_revision > 0),
-    render_profile_json JSONB NOT NULL DEFAULT '{
-      "schemaVersion": 1,
-      "engine": "ffmpeg-python",
-      "rendererVersion": "image-motion-v6-profiled-cinematic",
-      "fps": 30,
-      "video": {
-        "encoder": "libx264",
-        "x264Preset": "veryfast",
-        "crf": 20,
-        "nvencPreset": "p5",
-        "nvencCq": 21,
-        "pixelFormat": "yuv420p"
-      },
-      "audio": {
-        "codec": "aac",
-        "bitrate": "192k",
-        "sampleRate": 48000
-      },
-      "effects": {
-        "transition": "LEGACY_FADE",
-        "transitionSeconds": 0.12,
-        "colorGrade": "NONE",
-        "backgroundMode": "COVER",
-        "backgroundBlurSigma": 22.0,
-        "overlayStyle": "NONE",
-        "overlayOpacity": 0.30,
-        "watermarkWidthRatio": 0.12,
-        "watermarkOpacity": 0.82,
-        "watermarkPosition": "TOP_RIGHT",
-        "bgmVolume": 0.18,
-        "duckThreshold": 0.08,
-        "duckRatio": 8.0,
-        "duckAttackMs": 20.0,
-        "duckReleaseMs": 350.0,
-        "motionEasing": "LINEAR",
-        "textOverlays": [],
-        "lutAsset": null,
-        "overlayAsset": null,
-        "watermarkAsset": null,
-        "bgmAsset": null
-      },
-      "subtitles": {"mode": "burned-ass"}
-    }'::jsonb,
-    narration_request_id UUID REFERENCES narration_requests(id),
-    narration_asset_id UUID REFERENCES narration_assets(id),
-    narration_alignment_id UUID REFERENCES narration_alignments(id),
-    audio_storage_key VARCHAR(512),
-    audio_size_bytes BIGINT,
-    audio_checksum VARCHAR(64),
-    audio_duration_ms BIGINT,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_render_input_snapshot_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
-    CONSTRAINT ck_render_input_snapshot_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1),
-    CONSTRAINT ck_render_input_snapshot_renderer_version CHECK (length(COALESCE(render_profile_json ->> 'rendererVersion', '')) > 0),
-    CONSTRAINT ck_render_input_snapshots_audio_complete CHECK (
-        (
-            narration_request_id IS NULL
-            AND narration_asset_id IS NULL
-            AND audio_storage_key IS NULL
-            AND audio_size_bytes IS NULL
-            AND audio_checksum IS NULL
-            AND audio_duration_ms IS NULL
-        )
-        OR
-        (
-            narration_request_id IS NOT NULL
-            AND narration_asset_id IS NOT NULL
-            AND audio_storage_key IS NOT NULL
-            AND audio_size_bytes > 0
-            AND audio_checksum ~ '^[0-9a-f]{64}$'
-            AND audio_duration_ms > 0
-        )
-    )
-);
-
-CREATE TABLE render_input_snapshot_beats (
-    generation_job_id UUID NOT NULL REFERENCES render_input_snapshots(generation_job_id) ON DELETE CASCADE,
-    scene_index INTEGER NOT NULL CHECK (scene_index >= 0),
-    beat_index INTEGER NOT NULL CHECK (beat_index >= 0),
-    visual_beat_id UUID NOT NULL REFERENCES visual_beats(id),
-    media_generation_item_id UUID NOT NULL REFERENCES media_generation_items(id),
-    media_asset_id UUID NOT NULL REFERENCES media_assets(id),
-    duration_ms BIGINT,
-    camera_movement VARCHAR(32) NOT NULL,
-    storage_key VARCHAR(512) NOT NULL,
-    size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
-    checksum VARCHAR(64) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (generation_job_id, scene_index, beat_index),
-    CONSTRAINT ck_render_input_snapshot_beats_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
-    CONSTRAINT ck_render_input_snapshot_beats_camera CHECK (
-        camera_movement IN ('NONE', 'PAN', 'TILT', 'PUSH_IN', 'PULL_OUT', 'TRACK', 'ZOOM_IN', 'ZOOM_OUT', 'PARALLAX')
-    ),
-    CONSTRAINT ck_render_input_snapshot_beats_checksum CHECK (checksum ~ '^[0-9a-f]{64}$')
-);
-
+-- Current media-job recovery pointer used by Chapter Workspace.
 CREATE TABLE chapter_media_heads (
     chapter_id UUID PRIMARY KEY REFERENCES chapters(id) ON DELETE CASCADE,
     generation_job_id UUID NOT NULL UNIQUE REFERENCES generation_jobs(id) ON DELETE CASCADE,
@@ -245,7 +142,7 @@ CREATE TABLE chapter_media_heads (
 );
 
 -- -----------------------------------------------------------------------------
--- Project render snapshots and desktop/cloud execution routing
+-- Project render snapshots and Desktop execution assignment
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE project_render_input_snapshots (
@@ -258,11 +155,10 @@ CREATE TABLE project_render_input_snapshots (
     total_duration_ms BIGINT NOT NULL CHECK (total_duration_ms > 0),
     chapter_count INTEGER NOT NULL CHECK (chapter_count > 0),
     beat_count INTEGER NOT NULL CHECK (beat_count > 0),
-    execution_target VARCHAR(24) NOT NULL DEFAULT 'CLOUD',
-    assigned_local_device_id UUID REFERENCES local_devices(id),
+    assigned_local_device_id UUID NOT NULL REFERENCES local_devices(id),
     render_profile_json JSONB NOT NULL DEFAULT '{
       "schemaVersion": 1,
-      "engine": "ffmpeg-python",
+      "engine": "electron-ffmpeg",
       "rendererVersion": "project-image-motion-v2-frame-quantized",
       "fps": 30,
       "video": {
@@ -307,13 +203,7 @@ CREATE TABLE project_render_input_snapshots (
     CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p')),
     CONSTRAINT ck_project_render_input_format CHECK (render_format = 'mp4'),
     CONSTRAINT ck_project_render_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
-    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1),
-    CONSTRAINT ck_project_render_execution_target CHECK (execution_target IN ('CLOUD', 'LOCAL_DEVICE')),
-    CONSTRAINT ck_project_render_execution_assignment CHECK (
-        (execution_target = 'CLOUD' AND assigned_local_device_id IS NULL)
-        OR
-        (execution_target = 'LOCAL_DEVICE' AND assigned_local_device_id IS NOT NULL)
-    )
+    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1)
 );
 
 CREATE TABLE project_render_input_chapters (
@@ -364,7 +254,7 @@ CREATE TABLE project_render_input_beats (
     size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
     checksum VARCHAR(128) NOT NULL,
     media_type VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
+    storage_mode VARCHAR(24) NOT NULL DEFAULT 'PROJECT_LOCAL',
     source_duration_ms BIGINT,
     fit_mode VARCHAR(24) NOT NULL DEFAULT 'TRIM',
     trim_start_ms BIGINT NOT NULL DEFAULT 0,
@@ -372,7 +262,7 @@ CREATE TABLE project_render_input_beats (
     PRIMARY KEY (generation_job_id, visual_beat_id),
     CONSTRAINT ck_project_render_beat_range CHECK (global_end_ms > global_start_ms),
     CONSTRAINT ck_project_render_input_beat_media_type CHECK (media_type IN ('IMAGE', 'VIDEO')),
-    CONSTRAINT ck_project_render_input_beat_storage_mode CHECK (storage_mode IN ('REMOTE', 'LOCAL_ONLY', 'HYBRID')),
+    CONSTRAINT ck_project_render_input_beat_storage_mode CHECK (storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')),
     CONSTRAINT ck_project_render_input_beat_source_duration CHECK (source_duration_ms IS NULL OR source_duration_ms > 0),
     CONSTRAINT ck_project_render_input_beat_fit_mode CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
     CONSTRAINT ck_project_render_input_beat_trim_start CHECK (trim_start_ms >= 0)

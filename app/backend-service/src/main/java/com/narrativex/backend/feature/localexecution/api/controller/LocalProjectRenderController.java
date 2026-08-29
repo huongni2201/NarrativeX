@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/local-devices/project-renders")
 public class LocalProjectRenderController {
   private static final String DEVICE_TOKEN_HEADER = "X-NX-Device-Token";
-  private static final String LOCAL_STORAGE_PROVIDER = "LOCAL_DESKTOP";
   private static final Duration DOWNLOAD_URL_TTL = Duration.ofMinutes(15);
 
   private final LocalProjectRenderUseCase useCase;
@@ -75,9 +74,6 @@ public class LocalProjectRenderController {
         new LocalProjectRenderUseCase.CompletionResult(
             request.renderFingerprint(),
             request.localArtifactKey(),
-            LOCAL_STORAGE_PROVIDER,
-            null,
-            null,
             request.mimeType(),
             request.sizeBytes(),
             request.checksumSha256(),

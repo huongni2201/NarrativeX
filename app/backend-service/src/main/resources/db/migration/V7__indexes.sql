@@ -1,16 +1,6 @@
 -- NarrativeX pre-release baseline: query/access-path indexes and index-backed invariants.
 -- All referenced tables are created by V1-V5.
 
--- Project-local generated media is a clean-baseline storage mode. R2-backed REMOTE/HYBRID
--- remains reserved for account-owned voice-reference assets.
-ALTER TABLE media_assets DROP CONSTRAINT ck_media_assets_storage_mode;
-ALTER TABLE media_assets
-    ADD CONSTRAINT ck_media_assets_storage_mode CHECK (
-        (storage_mode IN ('REMOTE', 'HYBRID') AND storage_key IS NOT NULL)
-        OR (storage_mode = 'LOCAL_ONLY' AND storage_key IS NULL)
-        OR (storage_mode = 'PROJECT_LOCAL' AND storage_key IS NOT NULL)
-    );
-
 -- Local execution devices and desktop session runtime
 CREATE INDEX idx_local_device_pairing_codes_user
     ON local_device_pairing_codes (user_id, created_at DESC);
@@ -97,9 +87,9 @@ CREATE INDEX idx_visual_beats_scene_review_order
 CREATE INDEX idx_visual_beats_audio_range
     ON visual_beats (scene_id, audio_start_ms, audio_end_ms, order_index)
     WHERE audio_start_ms IS NOT NULL;
-CREATE INDEX idx_visual_beats_preview_asset
-    ON visual_beats (preview_asset_id)
-    WHERE preview_asset_id IS NOT NULL;
+CREATE INDEX idx_visual_beats_preview_media_asset
+    ON visual_beats (preview_media_asset_id)
+    WHERE preview_media_asset_id IS NOT NULL;
 CREATE INDEX idx_visual_beat_characters_project_character
     ON visual_beat_characters (project_character_id, visual_beat_id);
 
@@ -213,9 +203,6 @@ CREATE INDEX idx_final_artifacts_project_created
 CREATE INDEX idx_final_artifacts_chapter_created
     ON final_artifacts (chapter_id, created_at DESC, id DESC)
     WHERE chapter_id IS NOT NULL;
-CREATE INDEX idx_final_artifacts_external_file_id
-    ON final_artifacts (storage_provider, external_file_id)
-    WHERE external_file_id IS NOT NULL;
 CREATE INDEX idx_short_clip_requests_claimable
     ON short_clip_requests (status, created_at, id)
     WHERE status IN ('QUEUED', 'RUNNING');
@@ -262,13 +249,7 @@ CREATE INDEX idx_media_asset_lineage_project_chapter
 CREATE INDEX idx_media_asset_lineage_beat
     ON media_asset_lineage (visual_beat_id, created_at DESC);
 
--- Chapter render snapshots
-CREATE INDEX idx_render_input_snapshots_media_plan
-    ON render_input_snapshots (media_plan_id, media_plan_revision);
-CREATE INDEX idx_render_input_snapshot_beats_visual_beat
-    ON render_input_snapshot_beats (visual_beat_id);
-CREATE INDEX idx_render_input_snapshot_beats_media_asset
-    ON render_input_snapshot_beats (media_asset_id);
+-- Current media-job recovery pointer
 CREATE INDEX idx_chapter_media_heads_updated
     ON chapter_media_heads (updated_at DESC, chapter_id);
 
@@ -286,5 +267,4 @@ CREATE INDEX idx_final_artifacts_project_video_fingerprint
     ON final_artifacts (project_id, render_fingerprint)
     WHERE artifact_type = 'PROJECT_VIDEO';
 CREATE INDEX idx_project_render_input_local_claim
-    ON project_render_input_snapshots (assigned_local_device_id, created_at, generation_job_id)
-    WHERE execution_target = 'LOCAL_DEVICE';
+    ON project_render_input_snapshots (assigned_local_device_id, created_at, generation_job_id);

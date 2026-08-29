@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.ProjectRenderInputSnapshotRepository;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
-import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProjectRenderInputSnapshotMapper;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -20,25 +19,19 @@ public class MyBatisProjectRenderInputSnapshotAdapter
       ProductionTimelineView timeline,
       String resolution,
       String format,
-      RenderExecutionTarget executionTarget,
       UUID assignedLocalDeviceId) {
     if (!timeline.readyForRender()) {
       throw new IllegalArgumentException(
           "Project render snapshot requires a render-ready timeline");
     }
-    if (executionTarget == RenderExecutionTarget.LOCAL_DEVICE && assignedLocalDeviceId == null) {
-      throw new IllegalArgumentException("LOCAL_DEVICE project render requires an assigned device");
-    }
-    if (executionTarget == RenderExecutionTarget.CLOUD && assignedLocalDeviceId != null) {
-      throw new IllegalArgumentException(
-          "CLOUD project render cannot have an assigned local device");
+    if (assignedLocalDeviceId == null) {
+      throw new IllegalArgumentException("Project render requires an assigned local device");
     }
     if (mapper.insertHeader(
             generationJobId,
             timeline,
             resolution,
             format,
-            executionTarget,
             assignedLocalDeviceId,
             timeline.chapters().size(),
             timeline.beats().size())

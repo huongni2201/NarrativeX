@@ -49,21 +49,6 @@ CREATE TRIGGER trg_media_generation_items_identity_immutable
 BEFORE UPDATE ON media_generation_items
 FOR EACH ROW EXECUTE FUNCTION reject_media_generation_item_snapshot_update();
 
-CREATE OR REPLACE FUNCTION reject_render_input_snapshot_update()
-RETURNS TRIGGER AS $$
-BEGIN
-    RAISE EXCEPTION '% is immutable; create a new render generation job instead', TG_TABLE_NAME;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_render_input_snapshots_immutable
-BEFORE UPDATE ON render_input_snapshots
-FOR EACH ROW EXECUTE FUNCTION reject_render_input_snapshot_update();
-
-CREATE TRIGGER trg_render_input_snapshot_beats_immutable
-BEFORE UPDATE ON render_input_snapshot_beats
-FOR EACH ROW EXECUTE FUNCTION reject_render_input_snapshot_update();
-
 CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -104,7 +89,7 @@ BEGIN
     END IF;
 
     local_credit_render :=
-        NEW.job_type IN ('CHAPTER_RENDER', 'RENDER_PROJECT')
+        NEW.job_type = 'RENDER_PROJECT'
         AND NEW.resource_class = 'CPU_RENDER';
 
     IF NEW.status = 'COMPLETED' AND OLD.status IS DISTINCT FROM 'COMPLETED' THEN
@@ -218,7 +203,7 @@ DECLARE
 BEGIN
     IF NEW.status = 'COMPLETED'
        AND OLD.status IS DISTINCT FROM NEW.status
-       AND NEW.job_type IN ('CHAPTER_GENERATE', 'IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE', 'NARRATION_GENERATE') THEN
+       AND NEW.job_type IN ('CHAPTER_GENERATE', 'NARRATION_GENERATE') THEN
         IF NEW.job_type = 'NARRATION_GENERATE' THEN
             notification_type := 'NARRATION_COMPLETED';
             notification_title_key := 'notification.narration.completed';
@@ -315,7 +300,5 @@ AFTER INSERT OR UPDATE OF status, progress, current_step, error_code ON generati
 FOR EACH ROW
 EXECUTE FUNCTION notify_generation_job_change();
 
-COMMENT ON COLUMN project_render_input_snapshots.execution_target IS
-    'Execution routing for immutable project renders. CLOUD uses the Python worker; LOCAL_DEVICE is claimed by the assigned NarrativeX desktop device.';
 COMMENT ON COLUMN project_render_input_snapshots.assigned_local_device_id IS
-    'Paired desktop device assigned to LOCAL_DEVICE project rendering. Null for CLOUD renders.';
+    'Paired Desktop device assigned to execute this immutable local project render.';

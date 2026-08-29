@@ -38,9 +38,7 @@ CREATE TABLE generation_jobs (
         'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT'
     )),
     CONSTRAINT ck_generation_jobs_job_type CHECK (job_type IN (
-        'STORY_ANALYZE', 'CHAPTER_ANALYZE', 'NARRATION_GENERATE', 'IMAGE_GENERATE',
-        'CHAPTER_GENERATE', 'CHAPTER_RENDER', 'PROJECT_CONTINUE', 'VISUAL_BEAT_PLAN',
-        'SHOT_IMAGE_GENERATE', 'RENDER_PROJECT', 'RENDER_SHORT'
+        'CHAPTER_ANALYZE', 'NARRATION_GENERATE', 'CHAPTER_GENERATE', 'RENDER_PROJECT'
     )),
     CONSTRAINT ck_generation_jobs_resource_class CHECK (resource_class IN (
         'PROVIDER_INTERACTIVE', 'PROVIDER_BATCH', 'GPU_HEAVY',
@@ -53,7 +51,7 @@ CREATE TABLE generation_jobs (
         (media_plan_id IS NOT NULL AND media_plan_revision IS NOT NULL AND production_mode IS NOT NULL)
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
-        production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'HYBRID_LOCAL_I2V')
+        production_mode IS NULL OR production_mode = 'IMAGE_MOTION'
     ),
     CONSTRAINT ck_generation_jobs_analysis_visual_mode CHECK (
         analysis_visual_generation_mode IS NULL
@@ -216,7 +214,7 @@ CREATE TABLE media_assets (
     account_id VARCHAR(128) NOT NULL,
     asset_type VARCHAR(16) NOT NULL,
     origin VARCHAR(24) NOT NULL,
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
+    storage_mode VARCHAR(24) NOT NULL DEFAULT 'PROJECT_LOCAL',
     storage_key VARCHAR(512),
     original_filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(160) NOT NULL,
@@ -237,13 +235,23 @@ CREATE TABLE media_assets (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED', 'LOCAL_ONLY')),
-    CONSTRAINT ck_media_assets_storage_mode CHECK ((storage_mode IN ('REMOTE', 'HYBRID') AND storage_key IS NOT NULL) OR (storage_mode = 'LOCAL_ONLY' AND storage_key IS NULL)),
+    CONSTRAINT ck_media_assets_storage_mode CHECK (
+        (storage_mode IN ('REMOTE', 'HYBRID') AND storage_key IS NOT NULL)
+        OR (storage_mode = 'PROJECT_LOCAL' AND storage_key IS NOT NULL)
+        OR (storage_mode = 'LOCAL_ONLY' AND storage_key IS NULL)
+    ),
     CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
     CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
     CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_media_assets_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
 );
+
+-- VisualBeat production preview identity uses canonical MediaAsset IDs. The legacy
+-- project_assets preview pointer from V2 is intentionally retired at the media boundary.
+ALTER TABLE visual_beats
+    DROP COLUMN preview_asset_id,
+    ADD COLUMN preview_media_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL;
 
 -- Durable non-destructive editor selection for the media used by each VisualBeat.
 -- Scene and Chapter remain logical groups; the selected media is resolved when the

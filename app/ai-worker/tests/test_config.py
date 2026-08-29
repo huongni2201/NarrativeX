@@ -44,11 +44,12 @@ def test_project_media_local_dir_is_explicit(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.project_media_local_dir == "/tmp/narrativex-project-media"
 
 
-def test_narration_compatibility_aliases_point_to_local_project_media() -> None:
+def test_removed_media_compatibility_aliases_stay_removed() -> None:
     settings = WorkerSettings(project_media_local_dir="/tmp/project-media")
 
-    assert settings.media_storage_mode == "local"
-    assert settings.media_local_dir == "/tmp/project-media"
+    assert settings.project_media_local_dir == "/tmp/project-media"
+    assert not hasattr(settings, "media_storage_mode")
+    assert not hasattr(settings, "media_local_dir")
 
 
 def test_removed_provider_settings_stay_removed() -> None:
