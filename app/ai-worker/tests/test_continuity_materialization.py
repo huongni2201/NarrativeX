@@ -189,6 +189,7 @@ class LocationConnection:
     def __init__(self) -> None:
         self.project_location_id = UUID("00000000-0000-4000-8000-000000000301")
         self.location_write_args: tuple[object, ...] | None = None
+        self.location_write_query: str | None = None
 
     async def fetch(self, query: str, *args: object) -> list[dict[str, object]]:
         if "project_location_ai_identities" in query and "SELECT ai_key" in query:
@@ -213,6 +214,7 @@ class LocationConnection:
         if "UPDATE project_location_ai_identities" in query:
             return "UPDATE 1"
         if "UPDATE project_locations" in query:
+            self.location_write_query = query
             self.location_write_args = args
             return "UPDATE 1"
         raise AssertionError(query)
@@ -230,6 +232,8 @@ async def test_location_materializer_keeps_description_separate_from_visual_cano
         connection.location_write_args[3]
         == "weathered timber walls, narrow porch, broken green shutters"
     )
+    assert connection.location_write_query is not None
+    assert "COALESCE(NULLIF(visual_prompt, ''), $4)" in connection.location_write_query
 
 
 @pytest.mark.asyncio
