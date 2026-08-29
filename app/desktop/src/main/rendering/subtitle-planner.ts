@@ -1,1 +1,1 @@
-export * from "../../shared/subtitle-planner";
+export * from "../../shared/subtitle-planner.ts";
