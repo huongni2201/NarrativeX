@@ -10,8 +10,13 @@ const manifest = await readFile(
   new URL("../src/main/rendering/render-manifest.ts", import.meta.url),
   "utf8",
 );
+const preflight = await readFile(
+  new URL("../src/renderer/features/production/render-preflight.ts", import.meta.url),
+  "utf8",
+);
 
-test("Desktop accepts backend PROJECT_LOCAL media assets", () => {
-  assert.match(contracts, /BeatMediaStorageMode[^\n]*PROJECT_LOCAL/s);
-  assert.match(manifest, /\["REMOTE",\s*"PROJECT_LOCAL",\s*"LOCAL_ONLY",\s*"HYBRID"\]/);
+test("project media is implicitly local without storage-mode branching", () => {
+  assert.doesNotMatch(contracts, /BeatMediaStorageMode|storageMode|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
+  assert.doesNotMatch(manifest, /storageMode|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
+  assert.doesNotMatch(preflight, /storageMode|materializable|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
 });
