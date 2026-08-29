@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
-import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.CreateProjectRenderRequest;
 import com.narrativex.backend.feature.generation.api.request.UpdateProductionBeatMediaRequest;
@@ -13,11 +12,9 @@ import com.narrativex.backend.feature.generation.application.usecase.CreateAutoE
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.UpdateProductionBeatMediaUseCase;
-import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,9 +34,6 @@ public class ProductionRenderController {
   private final CreateAutoEditedProjectRenderUseCase createAutoEditedProjectRenderUseCase;
   private final GetProjectRenderArtifactUseCase getProjectRenderArtifactUseCase;
   private final UpdateProductionBeatMediaUseCase updateProductionBeatMediaUseCase;
-
-  @Value("${narrativex.generation.media-enabled:false}")
-  private boolean mediaGenerationEnabled;
 
   @GetMapping("/timeline")
   public ResponseEntity<ApiResponse<ProductionTimelineResponse>> timeline(
@@ -76,12 +70,6 @@ public class ProductionRenderController {
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateProjectRenderRequest request,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
-    RenderExecutionTarget executionTarget = RenderExecutionTarget.valueOf(request.executionTarget());
-    if (!mediaGenerationEnabled && executionTarget == RenderExecutionTarget.CLOUD) {
-      throw new FeatureNotAvailableException(
-          "Cloud project rendering is temporarily unavailable until its worker is enabled.");
-    }
-
     var overrides =
         request.beatOverrides().stream()
             .map(
@@ -99,9 +87,7 @@ public class ProductionRenderController {
                 projectId,
                 request.resolution(),
                 request.format(),
-                request.maxAuthorizedCost(),
                 idempotencyKey,
-                executionTarget,
                 request.localDeviceId(),
                 overrides));
     return ResponseEntity.accepted()
