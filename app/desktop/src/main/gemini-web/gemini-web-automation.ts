@@ -30,6 +30,12 @@ const DOWNLOAD_TIMEOUT_MS = 60_000;
 const REFERENCE_UPLOAD_TIMEOUT_MS = 30_000;
 const MIN_CAPTURE_BYTES = 24 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
+const GEMINI_CHROME_BACKGROUND_FLAGS = [
+  "--disable-background-timer-throttling",
+  "--disable-renderer-backgrounding",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-features=CalculateNativeWinOcclusion",
+] as const;
 const GEMINI_MODEL_OPTION_SELECTOR =
   'button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="radio"], gem-menu-item';
 const GEMINI_GENERATED_IMAGE_SELECTOR = [
@@ -372,6 +378,7 @@ export class GeminiWebAutomation {
         const beforeDownload = await this.snapshotDownloads(laneState.downloadDirectory);
         const baseline = await this.generationSnapshot(cdp);
         networkTracker.start();
+        await cdp.send("Page.bringToFront");
         await this.submitPrompt(cdp, normalizedPrompt);
         await this.waitForGeneratedImage(cdp, baseline);
 
@@ -471,6 +478,8 @@ export class GeminiWebAutomation {
         `--user-data-dir=${this.profileDirectory}`,
         "--no-first-run",
         "--no-default-browser-check",
+        ...GEMINI_CHROME_BACKGROUND_FLAGS,
+        "--start-minimized",
         "--new-window",
         "about:blank",
       ],
