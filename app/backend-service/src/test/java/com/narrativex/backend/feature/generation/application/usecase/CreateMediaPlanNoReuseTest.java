@@ -98,9 +98,7 @@ class CreateMediaPlanNoReuseTest {
                 "gemini-2.5-flash-image",
                 null,
                 null,
-                ImageStyle.CINEMATIC,
-                "API",
-                "REUSE_APPROVED"));
+                ImageStyle.CINEMATIC));
 
     assertThat(plan.scenes().getFirst().beats())
         .extracting(MediaBeatPlan::assetStrategy)
