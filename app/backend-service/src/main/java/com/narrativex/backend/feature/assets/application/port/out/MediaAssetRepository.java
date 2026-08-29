@@ -6,7 +6,13 @@ import java.util.UUID;
 
 public interface MediaAssetRepository {
   CursorPage<MediaAssetView> list(
-      String accountId, String type, String status, String search, String cursor, int limit);
+      String accountId,
+      UUID projectId,
+      String type,
+      String status,
+      String search,
+      String cursor,
+      int limit);
 
   MediaAssetView createOrReuseVerifiedAsset(String accountId, CreateVerifiedMediaAsset command);
 
@@ -39,6 +45,7 @@ public interface MediaAssetRepository {
 
   record CreateLocalMediaAsset(
       UUID proposedId,
+      UUID projectId,
       String type,
       String originalFilename,
       String contentType,
