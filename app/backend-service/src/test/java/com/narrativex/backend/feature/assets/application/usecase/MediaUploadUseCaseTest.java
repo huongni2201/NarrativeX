@@ -17,6 +17,7 @@ import com.narrativex.backend.feature.assets.application.port.out.ObjectStorageP
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedUpload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
 import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository.CreateVoiceReference;
 import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository.VoiceReferenceAsset;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
@@ -58,7 +59,7 @@ class MediaUploadUseCaseTest {
             objectStorage,
             new MediaUploadFinalizationService(sessions, voiceReferences, cleanupTasks));
     lenient()
-        .when(voiceReferences.createOrReuse(any(), any()))
+        .when(voiceReferences.createOrReuse(any(), any(CreateVoiceReference.class)))
         .thenAnswer(
             invocation ->
                 new VoiceReferenceAsset(

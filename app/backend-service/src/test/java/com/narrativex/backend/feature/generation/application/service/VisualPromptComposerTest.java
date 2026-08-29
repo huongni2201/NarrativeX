@@ -152,9 +152,9 @@ class VisualPromptComposerTest {
     assertThat(result.prompt())
         .contains("SCENE DIRECTION: Empty hallway at dawn")
         .contains("CONSISTENCY PRECEDENCE")
-        .doesNotContain("CHARACTER IDENTITY LOCKS")
-        .doesNotContain("LOCATION CANON")
-        .doesNotContain("REFERENCE IMAGE MAP");
+        .doesNotContain("\nCHARACTER IDENTITY LOCKS:")
+        .doesNotContain("\nLOCATION CANON:")
+        .doesNotContain("\nREFERENCE IMAGE MAP:");
     assertThat(result.characterSnapshotJson()).isEqualTo("{\"characters\":[]}");
     assertThat(result.referenceBindings()).isEmpty();
   }

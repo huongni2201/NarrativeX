@@ -127,7 +127,8 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "notifications", "project_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
-      assertEquals("uuid", columnType(connection, "render_input_snapshots", "generation_job_id"));
+      assertEquals(
+          "uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "project_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "chapter_id"));
       assertEquals("uuid", columnType(connection, "media_generation_items", "generation_job_id"));
@@ -156,11 +157,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "local_device_capabilities"));
       assertTrue(tableExists(connection, "desktop_guest_installations"));
       assertTrue(indexExists(connection, "idx_desktop_guest_installations_last_seen"));
-      assertTrue(tableExists(connection, "local_media_materializations"));
-      assertEquals("uuid", columnType(connection, "local_media_materializations", "project_id"));
-      assertEquals("uuid", columnType(connection, "local_media_materializations", "media_asset_id"));
-      assertEquals("uuid", columnType(connection, "local_media_materializations", "local_device_id"));
-      assertEquals("NO", columnNullable(connection, "local_media_materializations", "local_device_id"));
+      assertFalse(tableExists(connection, "local_media_materializations"));
 
       assertTrue(tableExists(connection, "production_beat_media_selections"));
       assertTrue(indexExists(connection, "idx_production_beat_media_selection_asset"));
@@ -174,9 +171,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "project_render_input_beats"));
       assertEquals(
           "uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
-      assertEquals(
-          "character varying",
-          columnType(connection, "project_render_input_snapshots", "execution_target"));
+      assertFalse(columnExists(connection, "project_render_input_snapshots", "execution_target"));
       assertEquals(
           "uuid",
           columnType(connection, "project_render_input_snapshots", "assigned_local_device_id"));
@@ -185,8 +180,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("YES", columnNullable(connection, "project_render_input_beats", "storage_key"));
       assertEquals(
           "character varying", columnType(connection, "project_render_input_beats", "media_type"));
-      assertEquals(
-          "character varying", columnType(connection, "project_render_input_beats", "storage_mode"));
+      assertFalse(columnExists(connection, "project_render_input_beats", "storage_mode"));
       assertEquals("bigint", columnType(connection, "project_render_input_beats", "source_duration_ms"));
       assertEquals(
           "character varying", columnType(connection, "project_render_input_beats", "fit_mode"));

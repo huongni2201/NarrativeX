@@ -7,7 +7,7 @@
     <id property="id" column="id" />
     <result property="projectId" column="project_id" />
     <result property="generationJobId" column="generation_job_id" />
-    <result property="webViewLink" column="web_view_link" />
+    <result property="storageKey" column="storage_key" />
     <result property="mimeType" column="mime_type" />
     <result property="sizeBytes" column="size_bytes" />
     <result property="checksumSha256" column="checksum_sha256" />
@@ -19,7 +19,7 @@
   </resultMap>
 
   <select id="findByJobId" resultMap="artifactRow">
-    SELECT fa.id, fa.project_id, gj.job_id AS generation_job_id, fa.web_view_link,
+    SELECT fa.id, fa.project_id, gj.job_id AS generation_job_id, fa.storage_key,
            fa.mime_type, fa.size_bytes, fa.checksum_sha256, fa.duration_ms,
            fa.width, fa.height, fa.fps::int AS fps, fa.status
       FROM final_artifacts fa

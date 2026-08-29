@@ -56,7 +56,7 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
             + " resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, ?, ?,"
-            + " 'CHAPTER_RENDER', 'COMPLETED', 'CPU_RENDER',"
+            + " 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER',"
             + " 100, 'artifact-owner', 'artifact-owner') ON CONFLICT (id) DO NOTHING",
         GENERATION_JOB_ID,
         UUID.fromString(JOB_ID),
@@ -64,9 +64,9 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
         CHAPTER_ID);
     jdbcTemplate.update(
         "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, artifact_type,"
-            + " render_fingerprint, storage_key, storage_provider, external_file_id, mime_type,"
+            + " render_fingerprint, storage_key, mime_type,"
             + " size_bytes, status) VALUES (?, ?, ?, ?, 'CHAPTER_VIDEO', repeat('d',"
-            + " 64), 'artifact/repository.mp4', 'LOCAL', 'artifact/repository.mp4', 'video/mp4',"
+            + " 64), 'artifact/repository.mp4', 'video/mp4',"
             + " 10, 'READY') ON CONFLICT (id) DO NOTHING",
         ARTIFACT_ID,
         PROJECT_ID,
@@ -74,9 +74,9 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
         GENERATION_JOB_ID);
     jdbcTemplate.update(
         "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, artifact_type,"
-            + " render_fingerprint, storage_key, storage_provider, external_file_id, mime_type,"
+            + " render_fingerprint, storage_key, mime_type,"
             + " size_bytes, status) VALUES (?, ?, ?, NULL, 'CHAPTER_VIDEO', repeat('e',"
-            + " 64), 'artifact/archived.mp4', 'LOCAL', 'artifact/archived.mp4', 'video/mp4', 10,"
+            + " 64), 'artifact/archived.mp4', 'video/mp4', 10,"
             + " 'ARCHIVED') ON CONFLICT (id) DO NOTHING",
         ARCHIVED_ARTIFACT_ID,
         PROJECT_ID,

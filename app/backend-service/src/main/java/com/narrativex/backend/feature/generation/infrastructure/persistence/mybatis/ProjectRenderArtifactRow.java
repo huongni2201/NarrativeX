@@ -14,7 +14,7 @@ public class ProjectRenderArtifactRow {
   private Long id;
   private UUID projectId;
   private UUID generationJobId;
-  private String webViewLink;
+  private String storageKey;
   private String mimeType;
   private long sizeBytes;
   private String checksumSha256;

@@ -100,7 +100,7 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
         PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, preview_media_asset_id) "
-            + "VALUES (?, ?, 1, 'Beat', 'Preview media regression', 'DRAFT', ?)",
+            + "VALUES (?, ?, 1, 'Beat', 'Preview media regression', 'NEEDS_REVIEW', ?)",
         BEAT_ID,
         SCENE_ID,
         MEDIA_ASSET_ID);

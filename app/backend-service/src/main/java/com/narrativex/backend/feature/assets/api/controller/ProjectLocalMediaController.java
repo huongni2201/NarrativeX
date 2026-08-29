@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.assets.api.controller;
 
-import com.narrativex.backend.feature.assets.infrastructure.storage.ProjectLocalMediaAccess;
-import com.narrativex.backend.feature.assets.infrastructure.storage.ProjectLocalMediaAccess.LocalMediaFile;
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess.LocalMediaFile;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -11,15 +11,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Streams short-lived capability URLs for project-local media to Desktop and media elements. */
 @RestController
 @RequestMapping("/api/v1/local-media")
 public class ProjectLocalMediaController {
-  private final ProjectLocalMediaAccess projectLocalMediaAccess;
+  private final MediaStorageAccess projectLocalMediaAccess;
 
-  public ProjectLocalMediaController(ProjectLocalMediaAccess projectLocalMediaAccess) {
+  public ProjectLocalMediaController(MediaStorageAccess projectLocalMediaAccess) {
     this.projectLocalMediaAccess = projectLocalMediaAccess;
   }
 
@@ -29,6 +30,14 @@ public class ProjectLocalMediaController {
     HttpHeaders headers = responseHeaders(file);
     headers.setContentLength(file.sizeBytes());
     return new ResponseEntity<>(file.resource(), headers, HttpStatus.OK);
+  }
+
+  @RequestMapping(value = "/{token}", method = RequestMethod.HEAD)
+  public ResponseEntity<Void> head(@PathVariable String token) {
+    LocalMediaFile file = projectLocalMediaAccess.resolve(token);
+    HttpHeaders headers = responseHeaders(file);
+    headers.setContentLength(file.sizeBytes());
+    return new ResponseEntity<>(headers, HttpStatus.OK);
   }
 
   private static HttpHeaders responseHeaders(LocalMediaFile file) {

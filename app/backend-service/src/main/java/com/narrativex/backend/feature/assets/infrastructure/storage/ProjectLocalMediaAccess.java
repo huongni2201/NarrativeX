@@ -1,5 +1,8 @@
 package com.narrativex.backend.feature.assets.infrastructure.storage;
 
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess.LocalMediaFile;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -10,13 +13,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 /** Capability-token access to generated project media on the shared local filesystem. */
 @Component
-public class ProjectLocalMediaAccess {
+public class ProjectLocalMediaAccess implements MediaStorageAccess {
   private static final String NARRATION_PREFIX = "narration/";
   private static final String PROVIDER_RESULTS_PREFIX = "private/provider-results/";
 
@@ -40,6 +42,7 @@ public class ProjectLocalMediaAccess {
         || storageKey.startsWith(PROVIDER_RESULTS_PREFIX);
   }
 
+  @Override
   public URI createDownloadUrl(String storageKey, Instant expiresAt) {
     if (!supports(storageKey)) {
       throw new IllegalArgumentException("Unsupported project-local media key");
@@ -53,6 +56,7 @@ public class ProjectLocalMediaAccess {
     return URI.create(publicBaseUrl + "/api/v1/local-media/" + token);
   }
 
+  @Override
   public LocalMediaFile resolve(String token) {
     Ticket ticket = tickets.get(token);
     if (ticket == null) throw new IllegalArgumentException("Unknown local media token");
@@ -107,6 +111,4 @@ public class ProjectLocalMediaAccess {
 
   private record Ticket(String storageKey, Instant expiresAt) {}
 
-  public record LocalMediaFile(
-      Resource resource, MediaType contentType, long sizeBytes, String filename) {}
 }

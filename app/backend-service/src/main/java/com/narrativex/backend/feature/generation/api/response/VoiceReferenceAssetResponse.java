@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.generation.api.response;
 
-import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository.VoiceReferenceAsset;
+import com.narrativex.backend.feature.generation.application.port.in.VoiceReferenceCatalog.VoiceReferenceView;
 import java.util.UUID;
 
 public record VoiceReferenceAssetResponse(
@@ -10,7 +10,7 @@ public record VoiceReferenceAssetResponse(
     long sizeBytes,
     String sha256,
     String status) {
-  public static VoiceReferenceAssetResponse from(VoiceReferenceAsset asset) {
+  public static VoiceReferenceAssetResponse from(VoiceReferenceView asset) {
     return new VoiceReferenceAssetResponse(
         asset.id(),
         asset.originalFilename(),

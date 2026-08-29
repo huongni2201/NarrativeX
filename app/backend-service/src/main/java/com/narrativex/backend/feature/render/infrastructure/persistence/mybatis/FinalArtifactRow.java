@@ -14,9 +14,6 @@ public class FinalArtifactRow {
   private String artifactType;
   private String renderFingerprint;
   private String storageKey;
-  private String storageProvider;
-  private String externalFileId;
-  private String webViewLink;
   private String mimeType;
   private Long sizeBytes;
   private String checksumSha256;

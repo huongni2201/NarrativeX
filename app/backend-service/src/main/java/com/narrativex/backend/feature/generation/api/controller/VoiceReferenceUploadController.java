@@ -7,7 +7,7 @@ import com.narrativex.backend.feature.assets.application.command.CreateUploadInt
 import com.narrativex.backend.feature.assets.application.usecase.MediaUploadUseCase;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.response.VoiceReferenceAssetResponse;
-import com.narrativex.backend.feature.generation.application.usecase.GetVoiceReferenceAssetUseCase;
+import com.narrativex.backend.feature.generation.application.port.in.VoiceReferenceCatalog;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/voice-references")
 public class VoiceReferenceUploadController {
   private final MediaUploadUseCase mediaUploadUseCase;
-  private final GetVoiceReferenceAssetUseCase getVoiceReferenceAssetUseCase;
+  private final VoiceReferenceCatalog getVoiceReferenceAssetUseCase;
 
   @GetMapping
   public ResponseEntity<ApiResponse<List<VoiceReferenceAssetResponse>>> list() {
@@ -43,7 +43,7 @@ public class VoiceReferenceUploadController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Voice reference retrieved",
-            VoiceReferenceAssetResponse.from(getVoiceReferenceAssetUseCase.execute(id))));
+            VoiceReferenceAssetResponse.from(getVoiceReferenceAssetUseCase.get(id))));
   }
 
   @PostMapping("/upload-intents")

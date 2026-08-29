@@ -120,11 +120,15 @@ class FlywayBaselineStructureTest {
   @Test
   void renderSnapshotChaptersAllowMissingLegacyMediaPlan() throws IOException {
     String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
+    String chapters =
+        v5.substring(
+            v5.indexOf("CREATE TABLE project_render_input_chapters"),
+            v5.indexOf("CREATE TABLE project_render_input_beats"));
 
-    assertTrue(v5.contains("media_plan_id UUID REFERENCES media_plans(id)"));
-    assertFalse(v5.contains("media_plan_id UUID NOT NULL REFERENCES media_plans(id)"));
+    assertTrue(chapters.contains("media_plan_id UUID REFERENCES media_plans(id)"));
+    assertFalse(chapters.contains("media_plan_id UUID NOT NULL REFERENCES media_plans(id)"));
     assertTrue(
-        v5.contains(
+        chapters.contains(
             "media_plan_revision INTEGER CHECK (media_plan_revision IS NULL OR media_plan_revision > 0)"));
   }
 

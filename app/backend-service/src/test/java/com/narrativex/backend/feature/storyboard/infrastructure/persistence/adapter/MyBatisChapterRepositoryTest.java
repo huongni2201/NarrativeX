@@ -12,6 +12,7 @@ import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,6 +77,8 @@ class MyBatisChapterRepositoryTest {
     return ChapterRow.builder()
         .id(id)
         .rowVersion(rowVersion)
+        .createdAt(Instant.parse("2026-08-29T00:00:00Z"))
+        .updatedAt(Instant.parse("2026-08-29T00:00:00Z"))
         .storyVersionId(STORY_VERSION_ID)
         .orderIndex(0)
         .title("Chapter 1")

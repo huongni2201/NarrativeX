@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
@@ -34,7 +35,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.web.util.UriUtils;
 
 @RestController
 @RequestMapping("/api/v1/auth/desktop")
@@ -208,8 +208,8 @@ public class DesktopAuthController {
       return null;
     }
 
-    String encodedRedirectUri = UriUtils.encodeQueryParam(redirectUri, StandardCharsets.UTF_8);
-    String encodedCodeChallenge = UriUtils.encodeQueryParam(codeChallenge, StandardCharsets.UTF_8);
+    String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
+    String encodedCodeChallenge = URLEncoder.encode(codeChallenge, StandardCharsets.UTF_8);
     return UriComponentsBuilder.fromUri(publicOrigin)
         .replacePath(DESKTOP_START_PATH)
         .replaceQuery(null)
