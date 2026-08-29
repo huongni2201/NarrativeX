@@ -92,7 +92,7 @@ export interface ChapterWorkspacePreviewScene {
   durationSeconds: number | null;
   status: string;
   visualBeatCount: number;
-  previewImageUrl: string | null;
+  previewMediaAssetId: string | null;
 }
 
 export interface CreateChapterInput {
