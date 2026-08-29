@@ -1,4 +1,4 @@
-"""PostgreSQL-backed media validation queue and compare-and-set result persistence."""
+"""PostgreSQL-backed voice-reference validation queue and fenced result persistence."""
 
 from dataclasses import dataclass
 from typing import cast
@@ -25,7 +25,7 @@ class ClaimedMediaValidationJob:
 
 
 class LeaseLostError(RuntimeError):
-    """Raised when a media-validation worker no longer owns its durable lease."""
+    """Raised when a voice-reference validation worker no longer owns its durable lease."""
 
 
 class MediaValidationRepository:
@@ -121,6 +121,7 @@ class MediaValidationRepository:
         error_code: str | None = None,
         error_detail: str | None = None,
     ) -> bool:
+        del width, height, duration_ms
         pool = self._require_pool()
         asset_status = "READY" if status == "READY" else "REJECTED"
         async with pool.acquire() as connection:
@@ -146,32 +147,25 @@ class MediaValidationRepository:
                     job.lease_token,
                 )
                 if fenced is None:
-                    raise LeaseLostError("media validation lease was lost before completion")
+                    raise LeaseLostError("voice-reference validation lease was lost before completion")
                 if (
                     fenced["media_asset_id"] != job.media_asset_id
                     or fenced["account_id"] != job.account_id
                 ):
-                    raise RuntimeError("media validation job does not match its claimed asset")
+                    raise RuntimeError("voice-reference validation job does not match its claimed asset")
 
                 updated = await connection.fetchval(
                     """
-                    UPDATE media_assets
+                    UPDATE voice_reference_assets
                        SET status = $3,
                            detected_content_type = $4,
                            detected_container = $5,
                            detected_codec = $6,
-                           width = $7,
-                           height = $8,
-                           duration_ms = COALESCE($9, duration_ms),
-                           validation_error_code = $10,
-                           validation_error_detail = $11,
+                           validation_error_code = $7,
+                           validation_error_detail = $8,
                            validated_at = CURRENT_TIMESTAMP,
-                           checksum_verified_at = CASE
-                               WHEN $3::VARCHAR(24) = 'READY' THEN COALESCE(
-                                   checksum_verified_at, CURRENT_TIMESTAMP
-                               )
-                               ELSE checksum_verified_at
-                           END
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
                      WHERE id = $1 AND account_id = $2 AND status = 'VALIDATING'
                     RETURNING id
                     """,
@@ -181,14 +175,11 @@ class MediaValidationRepository:
                     detected_content_type,
                     detected_container,
                     detected_codec,
-                    width,
-                    height,
-                    duration_ms,
                     _safe_error_code(error_code),
                     _safe_error_detail(error_detail),
                 )
                 if updated is None:
-                    raise RuntimeError("media validation asset was not in VALIDATING state")
+                    raise RuntimeError("voice reference was not in VALIDATING state")
                 await connection.execute(
                     """
                     UPDATE media_upload_sessions
@@ -241,7 +232,7 @@ class MediaValidationRepository:
                         job.lease_token,
                     )
                     if result is None:
-                        raise LeaseLostError("media validation lease was lost before retry")
+                        raise LeaseLostError("voice-reference validation lease was lost before retry")
                     return True
                 fenced = await connection.fetchrow(
                     """
@@ -264,13 +255,16 @@ class MediaValidationRepository:
                     job.lease_token,
                 )
                 if fenced is None:
-                    raise LeaseLostError("media validation lease was lost before failure")
+                    raise LeaseLostError("voice-reference validation lease was lost before failure")
                 updated_asset = await connection.fetchval(
                     """
-                    UPDATE media_assets
+                    UPDATE voice_reference_assets
                        SET status = 'REJECTED',
                            validation_error_code = 'VALIDATION_RETRY_EXHAUSTED',
-                           validation_error_detail = NULL, validated_at = CURRENT_TIMESTAMP
+                           validation_error_detail = NULL,
+                           validated_at = CURRENT_TIMESTAMP,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
                      WHERE id = $1 AND account_id = $2 AND status = 'VALIDATING'
                     RETURNING id
                     """,
@@ -278,7 +272,7 @@ class MediaValidationRepository:
                     fenced["account_id"],
                 )
                 if updated_asset is None:
-                    raise RuntimeError("media validation asset was not in VALIDATING state")
+                    raise RuntimeError("voice reference was not in VALIDATING state")
                 await connection.execute(
                     """
                     UPDATE media_upload_sessions
