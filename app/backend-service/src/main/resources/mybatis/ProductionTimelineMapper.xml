@@ -141,20 +141,24 @@
                      JOIN media_assets ma ON ma.id = pbms.media_asset_id
                     WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND pbms.visual_beat_id = vb.id
+                      AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
+                      AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
                       AND ma.size_bytes > 0
                       AND ma.sha256 IS NOT NULL
                  ) OR EXISTS (
                    SELECT 1
                      FROM media_assets ma
                     WHERE ma.id = vb.preview_media_asset_id
+                      AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
+                      AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
                       AND ma.size_bytes > 0
                       AND ma.sha256 IS NOT NULL
                  )
@@ -238,10 +242,12 @@
           JOIN media_assets ma ON ma.id = pbms.media_asset_id
          WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND pbms.visual_beat_id = cb.visual_beat_id
+           AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')
+           AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
            AND ma.size_bytes > 0
            AND ma.sha256 IS NOT NULL
          LIMIT 1
@@ -256,10 +262,12 @@
                ma.sha256 AS checksum
           FROM media_assets ma
          WHERE ma.id = cb.preview_media_asset_id
+           AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')
+           AND ma.storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
            AND ma.size_bytes > 0
            AND ma.sha256 IS NOT NULL
          LIMIT 1
