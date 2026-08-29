@@ -15,7 +15,7 @@
        AND ma.deleted_at IS NULL
        AND ma.asset_type IN ('IMAGE', 'VIDEO')
        AND (
-         ma.storage_mode <> 'LOCAL_ONLY'
+         ma.storage_mode != 'LOCAL_ONLY'
          OR EXISTS (
            SELECT 1
              FROM local_media_materializations lmm
