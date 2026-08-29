@@ -147,12 +147,16 @@ class MediaValidationRepository:
                     job.lease_token,
                 )
                 if fenced is None:
-                    raise LeaseLostError("voice-reference validation lease was lost before completion")
+                    raise LeaseLostError(
+                        "voice-reference validation lease was lost before completion"
+                    )
                 if (
                     fenced["media_asset_id"] != job.media_asset_id
                     or fenced["account_id"] != job.account_id
                 ):
-                    raise RuntimeError("voice-reference validation job does not match its claimed asset")
+                    raise RuntimeError(
+                        "voice-reference validation job does not match its claimed asset"
+                    )
 
                 updated = await connection.fetchval(
                     """
@@ -232,7 +236,9 @@ class MediaValidationRepository:
                         job.lease_token,
                     )
                     if result is None:
-                        raise LeaseLostError("voice-reference validation lease was lost before retry")
+                        raise LeaseLostError(
+                            "voice-reference validation lease was lost before retry"
+                        )
                     return True
                 fenced = await connection.fetchrow(
                     """
