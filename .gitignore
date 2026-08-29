@@ -57,6 +57,8 @@ __pycache__/
 /build/
 app/ai-worker/dist/
 app/ai-worker/build/
+# Generated AI-worker maintenance/upload artifacts
+app/ai-worker/artifacts/
 eggs/
 .eggs/
 
