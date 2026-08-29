@@ -15,14 +15,14 @@ export const projectQueryKeys = {
 export function useProjectsQuery() {
   return useQuery({
     queryKey: projectQueryKeys.list(),
-    queryFn: loadProjectsWithLocalFallback,
+    queryFn: loadDeviceLocalProjects,
   });
 }
 
 export function useProjectQuery(projectId: string | null) {
   return useQuery({
     queryKey: projectQueryKeys.detail(projectId ?? "none"),
-    queryFn: () => loadProjectWithLocalFallback(projectId as string),
+    queryFn: () => loadDeviceLocalProject(projectId as string),
     enabled: Boolean(projectId),
   });
 }
@@ -35,14 +35,18 @@ export function useCreateProject() {
       const project = await projectsApi.create(input);
       try {
         await window.narrativex.localProjects.upsert(project, {
-          cloudProjectId: project.id,
-          syncStatus: "SYNCED",
+          cloudProjectId: null,
+          syncStatus: "LOCAL_ONLY",
         });
         await window.narrativex.localProjects.touch(project.id);
       } catch (error) {
         console.warn(
-          "Project was created but could not be persisted to the local catalog.",
+          "Project was created but could not be persisted to this device's local catalog.",
           error,
+        );
+        throw new Error(
+          "Project was created but could not be registered on this device.",
+          { cause: error },
         );
       }
       return project;
@@ -71,14 +75,7 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: async (projectId: string) => {
       await projectsApi.remove(projectId);
-      try {
-        await window.narrativex.localProjects.markArchived(projectId);
-      } catch (error) {
-        console.warn(
-          "Project was archived remotely but could not be hidden in the local catalog.",
-          error,
-        );
-      }
+      await window.narrativex.localProjects.markArchived(projectId);
       return projectId;
     },
     onSuccess: (projectId) => {
@@ -93,80 +90,38 @@ export function useDeleteProject() {
   });
 }
 
-async function loadProjectWithLocalFallback(projectId: string): Promise<DesktopProject> {
+async function loadDeviceLocalProject(projectId: string): Promise<DesktopProject> {
+  const localProjects = await readDeviceLocalProjects();
+  const localProject = localProjects.find((project) => project.id === projectId);
+  if (!localProject) {
+    throw new Error("Project is not available on this device.");
+  }
+
   try {
     return await projectsApi.get(projectId);
   } catch (error) {
-    const localProjects = await readLocalProjectsSafely();
-    const localProject = localProjects.find((project) => project.id === projectId);
-    if (localProject) return localProject;
-    throw error;
-  }
-}
-
-async function loadProjectsWithLocalFallback() {
-  const localBeforeRefresh = await readLocalProjectsSafely();
-  try {
-    const remote = await projectsApi.list();
-    const localAfterRefresh = await reconcileLocalProjectsSafely(
-      remote.content,
-      localBeforeRefresh,
-    );
-    return {
-      ...remote,
-      content: mergeProjects(localAfterRefresh, remote.content),
-    };
-  } catch (error) {
-    if (localBeforeRefresh.length === 0) throw error;
-    return {
-      content: localBeforeRefresh,
-      nextCursor: null,
-      limit: 50,
-      hasNext: false,
-      counts: countProjects(localBeforeRefresh),
-    };
-  }
-}
-
-async function readLocalProjectsSafely(): Promise<DesktopProject[]> {
-  try {
-    return (await window.narrativex.localProjects.list()).map((entry) => entry.project);
-  } catch (error) {
     console.warn(
-      "Could not read the local project catalog; continuing with backend projects.",
+      "Backend project metadata is unavailable; using the registered local project metadata.",
       error,
     );
-    return [];
+    return localProject;
   }
 }
 
-async function reconcileLocalProjectsSafely(
-  remoteProjects: DesktopProject[],
-  fallback: DesktopProject[],
-): Promise<DesktopProject[]> {
-  try {
-    return (await window.narrativex.localProjects.reconcile(remoteProjects)).map(
-      (entry) => entry.project,
-    );
-  } catch (error) {
-    console.warn("Could not refresh the local project catalog.", error);
-    return fallback;
-  }
+async function loadDeviceLocalProjects(): Promise<ProjectsPage> {
+  const content = await readDeviceLocalProjects();
+  return {
+    content,
+    nextCursor: null,
+    limit: Math.max(content.length, 50),
+    hasNext: false,
+    counts: countProjects(content),
+  };
 }
 
-function mergeProjects(
-  local: DesktopProject[],
-  remote: DesktopProject[],
-): DesktopProject[] {
-  const remoteById = new Map(remote.map((project) => [project.id, project]));
-  const merged = local.map((project) => remoteById.get(project.id) ?? project);
-  const localIds = new Set(local.map((project) => project.id));
-
-  for (const project of remote) {
-    if (!localIds.has(project.id)) merged.push(project);
-  }
-
-  return merged;
+async function readDeviceLocalProjects(): Promise<DesktopProject[]> {
+  const entries = await window.narrativex.localProjects.list();
+  return entries.map((entry) => entry.project);
 }
 
 function countProjects(projects: DesktopProject[]): ProjectDashboardCounts {
