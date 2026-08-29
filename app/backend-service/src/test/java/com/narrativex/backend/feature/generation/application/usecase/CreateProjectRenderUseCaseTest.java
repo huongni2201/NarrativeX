@@ -42,6 +42,21 @@ class CreateProjectRenderUseCaseTest {
   }
 
   @Test
+  void localFirstTimelineFingerprintDoesNotRequireMediaPlan() {
+    ProductionTimelineView timeline =
+        timeline(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            UUID.randomUUID());
+
+    assertThat(timeline.chapters().getFirst().mediaPlanId()).isNull();
+    assertThat(timeline.chapters().getFirst().mediaPlanRevision()).isNull();
+    assertThat(CreateProjectRenderUseCase.timelineFingerprint(timeline)).hasSize(64);
+  }
+
+  @Test
   void projectRenderRequestFingerprintChangesWithResolutionTimelineAndExecutionTarget() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
@@ -146,7 +161,6 @@ class CreateProjectRenderUseCaseTest {
 
   private static ProductionTimelineView timeline(
       UUID projectId, UUID storyVersionId, UUID chapterId, UUID firstBeatId, UUID secondBeatId) {
-    UUID mediaPlanId = UUID.randomUUID();
     ProductionTimelineView.Chapter chapter =
         new ProductionTimelineView.Chapter(
             chapterId,
@@ -154,8 +168,8 @@ class CreateProjectRenderUseCaseTest {
             "Chapter 1",
             1L,
             "a".repeat(64),
-            mediaPlanId,
-            1,
+            null,
+            null,
             0L,
             60_000L,
             60_000L,

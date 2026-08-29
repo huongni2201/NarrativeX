@@ -18,6 +18,7 @@ import type {
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
 import type { MediaMutationNotice } from "../EditorScreen";
+import { getAllowedBeatFitModes } from "../model/editor-media-fit";
 
 interface EditorInspectorPanelProps {
   selectedBeat: DesktopTimelineBeat | null;
@@ -60,6 +61,7 @@ export function EditorInspectorPanel({
   const durationText = selectedBeat ? formatTimecode(selectedBeat.durationMs) : "00:10.00";
   const visibleMediaNotice =
     selectedBeat && mediaNotice?.beatId === selectedBeat.visualBeatId ? mediaNotice : null;
+  const allowedFitModes = getAllowedBeatFitModes(selectedBeat?.mediaType ?? null);
 
   return (
     <aside className="nx-editor-inspector flex h-full min-h-0 flex-col bg-surface-panel font-sans text-foreground">
@@ -269,14 +271,7 @@ export function EditorInspectorPanel({
                 <div className="space-y-2 rounded-lg border border-border-subtle bg-background p-2.5">
                   <p className="text-[10px] leading-4 text-text-dim">Ghi đè quyết định Auto Edit cho beat hiện tại.</p>
                   <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border-subtle bg-surface p-1.5">
-                    {(
-                      [
-                        { mode: "TRIM", label: "Trim" },
-                        { mode: "LOOP", label: "Loop" },
-                        { mode: "FREEZE_END", label: "Freeze" },
-                        { mode: "SPEED_ADJUST", label: "Speed" },
-                      ] as const
-                    ).map(({ mode, label }) => (
+                    {allowedFitModes.map((mode) => (
                       <button
                         key={mode}
                         type="button"
@@ -288,7 +283,7 @@ export function EditorInspectorPanel({
                             : "text-text-muted hover:bg-surface-2 hover:text-foreground"
                         }`}
                       >
-                        {label}
+                        {fitModeLabel(mode)}
                       </button>
                     ))}
                   </div>
@@ -368,6 +363,19 @@ function mediaSourceLabel(beat: DesktopTimelineBeat): string {
   if (beat.mediaType === "VIDEO") return "Video override";
   if (beat.mediaType === "IMAGE") return "Image override";
   return "Generated";
+}
+
+function fitModeLabel(mode: BeatMediaFitMode): string {
+  switch (mode) {
+    case "LOOP":
+      return "Loop";
+    case "FREEZE_END":
+      return "Freeze";
+    case "SPEED_ADJUST":
+      return "Speed";
+    default:
+      return "Trim";
+  }
 }
 
 function formatTimecode(ms: number): string {

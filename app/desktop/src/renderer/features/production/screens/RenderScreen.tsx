@@ -18,6 +18,7 @@ import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { FeaturePage } from "../../workspace/components/FeaturePage";
 import { productionApi } from "../api/production.api";
 import { createAutoEditPlan } from "../auto-edit-planner";
+import { getRenderReadinessBlockers } from "../render-readiness";
 
 export function RenderScreen({
   projectId,
@@ -38,6 +39,8 @@ export function RenderScreen({
     () => (timeline ? createAutoEditPlan(timeline, autoEditStyle) : null),
     [autoEditStyle, timeline],
   );
+  const readinessBlockers = useMemo(() => getRenderReadinessBlockers(timeline), [timeline]);
+  const canRender = readinessBlockers.length === 0 && Boolean(autoEditPlan);
 
   useEffect(() => {
     if (trackedJob.data?.status === "COMPLETED") setNotice("Render hoàn tất.");
@@ -50,8 +53,8 @@ export function RenderScreen({
   }, [trackedJob.isError]);
 
   async function startRender() {
-    if (!timeline?.readyForRender || !autoEditPlan) {
-      setNotice("Timeline chưa ready for render. Kiểm tra narration và media asset trước.");
+    if (!timeline || !autoEditPlan || !canRender) {
+      setNotice(readinessBlockers[0] ?? "Timeline chưa ready for render.");
       return;
     }
     setBusy(true);
@@ -113,7 +116,7 @@ export function RenderScreen({
       title="Auto Edit & Render"
       description="Mặc định không cần chỉnh tay: NarrativeX tự chọn nhịp edit, motion, trim và cách fit media theo narration rồi giao cho local FFmpeg."
       actions={
-        <Button size="sm" onClick={() => void startRender()} disabled={busy || !timeline}>
+        <Button size="sm" onClick={() => void startRender()} disabled={busy || !canRender}>
           <WandSparkles size={14} /> {busy ? "Preparing…" : "Auto Edit & Render"}
         </Button>
       }
@@ -121,7 +124,7 @@ export function RenderScreen({
       <div className="grid gap-4">
         <section className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3 rounded-lg border border-border bg-card p-4">
           <Metric label="Timeline" value={timeline ? `${Math.round(timeline.totalDurationMs / 1000)}s` : "Not loaded"} icon={<Film size={16} />} />
-          <Metric label="Auto Edit" value={timeline?.readyForRender ? "Zero-config ready" : "Waiting for media"} icon={<WandSparkles size={16} />} />
+          <Metric label="Auto Edit" value={canRender ? "Zero-config ready" : "Blocked"} icon={<WandSparkles size={16} />} />
           <Metric label="Disk free" value={preflight?.diskFreeBytes != null ? formatBytes(preflight.diskFreeBytes) : "Not checked"} icon={<HardDrive size={16} />} />
           <label className="grid gap-1 text-[10px] text-muted-foreground">
             Edit style · optional override
@@ -146,6 +149,17 @@ export function RenderScreen({
             </Select>
           </label>
         </section>
+
+        {!!readinessBlockers.length && (
+          <section className="rounded-lg border border-warning/30 bg-card p-4">
+            <h2 className="text-xs font-semibold text-warning">Render blockers</h2>
+            <ul className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+              {readinessBlockers.map((blocker) => (
+                <li key={blocker}>• {blocker}</li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {autoEditPlan && (
           <section className="rounded-lg border border-primary/25 bg-card p-4">

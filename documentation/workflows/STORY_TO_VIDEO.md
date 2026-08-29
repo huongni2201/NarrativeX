@@ -1,4 +1,4 @@
-# Story-to-Video Workflow — V1.11
+# Story-to-Video Workflow — V1.12
 
 NarrativeX is Desktop-only at the editor boundary, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
 
@@ -37,12 +37,13 @@ Project
   -> Chapter
       -> Scene
           -> VisualBeat
-              -> selected image or video media
+              -> generated/default media
+              -> optional editor override
 ```
 
 `VisualBeat` is the smallest production timeline span. Scene and Chapter are logical groupings, not a requirement to prerender `scene.mp4`/`chapter.mp4` before editing.
 
-Narration/alignment is the timing authority:
+Narration/alignment is the timing authority. Exact `visual_beats.audio_start_ms/audio_end_ms` spans are required for final render admission; when timing is incomplete, Editor may still show a provisional review timeline but Render remains blocked.
 
 ```text
 aligned narration span
@@ -81,18 +82,35 @@ backend-authorized media work
   -> provider execution
   -> validate bytes/result
   -> stable MediaAsset identity + checksum
-  -> R2 transport when remote durability is required by provider/worker execution
-  -> Desktop materializes required accepted result locally
-  -> project.manifest.json
+  -> Desktop stores project media locally
+  -> attach generated image to VisualBeat.preview_media_asset_id
+  -> project.manifest.json resolves local bytes for preview/render
 ```
 
-The current Desktop image-generation flow includes chapter selection, analysis/estimate/queue/poll/review and verified remote-to-local materialization. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
+Project image/video media is local-first. R2 is not the production store for project media; remote storage remains reserved for account-scoped voice samples/custom voices and provider-specific transport where required. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
 
 ## Production timeline
 
-The backend production timeline aggregates persisted scene/beat/timing/media state. Durable beat media selections are part of the consolidated V1 schema, so an explicit editor choice survives reload and can feed render admission.
+The backend production timeline reads the current Storyboard revision directly. `VisualBeat.preview_media_asset_id` is the generated/default production source. `production_beat_media_selections` is the explicit Editor override layer, with effective precedence:
 
-Renderer draft state supports typed undo/redo/reset for supported duration/camera/fit edits. Auto Edit derives narration-aware decisions for fit, trim and motion, with `AUTO` as the default and optional Cinematic/Balanced/Dynamic overrides. Draft/Auto Edit state is not durable authority until converted to the backend render/production contract; render override application and immutable snapshot creation are atomic in the backend.
+```text
+READY editor override
+  -> READY preview_media_asset_id
+  -> missing media
+```
+
+MediaPlan infrastructure remains available for compatibility/planning, but it is not required to load the Editor timeline or admit the local-first MVP render path.
+
+Render admission requires all of the following:
+
+- READY narration metadata for every Chapter;
+- at least one current VisualBeat per Chapter;
+- exact contiguous VisualBeat audio timing from `0` through the narration duration;
+- one READY effective image/video asset per VisualBeat;
+- one project aspect ratio;
+- a paired eligible local renderer for `LOCAL_DEVICE` execution.
+
+Manual Editor media selection, reset, fit and trim settings are durable through `production_beat_media_selections`. Reset removes the override and immediately falls back to the generated preview source. Auto Edit derives narration-aware decisions for fit, trim and motion, with `AUTO` as the default and optional Cinematic/Balanced/Dynamic overrides. Render override application and immutable snapshot creation remain atomic in the backend.
 
 ## Real-time job tracking and subtitles
 
@@ -104,6 +122,7 @@ When a render is admitted, narration text and alignment spans are captured in th
 
 ```text
 backend admits + assigns local render
+  -> immutable snapshot captures current narration + effective beat media
   -> assigned device claims lease
   -> Desktop preflight checks FFmpeg/ffprobe, executor, disk, assets
   -> resolve asset IDs/checksums through project.manifest.json
@@ -140,7 +159,7 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 - complete multi-part user-audio alignment/slicing behavior for all production scopes;
 - richer media reuse/reframe/edit/regeneration lineage;
 - richer timeline mutation/save/retry UX;
-- richer Auto Edit explanations and manual override/review UX;
+- richer Auto Edit explanations and manual camera override/review UX;
 - long-form crash/restart recovery and soak reliability;
 - production packaging/signing/auto-update and packaged OAuth/protocol tests.
 
