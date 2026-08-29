@@ -33,7 +33,7 @@ public class UpdateProductionBeatMediaUseCase {
     ProductionTimelineView.Beat beat = requireBeat(timeline, visualBeatId);
     SelectableMediaAsset asset = requireSelectableAsset(ownerId, mediaAssetId);
     BeatMediaFitMode normalizedFitMode = fitMode == null ? BeatMediaFitMode.TRIM : fitMode;
-    validateSelection(beat, asset, normalizedFitMode, trimStartMs);
+    validateSelection(beat, beat.durationMs(), asset, normalizedFitMode, trimStartMs);
     repository.upsert(projectId, visualBeatId, mediaAssetId, normalizedFitMode, trimStartMs);
   }
 
@@ -66,7 +66,9 @@ public class UpdateProductionBeatMediaUseCase {
               : BeatMediaFitMode.valueOf(override.fitMode());
       long trimStartMs =
           override.trimStartMs() == null ? beat.trimStartMs() : override.trimStartMs();
-      validateSelection(beat, asset, fitMode, trimStartMs);
+      long effectiveDurationMs =
+          override.durationMs() == null ? beat.durationMs() : override.durationMs();
+      validateSelection(beat, effectiveDurationMs, asset, fitMode, trimStartMs);
       pending.add(
           new PendingMediaUpdate(
               override.visualBeatId(), beat.mediaAssetId(), fitMode, trimStartMs));
@@ -123,6 +125,7 @@ public class UpdateProductionBeatMediaUseCase {
 
   private static void validateSelection(
       ProductionTimelineView.Beat beat,
+      long effectiveDurationMs,
       SelectableMediaAsset asset,
       BeatMediaFitMode fitMode,
       long trimStartMs) {
@@ -135,11 +138,12 @@ public class UpdateProductionBeatMediaUseCase {
       }
       return;
     }
-    validateVideoFit(beat, asset.durationMs(), fitMode, trimStartMs);
+    validateVideoFit(beat, effectiveDurationMs, asset.durationMs(), fitMode, trimStartMs);
   }
 
   private static void validateVideoFit(
       ProductionTimelineView.Beat beat,
+      long effectiveDurationMs,
       Long sourceDurationMs,
       BeatMediaFitMode fitMode,
       long trimStartMs) {
@@ -150,7 +154,7 @@ public class UpdateProductionBeatMediaUseCase {
         sourceDurationMs == null ? Long.MAX_VALUE : Math.max(0L, sourceDurationMs - trimStartMs);
     if (fitMode == BeatMediaFitMode.TRIM
         && sourceDurationMs != null
-        && remaining < beat.durationMs()) {
+        && remaining < effectiveDurationMs) {
       throw invalid(
           "Video is shorter than the narration span. Choose Loop, Freeze End or Speed Adjust.");
     }
