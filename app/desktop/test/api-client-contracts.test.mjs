@@ -53,52 +53,8 @@ test("cursor page parser preserves backend pagination metadata", () => {
   );
 });
 
-test("projects api follows every dashboard cursor page", async () => {
-  const requestedCursors = [];
-
-  await withApiTransport(async (input) => {
-    const url = new URL(input.path, "http://desktop.local");
-    assert.equal(url.pathname, "/api/v1/projects/dashboard");
-    const cursor = url.searchParams.get("cursor");
-    requestedCursors.push(cursor);
-
-    if (cursor === null) {
-      return ok({
-        success: true,
-        message: "Projects retrieved",
-        data: {
-          content: [project("project-1")],
-          nextCursor: "cursor-2",
-          limit: 50,
-          hasNext: true,
-          counts: { all: 2, active: 2, draft: 0 },
-        },
-        timestamp,
-      });
-    }
-
-    assert.equal(cursor, "cursor-2");
-    return ok({
-      success: true,
-      message: "Projects retrieved",
-      data: {
-        content: [project("project-2")],
-        nextCursor: null,
-        limit: 50,
-        hasNext: false,
-        counts: { all: 2, active: 2, draft: 0 },
-      },
-      timestamp,
-    });
-  }, async () => {
-    const page = await projectsApi.list();
-    assert.deepEqual(page.content.map((item) => item.id), ["project-1", "project-2"]);
-    assert.equal(page.hasNext, false);
-    assert.equal(page.nextCursor, null);
-    assert.deepEqual(page.counts, { all: 2, active: 2, draft: 0 });
-  });
-
-  assert.deepEqual(requestedCursors, [null, "cursor-2"]);
+test("desktop project api has no backend dashboard synchronization feed", () => {
+  assert.equal("list" in projectsApi, false);
 });
 
 test("apiCommand accepts ApiResponse<Void> when data is omitted", async () => {
@@ -251,24 +207,6 @@ async function withApiTransport(request, run) {
       globalThis.window = previousWindow;
     }
   }
-}
-
-function project(id) {
-  return {
-    id,
-    name: id,
-    description: null,
-    coverImageUrl: null,
-    status: "ACTIVE",
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    isStarred: false,
-    metrics: {
-      totalChapters: 1,
-      totalScenes: 2,
-      estimatedDurationSeconds: 30,
-    },
-  };
 }
 
 function ok(body) {
