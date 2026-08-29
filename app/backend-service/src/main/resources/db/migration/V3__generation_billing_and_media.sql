@@ -247,6 +247,12 @@ CREATE TABLE media_assets (
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
 );
 
+-- VisualBeat production preview identity uses canonical MediaAsset IDs. The legacy
+-- project_assets preview pointer from V2 is intentionally retired at the media boundary.
+ALTER TABLE visual_beats
+    DROP COLUMN preview_asset_id,
+    ADD COLUMN preview_media_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL;
+
 -- Durable non-destructive editor selection for the media used by each VisualBeat.
 -- Scene and Chapter remain logical groups; the selected media is resolved when the
 -- production timeline/render snapshot is built.
