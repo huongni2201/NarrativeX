@@ -19,6 +19,42 @@ class VisualPromptComposerTest {
       new VisualPromptComposer(JsonMapper.builder().build());
 
   @Test
+  void appliesPremiumCharacterRenderingLanguageToCinematicAnimeStoryboardFrames() {
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC_ANIME,
+            "Lan studies the letter",
+            "CLOSE_UP",
+            "RATIO_16_9",
+            VisualPromptContext.empty());
+
+    assertThat(result.prompt())
+        .contains("CHARACTER RENDERING LANGUAGE:")
+        .contains("FACE QUALITY PRIORITY:")
+        .contains("sharp expressive eyes with proportional scale")
+        .contains("ANTI-DRIFT:")
+        .contains("do not enlarge the eyes")
+        .contains("STORYBOARD CHARACTER QUALITY RULES:")
+        .contains(
+            "same premium manhwa character rendering language used by canonical character references");
+  }
+
+  @Test
+  void keepsNonAnimeStoryboardPromptsFreeOfManhwaSpecificRenderingRules() {
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan studies the letter",
+            "CLOSE_UP",
+            "RATIO_16_9",
+            VisualPromptContext.empty());
+
+    assertThat(result.prompt())
+        .doesNotContain("CHARACTER RENDERING LANGUAGE:")
+        .doesNotContain("STORYBOARD CHARACTER QUALITY RULES:");
+  }
+
+  @Test
   void compilesStableCanonAppearanceAndReferencePrecedence() {
     var identityId = UUID.fromString("11111111-1111-1111-1111-111111111111");
     var context =
