@@ -67,7 +67,6 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                       beat.durationMs(),
                       beat.cameraMovement(),
                       media.mediaType(),
-                      media.storageMode(),
                       media.sourceDurationMs(),
                       media.fitMode(),
                       media.trimStartMs(),
