@@ -5,6 +5,11 @@
 ALTER TABLE media_assets
     ADD COLUMN project_id UUID REFERENCES projects(id) ON DELETE CASCADE;
 
+-- Only the account-owned voice-reference flow relies on the column default. Project
+-- media creators always write PROJECT_LOCAL or LOCAL_ONLY explicitly.
+ALTER TABLE media_assets
+    ALTER COLUMN storage_mode SET DEFAULT 'REMOTE';
+
 ALTER TABLE media_assets
     DROP CONSTRAINT ck_media_assets_storage_mode;
 
