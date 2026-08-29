@@ -12,7 +12,6 @@
         <result property="assetType" column="asset_type" />
         <result property="origin" column="origin" />
         <result property="storageKey" column="storage_key" />
-        <result property="storageMode" column="storage_mode" />
         <result property="originalFilename" column="original_filename" />
         <result property="contentType" column="content_type" />
         <result property="sizeBytes" column="size_bytes" />
@@ -33,7 +32,7 @@
     </resultMap>
 
     <sql id="columns">
-        id, account_id, project_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type,
+        id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type,
         size_bytes, sha256, duration_ms, status, created_at, deleted_at, checksum_verified_at,
         detected_content_type, detected_container, detected_codec, width, height,
         validation_error_code, validation_error_detail, validated_at
@@ -41,41 +40,20 @@
 
     <sql id="visiblePredicate">
         account_id = #{accountId}
+        AND project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
         AND status &lt;&gt; 'DELETED'
         AND deleted_at IS NULL
     </sql>
 
-    <select id="claimChecksum" resultType="java.util.UUID" affectData="true">
-        INSERT INTO media_asset_checksums (account_id, sha256, media_asset_id)
-        VALUES (#{accountId}, #{sha256}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler})
-        ON CONFLICT (account_id, sha256) DO NOTHING
-        RETURNING media_asset_id
-    </select>
-
-    <select id="findCanonicalAssetId" resultType="java.util.UUID">
-        SELECT media_asset_id
-          FROM media_asset_checksums
-         WHERE account_id = #{accountId}
-           AND sha256 = #{sha256}
-         FOR UPDATE
-    </select>
-
-    <select id="insertVerified" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
+    <select id="insertLocal" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
         INSERT INTO media_assets
             (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type,
              size_bytes, sha256, duration_ms, status, checksum_verified_at)
         VALUES
-            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, NULL, #{assetType}, #{origin}, #{storageKey}, #{originalFilename}, #{contentType},
-             #{sizeBytes}, #{sha256}, #{durationMs}, 'VALIDATING', CURRENT_TIMESTAMP)
-        RETURNING id
-    </select>
-
-    <select id="insertLocal" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
-        INSERT INTO media_assets
-            (id, account_id, project_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type,
-             size_bytes, sha256, duration_ms, status, checksum_verified_at)
-        VALUES
-            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{assetType}, 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, #{originalFilename}, #{contentType},
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+             #{accountId},
+             #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+             #{assetType}, 'USER_UPLOAD', NULL, #{originalFilename}, #{contentType},
              #{sizeBytes}, #{sha256}, #{durationMs}, 'READY', CURRENT_TIMESTAMP)
         RETURNING id
     </select>
@@ -84,8 +62,6 @@
         SELECT <include refid="columns" />
           FROM media_assets
          WHERE <include refid="visiblePredicate" />
-           AND project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')
         <if test="type != null and type != ''">
            AND asset_type = #{type}
         </if>
@@ -111,102 +87,21 @@
            AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
     </select>
 
-    <select id="findVerifiedByChecksum" resultMap="mediaAssetRow">
-        SELECT asset.id,
-               asset.account_id,
-               asset.project_id,
-               asset.asset_type,
-               asset.origin,
-               asset.storage_mode,
-               asset.storage_key,
-               asset.original_filename,
-               asset.content_type,
-               asset.size_bytes,
-               asset.sha256,
-               asset.duration_ms,
-               asset.status,
-               asset.created_at,
-               asset.deleted_at,
-               asset.checksum_verified_at,
-               asset.detected_content_type,
-               asset.detected_container,
-               asset.detected_codec,
-               asset.width,
-               asset.height,
-               asset.validation_error_code,
-               asset.validation_error_detail,
-               asset.validated_at
-          FROM media_assets asset
-          JOIN media_asset_checksums canonical
-            ON canonical.media_asset_id = asset.id
-           AND canonical.account_id = asset.account_id
-         WHERE asset.account_id = #{accountId}
-           AND asset.project_id IS NULL
-           AND asset.storage_mode = 'REMOTE'
-           AND asset.status = 'READY'
-           AND asset.deleted_at IS NULL
-           AND canonical.sha256 = #{sha256}
-         LIMIT 1
+    <select id="findOwnedByAccount" resultMap="mediaAssetRow">
+        SELECT <include refid="columns" />
+          FROM media_assets
+         WHERE account_id = #{accountId}
+           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
     </select>
-
-    <select id="isReferencedByReadyAsset" resultType="boolean">
-        SELECT EXISTS (
-            SELECT 1
-              FROM media_assets
-             WHERE storage_key = #{storageKey}
-               AND status = 'READY'
-               AND deleted_at IS NULL
-        )
-    </select>
-
-    <delete id="releaseChecksum">
-        DELETE FROM media_asset_checksums
-         WHERE account_id = #{accountId}
-           AND media_asset_id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-    </delete>
-
-    <update id="markUploading">
-        UPDATE media_assets
-           SET status = 'UPLOADING'
-         WHERE account_id = #{accountId}
-           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND status = 'PENDING_UPLOAD'
-           AND deleted_at IS NULL
-    </update>
-
-    <update id="markValidating">
-        UPDATE media_assets
-           SET status = 'VALIDATING'
-         WHERE account_id = #{accountId}
-           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND status = 'UPLOADING'
-           AND deleted_at IS NULL
-    </update>
-
-    <update id="approve">
-        UPDATE media_assets
-           SET status = 'READY',
-               checksum_verified_at = CURRENT_TIMESTAMP
-         WHERE account_id = #{accountId}
-           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND status = 'VALIDATING'
-           AND deleted_at IS NULL
-    </update>
-
-    <update id="reject">
-        UPDATE media_assets
-           SET status = 'REJECTED'
-         WHERE account_id = #{accountId}
-           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND status = 'VALIDATING'
-           AND deleted_at IS NULL
-    </update>
 
     <update id="softDelete">
         UPDATE media_assets m
            SET status = 'DELETED',
                deleted_at = CURRENT_TIMESTAMP
          WHERE m.account_id = #{accountId}
+           AND m.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND m.id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND m.status = 'READY'
            AND m.deleted_at IS NULL
