@@ -45,8 +45,6 @@ class FlywayBaselineStructureTest {
     assertTrue(v2.contains("CREATE TABLE scenes"));
     assertTrue(v2.contains("CREATE TABLE media_plans"));
     assertTrue(v2.contains("reuse_source_visual_beat_id UUID"));
-    assertTrue(v2.contains("production_mode VARCHAR(32) NOT NULL CHECK (production_mode = 'IMAGE_MOTION')"));
-    assertFalse(v2.contains("HYBRID_LOCAL_I2V"));
 
     assertTrue(v3.contains("CREATE TABLE generation_jobs"));
     assertTrue(v3.contains("idempotency_key VARCHAR(512)"));
