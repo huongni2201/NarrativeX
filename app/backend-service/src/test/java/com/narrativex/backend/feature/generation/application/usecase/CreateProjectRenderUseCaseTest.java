@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.application.command.CreateProje
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -100,6 +101,13 @@ class CreateProjectRenderUseCaseTest {
   }
 
   @Test
+  void qhdRequiresUltraEntitlement() throws Exception {
+    assertThat(qualityAllowed("1440p", "HIGH")).isFalse();
+    assertThat(qualityAllowed("1440p", "1080P")).isFalse();
+    assertThat(qualityAllowed("1440p", "ULTRA")).isTrue();
+  }
+
+  @Test
   void projectRenderUsesOnlyLocalStageAndOperationIdentity() {
     assertThat(CreateProjectRenderUseCase.operationType("1080p", "mp4"))
         .isEqualTo("RENDER_PROJECT_LOCAL_1080P_MP4");
@@ -149,6 +157,14 @@ class CreateProjectRenderUseCaseTest {
             error ->
                 assertThat(((GenerationAdmissionDeniedException) error).getCode())
                     .isEqualTo("INVALID_RENDER_OVERRIDE"));
+  }
+
+  private static boolean qualityAllowed(String resolution, String quality) throws Exception {
+    Method method =
+        CreateProjectRenderUseCase.class.getDeclaredMethod(
+            "qualityAllowed", String.class, String.class);
+    method.setAccessible(true);
+    return (boolean) method.invoke(null, resolution, quality);
   }
 
   private static ProductionTimelineView timeline(
