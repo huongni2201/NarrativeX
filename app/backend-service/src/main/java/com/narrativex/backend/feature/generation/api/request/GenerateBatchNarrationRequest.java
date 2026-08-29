@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.generation.api.request;
 
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -14,7 +16,7 @@ public record GenerateBatchNarrationRequest(
     @NotEmpty @Size(max = 50) List<@NotNull UUID> chapterIds,
     @NotBlank String voiceId,
     @DecimalMin("0.25") @DecimalMax("2.0") BigDecimal speakingRate,
-    UUID voiceReferenceAssetId) {
+    @Valid VoiceReferenceSelection voiceReference) {
   public BigDecimal effectiveSpeakingRate() {
     return speakingRate == null ? BigDecimal.ONE : speakingRate;
   }
