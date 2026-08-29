@@ -9,29 +9,31 @@ const beat = (visualBeatId, chapterId, sceneIndex, durationMs = 5000) => ({
   durationMs,
 });
 
-test("regular beat and scene boundaries stay hard cuts", () => {
+test("beats inside the same scene stay hard cuts", () => {
   const plans = planBeatTransitions([
     beat("beat-1", "chapter-1", 0),
-    beat("beat-2", "chapter-1", 1),
+    beat("beat-2", "chapter-1", 0),
   ]);
 
-  assert.deepEqual(plans, [
-    {
-      visualBeatId: "beat-1",
-      transitionInMs: 0,
-      transitionOutMs: 0,
-      transitionType: "CUT",
-    },
-    {
-      visualBeatId: "beat-2",
-      transitionInMs: 0,
-      transitionOutMs: 0,
-      transitionType: "CUT",
-    },
-  ]);
+  assert.equal(plans[0].transitionType, "CUT");
+  assert.equal(plans[0].transitionOutMs, 0);
+  assert.equal(plans[1].transitionInMs, 0);
 });
 
-test("chapter boundary gets symmetric fade-through-black without changing durations", () => {
+test("scene boundaries receive a subtle duration-preserving transition", () => {
+  const plans = planBeatTransitions([
+    beat("beat-1", "chapter-1", 0, 5000),
+    beat("beat-2", "chapter-1", 1, 5000),
+  ]);
+
+  assert.equal(plans[0].transitionType, "FADE_BLACK");
+  assert.ok(plans[0].transitionOutMs >= 100);
+  assert.ok(plans[0].transitionOutMs <= 150);
+  assert.equal(plans[1].transitionType, "FADE_BLACK");
+  assert.equal(plans[1].transitionInMs, plans[0].transitionOutMs);
+});
+
+test("chapter boundary gets a stronger fade-through-black without changing durations", () => {
   const plans = planBeatTransitions([
     beat("beat-1", "chapter-1", 2, 5000),
     beat("beat-2", "chapter-2", 0, 4000),
