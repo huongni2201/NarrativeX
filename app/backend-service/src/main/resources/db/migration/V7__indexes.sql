@@ -283,5 +283,4 @@ CREATE INDEX idx_final_artifacts_project_video_fingerprint
     ON final_artifacts (project_id, render_fingerprint)
     WHERE artifact_type = 'PROJECT_VIDEO';
 CREATE INDEX idx_project_render_input_local_claim
-    ON project_render_input_snapshots (assigned_local_device_id, created_at, generation_job_id)
-    WHERE execution_target = 'LOCAL_DEVICE';
+    ON project_render_input_snapshots (assigned_local_device_id, created_at, generation_job_id);
