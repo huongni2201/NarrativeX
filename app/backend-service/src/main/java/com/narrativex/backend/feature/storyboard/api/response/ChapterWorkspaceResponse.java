@@ -59,7 +59,7 @@ public record ChapterWorkspaceResponse(
       Integer durationSeconds,
       String status,
       int visualBeatCount,
-      String previewImageUrl) {}
+      UUID previewMediaAssetId) {}
 
   public record Capabilities(
       boolean canAnalyze,
