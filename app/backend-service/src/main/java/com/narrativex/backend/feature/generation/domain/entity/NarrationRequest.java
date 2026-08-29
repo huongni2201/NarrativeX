@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.domain.entity;
 
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
@@ -16,7 +17,7 @@ public record NarrationRequest(
     BigDecimal speakingRate,
     String segmentationVersion,
     String requestFingerprint,
-    UUID voiceReferenceAssetId) {
+    VoiceReferenceSelection voiceReference) {
   public NarrationRequest {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(projectId, "projectId");
