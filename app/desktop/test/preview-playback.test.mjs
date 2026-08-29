@@ -6,6 +6,7 @@ import {
   narrationSeekSeconds,
   narrationTimeMs,
   previewPlaybackState,
+  shouldResyncNarration,
 } from "../src/renderer/features/editor/preview-playback.ts";
 
 function beat(overrides = {}) {
@@ -85,4 +86,10 @@ test("timeline seek maps back to chapter-local narration seconds", () => {
   assert.equal(narrationSeekSeconds(42_250, 30_000, 50_000), 12.25);
   assert.equal(narrationSeekSeconds(25_000, 30_000, 50_000), 0);
   assert.equal(narrationSeekSeconds(55_000, 30_000, 50_000), 20);
+});
+
+test("live narration only resyncs for a meaningful seek gap", () => {
+  assert.equal(shouldResyncNarration(12.0, 12.1), false);
+  assert.equal(shouldResyncNarration(12.0, 12.36), true);
+  assert.equal(shouldResyncNarration(20.0, 5.0), true);
 });
