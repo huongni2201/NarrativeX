@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.application.command;
 
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
@@ -9,7 +10,7 @@ public record GenerateChapterNarrationCommand(
     UUID chapterId,
     String voiceId,
     BigDecimal speakingRate,
-    UUID voiceReferenceAssetId,
+    VoiceReferenceSelection voiceReference,
     boolean forceRegenerate,
     String previewText) {
   public GenerateChapterNarrationCommand(
@@ -17,8 +18,8 @@ public record GenerateChapterNarrationCommand(
       UUID chapterId,
       String voiceId,
       BigDecimal speakingRate,
-      UUID voiceReferenceAssetId) {
-    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, false, null);
+      VoiceReferenceSelection voiceReference) {
+    this(projectId, chapterId, voiceId, speakingRate, voiceReference, false, null);
   }
 
   public GenerateChapterNarrationCommand(
@@ -26,9 +27,9 @@ public record GenerateChapterNarrationCommand(
       UUID chapterId,
       String voiceId,
       BigDecimal speakingRate,
-      UUID voiceReferenceAssetId,
+      VoiceReferenceSelection voiceReference,
       boolean forceRegenerate) {
-    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, forceRegenerate, null);
+    this(projectId, chapterId, voiceId, speakingRate, voiceReference, forceRegenerate, null);
   }
 
   public GenerateChapterNarrationCommand(
@@ -36,9 +37,9 @@ public record GenerateChapterNarrationCommand(
       UUID chapterId,
       String voiceId,
       BigDecimal speakingRate,
-      UUID voiceReferenceAssetId,
+      VoiceReferenceSelection voiceReference,
       String previewText) {
-    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, false, previewText);
+    this(projectId, chapterId, voiceId, speakingRate, voiceReference, false, previewText);
   }
 
   public GenerateChapterNarrationCommand {
@@ -58,7 +59,7 @@ public record GenerateChapterNarrationCommand(
       if (previewText.length() > 500) {
         throw new IllegalArgumentException("previewText must not exceed 500 characters");
       }
-      if (voiceReferenceAssetId == null) {
+      if (voiceReference == null) {
         throw new IllegalArgumentException("Voice preview requires a voice reference asset");
       }
     }
