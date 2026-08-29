@@ -46,7 +46,6 @@ public interface ProductionTimelineSourceRepository {
       Long audioDurationMs,
       UUID mediaAssetId,
       String mediaType,
-      String storageMode,
       Long sourceDurationMs,
       String fitMode,
       long trimStartMs,
