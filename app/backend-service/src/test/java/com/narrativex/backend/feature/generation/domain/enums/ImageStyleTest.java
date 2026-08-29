@@ -19,23 +19,29 @@ class ImageStyleTest {
   }
 
   @Test
-  void cinematicAnimeProfileUsesSemiRealisticRomanceRendering() {
-    assertThat(ImageStyle.CINEMATIC_ANIME.promptFor("A heroine stands in a sunlit flower field."))
+  void cinematicAnimeProfileUsesSceneAdaptiveRenderingWithoutRomanceBias() {
+    String prompt =
+        ImageStyle.CINEMATIC_ANIME.promptFor("A heroine stands in a moonlit abandoned house.");
+
+    assertThat(prompt)
         .contains("2.5D digital painting")
-        .contains("romantic webnovel cover art")
         .contains("modern manhwa")
-        .contains("champagne gold rim lighting")
-        .contains("silky")
-        .contains("scene only")
-        .contains("SCENE DESCRIPTION: A heroine stands in a sunlit flower field.");
+        .contains("age-appropriate facial structure")
+        .contains("physically motivated lighting")
+        .contains("consistent face geometry")
+        .contains("adapted to the scene mood")
+        .doesNotContain("champagne gold")
+        .doesNotContain("romantic bloom")
+        .contains("SCENE DESCRIPTION: A heroine stands in a moonlit abandoned house.");
 
     assertThat(ImageStyle.CINEMATIC_ANIME.negativePrompt())
         .contains(
             "raw live-action photograph",
             "flat 2D cel anime",
-            "plastic toy look",
+            "age regression",
+            "face redesign",
+            "changing facial identity",
             "multiple panels",
-            "title",
             "watermark");
   }
 }
