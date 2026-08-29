@@ -1,6 +1,5 @@
 export type BeatMediaFitMode = "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
 export type BeatMediaType = "IMAGE" | "VIDEO";
-export type BeatMediaStorageMode = "REMOTE" | "PROJECT_LOCAL" | "LOCAL_ONLY" | "HYBRID";
 export type AutoEditStyle = "AUTO" | "CINEMATIC" | "BALANCED" | "DYNAMIC";
 export type RenderResolution = "720p" | "1080p" | "1440p";
 
@@ -15,7 +14,6 @@ export interface DesktopTimelineBeat {
   assetStrategy: string;
   mediaAssetId: string | null;
   mediaType: BeatMediaType | null;
-  storageMode: BeatMediaStorageMode | null;
   sourceDurationMs: number | null;
   fitMode: BeatMediaFitMode;
   trimStartMs: number;
@@ -69,13 +67,11 @@ export interface AutoEditPlan {
 
 export interface LocalRenderPreflightAssetInput {
   assetId: string;
-  storageMode: BeatMediaStorageMode;
-  materializable: boolean;
 }
 
 export interface LocalRenderPreflightAsset {
   assetId: string;
-  state: "AVAILABLE" | "MATERIALIZABLE" | "MISSING" | "CORRUPT";
+  state: "AVAILABLE" | "MISSING" | "CORRUPT";
   message: string | null;
 }
 
