@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   createGeminiQueue,
   markQueueBeatCompleted,
@@ -122,4 +123,15 @@ test("queue persistence is scoped by project/chapter and malformed payloads are 
 
   saveGeminiQueue("project-1", "chapter-1", null, storage);
   assert.equal(storage.getItem(key), null);
+});
+
+test("Storyboard queue transitions publish to local storage from the runner", () => {
+  const source = readFileSync(
+    "src/renderer/features/storyboard/screens/StoryboardScreen.tsx",
+    "utf8",
+  );
+  assert.match(source, /function publishGeminiQueue/);
+  assert.match(source, /publishGeminiQueue\(queue\)/);
+  assert.match(source, /generated[\s\S]*markQueueBeatCompleted[\s\S]*publishGeminiQueue/);
+  assert.doesNotMatch(source, /useEffect\(\(\) => \{[\s\S]*saveGeminiQueue\(projectId, selectedChapterId, geminiQueue\)/);
 });

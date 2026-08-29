@@ -61,6 +61,14 @@ export function StoryboardScreen({
   const [geminiQueue, setGeminiQueue] = useState<GeminiQueueState | null>(null);
   const geminiRunTokenRef = useRef(0);
 
+  function publishGeminiQueue(
+    next: GeminiQueueState | null,
+    chapterId: string | null = selectedChapterId,
+  ) {
+    setGeminiQueue(next);
+    if (chapterId) saveGeminiQueue(projectId, chapterId, next);
+  }
+
   useEffect(() => {
     if (!chapters.length) {
       setSelectedChapterId(null);
@@ -77,13 +85,9 @@ export function StoryboardScreen({
       return;
     }
     const restored = loadGeminiQueue(projectId, selectedChapterId);
-    setGeminiQueue(restored ? restoreQueueForSession(restored) : null);
+    const nextQueue = restored ? restoreQueueForSession(restored) : null;
+    publishGeminiQueue(nextQueue, selectedChapterId);
   }, [projectId, selectedChapterId]);
-
-  useEffect(() => {
-    if (!selectedChapterId) return;
-    saveGeminiQueue(projectId, selectedChapterId, geminiQueue);
-  }, [geminiQueue, projectId, selectedChapterId]);
 
   const storyboardQuery = useStoryboardQuery(projectId, selectedChapterId);
   const createBeat = useCreateVisualBeat(projectId, selectedChapterId);
@@ -140,7 +144,7 @@ export function StoryboardScreen({
   useEffect(() => {
     if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
     const reconciled = reconcileQueue(geminiQueue, new Set(beatById.keys()));
-    if (reconciled !== geminiQueue) setGeminiQueue(reconciled);
+    if (reconciled !== geminiQueue) publishGeminiQueue(reconciled);
   }, [beatById, geminiQueue]);
 
   const timelineBeats = useMemo(
@@ -226,7 +230,7 @@ export function StoryboardScreen({
       if (!beat) {
         processed.add(beatId);
         queue = markQueueBeatSkipped(queue, beatId);
-        setGeminiQueue(queue);
+        publishGeminiQueue(queue);
         continue;
       }
 
@@ -234,25 +238,28 @@ export function StoryboardScreen({
       if (queueAfterApprovalCheck !== queue) {
         processed.add(beatId);
         queue = queueAfterApprovalCheck;
-        setGeminiQueue(queue);
+        publishGeminiQueue(queue);
         continue;
       }
 
       queue = { ...queue, currentIndex: index, status: "RUNNING" };
-      setGeminiQueue(queue);
+      publishGeminiQueue(queue);
       setSelectedSceneId(beat.sceneId);
       setReviewStatusFilter("ALL");
 
       const generated = await generateGeminiImage(beat, true);
+      if (generated) {
+        processed.add(beatId);
+        queue = markQueueBeatCompleted(queue, beatId);
+        publishGeminiQueue(queue);
+      }
       if (runToken !== geminiRunTokenRef.current) return;
       if (!generated) {
-        setGeminiQueue({ ...queue, status: "PAUSED" });
+        const pausedQueue = { ...queue, status: "PAUSED" as const };
+        queue = pausedQueue;
+        publishGeminiQueue(pausedQueue);
         return;
       }
-
-      processed.add(beatId);
-      queue = markQueueBeatCompleted(queue, beatId);
-      setGeminiQueue(queue);
     }
 
     if (runToken !== geminiRunTokenRef.current) return;
@@ -261,7 +268,7 @@ export function StoryboardScreen({
       currentIndex: queue.beatIds.length,
       status: "COMPLETED",
     };
-    setGeminiQueue(completedQueue);
+    publishGeminiQueue(completedQueue);
     setNotice(
       `Gemini All hoàn tất: ${completedQueue.completedBeatIds.length} generated, ${completedQueue.skippedBeatIds.length} skipped.`,
     );
@@ -271,7 +278,7 @@ export function StoryboardScreen({
     if (!selectedChapterId) return;
     const queue = createGeminiQueue(selectedChapterId, allChapterBeats);
     if (!queue) return;
-    setGeminiQueue(queue);
+    publishGeminiQueue(queue);
     const runToken = ++geminiRunTokenRef.current;
     await runGeminiQueue(queue, runToken);
   }
@@ -280,7 +287,7 @@ export function StoryboardScreen({
     if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
     const runToken = ++geminiRunTokenRef.current;
     const resumed: GeminiQueueState = { ...geminiQueue, status: "RUNNING" };
-    setGeminiQueue(resumed);
+    publishGeminiQueue(resumed);
     await runGeminiQueue(resumed, runToken);
   }
 
@@ -289,7 +296,7 @@ export function StoryboardScreen({
     const skipped = markQueueBeatSkipped(geminiQueue, currentQueueBeatId);
     const nextQueue: GeminiQueueState =
       skipped.status === "COMPLETED" ? skipped : { ...skipped, status: "RUNNING" };
-    setGeminiQueue(nextQueue);
+    publishGeminiQueue(nextQueue);
     if (nextQueue.status === "COMPLETED") {
       setNotice(
         `Gemini All hoàn tất: ${nextQueue.completedBeatIds.length} generated, ${nextQueue.skippedBeatIds.length} skipped.`,
@@ -302,7 +309,7 @@ export function StoryboardScreen({
 
   function stopGeminiAll() {
     geminiRunTokenRef.current += 1;
-    setGeminiQueue(null);
+    publishGeminiQueue(geminiQueue ? { ...geminiQueue, status: "PAUSED" } : null);
     setPendingImportBeatId(null);
     setNotice("Đã dừng Gemini All. Generation đang chạy trên Chrome (nếu có) sẽ không tiếp tục sang beat kế tiếp.");
   }
@@ -488,7 +495,7 @@ export function StoryboardScreen({
                 onResume={() => void resumeGeminiAll()}
                 onSkip={() => void skipCurrentGeminiBeat()}
                 onStop={stopGeminiAll}
-                onDismiss={() => setGeminiQueue(null)}
+                onDismiss={() => publishGeminiQueue(null)}
               />
             )}
 
