@@ -1,5 +1,5 @@
 import type { AutoEditStyle, RenderResolution } from "@narrativex/client-contracts";
-import { Film, FolderOpen, Loader2, X } from "lucide-react";
+import { Film, FolderOpen, Loader2, Type, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -74,18 +74,16 @@ export function RenderDialog({
             </label>
           </div>
 
-          <label className="flex items-center justify-between rounded-lg border border-border-subtle bg-popover px-3 py-2.5">
-            <span>
-              <strong className="block text-[11px]">Subtitles</strong>
-              <span className="text-[9px] text-muted-foreground">Burn narration subtitles into final video</span>
+          <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-popover px-3 py-2.5">
+            <span className="flex items-center gap-2">
+              <Type size={13} className="text-primary" />
+              <span>
+                <strong className="block text-[11px]">Subtitles · Automatic</strong>
+                <span className="text-[9px] text-muted-foreground">Narration subtitles are burned into the final video using alignment/fallback timing.</span>
+              </span>
             </span>
-            <input
-              type="checkbox"
-              checked={controller.subtitlesEnabled}
-              onChange={(event) => controller.setSubtitlesEnabled(event.target.checked)}
-              className="accent-primary"
-            />
-          </label>
+            <span className="rounded bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold text-emerald-400">ON</span>
+          </div>
 
           <div className="rounded-lg border border-border-subtle bg-popover p-3">
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
