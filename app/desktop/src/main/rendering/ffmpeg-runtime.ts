@@ -1,5 +1,11 @@
 import { dirname, join } from "node:path";
+import { shouldDisableHardwareAcceleration } from "../runtime/gpu-policy";
 import { runProcess } from "./process-runner";
+import {
+  renderConcurrencyForEncoder,
+  resolveVideoEncoder,
+  type VideoEncoder,
+} from "./video-encoder";
 
 export interface FfmpegRuntimeStatus {
   available: boolean;
@@ -7,6 +13,8 @@ export interface FfmpegRuntimeStatus {
   ffprobePath: string | null;
   version: string | null;
   reason: string | null;
+  videoEncoder: VideoEncoder;
+  renderConcurrency: number;
 }
 
 interface FfmpegCandidate {
@@ -27,12 +35,18 @@ export async function resolveFfmpegRuntime(): Promise<FfmpegRuntimeStatus> {
       if (version.exitCode !== 0 || probe.exitCode !== 0) {
         throw new Error("ffmpeg/ffprobe did not start successfully.");
       }
+      const videoEncoder = await resolveVideoEncoder(
+        candidate.ffmpegPath,
+        !shouldDisableHardwareAcceleration(process.env, process.argv),
+      );
       return {
         available: true,
         ffmpegPath: candidate.ffmpegPath,
         ffprobePath: candidate.ffprobePath,
         version: version.stdout.split(/\r?\n/, 1)[0] ?? null,
         reason: null,
+        videoEncoder,
+        renderConcurrency: renderConcurrencyForEncoder(videoEncoder),
       };
     } catch (error) {
       lastError = error instanceof Error ? error.message : "FFmpeg runtime probe failed.";
@@ -45,6 +59,8 @@ export async function resolveFfmpegRuntime(): Promise<FfmpegRuntimeStatus> {
     ffprobePath: null,
     version: null,
     reason: lastError ?? "FFmpeg runtime is unavailable.",
+    videoEncoder: "libx264",
+    renderConcurrency: renderConcurrencyForEncoder("libx264"),
   };
 }
 
