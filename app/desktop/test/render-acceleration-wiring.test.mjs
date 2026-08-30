@@ -9,6 +9,16 @@ function source(path) {
   return readFileSync(join(desktopRoot, path), "utf8");
 }
 
+test("FFmpeg runtime probes NVENC and retains a libx264 fallback", () => {
+  const runtime = source("src/main/rendering/ffmpeg-runtime.ts");
+  const encoder = source("src/main/rendering/video-encoder.ts");
+  assert.match(runtime, /resolveVideoEncoder\(/);
+  assert.match(runtime, /shouldDisableHardwareAcceleration/);
+  assert.match(encoder, /h264_nvenc/);
+  assert.match(encoder, /probe\.exitCode === 0 \? "h264_nvenc" : "libx264"/);
+  assert.match(encoder, /MAX_RENDER_CONCURRENCY = 4/);
+});
+
 test("project renderer forwards runtime encoder and concurrency to segment rendering", () => {
   const renderer = source("src/main/rendering/project-renderer.ts");
   assert.match(renderer, /videoEncoder:\s*this\.runtime\.videoEncoder/);
