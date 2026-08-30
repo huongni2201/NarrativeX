@@ -40,7 +40,8 @@ export async function cleanupGeminiTempFile(sourcePath: string): Promise<void> {
 }
 
 async function runWatermarkRemover(sourcePath: string, outputPath: string): Promise<void> {
-  const pnpmArgs = [
+  const command = "pnpm";
+  const args = [
     "dlx",
     WATERMARK_REMOVER_PACKAGE,
     "remove",
@@ -49,13 +50,12 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
     outputPath,
   ];
   const isWindows = process.platform === "win32";
-  const command = isWindows ? process.env.ComSpec || "cmd.exe" : "pnpm";
-  const args = isWindows ? ["/d", "/s", "/c", "pnpm.cmd", ...pnpmArgs] : pnpmArgs;
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ["ignore", "ignore", "pipe"],
       windowsHide: true,
+      shell: isWindows,
     });
 
     let stderr = "";
@@ -74,9 +74,10 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
     });
 
     child.once("error", (error) => {
+      const runtime = `platform=${process.platform}, node=${process.versions.node}, electron=${process.versions.electron ?? "n/a"}`;
       finish(
         new Error(
-          `Could not start Gemini watermark remover. Ensure pnpm is installed and available in PATH. ${error.message}`,
+          `Could not start Gemini watermark remover (${runtime}). Ensure pnpm is installed and available in PATH. ${error.message}`,
         ),
       );
     });
