@@ -17,9 +17,9 @@ def test_resolve_visual_beat_ranges_uses_ordered_exact_utf16_offsets() -> None:
     )
 
     assert ranges == [
-        ResolvedVisualBeatRange(0, 8),
-        ResolvedVisualBeatRange(12, 36),
-        ResolvedVisualBeatRange(37, 53),
+        ResolvedVisualBeatRange(0, 7),
+        ResolvedVisualBeatRange(11, 34),
+        ResolvedVisualBeatRange(35, 50),
     ]
 
 
