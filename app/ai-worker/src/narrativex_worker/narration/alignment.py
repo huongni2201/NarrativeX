@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from fractions import Fraction
 
 from narrativex_worker.narration.models import (
     AlignmentSpan,
@@ -43,21 +44,28 @@ class NarrationAlignmentValidator:
             raise ValueError(f"alignment duration drift {drift}ms exceeds tolerance")
 
 
+def _frame_count(segment: SynthesizedSegment | MaterializedAudioSegment) -> int:
+    if isinstance(segment, SynthesizedSegment):
+        return segment.frame_count
+    return segment.frame_count
+
+
 def build_alignment(
     segments: Sequence[SynthesizedSegment | MaterializedAudioSegment],
 ) -> list[AlignmentSpan]:
-    cursor = 0
+    cumulative_ms = Fraction(0, 1)
     spans: list[AlignmentSpan] = []
     for synthesized in segments:
-        duration = synthesized.duration_ms
+        start_ms = round(cumulative_ms)
+        cumulative_ms += Fraction(_frame_count(synthesized) * 1000, synthesized.sample_rate_hz)
+        end_ms = round(cumulative_ms)
         spans.append(
             AlignmentSpan(
                 index=synthesized.segment.index,
                 text_start=synthesized.segment.text_start,
                 text_end=synthesized.segment.text_end,
-                audio_start_ms=cursor,
-                audio_end_ms=cursor + duration,
+                audio_start_ms=start_ms,
+                audio_end_ms=end_ms,
             )
         )
-        cursor += duration
     return spans
