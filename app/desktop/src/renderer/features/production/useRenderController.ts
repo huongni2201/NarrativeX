@@ -23,6 +23,7 @@ export function useRenderController({
 }>) {
   const [resolution, setResolution] = useState<RenderResolution>("1080p");
   const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("AUTO");
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const [job, setJob] = useState<DesktopRenderJob | null>(null);
   const [preflight, setPreflight] = useState<LocalRenderPreflight | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export function useRenderController({
       .deliverArtifact({ token, projectId, jobId: liveJob.jobId, projectName })
       .then(({ path }) => {
         setDestinationToken(null);
+        setDestinationDirectory(null);
         setFinalPath(path);
         setNotice(`Render hoàn tất: ${path}`);
       })
@@ -70,21 +72,30 @@ export function useRenderController({
       });
   }, [destinationToken, liveJob, projectId, projectName]);
 
+  async function chooseDestination() {
+    const destination = await window.narrativex.render.chooseDestination();
+    if (!destination) {
+      setNotice("Đã hủy chọn thư mục.");
+      return;
+    }
+    setDestinationDirectory(destination.directory);
+    setDestinationToken(destination.token);
+    setFinalPath(null);
+    setNotice(`Video final sẽ được lưu vào ${destination.directory}.`);
+  }
+
   async function startRender() {
     if (!timeline || !autoEditPlan || !canRender) {
       setNotice(readinessBlockers[0] ?? "Timeline chưa ready for render.");
       return;
     }
-
-    const destination = await window.narrativex.render.chooseDestination();
-    if (!destination) {
-      setNotice("Đã hủy chọn thư mục. Chưa có render job nào được tạo.");
+    if (!destinationDirectory || !destinationToken) {
+      setNotice("Hãy chọn thư mục lưu video trước khi render.");
       return;
     }
 
     setBusy(true);
     setFinalPath(null);
-    setDestinationDirectory(destination.directory);
     setNotice("Đang kiểm tra runtime, media local và dung lượng trước khi render…");
     try {
       const nextPreflight = await productionApi.preflight(
@@ -100,12 +111,12 @@ export function useRenderController({
         projectId,
         autoEditPlan.renderOverrides,
         resolution,
+        subtitlesEnabled,
       );
       deliveringJobRef.current = null;
-      setDestinationToken(destination.token);
       setJob(nextJob);
       setNotice(
-        `Render ${resolutionLabel(resolution)} đã được queue. File final sẽ lưu vào ${destination.directory}.`,
+        `Render ${resolutionLabel(resolution)} đã được queue. File final sẽ lưu vào ${destinationDirectory}.`,
       );
     } catch (error) {
       setNotice(toMessage(error));
@@ -119,6 +130,8 @@ export function useRenderController({
     setResolution,
     autoEditStyle,
     setAutoEditStyle,
+    subtitlesEnabled,
+    setSubtitlesEnabled,
     liveJob,
     preflight,
     notice,
@@ -128,6 +141,7 @@ export function useRenderController({
     readinessBlockers,
     canRender,
     autoEditPlan,
+    chooseDestination,
     startRender,
   };
 }

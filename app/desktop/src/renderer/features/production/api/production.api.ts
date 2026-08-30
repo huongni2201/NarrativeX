@@ -55,6 +55,7 @@ export const productionApi = {
     projectId: string,
     beatOverrides: ProjectRenderBeatOverride[] = [],
     resolution: RenderResolution = "1080p",
+    subtitlesEnabled = true,
   ) => {
     const status = await window.narrativex.localExecution.status();
     if (!status.projectRenderEnabled) {
@@ -82,6 +83,7 @@ export const productionApi = {
           format: "mp4",
           executionTarget: "LOCAL_DEVICE",
           localDeviceId,
+          subtitlesEnabled,
           beatOverrides,
         }),
       },

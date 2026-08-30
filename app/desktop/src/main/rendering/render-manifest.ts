@@ -4,6 +4,7 @@ import type {
   ClaimedProjectRenderBeat,
   ClaimedProjectRenderChapter,
 } from "../local-execution/backend-client";
+import { parseRenderProfile } from "./render-profile";
 import { planSubtitles, type PlannedSubtitle } from "./subtitle-planner";
 import { planBeatTransitions } from "./transition-planner";
 
@@ -23,7 +24,7 @@ export interface LocalRenderManifest {
   readonly subtitles: readonly PlannedSubtitle[];
   readonly effects: {
     readonly transitionPolicy: "CHAPTER_FADE_BLACK_V1";
-    readonly subtitlePolicy: "BURN_IN_ALIGNMENT_V1";
+    readonly subtitlePolicy: "BURN_IN_ALIGNMENT_V1" | "NONE";
   };
   readonly output: { readonly format: "mp4"; readonly mimeType: "video/mp4" };
 }
@@ -47,7 +48,8 @@ export function buildLocalRenderManifest(
   },
 ): LocalRenderManifest {
   const { width, height } = renderDimensions(render.resolution, render.aspectRatio);
-  const fps = parseFps(render.renderProfileJson);
+  const profile = parseRenderProfile(render.renderProfileJson);
+  const subtitlesEnabled = profile.subtitleMode !== "none";
   validateTimeline(render);
 
   const renderBeats = render.beats as Array<ClaimedProjectRenderBeat & { localPath: string }>;
@@ -76,10 +78,10 @@ export function buildLocalRenderManifest(
       localPath,
     })),
   };
-  const subtitles = planSubtitles(renderChapters);
+  const subtitles = subtitlesEnabled ? planSubtitles(renderChapters) : [];
   const effects = {
     transitionPolicy: "CHAPTER_FADE_BLACK_V1" as const,
-    subtitlePolicy: "BURN_IN_ALIGNMENT_V1" as const,
+    subtitlePolicy: subtitlesEnabled ? ("BURN_IN_ALIGNMENT_V1" as const) : ("NONE" as const),
   };
   const fingerprintSource = canonicalize({
     version: 1,
@@ -87,7 +89,7 @@ export function buildLocalRenderManifest(
     projectId: render.projectId,
     width,
     height,
-    fps,
+    fps: profile.fps,
     beats: beats.map(({ localPath: _path, ...beat }) => beat),
     audio: {
       chapters: audio.chapters.map(({ localPath: _path, ...chapter }) => chapter),
@@ -104,7 +106,7 @@ export function buildLocalRenderManifest(
     renderFingerprint: createHash("sha256").update(fingerprintSource).digest("hex"),
     width,
     height,
-    fps,
+    fps: profile.fps,
     beats,
     audio,
     subtitles,
@@ -153,15 +155,6 @@ export function renderDimensions(
 
 function evenDimension(value: number): number {
   return Math.max(2, Math.round(value / 2) * 2);
-}
-
-function parseFps(renderProfileJson: string): number {
-  try {
-    const profile = JSON.parse(renderProfileJson) as { fps?: unknown };
-    return typeof profile.fps === "number" && profile.fps > 0 ? profile.fps : 30;
-  } catch {
-    return 30;
-  }
 }
 
 function validateTimeline(render: ClaimedProjectRender): void {

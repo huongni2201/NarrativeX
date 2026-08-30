@@ -89,6 +89,7 @@ public class ProductionRenderController {
                 request.format(),
                 idempotencyKey,
                 request.localDeviceId(),
+                request.subtitlesEnabled(),
                 overrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));

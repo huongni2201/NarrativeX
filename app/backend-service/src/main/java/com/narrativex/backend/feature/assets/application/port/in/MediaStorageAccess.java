@@ -8,7 +8,9 @@ import org.springframework.http.MediaType;
 public interface MediaStorageAccess {
   URI createDownloadUrl(String storageKey, Instant expiresAt);
 
-  LocalMediaFile resolve(String token);
+  default LocalMediaFile resolve(String token) {
+    throw new UnsupportedOperationException("This media storage does not expose local capability tokens");
+  }
 
   record LocalMediaFile(
       Resource resource, MediaType contentType, long sizeBytes, String filename) {}

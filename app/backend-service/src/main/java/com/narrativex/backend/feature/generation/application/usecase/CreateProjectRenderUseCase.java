@@ -141,7 +141,8 @@ public class CreateProjectRenderUseCase {
         timeline,
         command.resolution(),
         command.format(),
-        command.localDeviceId());
+        command.localDeviceId(),
+        command.subtitlesEnabled());
 
     OperationPlan plan =
         operationPlanRepository.save(
@@ -318,7 +319,9 @@ public class CreateProjectRenderUseCase {
             + ":"
             + command.format().toLowerCase(Locale.ROOT)
             + ":"
-            + command.localDeviceId());
+            + command.localDeviceId()
+            + ":"
+            + command.subtitlesEnabled());
   }
 
   private static String idempotencyKey(

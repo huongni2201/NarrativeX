@@ -14,10 +14,17 @@ public record CreateProjectRenderRequest(
     @NotBlank @Pattern(regexp = "720p|1080p|1440p") String resolution,
     @NotBlank @Pattern(regexp = "mp4") String format,
     @NotNull UUID localDeviceId,
+    Boolean subtitlesEnabled,
     @Valid @Size(max = 2000) List<BeatOverride> beatOverrides) {
 
   public CreateProjectRenderRequest {
+    subtitlesEnabled = subtitlesEnabled == null ? Boolean.TRUE : subtitlesEnabled;
     beatOverrides = beatOverrides == null ? List.of() : List.copyOf(beatOverrides);
+  }
+
+  public CreateProjectRenderRequest(
+      String resolution, String format, UUID localDeviceId, List<BeatOverride> beatOverrides) {
+    this(resolution, format, localDeviceId, Boolean.TRUE, beatOverrides);
   }
 
   public record BeatOverride(

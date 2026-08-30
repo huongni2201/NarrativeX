@@ -18,6 +18,17 @@
     )
   </insert>
 
+  <update id="updateSubtitleMode">
+    UPDATE project_render_input_snapshots
+       SET render_profile_json = jsonb_set(
+         render_profile_json,
+         '{subtitles,mode}',
+         to_jsonb(CAST(#{subtitleMode} AS TEXT)),
+         TRUE
+       )
+     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+  </update>
+
   <insert id="insertChapter">
     INSERT INTO project_render_input_chapters (
       generation_job_id, chapter_id, chapter_order_index, chapter_row_version, source_hash,

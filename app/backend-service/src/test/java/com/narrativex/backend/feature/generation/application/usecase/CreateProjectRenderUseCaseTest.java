@@ -57,7 +57,7 @@ class CreateProjectRenderUseCaseTest {
   }
 
   @Test
-  void projectRenderRequestFingerprintChangesWithResolutionTimelineAndAssignedDevice() {
+  void projectRenderRequestFingerprintChangesWithResolutionTimelineAssignedDeviceAndSubtitles() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -71,17 +71,22 @@ class CreateProjectRenderUseCaseTest {
     String render720 =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, localDeviceId, List.of()),
+                projectId, "720p", "mp4", null, localDeviceId, true, List.of()),
             originalTimelineFingerprint);
     String render1080 =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "1080p", "mp4", null, localDeviceId, List.of()),
+                projectId, "1080p", "mp4", null, localDeviceId, true, List.of()),
             originalTimelineFingerprint);
     String renderOtherDevice =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, otherDeviceId, List.of()),
+                projectId, "720p", "mp4", null, otherDeviceId, true, List.of()),
+            originalTimelineFingerprint);
+    String renderWithoutSubtitles =
+        CreateProjectRenderUseCase.requestFingerprint(
+            new CreateProjectRenderCommand(
+                projectId, "720p", "mp4", null, localDeviceId, false, List.of()),
             originalTimelineFingerprint);
 
     ProductionTimelineView edited =
@@ -90,14 +95,15 @@ class CreateProjectRenderUseCaseTest {
     String editedRender720 =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, localDeviceId, List.of()),
+                projectId, "720p", "mp4", null, localDeviceId, true, List.of()),
             CreateProjectRenderUseCase.timelineFingerprint(edited));
 
     assertThat(render720)
         .hasSize(64)
         .isNotEqualTo(render1080)
         .isNotEqualTo(editedRender720)
-        .isNotEqualTo(renderOtherDevice);
+        .isNotEqualTo(renderOtherDevice)
+        .isNotEqualTo(renderWithoutSubtitles);
   }
 
   @Test

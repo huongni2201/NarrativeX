@@ -16,7 +16,26 @@ class CreateProjectRenderRequestValidationTest {
       var request = new CreateProjectRenderRequest("1440p", "mp4", UUID.randomUUID(), List.of());
 
       assertThat(validator.validate(request)).isEmpty();
+      assertThat(request.subtitlesEnabled()).isTrue();
     }
+  }
+
+  @Test
+  void preservesDisabledSubtitlePreference() {
+    var request =
+        new CreateProjectRenderRequest(
+            "1080p", "mp4", UUID.randomUUID(), Boolean.FALSE, List.of());
+
+    assertThat(request.subtitlesEnabled()).isFalse();
+  }
+
+  @Test
+  void defaultsMissingSubtitlePreferenceToEnabled() {
+    var request =
+        new CreateProjectRenderRequest(
+            "1080p", "mp4", UUID.randomUUID(), null, List.of());
+
+    assertThat(request.subtitlesEnabled()).isTrue();
   }
 
   @Test
