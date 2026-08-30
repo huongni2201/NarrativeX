@@ -27,6 +27,15 @@ test("render destination can be selected before the timeline is render-ready", (
   assert.doesNotMatch(startRender, /\.chooseDestination\(\)/);
 });
 
+test("completed delivery clears the consumed destination for the next render", () => {
+  const deliverySuccess = controllerSource.slice(
+    controllerSource.indexOf(".then(({ path }) =>"),
+    controllerSource.indexOf(".catch((error", controllerSource.indexOf(".then(({ path }) =>")),
+  );
+  assert.match(deliverySuccess, /setDestinationToken\(null\)/);
+  assert.match(deliverySuccess, /setDestinationDirectory\(null\)/);
+});
+
 test("subtitle control is a real toggle and defaults to enabled", () => {
   assert.match(
     controllerSource,
