@@ -1,13 +1,13 @@
 package com.narrativex.backend.feature.generation.application.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Maps UTF-16 source offsets onto the authoritative narration alignment clock. */
 public final class NarrationTextClockMapper {
-  private static final ObjectMapper JSON = new ObjectMapper();
+  private static final JsonMapper JSON = JsonMapper.builder().build();
 
   private NarrationTextClockMapper() {}
 
