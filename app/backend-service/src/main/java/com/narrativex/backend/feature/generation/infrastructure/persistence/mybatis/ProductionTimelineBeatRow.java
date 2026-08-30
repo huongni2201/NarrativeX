@@ -22,6 +22,8 @@ public class ProductionTimelineBeatRow {
   private String visualIntent;
   private String cameraMovement;
   private String assetStrategy;
+  private Integer textStart;
+  private Integer textEnd;
   private Long audioStartMs;
   private Long audioEndMs;
   private Long audioDurationMs;
