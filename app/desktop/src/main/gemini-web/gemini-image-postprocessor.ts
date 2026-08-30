@@ -40,8 +40,7 @@ export async function cleanupGeminiTempFile(sourcePath: string): Promise<void> {
 }
 
 async function runWatermarkRemover(sourcePath: string, outputPath: string): Promise<void> {
-  const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const args = [
+  const pnpmArgs = [
     "dlx",
     WATERMARK_REMOVER_PACKAGE,
     "remove",
@@ -49,6 +48,9 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
     "--output",
     outputPath,
   ];
+  const isWindows = process.platform === "win32";
+  const command = isWindows ? process.env.ComSpec || "cmd.exe" : "pnpm";
+  const args = isWindows ? ["/d", "/s", "/c", "pnpm.cmd", ...pnpmArgs] : pnpmArgs;
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
