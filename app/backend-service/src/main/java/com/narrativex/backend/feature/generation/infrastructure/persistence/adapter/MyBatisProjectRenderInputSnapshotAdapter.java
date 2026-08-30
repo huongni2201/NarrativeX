@@ -19,7 +19,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
       ProductionTimelineView timeline,
       String resolution,
       String format,
-      UUID assignedLocalDeviceId) {
+      UUID assignedLocalDeviceId,
+      boolean subtitlesEnabled) {
     if (!timeline.readyForRender()) {
       throw new IllegalArgumentException(
           "Project render snapshot requires a render-ready timeline");
@@ -37,6 +38,9 @@ public class MyBatisProjectRenderInputSnapshotAdapter
             timeline.beats().size())
         != 1) {
       throw new IllegalStateException("Project render snapshot header was not inserted");
+    }
+    if (mapper.updateSubtitleMode(generationJobId, subtitlesEnabled ? "burn_in" : "none") != 1) {
+      throw new IllegalStateException("Project render subtitle mode was not persisted");
     }
     for (ProductionTimelineView.Chapter chapter : timeline.chapters()) {
       if (!chapter.readyForRender()) {
