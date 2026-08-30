@@ -15,6 +15,10 @@ public interface ProjectRenderInputSnapshotMapper extends NarrativeXMyBatisMappe
       @Param("chapterCount") int chapterCount,
       @Param("beatCount") int beatCount);
 
+  int updateSubtitleMode(
+      @Param("generationJobId") UUID generationJobId,
+      @Param("subtitleMode") String subtitleMode);
+
   int insertChapter(
       @Param("generationJobId") UUID generationJobId,
       @Param("chapter") ProductionTimelineView.Chapter chapter);
