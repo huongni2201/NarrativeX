@@ -19,6 +19,14 @@ test("Gemini images are postprocessed with the watermark remover in a hidden chi
   assert.match(postprocessorSource, /windowsHide:\s*true/);
 });
 
+test("Windows launches pnpm.cmd through cmd.exe instead of spawning the .cmd file directly", () => {
+  assert.match(postprocessorSource, /process\.env\.ComSpec/);
+  assert.match(postprocessorSource, /["']cmd\.exe["']/);
+  assert.match(postprocessorSource, /["']\/d["']/);
+  assert.match(postprocessorSource, /["']\/s["']/);
+  assert.match(postprocessorSource, /["']\/c["']/);
+});
+
 test("Gemini generation stages only the postprocessed image", () => {
   const generateIndex = ipcSource.indexOf("await automation.generateImage");
   const postprocessIndex = ipcSource.indexOf("await removeGeminiWatermark", generateIndex);
