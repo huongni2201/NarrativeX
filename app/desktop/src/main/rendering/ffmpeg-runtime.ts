@@ -13,8 +13,8 @@ export interface FfmpegRuntimeStatus {
   ffprobePath: string | null;
   version: string | null;
   reason: string | null;
-  videoEncoder: VideoEncoder;
-  renderConcurrency: number;
+  videoEncoder?: VideoEncoder;
+  renderConcurrency?: number;
 }
 
 interface FfmpegCandidate {
