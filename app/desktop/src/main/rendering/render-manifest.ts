@@ -23,7 +23,7 @@ export interface LocalRenderManifest {
   readonly subtitles: readonly PlannedSubtitle[];
   readonly effects: {
     readonly transitionPolicy: "CHAPTER_FADE_BLACK_V1";
-    readonly subtitlePolicy: "BURN_IN_ALIGNMENT_V1";
+    readonly subtitlePolicy: "BURN_IN_ALIGNMENT_V1" | "NONE";
   };
   readonly output: { readonly format: "mp4"; readonly mimeType: "video/mp4" };
 }
@@ -48,6 +48,7 @@ export function buildLocalRenderManifest(
 ): LocalRenderManifest {
   const { width, height } = renderDimensions(render.resolution, render.aspectRatio);
   const fps = parseFps(render.renderProfileJson);
+  const subtitlesEnabled = parseSubtitleMode(render.renderProfileJson) !== "none";
   validateTimeline(render);
 
   const renderBeats = render.beats as Array<ClaimedProjectRenderBeat & { localPath: string }>;
@@ -76,10 +77,10 @@ export function buildLocalRenderManifest(
       localPath,
     })),
   };
-  const subtitles = planSubtitles(renderChapters);
+  const subtitles = subtitlesEnabled ? planSubtitles(renderChapters) : [];
   const effects = {
     transitionPolicy: "CHAPTER_FADE_BLACK_V1" as const,
-    subtitlePolicy: "BURN_IN_ALIGNMENT_V1" as const,
+    subtitlePolicy: subtitlesEnabled ? ("BURN_IN_ALIGNMENT_V1" as const) : ("NONE" as const),
   };
   const fingerprintSource = canonicalize({
     version: 1,
@@ -161,6 +162,17 @@ function parseFps(renderProfileJson: string): number {
     return typeof profile.fps === "number" && profile.fps > 0 ? profile.fps : 30;
   } catch {
     return 30;
+  }
+}
+
+function parseSubtitleMode(renderProfileJson: string): "burn_in" | "none" {
+  try {
+    const profile = JSON.parse(renderProfileJson) as {
+      subtitles?: { mode?: unknown };
+    };
+    return profile.subtitles?.mode === "none" ? "none" : "burn_in";
+  } catch {
+    return "burn_in";
   }
 }
 
