@@ -7,6 +7,10 @@ import {
   GeminiWebAutomation,
   type GeminiWebReferenceFile,
 } from "./gemini-web-automation";
+import {
+  cleanupGeminiTempFile,
+  removeGeminiWatermark,
+} from "./gemini-image-postprocessor";
 import { isGeminiWebLane, type GeminiWebLane } from "../../shared/gemini-web-lanes";
 import { ProjectStorage } from "../local-storage/project-storage";
 import {
@@ -36,7 +40,8 @@ export function registerGeminiWebIpc(
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
       const references = await resolveReferenceFiles(projectStorage, input);
       const result = await automation.generateImage(input.lane, input.prompt, references);
-      return stageGeneratedImage(event.sender.id, result.sourcePath, input.lane);
+      const cleanedSourcePath = await removeGeminiWatermark(result.sourcePath);
+      return stageGeneratedImage(event.sender.id, cleanedSourcePath, input.lane);
     },
   );
 
@@ -58,11 +63,13 @@ export function registerGeminiWebIpc(
         event.sender.id,
         "gemini-image-import",
       );
-      return projectStorage.registerAsset(input.projectId, {
+      const asset = await projectStorage.registerAsset(input.projectId, {
         assetId: input.assetId,
         kind: "IMAGE",
         sourcePath: selection.sourcePath,
       });
+      await cleanupGeminiTempFile(selection.sourcePath);
+      return asset;
     },
   );
 
@@ -185,7 +192,6 @@ function isCommitInput(value: unknown): value is {
     typeof input.selectionToken === "string"
   );
 }
-
 
 function kindForPath(sourcePath: string): "IMAGE" | "OTHER" {
   return [".png", ".jpg", ".jpeg", ".webp"].includes(extname(sourcePath).toLowerCase())
