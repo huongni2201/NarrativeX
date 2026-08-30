@@ -1,4 +1,7 @@
-from narrativex_worker.narration.alignment import build_alignment
+from narrativex_worker.narration.alignment import (
+    build_alignment,
+    normalize_alignment_duration,
+)
 from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
 
 
@@ -25,4 +28,15 @@ def test_build_alignment_rounds_cumulative_pcm_clock_instead_of_each_segment() -
     assert [(span.audio_start_ms, span.audio_end_ms) for span in spans] == [
         (0, 1000),
         (1000, 2001),
+    ]
+
+
+def test_normalize_alignment_duration_distributes_encoded_audio_drift() -> None:
+    spans = build_alignment([_segment(0, 48_000), _segment(1, 48_000)])
+
+    normalized = normalize_alignment_duration(spans, audio_duration_ms=2_024)
+
+    assert [(span.audio_start_ms, span.audio_end_ms) for span in normalized] == [
+        (0, 1012),
+        (1012, 2024),
     ]
