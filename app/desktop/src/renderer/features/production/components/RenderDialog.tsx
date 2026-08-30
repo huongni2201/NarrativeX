@@ -82,17 +82,39 @@ export function RenderDialog({
                 <span className="text-[9px] text-muted-foreground">Narration subtitles are burned into the final video using alignment/fallback timing.</span>
               </span>
             </span>
-            <span className="rounded bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold text-emerald-400">ON</span>
+            <button
+              type="button"
+              aria-pressed={controller.subtitlesEnabled}
+              onClick={() => controller.setSubtitlesEnabled(!controller.subtitlesEnabled)}
+              className={
+                controller.subtitlesEnabled
+                  ? "rounded bg-emerald-500/10 px-2.5 py-1 text-[9px] font-semibold text-emerald-400"
+                  : "rounded bg-secondary px-2.5 py-1 text-[9px] font-semibold text-muted-foreground"
+              }
+            >
+              {controller.subtitlesEnabled ? "ON" : "OFF"}
+            </button>
           </div>
 
-          <div className="rounded-lg border border-border-subtle bg-popover p-3">
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              <FolderOpen size={13} />
-              <span>Destination</span>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-popover p-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <FolderOpen size={13} />
+                <span>Destination</span>
+              </div>
+              <p className="mt-1 truncate font-mono text-[10px] text-foreground">
+                {controller.finalPath ?? controller.destinationDirectory ?? "Chưa chọn thư mục lưu video"}
+              </p>
             </div>
-            <p className="mt-1 truncate font-mono text-[10px] text-foreground">
-              {controller.finalPath ?? controller.destinationDirectory ?? "Bạn sẽ chọn thư mục khi bắt đầu render"}
-            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void controller.chooseDestination()}
+              disabled={controller.busy}
+            >
+              <FolderOpen size={13} />
+              {controller.destinationDirectory ? "Change" : "Choose folder"}
+            </Button>
           </div>
 
           {!!controller.readinessBlockers.length && (
@@ -127,10 +149,10 @@ export function RenderDialog({
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button
             onClick={() => void controller.startRender()}
-            disabled={controller.busy || !controller.canRender}
+            disabled={controller.busy || !controller.canRender || !controller.destinationDirectory}
           >
-            {controller.busy ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
-            {controller.busy ? "Preparing…" : "Choose folder & render"}
+            {controller.busy ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
+            {controller.busy ? "Preparing…" : "Render video"}
           </Button>
         </footer>
       </section>
