@@ -4,6 +4,7 @@ import type {
   ClaimedProjectRenderBeat,
   ClaimedProjectRenderChapter,
 } from "../local-execution/backend-client";
+import { parseRenderProfile } from "./render-profile";
 import { planSubtitles, type PlannedSubtitle } from "./subtitle-planner";
 import { planBeatTransitions } from "./transition-planner";
 
@@ -47,8 +48,8 @@ export function buildLocalRenderManifest(
   },
 ): LocalRenderManifest {
   const { width, height } = renderDimensions(render.resolution, render.aspectRatio);
-  const fps = parseFps(render.renderProfileJson);
-  const subtitlesEnabled = parseSubtitleMode(render.renderProfileJson) !== "none";
+  const profile = parseRenderProfile(render.renderProfileJson);
+  const subtitlesEnabled = profile.subtitleMode !== "none";
   validateTimeline(render);
 
   const renderBeats = render.beats as Array<ClaimedProjectRenderBeat & { localPath: string }>;
@@ -88,7 +89,7 @@ export function buildLocalRenderManifest(
     projectId: render.projectId,
     width,
     height,
-    fps,
+    fps: profile.fps,
     beats: beats.map(({ localPath: _path, ...beat }) => beat),
     audio: {
       chapters: audio.chapters.map(({ localPath: _path, ...chapter }) => chapter),
@@ -105,7 +106,7 @@ export function buildLocalRenderManifest(
     renderFingerprint: createHash("sha256").update(fingerprintSource).digest("hex"),
     width,
     height,
-    fps,
+    fps: profile.fps,
     beats,
     audio,
     subtitles,
@@ -154,26 +155,6 @@ export function renderDimensions(
 
 function evenDimension(value: number): number {
   return Math.max(2, Math.round(value / 2) * 2);
-}
-
-function parseFps(renderProfileJson: string): number {
-  try {
-    const profile = JSON.parse(renderProfileJson) as { fps?: unknown };
-    return typeof profile.fps === "number" && profile.fps > 0 ? profile.fps : 30;
-  } catch {
-    return 30;
-  }
-}
-
-function parseSubtitleMode(renderProfileJson: string): "burn_in" | "none" {
-  try {
-    const profile = JSON.parse(renderProfileJson) as {
-      subtitles?: { mode?: unknown };
-    };
-    return profile.subtitles?.mode === "none" ? "none" : "burn_in";
-  } catch {
-    return "burn_in";
-  }
 }
 
 function validateTimeline(render: ClaimedProjectRender): void {
