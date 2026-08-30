@@ -2,8 +2,14 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
-import { runProcess } from "./process-runner";
+import { runProcess, type ProcessResult } from "./process-runner";
 import { RenderExecutionError } from "./render-errors";
+import type { VideoEncoder } from "./video-encoder";
+
+export interface SegmentRenderOptions {
+  videoEncoder?: VideoEncoder;
+  concurrency?: number;
+}
 
 export async function renderSegments(
   ffmpegPath: string,
@@ -11,45 +17,82 @@ export async function renderSegments(
   manifest: LocalRenderManifest,
   signal: AbortSignal,
   cacheDirectory?: string,
+  options: SegmentRenderOptions = {},
 ): Promise<string[]> {
   const directory = join(workDirectory, "segments");
   await mkdir(directory, { recursive: true });
   if (cacheDirectory) await mkdir(cacheDirectory, { recursive: true });
-  const paths: string[] = [];
+  const paths = new Array<string>(manifest.beats.length);
+  const videoEncoder = options.videoEncoder ?? "libx264";
+  const concurrency = Math.max(
+    1,
+    Math.min(manifest.beats.length || 1, Math.floor(options.concurrency ?? 1)),
+  );
+  let nextIndex = 0;
+  const failureController = new AbortController();
+  const executionSignal = AbortSignal.any([signal, failureController.signal]);
 
-  for (const [index, beat] of manifest.beats.entries()) {
-    if (signal.aborted) {
-      throw new RenderExecutionError("RENDER_CANCELLED", "Render was cancelled.");
-    }
+  const worker = async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= manifest.beats.length) return;
+      const beat = manifest.beats[index]!;
 
-    const output = join(directory, `${String(index).padStart(5, "0")}.mp4`);
-    const cachePath = cacheDirectory
-      ? join(cacheDirectory, `${segmentCacheKey(manifest, beat)}.mp4`)
-      : null;
-    if (cachePath && (await validCachedSegment(cachePath))) {
-      await copyFile(cachePath, output);
-      paths.push(output);
-      continue;
-    }
+      if (failureController.signal.aborted) {
+        throw failureController.signal.reason;
+      }
+      if (signal.aborted) {
+        throw new RenderExecutionError("RENDER_CANCELLED", "Render was cancelled.");
+      }
 
-    const durationSeconds = (beat.globalEndMs - beat.globalStartMs) / 1000;
-    const args = buildBeatRenderArgs(manifest, beat, durationSeconds, output);
-    const process = runProcess(ffmpegPath, args, undefined, signal);
-    const result = await process.result;
-    if (result.exitCode !== 0) {
-      throw new RenderExecutionError(
-        "FFMPEG_SEGMENT_FAILED",
-        result.stderr.trim() || `Unable to render visual beat ${beat.visualBeatId}.`,
+      const output = join(directory, `${String(index).padStart(5, "0")}.mp4`);
+      const cachePath = cacheDirectory
+        ? join(cacheDirectory, `${segmentCacheKey(manifest, beat, videoEncoder)}.mp4`)
+        : null;
+      if (cachePath && (await validCachedSegment(cachePath))) {
+        await copyFile(cachePath, output);
+        paths[index] = output;
+        continue;
+      }
+
+      const durationSeconds = (beat.globalEndMs - beat.globalStartMs) / 1000;
+      const args = buildBeatRenderArgs(
+        manifest,
+        beat,
+        durationSeconds,
+        output,
+        videoEncoder,
       );
-    }
+      const process = runProcess(ffmpegPath, args, undefined, executionSignal);
+      let result: ProcessResult;
+      try {
+        result = await process.result;
+      } catch (error) {
+        if (!signal.aborted && !failureController.signal.aborted) {
+          failureController.abort(error);
+        }
+        throw error;
+      }
+      if (result.exitCode !== 0) {
+        const failure = new RenderExecutionError(
+          "FFMPEG_SEGMENT_FAILED",
+          result.stderr.trim() || `Unable to render visual beat ${beat.visualBeatId}.`,
+        );
+        if (!failureController.signal.aborted) failureController.abort(failure);
+        throw failure;
+      }
 
-    if (cachePath) {
-      const temporary = `${cachePath}.${Date.now()}.tmp`;
-      await copyFile(output, temporary);
-      await rename(temporary, cachePath);
+      if (cachePath) {
+        const temporary = `${cachePath}.${Date.now()}.tmp`;
+        await copyFile(output, temporary);
+        await rename(temporary, cachePath);
+      }
+      paths[index] = output;
     }
-    paths.push(output);
-  }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
   return paths;
 }
 
@@ -58,6 +101,7 @@ function buildBeatRenderArgs(
   beat: LocalRenderBeat,
   targetDurationSeconds: number,
   output: string,
+  videoEncoder: VideoEncoder,
 ): string[] {
   if (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {
     throw new RenderExecutionError(
@@ -86,7 +130,7 @@ function buildBeatRenderArgs(
       filter,
       "-an",
       "-c:v",
-      "libx264",
+      videoEncoder,
       "-pix_fmt",
       "yuv420p",
       "-y",
@@ -122,6 +166,7 @@ function buildBeatRenderArgs(
         target,
         manifest.fps,
         output,
+        videoEncoder,
       );
     }
     case "LOOP":
@@ -131,6 +176,7 @@ function buildBeatRenderArgs(
         target,
         manifest.fps,
         output,
+        videoEncoder,
       );
     case "FREEZE_END": {
       const filter = withTransitionFilters(
@@ -144,6 +190,7 @@ function buildBeatRenderArgs(
         target,
         manifest.fps,
         output,
+        videoEncoder,
       );
     }
     case "SPEED_ADJUST": {
@@ -171,6 +218,7 @@ function buildBeatRenderArgs(
         target,
         manifest.fps,
         output,
+        videoEncoder,
       );
     }
     default:
@@ -268,6 +316,7 @@ function encodeVideoArgs(
   targetDuration: string,
   fps: number,
   output: string,
+  videoEncoder: VideoEncoder,
 ): string[] {
   return [
     ...input,
@@ -279,7 +328,7 @@ function encodeVideoArgs(
     String(fps),
     "-an",
     "-c:v",
-    "libx264",
+    videoEncoder,
     "-pix_fmt",
     "yuv420p",
     "-y",
@@ -287,14 +336,19 @@ function encodeVideoArgs(
   ];
 }
 
-function segmentCacheKey(manifest: LocalRenderManifest, beat: LocalRenderBeat): string {
+function segmentCacheKey(
+  manifest: LocalRenderManifest,
+  beat: LocalRenderBeat,
+  videoEncoder: VideoEncoder,
+): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
-        rendererVersion: "segment-render-v4",
+        rendererVersion: "segment-render-v5",
         width: manifest.width,
         height: manifest.height,
         fps: manifest.fps,
+        videoEncoder,
         beat: {
           visualBeatId: beat.visualBeatId,
           mediaAssetId: beat.mediaAssetId,

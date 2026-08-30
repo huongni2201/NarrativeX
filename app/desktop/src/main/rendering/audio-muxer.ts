@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { buildMuxNarrationArgs } from "../../shared/audio-muxer-args";
 import { runProcess } from "./process-runner";
 import { RenderExecutionError } from "./render-errors";
+import type { VideoEncoder } from "./video-encoder";
 
 export async function muxNarration(
   ffmpegPath: string,
@@ -10,11 +11,12 @@ export async function muxNarration(
   audioPath: string,
   subtitlePath: string | null = null,
   signal?: AbortSignal,
+  videoEncoder: VideoEncoder = "libx264",
 ): Promise<string> {
   const output = join(workDirectory, "final.mp4");
   const process = runProcess(
     ffmpegPath,
-    buildMuxNarrationArgs(videoPath, audioPath, subtitlePath, output),
+    buildMuxNarrationArgs(videoPath, audioPath, subtitlePath, output, videoEncoder),
     undefined,
     signal,
   );

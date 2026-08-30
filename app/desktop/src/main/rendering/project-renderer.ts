@@ -115,6 +115,10 @@ export class ProjectRenderer {
         manifest,
         signal,
         join(this.storage.projectDirectory(prepared.projectId), "cache", "segments"),
+        {
+          videoEncoder: this.runtime.videoEncoder,
+          concurrency: this.runtime.renderConcurrency,
+        },
       );
       await onProgress(85, "Concatenating video segments");
       await checkpoint("VIDEO_CONCAT");
@@ -133,6 +137,7 @@ export class ProjectRenderer {
         audio,
         subtitlePath,
         signal,
+        this.runtime.videoEncoder,
       );
       await onProgress(98, "Validating final artifact");
       await checkpoint("VERIFY");
