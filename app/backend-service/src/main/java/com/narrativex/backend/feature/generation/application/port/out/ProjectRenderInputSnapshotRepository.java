@@ -9,5 +9,6 @@ public interface ProjectRenderInputSnapshotRepository {
       ProductionTimelineView timeline,
       String resolution,
       String format,
-      UUID assignedLocalDeviceId);
+      UUID assignedLocalDeviceId,
+      boolean subtitlesEnabled);
 }
