@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class GetProductionTimelineUseCase {
+  private static final long MAX_ALIGNMENT_TAIL_DRIFT_MS = 250L;
+
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ProductionTimelineSourceRepository sourceRepository;
@@ -133,9 +135,11 @@ public class GetProductionTimelineUseCase {
 
     if (exactTiming) {
       List<ProductionTimelineView.Beat> aligned = new ArrayList<>(sources.size());
-      for (BeatSource source : sources) {
+      for (int index = 0; index < sources.size(); index++) {
+        BeatSource source = sources.get(index);
         long relativeStartMs = source.audioStartMs();
-        long relativeEndMs = source.audioEndMs();
+        long relativeEndMs =
+            index == sources.size() - 1 ? chapterDurationMs : source.audioEndMs();
         aligned.add(
             buildBeat(
                 chapter,
@@ -191,20 +195,23 @@ public class GetProductionTimelineUseCase {
   private static boolean hasCompleteAlignedClock(List<BeatSource> sources, long chapterDurationMs) {
     if (sources.isEmpty()) return false;
     long expectedStartMs = 0L;
-    for (BeatSource source : sources) {
+    for (int index = 0; index < sources.size(); index++) {
+      BeatSource source = sources.get(index);
       Long startMs = source.audioStartMs();
       Long endMs = source.audioEndMs();
+      boolean isLast = index == sources.size() - 1;
       if (startMs == null
           || endMs == null
           || startMs != expectedStartMs
           || startMs < 0
           || endMs <= startMs
-          || endMs > chapterDurationMs) {
+          || (!isLast && endMs > chapterDurationMs)) {
         return false;
       }
       expectedStartMs = endMs;
     }
-    return expectedStartMs == chapterDurationMs;
+    return Math.abs(expectedStartMs - chapterDurationMs) <= MAX_ALIGNMENT_TAIL_DRIFT_MS
+        && sources.getLast().audioStartMs() < chapterDurationMs;
   }
 
   private static ProductionTimelineView.Beat buildBeat(
