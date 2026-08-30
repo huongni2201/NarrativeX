@@ -30,4 +30,9 @@ public class RoutingMediaStorageAccess implements MediaStorageAccess {
     }
     throw new FeatureNotAvailableException("Unsupported media storage namespace");
   }
+
+  @Override
+  public LocalMediaFile resolve(String token) {
+    return projectLocalMediaAccess.resolve(token);
+  }
 }
