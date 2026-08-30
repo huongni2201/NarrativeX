@@ -44,6 +44,6 @@ class MaterializedAudioSegment:
     file_path: Path
     sample_rate_hz: int
     channels: int
-    frame_count: int
     duration_ms: int
     checksum: str
+    frame_count: int | None = None
