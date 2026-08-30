@@ -45,6 +45,25 @@ class RoutingMediaStorageAccessTest {
   }
 
   @Test
+  void resolvesLocalCapabilityTokensThroughTheLocalGateway() throws Exception {
+    Instant expiresAt = Instant.now().plusSeconds(300);
+    Path audio = root.resolve("narration/request-1/chapter.mp3");
+    Files.createDirectories(audio.getParent());
+    Files.write(audio, new byte[] {1, 2, 3});
+    ProjectLocalMediaAccess local =
+        new ProjectLocalMediaAccess(root.toString(), "http://localhost:8080");
+    RoutingMediaStorageAccess access = new RoutingMediaStorageAccess(objectStorage, local);
+
+    URI downloadUrl = access.createDownloadUrl("narration/request-1/chapter.mp3", expiresAt);
+    String token = downloadUrl.getPath().substring(downloadUrl.getPath().lastIndexOf('/') + 1);
+
+    var resolved = access.resolve(token);
+
+    assertThat(resolved.sizeBytes()).isEqualTo(3L);
+    assertThat(resolved.filename()).isEqualTo("chapter.mp3");
+  }
+
+  @Test
   void rejectsLegacyGenericR2Namespace() {
     RoutingMediaStorageAccess access =
         new RoutingMediaStorageAccess(
