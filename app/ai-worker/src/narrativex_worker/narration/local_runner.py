@@ -354,6 +354,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         channels=synthesized.channels,
                         duration_ms=synthesized.duration_ms,
                         checksum=checksum,
+                        frame_count=synthesized.frame_count,
                     )
                 )
             self.logger.info(
