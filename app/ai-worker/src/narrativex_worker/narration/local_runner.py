@@ -3,7 +3,7 @@
 import asyncio
 from pathlib import Path
 
-from narrativex_worker.narration.alignment import build_alignment
+from narrativex_worker.narration.alignment import build_alignment, normalize_alignment_duration
 from narrativex_worker.narration.errors import (
     NarrationLeaseLostError,
     NarrationPermanentError,
@@ -110,7 +110,9 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 bitrate=self.settings.narration_mp3_bitrate,
             )
             actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
-            spans = build_alignment(materialized)
+            spans = normalize_alignment_duration(
+                build_alignment(materialized), audio_duration_ms=actual_duration_ms
+            )
             self.validator.validate(
                 spans,
                 source_utf16_length=utf16_length(claimed.source_text),
@@ -354,6 +356,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         channels=synthesized.channels,
                         duration_ms=synthesized.duration_ms,
                         checksum=checksum,
+                        frame_count=synthesized.frame_count,
                     )
                 )
             self.logger.info(

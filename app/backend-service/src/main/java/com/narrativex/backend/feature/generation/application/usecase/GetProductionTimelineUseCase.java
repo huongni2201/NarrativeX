@@ -5,6 +5,9 @@ import com.narrativex.backend.feature.generation.application.port.out.Production
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.BeatSource;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.ChapterSource;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
+import com.narrativex.backend.feature.generation.application.service.NarrationTextClockMapper;
+import com.narrativex.backend.feature.generation.application.service.NarrationTextClockMapper.AudioRange;
+import com.narrativex.backend.feature.generation.application.service.NarrationTextClockMapper.TextRange;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class GetProductionTimelineUseCase {
+  private static final long MAX_ALIGNMENT_TAIL_DRIFT_MS = 250L;
+
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ProductionTimelineSourceRepository sourceRepository;
@@ -58,8 +63,11 @@ public class GetProductionTimelineUseCase {
     boolean readyForRender = oneAspectRatio;
 
     for (ChapterSource chapter : chapterSources) {
-      List<BeatSource> chapterBeats = beatsByChapter.getOrDefault(chapter.chapterId(), List.of());
-      long chapterDurationMs = resolveChapterDuration(chapter, chapterBeats);
+      List<BeatSource> storedChapterBeats =
+          beatsByChapter.getOrDefault(chapter.chapterId(), List.of());
+      long chapterDurationMs = resolveChapterDuration(chapter, storedChapterBeats);
+      List<BeatSource> chapterBeats =
+          resolveAlignedSources(chapter, storedChapterBeats, chapterDurationMs);
       long chapterStartMs = cursorMs;
       long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
       boolean timingRepresentable = chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
@@ -123,6 +131,65 @@ public class GetProductionTimelineUseCase {
         List.copyOf(beats));
   }
 
+  private static List<BeatSource> resolveAlignedSources(
+      ChapterSource chapter, List<BeatSource> sources, long chapterDurationMs) {
+    if (hasCompleteAlignedClock(sources, chapterDurationMs) || sources.isEmpty()) {
+      return sources;
+    }
+    if (chapter.subtitleSpansJson() == null || chapter.subtitleSpansJson().isBlank()) {
+      return sources;
+    }
+
+    List<TextRange> textRanges = new ArrayList<>(sources.size());
+    for (BeatSource source : sources) {
+      if (source.textStart() == null
+          || source.textEnd() == null
+          || source.textStart() < 0
+          || source.textEnd() <= source.textStart()) {
+        return sources;
+      }
+      textRanges.add(new TextRange(source.textStart(), source.textEnd()));
+    }
+
+    List<AudioRange> audioRanges =
+        NarrationTextClockMapper.map(textRanges, chapter.subtitleSpansJson(), chapterDurationMs);
+    if (audioRanges.size() != sources.size()) return sources;
+
+    List<BeatSource> aligned = new ArrayList<>(sources.size());
+    for (int index = 0; index < sources.size(); index++) {
+      BeatSource source = sources.get(index);
+      AudioRange range = audioRanges.get(index);
+      aligned.add(
+          new BeatSource(
+              source.chapterId(),
+              source.chapterOrderIndex(),
+              source.mediaPlanId(),
+              source.mediaPlanRevision(),
+              source.sceneIndex(),
+              source.beatIndex(),
+              source.visualBeatId(),
+              source.title(),
+              source.visualIntent(),
+              source.cameraMovement(),
+              source.assetStrategy(),
+              source.textStart(),
+              source.textEnd(),
+              range.audioStartMs(),
+              range.audioEndMs(),
+              range.durationMs(),
+              source.mediaAssetId(),
+              source.mediaType(),
+              source.sourceDurationMs(),
+              source.fitMode(),
+              source.trimStartMs(),
+              source.mediaSelectionActive(),
+              source.storageKey(),
+              source.sizeBytes(),
+              source.checksum()));
+    }
+    return List.copyOf(aligned);
+  }
+
   private static List<ProductionTimelineView.Beat> planBeatTiming(
       ChapterSource chapter,
       List<BeatSource> sources,
@@ -133,9 +200,11 @@ public class GetProductionTimelineUseCase {
 
     if (exactTiming) {
       List<ProductionTimelineView.Beat> aligned = new ArrayList<>(sources.size());
-      for (BeatSource source : sources) {
+      for (int index = 0; index < sources.size(); index++) {
+        BeatSource source = sources.get(index);
         long relativeStartMs = source.audioStartMs();
-        long relativeEndMs = source.audioEndMs();
+        long relativeEndMs =
+            index == sources.size() - 1 ? chapterDurationMs : source.audioEndMs();
         aligned.add(
             buildBeat(
                 chapter,
@@ -191,20 +260,23 @@ public class GetProductionTimelineUseCase {
   private static boolean hasCompleteAlignedClock(List<BeatSource> sources, long chapterDurationMs) {
     if (sources.isEmpty()) return false;
     long expectedStartMs = 0L;
-    for (BeatSource source : sources) {
+    for (int index = 0; index < sources.size(); index++) {
+      BeatSource source = sources.get(index);
       Long startMs = source.audioStartMs();
       Long endMs = source.audioEndMs();
+      boolean isLast = index == sources.size() - 1;
       if (startMs == null
           || endMs == null
           || startMs != expectedStartMs
           || startMs < 0
           || endMs <= startMs
-          || endMs > chapterDurationMs) {
+          || (!isLast && endMs > chapterDurationMs)) {
         return false;
       }
       expectedStartMs = endMs;
     }
-    return expectedStartMs == chapterDurationMs;
+    return Math.abs(expectedStartMs - chapterDurationMs) <= MAX_ALIGNMENT_TAIL_DRIFT_MS
+        && sources.getLast().audioStartMs() < chapterDurationMs;
   }
 
   private static ProductionTimelineView.Beat buildBeat(

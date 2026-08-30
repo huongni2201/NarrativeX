@@ -40,6 +40,8 @@
     <result property="visualIntent" column="visual_intent" />
     <result property="cameraMovement" column="camera_movement" />
     <result property="assetStrategy" column="asset_strategy" />
+    <result property="textStart" column="text_start" />
+    <result property="textEnd" column="text_end" />
     <result property="audioStartMs" column="audio_start_ms" />
     <result property="audioEndMs" column="audio_end_ms" />
     <result property="audioDurationMs" column="audio_duration_ms" />
@@ -188,6 +190,8 @@
              vb.title,
              vb.visual_intent,
              COALESCE(vb.camera_movement, 'NONE') AS camera_movement,
+             vb.text_start,
+             vb.text_end,
              vb.audio_start_ms,
              vb.audio_end_ms,
              CASE
@@ -217,6 +221,8 @@
            cb.visual_intent,
            cb.camera_movement,
            'GENERATE_NEW' AS asset_strategy,
+           cb.text_start,
+           cb.text_end,
            cb.audio_start_ms,
            cb.audio_end_ms,
            cb.audio_duration_ms,

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from fractions import Fraction
 
 from narrativex_worker.narration.models import (
     AlignmentSpan,
@@ -43,21 +44,78 @@ class NarrationAlignmentValidator:
             raise ValueError(f"alignment duration drift {drift}ms exceeds tolerance")
 
 
+def _exact_duration_ms(
+    segment: SynthesizedSegment | MaterializedAudioSegment,
+) -> Fraction:
+    if isinstance(segment, SynthesizedSegment):
+        return Fraction(segment.frame_count * 1000, segment.sample_rate_hz)
+    if segment.frame_count is not None:
+        return Fraction(segment.frame_count * 1000, segment.sample_rate_hz)
+    return Fraction(segment.duration_ms, 1)
+
+
 def build_alignment(
     segments: Sequence[SynthesizedSegment | MaterializedAudioSegment],
 ) -> list[AlignmentSpan]:
-    cursor = 0
+    cumulative_ms = Fraction(0, 1)
     spans: list[AlignmentSpan] = []
     for synthesized in segments:
-        duration = synthesized.duration_ms
+        start_ms = round(cumulative_ms)
+        cumulative_ms += _exact_duration_ms(synthesized)
+        end_ms = round(cumulative_ms)
         spans.append(
             AlignmentSpan(
                 index=synthesized.segment.index,
                 text_start=synthesized.segment.text_start,
                 text_end=synthesized.segment.text_end,
-                audio_start_ms=cursor,
-                audio_end_ms=cursor + duration,
+                audio_start_ms=start_ms,
+                audio_end_ms=end_ms,
             )
         )
-        cursor += duration
     return spans
+
+
+def normalize_alignment_duration(
+    spans: Sequence[AlignmentSpan],
+    *,
+    audio_duration_ms: int,
+    max_drift_ms: int = 250,
+) -> list[AlignmentSpan]:
+    if not spans:
+        raise ValueError("alignment must contain at least one span")
+    if audio_duration_ms <= 0:
+        raise ValueError("audio_duration_ms must be positive")
+
+    source_duration_ms = spans[-1].audio_end_ms
+    if source_duration_ms <= 0:
+        raise ValueError("alignment duration must be positive")
+    drift = abs(source_duration_ms - audio_duration_ms)
+    if drift > max_drift_ms:
+        raise ValueError(f"alignment duration drift {drift}ms exceeds tolerance")
+    if audio_duration_ms < len(spans):
+        raise ValueError("audio duration is too short to preserve alignment spans")
+    if source_duration_ms == audio_duration_ms:
+        return list(spans)
+
+    normalized: list[AlignmentSpan] = []
+    previous_end_ms = 0
+    for index, span in enumerate(spans):
+        if index == len(spans) - 1:
+            end_ms = audio_duration_ms
+        else:
+            scaled_end_ms = round(span.audio_end_ms * audio_duration_ms / source_duration_ms)
+            minimum_end_ms = previous_end_ms + 1
+            remaining_spans = len(spans) - index - 1
+            maximum_end_ms = audio_duration_ms - remaining_spans
+            end_ms = max(minimum_end_ms, min(scaled_end_ms, maximum_end_ms))
+        normalized.append(
+            AlignmentSpan(
+                index=span.index,
+                text_start=span.text_start,
+                text_end=span.text_end,
+                audio_start_ms=previous_end_ms,
+                audio_end_ms=end_ms,
+            )
+        )
+        previous_end_ms = end_ms
+    return normalized

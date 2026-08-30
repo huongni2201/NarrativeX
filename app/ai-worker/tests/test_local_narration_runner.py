@@ -109,4 +109,5 @@ async def test_local_runner_batches_segments_without_remote_materialization(tmp_
     assert provider.batch_sizes == [8, 8, 1]
     assert len(materialized) == 17
     assert [item.segment.index for item in materialized] == list(range(17))
+    assert [item.frame_count for item in materialized] == [480] * 17
     assert all(item.file_path.is_file() for item in materialized)

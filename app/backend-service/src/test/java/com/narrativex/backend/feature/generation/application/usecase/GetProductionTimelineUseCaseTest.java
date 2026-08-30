@@ -75,6 +75,69 @@ class GetProductionTimelineUseCaseTest {
   }
 
   @Test
+  void derivesVisualClockFromSourceRangesAndNarrationAlignment() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    String spans = """
+        [
+          {"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":5000},
+          {"index":1,"textStart":50,"textEnd":100,"audioStartMs":5000,"audioEndMs":10000}
+        ]
+        """;
+
+    when(sourceRepository.findChapters(projectId, "owner"))
+        .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, spans, 3)));
+    when(sourceRepository.findBeats(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                beatWithText(chapterId, 0, 0, 0, 40, "b".repeat(64)),
+                beatWithText(chapterId, 0, 1, 40, 70, "c".repeat(64)),
+                beatWithText(chapterId, 0, 2, 70, 100, "d".repeat(64))));
+
+    var timeline = useCase.executeOwned(projectId, "owner");
+
+    assertThat(timeline.readyForRender()).isTrue();
+    assertThat(timeline.beats())
+        .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
+        .containsExactly(
+            List.of(0L, 4_000L, 4_000L),
+            List.of(4_000L, 7_000L, 3_000L),
+            List.of(7_000L, 10_000L, 3_000L));
+  }
+
+  @Test
+  void normalizesBoundedVisualTailDriftToNarrationDuration() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+
+    when(sourceRepository.findChapters(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    10_000L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    2)));
+    when(sourceRepository.findBeats(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64)),
+                beat(chapterId, 0, 1, 4_000L, 10_024L, "c".repeat(64))));
+
+    var timeline = useCase.executeOwned(projectId, "owner");
+
+    assertThat(timeline.readyForRender()).isTrue();
+    assertThat(timeline.beats().getLast().startMs()).isEqualTo(4_000L);
+    assertThat(timeline.beats().getLast().endMs()).isEqualTo(10_000L);
+    assertThat(timeline.beats().getLast().durationMs()).isEqualTo(6_000L);
+  }
+
+  @Test
   void keepsTimelineInspectableButLocksRenderWhenExactTimingIsMissing() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
@@ -183,6 +246,32 @@ class GetProductionTimelineUseCaseTest {
         beatCount);
   }
 
+  private static ChapterSource chapterWithAlignment(
+      UUID storyVersionId, UUID chapterId, long durationMs, String spansJson, int beatCount) {
+    return new ChapterSource(
+        storyVersionId,
+        chapterId,
+        0,
+        "Chapter 1",
+        3L,
+        "0".repeat(64),
+        null,
+        null,
+        "16:9",
+        durationMs,
+        "audio/chapter.mp3",
+        100L,
+        "a".repeat(64),
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        "x".repeat(100),
+        spansJson,
+        durationMs,
+        beatCount,
+        beatCount);
+  }
+
   private static BeatSource beat(
       UUID chapterId,
       int chapterOrderIndex,
@@ -209,6 +298,41 @@ class GetProductionTimelineUseCaseTest {
         audioStartMs,
         audioEndMs,
         durationMs,
+        UUID.randomUUID(),
+        "IMAGE",
+        null,
+        "TRIM",
+        0L,
+        false,
+        null,
+        100L,
+        checksum);
+  }
+
+  private static BeatSource beatWithText(
+      UUID chapterId,
+      int chapterOrderIndex,
+      int beatIndex,
+      int textStart,
+      int textEnd,
+      String checksum) {
+    return new BeatSource(
+        chapterId,
+        chapterOrderIndex,
+        null,
+        null,
+        0,
+        beatIndex,
+        UUID.randomUUID(),
+        "Beat " + beatIndex,
+        "Visual intent " + beatIndex,
+        "NONE",
+        "GENERATE_NEW",
+        textStart,
+        textEnd,
+        null,
+        null,
+        null,
         UUID.randomUUID(),
         "IMAGE",
         null,
