@@ -62,6 +62,7 @@ export function useRenderController({
       .deliverArtifact({ token, projectId, jobId: liveJob.jobId, projectName })
       .then(({ path }) => {
         setDestinationToken(null);
+        setDestinationDirectory(null);
         setFinalPath(path);
         setNotice(`Render hoàn tất: ${path}`);
       })
