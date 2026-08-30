@@ -2,127 +2,113 @@
 
 ## Problem
 
-Narration timing is now normalized against the real encoded audio clock, but image timing still loses semantic precision. The database schema already contains `visual_beats.text_start`, `text_end`, `audio_start_ms`, and `audio_end_ms`; the current chapter-analysis materializer does not populate the text offsets, the narration completion path does not derive audio offsets, and the backend storyboard mapping drops those fields. As a result, production timing can fall back to duration weighting even when the chapter source and narration alignment contain enough information to place transitions more accurately.
+Narration timing is normalized against the real encoded audio clock, but image timing can still fall back to duration weighting. The database already contains `visual_beats.text_start`, `text_end`, `audio_start_ms`, and `audio_end_ms`; current AI materialization did not populate source ranges, so production could not know which spoken passage a visual beat represents.
 
 ## Goal
 
-Make visual transitions derive from source-text semantics and the authoritative narration clock:
+Derive visual transitions from source semantics and the authoritative narration clock:
 
-`visual beat source anchor -> UTF-16 text offsets -> narration alignment -> gap-free audio beat clock`
+`visual beat source anchor -> UTF-16 text offsets -> narration alignment -> gap-free image clock`
 
-The result must remain deterministic, must work whether chapter analysis or narration finishes first, and must not ask the AI model to invent millisecond timestamps.
+AI never invents timestamps or numeric character offsets.
 
 ## Existing schema reused
 
-No database migration is required. `visual_beats` already owns:
+No migration is required. `visual_beats` already owns `text_start`, `text_end`, `audio_start_ms`, and `audio_end_ms`.
 
-- `text_start INTEGER`
-- `text_end INTEGER`
-- `audio_start_ms BIGINT`
-- `audio_end_ms BIGINT`
-
-These columns become the durable bridge between semantic storyboard planning and the narration clock.
+The durable semantic contract is `text_start/text_end`. Persisted audio offsets remain supported for existing/manual exact timing, but new source-anchored timing does not require a worker to write them back.
 
 ## Analysis contract
 
-`VisualBeatAnalysis` gains a required `source_anchor` string. The model must copy a contiguous excerpt verbatim from `UNTRUSTED_CHAPTER` that identifies the source range represented by that beat. Anchors are semantic provenance only; they are never interpreted as instructions.
+`VisualBeatAnalysis` exposes `source_anchor`. The chapter-analysis prompt requires each new visual beat to return a contiguous excerpt copied verbatim from `UNTRUSTED_CHAPTER`.
 
-The prompt requires anchors to:
+Anchors must:
 
-- be copied verbatim from the source text;
-- appear in the same order as the visual beats;
+- be copied verbatim from source;
+- appear in visual-beat/source order;
 - be non-overlapping;
-- be long enough to identify the intended source passage without inventing text;
-- never contain guessed character offsets or timestamps.
+- identify the source passage represented by the beat;
+- never contain guessed timestamps or numeric offsets.
 
-The worker, not the model, computes offsets.
+`source_anchor` remains nullable in the Python model for compatibility with legacy/test payload parsing. The new prompt produces it, and materialization only writes source ranges when a complete ordered anchor set is available.
 
 ## Source-anchor resolution
 
-A pure timing module resolves ordered source anchors against the immutable chapter source snapshot.
+The worker resolves ordered anchors deterministically against the immutable chapter source snapshot:
 
-Resolution rules:
+1. Search each anchor starting at the previous anchor end.
+2. Require an exact substring match; no fuzzy semantic binding.
+3. Convert Python code-point positions to UTF-16 offsets with the existing narration helper.
+4. Persist resulting `text_start/text_end` on the visual beat.
 
-1. Search each anchor starting at the end of the previous resolved anchor.
-2. Require an exact substring match. Do not use semantic or fuzzy matching that could silently bind a beat to the wrong sentence.
-3. Convert Python code-point positions to UTF-16 offsets using the existing narration offset helpers, because narration alignment spans also use UTF-16 offsets.
-4. If an anchor cannot be resolved in order, fail storyboard materialization with a clear error instead of persisting guessed timing.
-
-This produces durable `text_start` and `text_end` for every AI-generated visual beat.
+This uses the same UTF-16 coordinate system as narration alignment spans.
 
 ## Mapping text offsets to audio
 
-Narration alignment spans remain the audio authority. A text offset inside one alignment span is mapped linearly within that span:
+The production timeline loads `text_start/text_end` together with the latest matching narration `spans_json`. If exact persisted beat audio timing is already complete, it is preserved. Otherwise, the backend derives a visual clock on read.
+
+For each transition after the first beat, the beat's `text_start` is mapped into the containing narration span:
 
 `audio = span.audio_start_ms + ratio * (span.audio_end_ms - span.audio_start_ms)`
 
-where `ratio` is the relative UTF-16 text position inside the span. Fractional arithmetic is used before final millisecond rounding so the mapping is deterministic.
+where `ratio` is the relative UTF-16 text position inside that span.
 
-Image timing is constructed from beat *starts*, not by independently mapping every beat end. This guarantees a gap-free render clock:
+Image timing is constructed from transition starts:
 
 - first visual beat starts at `0`;
-- each later visual beat starts at the mapped `text_start` of that beat;
-- each beat ends exactly where the next beat starts;
-- the final beat ends at the authoritative narration duration.
+- each later beat starts at its mapped semantic source position;
+- each beat ends exactly at the next beat start;
+- final beat ends exactly at authoritative narration duration.
 
-If mapped transition points are not strictly increasing or exceed the narration duration, timing reconciliation fails rather than fabricating a clock.
+Mapped starts must be strictly increasing and remain inside the narration duration. Invalid mapping returns no exact clock, preserving the existing preview fallback and render lock rather than fabricating timing.
 
-## Order-independent reconciliation
+## Why derive on read
 
-Chapter analysis and narration may run in parallel, so either may finish first.
+Chapter analysis and narration can finish in either order. Deriving timing in `GetProductionTimelineUseCase` removes completion-order coupling:
 
-### Storyboard finishes first
+- storyboard first: source ranges exist; once narration exists the next timeline read becomes exact;
+- narration first: alignment exists; once storyboard ranges exist the next timeline read becomes exact;
+- neither worker needs to revisit or mutate the other subsystem's rows.
 
-The materializer persists `text_start/text_end`. If no current narration alignment exists yet, `audio_start_ms/audio_end_ms` remain null. When narration completion later persists the alignment, it reconciles the current storyboard and fills the audio clock.
+This also avoids duplicating an audio timing authority inside storyboard persistence.
 
-### Narration finishes first
+## Production timeline projection
 
-Narration persists its alignment. When storyboard materialization later activates the new storyboard revision, it loads the latest matching narration alignment for the same chapter row version and source hash and immediately reconciles the newly inserted beats.
+`ProductionTimelineMapper.xml` now loads `vb.text_start/text_end`. `ProductionTimelineBeatRow` and `ProductionTimelineSourceRepository.BeatSource` carry those values. `GetProductionTimelineUseCase` attempts source-range alignment before deciding whether timing is exact.
 
-Both paths use the same pure mapping function, so job completion order cannot change the resulting timeline.
-
-## Backend projection
-
-The storyboard persistence layer must stop dropping existing timing fields:
-
-- `VisualBeatRow` maps text and audio offsets.
-- `VisualBeat` rehydrates and exposes them.
-- `StoryboardMapper.xml` selects/inserts/updates them.
-- `MediaPlanningSourceService` passes stored `audioStartMs/audioEndMs` into `BeatSnapshot` instead of hard-coded nulls.
-
-The existing production timeline query already consumes `vb.audio_start_ms` and `vb.audio_end_ms`, so no alternate timeline authority is introduced.
+Existing persisted `audio_start_ms/audio_end_ms` remain the first choice. Source-range mapping is only used when the persisted clock is incomplete.
 
 ## Failure and fallback behavior
 
-- Missing or invalid AI source anchor: chapter analysis materialization fails clearly; no guessed text range is written.
-- Narration alignment not ready: text offsets persist, audio offsets stay null until reconciliation.
-- Manual/legacy beat with missing text offsets: reconciliation leaves audio offsets null; current render-readiness rules continue to prevent falsely claiming exact timing.
-- Invalid/non-monotonic mapped transition: reconciliation fails rather than silently equal-splitting.
-- Final encoded-audio drift: the existing narration normalization remains the authority, so the final visual beat ends at the exact chapter audio duration.
+- Invalid/out-of-order source anchors are never converted to guessed offsets.
+- Narration not ready: text ranges remain useful but exact image timing is unavailable yet.
+- Missing text ranges or malformed alignment: existing inspectable fallback remains available, but render stays locked.
+- Non-monotonic mapped transitions: no exact timing is claimed.
+- Final encoded-audio drift: narration normalization remains authoritative, and the final visual beat ends exactly at chapter audio duration.
 
-## Accuracy target and limitation
+## Accuracy and limitation
 
-This change removes equal-duration semantic guessing and ties image transitions to the actual source passage. Within a narration segment, the current system still estimates the exact spoken instant by linear interpolation over the segment text. That is materially more accurate than global beat weighting but is not true word-level forced alignment.
+This removes chapter-wide/equal-duration semantic guessing and makes image changes follow the source passage being spoken. Inside one narration segment, the exact spoken position is currently estimated by linear interpolation across UTF-16 text width. This is more semantically accurate than global duration weighting but is not word-level forced alignment.
 
-A future word/phoneme aligner can replace the inside-span interpolation without changing the durable `text_start/text_end -> audio_start_ms/audio_end_ms` contract introduced here.
+A future word/phoneme aligner can improve the inside-segment mapping without changing the durable `text_start/text_end` contract.
 
 ## Non-goals
 
-- Do not add an external forced-alignment model in this change.
-- Do not ask the AI provider for millisecond timing or numeric source offsets.
-- Do not weaken render-readiness checks.
-- Do not add a new database migration for columns that already exist.
-- Do not make preview/render compute a second independent timing model.
+- No external forced-alignment model in this change.
+- No AI-generated milliseconds or numeric text offsets.
+- No new migration.
+- No weaker render admission.
+- No worker-to-worker reconciliation hook.
 
 ## Verification
 
 Required regression coverage:
 
-1. prompt requires `source_anchor` and forbids guessed timestamps;
-2. ordered anchors resolve to correct UTF-16 offsets, including non-ASCII text;
-3. unresolved/out-of-order anchors fail;
-4. text offsets map deterministically into narration spans;
-5. visual audio ranges are contiguous from `0` to exact narration duration;
-6. narration-last and storyboard-last completion orders converge to the same audio timing;
-7. backend persistence retains timing fields and `MediaPlanningSourceService` exposes them;
-8. existing render strictness and bounded final-tail normalization remain green.
+1. prompt requests verbatim `source_anchor` and forbids guessed timestamps/offsets;
+2. anchors resolve to ordered UTF-16 ranges, including non-BMP text;
+3. unresolved/out-of-order anchors fail deterministic resolution;
+4. text starts map deterministically through narration spans;
+5. derived image ranges are gap-free from `0` to exact narration duration;
+6. existing exact persisted audio timing remains preferred;
+7. missing source/alignment timing remains render-blocking;
+8. existing subtitle/tail drift regressions remain green.
