@@ -115,6 +115,7 @@ class VisualBeatAnalysis(BaseModel):
 
     title: str = Field(min_length=1, max_length=200)
     visual_intent: str = Field(min_length=1, max_length=8000)
+    source_anchor: str | None = Field(default=None, min_length=1, max_length=2000)
     camera_angle: CameraAngle = CameraAngle.MEDIUM
     characters: list[VisualBeatCharacterRef] = Field(default_factory=list)
 
