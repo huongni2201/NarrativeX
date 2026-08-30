@@ -75,6 +75,37 @@ class GetProductionTimelineUseCaseTest {
   }
 
   @Test
+  void normalizesBoundedVisualTailDriftToNarrationDuration() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+
+    when(sourceRepository.findChapters(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    10_000L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    2)));
+    when(sourceRepository.findBeats(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64)),
+                beat(chapterId, 0, 1, 4_000L, 10_024L, "c".repeat(64))));
+
+    var timeline = useCase.executeOwned(projectId, "owner");
+
+    assertThat(timeline.readyForRender()).isTrue();
+    assertThat(timeline.beats().getLast().startMs()).isEqualTo(4_000L);
+    assertThat(timeline.beats().getLast().endMs()).isEqualTo(10_000L);
+    assertThat(timeline.beats().getLast().durationMs()).isEqualTo(6_000L);
+  }
+
+  @Test
   void keepsTimelineInspectableButLocksRenderWhenExactTimingIsMissing() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
