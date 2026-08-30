@@ -27,8 +27,8 @@ test("editor subtitle alignment snaps a bounded tail drift to narration duration
       globalEndMs: 20_000,
       subtitleText: "Câu thứ nhất. Câu thứ hai.",
       subtitleSpansJson: JSON.stringify([
-        { index: 0, textStart: 0, textEnd: 15, audioStartMs: 0, audioEndMs: 4_000 },
-        { index: 1, textStart: 15, textEnd: 29, audioStartMs: 4_000, audioEndMs: 10_024 },
+        { index: 0, textStart: 0, textEnd: 14, audioStartMs: 0, audioEndMs: 4_000 },
+        { index: 1, textStart: 14, textEnd: 26, audioStartMs: 4_000, audioEndMs: 10_024 },
       ]),
     },
   ]);
