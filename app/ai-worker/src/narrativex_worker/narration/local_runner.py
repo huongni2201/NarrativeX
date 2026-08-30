@@ -117,7 +117,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 audio_duration_ms=actual_duration_ms,
             )
             checksum = await asyncio.to_thread(sha256_file, mp3_path)
-            final_key = f"narration/{claimed.narration_request_id}/chapter-{checksum[:16]}.mp3"
+            final_key = self._final_audio_storage_key(claimed, checksum)
             try:
                 media_asset = await retry_local_io(
                     lambda: project_media_storage.put_file_immutable(
@@ -181,6 +181,13 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 // self.settings.vieneu_batch_max_segments,
                 media_asset.storage_key,
             )
+
+    @staticmethod
+    def _final_audio_storage_key(claimed: ClaimedNarrationJob, checksum: str) -> str:
+        return (
+            f"projects/{claimed.project_id}/assets/audio/"
+            f"chapter-{checksum[:16]}.mp3"
+        )
 
     async def _prepare_reference(self, claimed: ClaimedNarrationJob, job_dir: Path) -> Path | None:
         if claimed.voice_reference_scope is None:

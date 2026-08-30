@@ -74,6 +74,18 @@ class RecordingLocalProvider:
         del voice_id
 
 
+def test_local_runner_builds_project_scoped_audio_storage_key() -> None:
+    runner = LocalOptimizedNarrationWorkerRunner(WorkerSettings(worker_env="test"))
+    claimed = claimed_job()
+    checksum = "b" * 64
+
+    storage_key = runner._final_audio_storage_key(claimed, checksum)
+
+    assert storage_key == (
+        f"projects/{claimed.project_id}/assets/audio/chapter-{checksum[:16]}.mp3"
+    )
+
+
 @pytest.mark.asyncio
 async def test_local_runner_batches_segments_without_remote_materialization(tmp_path: Path) -> None:
     settings = WorkerSettings(worker_env="test", vieneu_batch_max_segments=8)
