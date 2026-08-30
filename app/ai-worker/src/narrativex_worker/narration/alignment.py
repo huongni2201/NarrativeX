@@ -44,10 +44,14 @@ class NarrationAlignmentValidator:
             raise ValueError(f"alignment duration drift {drift}ms exceeds tolerance")
 
 
-def _frame_count(segment: SynthesizedSegment | MaterializedAudioSegment) -> int:
+def _exact_duration_ms(
+    segment: SynthesizedSegment | MaterializedAudioSegment,
+) -> Fraction:
     if isinstance(segment, SynthesizedSegment):
-        return segment.frame_count
-    return segment.frame_count
+        return Fraction(segment.frame_count * 1000, segment.sample_rate_hz)
+    if segment.frame_count is not None:
+        return Fraction(segment.frame_count * 1000, segment.sample_rate_hz)
+    return Fraction(segment.duration_ms, 1)
 
 
 def build_alignment(
@@ -57,7 +61,7 @@ def build_alignment(
     spans: list[AlignmentSpan] = []
     for synthesized in segments:
         start_ms = round(cumulative_ms)
-        cumulative_ms += Fraction(_frame_count(synthesized) * 1000, synthesized.sample_rate_hz)
+        cumulative_ms += _exact_duration_ms(synthesized)
         end_ms = round(cumulative_ms)
         spans.append(
             AlignmentSpan(
