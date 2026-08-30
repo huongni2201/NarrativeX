@@ -41,3 +41,14 @@ test("final mux stays subtitle-free when no renderable cues exist", () => {
     "-y", "final.mp4",
   ]);
 });
+
+test("final mux uses the selected hardware encoder when burning subtitles", () => {
+  const args = buildMuxNarrationArgs(
+    "video.mp4",
+    "audio.m4a",
+    "subtitles.srt",
+    "final.mp4",
+    "h264_nvenc",
+  );
+  assert.equal(args[args.indexOf("-c:v") + 1], "h264_nvenc");
+});
