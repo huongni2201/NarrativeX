@@ -12,6 +12,15 @@ Derive visual transitions from source semantics and the authoritative narration 
 
 AI never invents timestamps or numeric character offsets.
 
+## Final timing responsibilities
+
+| Layer | Timing responsibility |
+| --- | --- |
+| AI worker | Resolve verbatim `source_anchor` to UTF-16 `text_start/text_end` |
+| Narration worker | Build and normalize narration alignment to encoded audio duration |
+| Backend Production Timeline | Map visual text starts through narration alignment into a contiguous image clock |
+| Media plan compatibility | Preserve existing persisted beat audio fields while they still have consumers |
+
 ## Existing schema reused
 
 No migration is required. `visual_beats` already owns `text_start`, `text_end`, `audio_start_ms`, and `audio_end_ms`.
@@ -41,11 +50,11 @@ The worker resolves ordered anchors deterministically against the immutable chap
 3. Convert Python code-point positions to UTF-16 offsets with the existing narration helper.
 4. Persist resulting `text_start/text_end` on the visual beat.
 
-This uses the same UTF-16 coordinate system as narration alignment spans.
+This uses the same UTF-16 coordinate system as narration alignment spans. The AI worker stops at source-range resolution; it does not own the production visual audio clock.
 
 ## Mapping text offsets to audio
 
-The production timeline loads `text_start/text_end` together with the latest matching narration `spans_json`. If exact persisted beat audio timing is already complete, it is preserved. Otherwise, the backend derives a visual clock on read.
+The production timeline loads `text_start/text_end` together with the latest matching narration `spans_json`. If exact persisted beat audio timing is already complete, it is preserved. Otherwise, the backend derives a visual clock on read through `NarrationTextClockMapper`.
 
 For each transition after the first beat, the beat's `text_start` is mapped into the containing narration span:
 
@@ -92,6 +101,10 @@ This removes chapter-wide/equal-duration semantic guessing and makes image chang
 
 A future word/phoneme aligner can improve the inside-segment mapping without changing the durable `text_start/text_end` contract.
 
+## Retired timing path
+
+The former `visual_timing.py` duration-weighted expansion policy and the Python visual text-to-audio mapper were removed after the source-anchored/on-read backend path became authoritative. They must not be reintroduced as fallback timing because they can produce a valid-looking clock without source provenance.
+
 ## Non-goals
 
 - No external forced-alignment model in this change.
@@ -99,6 +112,7 @@ A future word/phoneme aligner can improve the inside-segment mapping without cha
 - No new migration.
 - No weaker render admission.
 - No worker-to-worker reconciliation hook.
+- No removal of media-plan audio timing fields that still have consumers.
 
 ## Verification
 
@@ -106,8 +120,8 @@ Required regression coverage:
 
 1. prompt requests verbatim `source_anchor` and forbids guessed timestamps/offsets;
 2. anchors resolve to ordered UTF-16 ranges, including non-BMP text;
-3. unresolved/out-of-order anchors fail deterministic resolution;
-4. text starts map deterministically through narration spans;
+3. unresolved/out-of-order/blank anchors fail deterministic resolution;
+4. backend text starts map deterministically through narration spans;
 5. derived image ranges are gap-free from `0` to exact narration duration;
 6. existing exact persisted audio timing remains preferred;
 7. missing source/alignment timing remains render-blocking;
