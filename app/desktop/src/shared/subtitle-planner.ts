@@ -24,6 +24,7 @@ interface AlignmentSpan {
 
 const MAX_CUE_CHARS = 72;
 const MIN_CUE_MS = 240;
+const MAX_ALIGNMENT_TAIL_DRIFT_MS = 250;
 
 export function planSubtitles(
   chapters: readonly SubtitlePlanningChapter[],
@@ -94,7 +95,8 @@ function parseAlignmentSpans(
     const result: AlignmentSpan[] = [];
     let previousTextEnd = 0;
     let previousAudioEnd = 0;
-    for (const item of value) {
+    for (let index = 0; index < value.length; index += 1) {
+      const item = value[index];
       if (!item || typeof item !== "object") return [];
       const span = item as Partial<AlignmentSpan>;
       if (
@@ -113,13 +115,14 @@ function parseAlignmentSpans(
         audioStartMs: Math.round(Number(span.audioStartMs)),
         audioEndMs: Math.round(Number(span.audioEndMs)),
       };
+      const isLast = index === value.length - 1;
       if (
         normalized.textStart < previousTextEnd ||
         normalized.textEnd <= normalized.textStart ||
         normalized.textEnd > textLength ||
         normalized.audioStartMs < previousAudioEnd ||
         normalized.audioEndMs <= normalized.audioStartMs ||
-        normalized.audioEndMs > chapterDurationMs
+        (!isLast && normalized.audioEndMs > chapterDurationMs)
       ) {
         return [];
       }
@@ -127,6 +130,16 @@ function parseAlignmentSpans(
       previousTextEnd = normalized.textEnd;
       previousAudioEnd = normalized.audioEndMs;
     }
+
+    const last = result.at(-1);
+    if (
+      !last ||
+      Math.abs(last.audioEndMs - chapterDurationMs) > MAX_ALIGNMENT_TAIL_DRIFT_MS ||
+      chapterDurationMs <= last.audioStartMs
+    ) {
+      return [];
+    }
+    result[result.length - 1] = { ...last, audioEndMs: chapterDurationMs };
     return result;
   } catch {
     return [];
