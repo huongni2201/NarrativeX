@@ -27,10 +27,13 @@ class SynthesizedSegment:
     channels: int
 
     @property
+    def frame_count(self) -> int:
+        bytes_per_frame = 2 * self.channels
+        return len(self.pcm_bytes) // bytes_per_frame
+
+    @property
     def duration_ms(self) -> int:
-        bytes_per_sample = 2 * self.channels
-        sample_count = len(self.pcm_bytes) // bytes_per_sample
-        return round(sample_count * 1000 / self.sample_rate_hz)
+        return round(self.frame_count * 1000 / self.sample_rate_hz)
 
 
 @dataclass(frozen=True)
@@ -41,5 +44,6 @@ class MaterializedAudioSegment:
     file_path: Path
     sample_rate_hz: int
     channels: int
+    frame_count: int
     duration_ms: int
     checksum: str
