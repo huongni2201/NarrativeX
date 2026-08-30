@@ -3,6 +3,7 @@ export function buildMuxNarrationArgs(
   audioPath: string,
   subtitlePath: string | null,
   output: string,
+  videoEncoder = "libx264",
 ): string[] {
   if (!subtitlePath) {
     return [
@@ -23,7 +24,7 @@ export function buildMuxNarrationArgs(
     "-vf", `subtitles=filename='${escapeSubtitleFilterPath(subtitlePath)}'`,
     "-map", "0:v:0",
     "-map", "1:a:0",
-    "-c:v", "libx264",
+    "-c:v", videoEncoder,
     "-pix_fmt", "yuv420p",
     "-c:a", "aac",
     "-shortest",
