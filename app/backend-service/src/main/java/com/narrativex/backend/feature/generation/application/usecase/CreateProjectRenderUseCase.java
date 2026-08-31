@@ -142,6 +142,7 @@ public class CreateProjectRenderUseCase {
         command.resolution(),
         command.format(),
         command.localDeviceId(),
+        command.fps(),
         command.subtitlesEnabled());
 
     OperationPlan plan =
@@ -157,10 +158,11 @@ public class CreateProjectRenderUseCase {
     stageAttemptRepository.create(StageAttempt.create(job.getId(), LOCAL_STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created local project render job id={} projectId={} deviceId={} durationMs={} chapters={} beats={} overrides={}",
+        "Created local project render job id={} projectId={} deviceId={} fps={} durationMs={} chapters={} beats={} overrides={}",
         job.getId(),
         command.projectId(),
         command.localDeviceId(),
+        command.fps(),
         timeline.totalDurationMs(),
         timeline.chapters().size(),
         timeline.beats().size(),
@@ -320,6 +322,8 @@ public class CreateProjectRenderUseCase {
             + command.format().toLowerCase(Locale.ROOT)
             + ":"
             + command.localDeviceId()
+            + ":"
+            + command.fps()
             + ":"
             + command.subtitlesEnabled());
   }
