@@ -24,10 +24,11 @@ The backend remains authoritative for source identity, ownership, policy and job
 persisted Chapter
   -> lock/reload authoritative snapshot
   -> admission + reservation/policy
-  -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
+  -> GenerationJob / StageAttempt / outbox state
   -> worker/provider execution
   -> stale-source guard
   -> Character + Location + Scene + VisualBeat materialization
+  -> deterministic VisualBeat source_anchor -> UTF-16 textStart/textEnd
 ```
 
 ## Editor hierarchy and timing
@@ -37,16 +38,29 @@ Project
   -> Chapter
       -> Scene
           -> VisualBeat
+              -> source anchor / text range
               -> generated/default media
               -> optional editor override
 ```
 
 `VisualBeat` is the smallest production timeline span. Scene and Chapter are logical groupings, not a requirement to prerender `scene.mp4`/`chapter.mp4` before editing.
 
-Narration/alignment is the timing authority. Exact `visual_beats.audio_start_ms/audio_end_ms` spans are required for final render admission; when timing is incomplete, Editor may still show a provisional review timeline but Render remains blocked.
+Narration/alignment is the timing authority. Current production timing follows:
 
 ```text
-aligned narration span
+VisualBeat source_anchor
+  -> deterministic UTF-16 textStart/textEnd
+  -> narration/subtitle alignment spans
+  -> backend NarrationTextClockMapper
+  -> VisualBeat audio start/end/duration
+```
+
+Complete existing persisted `visual_beats.audio_start_ms/audio_end_ms` may still be consumed as compatibility timing when valid. They are not the only production timing source of truth.
+
+When exact aligned timing is unavailable, the Editor may still receive provisional fallback timing so the storyboard remains inspectable. Render remains blocked because provisional timing is not exact narration alignment.
+
+```text
+exact aligned narration span
   -> VisualBeat start/end/duration
   -> image: deterministic motion over the span
   -> video: trim/fill/extend according to supported policy
@@ -63,7 +77,7 @@ TTS
   -> VieNeu/provider execution
   -> validate/normalize
   -> alignment
-  -> local materialization for Desktop use
+  -> local project media / Desktop materialization
 
 USER_PROVIDED_AUDIO
   -> native import/registration
@@ -75,6 +89,13 @@ USER_PROVIDED_AUDIO
 
 Audio file boundaries do not define Chapter boundaries.
 
+Voice-reference selection is explicit:
+
+```text
+PROJECT -> project-local AUDIO asset / manifest
+ACCOUNT -> reusable account VoiceReferenceAsset in R2
+```
+
 ## Media generation and local materialization
 
 ```text
@@ -82,12 +103,13 @@ backend-authorized media work
   -> provider execution
   -> validate bytes/result
   -> stable MediaAsset identity + checksum
-  -> Desktop stores project media locally
+  -> project-local generated media
+  -> Desktop ProjectStorage materialization where required
   -> attach generated image to VisualBeat.preview_media_asset_id
   -> project.manifest.json resolves local bytes for preview/render
 ```
 
-Project image/video media is local-first. R2 is not the production store for project media; remote storage remains reserved for account-scoped voice samples/custom voices and provider-specific transport where required. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
+Project image/video/audio media is local-first. R2 is not production storage or transport for generated project media. R2 is limited to reusable authenticated ACCOUNT voice-reference/custom-voice assets. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
 
 ## Production timeline
 
@@ -105,12 +127,12 @@ Render admission requires all of the following:
 
 - READY narration metadata for every Chapter;
 - at least one current VisualBeat per Chapter;
-- exact contiguous VisualBeat audio timing from `0` through the narration duration;
+- exact contiguous narration-aligned VisualBeat timing from `0` through the Chapter narration duration;
 - one READY effective image/video asset per VisualBeat;
 - one project aspect ratio;
 - a paired eligible local renderer for `LOCAL_DEVICE` execution.
 
-Manual Editor media selection, reset, fit and trim settings are durable through `production_beat_media_selections`. Reset removes the override and immediately falls back to the generated preview source. Auto Edit derives narration-aware decisions for fit, trim and motion, with `AUTO` as the default and optional Cinematic/Balanced/Dynamic overrides. Render override application and immutable snapshot creation remain atomic in the backend.
+Manual Editor media selection, reset, fit and trim settings are durable through `production_beat_media_selections`. Reset removes the override and immediately falls back to the generated preview source. Auto Edit derives narration-aware decisions for fit, trim and motion. Render override application and immutable snapshot creation remain atomic in the backend.
 
 ## Real-time job tracking and subtitles
 
@@ -122,7 +144,7 @@ When a render is admitted, narration text and alignment spans are captured in th
 
 ```text
 backend admits + assigns local render
-  -> immutable snapshot captures current narration + effective beat media
+  -> immutable snapshot captures narration + exact timing + effective beat media
   -> assigned device claims lease
   -> Desktop preflight checks FFmpeg/ffprobe, executor, disk, assets
   -> resolve asset IDs/checksums through project.manifest.json
@@ -131,7 +153,7 @@ backend admits + assigns local render
   -> render missing visual segments
   -> concat video
   -> concat narration
-  -> mux
+  -> mux subtitles where available
   -> ffprobe + SHA-256 final validation
   -> write artifacts/<jobId>/final.mp4
   -> register final-artifact metadata
@@ -163,4 +185,4 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 - long-form crash/restart recovery and soak reliability;
 - production packaging/signing/auto-update and packaged OAuth/protocol tests.
 
-See `../product/ROADMAP.md` for active work. Completed migration plans are intentionally retired.
+See `../product/ROADMAP.md` for active work. Completed migration plans are intentionally historical rather than current-state contracts.
