@@ -10,7 +10,16 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState } from "../../workspace/components/FeaturePage";
+import { InlineNotice, PaneHeader, WorkspacePane } from "../../workspace/components/WorkstationPrimitives";
 import {
   chapterAudioListClass,
   chapterAudioListLabel,
@@ -93,30 +102,63 @@ export function ChapterListPanel({
     workspacesByChapterId.size + workspaceErrorsByChapterId.size < allChaptersCount;
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
-      <div className="shrink-0 space-y-3 border-b border-border p-4">
-        <div>
-          <h2 className="text-sm font-bold text-foreground">Chapter List</h2>
-          <p className="mt-0.5 text-xs text-text-muted">
-            Quản lý và điều hướng các chapter trong project.
-          </p>
+    <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">
+      <PaneHeader
+        title="Chapters"
+        meta={`${filteredCount} visible · ${allChaptersCount} total`}
+        actions={
+          <Button variant="ghost" size="icon" onClick={onResetFilters} title="Đặt lại bộ lọc" aria-label="Đặt lại bộ lọc">
+            <Filter size={12} />
+          </Button>
+        }
+      />
+
+      <div className="shrink-0 border-b border-border-subtle p-2.5">
+        <label className="relative block">
+          <span className="sr-only">Tìm chapter</span>
+          <Input
+            type="search"
+            autoComplete="off"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Tìm chapter..."
+            className="pr-8"
+          />
+          <Search className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-dim" size={12} />
+        </label>
+
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
+          <Select value={statusFilter} onValueChange={(value) => onStatusFilterChange(value as ChapterFilter)}>
+            <SelectTrigger aria-label="Trạng thái phân tích"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+              <SelectItem value="completed">Đã phân tích</SelectItem>
+              <SelectItem value="in_progress">Đang xử lý</SelectItem>
+              <SelectItem value="draft">Nháp</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(value) => onSortChange(value as ChapterSort)}>
+            <SelectTrigger aria-label="Sắp xếp chapter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="order">Theo thứ tự</SelectItem>
+              <SelectItem value="recent">Mới cập nhật</SelectItem>
+              <SelectItem value="title">Tên A–Z</SelectItem>
+              <SelectItem value="words">Nhiều từ nhất</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-2 flex items-center gap-1.5">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onAnalyzeAll}
             disabled={!canBulkAnalysis || bulkAnalysisBusy}
-            className="h-8 gap-1.5 text-[11px]"
+            className="min-w-0 flex-1"
           >
-            {bulkAnalysisBusy ? (
-              <Loader2 className="animate-spin" size={12} />
-            ) : (
-              <WandSparkles size={12} />
-            )}
-            Phân tích tất cả
+            {bulkAnalysisBusy ? <Loader2 className="animate-spin" size={12} /> : <WandSparkles size={12} />}
+            Analyze all
           </Button>
           <Button
             type="button"
@@ -124,163 +166,64 @@ export function ChapterListPanel({
             size="sm"
             onClick={onGenerateAudioAll}
             disabled={!canBulkAudio || bulkAudioBusy}
-            className="h-8 gap-1.5 text-[11px]"
+            className="min-w-0 flex-1"
           >
-            {bulkAudioBusy ? (
-              <Loader2 className="animate-spin" size={12} />
-            ) : (
-              <AudioLines size={12} />
-            )}
-            Tạo audio tất cả
+            {bulkAudioBusy ? <Loader2 className="animate-spin" size={12} /> : <AudioLines size={12} />}
+            Audio all
           </Button>
         </div>
-
-        <div className="flex items-center gap-2">
-          <label className="relative flex-1">
-            <span className="sr-only">Tìm chapter</span>
-            <input
-              type="search"
-              autoComplete="off"
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Tìm kiếm chapter..."
-              className="h-8 w-full rounded-md border border-border bg-surface-input px-3 pr-8 text-xs text-foreground placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            <Search
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted"
-              size={13}
-            />
-          </label>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onResetFilters}
-            title="Đặt lại bộ lọc"
-            aria-label="Đặt lại bộ lọc"
-            className="size-8 border-border bg-surface-input text-text-muted hover:border-border-dark hover:text-foreground"
-          >
-            <Filter size={13} />
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1 text-[10px] text-text-muted">
-            <span>Trạng thái phân tích</span>
-            <select
-              value={statusFilter}
-              onChange={(event) => onStatusFilterChange(event.target.value as ChapterFilter)}
-              className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="completed">Đã phân tích</option>
-              <option value="in_progress">Đang xử lý</option>
-              <option value="draft">Nháp</option>
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-[10px] text-text-muted">
-            <span>Sắp xếp</span>
-            <select
-              value={sortBy}
-              onChange={(event) => onSortChange(event.target.value as ChapterSort)}
-              className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
-            >
-              <option value="order">Theo thứ tự</option>
-              <option value="recent">Cập nhật mới nhất</option>
-              <option value="title">Theo tên A–Z</option>
-              <option value="words">Nhiều từ nhất</option>
-            </select>
-          </label>
-        </div>
-
-        {statusFilter !== "all" && (
-          <p className="text-[10px] leading-4 text-text-muted">
-            Workspace của các chapter đang xử lý được polling nền song song để trạng thái luôn cập
-            nhật khi bạn chuyển chapter.
-          </p>
-        )}
-
-        {statusFilterLoading && (
-          <p
-            className="rounded-md border border-info/30 bg-info-bg px-2.5 py-2 text-[10px] leading-4 text-text-secondary"
-            role="status"
-          >
-            Đang tải trạng thái chapter để áp dụng bộ lọc. Kết quả sẽ ổn định sau khi dữ liệu tải xong.
-          </p>
-        )}
-
-        {selectionHidden && (
-          <p
-            className="rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[10px] leading-4 text-text-secondary"
-            role="status"
-          >
-            Chapter đang chỉnh sửa không nằm trong trang hoặc bộ lọc hiện tại. Nội dung editor vẫn
-            được giữ nguyên; đặt lại bộ lọc hoặc chuyển trang để hiển thị chapter đó.
-          </p>
-        )}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+      {statusFilterLoading ? <InlineNotice tone="info">Đang tải trạng thái để hoàn tất bộ lọc…</InlineNotice> : null}
+      {selectionHidden ? <InlineNotice tone="warning">Chapter đang chỉnh sửa nằm ngoài trang hoặc bộ lọc hiện tại.</InlineNotice> : null}
+
+      <div className="min-h-0 flex-1 overflow-y-auto py-1">
         {chapters.map((chapter) => {
           const isSelected = !isCreating && editingId === chapter.id;
           const workspace = workspacesByChapterId.get(chapter.id);
-          const status = workspaceErrorsByChapterId.has(chapter.id)
-            ? "error"
-            : chapterStatus(workspace);
+          const status = workspaceErrorsByChapterId.has(chapter.id) ? "error" : chapterStatus(workspace);
           const audioListLabel = workspace
-            ? chapterAudioListLabel(
-                workspace.pipeline.audio.status,
-                workspace.pipeline.audio.durationMs,
-              )
+            ? chapterAudioListLabel(workspace.pipeline.audio.status, workspace.pipeline.audio.durationMs)
             : null;
 
           return (
             <article
               key={chapter.id}
-              className={`group flex items-stretch gap-1 rounded-md border transition-colors ${
+              className={`group flex min-h-[58px] items-stretch border-l-2 border-b border-b-border-subtle transition-colors ${
                 isSelected
-                  ? "border-primary/65 border-l-2 border-l-primary bg-primary-muted/55"
-                  : "border-border-subtle bg-surface hover:border-border hover:bg-surface-2"
+                  ? "border-l-primary bg-primary-muted/45"
+                  : "border-l-transparent hover:bg-surface-hover"
               }`}
             >
               <button
                 type="button"
                 onClick={() => onSelectChapter(chapter.id)}
-                className="min-w-0 flex-1 p-2.5 text-left focus-visible:outline-none"
+                className="min-w-0 flex-1 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
               >
-                <span className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide text-text-dim">
-                  {chapterNumberLabel(chapter.orderIndex)}
-                </span>
-                <strong
-                  className={`block truncate text-xs font-semibold ${
-                    isSelected ? "text-primary-hover" : "text-foreground"
-                  }`}
-                >
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-medium uppercase tracking-wide text-text-dim">
+                    {chapterNumberLabel(chapter.orderIndex)}
+                  </span>
+                  <span className={`rounded-sm px-1 py-0.5 text-[8px] font-medium ${chapterStatusClass(status)}`}>
+                    {chapterStatusLabel(status)}
+                  </span>
+                </div>
+                <strong className={`mt-0.5 block truncate text-[11px] font-semibold ${isSelected ? "text-primary-hover" : "text-foreground"}`}>
                   {chapter.title}
                 </strong>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-muted">
+                <div className="mt-1 flex min-w-0 items-center gap-2 text-[9px] text-text-dim">
                   <span>{wordCount(chapter.sourceText).toLocaleString("vi-VN")} từ</span>
                   <span>v{chapter.rowVersion}</span>
-                  {audioListLabel && (
-                    <span className={chapterAudioListClass(workspace?.pipeline.audio.status)}>
-                      {audioListLabel}
-                    </span>
-                  )}
+                  {audioListLabel ? <span className={`truncate ${chapterAudioListClass(workspace?.pipeline.audio.status)}`}>{audioListLabel}</span> : null}
                 </div>
               </button>
-
-              <div className="flex shrink-0 items-center gap-1 pr-2">
-                <span
-                  className={`rounded px-2 py-0.5 text-[9px] font-medium ${chapterStatusClass(status)}`}
-                >
-                  {chapterStatusLabel(status)}
-                </span>
+              <div className="flex shrink-0 items-center pr-1.5">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => onDeleteChapter(chapter)}
                   disabled={deleteBusy}
-                  className="size-7 text-text-dim opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:text-danger"
+                  className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:text-danger"
                   title={`Xóa chapter ${chapter.title}`}
                   aria-label={`Xóa chapter ${chapter.title}`}
                 >
@@ -291,7 +234,7 @@ export function ChapterListPanel({
           );
         })}
 
-        {!filteredCount && (
+        {!filteredCount ? (
           <EmptyState
             title={statusFilterLoading ? "Đang tải trạng thái chapter…" : "Chưa có chapter phù hợp"}
             description={
@@ -302,37 +245,21 @@ export function ChapterListPanel({
                   : "Tạo chapter đầu tiên để bắt đầu story flow."
             }
           />
-        )}
+        ) : null}
       </div>
 
-      <footer className="shrink-0 flex items-center justify-between border-t border-border px-3 py-2.5 text-xs text-text-muted">
-        <span>
-          Hiển thị {from} – {to} của {filteredCount} chapter
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.max(1, page - 1))}
-            disabled={page <= 1}
-            className="rounded p-1 text-text-muted hover:bg-surface-3 disabled:opacity-40"
-            aria-label="Trang trước"
-          >
-            <ChevronLeft size={13} />
-          </button>
-          <span className="min-w-14 rounded bg-surface-3 px-2 py-0.5 text-center text-xs font-semibold text-primary-hover">
-            {page} / {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-            className="rounded p-1 text-text-muted hover:bg-surface-3 disabled:opacity-40"
-            aria-label="Trang sau"
-          >
-            <ChevronRight size={13} />
-          </button>
+      <footer className="flex min-h-9 shrink-0 items-center justify-between border-t border-border-subtle px-2.5 text-[9px] text-text-dim">
+        <span>{from}–{to} / {filteredCount}</span>
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="icon" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1} aria-label="Trang trước">
+            <ChevronLeft size={12} />
+          </Button>
+          <span className="min-w-10 text-center tabular-nums text-text-secondary">{page}/{totalPages}</span>
+          <Button variant="ghost" size="icon" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages} aria-label="Trang sau">
+            <ChevronRight size={12} />
+          </Button>
         </div>
       </footer>
-    </section>
+    </WorkspacePane>
   );
 }
