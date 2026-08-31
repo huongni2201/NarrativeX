@@ -36,29 +36,29 @@ export function RenderScreen({
           onClick={() => void controller.startRender()}
           disabled={controller.busy || !controller.canRender}
         >
-          <FolderOpen size={14} />
+          <FolderOpen size={13} />
           {controller.busy ? "Preparing…" : "Choose folder & render"}
         </Button>
       }
     >
       <div className="grid gap-4">
-        <section className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3 rounded-lg border border-border bg-card p-4">
+        <section className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] border-y border-border-subtle">
           <Metric
             label="Timeline"
             value={timeline ? `${Math.round(timeline.totalDurationMs / 1000)}s` : "Not loaded"}
-            icon={<Film size={16} />}
+            icon={<Film size={15} />}
           />
           <Metric
             label="Auto Edit"
             value={controller.canRender ? "Ready" : "Blocked"}
-            icon={<WandSparkles size={16} />}
+            icon={<WandSparkles size={15} />}
           />
           <Metric
             label="Disk free"
             value={controller.preflight?.diskFreeBytes != null ? formatBytes(controller.preflight.diskFreeBytes) : "Not checked"}
-            icon={<HardDrive size={16} />}
+            icon={<HardDrive size={15} />}
           />
-          <label className="grid gap-1 text-[10px] text-muted-foreground">
+          <label className="grid gap-1.5 border-l border-border-subtle px-3 py-2.5 text-[10px] font-medium text-text-muted">
             Edit style
             <Select
               value={controller.autoEditStyle}
@@ -73,7 +73,7 @@ export function RenderScreen({
               </SelectContent>
             </Select>
           </label>
-          <label className="grid gap-1 text-[10px] text-muted-foreground">
+          <label className="grid gap-1.5 border-l border-border-subtle px-3 py-2.5 text-[10px] font-medium text-text-muted">
             Resolution
             <Select
               value={controller.resolution}
@@ -89,102 +89,102 @@ export function RenderScreen({
           </label>
         </section>
 
-        <section className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+        <section className="flex items-center justify-between border-b border-border-subtle px-1 pb-3">
           <div className="flex items-center gap-3">
-            <Type size={16} className="text-primary" />
+            <Type size={15} className="text-text-muted" />
             <div>
-              <h2 className="text-xs font-semibold">Subtitles · Automatic</h2>
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <h2 className="text-[12px] font-medium text-foreground">Subtitles · Automatic</h2>
+              <p className="mt-0.5 text-[10px] leading-4 text-text-muted">
                 Final render burns narration-derived subtitles using alignment when available and deterministic timing fallback otherwise.
               </p>
             </div>
           </div>
-          <span className="rounded bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold text-emerald-400">ON</span>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
+            <span className="size-1.5 rounded-full bg-success" aria-hidden="true" /> On
+          </span>
         </section>
 
         {!!controller.readinessBlockers.length && (
-          <section className="rounded-lg border border-warning/30 bg-card p-4">
-            <h2 className="text-xs font-semibold text-warning">Render blockers</h2>
-            <ul className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+          <section className="border-l-2 border-warning bg-warning-bg px-3 py-2.5">
+            <h2 className="text-[11px] font-semibold text-warning">Render blockers</h2>
+            <ul className="mt-1.5 space-y-1 text-[10px] leading-4 text-text-muted">
               {controller.readinessBlockers.map((blocker) => <li key={blocker}>• {blocker}</li>)}
             </ul>
           </section>
         )}
 
         {controller.autoEditPlan && (
-          <section className="rounded-lg border border-primary/25 bg-card p-4">
+          <section className="border-y border-border-subtle py-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 text-primary-hover">
-                  <WandSparkles size={14} />
-                  <h2 className="text-xs font-semibold">Auto Edit plan</h2>
+                <div className="flex items-center gap-2">
+                  <WandSparkles size={13} className="text-primary" />
+                  <h2 className="text-[12px] font-semibold text-foreground">Auto Edit plan</h2>
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className="mt-1 text-[10px] leading-4 text-text-muted">
                   Camera intent từ AI được ưu tiên, media fit theo narration và scene/chapter boundaries nhận transition duration-preserving.
                 </p>
               </div>
-              <span className="rounded-md border border-border bg-popover px-2 py-1 text-[9px] text-muted-foreground">
+              <span className="text-[10px] tabular-nums text-text-dim">
                 {controller.autoEditPlan.renderOverrides.length} changes
               </span>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-muted-foreground">
+            <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
               {Object.entries(fitSummary).map(([mode, count]) => (
-                <span key={mode} className="rounded-md border border-border-subtle bg-popover px-2 py-1">
-                  {mode}: {count}
-                </span>
+                <span key={mode}>{mode}: <strong className="font-medium text-text-secondary">{count}</strong></span>
               ))}
             </div>
           </section>
         )}
 
         {controller.destinationDirectory && (
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-xs font-semibold">Final destination</h2>
-            <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">
+          <section className="border-b border-border-subtle pb-3">
+            <h2 className="text-[11px] font-semibold text-foreground">Final destination</h2>
+            <p className="mt-1.5 break-all font-mono text-[10px] leading-4 text-text-muted">
               {controller.finalPath ?? controller.destinationDirectory}
             </p>
           </section>
         )}
 
         {controller.notice && (
-          <p className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
+          <p className="border-l-2 border-border-dark bg-surface-panel px-3 py-2 text-[10px] leading-4 text-text-muted" role="status">
             {controller.notice}
           </p>
         )}
 
         {controller.preflight && (
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-xs font-semibold">Preflight</h2>
-            <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
+          <section className="border-y border-border-subtle py-3">
+            <h2 className="text-[11px] font-semibold text-foreground">Preflight</h2>
+            <div className="mt-2 divide-y divide-border-subtle">
               {controller.preflight.assets.map((asset) => (
-                <div key={asset.assetId} className="rounded-md border border-border-subtle bg-popover p-2 text-[10px]">
-                  <strong>{asset.assetId.slice(0, 10)}</strong>
-                  <span className="ml-2 text-muted-foreground">{asset.state}</span>
+                <div key={asset.assetId} className="flex items-center justify-between gap-3 px-1 py-1.5 text-[10px]">
+                  <strong className="font-mono font-medium text-text-secondary">{asset.assetId.slice(0, 10)}</strong>
+                  <span className="text-text-muted">{asset.state}</span>
                 </div>
               ))}
             </div>
             {!!controller.preflight.warnings.length && (
-              <p className="mt-3 text-[10px] text-warning">{controller.preflight.warnings.join(" · ")}</p>
+              <p className="mt-2 text-[10px] leading-4 text-warning">{controller.preflight.warnings.join(" · ")}</p>
             )}
           </section>
         )}
 
         {controller.liveJob && (
-          <section className="rounded-lg border border-border bg-card p-4">
+          <section className="border-y border-border-subtle py-3">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">Render job</span>
-                <h2 className="text-sm font-semibold">{controller.liveJob.jobId}</h2>
+              <div className="min-w-0">
+                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-text-dim">Render job</span>
+                <h2 className="truncate font-mono text-[12px] font-medium text-foreground">{controller.liveJob.jobId}</h2>
               </div>
-              <span className="text-[10px] text-muted-foreground">{controller.liveJob.status}</span>
+              <span className="text-[10px] text-text-muted">{controller.liveJob.status}</span>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-sm bg-secondary">
               <div
-                className="h-full bg-primary transition-[width]"
+                className="h-full bg-primary transition-[width] duration-150"
                 style={{ width: `${clampProgress(controller.liveJob.progress)}%` }}
               />
             </div>
-            <p className="mt-2 text-[10px] text-muted-foreground">
+            <p className="mt-2 text-[10px] text-text-muted">
               {Math.round(clampProgress(controller.liveJob.progress))}% · {controller.liveJob.currentStep ?? "Waiting"}
             </p>
           </section>
@@ -196,9 +196,12 @@ export function RenderScreen({
 
 function Metric({ label, value, icon }: Readonly<{ label: string; value: string; icon: React.ReactNode }>) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border-subtle bg-popover p-3">
-      <span className="text-primary-hover">{icon}</span>
-      <div><span className="block text-[9px] text-muted-foreground">{label}</span><strong className="text-xs">{value}</strong></div>
+    <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
+      <span className="text-text-muted">{icon}</span>
+      <div className="min-w-0">
+        <span className="block text-[10px] text-text-dim">{label}</span>
+        <strong className="mt-0.5 block truncate text-[11px] font-medium text-foreground">{value}</strong>
+      </div>
     </div>
   );
 }
