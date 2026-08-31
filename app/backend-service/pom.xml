@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -23,7 +23,7 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <spotless.version>3.9.0</spotless.version>
         <google-java-format.version>1.36.1</google-java-format.version>
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <pdfbox.version>3.0.8</pdfbox.version>
         <jacoco.minimum.line.coverage>0.35</jacoco.minimum.line.coverage>
         <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
@@ -123,7 +123,7 @@
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
-            <version>1.4.1</version>
+            <version>1.4.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
