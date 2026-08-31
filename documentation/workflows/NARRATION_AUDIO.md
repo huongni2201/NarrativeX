@@ -33,31 +33,57 @@ Local/self-hosted inference may have no external provider charge while still con
 
 ## Desktop generated-audio workflow
 
-Current Desktop foundations include voice selection/preview, custom voice-reference upload, single/batch narration requests, progress/error handling, active-job recovery after reload and local project-media consumption. Preview results are temporary and are not the durable project audio artifact.
-
-The Chapter Workspace response also carries the voice ID from the latest persisted narration request. Desktop uses that ID to label the generated audio player, so changing the voice selector for a future generation does not rename an existing narration.
-
-The preview contract is asynchronous: Desktop submits `POST /api/v1/projects/{projectId}/voice-preview-jobs`, observes the job through the shared generation status stream, then reads `GET /api/v1/projects/{projectId}/voice-preview-jobs/{jobId}/result`. Uploaded custom voice references are account-owned R2 assets and remain subject to ownership, readiness and voice-capability checks.
+Current Desktop foundations include voice selection/preview, single/batch narration requests, progress/error handling, active-job recovery after reload and local project-media consumption. Preview results are temporary and are not the durable project audio artifact.
 
 Generated/project narration bytes used by final rendering live on the local machine under the configured project-media root and are referenced through stable backend identity plus integrity metadata. PostgreSQL stores logical keys and metadata, never host/container absolute paths.
 
-Before Editor playback, Electron main materializes generated Chapter narration into Desktop ProjectStorage and verifies its size and checksum. The renderer then plays it through the `narrativex-media://` protocol; it must not use a backend download URL as the ongoing Chapter preview source. Remote HTTP(S) playback remains limited to temporary voice samples and account-owned voice-reference workflows.
+Before Editor playback, Electron main materializes generated Chapter narration into Desktop ProjectStorage and verifies its size and checksum. The renderer then plays it through the `narrativex-media://` protocol.
 
-## Custom voice reference storage
+## Voice-reference scope
 
-Custom voice references are reusable account assets rather than project working media.
+Voice references are explicit scope-bearing selections:
+
+```text
+VoiceReferenceScope
+  PROJECT
+  ACCOUNT
+```
+
+### PROJECT voice reference
+
+A PROJECT reference is project working media and remains device/project local.
+
+```text
+Desktop native picker / existing project AUDIO asset
+  -> backend stable project MediaAsset
+  -> ProjectStorage commit
+  -> project.manifest.json relative path + size + SHA-256
+  -> narration request selects { scope: PROJECT, assetId }
+  -> worker resolves the immutable project manifest entry
+  -> size/checksum verification
+  -> temporary VieNeu enrollment input
+```
+
+A PROJECT reference must not carry an R2 storage key. Missing, stale, unsafe or corrupt manifest data fails closed.
+
+### ACCOUNT voice reference
+
+An ACCOUNT reference is a reusable authenticated account asset stored in R2.
 
 ```text
 Desktop native picker (MP3/WAV)
   -> checksum + authenticated voice-reference upload intent
   -> account-scoped R2 key: voices/<account>/...
-  -> durable voice-reference validation
-  -> READY account asset
-  -> narration worker downloads only when selected
-  -> temporary WAV enrollment for VieNeu
+  -> durable validation
+  -> READY account VoiceReferenceAsset
+  -> narration request selects { scope: ACCOUNT, assetId }
+  -> authorized worker downloads only when selected
+  -> temporary VieNeu enrollment input
 ```
 
-R2 is reserved for these account-owned voice-reference/custom-voice files. Generated narration, generated images, imported project media and final render artifacts do not use R2.
+ACCOUNT references require ownership, READY state, valid size/SHA-256 and R2 storage metadata.
+
+R2 is reserved for reusable account-owned voice-reference/custom-voice files. Generated narration, generated images, imported project media, PROJECT voice references and final render artifacts do not use R2.
 
 ## User-provided audio import
 
@@ -89,15 +115,29 @@ One audio part may cover multiple Chapters. Several parts may cover one Chapter 
 
 Alignment must preserve source identity/version, source span, global audio start/end, confidence and coverage/status. Low-confidence, missing or source-incompatible alignment must stop for review/fix rather than silently substituting generated narration.
 
+## Visual timing handoff
+
+Narration alignment is consumed by the production timeline through source-anchored VisualBeat text ranges:
+
+```text
+VisualBeat textStart/textEnd
+  + narration/subtitle alignment spans
+  -> backend NarrationTextClockMapper
+  -> exact VisualBeat audio clock
+```
+
+The narration worker does not own production VisualBeat text-to-audio mapping. Complete persisted beat audio spans may remain compatibility input; provisional fallback timing is review-only and does not make a Chapter render-ready.
+
 ## Local render integration
 
 ```text
 local narration input
+  + exact narration-aligned beat clock
   + selected local beat media
   -> visual segments
   -> concat video
   -> concat narration
-  -> mux
+  -> mux subtitles where available
   -> ffprobe/checksum
   -> local final artifact
   -> backend final-artifact metadata
@@ -105,7 +145,7 @@ local narration input
 
 Render execution remains backend-assigned and lease-controlled. Final MP4 playback/export reads the local artifact directly.
 
-Generation status delivery is real-time-first: authenticated SSE carries job snapshots, Electron main reconnects the stream, and a slow GET watchdog covers missed events. A reload can recover the active chapter narration job from the persisted workspace/job state; the stream is a delivery optimization, not durable authority.
+Generation status delivery is real-time-first: authenticated SSE carries job snapshots, Electron main reconnects the stream, and a slow GET watchdog covers missed events. PostgreSQL remains durable authority.
 
 ## Cost behavior
 
@@ -118,7 +158,8 @@ For a `USER_PROVIDED_AUDIO` covered scope:
 ## Storage contract
 
 ```text
-Custom voice/reference audio      -> account-scoped R2
+ACCOUNT voice/reference audio    -> account-scoped R2
+PROJECT voice/reference audio    -> local project media
 Generated narration              -> local project media
 Accepted imported audio          -> local project media
 Generated/imported images/video  -> local project media
@@ -131,6 +172,6 @@ There is no project-media R2 fallback, dual write or legacy R2 read path in the 
 
 ## Operational diagnostics
 
-Narration job creation is logged in two phases: `Prepared narration job` inside the backend transaction and `Committed narration job` only after commit. PostgreSQL remains authoritative for whether the job, `NARRATION_TTS` stage attempt and narration operation exist.
+Narration job creation is logged in prepared/committed phases. PostgreSQL remains authoritative for whether the job, `NARRATION_TTS` stage attempt and narration operation exist.
 
 Workers verify their database identity at startup and poll/claim durable PostgreSQL work directly. No Redis or notification channel is required for narration queue discovery.

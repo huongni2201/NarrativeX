@@ -4,12 +4,12 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Effective docs sync: `2026-08-28`
-- Implementation checkpoint: `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719`
+- Effective docs sync: `2026-08-31`
+- Implementation checkpoint: `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
-- Runtime refinements: `documentation/decisions/ADR-0020-postgresql-only-mvp-runtime-state.md` and `documentation/decisions/ADR-0021-desktop-gemini-web-image-generation.md`
+- Runtime refinements: ADR-0020 (PostgreSQL-only MVP runtime), ADR-0021 (Desktop Gemini Web), ADR-0022 (R2 voice-only + voice-reference scope), ADR-0023 (source-anchored visual timing)
 
-Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims. Accepted ADRs outrank the canonical specification within the exact scope they supersede; ADR-0020 therefore replaces older Redis/session/delivery text still present in historical V1.11 wording.
+Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims. Accepted ADRs outrank the canonical specification within the exact scope they supersede.
 
 ## Current architecture direction
 
@@ -42,12 +42,26 @@ The installation guest principal is an internal ownership/session identity, not 
 Generated/imported project images   -> local project workspace
 Project narration/audio             -> local project workspace
 Imported project media              -> local project workspace
+PROJECT voice reference             -> local project workspace / manifest
 Render intermediates/cache          -> local project workspace/work
 Final local MP4                     -> local project workspace/artifacts
+ACCOUNT voice reference/custom voice -> Cloudflare R2
 Business/job/artifact metadata      -> PostgreSQL
 ```
 
-Cloudflare R2 is generated-media transport/durability where remote provider/worker execution needs it. Final render bytes are local-only; the backend coordinates state but does not store or proxy the MP4.
+Cloudflare R2 is **not** generated-project-media transport. It is limited to authenticated reusable account-owned voice-reference/custom-voice assets. Final render bytes are local-only; the backend coordinates state but does not store or proxy the MP4.
+
+## Visual timing contract
+
+```text
+VisualBeat source_anchor
+  -> deterministic UTF-16 textStart/textEnd
+  -> narration/subtitle alignment spans
+  -> backend NarrationTextClockMapper
+  -> production audio start/end/duration
+```
+
+Narration is the master clock. Existing persisted VisualBeat audio timing may still be consumed as compatibility data when complete, but new timing authority comes from source-anchored alignment. Provisional fallback timing keeps the Editor inspectable only; it does not satisfy final render readiness.
 
 ## Database baseline
 
@@ -62,13 +76,13 @@ V7__indexes.sql
 V8__seed_catalog.sql
 ```
 
-The repository is still pre-production, so this is a clean development baseline rather than frozen upgrade history. Project-render subtitle snapshots are defined directly in V5, the Chapter Workspace covering lookup lives in V7, and VieNeu voices are seeded in V8 with `supportsSpeakingRate=true`. Disposable development/test databases should be recreated when the baseline changes. The accepted baseline becomes immutable at the first production deployment; only then do future changes become append-only from the next version.
+The repository is still pre-production, so this is a clean development baseline rather than frozen upgrade history. Disposable development/test databases should be recreated when the baseline changes. The accepted baseline becomes immutable at the first production deployment; only then do future changes become append-only from the next version.
 
 ## Primary remaining work
 
 - production packaging, signing, auto-update and packaged protocol/OAuth/OS integration coverage;
 - hardening long-running local execution across abrupt process/OS failure and richer recovery UX;
-- richer timeline/editor review and regeneration/reuse workflows;
+- richer timeline/editor review and regeneration workflows;
 - narration-driven adaptive `VisualScenePlanner` and continuity-aware review completion;
-- richer asset approval/reuse/reframe/edit lineage;
+- richer asset approval/reframe/edit lineage;
 - complete production billing/actual-usage reconciliation and operational evidence.

@@ -1,8 +1,8 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0020 supersedes older Redis/session/delivery guidance within its scope, and ADR-0021 defines the Gemini Web Desktop boundary.
+The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0020 defines the PostgreSQL-only MVP runtime, ADR-0021 defines the Gemini Web Desktop boundary, ADR-0022 defines R2 voice-only storage plus PROJECT/ACCOUNT voice-reference scope, and ADR-0023 defines source-anchored visual timing.
 
-NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, and ADR-0021 defines the Desktop Gemini Web execution boundary.
+NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, ADR-0021 defines the Desktop Gemini Web execution boundary, ADR-0022 limits R2 to account voice-reference/custom-voice storage, and ADR-0023 makes narration-aligned source ranges the production timing model.
 
 ## Navigation
 
@@ -39,9 +39,12 @@ A newer ADR wins only within the scope it explicitly supersedes.
 7. Desktop project media is local-first under `<userData>/projects/<projectId>` and mapped by `project.manifest.json`.
 8. Absolute Desktop filesystem paths are never durable backend identifiers.
 9. Final FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main.
-10. Cloudflare R2 is limited to generated-media transport/durability before Desktop materialization; final MP4 bytes remain local.
-11. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
-12. Production persistence is MyBatis + explicit PostgreSQL SQL.
-13. Flyway V1-V8 form the clean pre-release baseline; V1-V6 separate schema/database responsibilities, V7 owns indexes and V8 owns deterministic catalog seeds; later migrations are append-only V9+.
-14. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.
-15. Gemini Web is a Desktop-main Chrome/CDP path, not a Python worker or browser-editor architecture; keep its prompt wrapper and privileged file commit behind the typed bridge.
+10. Cloudflare R2 is limited to authenticated account-owned voice-reference/custom-voice assets. Generated project images, generated narration, imported project media and final MP4 bytes do not use R2.
+11. Voice-reference storage is scope-specific: `PROJECT` references remain project-local and resolve through ProjectStorage/manifest; `ACCOUNT` references may use R2 and require account ownership/readiness checks.
+12. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
+13. Narration timing is the master clock. VisualBeat source anchors resolve to deterministic UTF-16 text ranges, and backend timeline reads map those ranges through narration alignment into the production audio clock.
+14. Provisional/fallback beat timing is review-only; final render readiness requires an exact contiguous aligned narration clock.
+15. Production persistence is MyBatis + explicit PostgreSQL SQL.
+16. Flyway V1-V8 form the clean pre-release baseline; V1-V6 separate schema/database responsibilities, V7 owns indexes and V8 owns deterministic catalog seeds; later migrations are append-only V9+ only after the first production deployment.
+17. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.
+18. Gemini Web is a Desktop-main Chrome/CDP path, not a Python worker or browser-editor architecture; keep its prompt wrapper and privileged file commit behind the typed bridge.
