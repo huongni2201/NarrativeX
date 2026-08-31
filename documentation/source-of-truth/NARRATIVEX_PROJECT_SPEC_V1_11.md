@@ -1,9 +1,9 @@
 # NarrativeX — Project Source of Truth V1.11
 
 **Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 2026-08-28
+**Effective date:** 2026-08-31  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719`
+**Docs-sync implementation checkpoint:** `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`  
 **Primary product boundary:** Electron Desktop editor + backend-authoritative control plane + Desktop local-first project media/render
 
 ---
@@ -19,6 +19,8 @@ For factual AS-IS behavior, authority order is:
 3. this source-of-truth specification;
 4. current roadmap/workflow/codebase documentation;
 5. Git history for retired migration notes and superseded reports.
+
+Current cross-cutting refinements include ADR-0020 (PostgreSQL-only MVP runtime), ADR-0021 (Desktop Gemini Web), ADR-0022 (R2 voice-only + voice-reference scope) and ADR-0023 (source-anchored visual timing).
 
 Status vocabulary:
 
@@ -46,7 +48,7 @@ The product is:
 - **review-first** — generated/reviewed state is versioned rather than silently overwritten;
 - **audio-timeline-first** — narration timing is authoritative for visual duration;
 - **image-first but media-flexible** — image motion is the low-cost default, but a beat may use imported/generated video;
-- **local-media-first** — project media and final renders stay on the user's machine after required generated media is materialized;
+- **local-media-first** — project media and final renders stay on the user's machine;
 - **backend-authorized** — Spring/PostgreSQL remain authoritative for ownership, policy, job admission, production choices, assignment and durable execution state.
 
 Creating a Project persists metadata. Saving a Chapter persists source. Analyze, narration/audio processing, image generation and rendering are explicit operations.
@@ -83,13 +85,25 @@ If accepted user-provided audio covers a scope, NarrativeX must not generate/res
 
 Audio file boundaries are not Chapter boundaries. One continuous file may cover multiple Chapters; several ordered parts may cover one logical timeline. Visual duration derives from narration/alignment rather than fixed per-image constants.
 
+VisualBeat timing follows the source-anchored chain:
+
+```text
+source_anchor
+  -> deterministic UTF-16 textStart/textEnd
+  -> narration/subtitle alignment
+  -> backend text-to-audio mapping
+  -> production beat clock
+```
+
+Persisted exact audio timing may remain as compatibility input, but provisional/fallback timing is review-only and must not satisfy final render readiness.
+
 ### 3.4 Backend owns execution policy
 
 The backend creates/version-controls authorized MediaPlan/production policy and expensive job admission. Workers and Desktop devices execute persisted policy and may not silently escalate paid work.
 
 ### 3.5 PostgreSQL remains durable control-plane authority
 
-PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata, server sessions and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime and is not a current queue or session dependency.
+PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata, server sessions, one-time Desktop OAuth handoffs and durable worker queue/outbox state. Redis is not required by the MVP runtime and is not a current queue/session dependency.
 
 ### 3.6 Persistence is MyBatis + explicit SQL
 
@@ -121,6 +135,10 @@ A Desktop render can finalize only under its current authorized device/lease. Le
 
 Final project rendering executes in Electron main. The final MP4 lives in the local project artifact workspace. The backend records render/final-artifact metadata but does not store, download, preview-proxy or stream final video bytes.
 
+### 3.12 R2 is voice-reference storage only
+
+Cloudflare R2 is limited to authenticated reusable account-owned voice-reference/custom-voice assets. It is not generated project-media transport, a project-media fallback or final-video storage.
+
 ---
 
 ## 4. Canonical runtime topology
@@ -143,20 +161,19 @@ Final project rendering executes in Electron main. The final MP4 lives in the lo
 | main: guest secret / backend session / OAuth callback |
 |       native files / ProjectStorage / device runtime  |
 |       FFmpeg / ffprobe / journal / cache / backup     |
+|       Gemini Web Chrome/CDP automation                |
 +----------------------+--------------------------------+
                        |
                        v
               Spring Boot Backend
               -> PostgreSQL authoritative state
-              -> Redis sessions/transient hints
-              -> Python AI/provider workers
+              -> Python AI/provider workers polling PostgreSQL
 
 Electron main
   -> <userData>/projects/<projectId>/ local project bytes
 
-Generated-media transport
-  -> R2 when remote durability is required by AI/provider execution
-  -> Desktop materialization before local project editing/final rendering
+Cloudflare R2
+  -> ACCOUNT voice-reference/custom-voice bytes only
 ```
 
 ---
@@ -225,6 +242,7 @@ Do not conflate them.
 - local execution heartbeat/claim/progress/completion/failure;
 - FFmpeg/ffprobe process execution;
 - render journal/cache and local artifact operations;
+- Gemini Web Chrome/CDP automation and protected clipboard/file commit;
 - final MP4 open/reveal/playback/export capabilities.
 
 ### Preload owns
@@ -264,20 +282,23 @@ Primary project bytes live under Electron `userData`:
 Primary contract:
 
 ```text
-AI-generated image/narration transport -> R2 only when remote durability is needed
-Generated/imported project images      -> local project workspace
-Project narration/audio                -> local project workspace
-Imported project media                 -> local project workspace
-Render intermediates/cache             -> local project workspace/work
+Generated project images              -> local project workspace
+Generated narration                   -> local project workspace
+Imported project image/audio/video    -> local project workspace
+PROJECT voice reference               -> local project workspace / manifest
+Render intermediates/cache            -> local project workspace/work
 Final MP4                              -> local project workspace/artifacts
+ACCOUNT voice reference/custom voice  -> Cloudflare R2
 Durable business/job/artifact metadata -> PostgreSQL
 ```
+
+There is no generated-project-media R2 fallback, dual write or compatibility read path in the current pre-deployment runtime.
 
 Current foundations also include storage accounting/verification/cleanup and manifest-verified backup/restore/archive-copy behavior.
 
 ---
 
-## 8. Asset import and materialization
+## 8. Asset import, materialization and voice-reference scope
 
 Desktop native import must not expose arbitrary paths to renderer/backend domain state.
 
@@ -290,7 +311,22 @@ native selection
   -> manifest stores relative path + integrity
 ```
 
-Implemented image-generation/narration workflows materialize required results into Desktop local storage for the current creator flow. R2 may retain generated provider outputs while remote execution/reconciliation requires durable transport, but those remote locations do not become final project-video storage.
+Implemented image-generation/narration workflows persist accepted project results into local project media and materialize them into Desktop ProjectStorage as required for creator playback/rendering.
+
+Voice references are scope-specific:
+
+```text
+PROJECT
+  -> project MediaAsset
+  -> local ProjectStorage / project.manifest.json
+  -> no R2 storage key
+
+ACCOUNT
+  -> reusable account VoiceReferenceAsset
+  -> READY + ownership + integrity checks
+  -> voices/<account>/... in R2
+  -> authorized worker temporary download when selected
+```
 
 ---
 
@@ -303,15 +339,25 @@ Project
   -> Chapter
      -> Scene
         -> VisualBeat
+           -> source anchor / deterministic text range
            -> selected media (image or video)
-           -> timing / supported visual controls
+           -> narration-derived timing / supported visual controls
 ```
 
-Narration-aligned timing is authoritative. Explicit beat media selections are durable backend production state through the consolidated V1 `production_beat_media_selections` table.
+Production timing follows ADR-0023:
 
-Renderer-local duration/camera drafts may use undo/redo/reset, but render submission must resolve to backend-authorized stable identities and immutable input state.
+```text
+VisualBeat textStart/textEnd
+  + narration/subtitle alignment spans
+  -> backend NarrationTextClockMapper
+  -> beat audio start/end/duration
+```
 
-Image-only camera/motion controls must not be forced onto video beats.
+Complete compatible persisted audio timing may still be preferred when valid. Otherwise the backend derives timing on read from the source ranges. A provisional weighted fallback can keep the Editor inspectable, but final readiness remains false until an exact aligned clock exists.
+
+Explicit beat media selections are durable backend production state through `production_beat_media_selections`.
+
+Renderer-local camera/edit drafts may use undo/redo/reset, but render submission must resolve to backend-authorized stable identities and immutable input state. Image-only camera/motion controls must not be forced onto video beats.
 
 ---
 
@@ -322,11 +368,12 @@ backend admits + assigns local render
   -> authorized device claims lease
   -> Desktop preflight validates runtime/disk/assets
   -> resolve input IDs/checksums through manifest
+  -> require exact narration-aligned production timing
   -> write atomic render journal
   -> reuse valid segment-cache entries
   -> FFmpeg render missing segments
   -> concat video/narration
-  -> mux
+  -> subtitle mux where available
   -> ffprobe + checksum final MP4
   -> write artifacts/<jobId>/final.mp4
   -> register final-artifact metadata
@@ -346,15 +393,16 @@ There is no server-side final render executor or final-video byte-storage path i
 
 ```text
 Source/reviewed state
-  -> OperationPlan / MediaPlan
+  -> OperationPlan / MediaPlan where applicable
   -> GenerationJob / StageAttempt
   -> ProviderOperation when crossing external paid boundary
   -> validated immutable result
-  -> remote generated-media transport where required
-  -> Desktop materialization for project use
+  -> project-local media persistence/materialization
 ```
 
 External provider ambiguity preserves `UNKNOWN` and reconciles before paid resubmission. Long provider/network calls must not hold long business transactions open.
+
+Provider-specific temporary infrastructure such as GCS batch staging is not NarrativeX project storage. R2 is not a generated-image/narration transport in the current runtime.
 
 ---
 
@@ -371,9 +419,11 @@ V7__indexes.sql
 V8__seed_catalog.sql
 ```
 
-V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Desktop guest-installation, production beat-media-selection, local execution/render metadata, subtitle snapshots, Chapter Workspace lookup and VieNeu speaking-rate support are represented directly in their owning baseline migrations. Future schema evolution starts with a new append-only `V9__*.sql` after the first production deployment; current pre-production databases may still be recreated when the clean baseline changes.
+V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Current project-media, voice-reference, subtitle snapshot, Chapter Workspace and VieNeu speaking-rate behavior is represented directly in the owning baseline migrations.
 
-Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and additive migrations remain authoritative.
+Future schema evolution starts with append-only `V9__*.sql` only after the first production deployment. Current disposable development/test databases may be recreated when the clean baseline changes.
+
+Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and accepted migrations remain authoritative.
 
 ---
 
@@ -393,11 +443,14 @@ Historical schema columns/defaults that no longer have an active executor do not
 | Generation/provider durable lifecycle | IMPLEMENTED foundation |
 | Character/Location continuity | IMPLEMENTED foundation |
 | Scene/VisualBeat persistence | IMPLEMENTED foundation |
+| VisualBeat source-anchor → UTF-16 range materialization | IMPLEMENTED foundation |
+| Backend narration text-clock mapping | IMPLEMENTED foundation |
 | Narration strategy + user-audio TTS bypass | IMPLEMENTED foundation |
 | Generated narration + local import | IMPLEMENTED foundation |
-| Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
+| PROJECT voice references in local ProjectStorage | IMPLEMENTED foundation |
+| ACCOUNT voice-reference/custom-voice R2 storage | IMPLEMENTED foundation |
+| Vertex image generation + project-local result | IMPLEMENTED foundation |
 | Gemini Web Desktop image generation + local materialization | IMPLEMENTED foundation |
-| R2 generated-media transport | IMPLEMENTED foundation |
 | Native local asset registration | IMPLEMENTED foundation |
 | Production timeline narration alignment | IMPLEMENTED foundation |
 | Persisted beat media selection | IMPLEMENTED foundation |
@@ -430,8 +483,10 @@ Avoid fixed image counts and fixed per-image duration. The target planner uses:
 ```text
 source + analysis + continuity + narration alignment
   -> adaptive Scene/VisualBeat plan
+  -> source anchors / deterministic text ranges
   -> review/approval
-  -> media generation/reuse/import
+  -> media generation/import
+  -> narration-derived production timing
 ```
 
 Character identity remains reusable and versioned. Outfit/age/appearance changes must not create duplicate Characters solely to represent temporary visual state.
@@ -458,6 +513,7 @@ REUSE_APPROVED
 - Absolute Desktop paths never become durable backend identity.
 - Guest/account production gates are enforced by backend authorization.
 - Final local artifact paths are resolved only inside Electron main and are not exposed as backend storage locations.
+- PROJECT voice references are validated against project identity/manifest/integrity; ACCOUNT voice references require account ownership/readiness and R2 metadata.
 
 ---
 
@@ -473,7 +529,7 @@ Active work belongs in `../product/ROADMAP.md`, currently centered on:
 6. user-audio alignment/production hardening;
 7. billing/actual-usage and operational evidence.
 
-Completed Desktop/backend/persistence migration plans are retired. Use ADRs and Git history for historical rationale rather than preserving stale migration checklists as current truth.
+Completed Desktop/backend/persistence/timing migration plans are historical evidence. Use accepted ADRs and Git history for rationale rather than preserving stale migration checklists as current truth.
 
 ---
 
@@ -486,13 +542,17 @@ Documentation and implementation are consistent when:
 - Google is the only account sign-in provider;
 - account/provider-consuming operations are backend-gated;
 - Desktop project bytes resolve through local stable IDs/checksums rather than backend absolute paths;
+- generated/imported project media does not use R2;
+- R2 is limited to reusable ACCOUNT voice-reference/custom-voice assets;
+- PROJECT voice references remain device/project local;
 - narration drives production timing;
+- VisualBeat source anchors/text ranges are the semantic bridge to narration alignment;
+- provisional timing is not treated as render-ready exact timing;
 - Chapter → Scene → VisualBeat hierarchy is preserved;
 - image/video beat media choices are explicit;
 - final renders are backend-assigned/lease-controlled, execute in Electron main and validate inputs/artifacts;
 - final MP4 bytes remain local and backend FinalArtifact state is metadata-only;
 - MyBatis + Flyway/PostgreSQL remain the production persistence/schema path;
-- R2 is described only as generated-media transport/durability before local materialization;
 - current implementation foundations are not mislabeled as future migration work;
 - unfinished features remain clearly marked PARTIAL/TARGET/DEFERRED.
 
@@ -504,15 +564,17 @@ Documentation and implementation are consistent when:
 Create/open Project
   -> persist/edit Chapter source
   -> Analyze
+  -> materialize Scene/VisualBeat source anchors and text ranges
   -> review Scene/VisualBeat structure
   -> generate/import narration and visuals
-  -> materialize required media locally
+  -> persist/materialize project media locally
+  -> map VisualBeat text ranges through narration alignment
   -> edit production timeline
-  -> backend authorizes and leases final render
+  -> backend authorizes and leases final render only with exact aligned timing
   -> Electron main renders with FFmpeg/ffprobe
   -> final MP4 remains in local project artifacts
   -> backend records final-artifact metadata
   -> Desktop previews/exports locally
 ```
 
-That local-first creator loop is the architectural baseline for all new NarrativeX work.
+That local-first, narration-clock creator loop is the architectural baseline for all new NarrativeX work.
