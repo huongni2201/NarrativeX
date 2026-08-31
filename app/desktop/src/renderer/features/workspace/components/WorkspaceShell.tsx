@@ -3,11 +3,9 @@ import {
   BookOpen,
   Clapperboard,
   Folder,
-  Image as ImageIcon,
   Layers3,
   Mic2,
   Settings,
-  Sparkles,
   UserCircle,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -24,10 +22,8 @@ const navigation: Array<{
   { id: "chapters", label: "Chapters", icon: BookOpen, segment: "chapters" },
   { id: "storyboard", label: "Storyboard", icon: Clapperboard, segment: "storyboard" },
   { id: "characters", label: "Characters", icon: UserCircle, segment: "characters" },
-  { id: "images", label: "Media", icon: ImageIcon, segment: "images" },
   { id: "voice", label: "Voice", icon: Mic2, segment: "voice" },
   { id: "assets", label: "Assets", icon: Folder, segment: "assets" },
-  { id: "render", label: "Render", icon: Sparkles, segment: "render" },
   { id: "settings", label: "Settings", icon: Settings, segment: "settings" },
 ];
 
