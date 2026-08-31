@@ -22,16 +22,22 @@ export function SettingsScreen({
       title="Desktop Settings"
       description="Runtime diagnostics và project defaults được đọc từ desktop/backend contracts thay vì hard-code trong editor."
     >
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3">
-        <SettingCard icon={<Cpu size={18} />} title="Local executor" value={executorState} />
-        <SettingCard icon={<Database size={18} />} title="Backend workspace" value={workspace.status} />
-        <SettingCard icon={<HardDrive size={18} />} title="Local assets" value={`${workspace.assets.length} assets`} />
-        <SettingCard icon={<Palette size={18} />} title="Style presets" value={`${workspace.presets.length} presets`} />
+      <div className="max-w-3xl divide-y divide-border-subtle border-y border-border-subtle">
+        <SettingRow icon={<Cpu size={16} />} title="Local executor" value={executorState} />
+        <SettingRow icon={<Database size={16} />} title="Backend workspace" value={workspace.status} />
+        <SettingRow icon={<HardDrive size={16} />} title="Local assets" value={`${workspace.assets.length} assets`} />
+        <SettingRow icon={<Palette size={16} />} title="Style presets" value={`${workspace.presets.length} presets`} />
       </div>
     </FeaturePage>
   );
 }
 
-function SettingCard({ icon, title, value }: Readonly<{ icon: React.ReactNode; title: string; value: string }>) {
-  return <section className="flex items-start gap-3 rounded-lg border border-border bg-card p-4"><span className="text-primary-hover">{icon}</span><div><h2 className="text-xs font-semibold">{title}</h2><p className="mt-1 text-[10px] text-muted-foreground">{value}</p></div></section>;
+function SettingRow({ icon, title, value }: Readonly<{ icon: React.ReactNode; title: string; value: string }>) {
+  return (
+    <section className="grid min-h-14 grid-cols-[24px_minmax(0,1fr)_minmax(120px,auto)] items-center gap-3 px-2 py-2.5">
+      <span className="grid size-6 place-items-center text-text-muted">{icon}</span>
+      <h2 className="text-[12px] font-medium text-foreground">{title}</h2>
+      <p className="min-w-0 truncate text-right text-[11px] text-text-muted" title={value}>{value}</p>
+    </section>
+  );
 }
