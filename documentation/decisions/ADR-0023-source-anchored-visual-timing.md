@@ -25,6 +25,8 @@ Narration remains the master clock.
 
 The analysis/materialization side resolves a VisualBeat source anchor into deterministic UTF-16 source-text ranges. It does not own the production text-to-audio mapping.
 
+`VisualBeatAnalysis.source_anchor` remains nullable at the Python model boundary for legacy/test payload compatibility, but current generated storyboard output is stricter: every visual beat must carry a source anchor. Storyboard materialization rejects partial or all-missing anchor sets before activating the revision.
+
 ### Narration responsibility
 
 Narration owns authoritative encoded-audio duration and source/alignment spans. Subtitle/alignment data must stay tied to the same persisted source identity used for production.
@@ -37,7 +39,7 @@ Persisted `visual_beats.audio_start_ms/audio_end_ms` values remain compatibility
 
 ### Review fallback versus render readiness
 
-When exact aligned timing is unavailable, the Editor may receive provisional fallback timing so the storyboard remains inspectable. Provisional timing does not make a Chapter ready for final render.
+When exact aligned timing is unavailable on legacy/manual data, the Editor may receive provisional fallback timing so the storyboard remains inspectable. Provisional timing does not make a Chapter ready for final render.
 
 Final render readiness requires an exact contiguous aligned clock that covers the narration timeline, together with READY narration and READY effective media.
 
@@ -48,6 +50,7 @@ The removed duration-weighted visual timing module is not part of the production
 ## Consequences
 
 - Documentation must describe source anchors/text ranges as the durable semantic bridge from story text to the audio clock.
+- Current AI-generated storyboards cannot silently persist without deterministic source provenance.
 - `audio_start_ms/audio_end_ms` must not be documented as the only required VisualBeat source of truth.
 - Python worker code should not duplicate backend text-to-audio mapping.
 - Render readiness remains fail-closed when exact aligned timing cannot be established.
@@ -58,6 +61,7 @@ The removed duration-weighted visual timing module is not part of the production
 Current implementation evidence includes:
 
 - `visual_alignment.py`: deterministic source-anchor range resolution;
+- `materialization/storyboard.py`: complete-anchor admission gate for generated storyboards;
 - `NarrationTextClockMapper`: backend text-range to narration-clock mapping;
 - `GetProductionTimelineUseCase`: derive aligned beat timing on read and gate render readiness on exact timing;
 - narration precision and production-timeline tests covering alignment/tail-drift behavior.
