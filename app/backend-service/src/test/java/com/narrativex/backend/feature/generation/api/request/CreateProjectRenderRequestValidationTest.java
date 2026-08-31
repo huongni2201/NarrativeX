@@ -16,7 +16,33 @@ class CreateProjectRenderRequestValidationTest {
       var request = new CreateProjectRenderRequest("1440p", "mp4", UUID.randomUUID(), List.of());
 
       assertThat(validator.validate(request)).isEmpty();
+      assertThat(request.fps()).isEqualTo(30);
       assertThat(request.subtitlesEnabled()).isTrue();
+    }
+  }
+
+  @Test
+  void acceptsSmooth60FpsRender() {
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var validator = factory.getValidator();
+      var request =
+          new CreateProjectRenderRequest(
+              "1080p", "mp4", UUID.randomUUID(), 60, Boolean.TRUE, List.of());
+
+      assertThat(validator.validate(request)).isEmpty();
+      assertThat(request.fps()).isEqualTo(60);
+    }
+  }
+
+  @Test
+  void rejectsUnsupportedFrameRate() {
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var validator = factory.getValidator();
+      var request =
+          new CreateProjectRenderRequest(
+              "1080p", "mp4", UUID.randomUUID(), 45, Boolean.TRUE, List.of());
+
+      assertThat(validator.validate(request)).isNotEmpty();
     }
   }
 
@@ -27,6 +53,7 @@ class CreateProjectRenderRequestValidationTest {
             "1080p", "mp4", UUID.randomUUID(), Boolean.FALSE, List.of());
 
     assertThat(request.subtitlesEnabled()).isFalse();
+    assertThat(request.fps()).isEqualTo(30);
   }
 
   @Test
@@ -36,6 +63,7 @@ class CreateProjectRenderRequestValidationTest {
             "1080p", "mp4", UUID.randomUUID(), null, List.of());
 
     assertThat(request.subtitlesEnabled()).isTrue();
+    assertThat(request.fps()).isEqualTo(30);
   }
 
   @Test
