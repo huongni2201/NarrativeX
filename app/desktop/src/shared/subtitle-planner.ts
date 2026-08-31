@@ -22,9 +22,14 @@ interface AlignmentSpan {
   audioEndMs: number;
 }
 
-const MAX_CUE_CHARS = 72;
+const MAX_CUE_CHARS = 96;
+const ORPHAN_CUE_MAX_CHARS = 28;
+const ORPHAN_CUE_MAX_WORDS = 4;
+const PREFERRED_BREAK_TOLERANCE_CHARS = 18;
 const MIN_CUE_MS = 240;
 const MAX_ALIGNMENT_TAIL_DRIFT_MS = 250;
+const TERMINAL_PUNCTUATION = /[.!?…。！？]["'”’)]*$/u;
+const CLAUSE_PUNCTUATION = /[,;:，；：]$/u;
 
 export function planSubtitles(
   chapters: readonly SubtitlePlanningChapter[],
@@ -45,7 +50,7 @@ export function planChapterSubtitles(
     chapterDurationMs,
   );
   if (spans.length) {
-    return spans.flatMap((span) => {
+    const cues = spans.flatMap((span) => {
       const spanText = cleanCueText(sourceText.slice(span.textStart, span.textEnd));
       if (!spanText) return [];
       return splitTimedText(
@@ -56,6 +61,7 @@ export function planChapterSubtitles(
         "NARRATION_ALIGNMENT",
       );
     });
+    return mergeOrphanCues(cues);
   }
 
   const chunks = splitReadableText(normalizeFallbackText(sourceText));
@@ -181,26 +187,94 @@ function splitReadableText(value: string): string[] {
     .map(cleanCueText)
     .filter(Boolean);
   const source = sentences.length ? sentences : [cleanCueText(value)].filter(Boolean);
+  return source.flatMap((sentence) =>
+    sentence.length <= MAX_CUE_CHARS ? [sentence] : splitBalancedSentence(sentence),
+  );
+}
+
+function splitBalancedSentence(sentence: string): string[] {
+  const chunkCount = Math.ceil(sentence.length / MAX_CUE_CHARS);
   const chunks: string[] = [];
-  for (const sentence of source) {
-    if (sentence.length <= MAX_CUE_CHARS) {
-      chunks.push(sentence);
+  let remaining = cleanCueText(sentence);
+  let remainingChunks = chunkCount;
+
+  while (remaining && remainingChunks > 1) {
+    const idealSplit = Math.round(remaining.length / remainingChunks);
+    const minSplit = Math.max(1, remaining.length - MAX_CUE_CHARS * (remainingChunks - 1));
+    const maxSplit = Math.min(MAX_CUE_CHARS, remaining.length - (remainingChunks - 1));
+    const splitAt = chooseReadableSplit(remaining, minSplit, maxSplit, idealSplit);
+    const head = cleanCueText(remaining.slice(0, splitAt));
+    if (!head) break;
+    chunks.push(head);
+    remaining = cleanCueText(remaining.slice(splitAt));
+    remainingChunks -= 1;
+  }
+
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
+function chooseReadableSplit(
+  value: string,
+  minSplit: number,
+  maxSplit: number,
+  idealSplit: number,
+): number {
+  const whitespaceBreaks: number[] = [];
+  const clauseBreaks: number[] = [];
+
+  for (let index = minSplit; index <= maxSplit; index += 1) {
+    if (!/\s/u.test(value[index] ?? "")) continue;
+    whitespaceBreaks.push(index);
+    const previous = value.slice(0, index).trimEnd().at(-1) ?? "";
+    if (
+      CLAUSE_PUNCTUATION.test(previous) &&
+      Math.abs(index - idealSplit) <= PREFERRED_BREAK_TOLERANCE_CHARS
+    ) {
+      clauseBreaks.push(index);
+    }
+  }
+
+  const candidates = clauseBreaks.length ? clauseBreaks : whitespaceBreaks;
+  if (!candidates.length) return maxSplit;
+  return candidates.reduce((best, current) =>
+    Math.abs(current - idealSplit) < Math.abs(best - idealSplit) ? current : best,
+  );
+}
+
+function mergeOrphanCues(cues: readonly PlannedSubtitle[]): PlannedSubtitle[] {
+  const merged: PlannedSubtitle[] = [];
+  for (const cue of cues) {
+    const previous = merged.at(-1);
+    if (previous && shouldMergeOrphanCue(previous, cue)) {
+      merged[merged.length - 1] = {
+        ...previous,
+        endMs: cue.endMs,
+        text: cleanCueText(`${previous.text} ${cue.text}`),
+      };
       continue;
     }
-    const words = sentence.split(/\s+/u).filter(Boolean);
-    let current = "";
-    for (const word of words) {
-      const candidate = current ? `${current} ${word}` : word;
-      if (current && candidate.length > MAX_CUE_CHARS) {
-        chunks.push(current);
-        current = word;
-      } else {
-        current = candidate;
-      }
-    }
-    if (current) chunks.push(current);
+    merged.push(cue);
   }
-  return chunks;
+  return merged;
+}
+
+function shouldMergeOrphanCue(previous: PlannedSubtitle, current: PlannedSubtitle): boolean {
+  if (
+    previous.chapterId !== current.chapterId ||
+    previous.timingSource !== current.timingSource ||
+    previous.endMs !== current.startMs ||
+    TERMINAL_PUNCTUATION.test(previous.text.trim())
+  ) {
+    return false;
+  }
+
+  const currentText = cleanCueText(current.text);
+  const currentWordCount = currentText.split(/\s+/u).filter(Boolean).length;
+  if (currentText.length > ORPHAN_CUE_MAX_CHARS || currentWordCount > ORPHAN_CUE_MAX_WORDS) {
+    return false;
+  }
+  return cleanCueText(`${previous.text} ${currentText}`).length <= MAX_CUE_CHARS;
 }
 
 function normalizeFallbackText(value: string): string {
