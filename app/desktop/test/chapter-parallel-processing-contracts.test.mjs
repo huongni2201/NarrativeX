@@ -57,8 +57,10 @@ test("workspace batch polling follows active audio and analysis across chapters"
 });
 
 test("chapter list exposes bulk audio and delegated bulk analysis admission", () => {
-  assert.match(chapterListPanel, /Tạo audio tất cả/);
-  assert.match(chapterListPanel, /Phân tích tất cả/);
+  assert.match(chapterListPanel, /onGenerateAudioAll/);
+  assert.match(chapterListPanel, /onAnalyzeAll/);
+  assert.match(chapterListPanel, /disabled=\{!canBulkAudio \|\| bulkAudioBusy\}/);
+  assert.match(chapterListPanel, /disabled=\{!canBulkAnalysis \|\| bulkAnalysisBusy\}/);
   assert.match(chaptersScreen, /useGenerateBatchNarration/);
   assert.match(chaptersScreen, /generateBatchNarration/);
   assert.match(chaptersScreen, /useBulkChapterAnalysis/);
