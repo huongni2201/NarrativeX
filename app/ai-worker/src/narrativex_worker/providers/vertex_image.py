@@ -37,7 +37,7 @@ class VertexImageProvider(ImageGenerationProvider):
                 "VERTEX_PROJECT_ID is required when image provider is enabled"
             )
         self.settings = settings
-        credentials, _ = google.auth.default(  # type: ignore[no-untyped-call]
+        credentials, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         self._credentials: Credentials = credentials
@@ -161,7 +161,7 @@ class VertexImageProvider(ImageGenerationProvider):
             and self._credentials.token
         ):
             return self._credentials.token
-        refresh_request = Request()  # type: ignore[no-untyped-call]
+        refresh_request = Request()
         await asyncio.to_thread(self._credentials.refresh, refresh_request)
         if not isinstance(self._credentials.token, str) or not self._credentials.token:
             raise VertexImageProviderError("ADC returned an empty access token")

@@ -56,7 +56,7 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 
 ## Backend highlights
 
-- Spring Boot 4.1.0 / Java 25;
+- Spring Boot 4.1.1 / Java 25;
 - MyBatis-only production application persistence;
 - stable Desktop guest installation identities and guest ownership transfer;
 - project/chapter/storyboard/character/location domain foundations;

@@ -10,11 +10,12 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Desktop state/data | TanStack React Query 5.102.3, Zustand 5.0.15 | backend query/cache and local editor state |
 | Desktop UI | Tailwind CSS 4.3.3, `@tailwindcss/vite` 4.3.3, source-owned shadcn-style primitives, Radix UI, CVA, clsx, tailwind-merge, Lucide 1.34.0, Sonner 2.0.8 | accessible renderer component vocabulary and semantic styling |
 | Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | backend authentication flow only; no browser editor |
-| Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session JDBC, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
+| Backend | Java 25, Spring Boot 4.1.1, Security/OAuth2, Spring Session JDBC, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL + Spring Session JDBC | sole production application persistence path, including durable queues, server sessions and one-time OAuth handoffs |
 | Queue execution | PostgreSQL polling + row locking/leases | workers claim durable jobs directly; no Redis/broker/NOTIFY dependency |
-| Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/image/narration/media-validation execution |
-| Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | voice-reference R2 access, narration and image/media processing |
+| Worker | Python 3.12+, Pydantic 2.13.5, pydantic-settings 2.15.0, HTTPX 0.28.1, asyncpg 0.31.0, google-auth 2.57.0 | asynchronous analysis/image/narration/media-validation execution |
+| Worker media/AI extras | boto3 1.43.83, Pillow 12.3.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, NumPy 1.26.4, pydub 0.25.1 | voice-reference R2 access, narration and image/media processing |
+| Worker quality/build | Hatchling 1.32.0, pytest 9.1.1, pytest-asyncio 1.4.0, Ruff 0.16.5, mypy 2.3.1 | reproducible worker packaging, tests, lint and strict type checks |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
 | AI analysis | Vertex Gemini | structured Chapter analysis from saved Chapter source |
 | Image generation | Vertex Gemini worker execution + Gemini Web Chrome/CDP Desktop automation | API jobs and Desktop web generation; accepted project image results are project-local |

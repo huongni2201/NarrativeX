@@ -32,7 +32,7 @@ def prepare_voice_reference(
     the actual bytes instead of trusting that workspace filename.
     """
     try:
-        from pydub import AudioSegment  # type: ignore[import-not-found]
+        from pydub import AudioSegment  # type: ignore[import-untyped]
     except ImportError as exception:
         raise RuntimeError("VieNeu voice uploads require the pydub package") from exception
 
