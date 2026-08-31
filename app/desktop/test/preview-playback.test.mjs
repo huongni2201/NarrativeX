@@ -77,6 +77,21 @@ test("image motion is deterministic and narration is chapter relative", () => {
   assert.equal(narrationTimeMs(25_000, 10_000, 20_000), 10_000);
 });
 
+test("preview image motion uses the shared crop-equivalent path", () => {
+  assert.equal(
+    imageTransformForBeat({ cameraMovement: "PAN", durationMs: 10_000 }, 0),
+    "translate(-3.000%, 0.000%) scale(1.0600)",
+  );
+  assert.equal(
+    imageTransformForBeat({ cameraMovement: "PAN", durationMs: 10_000 }, 10_000),
+    "translate(3.000%, 0.000%) scale(1.0600)",
+  );
+  assert.equal(
+    imageTransformForBeat({ cameraMovement: "TILT", durationMs: 10_000 }, 0),
+    "translate(0.000%, 3.000%) scale(1.0600)",
+  );
+});
+
 test("narration seconds are the authoritative global playhead", () => {
   assert.equal(globalPlayheadFromNarrationSeconds(12.25, 30_000, 50_000), 42_250);
   assert.equal(globalPlayheadFromNarrationSeconds(99, 30_000, 50_000), 50_000);
