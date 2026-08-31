@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { DesktopAsset } from "@narrativex/client-contracts";
 import { FileAudio, FileImage, Film, Plus, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
 import { InlineNotice, StatusIndicator } from "../../workspace/components/WorkstationPrimitives";
 import { assetsApi } from "../api/assets.api";
@@ -75,16 +76,26 @@ export function AssetsScreen({ projectId, assets }: Readonly<{ projectId: string
     >
       {notice ? <InlineNotice>{notice}</InlineNotice> : null}
       {assets.length ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-px bg-border-subtle">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-px bg-border-subtle">
           {assets.map((asset) => {
             const localState = localStates[asset.id];
             const Icon = asset.type === "AUDIO" ? FileAudio : asset.type === "IMAGE" ? FileImage : Film;
             const needsRepair = Boolean(localState && localState !== "AVAILABLE");
+            const canPreviewImage = asset.type === "IMAGE" && localState === "AVAILABLE";
             return (
-              <article key={asset.id} className="min-w-0 bg-surface-panel transition-colors hover:bg-surface-hover">
-                <div className="relative grid aspect-[16/9] place-items-center bg-surface-dark text-text-muted">
-                  <Icon size={24} strokeWidth={1.4} />
-                  <span className="absolute left-2 top-2 bg-background/85 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+              <article key={asset.id} className="group min-w-0 bg-surface-panel transition-colors hover:bg-surface-hover">
+                <div className="relative grid aspect-video place-items-center overflow-hidden bg-surface-dark text-text-muted">
+                  {canPreviewImage ? (
+                    <img
+                      src={localAssetPreviewUrl(projectId, asset.id)}
+                      alt={asset.originalFilename}
+                      className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.015]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Icon size={24} strokeWidth={1.4} />
+                  )}
+                  <span className="absolute left-2 top-2 bg-background/85 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-text-secondary backdrop-blur-sm">
                     {asset.type}
                   </span>
                 </div>
@@ -96,7 +107,7 @@ export function AssetsScreen({ projectId, assets }: Readonly<{ projectId: string
                     <span>{asset.status}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
-                    <StatusIndicator label={localState ?? "MISSING"} tone={needsRepair ? "warning" : "success"} />
+                    <StatusIndicator label={localState ?? "CHECKING"} tone={needsRepair ? "warning" : localState === "AVAILABLE" ? "success" : "neutral"} />
                     {needsRepair ? (
                       <Button variant="outline" size="sm" onClick={() => void importAsset(asset.id)} disabled={busy}>
                         <Wrench size={11} /> Repair
