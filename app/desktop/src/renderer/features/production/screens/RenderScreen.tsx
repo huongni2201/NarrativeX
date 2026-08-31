@@ -130,7 +130,10 @@ export function RenderScreen({ projectId, timeline }: Readonly<{ projectId: stri
                   {controller.preflight.assets.map((asset) => (
                     <div key={asset.assetId} className="flex min-h-8 items-center justify-between gap-3 px-2 text-[10px]">
                       <span className="truncate font-mono text-text-secondary">{asset.assetId.slice(0, 12)}</span>
-                      <StatusIndicator label={asset.state} tone={asset.state === "READY" ? "success" : "neutral"} />
+                      <StatusIndicator
+                        label={asset.state}
+                        tone={asset.state === "AVAILABLE" ? "success" : asset.state === "CORRUPT" ? "danger" : "warning"}
+                      />
                     </div>
                   ))}
                 </div>
