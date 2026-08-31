@@ -119,3 +119,14 @@ test("chapter writing surface is an adjacent workstation pane", () => {
   assert.match(audio, /border-t border-border-subtle/);
   assert.doesNotMatch(audio, /space-y-3 rounded-lg border border-border bg-surface p-3\.5/);
 });
+
+test("chapter writing tools cap their viewport footprint without becoming narrow", () => {
+  const panel = source("features/chapters/components/ChapterEditorPanel.tsx");
+  const writing = source("features/chapters/components/ChapterWritingForm.tsx");
+
+  assert.match(panel, /max-w-\[980px\]/);
+  assert.match(panel, /h-fit/);
+  assert.match(panel, /max-h-full/);
+  assert.match(writing, /h-\[clamp\(300px,42vh,520px\)\]/);
+  assert.doesNotMatch(writing, /flex min-h-\[240px\] flex-col/);
+});
