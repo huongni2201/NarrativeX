@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { imageMotionPreset } from "../../shared/image-motion.ts";
+import { renderFrameWindow } from "../../shared/render-frame-clock.ts";
 import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
 import { runProcess, type ProcessResult } from "./process-runner";
 import { RenderExecutionError } from "./render-errors";
@@ -56,11 +58,12 @@ export async function renderSegments(
         continue;
       }
 
-      const durationSeconds = (beat.globalEndMs - beat.globalStartMs) / 1000;
+      const frameWindow = renderFrameWindow(beat.globalStartMs, beat.globalEndMs, manifest.fps);
       const args = buildBeatRenderArgs(
         manifest,
         beat,
-        durationSeconds,
+        frameWindow.durationSeconds,
+        frameWindow.frameCount,
         output,
         videoEncoder,
       );
@@ -100,6 +103,7 @@ function buildBeatRenderArgs(
   manifest: LocalRenderManifest,
   beat: LocalRenderBeat,
   targetDurationSeconds: number,
+  targetFrameCount: number,
   output: string,
   videoEncoder: VideoEncoder,
 ): string[] {
@@ -110,14 +114,14 @@ function buildBeatRenderArgs(
     );
   }
 
-  const target = targetDurationSeconds.toFixed(3);
+  const target = targetDurationSeconds.toFixed(6);
   const baseFilter =
     `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease,` +
     `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2`;
 
   if (beat.mediaType === "IMAGE") {
     const filter = withTransitionFilters(
-      imageMotionFilter(manifest, beat, targetDurationSeconds),
+      imageMotionFilter(manifest, beat, targetFrameCount),
       beat,
       targetDurationSeconds,
     );
@@ -128,6 +132,8 @@ function buildBeatRenderArgs(
       target,
       "-vf",
       filter,
+      "-r",
+      String(manifest.fps),
       "-an",
       "-c:v",
       videoEncoder,
@@ -232,48 +238,15 @@ function buildBeatRenderArgs(
 function imageMotionFilter(
   manifest: LocalRenderManifest,
   beat: LocalRenderBeat,
-  targetDurationSeconds: number,
+  frames: number,
 ): string {
-  const frames = Math.max(1, Math.round(targetDurationSeconds * manifest.fps));
   const progress = `(on/${Math.max(1, frames - 1)})`;
-  const centeredX = "iw/2-(iw/zoom/2)";
-  const centeredY = "ih/2-(ih/zoom/2)";
-  const movement = beat.cameraMovement?.toUpperCase() ?? "NONE";
-
-  let zoom = "1.0";
-  let x = centeredX;
-  let y = centeredY;
-
-  switch (movement) {
-    case "PUSH_IN":
-    case "ZOOM_IN":
-      zoom = `1+0.08*${progress}`;
-      break;
-    case "PULL_OUT":
-    case "ZOOM_OUT":
-      zoom = `1.08-0.08*${progress}`;
-      break;
-    case "PAN":
-      zoom = "1.08";
-      x = `(iw-iw/zoom)*${progress}`;
-      break;
-    case "TILT":
-      zoom = "1.08";
-      y = `(ih-ih/zoom)*${progress}`;
-      break;
-    case "TRACK":
-      zoom = "1.06";
-      x = `(iw-iw/zoom)*(1-${progress})`;
-      break;
-    case "PARALLAX":
-      zoom = `1.03+0.05*${progress}`;
-      x = `(iw-iw/zoom)*${progress}`;
-      y = `(ih-ih/zoom)*(1-${progress})`;
-      break;
-    case "NONE":
-    default:
-      break;
-  }
+  const preset = imageMotionPreset(beat.cameraMovement);
+  const zoom = linearExpression(preset.zoomStart, preset.zoomEnd, progress);
+  const panX = linearExpression(preset.panXStart, preset.panXEnd, progress);
+  const panY = linearExpression(preset.panYStart, preset.panYEnd, progress);
+  const x = `(iw-iw/zoom)*(0.5+0.5*(${panX}))`;
+  const y = `(ih-ih/zoom)*(0.5+0.5*(${panY}))`;
 
   return [
     `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=increase`,
@@ -282,6 +255,12 @@ function imageMotionFilter(
     "setsar=1",
     "format=yuv420p",
   ].join(",");
+}
+
+function linearExpression(start: number, end: number, progress: string): string {
+  const delta = end - start;
+  if (Math.abs(delta) < 0.0000001) return start.toFixed(6);
+  return `${start.toFixed(6)}+${delta.toFixed(6)}*${progress}`;
 }
 
 function withTransitionFilters(
@@ -344,7 +323,7 @@ function segmentCacheKey(
   return createHash("sha256")
     .update(
       JSON.stringify({
-        rendererVersion: "segment-render-v5",
+        rendererVersion: "segment-render-v6-global-frame-clock",
         width: manifest.width,
         height: manifest.height,
         fps: manifest.fps,
