@@ -2,7 +2,7 @@
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, translation-free MVP runtime refactor and the latest Desktop Gemini Web/render/status additions (2026-08-28).
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, local-project-media, voice-reference-scope and source-anchored timing refactors.
 
 | Layer | Current stack | Current role |
 |---|---|---|
@@ -14,13 +14,14 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL + Spring Session JDBC | sole production application persistence path, including durable queues, server sessions and one-time OAuth handoffs |
 | Queue execution | PostgreSQL polling + row locking/leases | workers claim durable jobs directly; no Redis/broker/NOTIFY dependency |
 | Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/image/narration/media-validation execution |
-| Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | generated-media transport, narration and image/media processing |
+| Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | voice-reference R2 access, narration and image/media processing |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
 | AI analysis | Vertex Gemini | structured Chapter analysis from saved Chapter source |
-| Image generation | Vertex Gemini worker execution + Gemini Web Chrome/CDP Desktop automation | API jobs use durable worker execution; Gemini Web is a per-Visual-Beat local/manual path with Desktop materialization |
+| Image generation | Vertex Gemini worker execution + Gemini Web Chrome/CDP Desktop automation | API jobs and Desktop web generation; accepted project image results are project-local |
 | Narration | VieNeu + user-provided audio | generated/imported narration from saved Chapter content; narration remains the master clock |
-| Remote generated-media transport | Cloudflare R2 | durable transport for AI-generated image/narration bytes before Desktop materialization |
-| Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, backups, render work/cache and final artifacts |
+| Visual timing | source-anchor resolver + backend `NarrationTextClockMapper` | `source_anchor -> UTF-16 text range -> narration alignment -> production beat clock` |
+| Remote object storage | Cloudflare R2 | authenticated reusable ACCOUNT voice-reference/custom-voice assets only |
+| Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, PROJECT voice references, backups, render work/cache and final artifacts |
 | Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled final rendering and local MP4 output |
 
 Redis is intentionally not part of the MVP runtime. Translation/content-variant infrastructure is also intentionally absent from the current product baseline. Adding either later requires an explicit architecture/product decision.
@@ -48,46 +49,28 @@ main
 
 The renderer must not become a second source of truth for Projects, Chapters, storyboard state, assets, entitlements or durable render state.
 
+## Storage and timing status
+
+Current storage is intentionally split by responsibility:
+
+```text
+project image/audio/video             -> project-local storage
+PROJECT voice reference               -> project-local storage / manifest
+ACCOUNT voice reference/custom voice  -> Cloudflare R2
+final MP4                              -> Desktop project artifacts
+metadata                               -> PostgreSQL
+```
+
+There is no generated-project-media R2 transport/fallback in the current runtime.
+
+Current visual timing is source anchored. AI materialization resolves deterministic UTF-16 text ranges; backend production-timeline reads map those ranges through narration/subtitle alignment. Provisional fallback timing is review-only and does not satisfy render readiness.
+
 ## Authentication status
 
 Desktop is guest-first. A stable installation-scoped guest identity provides ownership continuity for free workspace usage. Google remains the only end-user account sign-in provider and is required for backend-gated account/provider-consuming operations.
 
 The guest installation secret, signed-in user session and local-execution device credential are separate security concepts. Google access/refresh tokens never enter Electron. `NX_SESSION` state and one-time Desktop OAuth handoffs are persisted in PostgreSQL; the raw handoff code is never stored.
 
-## Renderer UI structure
-
-The current renderer uses feature-oriented modules plus source-owned primitives under `app/desktop/src/renderer/components/ui`.
-
-- Tailwind CSS 4 is compiled by `@tailwindcss/vite`.
-- shadcn/ui is used as a source distribution model rather than a runtime dependency.
-- Radix primitives provide accessibility behavior for adopted controls.
-- CVA/clsx/tailwind-merge provide variants and class composition.
-- `styles.css` should remain focused on tokens/theme mappings/global accessibility rules rather than page-specific styling.
-
-See `documentation/codebase/DESKTOP_RENDERER_STRUCTURE.md` and ADR-0017 for the current component/feature boundary.
-
-## Desktop local storage/render status
-
-Implemented foundations include:
-
-- schema-versioned local project manifest and project catalog;
-- native local import/registration without renderer path exposure;
-- image/narration local materialization for implemented Desktop flows;
-- render preflight, local device claim/lease and FFmpeg execution;
-- atomic render journal discovery;
-- render segment cache;
-- storage verification/cleanup;
-- workspace backup/restore/archive-copy;
-- local checksum-verified final artifact metadata registration;
-- direct local playback/export of the final MP4.
-- Auto Edit planning, immutable subtitle snapshots and local UTF-8 SRT generation;
-- authenticated generation SSE with Desktop reconnect/watchdog fallback;
-- imported audio/video duration probing and custom voice preview foundations.
-
-Production release hardening, abrupt-process recovery UX and richer editor/review workflows remain roadmap work.
-
 ## Persistence status
 
-Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
-
-The final pre-release baseline is V1-V8. V1-V6 separate schema/database responsibilities, V7 contains indexes/invariants and V8 contains deterministic catalog seeds. Subtitle snapshots, Chapter Workspace lookup, local execution/render metadata and VieNeu speaking-rate support are represented in their owning baseline migrations. Future migrations begin at append-only V9 after the first production deployment.
+Production persistence is MyBatis + explicit PostgreSQL SQL. The final pre-release baseline is V1-V8. V1-V6 separate schema/database responsibilities, V7 contains indexes/invariants and V8 contains deterministic catalog seeds. Future migrations begin at append-only V9 only after the first production deployment.
