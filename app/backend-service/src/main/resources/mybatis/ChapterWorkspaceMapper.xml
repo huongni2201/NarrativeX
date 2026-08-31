@@ -72,96 +72,42 @@
                    gj.media_plan_id,
                    gj.media_plan_revision,
                    gj.status AS media_generation_status,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL) AS media_generation_total,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'COMPLETED') AS media_generation_completed,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'FAILED') AS media_generation_failed,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'RUNNING') AS media_generation_running,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'QUEUED') AS media_generation_queued,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'STALLED') AS media_generation_stalled,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'UNKNOWN') AS media_generation_unknown,
-                   (SELECT COUNT(*)::int
-                      FROM generation_jobs current_jobs
-                     WHERE current_jobs.chapter_id = cr.chapter_id
-                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
-                       AND current_jobs.chapter_row_version = cr.chapter_row_version
-                       AND current_jobs.source_hash = cr.source_hash
-                       AND current_jobs.storyboard_revision_id = cr.revision_id
-                       AND current_jobs.media_plan_id IS NOT NULL
-                       AND current_jobs.media_plan_revision IS NOT NULL
-                       AND current_jobs.status = 'PAUSED_COST_LIMIT') AS media_generation_paused
+                   COALESCE(item_stats.total, 0)::int AS media_generation_total,
+                   COALESCE(item_stats.completed, 0)::int AS media_generation_completed,
+                   CASE
+                     WHEN gj.status = 'FAILED' AND COALESCE(item_stats.failed, 0) = 0 THEN 1
+                     ELSE COALESCE(item_stats.failed, 0)
+                   END::int AS media_generation_failed,
+                   COALESCE(item_stats.running, 0)::int AS media_generation_running,
+                   COALESCE(item_stats.queued, 0)::int AS media_generation_queued,
+                   CASE WHEN gj.status = 'STALLED' THEN 1 ELSE 0 END::int AS media_generation_stalled,
+                   CASE
+                     WHEN gj.status = 'UNKNOWN' THEN GREATEST(COALESCE(item_stats.unknown, 0), 1)
+                     ELSE COALESCE(item_stats.unknown, 0)
+                   END::int AS media_generation_unknown,
+                   CASE WHEN gj.status = 'PAUSED_COST_LIMIT' THEN 1 ELSE 0 END::int AS media_generation_paused
               FROM current_revision cr
               LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = cr.chapter_id
               LEFT JOIN generation_jobs gj
                 ON gj.id = cmh.generation_job_id
                AND gj.chapter_id = cr.chapter_id
-               AND gj.job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE')
+               AND gj.job_type = 'CHAPTER_GENERATE'
                AND gj.chapter_row_version = cr.chapter_row_version
                AND gj.source_hash = cr.source_hash
                AND gj.storyboard_revision_id = cr.revision_id
                AND gj.media_plan_id IS NOT NULL
                AND gj.media_plan_revision IS NOT NULL
+              LEFT JOIN LATERAL (
+                  SELECT COUNT(*)::int AS total,
+                         COUNT(*) FILTER (WHERE mgi.execution_status = 'READY')::int AS completed,
+                         COUNT(*) FILTER (WHERE mgi.execution_status = 'FAILED')::int AS failed,
+                         COUNT(*) FILTER (WHERE mgi.execution_status IN ('RUNNING', 'VALIDATING'))::int AS running,
+                         COUNT(*) FILTER (WHERE mgi.execution_status = 'QUEUED')::int AS queued,
+                         COUNT(*) FILTER (WHERE mgi.execution_status = 'UNKNOWN')::int AS unknown
+                    FROM media_generation_items mgi
+                   WHERE mgi.generation_job_id = gj.id
+                     AND mgi.media_plan_id = gj.media_plan_id
+              ) item_stats ON TRUE
         ), latest_analysis AS (
             SELECT gj.job_id, gj.status, gj.source_hash,
                    gj.analysis_visual_generation_mode, gj.analysis_image_provider,
@@ -252,7 +198,7 @@
                     FROM generation_jobs gj
                    WHERE gj.id = (SELECT generation_job_id FROM latest_render_artifact)
                       OR (gj.chapter_id = cr.chapter_id
-                          AND gj.job_type IN ('CHAPTER_RENDER','RENDER_PROJECT','RENDER_SHORT')
+                          AND gj.job_type = 'RENDER_PROJECT'
                           AND gj.chapter_row_version = cr.chapter_row_version
                           AND gj.source_hash = cr.source_hash)
                    ORDER BY CASE WHEN gj.id = (SELECT generation_job_id FROM latest_render_artifact) THEN 0 ELSE 1 END,
