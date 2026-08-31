@@ -10,6 +10,7 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
+import { WorkspaceToolbar } from "../../workspace/components/WorkstationPrimitives";
 import {
   useGenerateBatchNarration,
   useGenerateNarration,
@@ -108,9 +109,7 @@ export function ChaptersScreen({
     }
   }, [voiceId, voices]);
 
-  const selected = isCreating
-    ? null
-    : chapters.find((chapter) => chapter.id === editingId) ?? null;
+  const selected = isCreating ? null : chapters.find((chapter) => chapter.id === editingId) ?? null;
 
   const baseChapters = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -142,10 +141,7 @@ export function ChaptersScreen({
   }, [chapterWorkspaceQueries, chapters]);
 
   const workspaceQueriesByChapterId = useMemo(
-    () =>
-      new Map(
-        chapters.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]]),
-      ),
+    () => new Map(chapters.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]])),
     [chapterWorkspaceQueries, chapters],
   );
 
@@ -178,14 +174,10 @@ export function ChaptersScreen({
   }, [filtered, page]);
 
   const selectedWorkspace = selected ? workspacesByChapterId.get(selected.id) : undefined;
-  const selectedWorkspaceQuery = selected
-    ? workspaceQueriesByChapterId.get(selected.id)
-    : undefined;
+  const selectedWorkspaceQuery = selected ? workspaceQueriesByChapterId.get(selected.id) : undefined;
   const selectedAudioStatus = selectedWorkspace?.pipeline.audio.status ?? null;
   const selectedAudioProcessing = isAudioProcessingStatus(selectedAudioStatus);
-  const selectedAnalysisProcessing = isAnalysisProcessingStatus(
-    selectedWorkspace?.pipeline.analysis.status,
-  );
+  const selectedAnalysisProcessing = isAnalysisProcessingStatus(selectedWorkspace?.pipeline.analysis.status);
   const analysisResumeJobId = selectedAnalysisProcessing
     ? selectedWorkspace?.pipeline.analysis.latestJobId ?? null
     : null;
@@ -206,9 +198,7 @@ export function ChaptersScreen({
           const workspace = workspacesByChapterId.get(chapter.id);
           if (!workspace?.capabilities.canGenerateAudio) return false;
           const status = workspace.pipeline.audio.status;
-          return (
-            !isAudioProcessingStatus(status) && status !== "READY" && status !== "COMPLETED"
-          );
+          return !isAudioProcessingStatus(status) && status !== "READY" && status !== "COMPLETED";
         })
         .map((chapter) => chapter.id),
     [chapters, workspacesByChapterId],
@@ -237,22 +227,12 @@ export function ChaptersScreen({
     if (audio?.speakingRate != null) {
       setSpeakingRate(String(audio.speakingRate));
     }
-  }, [
-    selected?.id,
-    selectedWorkspace?.pipeline.audio.speakingRate,
-    selectedWorkspace?.pipeline.audio.voiceId,
-    voices,
-  ]);
+  }, [selected?.id, selectedWorkspace?.pipeline.audio.speakingRate, selectedWorkspace?.pipeline.audio.voiceId, voices]);
 
   useEffect(() => {
     if (!chapterAnalysis.isTerminal || !chapterAnalysis.job || !chapterAnalysis.message) return;
     setNotice(chapterAnalysis.message);
-  }, [
-    chapterAnalysis.isTerminal,
-    chapterAnalysis.job?.jobId,
-    chapterAnalysis.job?.status,
-    chapterAnalysis.message,
-  ]);
+  }, [chapterAnalysis.isTerminal, chapterAnalysis.job?.jobId, chapterAnalysis.job?.status, chapterAnalysis.message]);
 
   useEffect(() => {
     if (chapterAnalysis.connectionInterrupted) {
@@ -291,13 +271,10 @@ export function ChaptersScreen({
   }, [timeline]);
   const totalBeatCount = timeline?.beats.length ?? null;
   const audioReadyCount = timeline?.chapters.filter((chapter) => chapter.audioReady).length ?? null;
-  const renderReadyCount =
-    timeline?.chapters.filter((chapter) => chapter.readyForRender).length ?? null;
+  const renderReadyCount = timeline?.chapters.filter((chapter) => chapter.readyForRender).length ?? null;
 
   function beginCreate() {
-    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để tạo chapter mới?")) {
-      return;
-    }
+    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để tạo chapter mới?")) return;
     setEditingId(null);
     setIsCreating(true);
     setTitle("");
@@ -306,9 +283,7 @@ export function ChaptersScreen({
   }
 
   function selectChapter(chapterId: string) {
-    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để mở chapter khác?")) {
-      return;
-    }
+    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để mở chapter khác?")) return;
     setIsCreating(false);
     setNotice(null);
     setAudioRequestError(null);
@@ -378,9 +353,7 @@ export function ChaptersScreen({
       selectedAudioProcessing ||
       generateNarration.isPending ||
       audioBlockMessage
-    ) {
-      return;
-    }
+    ) return;
 
     setNotice(null);
     setAudioRequestError(null);
@@ -418,9 +391,7 @@ export function ChaptersScreen({
         queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
         queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
       ]);
-      setNotice(
-        `Đã xếp hàng tạo audio cho ${admitted.length} chapter. Narration worker sẽ xử lý song song theo concurrency.`,
-      );
+      setNotice(`Đã xếp hàng tạo audio cho ${admitted.length} chapter. Narration worker sẽ xử lý song song theo concurrency.`);
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể xếp hàng tạo audio cho các chapter."));
     }
@@ -431,10 +402,7 @@ export function ChaptersScreen({
     const currentMode = selectedWorkspace?.pipeline.analysis.visualGenerationMode ?? "IMAGE";
     const preferences = {
       visualGenerationMode: currentMode,
-      imageProvider:
-        currentMode === "IMAGE"
-          ? selectedWorkspace?.pipeline.analysis.imageProvider ?? "GEMINI_WEB"
-          : null,
+      imageProvider: currentMode === "IMAGE" ? selectedWorkspace?.pipeline.analysis.imageProvider ?? "GEMINI_WEB" : null,
     };
 
     setBulkAnalysisBusy(true);
@@ -486,36 +454,23 @@ export function ChaptersScreen({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
-      <header className="flex shrink-0 items-start justify-between border-b border-border bg-surface-panel px-6 py-3">
+      <WorkspaceToolbar className="px-4">
         <div className="min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-            CHAPTER WORKSPACE
-          </span>
-          <h1 className="mt-0.5 text-lg font-bold tracking-tight text-foreground">
-            Chapter Workspace
-          </h1>
-          <p className="mt-0.5 text-xs text-text-secondary">
-            Tạo, chỉnh sửa và chuẩn bị chapter trước khi phân tích hoặc tạo media.
-          </p>
+          <div className="truncate text-[13px] font-semibold tracking-tight text-foreground">Chapter Workspace</div>
+          <div className="truncate text-[10px] text-text-dim">Write, analyze and prepare narration before production.</div>
         </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-text-secondary">
-            <span className={`size-2 rounded-full ${workspaceStatusDotClass(workspaceStatus)}`} />
-            <span>{workspaceStatusLabel(workspaceStatus)}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[10px] text-text-muted">
+            <span className={`size-1.5 rounded-full ${workspaceStatusDotClass(workspaceStatus)}`} />
+            {workspaceStatusLabel(workspaceStatus)}
           </span>
-          <Button
-            variant="outline"
-            onClick={openEditor}
-            className="h-8 gap-1.5 border-border bg-surface-input px-3 text-xs font-semibold text-text-secondary hover:border-primary/55 hover:bg-surface-2 hover:text-primary-hover"
-          >
-            <span>Open Editor</span>
-            <ChevronRight size={13} />
+          <Button variant="outline" size="sm" onClick={openEditor}>
+            Open Editor <ChevronRight size={12} />
           </Button>
         </div>
-      </header>
+      </WorkspaceToolbar>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-hidden p-4">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(270px,300px)_minmax(420px,1fr)_minmax(250px,280px)] overflow-hidden">
         <ChapterListPanel
           chapters={paginatedChapters}
           allChaptersCount={chapters.length}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DesktopChapterDetails, DesktopTimeline } from "@narrativex/client-contracts";
 import { CheckCheck, Clapperboard, Loader2, Plus, WandSparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -8,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { InlineNotice, WorkspaceToolbar } from "../../workspace/components/WorkstationPrimitives";
 import type { StoryboardVisualBeat } from "../api/storyboard.api";
 import { GeminiQueueBanner } from "../components/GeminiQueueBanner";
-import { SceneRail } from "../components/SceneRail";
 import { StoryboardHeader } from "../components/StoryboardHeader";
+import { StoryboardNavigator } from "../components/StoryboardNavigator";
 import { VisualBeatGrid } from "../components/VisualBeatGrid";
 import {
   createGeminiQueue,
@@ -29,10 +33,7 @@ import {
   useStoryboardQuery,
   useUpdateVisualBeatReview,
 } from "../queries/storyboard.queries";
-import {
-  loadGeminiQueue,
-  saveGeminiQueue,
-} from "../store/gemini-queue.persistence";
+import { loadGeminiQueue, saveGeminiQueue } from "../store/gemini-queue.persistence";
 import {
   beatsNeedingReview,
   filterVisualBeatsByStatus,
@@ -107,24 +108,14 @@ export function StoryboardScreen({
   }, [scenes, selectedSceneId]);
 
   const selectedScene = scenes.find((scene) => scene.id === selectedSceneId) ?? null;
-  const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId) ?? null;
   const selectedSceneBeats = selectedScene?.visualBeats ?? [];
-  const allChapterBeats = useMemo(
-    () => scenes.flatMap((scene) => scene.visualBeats),
-    [scenes],
-  );
-  const beatById = useMemo(
-    () => new Map(allChapterBeats.map((beat) => [beat.id, beat])),
-    [allChapterBeats],
-  );
+  const allChapterBeats = useMemo(() => scenes.flatMap((scene) => scene.visualBeats), [scenes]);
+  const beatById = useMemo(() => new Map(allChapterBeats.map((beat) => [beat.id, beat])), [allChapterBeats]);
   const filteredVisualBeats = useMemo(
     () => filterVisualBeatsByStatus(selectedSceneBeats, reviewStatusFilter),
     [reviewStatusFilter, selectedSceneBeats],
   );
-  const beatsPendingApproval = useMemo(
-    () => beatsNeedingReview(selectedSceneBeats),
-    [selectedSceneBeats],
-  );
+  const beatsPendingApproval = useMemo(() => beatsNeedingReview(selectedSceneBeats), [selectedSceneBeats]);
   const beatsPendingGeminiGeneration = useMemo(
     () => allChapterBeats.filter((beat) => !beat.previewMediaAssetId),
     [allChapterBeats],
@@ -353,13 +344,24 @@ export function StoryboardScreen({
   const reviewUpdating = updateReview.isPending || approveAll.isPending;
   const geminiQueueActive = Boolean(geminiQueue && geminiQueue.status !== "COMPLETED");
 
+  function selectChapter(chapterId: string) {
+    setSelectedChapterId(chapterId);
+    setSelectedSceneId(null);
+    setCreatingBeat(false);
+    setPendingImportBeatId(null);
+    setCopiedPromptBeatId(null);
+    setNotice(null);
+  }
+
+  function selectScene(sceneId: string) {
+    setSelectedSceneId(sceneId);
+    setCreatingBeat(false);
+    setCopiedPromptBeatId(null);
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
-      <StoryboardHeader
-        sceneCount={scenes.length}
-        beatCount={beatCount}
-        approvedCount={approvedCount}
-      />
+      <StoryboardHeader sceneCount={scenes.length} beatCount={beatCount} approvedCount={approvedCount} />
 
       {!chapters.length ? (
         <EmptyState
@@ -367,95 +369,48 @@ export function StoryboardScreen({
           detail="Tạo chapter và chạy phân tích trước. Scene và Visual Beat sẽ xuất hiện tại đây."
         />
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[130px_320px_minmax(0,1fr)] overflow-hidden">
-          <section className="min-h-0 overflow-y-auto border-r border-border bg-surface-dark p-3">
-            <PanelTitle title="Chapters" count={chapters.length} />
-            <div className="mt-3 space-y-1.5">
-              {chapters.map((chapter) => {
-                const active = chapter.id === selectedChapterId;
-                return (
-                  <button
-                    key={chapter.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedChapterId(chapter.id);
-                      setSelectedSceneId(null);
-                      setCreatingBeat(false);
-                      setPendingImportBeatId(null);
-                      setCopiedPromptBeatId(null);
-                      setNotice(null);
-                    }}
-                    className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
-                      active
-                        ? "border-primary/55 bg-primary/10 text-foreground"
-                        : "border-border-subtle bg-surface-panel text-text-secondary hover:border-border hover:bg-surface-2"
-                    }`}
-                  >
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                      Chapter {chapter.orderIndex + 1}
-                    </div>
-                    <div className="mt-1 truncate text-xs font-semibold">{chapter.title}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <SceneRail
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(260px,288px)_minmax(0,1fr)] overflow-hidden">
+          <StoryboardNavigator
+            chapters={chapters}
+            selectedChapterId={selectedChapterId}
             scenes={scenes}
             selectedSceneId={selectedSceneId}
-            chapterTitle={selectedChapter?.title ?? null}
             loading={storyboardQuery.isLoading}
             error={storyboardQuery.isError ? errorMessage(storyboardQuery.error, "Không tải được storyboard.") : null}
-            onSelectScene={(sceneId) => {
-              setSelectedSceneId(sceneId);
-              setCreatingBeat(false);
-              setCopiedPromptBeatId(null);
-            }}
+            onSelectChapter={selectChapter}
+            onSelectScene={selectScene}
           />
 
-          <section className="flex min-h-0 flex-col overflow-hidden bg-background">
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+            <WorkspaceToolbar>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-text-muted">
-                  <WandSparkles size={12} />
-                  Visual Beats
+                <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-text-dim">
+                  <WandSparkles size={11} /> Visual Beats
                 </div>
-                <div className="mt-1 truncate text-sm font-semibold">
+                <div className="truncate text-[12px] font-semibold text-foreground">
                   {selectedScene ? selectedScene.title : "Chọn một scene"}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <div className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface-input px-2 text-[10px] font-semibold text-text-secondary">
-                  <span>Status</span>
-                  <Select
-                    value={reviewStatusFilter}
-                    onValueChange={(value) => setReviewStatusFilter(value as VisualBeatStatusFilter)}
-                  >
-                    <SelectTrigger
-                      aria-label="Lọc Visual Beat theo trạng thái review"
-                      className="h-7 min-w-[116px] border-0 bg-transparent px-0 text-[10px] font-semibold text-foreground shadow-none hover:border-0 hover:text-foreground focus:ring-0"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All</SelectItem>
-                      <SelectItem value="NEEDS_REVIEW">Needs review</SelectItem>
-                      <SelectItem value="APPROVED">Approved</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <button
-                  type="button"
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                <Select value={reviewStatusFilter} onValueChange={(value) => setReviewStatusFilter(value as VisualBeatStatusFilter)}>
+                  <SelectTrigger aria-label="Lọc Visual Beat theo trạng thái review" className="min-w-[124px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All beats</SelectItem>
+                    <SelectItem value="NEEDS_REVIEW">Needs review</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
                   disabled={!beatsPendingGeminiGeneration.length || geminiQueueActive}
                   onClick={() => void startGeminiAll()}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/35 bg-primary/5 px-3 text-xs font-bold text-primary-hover transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <WandSparkles size={13} />
-                  Generate Gemini All
-                </button>
-                <button
-                  type="button"
+                  <WandSparkles size={12} /> Gemini All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   disabled={!beatsPendingApproval.length || reviewUpdating}
                   onClick={() => {
                     setNotice(null);
@@ -469,24 +424,17 @@ export function StoryboardScreen({
                       },
                     });
                   }}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-success/35 bg-success/5 px-3 text-xs font-bold text-success transition hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {approveAll.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />}
-                  {approveAll.isPending ? "Approving…" : `Approve all${beatsPendingApproval.length ? ` (${beatsPendingApproval.length})` : ""}`}
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedScene}
-                  onClick={() => setCreatingBeat((value) => !value)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Plus size={13} />
-                  Add Visual Beat
-                </button>
+                  {approveAll.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
+                  {approveAll.isPending ? "Approving…" : `Approve${beatsPendingApproval.length ? ` ${beatsPendingApproval.length}` : ""}`}
+                </Button>
+                <Button size="sm" disabled={!selectedScene} onClick={() => setCreatingBeat((value) => !value)}>
+                  <Plus size={12} /> Add Beat
+                </Button>
               </div>
-            </div>
+            </WorkspaceToolbar>
 
-            {geminiQueue && (
+            {geminiQueue ? (
               <GeminiQueueBanner
                 queue={geminiQueue}
                 currentBeat={currentQueueBeat}
@@ -497,66 +445,58 @@ export function StoryboardScreen({
                 onStop={stopGeminiAll}
                 onDismiss={() => publishGeminiQueue(null)}
               />
-            )}
+            ) : null}
 
-            {(mutationError || notice) && (
-              <div className="mx-5 mt-3">
+            {mutationError || notice ? (
+              <div className="shrink-0 border-b border-border-subtle">
                 {mutationError ? (
-                  <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
-                    {errorMessage(mutationError, "Không thể cập nhật storyboard.")}
-                  </div>
+                  <InlineNotice tone="danger">{errorMessage(mutationError, "Không thể cập nhật storyboard.")}</InlineNotice>
                 ) : (
-                  <div className="rounded-md border border-border bg-surface-panel px-3 py-2 text-xs text-text-secondary">
-                    {notice}
-                  </div>
+                  <InlineNotice>{notice}</InlineNotice>
                 )}
               </div>
-            )}
+            ) : null}
 
-            {creatingBeat && selectedScene && (
-              <div className="mx-5 mt-4 rounded-lg border border-primary/35 bg-surface-panel p-4">
-                <div className="text-xs font-bold">New Visual Beat</div>
-                <div className="mt-3 grid gap-3">
-                  <input
+            {creatingBeat && selectedScene ? (
+              <div className="shrink-0 border-b border-border-subtle bg-surface-panel px-3 py-2.5">
+                <div className="grid gap-2 lg:grid-cols-[minmax(180px,.65fr)_minmax(280px,1.35fr)_auto] lg:items-start">
+                  <Input
                     value={beatTitle}
                     maxLength={200}
                     onChange={(event) => setBeatTitle(event.target.value)}
                     placeholder="Beat title"
-                    className="h-9 rounded-md border border-border bg-surface-input px-3 text-xs outline-none focus:border-primary"
+                    aria-label="Visual Beat title"
                   />
-                  <textarea
+                  <Textarea
                     value={visualIntent}
                     maxLength={8000}
                     onChange={(event) => setVisualIntent(event.target.value)}
                     placeholder="Visual intent..."
-                    rows={4}
-                    className="resize-none rounded-md border border-border bg-surface-input px-3 py-2 text-xs outline-none focus:border-primary"
+                    rows={2}
+                    className="min-h-16 resize-none"
+                    aria-label="Visual Beat intent"
                   />
-                  <div className="flex justify-end gap-2">
-                    <button
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setCreatingBeat(false);
                         setBeatTitle("");
                         setVisualIntent("");
                       }}
-                      className="h-8 rounded-md border border-border px-3 text-xs text-text-secondary hover:bg-surface-2"
                     >
                       Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      size="sm"
                       disabled={!canCreateBeat || createBeat.isPending}
                       onClick={() => {
                         if (!selectedSceneId) return;
                         createBeat.mutate(
-                          {
-                            sceneId: selectedSceneId,
-                            beat: {
-                              title: beatTitle.trim(),
-                              visualIntent: visualIntent.trim(),
-                            },
-                          },
+                          { sceneId: selectedSceneId, beat: { title: beatTitle.trim(), visualIntent: visualIntent.trim() } },
                           {
                             onSuccess: () => {
                               setBeatTitle("");
@@ -566,17 +506,16 @@ export function StoryboardScreen({
                           },
                         );
                       }}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white hover:bg-primary-hover disabled:opacity-50"
                     >
-                      {createBeat.isPending && <Loader2 size={12} className="animate-spin" />}
+                      {createBeat.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
                       Create beat
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <VisualBeatGrid
                 projectId={projectId}
                 beats={filteredVisualBeats}
@@ -602,22 +541,13 @@ export function StoryboardScreen({
   );
 }
 
-function PanelTitle({ title, count }: Readonly<{ title: string; count: number }>) {
-  return (
-    <div className="flex items-center justify-between">
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-secondary">{title}</h2>
-      <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] text-text-muted">{count}</span>
-    </div>
-  );
-}
-
 function EmptyState({ title, detail }: Readonly<{ title: string; detail: string }>) {
   return (
     <div className="grid min-h-0 flex-1 place-items-center">
       <div className="max-w-md px-6 text-center">
-        <Clapperboard size={30} className="mx-auto text-text-dim" />
-        <div className="mt-3 text-sm font-bold">{title}</div>
-        <p className="mt-1 text-xs leading-5 text-text-muted">{detail}</p>
+        <Clapperboard size={28} className="mx-auto text-text-dim" />
+        <div className="mt-3 text-[13px] font-semibold">{title}</div>
+        <p className="mt-1 text-[11px] leading-4 text-text-muted">{detail}</p>
       </div>
     </div>
   );

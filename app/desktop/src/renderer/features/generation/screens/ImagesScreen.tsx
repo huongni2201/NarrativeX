@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
@@ -21,6 +21,14 @@ import {
 import { assetsApi } from "../../assets/api/assets.api";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
 import {
+  InlineNotice,
+  MetricStrip,
+  PaneHeader,
+  StatusIndicator,
+  WorkspacePane,
+  WorkspaceToolbar,
+} from "../../workspace/components/WorkstationPrimitives";
+import {
   isActiveGenerationJobStatus,
   isTerminalGenerationJobStatus,
 } from "../generation-status";
@@ -34,15 +42,7 @@ import {
   useReviewMediaItem,
 } from "../queries/generation.queries";
 
-export function ImagesScreen({
-  projectId,
-  chapters,
-  timeline,
-}: Readonly<{
-  projectId: string;
-  chapters: DesktopChapterDetails[];
-  timeline: DesktopTimeline | null;
-}>) {
+export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ projectId: string; chapters: DesktopChapterDetails[]; timeline: DesktopTimeline | null }>) {
   const analyze = useAnalyzeChapter();
   const estimate = useEstimateMediaJob();
   const createJob = useCreateMediaJob();
@@ -87,25 +87,12 @@ export function ImagesScreen({
   }, [imageStyle, qualityTier, timeline?.aspectRatio]);
 
   useEffect(() => {
-    if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) {
-      mediaIntentRef.current = null;
-    }
+    if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) mediaIntentRef.current = null;
   }, [mediaGenerationJob.data?.status]);
 
   const beats = timeline?.beats.filter((beat) => beat.chapterId === chapterId) ?? [];
-  const analysisBusy =
-    analyze.isPending ||
-    Boolean(
-      analysisJobId &&
-        (analysisJob.isLoading || isActiveGenerationJobStatus(analysisJob.data?.status)),
-    );
-  const mediaBusy =
-    createJob.isPending ||
-    Boolean(
-      effectiveMediaJobId &&
-        (mediaGenerationJob.isLoading ||
-          isActiveGenerationJobStatus(mediaGenerationJob.data?.status)),
-    );
+  const analysisBusy = analyze.isPending || Boolean(analysisJobId && (analysisJob.isLoading || isActiveGenerationJobStatus(analysisJob.data?.status)));
+  const mediaBusy = createJob.isPending || Boolean(effectiveMediaJobId && (mediaGenerationJob.isLoading || isActiveGenerationJobStatus(mediaGenerationJob.data?.status)));
   const mediaHeadChecking = currentMediaJob.isLoading;
   const mediaHeadUnavailable = currentMediaJob.isError;
   const mediaSubmissionBlocked = mediaHeadChecking || mediaHeadUnavailable;
@@ -114,14 +101,7 @@ export function ImagesScreen({
     if (!chapterId || analysisBusy) return;
     setNotice(null);
     try {
-      const job = await analyze.mutateAsync({
-        projectId,
-        chapterId,
-        request: {
-          visualGenerationMode: "IMAGE",
-          imageProvider,
-        },
-      });
+      const job = await analyze.mutateAsync({ projectId, chapterId, request: { visualGenerationMode: "IMAGE", imageProvider } });
       setAnalysisJobId(job.jobId);
       setNotice(`Analysis ${job.jobId.slice(0, 8)} đã được queue cho ${formatProvider(imageProvider)}.`);
     } catch (error) {
@@ -139,9 +119,7 @@ export function ImagesScreen({
     try {
       const result = await estimate.mutateAsync({ projectId, chapterId, qualityTier });
       setCostEstimate(result);
-      setNotice(
-        `Ước tính ${result.estimatedCost} ${result.currency} cho ${result.visualBeatCount} visual beat.`,
-      );
+      setNotice(`Ước tính ${result.estimatedCost} ${result.currency} cho ${result.visualBeatCount} visual beat.`);
       return result;
     } catch (error) {
       setNotice(toMessage(error));
@@ -164,21 +142,9 @@ export function ImagesScreen({
         setNotice("Không có chi phí image generation hợp lệ để authorize.");
         return;
       }
-
       const aspectRatio = asAspectRatio(timeline?.aspectRatio);
-      const signature = [
-        projectId,
-        chapterId,
-        qualityTier,
-        imageStyle,
-        imageProvider,
-        aspectRatio,
-        latestEstimate.estimatedCost,
-      ].join(":");
-      if (mediaIntentRef.current?.signature !== signature) {
-        mediaIntentRef.current = { signature, idempotencyKey: crypto.randomUUID() };
-      }
-
+      const signature = [projectId, chapterId, qualityTier, imageStyle, imageProvider, aspectRatio, latestEstimate.estimatedCost].join(":");
+      if (mediaIntentRef.current?.signature !== signature) mediaIntentRef.current = { signature, idempotencyKey: crypto.randomUUID() };
       const job = await createJob.mutateAsync({
         projectId,
         chapterId,
@@ -194,29 +160,18 @@ export function ImagesScreen({
         },
       });
       setMediaJobId(job.jobId);
-      setNotice(
-        `Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới. Cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`,
-      );
+      setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới. Cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`);
     } catch (error) {
       setNotice(toMessage(error));
     }
   }
 
-  function reviewItem(
-    itemId: string,
-    rowVersion: number,
-    decision: "APPROVED" | "REJECTED",
-  ) {
+  function reviewItem(itemId: string, rowVersion: number, decision: "APPROVED" | "REJECTED") {
     setNotice(null);
     review.mutate(
+      { itemId, jobId: effectiveMediaJobId ?? undefined, review: { decision, rowVersion } },
       {
-        itemId,
-        jobId: effectiveMediaJobId ?? undefined,
-        review: { decision, rowVersion },
-      },
-      {
-        onSuccess: () =>
-          setNotice(decision === "APPROVED" ? "Ảnh đã được duyệt." : "Ảnh đã bị từ chối."),
+        onSuccess: () => setNotice(decision === "APPROVED" ? "Ảnh đã được duyệt." : "Ảnh đã bị từ chối."),
         onError: (error) => setNotice(toMessage(error)),
       },
     );
@@ -235,245 +190,119 @@ export function ImagesScreen({
   return (
     <FeaturePage
       title="Image Generation"
-      description="Chọn provider, phân tích chapter và tạo hoặc import một image asset mới cho từng visual beat."
-      actions={
-        <Button
-          size="sm"
-          onClick={() => void generateImages()}
-          disabled={
-            !chapterId ||
-            !beats.length ||
-            analysisBusy ||
-            (imageProvider === "API" && (mediaBusy || mediaSubmissionBlocked || estimate.isPending))
-          }
-        >
-          <Sparkles size={14} /> {generateLabel}
-        </Button>
-      }
+      description="Analyze, generate và review image output theo từng Visual Beat."
+      contentClassName="min-h-0 overflow-hidden bg-background p-0"
     >
-      <div className="grid gap-3">
-        <section className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-          <Field label="Chapter">
+      <div className="flex h-full min-h-0 flex-col">
+        <WorkspaceToolbar>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
             <Select value={chapterId || undefined} onValueChange={setChapterId}>
-              <SelectTrigger className="min-w-[230px]">
-                <SelectValue placeholder="Chọn chapter" />
-              </SelectTrigger>
-              <SelectContent>
-                {chapters.map((chapter) => (
-                  <SelectItem key={chapter.id} value={chapter.id}>
-                    {chapter.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+              <SelectTrigger aria-label="Chapter" className="min-w-[210px]"><SelectValue placeholder="Chọn chapter" /></SelectTrigger>
+              <SelectContent>{chapters.map((chapter) => <SelectItem key={chapter.id} value={chapter.id}>{chapter.title}</SelectItem>)}</SelectContent>
             </Select>
-          </Field>
-          <Field label="Provider">
-            <Select
-              value={imageProvider}
-              onValueChange={(value) => setImageProvider(value as ImageGenerationProvider)}
-            >
-              <SelectTrigger className="min-w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GEMINI_WEB">Gemini Web</SelectItem>
-                <SelectItem value="API">API</SelectItem>
-              </SelectContent>
+            <Select value={imageProvider} onValueChange={(value) => setImageProvider(value as ImageGenerationProvider)}>
+              <SelectTrigger aria-label="Provider" className="min-w-[128px]"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="GEMINI_WEB">Gemini Web</SelectItem><SelectItem value="API">API</SelectItem></SelectContent>
             </Select>
-          </Field>
-          <Field label="Quality">
-            <Select
-              value={qualityTier}
-              disabled={imageProvider === "GEMINI_WEB"}
-              onValueChange={(value) => setQualityTier(value as MediaQualityTier)}
-            >
-              <SelectTrigger className="min-w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="STANDARD">Standard</SelectItem>
-                <SelectItem value="HIGH">High</SelectItem>
-              </SelectContent>
+            <Select value={qualityTier} disabled={imageProvider === "GEMINI_WEB"} onValueChange={(value) => setQualityTier(value as MediaQualityTier)}>
+              <SelectTrigger aria-label="Quality" className="min-w-[108px]"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="DRAFT">Draft</SelectItem><SelectItem value="STANDARD">Standard</SelectItem><SelectItem value="HIGH">High</SelectItem></SelectContent>
             </Select>
-          </Field>
-          <Field label="Image style">
-            <Select
-              value={imageStyle}
-              disabled={imageProvider === "GEMINI_WEB"}
-              onValueChange={(value) => setImageStyle(value as MediaImageStyle)}
-            >
-              <SelectTrigger className="min-w-[190px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CINEMATIC">Cinematic</SelectItem>
-                <SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem>
-              </SelectContent>
+            <Select value={imageStyle} disabled={imageProvider === "GEMINI_WEB"} onValueChange={(value) => setImageStyle(value as MediaImageStyle)}>
+              <SelectTrigger aria-label="Image style" className="min-w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="CINEMATIC">Cinematic</SelectItem><SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem></SelectContent>
             </Select>
-          </Field>
+            <Button variant="outline" size="sm" onClick={() => void runAnalysis()} disabled={!chapterId || analysisBusy || mediaBusy}>{analysisBusy ? "Analyzing…" : "Analyze"}</Button>
+            <Button variant="ghost" size="sm" onClick={() => void estimateCost()} disabled={!chapterId || imageProvider === "GEMINI_WEB" || estimate.isPending || mediaBusy}>{estimate.isPending ? "Estimating…" : "Estimate"}</Button>
+          </div>
           <Button
-            variant="outline"
-            onClick={() => void runAnalysis()}
-            disabled={!chapterId || analysisBusy || mediaBusy}
+            size="sm"
+            onClick={() => void generateImages()}
+            disabled={!chapterId || !beats.length || analysisBusy || (imageProvider === "API" && (mediaBusy || mediaSubmissionBlocked || estimate.isPending))}
           >
-            {analysisBusy ? "Analyzing…" : "Analyze"}
+            <Sparkles size={13} /> {generateLabel}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => void estimateCost()}
-            disabled={!chapterId || imageProvider === "GEMINI_WEB" || estimate.isPending || mediaBusy}
-          >
-            {estimate.isPending ? "Estimating…" : "Estimate cost"}
-          </Button>
-        </section>
+        </WorkspaceToolbar>
 
-        {imageProvider === "GEMINI_WEB" && (
-          <div className="rounded-md border border-primary/25 bg-primary/5 p-3 text-[10px] leading-4 text-muted-foreground">
-            Web image generation luôn tạo ảnh mới cho từng visual beat. Generate và import output trong Storyboard.
-          </div>
-        )}
+        <div className="shrink-0 border-b border-border-subtle bg-surface-panel px-3 py-1.5">
+          <MetricStrip
+            items={[
+              { label: "beats", value: beats.length },
+              { label: "provider", value: formatProvider(imageProvider) },
+              { label: "analysis", value: analysisJob.data?.status ?? "idle" },
+              { label: "generation", value: mediaGenerationJob.data?.status ?? "idle" },
+              { label: "estimate", value: costEstimate ? `${costEstimate.estimatedCost} ${costEstimate.currency}` : "—" },
+            ]}
+          />
+        </div>
 
-        {costEstimate && imageProvider === "API" && (
-          <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
-            Cost estimate · {costEstimate.estimatedCost} {costEstimate.currency} · {costEstimate.visualBeatCount} visual beat
-          </div>
-        )}
-        {notice && (
-          <p className="text-[10px] text-muted-foreground" role="status" aria-live="polite">
-            {notice}
-          </p>
-        )}
-        {analysisJob.data && (
-          <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
-            Analysis {analysisJob.data.jobId.slice(0, 8)} · {analysisJob.data.status} ·{" "}
-            {Math.round(analysisJob.data.progress * 100)}%
-          </div>
-        )}
-        {mediaGenerationJob.data && imageProvider === "API" && (
-          <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
-            Generation {mediaGenerationJob.data.jobId.slice(0, 8)} · {mediaGenerationJob.data.status} ·{" "}
-            {Math.round(mediaGenerationJob.data.progress * 100)}%
-          </div>
-        )}
-        {mediaHeadUnavailable && imageProvider === "API" && (
-          <p className="text-[10px] text-warning" role="status">
-            Không thể xác định media job hiện tại. Generate đã được khóa để tránh gửi trùng; hãy thử tải lại màn hình.
-          </p>
-        )}
+        {imageProvider === "GEMINI_WEB" ? <InlineNotice tone="info">Gemini Web generate/import theo từng Visual Beat trong Storyboard; API media job không được tạo.</InlineNotice> : null}
+        {notice ? <InlineNotice>{notice}</InlineNotice> : null}
+        {mediaHeadUnavailable && imageProvider === "API" ? <InlineNotice tone="warning">Không thể xác định media job hiện tại. Generate đã khóa để tránh gửi trùng.</InlineNotice> : null}
 
-        <section className="grid grid-cols-[minmax(240px,.7fr)_minmax(0,1.3fr)] gap-3">
-          <div className="rounded-lg border border-border bg-card p-3">
-            <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
-              Visual beats
-            </span>
-            <div className="mt-2 grid gap-2">
-              {beats.map((beat) => (
-                <div
-                  key={beat.visualBeatId}
-                  className="rounded-md border border-border-subtle bg-popover p-2"
-                >
-                  <strong className="text-[10px]">{beat.title}</strong>
-                  <p className="mt-1 text-[9px] leading-4 text-muted-foreground">
-                    {beat.visualIntent}
-                  </p>
-                  <p className="mt-1 text-[9px] text-muted-foreground">
-                    {formatProvider(imageProvider)} · Generate New
-                  </p>
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(230px,280px)_minmax(0,1fr)] overflow-hidden">
+          <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">
+            <PaneHeader title="Visual Beats" meta={`${beats.length} in selected chapter`} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {beats.map((beat, index) => (
+                <div key={beat.visualBeatId} className="border-l-2 border-l-transparent border-b border-b-border-subtle px-3 py-2 hover:bg-surface-hover">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-medium text-text-dim">Beat {index + 1}</span>
+                    <StatusIndicator label={formatProvider(imageProvider)} tone={imageProvider === "GEMINI_WEB" ? "accent" : "neutral"} />
+                  </div>
+                  <strong className="mt-0.5 block truncate text-[11px] font-semibold text-foreground">{beat.title}</strong>
+                  <p className="mt-1 line-clamp-2 text-[9px] leading-4 text-text-muted">{beat.visualIntent}</p>
                 </div>
               ))}
-              {!beats.length && (
-                <EmptyState
-                  title="Chưa có visual beat"
-                  description="Analyze chapter để tạo scene/visual beat trước."
-                />
-              )}
+              {!beats.length ? <EmptyState title="Chưa có visual beat" description="Analyze chapter để tạo scene/visual beat trước." /> : null}
             </div>
-          </div>
+          </WorkspacePane>
 
-          <div className="rounded-lg border border-border bg-card p-3">
-            <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
-              Media review
-            </span>
-            {imageProvider === "GEMINI_WEB" ? (
-              <EmptyState
-                title="Review trong Storyboard"
-                description="Gemini Web không tạo API media job. Import ảnh vào từng beat rồi approve trực tiếp trong Storyboard."
-              />
-            ) : (
-              <>
-                <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
-                  {mediaJob.data?.items.map((item) => (
-                    <article
-                      key={item.id}
-                      className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
-                    >
-                      <MediaItemPreview
-                        projectId={projectId}
-                        mediaAssetId={item.mediaAssetId}
-                        visualBeatId={item.visualBeatId}
-                        executionStatus={item.executionStatus}
-                      />
-                      <div className="flex items-center gap-2">
-                        <ImageIcon size={16} className="text-primary-hover" />
-                        <strong
-                          className="truncate text-[10px]"
-                          title={item.itemKey ?? item.visualBeatId}
-                        >
-                          {item.itemKey ?? item.visualBeatId}
-                        </strong>
-                      </div>
-                      <span className="text-[9px] text-muted-foreground">
-                        {item.executionStatus} · {item.reviewStatus}
-                      </span>
-                      {item.reviewStatus === "NEEDS_REVIEW" && item.executionStatus === "READY" && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")}
-                            disabled={review.isPending || !item.mediaAssetId}
-                          >
-                            <Check size={12} /> Approve
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")}
-                            disabled={review.isPending || !item.mediaAssetId}
-                          >
-                            <X size={12} /> Reject
-                          </Button>
+          <WorkspacePane className="flex flex-col">
+            <PaneHeader
+              title="Media Review"
+              meta={imageProvider === "GEMINI_WEB" ? "Review continues in Storyboard" : `${mediaJob.data?.items.length ?? 0} items`}
+              actions={analysisJob.data || mediaGenerationJob.data ? <StatusIndicator label={mediaBusy ? "Processing" : "Ready"} tone={mediaBusy ? "warning" : "success"} /> : undefined}
+            />
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              {imageProvider === "GEMINI_WEB" ? (
+                <EmptyState title="Review trong Storyboard" description="Import ảnh vào từng beat rồi approve trực tiếp trong Storyboard." />
+              ) : mediaJob.data?.items.length ? (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5">
+                  {mediaJob.data.items.map((item) => (
+                    <article key={item.id} className="min-w-0 overflow-hidden border border-border-subtle bg-surface-panel">
+                      <MediaItemPreview projectId={projectId} mediaAssetId={item.mediaAssetId} visualBeatId={item.visualBeatId} executionStatus={item.executionStatus} />
+                      <div className="p-2.5">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <ImageIcon size={13} className="shrink-0 text-primary" />
+                          <strong className="truncate text-[10px] text-foreground" title={item.itemKey ?? item.visualBeatId}>{item.itemKey ?? item.visualBeatId}</strong>
                         </div>
-                      )}
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <StatusIndicator label={item.executionStatus} tone={item.executionStatus === "READY" ? "success" : "neutral"} />
+                          <span className="text-[9px] text-text-dim">{item.reviewStatus}</span>
+                        </div>
+                        {item.reviewStatus === "NEEDS_REVIEW" && item.executionStatus === "READY" ? (
+                          <div className="mt-2 flex gap-1.5 border-t border-border-subtle pt-2">
+                            <Button size="sm" className="flex-1" onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")} disabled={review.isPending || !item.mediaAssetId}><Check size={12} /> Approve</Button>
+                            <Button variant="outline" size="sm" className="text-danger hover:text-danger" onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")} disabled={review.isPending || !item.mediaAssetId}><X size={12} /> Reject</Button>
+                          </div>
+                        ) : null}
+                      </div>
                     </article>
                   ))}
                 </div>
-                {!mediaJob.data?.items.length && (
-                  <EmptyState
-                    title="Chưa có media job"
-                    description="Generate images để theo dõi và review output."
-                  />
-                )}
-              </>
-            )}
-          </div>
-        </section>
+              ) : (
+                <EmptyState title="Chưa có media job" description="Generate images để theo dõi và review output." />
+              )}
+            </div>
+          </WorkspacePane>
+        </div>
       </div>
     </FeaturePage>
   );
 }
 
-function MediaItemPreview({
-  projectId,
-  mediaAssetId,
-  visualBeatId,
-  executionStatus,
-}: Readonly<{
-  projectId: string;
-  mediaAssetId: string | null;
-  visualBeatId: string;
-  executionStatus: string;
-}>) {
+function MediaItemPreview({ projectId, mediaAssetId, visualBeatId, executionStatus }: Readonly<{ projectId: string; mediaAssetId: string | null; visualBeatId: string; executionStatus: string }>) {
   const [imageFailed, setImageFailed] = useState(false);
   const preview = useQuery({
     queryKey: ["projects", projectId, "assets", mediaAssetId ?? "none", "download-url"],
@@ -483,69 +312,26 @@ function MediaItemPreview({
     refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [preview.data?.url]);
-
-  if (executionStatus !== "READY" || !mediaAssetId) {
-    return (
-      <div className="grid aspect-video place-items-center rounded-md border border-border-subtle bg-background text-[9px] text-muted-foreground">
-        Ảnh đang được xử lý…
-      </div>
-    );
-  }
-
-  if (preview.isLoading) {
-    return (
-      <div className="grid aspect-video place-items-center rounded-md border border-border-subtle bg-background text-[9px] text-muted-foreground">
-        Đang tải preview…
-      </div>
-    );
-  }
-
+  useEffect(() => setImageFailed(false), [preview.data?.url]);
+  if (executionStatus !== "READY" || !mediaAssetId) return <PreviewPlaceholder>Ảnh đang được xử lý…</PreviewPlaceholder>;
+  if (preview.isLoading) return <PreviewPlaceholder>Đang tải preview…</PreviewPlaceholder>;
   if (preview.isError || !preview.data?.url || imageFailed) {
     return (
-      <div className="grid aspect-video place-items-center gap-2 rounded-md border border-warning/30 bg-warning-bg p-3 text-center text-[9px] text-warning">
+      <div className="grid aspect-video place-items-center gap-2 border-b border-warning/30 bg-warning-bg p-3 text-center text-[9px] text-warning">
         <span>Không tải được ảnh preview.</span>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setImageFailed(false);
-            void preview.refetch();
-          }}
-        >
-          Thử lại
-        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => { setImageFailed(false); void preview.refetch(); }}>Thử lại</Button>
       </div>
     );
   }
-
-  return (
-    <img
-      src={preview.data.url}
-      alt={`Generated visual beat ${visualBeatId}`}
-      className="aspect-video w-full rounded-md border border-border-subtle bg-background object-cover"
-      loading="lazy"
-      onError={() => setImageFailed(true)}
-    />
-  );
+  return <img src={preview.data.url} alt={`Generated visual beat ${visualBeatId}`} className="aspect-video w-full border-b border-border-subtle bg-background object-cover" loading="lazy" onError={() => setImageFailed(true)} />;
 }
 
-function Field({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
-  return (
-    <label className="grid gap-1 text-[10px] text-muted-foreground">
-      <span>{label}</span>
-      {children}
-    </label>
-  );
+function PreviewPlaceholder({ children }: Readonly<{ children: ReactNode }>) {
+  return <div className="grid aspect-video place-items-center border-b border-border-subtle bg-surface-dark text-[9px] text-text-muted">{children}</div>;
 }
 
 function asAspectRatio(value: string | undefined): MediaAspectRatio {
-  return value === "9:16" || value === "1:1" || value === "4:3" || value === "3:4"
-    ? value
-    : "16:9";
+  return value === "9:16" || value === "1:1" || value === "4:3" || value === "3:4" ? value : "16:9";
 }
 
 function formatProvider(value: ImageGenerationProvider) {

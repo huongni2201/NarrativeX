@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
-import { BookOpen, LockKeyhole, Plus, Search, Shirt, Sparkles, Tags } from "lucide-react";
+import { Loader2, Plus, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
+import {
+  InlineNotice,
+  PaneHeader,
+  PropertyRow,
+  StatusIndicator,
+  WorkspacePane,
+  WorkspaceToolbar,
+} from "../../workspace/components/WorkstationPrimitives";
 import { charactersApi } from "../api/characters.api";
 import { CharacterGeminiQueueBanner } from "../components/CharacterGeminiQueueBanner";
 import { CharacterReferenceStudio } from "../components/CharacterReferenceStudio";
@@ -55,41 +63,36 @@ function CharacterPortrait({ src, alt, className }: Readonly<{ src: string | nul
   );
 }
 
-function CharacterCard({ projectId, character, selected, onSelect }: Readonly<{
+function CharacterRow({ projectId, character, selected, onSelect }: Readonly<{
   projectId: string;
   character: DesktopCharacter;
   selected: boolean;
   onSelect: () => void;
 }>) {
   const portraitQuery = useCharacterPortrait(projectId, character.id, character.pinnedCharacterVersionId ?? null);
-
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40 hover:bg-surface-panel"}`}
+      className={`group flex min-h-16 w-full items-center gap-2.5 border-l-2 border-b border-b-border-subtle px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 ${
+        selected ? "border-l-primary bg-primary-muted/45" : "border-l-transparent hover:bg-surface-hover"
+      }`}
     >
-      <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${character.canonicalName}`} className="h-full min-h-24 w-[88px] rounded-lg" />
-      <div className="min-w-0">
-        <span className="text-[9px] font-medium uppercase tracking-[.12em] text-muted-foreground">{normalizeLabel(character.status ?? "ACTIVE")}</span>
-        <h2 className="mt-0.5 truncate text-sm font-semibold text-foreground">{character.canonicalName}</h2>
-        <p className="truncate text-[10px] text-muted-foreground">{normalizeLabel(character.role ?? "Project character")}</p>
-        <div className="mt-1.5 flex items-center gap-2 text-[9px] text-text-dim">
-          <span>{character.sceneCount ?? 0} scenes</span><span>·</span>
-          <span>{character.pinnedCharacterVersionId ? "Reference ready" : "Reference not locked"}</span>
+      <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${character.canonicalName}`} className="size-11 rounded-md" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`truncate text-[11px] font-semibold ${selected ? "text-primary-hover" : "text-foreground"}`}>{character.canonicalName}</span>
+          <StatusIndicator label={normalizeLabel(character.status ?? "ACTIVE")} tone="success" className="shrink-0" />
+        </div>
+        <div className="mt-0.5 truncate text-[9px] text-text-muted">{normalizeLabel(character.role ?? "Project character")}</div>
+        <div className="mt-1 flex items-center gap-2 text-[9px] text-text-dim">
+          <span>{character.sceneCount ?? 0} scenes</span>
+          <span>·</span>
+          <span>{character.pinnedCharacterVersionId ? "Reference ready" : "Reference unlocked"}</span>
         </div>
       </div>
     </button>
-  );
-}
-
-function DetailRow({ label, value }: Readonly<{ label: string; value: ReactNode }>) {
-  return (
-    <div className="grid grid-cols-[150px_minmax(0,1fr)] gap-4 border-b border-border-subtle py-2 last:border-b-0">
-      <dt className="text-[10px] text-text-muted">{label}</dt>
-      <dd className="min-w-0 break-words text-[10px] font-medium text-foreground">{value}</dd>
-    </div>
   );
 }
 
@@ -102,6 +105,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   const [aliases, setAliases] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(characters[0]?.id ?? null);
   const [geminiQueue, setGeminiQueue] = useState<CharacterGeminiQueueState | null>(null);
   const [generatingCharacterId, setGeneratingCharacterId] = useState<string | null>(null);
@@ -148,9 +152,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   }, [characters, geminiQueue]);
 
   useEffect(() => {
-    if (currentQueueCharacterId && geminiQueueActive && selectedId !== currentQueueCharacterId) {
-      setSelectedId(currentQueueCharacterId);
-    }
+    if (currentQueueCharacterId && geminiQueueActive && selectedId !== currentQueueCharacterId) setSelectedId(currentQueueCharacterId);
   }, [currentQueueCharacterId, geminiQueueActive, selectedId]);
 
   const selectedSummary = characters.find((character) => character.id === selectedId) ?? null;
@@ -167,6 +169,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
       const character = await createCharacter.mutateAsync({ canonicalName: name.trim(), aliases: parseList(aliases) });
       setName("");
       setAliases("");
+      setCreating(false);
       setSelectedId(character.id);
       setNotice("Character đã được tạo và assign vào project.");
     } catch (error) {
@@ -193,24 +196,20 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
         setNotice(`Character All · Skip “${character.canonicalName}”: chưa có character version.`);
         return "skipped";
       }
-
       const references = await charactersApi.versionReferences(characterId, version.id);
       if (references.some((reference) => reference.role.toUpperCase() === "IDENTITY")) {
         setNotice(`Character All · Skip “${character.canonicalName}”: đã có IDENTITY reference.`);
         return "skipped";
       }
-
       if (version.status === "REVIEW" || version.status === "LOCKED") {
         setNotice(`Character All · Skip “${character.canonicalName}”: version đang ${normalizeLabel(version.status)}.`);
         return "skipped";
       }
-
       const prompt = version.prompt?.trim() ?? "";
       if (!prompt) {
         setNotice(`Character All tạm dừng tại “${character.canonicalName}”: backend chưa trả generation prompt.`);
         return "failed";
       }
-
       setNotice(`Character All · Đang generate IDENTITY cho “${character.canonicalName}”…`);
       await generateCharacterIdentityReference({ projectId, characterId, versionId: version.id, prompt });
       await refreshCharacter(characterId, version.id);
@@ -227,7 +226,6 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   async function runGeminiQueue(initialQueue: CharacterGeminiQueueState, runToken: number) {
     let queue: CharacterGeminiQueueState = { ...initialQueue, status: "RUNNING" };
     const processed = new Set([...queue.completedCharacterIds, ...queue.skippedCharacterIds]);
-
     for (let index = queue.currentIndex; index < queue.characterIds.length; index += 1) {
       if (runToken !== geminiRunTokenRef.current) return;
       const characterId = queue.characterIds[index];
@@ -238,12 +236,10 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
         publishGeminiQueue(queue);
         continue;
       }
-
       queue = { ...queue, currentIndex: index, status: "RUNNING" };
       publishGeminiQueue(queue);
       const result = await generateCharacterIdentity(characterId);
       if (runToken !== geminiRunTokenRef.current) return;
-
       if (result === "generated") {
         processed.add(characterId);
         queue = markCharacterQueueCompleted(queue, characterId);
@@ -256,11 +252,9 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
         publishGeminiQueue(queue);
         continue;
       }
-
       publishGeminiQueue({ ...queue, status: "PAUSED" });
       return;
     }
-
     if (runToken !== geminiRunTokenRef.current) return;
     const completedQueue: CharacterGeminiQueueState = { ...queue, currentIndex: queue.characterIds.length, status: "COMPLETED" };
     publishGeminiQueue(completedQueue);
@@ -298,25 +292,40 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   }
 
   return (
-    <FeaturePage title="Character Library" description="Quản lý canonical identity, reference approval và continuity trước khi generate storyboard.">
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
-          <form className="flex min-w-0 flex-1 flex-wrap items-end gap-2" onSubmit={(event) => void create(event)}>
-            <label className="grid min-w-[220px] flex-1 gap-1 text-[10px] text-muted-foreground">
-              Canonical name
-              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Tên nhân vật" />
-            </label>
-            <label className="grid min-w-[220px] flex-1 gap-1 text-[10px] text-muted-foreground">
-              Aliases
-              <Input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="Tên gọi khác, phân cách bằng dấu phẩy" />
-            </label>
-            <Button type="submit" disabled={!name.trim() || createCharacter.isPending || geminiQueueActive}><Plus size={14} /> {createCharacter.isPending ? "Creating…" : "Create character"}</Button>
-          </form>
-          <div className="relative min-w-[240px] flex-[0_1_360px]">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên, alias, vai trò, nhóm…" className="pl-9" />
+    <FeaturePage
+      title="Character Library"
+      description="Canonical identity, reference approval và continuity cho project."
+      contentClassName="min-h-0 overflow-hidden bg-background p-0"
+    >
+      <div className="flex h-full min-h-0 flex-col">
+        <WorkspaceToolbar>
+          <div className="relative min-w-[220px] flex-1 max-w-md">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm character, alias, vai trò…" className="pl-8" />
           </div>
-        </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" disabled={!characters.length || geminiQueueActive} onClick={() => void startGeminiAll()}>
+              <Sparkles size={12} /> Generate All
+            </Button>
+            <Button size="sm" disabled={geminiQueueActive} onClick={() => setCreating((value) => !value)}>
+              <Plus size={12} /> New Character
+            </Button>
+          </div>
+        </WorkspaceToolbar>
+
+        {creating ? (
+          <form className="grid shrink-0 gap-2 border-b border-border-subtle bg-surface-panel p-2.5 md:grid-cols-[minmax(180px,.8fr)_minmax(260px,1.2fr)_auto]" onSubmit={(event) => void create(event)}>
+            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Canonical name" aria-label="Canonical name" />
+            <Input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="Aliases, phân cách bằng dấu phẩy" aria-label="Aliases" />
+            <div className="flex justify-end gap-1.5">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
+              <Button type="submit" size="sm" disabled={!name.trim() || createCharacter.isPending || geminiQueueActive}>
+                {createCharacter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                {createCharacter.isPending ? "Creating…" : "Create"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
 
         <CharacterGeminiQueueBanner
           queue={geminiQueue}
@@ -330,102 +339,104 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
           onDismiss={() => publishGeminiQueue(null)}
         />
 
-        {notice && <p role="status" aria-live="polite" className="px-1 text-[10px] text-muted-foreground">{notice}</p>}
+        {notice ? <InlineNotice>{notice}</InlineNotice> : null}
 
         {!characters.length ? (
-          <EmptyState title="Chưa có character" description="Tạo nhân vật đầu tiên bằng form phía trên." />
+          <EmptyState title="Chưa có character" description="Tạo nhân vật đầu tiên để xây identity reference và continuity." />
         ) : (
-          <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(380px,1fr)_minmax(0,1fr)]">
-            <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-lg border border-border bg-surface-dark p-3">
-              <div className="mb-3">
-                <h2 className="text-xs font-semibold text-foreground">Characters</h2>
-                <p className="mt-0.5 text-[9px] text-text-muted">{filteredCharacters.length} / {characters.length} nhân vật trong project</p>
-              </div>
-              <div className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-2 overflow-auto pr-1 xl:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,280px)_minmax(360px,1fr)_minmax(260px,300px)] overflow-hidden">
+            <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">
+              <PaneHeader title="Characters" meta={`${filteredCharacters.length} / ${characters.length}`} />
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 {filteredCharacters.map((character) => (
-                  <CharacterCard key={character.id} projectId={projectId} character={character} selected={character.id === selectedId} onSelect={() => setSelectedId(character.id)} />
+                  <CharacterRow key={character.id} projectId={projectId} character={character} selected={character.id === selectedId} onSelect={() => setSelectedId(character.id)} />
                 ))}
+                {!filteredCharacters.length ? <div className="p-4 text-center text-[10px] text-text-muted">Không có character phù hợp.</div> : null}
               </div>
-            </section>
+            </WorkspacePane>
 
-            <section className="min-h-0 overflow-auto rounded-lg border border-border bg-card">
+            <WorkspacePane className="flex min-w-0 flex-col border-r border-border-subtle">
               {!detail ? (
-                <div className="grid h-full min-h-64 place-items-center text-[10px] text-text-muted">Chọn một nhân vật để xem chi tiết.</div>
+                <div className="grid h-full place-items-center text-[10px] text-text-muted">Chọn một nhân vật để mở Character Studio.</div>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-start gap-4 border-b border-border-subtle p-4">
-                    <div className="grid shrink-0 justify-items-center gap-1.5">
-                      <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${detail.canonicalName}`} className="size-20 rounded-xl" />
-                      <span className="max-w-24 text-center text-[9px] text-text-dim">{portraitQuery.isLoading || portraitQuery.isReferencesLoading ? "Đang tải ảnh…" : portraitQuery.url ? "Identity reference" : "No identity reference"}</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="truncate text-lg font-semibold text-foreground">{detail.canonicalName}</h2>
-                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-500">{normalizeLabel(detail.status ?? "ACTIVE")}</span>
+                  <PaneHeader
+                    title={detail.canonicalName}
+                    meta={`${normalizeLabel(detail.role)} · ${detail.sceneCount ?? 0} scene appearances`}
+                    actions={detailQuery.isFetching ? <span className="text-[9px] text-text-dim">Refreshing…</span> : undefined}
+                  />
+                  {detailQuery.isError ? <InlineNotice tone="danger">Không tải được dữ liệu chi tiết. Đang hiển thị dữ liệu tóm tắt.</InlineNotice> : null}
+                  <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                    <div className="mb-3 flex items-center gap-3 border-b border-border-subtle pb-3">
+                      <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${detail.canonicalName}`} className="size-16 rounded-md" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h2 className="truncate text-[15px] font-semibold text-foreground">{detail.canonicalName}</h2>
+                          <StatusIndicator label={normalizeLabel(detail.status ?? "ACTIVE")} tone="success" />
+                        </div>
+                        <p className="mt-1 text-[10px] text-text-muted">
+                          {portraitQuery.isLoading || portraitQuery.isReferencesLoading ? "Đang tải identity…" : portraitQuery.url ? "Identity reference ready" : "No identity reference"}
+                        </p>
                       </div>
-                      <p className="mt-1 text-[11px] text-text-muted">{normalizeLabel(detail.role)} · {detail.sceneCount ?? 0} scene appearances</p>
                     </div>
-                    {detailQuery.isFetching && <span className="text-[9px] text-text-dim">Refreshing…</span>}
-                  </div>
-
-                  {detailQuery.isError && <div className="border-b border-border-subtle bg-destructive/5 px-4 py-2 text-[10px] text-destructive">Không tải được dữ liệu chi tiết. Đang hiển thị dữ liệu tóm tắt.</div>}
-
-                  <div className="grid gap-3 p-3 2xl:grid-cols-2">
                     <CharacterReferenceStudio projectId={projectId} character={detail} generationLocked={geminiQueueActive} />
-
-                    <div className="rounded-lg border border-border bg-surface-dark p-3">
-                      <div className="mb-2 flex items-center gap-2"><Tags size={14} className="text-primary-hover" /><h3 className="text-xs font-semibold">Project identity</h3></div>
-                      <dl>
-                        <DetailRow label="Canonical name" value={detail.canonicalName} />
-                        <DetailRow label="Global aliases" value={detail.aliases?.length ? detail.aliases.join(", ") : "—"} />
-                        <DetailRow label="Project aliases" value={detail.projectAliases?.length ? detail.projectAliases.join(", ") : "—"} />
-                        <DetailRow label="Role" value={normalizeLabel(detail.role)} />
-                        <DetailRow label="Importance" value={detail.importance ?? 0} />
-                        <DetailRow label="Scene count" value={detail.sceneCount ?? 0} />
-                        <DetailRow label="Created" value={formatDate(detail.createdAt)} />
-                        <DetailRow label="Updated" value={formatDate(detail.updatedAt)} />
-                      </dl>
-                    </div>
-
-                    <div className="rounded-lg border border-border bg-surface-dark p-3">
-                      <div className="mb-2 flex items-center gap-2"><LockKeyhole size={14} className="text-primary-hover" /><h3 className="text-xs font-semibold">Version</h3></div>
-                      {detail.version ? (
-                        <dl>
-                          <DetailRow label="Version" value={detail.version.versionNumber ?? "—"} />
-                          <DetailRow label="Status" value={normalizeLabel(detail.version.status)} />
-                          <DetailRow label="Pinned to project" value={detail.pinnedCharacterVersionId === detail.version.id ? "Yes" : "No"} />
-                        </dl>
-                      ) : <p className="text-[10px] text-text-muted">Chưa có character version.</p>}
-                    </div>
-
-                    <div className="rounded-lg border border-border bg-surface-dark p-3 2xl:col-span-2">
-                      <div className="mb-2 flex items-center gap-2"><BookOpen size={14} className="text-primary-hover" /><h3 className="text-xs font-semibold">Character bible</h3></div>
-                      <p className="whitespace-pre-wrap text-[10px] leading-5 text-text-muted">{detail.version?.bible || "Chưa có character bible trong phiên bản hiện tại."}</p>
-                    </div>
-
-                    <div className="rounded-lg border border-border bg-surface-dark p-3">
-                      <div className="mb-2 flex items-center gap-2"><Sparkles size={14} className="text-primary-hover" /><h3 className="text-xs font-semibold">Visual prompt</h3></div>
-                      <p className="whitespace-pre-wrap text-[10px] leading-5 text-text-muted">{detail.version?.visualPrompt || "Chưa có visual prompt trong phiên bản hiện tại."}</p>
-                    </div>
-
-                    <div className="rounded-lg border border-border bg-surface-dark p-3">
-                      <div className="mb-2 flex items-center gap-2"><Shirt size={14} className="text-primary-hover" /><h3 className="text-xs font-semibold">Timeline appearance</h3></div>
-                      {detail.appearance ? (
-                        <dl>
-                          <DetailRow label="Age state" value={detail.appearance.ageState || "—"} />
-                          <DetailRow label="Hairstyle" value={detail.appearance.hairstyle || "—"} />
-                          <DetailRow label="Injury" value={detail.appearance.injury || "—"} />
-                          <DetailRow label="Wardrobe context" value={detail.appearance.wardrobeContext || "—"} />
-                        </dl>
-                      ) : <p className="text-[10px] text-text-muted">Chưa có appearance state cho timeline hiện tại.</p>}
-                    </div>
                   </div>
                 </>
               )}
-            </section>
+            </WorkspacePane>
+
+            <WorkspacePane className="flex flex-col bg-surface-panel">
+              <PaneHeader title="Inspector" meta={detail ? normalizeLabel(detail.status ?? "ACTIVE") : "No selection"} />
+              {!detail ? (
+                <div className="p-4 text-[10px] text-text-muted">Chọn character để xem identity, version và appearance.</div>
+              ) : (
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <InspectorSection title="Identity">
+                    <PropertyRow label="Canonical" value={<span className="block truncate">{detail.canonicalName}</span>} />
+                    <PropertyRow label="Aliases" value={detail.aliases?.length ? detail.aliases.join(", ") : "—"} />
+                    <PropertyRow label="Project aliases" value={detail.projectAliases?.length ? detail.projectAliases.join(", ") : "—"} />
+                    <PropertyRow label="Role" value={normalizeLabel(detail.role)} />
+                    <PropertyRow label="Importance" value={detail.importance ?? 0} />
+                    <PropertyRow label="Scenes" value={detail.sceneCount ?? 0} />
+                  </InspectorSection>
+                  <InspectorSection title="Version">
+                    <PropertyRow label="Version" value={detail.version?.versionNumber ?? "—"} />
+                    <PropertyRow label="Status" value={normalizeLabel(detail.version?.status)} />
+                    <PropertyRow label="Pinned" value={detail.version && detail.pinnedCharacterVersionId === detail.version.id ? "Yes" : "No"} />
+                    <PropertyRow label="Updated" value={formatDate(detail.updatedAt)} />
+                  </InspectorSection>
+                  <InspectorSection title="Appearance">
+                    <PropertyRow label="Age" value={detail.appearance?.ageState || "—"} />
+                    <PropertyRow label="Hair" value={detail.appearance?.hairstyle || "—"} />
+                    <PropertyRow label="Injury" value={detail.appearance?.injury || "—"} />
+                    <PropertyRow label="Wardrobe" value={detail.appearance?.wardrobeContext || "—"} />
+                  </InspectorSection>
+                  <InspectorText title="Character bible" value={detail.version?.bible || "Chưa có character bible."} />
+                  <InspectorText title="Visual prompt" value={detail.version?.visualPrompt || "Chưa có visual prompt."} />
+                </div>
+              )}
+            </WorkspacePane>
           </div>
         )}
       </div>
     </FeaturePage>
+  );
+}
+
+function InspectorSection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
+  return (
+    <section className="border-b border-border-subtle">
+      <div className="bg-surface-dark px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">{title}</div>
+      {children}
+    </section>
+  );
+}
+
+function InspectorText({ title, value }: Readonly<{ title: string; value: string }>) {
+  return (
+    <section className="border-b border-border-subtle p-3">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">{title}</div>
+      <p className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">{value}</p>
+    </section>
   );
 }

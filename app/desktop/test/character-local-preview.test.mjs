@@ -28,14 +28,9 @@ test("CharacterReferenceStudio uses the project-local character asset preview ho
   assert.match(studioSource, /useCharacterAssetPreview/);
 });
 
-test("character cards resolve portraits from their own pinned character version", () => {
-  const cardSource = screenSource.slice(
-    screenSource.indexOf("function CharacterCard"),
-    screenSource.indexOf("function DetailRow"),
-  );
-
+test("character library rows resolve portraits from their own pinned character version", () => {
   assert.match(
-    cardSource,
+    screenSource,
     /useCharacterPortrait\(\s*projectId\s*,\s*character\.id\s*,\s*character\.pinnedCharacterVersionId\s*\?\?\s*null\s*\)/,
   );
   assert.doesNotMatch(

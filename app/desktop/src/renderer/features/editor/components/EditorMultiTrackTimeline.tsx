@@ -66,7 +66,7 @@ export function EditorMultiTrackTimeline({
 
         <div
           onClick={handleTimelineClick}
-          className="relative flex-none cursor-pointer bg-[#090d15]"
+          className="relative flex-none cursor-pointer bg-surface-panel"
           style={{ width: `${Math.max(100, zoomLevel * 100)}%`, minWidth: "100%" }}
         >
           <div className="relative h-7 border-b border-border-subtle bg-surface-dark">
@@ -82,12 +82,12 @@ export function EditorMultiTrackTimeline({
             {narrationChapters.length ? narrationChapters.map((chapter) => (
               <div
                 key={chapter.chapterId}
-                className="absolute inset-y-1 flex items-center overflow-hidden rounded-md border border-emerald-800 bg-emerald-950/70 px-2 text-[10px] text-emerald-300"
+                className="absolute inset-y-1 flex items-center overflow-hidden rounded-sm border border-success/30 bg-success-bg px-2 text-[10px] text-success"
                 style={timelineSpanStyle(chapter.startMs, chapter.endMs, effectiveTotalMs)}
                 title={`${chapter.title} · narration`}
               >
                 <span className="truncate">{chapter.title}</span>
-                <span className="ml-2 flex-1 border-b border-dashed border-emerald-700/70" />
+                <span className="ml-2 flex-1 border-b border-dashed border-success/30" />
               </div>
             )) : <EmptyTrackLabel label="Chưa có narration audio" />}
           </TrackRow>
@@ -104,12 +104,16 @@ export function EditorMultiTrackTimeline({
                     onSelectBeat(beat);
                     onSeek(beat.startMs);
                   }}
-                  className={`absolute inset-y-1 flex items-center overflow-hidden rounded-md border px-2 text-left ${selected ? "z-10 border-primary bg-[#13233d] ring-1 ring-primary" : "border-[#1d3d6b] bg-[#0f1b2e] hover:border-info/60"}`}
+                  className={`absolute inset-y-1 flex items-center overflow-hidden rounded-sm border px-2 text-left transition-[background-color,border-color,color] duration-150 ${
+                    selected
+                      ? "z-10 border-primary/70 bg-primary-muted text-foreground ring-1 ring-primary/30"
+                      : "border-info/25 bg-info-bg text-text-secondary hover:border-info/45 hover:bg-info-bg/80"
+                  }`}
                   style={timelineSpanStyle(beat.startMs, beat.endMs, effectiveTotalMs)}
                   title={`${beat.title} · ${formatDurationSeconds(beat.durationMs)}`}
                 >
-                  <Film size={11} className="mr-1 shrink-0 text-blue-400" />
-                  <span className="truncate font-mono text-[9px] text-blue-200">{beat.title || `Beat ${beat.beatIndex + 1}`}</span>
+                  <Film size={11} className={`mr-1 shrink-0 ${selected ? "text-primary" : "text-info"}`} />
+                  <span className="truncate font-mono text-[9px]">{beat.title || `Beat ${beat.beatIndex + 1}`}</span>
                 </button>
               );
             }) : <EmptyTrackLabel label="Chưa có Visual Beat" />}
@@ -119,11 +123,11 @@ export function EditorMultiTrackTimeline({
             {subtitleCues.length ? subtitleCues.map((cue, index) => (
               <div
                 key={`${cue.chapterId}:${cue.startMs}:${index}`}
-                className="absolute inset-y-1 flex items-center overflow-hidden rounded border border-amber-700/70 bg-amber-950/50 px-1.5 text-[9px] text-amber-100"
+                className="absolute inset-y-1 flex items-center overflow-hidden rounded-sm border border-warning/30 bg-warning-bg px-1.5 text-[9px] text-warning"
                 style={timelineSpanStyle(cue.startMs, cue.endMs, effectiveTotalMs)}
                 title={`${formatRulerTime(cue.startMs)} · ${cue.text}`}
               >
-                <Type size={9} className="mr-1 shrink-0 text-amber-400" />
+                <Type size={9} className="mr-1 shrink-0" />
                 <span className="truncate">{cue.text}</span>
               </div>
             )) : <EmptyTrackLabel label="Chưa có subtitle cue" />}
@@ -133,17 +137,19 @@ export function EditorMultiTrackTimeline({
           <TrackRow height="h-9"><EmptyTrackLabel label="Chưa có music track" /></TrackRow>
 
           <div className="pointer-events-none absolute inset-y-0 z-30 w-px bg-primary" style={{ left: `${playheadPercent}%` }}>
-            <div className="absolute -top-0.5 left-1/2 h-3.5 w-2 -translate-x-1/2 rounded-[2px] bg-primary shadow-[0_0_8px_rgba(255,138,0,0.6)]" />
+            <div className="absolute -top-0.5 left-1/2 h-3.5 w-2 -translate-x-1/2 rounded-[2px] bg-primary" />
           </div>
         </div>
       </div>
 
       <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-surface-dark px-3 text-[10px] text-text-muted">
         <div className="flex items-center gap-2">
-          <span className="rounded border border-border-subtle bg-surface-input px-2 py-1">{beats.length} beats</span>
-          <span className="rounded border border-border-subtle bg-surface-input px-2 py-1">{subtitleCues.length} subtitles</span>
-          <button type="button" onClick={() => onUploadMedia?.("IMAGE")} className="flex h-7 items-center gap-1 rounded-md border border-border-subtle bg-surface-input px-2 hover:bg-surface-2"><Upload size={11} /> Image</button>
-          <button type="button" onClick={() => onUploadMedia?.("VIDEO")} className="flex h-7 items-center gap-1 rounded-md border border-border-subtle bg-surface-input px-2 hover:bg-surface-2"><Film size={11} /> Video</button>
+          <span>{beats.length} beats</span>
+          <span className="text-text-dim">·</span>
+          <span>{subtitleCues.length} subtitles</span>
+          <span className="mx-1 h-4 w-px bg-border-subtle" aria-hidden="true" />
+          <button type="button" onClick={() => onUploadMedia?.("IMAGE")} className="flex h-7 items-center gap-1 rounded-md border border-border-subtle bg-surface-input px-2 transition-colors hover:bg-surface-2 hover:text-foreground"><Upload size={11} /> Image</button>
+          <button type="button" onClick={() => onUploadMedia?.("VIDEO")} className="flex h-7 items-center gap-1 rounded-md border border-border-subtle bg-surface-input px-2 transition-colors hover:bg-surface-2 hover:text-foreground"><Film size={11} /> Video</button>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setZoomLevel((value) => Math.max(1, value - 0.25))} className="nx-icon-button size-6"><ZoomOut size={12} /></button>

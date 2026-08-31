@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { DesktopCharacterDetail } from "@narrativex/client-contracts";
 import { Check, ImagePlus, Loader2, LockKeyhole, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { InlineNotice, StatusIndicator } from "../../workspace/components/WorkstationPrimitives";
 import {
   useCharacterAssetPreview,
   useCharacterReferenceActions,
@@ -121,31 +123,42 @@ export function CharacterReferenceStudio({
   }
 
   return (
-    <section className="rounded-lg border border-border bg-surface-dark p-3 2xl:col-span-2">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <ImagePlus aria-hidden="true" size={14} className="text-primary-hover" />
-            <h3 className="text-xs font-semibold">Character Reference Studio</h3>
+    <section className="min-w-0">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <ImagePlus aria-hidden="true" size={13} className="shrink-0 text-primary" />
+          <div className="min-w-0">
+            <h3 className="text-[12px] font-semibold text-foreground">Identity Reference</h3>
+            <p className="truncate text-[9px] text-text-dim">Canonical reference used by storyboard generation.</p>
           </div>
-          <p className="mt-1 text-[9px] leading-4 text-text-muted">
-            Tạo canonical identity trước khi generate Visual Beat. Chỉ version LOCKED mới được dùng làm reference.
-          </p>
         </div>
-        <span className={`rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-wide ${isLocked ? "bg-emerald-500/10 text-emerald-500" : isReview ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary-hover"}`}>
-          {statusLabel(status)}
-        </span>
+        <StatusIndicator
+          label={statusLabel(status)}
+          tone={isLocked ? "success" : isReview ? "warning" : versionId ? "accent" : "neutral"}
+        />
       </div>
 
       {!versionId ? (
-        <div className="mt-3 grid gap-3">
+        <div className="grid gap-2.5">
           <label className="grid gap-1 text-[9px] text-text-muted">
             Character bible
-            <textarea value={bible} onChange={(event) => setBible(event.target.value)} rows={4} className="min-h-20 resize-y rounded-md border border-input bg-background px-3 py-2 text-[10px] text-foreground outline-none focus:ring-2 focus:ring-ring" placeholder="Canonical identity, stable traits, personality cues…" />
+            <Textarea
+              value={bible}
+              onChange={(event) => setBible(event.target.value)}
+              rows={5}
+              className="min-h-28 resize-y"
+              placeholder="Canonical identity, stable traits, personality cues…"
+            />
           </label>
           <label className="grid gap-1 text-[9px] text-text-muted">
             Visual identity prompt
-            <textarea value={visualPrompt} onChange={(event) => setVisualPrompt(event.target.value)} rows={4} className="min-h-20 resize-y rounded-md border border-input bg-background px-3 py-2 text-[10px] text-foreground outline-none focus:ring-2 focus:ring-ring" placeholder="Face, hair, age, body proportions and defining visual traits…" />
+            <Textarea
+              value={visualPrompt}
+              onChange={(event) => setVisualPrompt(event.target.value)}
+              rows={5}
+              className="min-h-28 resize-y"
+              placeholder="Face, hair, age, body proportions and defining visual traits…"
+            />
           </label>
           <div>
             <Button size="sm" onClick={() => void createDraft()} disabled={busy || !bible.trim() || !visualPrompt.trim()}>
@@ -155,8 +168,8 @@ export function CharacterReferenceStudio({
           </div>
         </div>
       ) : (
-        <div className="mt-3 grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)]">
-          <div className="overflow-hidden rounded-lg border border-border bg-background">
+        <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(190px,.65fr)_minmax(0,1.35fr)]">
+          <div className="min-w-0 overflow-hidden border border-border-subtle bg-surface-dark">
             <div className="aspect-[4/5] bg-primary-muted">
               {identityPreview.url ? (
                 <img src={identityPreview.url} alt={`${character.canonicalName} identity reference`} className="size-full object-cover" />
@@ -166,21 +179,25 @@ export function CharacterReferenceStudio({
                 </div>
               )}
             </div>
-            <div className="border-t border-border px-3 py-2 text-[9px] text-text-muted"><strong className="text-foreground">IDENTITY</strong> · priority 0 · required</div>
+            <div className="border-t border-border-subtle px-2.5 py-1.5 text-[9px] text-text-muted">
+              <strong className="text-foreground">IDENTITY</strong> · priority 0 · required
+            </div>
           </div>
 
           <div className="min-w-0">
-            <div className="rounded-md border border-border bg-card p-3 text-[9px] leading-4 text-text-muted">
-              <strong className="text-foreground">Visual prompt</strong>
-              <p className="mt-1 whitespace-pre-wrap">{character.version?.visualPrompt || "—"}</p>
+            <div className="border-b border-border-subtle pb-2.5">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">Visual prompt</div>
+              <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">
+                {character.version?.visualPrompt || "—"}
+              </p>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {isDraft && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {isDraft ? (
                 <>
                   <Button size="sm" onClick={() => void generateIdentity()} disabled={busy || !generationPrompt}>
                     {actions.generateIdentity.isPending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                    {identity ? "Regenerate Identity" : "Generate Identity"}
+                    {identity ? "Regenerate" : "Generate Identity"}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => void importIdentity()} disabled={busy}>
                     {actions.importIdentity.isPending ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
@@ -188,37 +205,33 @@ export function CharacterReferenceStudio({
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => void approve()} disabled={busy || !identity}>
                     {actions.review.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                    Approve Reference
+                    Approve
                   </Button>
                 </>
-              )}
-              {isReview && (
+              ) : null}
+              {isReview ? (
                 <Button size="sm" onClick={() => void lockAndUse()} disabled={busy || !identity}>
                   {actions.lockAndPin.isPending ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
-                  Lock & Use in Project
+                  Lock & Use
                 </Button>
-              )}
-              {isLocked && !isPinned && (
+              ) : null}
+              {isLocked && !isPinned ? (
                 <Button size="sm" onClick={() => void useInProject()} disabled={busy}>
                   {actions.pin.isPending ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
                   Use in Project
                 </Button>
-              )}
+              ) : null}
             </div>
 
-            {generationLocked && (
-              <p className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-2 text-[9px] leading-4 text-primary-hover">
-                Generate All đang chạy. Các action thủ công tạm khóa để tránh conflict với Gemini Web queue.
-              </p>
-            )}
-            {isReview && <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">Reference đã được approve. Lock sẽ làm version immutable và cho phép Storyboard tự động gửi ảnh này lên Gemini.</p>}
-            {isLocked && isPinned && <p className="mt-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[9px] leading-4 text-emerald-500">Canonical identity đã LOCKED và pin vào project. Visual Beat có nhân vật này sẽ tự động resolve và upload reference.</p>}
-            {isLocked && !isPinned && <p className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[9px] leading-4 text-amber-500">Version đã LOCKED nhưng chưa được pin vào project. Bấm Use in Project để hoàn tất continuity flow.</p>}
+            {generationLocked ? <InlineNotice tone="info" className="mt-3">Generate All đang chạy; action thủ công tạm khóa để tránh queue conflict.</InlineNotice> : null}
+            {isReview ? <InlineNotice tone="warning" className="mt-3">Reference đã được approve. Lock sẽ làm version immutable và cho phép Storyboard dùng reference này.</InlineNotice> : null}
+            {isLocked && isPinned ? <InlineNotice tone="success" className="mt-3">Canonical identity đã LOCKED và được pin vào project.</InlineNotice> : null}
+            {isLocked && !isPinned ? <InlineNotice tone="warning" className="mt-3">Version đã LOCKED nhưng chưa pin vào project.</InlineNotice> : null}
           </div>
         </div>
       )}
 
-      {notice && <p role="status" aria-live="polite" className="mt-3 text-[9px] text-text-muted">{notice}</p>}
+      {notice ? <InlineNotice className="mt-3">{notice}</InlineNotice> : null}
     </section>
   );
 }

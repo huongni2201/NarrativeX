@@ -1,4 +1,5 @@
 import { Loader2, WandSparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { StoryboardVisualBeat } from "../api/storyboard.api";
 import type { GeminiQueueState } from "../model/gemini-queue";
 
@@ -27,78 +28,40 @@ export function GeminiQueueBanner({
   const running = queue.status === "RUNNING";
 
   return (
-    <div className="mx-5 mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary-hover">
-            Gemini Web · Generate All
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-foreground">
-            {running && <Loader2 size={13} className="animate-spin" />}
-            {completed
-              ? `Hoàn tất ${queue.completedBeatIds.length}/${total} ảnh`
-              : running
-                ? `${processedCount}/${total} · Chrome đang generate ${currentBeat?.title ?? "Visual Beat"}`
-                : `${processedCount}/${total} · Tạm dừng tại ${currentBeat?.title ?? "Visual Beat"}`}
-          </div>
-          <div className="mt-1 text-[10px] text-text-muted">
-            {queue.completedBeatIds.length} generated · {queue.skippedBeatIds.length} skipped · {percent}%
+    <div className="shrink-0 border-b border-border-subtle bg-surface-panel">
+      <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {running ? <Loader2 size={13} className="shrink-0 animate-spin text-primary" /> : <WandSparkles size={13} className="shrink-0 text-primary" />}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2 text-[10px]">
+              <span className="font-semibold text-foreground">Gemini All</span>
+              <span className="tabular-nums text-text-dim">{processedCount}/{total} · {percent}%</span>
+              <span className={`font-medium ${completed ? "text-success" : running ? "text-primary-hover" : "text-warning"}`}>
+                {completed ? "Completed" : running ? "Running" : "Paused"}
+              </span>
+            </div>
+            <div className="max-w-[520px] truncate text-[10px] text-text-muted">
+              {completed ? `${queue.completedBeatIds.length} generated · ${queue.skippedBeatIds.length} skipped` : currentBeat?.title ?? "Visual Beat"}
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {completed ? (
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="h-8 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2"
-            >
-              Dismiss
-            </button>
+            <Button variant="ghost" size="sm" onClick={onDismiss}>Dismiss</Button>
           ) : running ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="h-8 rounded-md border border-danger/30 px-3 text-[11px] font-semibold text-danger hover:bg-danger/5"
-            >
-              Stop after current
-            </button>
+            <Button variant="outline" size="sm" onClick={onStop} className="text-danger hover:text-danger">Stop after current</Button>
           ) : (
             <>
-              <button
-                type="button"
-                disabled={!currentBeat || busy}
-                onClick={onResume}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:opacity-50"
-              >
-                <WandSparkles size={12} /> Retry & Resume
-              </button>
-              <button
-                type="button"
-                disabled={!currentBeat || busy}
-                onClick={onSkip}
-                className="h-8 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                onClick={onStop}
-                className="h-8 rounded-md border border-danger/30 px-3 text-[11px] font-semibold text-danger hover:bg-danger/5"
-              >
-                Stop
-              </button>
+              <Button size="sm" disabled={!currentBeat || busy} onClick={onResume}><WandSparkles size={12} /> Resume</Button>
+              <Button variant="outline" size="sm" disabled={!currentBeat || busy} onClick={onSkip}>Skip</Button>
+              <Button variant="ghost" size="sm" onClick={onStop} className="text-danger hover:text-danger">Stop</Button>
             </>
           )}
         </div>
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-input">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+      <div className="h-0.5 bg-surface-input">
+        <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${percent}%` }} />
       </div>
-      {!completed && (
-        <p className="mt-2 text-[10px] leading-4 text-text-muted">
-          NarrativeX resolve nhân vật xuất hiện trong từng beat, attach tối đa 3 locked reference theo đúng REF mapping, gửi Gemini Images, bắt output trực tiếp qua Chrome Network và chỉ dùng nút Download làm fallback.
-        </p>
-      )}
     </div>
   );
 }

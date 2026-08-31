@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { FolderOpen, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Star, Trash2 } from "lucide-react";
 import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
 import { ProjectCard } from "../components/ProjectCard";
 import {
   useCreateProject,
@@ -63,23 +64,35 @@ export function ProjectsScreen() {
 
   if (projects.isPending) {
     return (
-      <main className="grid h-full place-items-center bg-background p-8 text-[10px] text-text-muted">
-        Đang tải projects…
-      </main>
+      <FeaturePage
+        eyebrow="Workspace"
+        title="Projects"
+        description="Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop."
+      >
+        <div className="grid min-h-48 place-items-center text-[11px] text-text-muted" role="status">
+          Đang tải projects…
+        </div>
+      </FeaturePage>
     );
   }
 
   if (projects.isError) {
     return (
-      <main className="grid h-full place-items-center bg-background p-8">
-        <div className="grid max-w-sm justify-items-center gap-2 rounded-md border border-border bg-surface-panel p-5 text-center text-[10px] text-text-muted">
-          <strong className="text-[11px] text-foreground">Không thể tải projects</strong>
-          <span>{projects.error.message}</span>
-          <Button variant="outline" size="sm" onClick={() => void projects.refetch()} className="h-8 text-[10px]">
-            <RefreshCw size={12} /> Thử lại
-          </Button>
+      <FeaturePage
+        eyebrow="Workspace"
+        title="Projects"
+        description="Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop."
+      >
+        <div className="grid min-h-48 place-items-center">
+          <div className="max-w-sm border-l-2 border-danger bg-danger-bg px-4 py-3 text-[11px] text-danger">
+            <strong className="block font-semibold">Không thể tải projects</strong>
+            <span className="mt-1 block leading-4">{projects.error.message}</span>
+            <Button variant="outline" size="sm" onClick={() => void projects.refetch()} className="mt-3">
+              <RefreshCw size={12} /> Thử lại
+            </Button>
+          </div>
         </div>
-      </main>
+      </FeaturePage>
     );
   }
 
@@ -122,59 +135,37 @@ export function ProjectsScreen() {
   const projectCount = projects.data.content.length;
 
   return (
-    <main className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background text-foreground">
-      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle bg-surface-dark px-5 py-2.5">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[8px] font-bold uppercase tracking-[0.14em] text-text-dim">Workspace</span>
-            <span className="h-3 w-px bg-border-subtle" aria-hidden="true" />
-            <h1 className="text-sm font-semibold text-foreground">Projects</h1>
-            <span className="rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[8px] text-text-muted">
-              {projectCount}
-            </span>
-          </div>
-          <p className="mt-1 text-[10px] text-text-muted">
-            Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop.
-          </p>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => setIsCreating((value) => !value)}
-            className="h-8 gap-1.5 px-3 text-[10px]"
-          >
-            <Plus size={12} /> New project
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void projects.refetch()}
-            className="h-8 gap-1.5 border-border bg-surface-input px-3 text-[10px] text-text-secondary hover:bg-surface-2"
-          >
-            <RefreshCw size={12} /> Refresh
-          </Button>
-        </div>
-      </header>
-
-      <div className="min-h-0 overflow-auto p-4">
+    <>
+      <FeaturePage
+        eyebrow="Workspace"
+        title="Projects"
+        description="Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop."
+        actions={
+          <>
+            <span className="mr-1 text-[10px] tabular-nums text-text-dim">{projectCount} projects</span>
+            <Button size="sm" onClick={() => setIsCreating((value) => !value)}>
+              <Plus size={12} /> New project
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void projects.refetch()}>
+              <RefreshCw size={12} /> Refresh
+            </Button>
+          </>
+        }
+      >
         {isCreating && (
           <form
-            className="mb-4 grid max-w-2xl gap-3 rounded-md border border-border bg-surface-panel p-3"
+            className="mb-4 grid max-w-2xl gap-3 rounded-md border border-border bg-surface-panel p-4"
             onSubmit={submitProject}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-2.5">
-              <div>
-                <h2 className="text-[11px] font-semibold text-foreground">Create project</h2>
-                <p className="mt-0.5 text-[9px] text-text-muted">Khởi tạo workspace mới rồi mở thẳng vào Editor.</p>
-              </div>
-              <span className="rounded-sm border border-primary/25 bg-primary-muted px-1.5 py-0.5 text-[8px] font-medium text-primary-hover">
-                New
-              </span>
+            <div className="border-b border-border-subtle pb-2.5">
+              <h2 className="text-[13px] font-semibold text-foreground">Create project</h2>
+              <p className="mt-0.5 text-[11px] leading-4 text-text-muted">
+                Khởi tạo workspace mới rồi mở thẳng vào Editor.
+              </p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-[minmax(220px,1.2fr)_minmax(180px,.8fr)]">
-              <label className="grid gap-1 text-[9px] font-medium text-text-secondary">
+              <label className="grid gap-1.5 text-[10px] font-medium text-text-secondary">
                 <span>Name</span>
                 <Input
                   autoFocus
@@ -182,19 +173,15 @@ export function ProjectsScreen() {
                   onChange={(event) => setName(event.target.value)}
                   maxLength={160}
                   placeholder="My next story"
-                  className="h-8 border-border bg-surface-input text-[10px]"
                 />
               </label>
-              <div className="grid content-start gap-1 text-[9px] font-medium text-text-secondary">
+              <div className="grid content-start gap-1.5 text-[10px] font-medium text-text-secondary">
                 <label htmlFor="project-aspect-ratio">Khung hình</label>
                 <Select
                   value={imageAspectRatio}
                   onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}
                 >
-                  <SelectTrigger
-                    id="project-aspect-ratio"
-                    className="h-8 w-full border-border bg-surface-input text-[10px] text-foreground"
-                  >
+                  <SelectTrigger id="project-aspect-ratio" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -209,40 +196,29 @@ export function ProjectsScreen() {
                   Dùng cho storyboard, ảnh và bản render của project.
                 </span>
               </div>
-              <label className="grid gap-1 text-[9px] font-medium text-text-secondary md:col-span-2">
+              <label className="grid gap-1.5 text-[10px] font-medium text-text-secondary md:col-span-2">
                 <span>Description</span>
                 <Textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   maxLength={2000}
                   placeholder="Optional project description"
-                  className="min-h-16 border-border bg-surface-input text-[10px]"
+                  className="min-h-16"
                 />
               </label>
             </div>
 
             {createProject.isError && (
-              <p className="m-0 rounded-sm border border-danger-border bg-danger-bg px-2 py-1.5 text-[9px] text-danger" role="alert">
+              <p className="m-0 border-l-2 border-danger bg-danger-bg px-2.5 py-2 text-[10px] text-danger" role="alert">
                 {createProject.error.message}
               </p>
             )}
 
-            <div className="flex justify-end gap-2 border-t border-border-subtle pt-2.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCreating(false)}
-                className="h-8 text-[10px]"
-              >
+            <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsCreating(false)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={createProject.isPending || !name.trim()}
-                className="h-8 text-[10px]"
-              >
+              <Button type="submit" size="sm" disabled={createProject.isPending || !name.trim()}>
                 {createProject.isPending ? "Creating…" : "Create project"}
               </Button>
             </div>
@@ -250,17 +226,13 @@ export function ProjectsScreen() {
         )}
 
         {toggleFavorite.isError && (
-          <p className="mb-3 rounded-sm border border-danger-border bg-danger-bg px-2 py-1.5 text-[9px] text-danger" role="alert">
+          <p className="mb-3 border-l-2 border-danger bg-danger-bg px-2.5 py-2 text-[10px] text-danger" role="alert">
             Không thể cập nhật favorite: {toggleFavorite.error.message}
           </p>
         )}
 
         {projectCount === 0 ? (
-          <div className="grid min-h-56 place-content-center justify-items-center gap-2 rounded-md border border-dashed border-border bg-surface-panel text-center text-[10px] text-text-muted">
-            <FolderOpen size={22} />
-            <strong className="text-[11px] text-foreground">Chưa có project</strong>
-            <span>Tạo project mới để bắt đầu workflow trên desktop.</span>
-          </div>
+          <EmptyState title="Chưa có project" description="Tạo project mới để bắt đầu workflow trên desktop." />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2.5">
             {projects.data.content.map((project) => (
@@ -293,7 +265,7 @@ export function ProjectsScreen() {
                   </button>
                   <button
                     type="button"
-                    className="nx-icon-button size-7 text-text-dim hover:border-danger-border hover:bg-danger-bg hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                    className="nx-icon-button size-7 text-text-dim hover:bg-danger-bg hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={`Xoá project ${project.name}`}
                     disabled={deleteProject.isPending}
                     onClick={() => {
@@ -308,7 +280,7 @@ export function ProjectsScreen() {
             ))}
           </div>
         )}
-      </div>
+      </FeaturePage>
 
       <Dialog
         open={projectToDelete !== null}
@@ -322,21 +294,15 @@ export function ProjectsScreen() {
         >
           <DialogCloseButton disabled={deleteProject.isPending} />
           <DialogHeader className="pr-6 text-left">
-            <DialogTitle className="text-sm text-foreground">Xoá project?</DialogTitle>
-            <DialogDescription
-              id="delete-project-description"
-              className="text-[10px] leading-5 text-text-muted"
-            >
+            <DialogTitle className="text-[14px] text-foreground">Xoá project?</DialogTitle>
+            <DialogDescription id="delete-project-description" className="text-[11px] leading-5 text-text-muted">
               Project <strong className="font-semibold text-foreground">{projectToDelete?.name}</strong>{" "}
               sẽ biến mất khỏi workspace. Dữ liệu local vẫn được giữ lại để backup hoặc khôi phục.
             </DialogDescription>
           </DialogHeader>
 
           {deleteProject.isError && (
-            <p
-              className="m-0 rounded-sm border border-danger-border bg-danger-bg px-2 py-1.5 text-[9px] text-danger"
-              role="alert"
-            >
+            <p className="m-0 border-l-2 border-danger bg-danger-bg px-2.5 py-2 text-[10px] text-danger" role="alert">
               Không thể xoá project: {deleteProject.error.message}
             </p>
           )}
@@ -347,7 +313,6 @@ export function ProjectsScreen() {
               size="sm"
               disabled={deleteProject.isPending}
               onClick={() => setProjectToDelete(null)}
-              className="h-8 text-[10px]"
             >
               Huỷ
             </Button>
@@ -356,7 +321,6 @@ export function ProjectsScreen() {
               size="sm"
               disabled={deleteProject.isPending}
               onClick={confirmDeleteProject}
-              className="h-8 text-[10px]"
             >
               <Trash2 size={12} />
               {deleteProject.isPending ? "Đang xoá…" : "Xoá project"}
@@ -364,6 +328,6 @@ export function ProjectsScreen() {
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </>
   );
 }
