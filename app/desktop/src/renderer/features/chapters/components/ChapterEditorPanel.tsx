@@ -61,7 +61,7 @@ export function ChapterEditorPanel({
 
   return (
     <>
-      <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">
+      <WorkspacePane className="h-fit max-h-full w-full max-w-[980px] self-start justify-self-center border-r border-border-subtle bg-surface-panel flex flex-col">
         <PaneHeader
           title={selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
           meta={
@@ -84,7 +84,7 @@ export function ChapterEditorPanel({
           }
         />
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+        <div className="min-h-0 space-y-3 overflow-y-auto px-4 py-4">
           <ChapterWritingForm
             title={title}
             sourceText={sourceText}
@@ -109,7 +109,7 @@ export function ChapterEditorPanel({
           />
         </div>
 
-        <footer className="shrink-0 border-t border-border-subtle bg-surface-panel px-3 py-2.5">
+        <footer className="shrink-0 border-t border-border-subtle bg-surface-panel px-4 py-2.5">
           {notice && (
             <p className="mb-2 text-[10px] leading-4 text-text-secondary" role="status">
               {notice}
