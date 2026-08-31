@@ -4,7 +4,7 @@
 
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
-- Runtime: Java 25, Spring Boot 4.1.0.
+- Runtime: Java 25, Spring Boot 4.1.1.
 - Persistence: MyBatis + explicit PostgreSQL SQL is the sole production application persistence path; Flyway owns schema evolution.
 - Runtime state: Spring Session JDBC, one-time Desktop OAuth handoffs, durable generation/outbox state and worker claims all use PostgreSQL. Redis is not required by the MVP runtime.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus separate Python asynchronous provider/media workers.
