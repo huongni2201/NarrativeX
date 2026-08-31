@@ -77,33 +77,41 @@ export function AssetsScreen({
       description="Quản lý metadata và file project-local trên máy hiện tại trong cùng một feature."
       actions={
         <Button size="sm" onClick={() => void importAsset()} disabled={busy}>
-          <Plus size={14} /> {busy ? "Importing…" : "Import asset"}
+          <Plus size={13} /> {busy ? "Importing…" : "Import asset"}
         </Button>
       }
     >
-      {notice && <p className="mb-3 text-[10px] text-muted-foreground">{notice}</p>}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3">
+      {notice && (
+        <p className="mb-3 border-l-2 border-border-dark bg-surface-panel px-3 py-2 text-[10px] leading-4 text-text-muted" role="status">
+          {notice}
+        </p>
+      )}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-2.5">
         {assets.map((asset) => {
           const localState = localStates[asset.id];
           const Icon = asset.type === "AUDIO" ? FileAudio : asset.type === "IMAGE" ? FileImage : Film;
+          const needsRepair = Boolean(localState && localState !== "AVAILABLE");
           return (
-            <article key={asset.id} className="overflow-hidden rounded-lg border border-border bg-card">
-              <div className="grid min-h-28 place-items-center bg-secondary text-primary-hover">
-                <Icon size={28} />
+            <article key={asset.id} className="overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-border-dark">
+              <div className="grid min-h-24 place-items-center border-b border-border-subtle bg-surface-dark text-text-muted">
+                <Icon size={24} strokeWidth={1.5} />
               </div>
-              <div className="grid gap-2 p-3">
+              <div className="grid gap-2.5 p-3">
                 <div>
-                  <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">{asset.type}</span>
-                  <h2 className="truncate text-xs font-semibold" title={asset.originalFilename}>{asset.originalFilename}</h2>
+                  <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-text-dim">{asset.type}</span>
+                  <h2 className="mt-0.5 truncate text-[12px] font-semibold text-foreground" title={asset.originalFilename}>{asset.originalFilename}</h2>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  {formatBytes(asset.sizeBytes)}
-                  {asset.durationMs ? ` · ${formatDuration(asset.durationMs)}` : ""}
-                  {` · ${asset.status} · ${localState ?? "MISSING"}`}
-                </p>
-                {localState && localState !== "AVAILABLE" && (
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-text-muted">
+                  <span>{formatBytes(asset.sizeBytes)}</span>
+                  {asset.durationMs ? <><span className="text-text-dim">·</span><span>{formatDuration(asset.durationMs)}</span></> : null}
+                  <span className="text-text-dim">·</span>
+                  <span>{asset.status}</span>
+                  <span className="text-text-dim">·</span>
+                  <span className={needsRepair ? "text-warning" : "text-success"}>{localState ?? "MISSING"}</span>
+                </div>
+                {needsRepair && (
                   <Button variant="outline" size="sm" onClick={() => void importAsset(asset.id)} disabled={busy}>
-                    <Wrench size={13} /> Repair local file
+                    <Wrench size={12} /> Repair local file
                   </Button>
                 )}
               </div>
