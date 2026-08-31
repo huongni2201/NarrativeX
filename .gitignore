@@ -15,6 +15,7 @@
 # Node / Electron Desktop
 # ==========================================
 node_modules/
+.worktrees/
 .turbo/
 .pnpm-store/
 *.tsbuildinfo
