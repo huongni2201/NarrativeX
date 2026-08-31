@@ -219,7 +219,6 @@ export function EditorPreviewViewport({
               style={{
                 objectFit,
                 transform: playback?.imageTransform || "scale(1)",
-                transition: playing ? "transform 90ms linear" : "none",
               }}
               draggable={false}
             />
