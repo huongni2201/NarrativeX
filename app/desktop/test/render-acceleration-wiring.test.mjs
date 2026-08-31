@@ -34,7 +34,7 @@ test("segment renderer uses a bounded worker pool and encoder-aware cache", () =
   const renderer = source("src/main/rendering/segment-renderer.ts");
   assert.match(renderer, /Promise\.all\(Array\.from\(\{ length: concurrency \}, \(\) => worker\(\)\)\)/);
   assert.match(renderer, /segmentCacheKey\(manifest, beat, videoEncoder\)/);
-  assert.match(renderer, /rendererVersion: "segment-render-v5"/);
+  assert.match(renderer, /rendererVersion: "segment-render-v6-global-frame-clock"/);
   assert.match(renderer, /failureController\.abort/);
 });
 
