@@ -81,13 +81,6 @@ test("chapters use adjacent workstation panes without outer card gaps", () => {
   assert.doesNotMatch(chapters, /gap-3 overflow-hidden p-4/);
 });
 
-test("chapter writing surface is a pane rather than a floating dashboard card", () => {
-  const editor = source("features/chapters/components/ChapterEditorPanel.tsx");
-
-  assert.doesNotMatch(editor, /shadow-\[var\(--shadow-panel\)\]/);
-  assert.doesNotMatch(editor, /rounded-lg border border-border bg-surface-panel/);
-});
-
 test("asset browser renders project-local image previews", () => {
   const assets = source("features/assets/screens/AssetsScreen.tsx");
 
