@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ImageGenerationProvider, VisualGenerationMode } from "@narrativex/client-contracts";
 import { PencilLine, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaneHeader, WorkspacePane } from "../../workspace/components/WorkstationPrimitives";
 import { AnalyzeChapterDialog } from "./AnalyzeChapterDialog";
 import { ChapterAudioPanel } from "./ChapterAudioPanel";
 import { ChapterNextActions } from "./ChapterNextActions";
@@ -60,38 +61,30 @@ export function ChapterEditorPanel({
 
   return (
     <>
-      <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <PencilLine className="text-text-secondary" size={18} />
-              <h2 className="text-base font-bold text-foreground">
-                {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
-              </h2>
-            </div>
-            <p className="mt-0.5 text-xs text-text-muted">
-              {selected
-                ? "Lưu thay đổi trước khi chạy các bước phân tích hoặc tạo audio."
-                : "Nhập nội dung chapter rồi lưu để tiếp tục pipeline."}
-            </p>
-          </div>
+      <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">
+        <PaneHeader
+          title={selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
+          meta={
+            selected
+              ? "Lưu thay đổi trước khi phân tích hoặc tạo narration."
+              : "Nhập và lưu chapter trước khi tiếp tục production pipeline."
+          }
+          actions={
+            selected ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onBeginCreate}
+                disabled={busy}
+              >
+                <Plus size={12} /> Chapter mới
+              </Button>
+            ) : undefined
+          }
+        />
 
-          {selected && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onBeginCreate}
-              disabled={busy}
-              className="h-8 shrink-0 gap-1.5 text-xs"
-            >
-              <Plus size={13} />
-              Chapter mới
-            </Button>
-          )}
-        </header>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
           <ChapterWritingForm
             title={title}
             sourceText={sourceText}
@@ -116,32 +109,32 @@ export function ChapterEditorPanel({
           />
         </div>
 
-        <footer className="shrink-0 border-t border-border bg-surface-panel px-5 py-3">
+        <footer className="shrink-0 border-t border-border-subtle bg-surface-panel px-3 py-2.5">
           {notice && (
-            <p className="mb-2 text-xs text-text-secondary" role="status">
+            <p className="mb-2 text-[10px] leading-4 text-text-secondary" role="status">
               {notice}
             </p>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-end gap-2">
             <Button
               variant="outline"
               onClick={onCancel}
               disabled={busy}
-              className="h-9 flex-1 border-border bg-surface-input text-xs font-semibold text-text-secondary"
+              className="min-w-24"
             >
               Hủy
             </Button>
             <Button
               onClick={onSave}
               disabled={!title.trim() || !sourceText.trim() || busy || !isDirty}
-              className="h-9 flex-1 gap-1.5 text-xs font-bold"
+              className="min-w-36 gap-1.5"
             >
               <PencilLine size={13} />
               <span>{saveBusy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
             </Button>
           </div>
         </footer>
-      </section>
+      </WorkspacePane>
 
       {analyzeModalOpen && selected && (
         <AnalyzeChapterDialog
