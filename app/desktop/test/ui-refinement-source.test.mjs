@@ -96,3 +96,26 @@ test("settings groups runtime diagnostics and project defaults", () => {
   assert.match(settings, /Project Defaults/);
   assert.doesNotMatch(settings, /max-w-3xl divide-y/);
 });
+
+test("chapter editor delegates focused writing responsibilities", () => {
+  const panel = source("features/chapters/components/ChapterEditorPanel.tsx");
+
+  assert.match(panel, /ChapterWritingForm/);
+  assert.match(panel, /ChapterAudioPanel/);
+  assert.match(panel, /ChapterNextActions/);
+  assert.match(panel, /AnalyzeChapterDialog/);
+  assert.doesNotMatch(panel, /function AudioChapterCard/);
+  assert.doesNotMatch(panel, /function AnalyzeChapterModal/);
+});
+
+test("chapter writing surface is an adjacent workstation pane", () => {
+  const panel = source("features/chapters/components/ChapterEditorPanel.tsx");
+  const audio = source("features/chapters/components/ChapterAudioPanel.tsx");
+
+  assert.match(panel, /WorkspacePane/);
+  assert.match(panel, /PaneHeader/);
+  assert.doesNotMatch(panel, /shadow-\[var\(--shadow-panel\)\]/);
+  assert.doesNotMatch(panel, /rounded-lg border border-border bg-surface-panel/);
+  assert.match(audio, /border-t border-border-subtle/);
+  assert.doesNotMatch(audio, /space-y-3 rounded-lg border border-border bg-surface p-3\.5/);
+});
