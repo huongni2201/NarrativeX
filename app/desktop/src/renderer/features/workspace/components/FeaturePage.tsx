@@ -6,12 +6,14 @@ export function FeaturePage({
   description,
   actions,
   children,
+  contentClassName = "min-h-0 overflow-auto bg-background p-3",
 }: Readonly<{
   eyebrow?: string;
   title: string;
   description: string;
   actions?: ReactNode;
   children: ReactNode;
+  contentClassName?: string;
 }>) {
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background">
@@ -30,7 +32,7 @@ export function FeaturePage({
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </header>
-      <div className="min-h-0 overflow-auto bg-background p-3">{children}</div>
+      <div className={contentClassName}>{children}</div>
     </div>
   );
 }
