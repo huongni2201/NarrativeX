@@ -4,6 +4,7 @@ import type {
   DesktopRenderJob,
   DesktopTimeline,
   LocalRenderPreflight,
+  RenderFrameRate,
   RenderResolution,
 } from "@narrativex/client-contracts";
 import { useGenerationJob } from "../generation/queries/generation.queries";
@@ -22,6 +23,7 @@ export function useRenderController({
   projectName?: string;
 }>) {
   const [resolution, setResolution] = useState<RenderResolution>("1080p");
+  const [frameRate, setFrameRate] = useState<RenderFrameRate>(30);
   const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("AUTO");
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const [job, setJob] = useState<DesktopRenderJob | null>(null);
@@ -99,7 +101,7 @@ export function useRenderController({
     setNotice("Đang kiểm tra runtime, media local và dung lượng trước khi render…");
     try {
       const nextPreflight = await productionApi.preflight(
-        buildRenderPreflightInput(projectId, timeline, resolution),
+        buildRenderPreflightInput(projectId, timeline, resolution, frameRate),
       );
       setPreflight(nextPreflight);
       if (!nextPreflight.ready) {
@@ -111,12 +113,13 @@ export function useRenderController({
         projectId,
         autoEditPlan.renderOverrides,
         resolution,
+        frameRate,
         subtitlesEnabled,
       );
       deliveringJobRef.current = null;
       setJob(nextJob);
       setNotice(
-        `Render ${resolutionLabel(resolution)} đã được queue. File final sẽ lưu vào ${destinationDirectory}.`,
+        `Render ${resolutionLabel(resolution)} · ${frameRate} FPS đã được queue. File final sẽ lưu vào ${destinationDirectory}.`,
       );
     } catch (error) {
       setNotice(toMessage(error));
@@ -128,6 +131,8 @@ export function useRenderController({
   return {
     resolution,
     setResolution,
+    frameRate,
+    setFrameRate,
     autoEditStyle,
     setAutoEditStyle,
     subtitlesEnabled,
