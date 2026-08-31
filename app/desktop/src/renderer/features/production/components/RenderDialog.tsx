@@ -1,4 +1,4 @@
-import type { AutoEditStyle, RenderResolution } from "@narrativex/client-contracts";
+import type { AutoEditStyle, RenderFrameRate, RenderResolution } from "@narrativex/client-contracts";
 import { Film, FolderOpen, Loader2, Type, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +41,7 @@ export function RenderDialog({
         </header>
 
         <div className="grid gap-4 p-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <label className="grid gap-1 text-[10px] text-muted-foreground">
               Resolution
               <Select
@@ -53,6 +53,20 @@ export function RenderDialog({
                   <SelectItem value="720p">720p · HD</SelectItem>
                   <SelectItem value="1080p">1080p · Full HD</SelectItem>
                   <SelectItem value="1440p">2K · 1440p QHD</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="grid gap-1 text-[10px] text-muted-foreground">
+              Frame rate
+              <Select
+                value={String(controller.frameRate)}
+                onValueChange={(value) => controller.setFrameRate(Number(value) as RenderFrameRate)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 FPS · Recommended</SelectItem>
+                  <SelectItem value="60">60 FPS · Smooth</SelectItem>
                 </SelectContent>
               </Select>
             </label>
