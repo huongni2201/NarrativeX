@@ -37,18 +37,18 @@ export function ChapterWritingForm({
         </div>
       </div>
 
-      <div className="flex min-h-[240px] flex-col space-y-1.5">
+      <div className="flex h-[clamp(300px,42vh,520px)] flex-col space-y-1.5">
         <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-source">
           Nội dung chapter <span className="text-danger">*</span>
         </label>
-        <div className="relative flex flex-1 flex-col overflow-hidden rounded-md border border-border bg-surface-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-surface-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
           <Textarea
             id="chapter-source"
             name="chapter-source"
             value={sourceText}
             onChange={(event) => onSourceTextChange(event.target.value)}
             placeholder="Nhập nội dung chapter..."
-            className="min-h-[100px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
+            className="min-h-0 flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
           />
           <div className="flex items-center justify-between border-t border-border-subtle bg-surface-2 px-3 py-1.5 text-[10px] text-text-dim">
             <span>{wordCount(sourceText).toLocaleString("vi-VN")} từ</span>
