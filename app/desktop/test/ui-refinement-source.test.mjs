@@ -40,3 +40,34 @@ test("editor workstation avoids decorative hard-coded selected glows", () => {
   assert.doesNotMatch(timeline, /bg-\[#090d15\]/);
   assert.doesNotMatch(timeline, /shadow-\[0_0_8px_rgba\(255,138,0,0\.6\)\]/);
 });
+
+test("dense workstation primitives are shared instead of screen-local shells", () => {
+  const primitives = source("features/workspace/components/WorkstationPrimitives.tsx");
+
+  assert.match(primitives, /export function WorkspacePane/);
+  assert.match(primitives, /export function WorkspaceToolbar/);
+  assert.match(primitives, /export function PropertyRow/);
+  assert.match(primitives, /export function InlineNotice/);
+});
+
+test("storyboard no longer reserves separate chapter and scene rails", () => {
+  const storyboard = source("features/storyboard/screens/StoryboardScreen.tsx");
+
+  assert.doesNotMatch(storyboard, /grid-cols-\[130px_320px_minmax\(0,1fr\)\]/);
+  assert.match(storyboard, /StoryboardNavigator/);
+});
+
+test("visual beat cards use an adaptive media-first grid", () => {
+  const beats = source("features/storyboard/components/VisualBeatGrid.tsx");
+
+  assert.match(beats, /repeat\(auto-fill,minmax/);
+  assert.match(beats, /aspect-video/);
+  assert.doesNotMatch(beats, />Gemini Web</);
+  assert.doesNotMatch(beats, />Generate New</);
+});
+
+test("chapters use adjacent workstation panes without outer card gaps", () => {
+  const chapters = source("features/chapters/screens/ChaptersScreen.tsx");
+
+  assert.doesNotMatch(chapters, /gap-3 overflow-hidden p-4/);
+});
