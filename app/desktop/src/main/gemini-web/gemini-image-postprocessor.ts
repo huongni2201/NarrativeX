@@ -3,7 +3,9 @@ import { spawn } from "node:child_process";
 import { rm, stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 
-const WATERMARK_REMOVER_PACKAGE = "@pilio/gemini-watermark-remover";
+const WATERMARK_REMOVER_PACKAGE = "@pilio/gemini-watermark-remover@1.0.41";
+const WATERMARK_REMOVER_BINARY = "gwr";
+const SHARP_PACKAGE = "sharp@0.35.4";
 const POSTPROCESS_TIMEOUT_MS = 120_000;
 const MAX_STDERR_CHARS = 8_000;
 
@@ -40,17 +42,7 @@ export async function cleanupGeminiTempFile(sourcePath: string): Promise<void> {
 }
 
 async function runWatermarkRemover(sourcePath: string, outputPath: string): Promise<void> {
-  const pnpmArgs = [
-    "dlx",
-    WATERMARK_REMOVER_PACKAGE,
-    "remove",
-    sourcePath,
-    "--output",
-    outputPath,
-  ];
-  const isWindows = process.platform === "win32";
-  const command = isWindows ? process.env.ComSpec || "cmd.exe" : "pnpm";
-  const args = isWindows ? ["/d", "/s", "/c", "pnpm.cmd", ...pnpmArgs] : pnpmArgs;
+  const { command, args } = createWatermarkRemoverCommand(sourcePath, outputPath);
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -99,4 +91,28 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
       finish(new Error("Gemini watermark remover timed out after 120 seconds."));
     }, POSTPROCESS_TIMEOUT_MS);
   });
+}
+
+export function createWatermarkRemoverCommand(
+  sourcePath: string,
+  outputPath: string,
+  platform: NodeJS.Platform = process.platform,
+  comSpec: string | undefined = process.env.ComSpec,
+): { command: string; args: string[] } {
+  const pnpmArgs = [
+    "dlx",
+    "--package",
+    SHARP_PACKAGE,
+    "--package",
+    WATERMARK_REMOVER_PACKAGE,
+    WATERMARK_REMOVER_BINARY,
+    "remove",
+    sourcePath,
+    "--output",
+    outputPath,
+  ];
+  const isWindows = platform === "win32";
+  const command = isWindows ? comSpec || "cmd.exe" : "pnpm";
+  const args = isWindows ? ["/d", "/s", "/c", "pnpm.cmd", ...pnpmArgs] : pnpmArgs;
+  return { command, args };
 }

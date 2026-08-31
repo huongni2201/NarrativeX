@@ -26,6 +26,24 @@ export interface EditorScopeWindow {
   beats: DesktopTimelineBeat[];
 }
 
+export function timelineSpanStyle(
+  startMs: number,
+  endMs: number,
+  totalMs: number,
+): { left: string; width: string } {
+  const left = timelinePercent(startMs, totalMs);
+  const requestedWidth = Math.max(
+    0.7,
+    timelinePercent(Math.max(0, endMs - startMs), totalMs),
+  );
+  const width = Math.max(0, Math.min(100 - left, requestedWidth));
+
+  return {
+    left: `${roundedPercent(left)}%`,
+    width: `${roundedPercent(width)}%`,
+  };
+}
+
 export function sortEditorBeats(beats: readonly DesktopTimelineBeat[]): DesktopTimelineBeat[] {
   return [...beats].sort(compareBeats);
 }
@@ -193,4 +211,12 @@ function windowFromBeats(
 
 function compareBeats(left: DesktopTimelineBeat, right: DesktopTimelineBeat) {
   return left.startMs - right.startMs || left.beatIndex - right.beatIndex;
+}
+
+function timelinePercent(value: number, total: number): number {
+  return Math.max(0, Math.min(100, (value / Math.max(1, total)) * 100));
+}
+
+function roundedPercent(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
 }

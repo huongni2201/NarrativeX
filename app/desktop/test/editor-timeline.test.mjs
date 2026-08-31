@@ -5,6 +5,7 @@ import {
   findEditorBeatAtTime,
   resolveEditorScopeWindow,
   sortEditorBeats,
+  timelineSpanStyle,
 } from "../src/renderer/features/editor/editor-timeline.ts";
 
 const chapters = [
@@ -121,6 +122,17 @@ test("editor scope resolves beat, scene, chapter and project windows without pre
     [projectWindow.startMs, projectWindow.endMs, projectWindow.beats.length],
     [0, 32_000, 4],
   );
+});
+
+test("timeline clips never extend beyond the narration end", () => {
+  assert.deepEqual(timelineSpanStyle(99_800, 100_000, 100_000), {
+    left: "99.8%",
+    width: "0.2%",
+  });
+  assert.deepEqual(timelineSpanStyle(50_000, 50_100, 100_000), {
+    left: "50%",
+    width: "0.7%",
+  });
 });
 
 function beat(chapterId, sceneIndex, beatIndex, visualBeatId, startMs, endMs) {

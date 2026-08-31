@@ -35,6 +35,44 @@ class ProjectLocalMediaAccessTest {
   }
 
   @Test
+  void createsCapabilityForWorkerProjectScopedNarration() throws Exception {
+    String storageKey =
+        "projects/01a04feb-9dd7-7271-9242-f7920cbf266a/assets/audio/chapter-ce4efdda466d2974.mp3";
+    Path audio = root.resolve(storageKey);
+    Files.createDirectories(audio.getParent());
+    Files.write(audio, new byte[] {1, 2, 3, 4});
+    ProjectLocalMediaAccess access =
+        new ProjectLocalMediaAccess(root.toString(), "http://localhost:8080");
+
+    assertThat(access.supports("projects/not-a-project/assets/audio/chapter.mp3")).isFalse();
+    var url = access.createDownloadUrl(storageKey, Instant.now().plusSeconds(60));
+    var resolved = access.resolve(token(url.getPath()));
+
+    assertThat(resolved.resource().getFile()).isEqualTo(audio.toFile());
+    assertThat(resolved.contentType().toString()).isEqualTo("audio/mpeg");
+  }
+
+  @Test
+  void rejectsProjectAssetKeyThatEscapesItsAssetsDirectory() throws Exception {
+    String projectId = "01a04feb-9dd7-7271-9242-f7920cbf266a";
+    Path manifest = root.resolve("projects/" + projectId + "/project.manifest.json");
+    Files.createDirectories(manifest.getParent());
+    Files.writeString(manifest, "{}");
+    ProjectLocalMediaAccess access =
+        new ProjectLocalMediaAccess(root.toString(), "http://localhost:8080");
+
+    assertThatThrownBy(
+            () ->
+                access.createDownloadUrl(
+                    "projects/"
+                        + projectId
+                        + "/assets/audio/../../project.manifest.json",
+                    Instant.now().plusSeconds(60)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Unsupported");
+  }
+
+  @Test
   void defaultsBlankPublicBaseUrlAndSupportsProviderResults() throws Exception {
     Path image = root.resolve("private/provider-results/job-1/frame.png");
     Files.createDirectories(image.getParent());

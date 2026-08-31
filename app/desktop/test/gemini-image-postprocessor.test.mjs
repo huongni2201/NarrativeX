@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import * as postprocessor from "../src/main/gemini-web/gemini-image-postprocessor.ts";
 
 const postprocessorSource = await readFile(
   new URL("../src/main/gemini-web/gemini-image-postprocessor.ts", import.meta.url),
@@ -25,6 +26,40 @@ test("Windows launches pnpm.cmd through cmd.exe instead of spawning the .cmd fil
   assert.match(postprocessorSource, /["']\/d["']/);
   assert.match(postprocessorSource, /["']\/s["']/);
   assert.match(postprocessorSource, /["']\/c["']/);
+});
+
+test("watermark remover installs sharp in the same dlx environment", () => {
+  const createCommand = postprocessor.createWatermarkRemoverCommand;
+  assert.equal(typeof createCommand, "function");
+  if (typeof createCommand !== "function") return;
+
+  assert.deepEqual(
+    createCommand(
+      "C:\\images\\generated image.png",
+      "C:\\images\\clean image.png",
+      "win32",
+      "C:\\Windows\\System32\\cmd.exe",
+    ),
+    {
+      command: "C:\\Windows\\System32\\cmd.exe",
+      args: [
+        "/d",
+        "/s",
+        "/c",
+        "pnpm.cmd",
+        "dlx",
+        "--package",
+        "sharp@0.35.4",
+        "--package",
+        "@pilio/gemini-watermark-remover@1.0.41",
+        "gwr",
+        "remove",
+        "C:\\images\\generated image.png",
+        "--output",
+        "C:\\images\\clean image.png",
+      ],
+    },
+  );
 });
 
 test("Gemini generation stages only the postprocessed image", () => {

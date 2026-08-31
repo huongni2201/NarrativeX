@@ -10,6 +10,10 @@ import type {
 import type { LocalRenderPreflightInput } from "../../../../preload/types";
 import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
+import {
+  prepareLocalRenderExecutor,
+  runLocalRenderPreflight,
+} from "../local-render-executor";
 
 function isTimeline(value: unknown): value is DesktopTimeline {
   return (
@@ -59,22 +63,11 @@ export const productionApi = {
     frameRate: RenderFrameRate = 30,
     subtitlesEnabled = true,
   ) => {
-    const status = await window.narrativex.localExecution.status();
+    const status = await prepareLocalRenderExecutor(localRenderExecutorDependencies());
     if (!status.projectRenderEnabled) {
       throw new Error("Local FFmpeg rendering is not enabled.");
     }
-
-    let localDeviceId = status.deviceId;
-    if (status.state === "UNPAIRED") {
-      const pairing = await apiRequest<{ code: string; expiresAt: string }>(
-        "/api/v1/local-devices/pairing-codes",
-        { method: "POST" },
-      );
-      const paired = await window.narrativex.localExecution.pair(pairing.code);
-      localDeviceId = paired.deviceId;
-    }
-
-    if (!localDeviceId) throw new Error("Desktop local executor is not online.");
+    const localDeviceId = status.deviceId;
 
     return apiRequest<unknown>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/production/render`,
@@ -97,5 +90,20 @@ export const productionApi = {
   },
 
   preflight: (input: LocalRenderPreflightInput): Promise<LocalRenderPreflight> =>
-    window.narrativex.render.preflight(input),
+    runLocalRenderPreflight(input, {
+      ...localRenderExecutorDependencies(),
+      preflight: (preflightInput) => window.narrativex.render.preflight(preflightInput),
+    }),
 };
+
+function localRenderExecutorDependencies() {
+  return {
+    status: () => window.narrativex.localExecution.status(),
+    requestPairingCode: () =>
+      apiRequest<{ code: string; expiresAt: string }>(
+        "/api/v1/local-devices/pairing-codes",
+        { method: "POST" },
+      ),
+    pair: (code: string) => window.narrativex.localExecution.pair(code),
+  };
+}

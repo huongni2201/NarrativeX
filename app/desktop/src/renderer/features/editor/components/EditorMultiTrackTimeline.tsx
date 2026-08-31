@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Eye, Film, Lock, Type, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
+import { timelineSpanStyle } from "../editor-timeline";
 
 interface EditorMultiTrackTimelineProps {
   beats: DesktopTimelineBeat[];
@@ -82,7 +83,7 @@ export function EditorMultiTrackTimeline({
               <div
                 key={chapter.chapterId}
                 className="absolute inset-y-1 flex items-center overflow-hidden rounded-md border border-emerald-800 bg-emerald-950/70 px-2 text-[10px] text-emerald-300"
-                style={spanStyle(chapter.startMs, chapter.endMs, effectiveTotalMs)}
+                style={timelineSpanStyle(chapter.startMs, chapter.endMs, effectiveTotalMs)}
                 title={`${chapter.title} · narration`}
               >
                 <span className="truncate">{chapter.title}</span>
@@ -103,8 +104,8 @@ export function EditorMultiTrackTimeline({
                     onSelectBeat(beat);
                     onSeek(beat.startMs);
                   }}
-                  className={`absolute inset-y-1 flex min-w-8 items-center overflow-hidden rounded-md border px-2 text-left ${selected ? "z-10 border-primary bg-[#13233d] ring-1 ring-primary" : "border-[#1d3d6b] bg-[#0f1b2e] hover:border-info/60"}`}
-                  style={spanStyle(beat.startMs, beat.endMs, effectiveTotalMs)}
+                  className={`absolute inset-y-1 flex items-center overflow-hidden rounded-md border px-2 text-left ${selected ? "z-10 border-primary bg-[#13233d] ring-1 ring-primary" : "border-[#1d3d6b] bg-[#0f1b2e] hover:border-info/60"}`}
+                  style={timelineSpanStyle(beat.startMs, beat.endMs, effectiveTotalMs)}
                   title={`${beat.title} · ${formatDurationSeconds(beat.durationMs)}`}
                 >
                   <Film size={11} className="mr-1 shrink-0 text-blue-400" />
@@ -118,8 +119,8 @@ export function EditorMultiTrackTimeline({
             {subtitleCues.length ? subtitleCues.map((cue, index) => (
               <div
                 key={`${cue.chapterId}:${cue.startMs}:${index}`}
-                className="absolute inset-y-1 flex min-w-6 items-center overflow-hidden rounded border border-amber-700/70 bg-amber-950/50 px-1.5 text-[9px] text-amber-100"
-                style={spanStyle(cue.startMs, cue.endMs, effectiveTotalMs)}
+                className="absolute inset-y-1 flex items-center overflow-hidden rounded border border-amber-700/70 bg-amber-950/50 px-1.5 text-[9px] text-amber-100"
+                style={timelineSpanStyle(cue.startMs, cue.endMs, effectiveTotalMs)}
                 title={`${formatRulerTime(cue.startMs)} · ${cue.text}`}
               >
                 <Type size={9} className="mr-1 shrink-0 text-amber-400" />
@@ -173,12 +174,6 @@ function EmptyTrackLabel({ label }: Readonly<{ label: string }>) {
 
 function percent(value: number, total: number): number {
   return Math.max(0, Math.min(100, (value / Math.max(1, total)) * 100));
-}
-
-function spanStyle(startMs: number, endMs: number, totalMs: number): React.CSSProperties {
-  const left = percent(startMs, totalMs);
-  const width = Math.max(0.7, percent(Math.max(0, endMs - startMs), totalMs));
-  return { left: `${left}%`, width: `${width}%` };
 }
 
 function formatRulerTime(ms: number): string {

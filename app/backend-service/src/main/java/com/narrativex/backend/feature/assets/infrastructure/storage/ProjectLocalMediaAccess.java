@@ -21,6 +21,8 @@ import org.springframework.stereotype.Component;
 public class ProjectLocalMediaAccess implements MediaStorageAccess {
   private static final String NARRATION_PREFIX = "narration/";
   private static final String PROVIDER_RESULTS_PREFIX = "private/provider-results/";
+  private static final String PROJECTS_SEGMENT = "projects";
+  private static final String PROJECT_ASSETS_SEGMENT = "assets";
 
   private final Path root;
   private final URI publicBaseUrl;
@@ -39,7 +41,27 @@ public class ProjectLocalMediaAccess implements MediaStorageAccess {
   public boolean supports(String storageKey) {
     if (storageKey == null) return false;
     return storageKey.startsWith(NARRATION_PREFIX)
-        || storageKey.startsWith(PROVIDER_RESULTS_PREFIX);
+        || storageKey.startsWith(PROVIDER_RESULTS_PREFIX)
+        || isProjectAssetKey(storageKey);
+  }
+
+  private static boolean isProjectAssetKey(String storageKey) {
+    if (storageKey.indexOf('\\') >= 0) return false;
+    String[] segments = storageKey.split("/", -1);
+    if (segments.length < 4
+        || !PROJECTS_SEGMENT.equals(segments[0])
+        || !PROJECT_ASSETS_SEGMENT.equals(segments[2])) {
+      return false;
+    }
+    for (String segment : segments) {
+      if (segment.isBlank() || ".".equals(segment) || "..".equals(segment)) return false;
+    }
+    try {
+      UUID.fromString(segments[1]);
+      return true;
+    } catch (IllegalArgumentException ignored) {
+      return false;
+    }
   }
 
   @Override
