@@ -1,4 +1,5 @@
 import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
+import { cssImageTransform } from "../../../shared/image-motion.ts";
 
 export interface PreviewPlaybackState {
   mediaTimeMs: number;
@@ -54,26 +55,7 @@ export function imageTransformForBeat(
   localMs: number,
 ): string {
   const progress = clamp(localMs / Math.max(1, beat.durationMs), 0, 1);
-  const movement = beat.cameraMovement?.trim().toUpperCase() || "NONE";
-
-  switch (movement) {
-    case "PUSH_IN":
-    case "ZOOM_IN":
-      return `scale(${(1 + progress * 0.08).toFixed(4)})`;
-    case "PULL_OUT":
-    case "ZOOM_OUT":
-      return `scale(${(1.08 - progress * 0.08).toFixed(4)})`;
-    case "PAN":
-      return `scale(1.06) translateX(${(-3 + progress * 6).toFixed(3)}%)`;
-    case "TILT":
-      return `scale(1.06) translateY(${(3 - progress * 6).toFixed(3)}%)`;
-    case "TRACK":
-      return `scale(1.04) translateX(${(-2 + progress * 4).toFixed(3)}%)`;
-    case "PARALLAX":
-      return `scale(${(1.03 + progress * 0.04).toFixed(4)}) translate(${(-1.5 + progress * 3).toFixed(3)}%, ${(1 - progress * 2).toFixed(3)}%)`;
-    default:
-      return "scale(1)";
-  }
+  return cssImageTransform(beat.cameraMovement, progress);
 }
 
 export function narrationTimeMs(
