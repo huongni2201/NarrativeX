@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ENTITY_KEY_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 
@@ -205,14 +205,6 @@ class ChapterAnalysisRequest(BaseModel):
     image_provider: str | None = Field(default="API", pattern=r"^(GEMINI_WEB|API)$")
     safety_policy_version: str = Field(default="safety-v1.8", min_length=1, max_length=64)
     preferred_locale: str = Field(default="vi-VN", min_length=2, max_length=16)
-
-    @field_validator("source_text")
-    @classmethod
-    def validate_estimated_tokens(cls, value: str) -> str:
-        estimated_tokens = max(1, (len(value) + 3) // 4)
-        if estimated_tokens > 120_000:
-            raise ValueError("source_text exceeds the 120000 estimated token limit")
-        return value
 
     @model_validator(mode="after")
     def validate_visual_preferences(self) -> Self:
