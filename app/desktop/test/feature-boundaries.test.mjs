@@ -80,7 +80,7 @@ test("StoryboardScreen composes focused presentation components", () => {
   const componentRoot = join(storyboardRoot, "components");
   const requiredComponents = [
     "StoryboardHeader.tsx",
-    "SceneRail.tsx",
+    "StoryboardNavigator.tsx",
     "VisualBeatGrid.tsx",
     "GeminiQueueBanner.tsx",
   ];
@@ -95,7 +95,7 @@ test("StoryboardScreen composes focused presentation components", () => {
 
   const source = readFileSync(join(storyboardRoot, "screens", "StoryboardScreen.tsx"), "utf8");
   assert.match(source, /<StoryboardHeader\b/);
-  assert.match(source, /<SceneRail\b/);
+  assert.match(source, /<StoryboardNavigator\b/);
   assert.match(source, /<VisualBeatGrid\b/);
   assert.match(source, /<GeminiQueueBanner\b/);
   assert.doesNotMatch(source, /function GeminiQueuePanel\s*\(/);
