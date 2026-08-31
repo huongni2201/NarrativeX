@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { DesktopChapterWorkspace } from "@narrativex/client-contracts";
 import { Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -95,7 +96,7 @@ export function ChapterWorkspaceContext({
   );
 }
 
-function InspectorSection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
+function InspectorSection({ title, children }: Readonly<{ title: string; children: ReactNode }>) {
   return (
     <section className="border-b border-border-subtle">
       <div className="bg-surface-dark px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">
