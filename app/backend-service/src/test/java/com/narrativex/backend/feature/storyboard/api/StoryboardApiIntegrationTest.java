@@ -181,7 +181,7 @@ class StoryboardApiIntegrationTest {
             jsonPath("$.data.scenes[0].visualBeats[0].prompt")
                 .value(
                     containsString(
-                        "SCENE DESCRIPTION: Warm lanterns form a river of light through quiet stone streets.")))
+                        "SCENE DIRECTION: Warm lanterns form a river of light through quiet stone streets.")))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].motionMode").value("BASIC_MOTION"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].cameraMovement").value("PAN"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].reviewStatus").value("APPROVED"))
@@ -297,35 +297,46 @@ class StoryboardApiIntegrationTest {
         REVISION_1);
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
-            + "storyboard_revision_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) "
-            + "VALUES (?, ?, ?, ?, 0, repeat('a', 64), ?, "
-            + "'IMAGE_GENERATE', 'FAILED', 'PROVIDER_INTERACTIVE', 100, 'seed-user-01', 'seed-user-01')",
+            + "storyboard_revision_id, media_plan_id, media_plan_revision, production_mode, job_type, status, "
+            + "resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "VALUES (?, ?, ?, ?, 0, repeat('a', 64), ?, ?, 1, 'IMAGE_MOTION', "
+            + "'CHAPTER_GENERATE', 'FAILED', 'PROVIDER_BATCH', 100, 'seed-user-01', 'seed-user-01')",
         testUuid(6010),
         testUuid(6010),
         PROJECT_1,
         CHAPTER_1,
-        REVISION_1);
-    for (int legacyId = 6011; legacyId <= 6013; legacyId++) {
-      UUID id = testUuid(legacyId);
+        REVISION_1,
+        MEDIA_PLAN_1);
+
+    UUID currentMediaJobId = testUuid(6013);
+    jdbcTemplate.update(
+        "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
+            + "storyboard_revision_id, media_plan_id, media_plan_revision, production_mode, job_type, status, "
+            + "resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "VALUES (?, ?, ?, ?, 1, repeat('b', 64), ?, ?, 2, 'IMAGE_MOTION', "
+            + "'CHAPTER_GENERATE', 'COMPLETED', 'PROVIDER_BATCH', 100, 'seed-user-01', 'seed-user-01')",
+        currentMediaJobId,
+        currentMediaJobId,
+        PROJECT_1,
+        CHAPTER_1,
+        REVISION_3,
+        MEDIA_PLAN_2);
+    for (int itemNumber = 1; itemNumber <= 3; itemNumber++) {
       jdbcTemplate.update(
-          "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
-              + "storyboard_revision_id, media_plan_id, media_plan_revision, production_mode, job_type, status, "
-              + "resource_class, progress, requested_by_user_id, billed_to_user_id) "
-              + "VALUES (?, ?, ?, ?, 1, repeat('b', 64), ?, "
-              + "?, 2, 'IMAGE_MOTION', 'IMAGE_GENERATE', 'COMPLETED', "
-              + "'PROVIDER_INTERACTIVE', 100, 'seed-user-01', 'seed-user-01')",
-          id,
-          id,
-          PROJECT_1,
-          CHAPTER_1,
-          REVISION_3,
-          MEDIA_PLAN_2);
+          "INSERT INTO media_generation_items (id, generation_job_id, media_plan_id, visual_beat_id, item_key, "
+              + "attempt_number, execution_status, request_fingerprint) "
+              + "VALUES (?, ?, ?, ?, ?, 1, 'READY', repeat('c', 64))",
+          testUuid(6020 + itemNumber),
+          currentMediaJobId,
+          MEDIA_PLAN_2,
+          BEAT_1,
+          "beat-" + itemNumber);
     }
     jdbcTemplate.update(
         "INSERT INTO chapter_media_heads (chapter_id, generation_job_id) VALUES (?, ?) "
             + "ON CONFLICT (chapter_id) DO UPDATE SET generation_job_id = EXCLUDED.generation_job_id",
         CHAPTER_1,
-        testUuid(6013));
+        currentMediaJobId);
 
     mockMvc
         .perform(get("/api/v1/projects/" + PROJECT_1 + "/chapters/" + CHAPTER_1 + "/workspace"))
@@ -356,7 +367,7 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data[0].language").value("vi-VN"));
 
     mockMvc
-        .perform(get("/api/v1/assets?type=AUDIO"))
+        .perform(get("/api/v1/assets?projectId=" + PROJECT_1 + "&type=AUDIO"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.items[0].status").value("READY"))
         .andExpect(jsonPath("$.data.items[0].originalFilename").value("river-intro.wav"));
