@@ -19,12 +19,20 @@ class RendererErrorBoundary extends Component<Readonly<{ children: ReactNode }>,
     if (this.state.error) {
       return (
         <main className="grid h-full place-items-center bg-background p-6 text-foreground">
-          <section className="w-full max-w-xl rounded-lg border border-border bg-surface-panel p-6 shadow-xl">
-            <p className="text-[10px] font-bold uppercase tracking-[.18em] text-warning">Renderer error</p>
-            <h1 className="mt-2 text-lg font-semibold">NarrativeX chưa tải được giao diện</h1>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">Một lỗi giao diện đã xảy ra. Hãy thử tải lại ứng dụng; chi tiết lỗi đã được ghi vào console.</p>
-            <pre className="mt-4 max-h-32 overflow-auto rounded-md bg-surface-2 p-3 text-[10px] text-warning">{this.state.error.message}</pre>
-            <button type="button" className="mt-4 h-9 rounded-md bg-primary px-4 text-xs text-primary-foreground" onClick={() => window.location.reload()}>Tải lại giao diện</button>
+          <section className="w-full max-w-xl border-y border-border-subtle py-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-warning">Renderer error</p>
+            <h1 className="mt-2 text-[16px] font-semibold tracking-tight">NarrativeX chưa tải được giao diện</h1>
+            <p className="mt-2 text-[12px] leading-5 text-text-secondary">
+              Một lỗi giao diện đã xảy ra. Hãy thử tải lại ứng dụng; chi tiết lỗi đã được ghi vào console.
+            </p>
+            <pre className="mt-4 max-h-32 overflow-auto border-l-2 border-warning bg-warning-bg p-3 text-[10px] leading-4 text-warning">{this.state.error.message}</pre>
+            <button
+              type="button"
+              className="mt-4 h-8 rounded-md bg-primary px-3 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
+              onClick={() => window.location.reload()}
+            >
+              Tải lại giao diện
+            </button>
           </section>
         </main>
       );
