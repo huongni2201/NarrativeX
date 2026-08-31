@@ -349,11 +349,11 @@ void app.whenReady().then(async () => {
   );
 
   registerTrustedIpcHandler("desktop:app-version", trustPolicy, () => app.getVersion());
-  registerTrustedIpcHandler("desktop:system:clipboard-write", trustPolicy, (text) => {
+  registerTrustedIpcHandler("desktop:system:clipboard-write", trustPolicy, async (text) => {
     if (typeof text !== "string" || text.length > 200_000) {
       throw new Error("Invalid clipboard text.");
     }
-    clipboard.writeText(text);
+    await clipboard.writeText(text);
   });
   registerTrustedIpcHandler("desktop:api:request", trustPolicy, (input) => {
     if (!isDesktopApiRequest(input)) throw new Error("Invalid desktop API request.");
