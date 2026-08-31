@@ -4,15 +4,7 @@ NarrativeX uses one Spring Boot modular monolith, separately executed Python wor
 
 ## Desktop renderer
 
-Owns presentation only:
-
-- routes/screens;
-- React Query state;
-- editor/timeline drafts;
-- preview/inspector interactions;
-- explicit typed preload calls.
-
-It does not own credentials, filesystem/process access, FFmpeg execution or durable policy.
+Owns presentation only: routes/screens, React Query state, editor/timeline drafts, preview/inspector interactions and explicit typed preload calls. It does not own credentials, filesystem/process access, FFmpeg execution or durable policy.
 
 ## Preload
 
@@ -39,8 +31,9 @@ Owns privileged Desktop behavior:
 | auth/account | guest continuity, Google-linked account, server session, ownership transfer |
 | project/storyboard | Project/Chapter/Scene/VisualBeat source and review state |
 | assets | stable MediaAsset identity/checksums/storage mode/lineage |
-| generation | admission, GenerationJob/StageAttempt/ProviderOperation, MediaPlan for executable image work |
-| production timeline | narration-aligned timing + explicit beat media selection |
+| voice references | PROJECT/ACCOUNT scope validation and account voice catalog ownership/readiness |
+| generation | admission, GenerationJob/StageAttempt/ProviderOperation, MediaPlan where applicable |
+| production timeline | source-range/narration alignment mapping + exact render-readiness + explicit beat media selection |
 | local execution | device enrollment, assignment, claim/lease/progress/terminal state |
 | render metadata | immutable project render snapshots + FinalArtifact metadata |
 | notification | durable user notification state |
@@ -59,22 +52,34 @@ media-validation
 image-generation
 ```
 
-Workers own provider mechanics, validation and durable claim/reconciliation. They do not execute final project renders and do not host a current VIDEO/I2V provider role.
+Workers own provider mechanics, validation and durable claim/reconciliation. Analysis/materialization resolves VisualBeat source anchors to deterministic UTF-16 source ranges. Narration owns audio/alignment generation. The backend production-timeline layer owns source-range-to-audio mapping.
 
-`VIDEO` remains a supported analysis/editor intent for Electron web/browser generation and mixed-media production; do not remove that intent when cleaning Python provider residue.
+Workers do not execute final project renders and do not host a current VIDEO/I2V provider role.
 
 ## Storage boundaries
 
 ```text
-Generated project image/audio   -> project-local media -> Desktop ProjectStorage
-Imported project image/audio/video -> Desktop ProjectStorage
-Render work/cache               -> Desktop workspace/work
-Final MP4                       -> Desktop workspace/artifacts
-Voice reference/custom voice    -> R2 when account remote storage is required
-Business/job/artifact metadata  -> PostgreSQL
+Generated project image/audio        -> project-local media -> Desktop ProjectStorage
+Imported project image/audio/video   -> Desktop ProjectStorage
+PROJECT voice reference              -> project-local media / project.manifest.json
+Render work/cache                    -> Desktop workspace/work
+Final MP4                            -> Desktop workspace/artifacts
+ACCOUNT voice reference/custom voice -> Cloudflare R2
+Business/job/artifact metadata       -> PostgreSQL
 ```
 
-R2 is not a transport layer for generated project images/narration and is not final-video storage.
+R2 is not a transport layer for generated project images/narration and is not final-video storage. PROJECT voice references never require R2 storage metadata.
+
+## Timing boundary
+
+```text
+AI worker: source_anchor -> UTF-16 textStart/textEnd
+Narration: source/alignment spans + authoritative encoded audio duration
+Backend: text ranges + narration alignment -> production beat audio clock
+Desktop: consume backend-authorized timeline for preview/render
+```
+
+Complete persisted beat audio spans remain compatibility input. Provisional fallback timing is review-only and cannot satisfy final render admission.
 
 ## Final-render boundary
 
