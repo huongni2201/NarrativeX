@@ -18,5 +18,9 @@ test("storyboard prompt copy uses the protected Desktop clipboard bridge", () =>
   assert.doesNotMatch(screen, /IMAGE TASK:/);
   assert.doesNotMatch(screen, /navigator\.clipboard/);
   assert.match(preload, /desktop:system:clipboard-write/);
-  assert.match(main, /clipboard\.writeText\(text\)/);
+  assert.match(
+    main,
+    /registerTrustedIpcHandler\("desktop:system:clipboard-write", trustPolicy, async \(text\) =>/,
+  );
+  assert.match(main, /await clipboard\.writeText\(text\);/);
 });
