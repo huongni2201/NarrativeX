@@ -1,6 +1,6 @@
-import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineNotice } from "../../workspace/components/WorkstationPrimitives";
 import { wordCount } from "../model/chapter-ui";
 
 export function ChapterWritingForm({
@@ -57,12 +57,9 @@ export function ChapterWritingForm({
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info-bg p-3 text-xs leading-relaxed text-text-secondary">
-        <Info className="mt-0.5 shrink-0 text-info" size={15} />
-        <span>
-          Phân tích và tạo audio luôn dùng bản chapter đã lưu trên backend, không dùng nội dung nháp chưa lưu trong form.
-        </span>
-      </div>
+      <InlineNotice tone="info">
+        Phân tích và tạo audio luôn dùng bản chapter đã lưu trên backend, không dùng nội dung nháp chưa lưu trong form.
+      </InlineNotice>
     </>
   );
 }
