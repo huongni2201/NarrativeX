@@ -61,6 +61,7 @@ def continuity_result() -> ChapterAnalysisResult:
                         {
                             "title": "Threshold",
                             "visual_intent": "The hero crosses a dusty threshold.",
+                            "source_anchor": "Hero enters the old house.",
                             "characters": [{"character_key": "hero", "role": "PRIMARY"}],
                         }
                     ],

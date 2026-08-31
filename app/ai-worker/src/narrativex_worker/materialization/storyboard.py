@@ -106,14 +106,12 @@ async def materialize_storyboard(
             beat for scene in result.scenes for beat in scene.visual_beats
         ]
         anchors = [beat.source_anchor for beat in flattened_beats]
-        anchored_ranges = None
-        if any(anchor is not None for anchor in anchors):
-            if not all(anchor is not None for anchor in anchors):
-                raise ValueError("visual beat source anchors must be complete")
-            anchored_ranges = resolve_visual_beat_ranges(
-                claimed.request.source_text,
-                [anchor for anchor in anchors if anchor is not None],
-            )
+        if not all(anchor is not None for anchor in anchors):
+            raise ValueError("visual beat source anchors are required")
+        anchored_ranges = resolve_visual_beat_ranges(
+            claimed.request.source_text,
+            [anchor for anchor in anchors if anchor is not None],
+        )
 
         beat_rows = [
             (
@@ -154,28 +152,25 @@ async def materialize_storyboard(
                 (row["scene_id"], row["order_index"]): row["id"] for row in inserted_beats
             }
 
-        if anchored_ranges is not None:
-            ordered_ids = [
-                beat_ids[(scene_ids[scene_index], beat_index)]
-                for scene_index, scene in enumerate(result.scenes)
-                for beat_index, _ in enumerate(scene.visual_beats)
-            ]
-            await connection.executemany(
-                """
-                UPDATE visual_beats
-                   SET text_start = $2,
-                       text_end = $3,
-                       updated_at = CURRENT_TIMESTAMP,
-                       row_version = row_version + 1
-                 WHERE id = $1
-                """,
-                [
-                    (beat_id, text_range.text_start, text_range.text_end)
-                    for beat_id, text_range in zip(
-                        ordered_ids, anchored_ranges, strict=True
-                    )
-                ],
-            )
+        ordered_ids = [
+            beat_ids[(scene_ids[scene_index], beat_index)]
+            for scene_index, scene in enumerate(result.scenes)
+            for beat_index, _ in enumerate(scene.visual_beats)
+        ]
+        await connection.executemany(
+            """
+            UPDATE visual_beats
+               SET text_start = $2,
+                   text_end = $3,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+            """,
+            [
+                (beat_id, text_range.text_start, text_range.text_end)
+                for beat_id, text_range in zip(ordered_ids, anchored_ranges, strict=True)
+            ],
+        )
 
         beat_character_rows = [
             (

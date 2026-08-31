@@ -39,7 +39,7 @@ Anchors must:
 - identify the source passage represented by the beat;
 - never contain guessed timestamps or numeric offsets.
 
-`source_anchor` remains nullable in the Python model for compatibility with legacy/test payload parsing. The new prompt produces it, and materialization only writes source ranges when a complete ordered anchor set is available.
+`source_anchor` remains nullable in the Python model for compatibility with legacy/test payload parsing. The current generation path nevertheless requires a complete anchor set: storyboard materialization rejects generated output if any visual beat is missing `source_anchor`, including the all-missing case. When the set is complete, materialization resolves and persists deterministic source ranges for every beat.
 
 ## Source-anchor resolution
 
@@ -89,9 +89,10 @@ Existing persisted `audio_start_ms/audio_end_ms` remain the first choice. Source
 
 ## Failure and fallback behavior
 
+- Missing `source_anchor` in current generated storyboard output is rejected before the revision is activated.
 - Invalid/out-of-order source anchors are never converted to guessed offsets.
 - Narration not ready: text ranges remain useful but exact image timing is unavailable yet.
-- Missing text ranges or malformed alignment: existing inspectable fallback remains available, but render stays locked.
+- Missing text ranges on legacy/manual data or malformed alignment: existing inspectable fallback remains available, but render stays locked.
 - Non-monotonic mapped transitions: no exact timing is claimed.
 - Final encoded-audio drift: narration normalization remains authoritative, and the final visual beat ends exactly at chapter audio duration.
 
@@ -119,10 +120,11 @@ The former `visual_timing.py` duration-weighted expansion policy and the Python 
 Required regression coverage:
 
 1. prompt requests verbatim `source_anchor` and forbids guessed timestamps/offsets;
-2. anchors resolve to ordered UTF-16 ranges, including non-BMP text;
-3. unresolved/out-of-order/blank anchors fail deterministic resolution;
-4. backend text starts map deterministically through narration spans;
-5. derived image ranges are gap-free from `0` to exact narration duration;
-6. existing exact persisted audio timing remains preferred;
-7. missing source/alignment timing remains render-blocking;
-8. existing subtitle/tail drift regressions remain green.
+2. generated storyboard materialization rejects partial or all-missing anchor sets;
+3. anchors resolve to ordered UTF-16 ranges, including non-BMP text;
+4. unresolved/out-of-order/blank anchors fail deterministic resolution;
+5. backend text starts map deterministically through narration spans;
+6. derived image ranges are gap-free from `0` to exact narration duration;
+7. existing exact persisted audio timing remains preferred;
+8. missing source/alignment timing on legacy/manual data remains render-blocking;
+9. existing subtitle/tail drift regressions remain green.
