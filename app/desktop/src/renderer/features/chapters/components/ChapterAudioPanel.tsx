@@ -26,7 +26,7 @@ export function ChapterAudioPanel({
   });
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface p-3.5">
+    <section className="space-y-3 border-t border-border-subtle pt-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           <AudioLines className="mt-0.5 shrink-0 text-text-secondary" size={16} />
@@ -198,6 +198,6 @@ export function ChapterAudioPanel({
           </p>
         )}
       </div>
-    </div>
+    </section>
   );
 }
