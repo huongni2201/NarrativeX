@@ -3,6 +3,7 @@ import type {
   DesktopTimeline,
   LocalRenderPreflight,
   ProjectRenderBeatOverride,
+  RenderFrameRate,
   RenderResolution,
   UpdateBeatMediaInput,
 } from "@narrativex/client-contracts";
@@ -55,6 +56,7 @@ export const productionApi = {
     projectId: string,
     beatOverrides: ProjectRenderBeatOverride[] = [],
     resolution: RenderResolution = "1080p",
+    frameRate: RenderFrameRate = 30,
     subtitlesEnabled = true,
   ) => {
     const status = await window.narrativex.localExecution.status();
@@ -80,6 +82,7 @@ export const productionApi = {
         method: "POST",
         body: JSON.stringify({
           resolution,
+          fps: frameRate,
           format: "mp4",
           executionTarget: "LOCAL_DEVICE",
           localDeviceId,

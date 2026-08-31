@@ -2,6 +2,7 @@ export type BeatMediaFitMode = "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
 export type BeatMediaType = "IMAGE" | "VIDEO";
 export type AutoEditStyle = "AUTO" | "CINEMATIC" | "BALANCED" | "DYNAMIC";
 export type RenderResolution = "720p" | "1080p" | "1440p";
+export type RenderFrameRate = 30 | 60;
 
 export interface DesktopTimelineBeat {
   chapterId: string;

@@ -9,6 +9,7 @@ public record CreateProjectRenderCommand(
     String format,
     String idempotencyKey,
     UUID localDeviceId,
+    int fps,
     boolean subtitlesEnabled,
     List<RenderBeatOverride> beatOverrides) {
 
@@ -22,7 +23,18 @@ public record CreateProjectRenderCommand(
       String format,
       String idempotencyKey,
       UUID localDeviceId,
+      boolean subtitlesEnabled,
       List<RenderBeatOverride> beatOverrides) {
-    this(projectId, resolution, format, idempotencyKey, localDeviceId, true, beatOverrides);
+    this(projectId, resolution, format, idempotencyKey, localDeviceId, 30, subtitlesEnabled, beatOverrides);
+  }
+
+  public CreateProjectRenderCommand(
+      UUID projectId,
+      String resolution,
+      String format,
+      String idempotencyKey,
+      UUID localDeviceId,
+      List<RenderBeatOverride> beatOverrides) {
+    this(projectId, resolution, format, idempotencyKey, localDeviceId, 30, true, beatOverrides);
   }
 }

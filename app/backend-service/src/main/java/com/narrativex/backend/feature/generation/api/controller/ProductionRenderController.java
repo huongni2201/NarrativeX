@@ -89,6 +89,7 @@ public class ProductionRenderController {
                 request.format(),
                 idempotencyKey,
                 request.localDeviceId(),
+                request.fps(),
                 request.subtitlesEnabled(),
                 overrides));
     return ResponseEntity.accepted()

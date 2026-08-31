@@ -10,5 +10,6 @@ public interface ProjectRenderInputSnapshotRepository {
       String resolution,
       String format,
       UUID assignedLocalDeviceId,
+      int fps,
       boolean subtitlesEnabled);
 }

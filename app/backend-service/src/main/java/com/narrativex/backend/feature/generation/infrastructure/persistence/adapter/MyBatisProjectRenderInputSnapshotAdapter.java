@@ -20,6 +20,7 @@ public class MyBatisProjectRenderInputSnapshotAdapter
       String resolution,
       String format,
       UUID assignedLocalDeviceId,
+      int fps,
       boolean subtitlesEnabled) {
     if (!timeline.readyForRender()) {
       throw new IllegalArgumentException(
@@ -27,6 +28,9 @@ public class MyBatisProjectRenderInputSnapshotAdapter
     }
     if (assignedLocalDeviceId == null) {
       throw new IllegalArgumentException("Project render requires an assigned local device");
+    }
+    if (fps != 30 && fps != 60) {
+      throw new IllegalArgumentException("Project render fps must be 30 or 60");
     }
     if (mapper.insertHeader(
             generationJobId,
@@ -38,6 +42,9 @@ public class MyBatisProjectRenderInputSnapshotAdapter
             timeline.beats().size())
         != 1) {
       throw new IllegalStateException("Project render snapshot header was not inserted");
+    }
+    if (mapper.updateFrameRate(generationJobId, fps) != 1) {
+      throw new IllegalStateException("Project render frame rate was not persisted");
     }
     if (mapper.updateSubtitleMode(generationJobId, subtitlesEnabled ? "burn_in" : "none") != 1) {
       throw new IllegalStateException("Project render subtitle mode was not persisted");

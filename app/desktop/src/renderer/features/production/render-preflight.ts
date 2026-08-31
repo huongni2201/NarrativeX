@@ -1,6 +1,7 @@
 import type {
   DesktopTimeline,
   LocalRenderPreflightAssetInput,
+  RenderFrameRate,
   RenderResolution,
 } from "@narrativex/client-contracts";
 import type { LocalRenderPreflightInput } from "../../../preload/types";
@@ -9,6 +10,7 @@ export function buildRenderPreflightInput(
   projectId: string,
   timeline: DesktopTimeline,
   resolution: RenderResolution,
+  frameRate: RenderFrameRate = 30,
 ): LocalRenderPreflightInput {
   const assets: LocalRenderPreflightAssetInput[] = [];
 
@@ -25,6 +27,7 @@ export function buildRenderPreflightInput(
   const estimatedOutputBytes = estimateRenderOutputBytes(
     timeline.totalDurationMs,
     resolution,
+    frameRate,
   );
   const assetIds = [...new Set(assets.map((asset) => asset.assetId))];
 
@@ -40,10 +43,14 @@ export function buildRenderPreflightInput(
 export function estimateRenderOutputBytes(
   totalDurationMs: number,
   resolution: RenderResolution,
+  frameRate: RenderFrameRate = 30,
 ): number {
+  const frameRateFactor = frameRate / 30;
   return Math.max(
     64 * 1024 * 1024,
-    Math.round((Math.max(0, totalDurationMs) / 1000) * bitrateEstimateFor(resolution)),
+    Math.round(
+      (Math.max(0, totalDurationMs) / 1000) * bitrateEstimateFor(resolution) * frameRateFactor,
+    ),
   );
 }
 

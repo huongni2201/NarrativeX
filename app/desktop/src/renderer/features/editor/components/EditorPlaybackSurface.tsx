@@ -105,17 +105,24 @@ export function EditorPlaybackSurface({
     ) {
       return;
     }
-    const stepMs = 100;
-    const timer = window.setInterval(() => {
+
+    let frame = 0;
+    let lastTimestamp = performance.now();
+    const advance = (timestamp: number) => {
+      const elapsedMs = Math.max(0, Math.min(250, timestamp - lastTimestamp));
+      lastTimestamp = timestamp;
       setPlayheadMs((current) => {
-        if (current >= scopeWindowEndMs) {
+        const next = current + elapsedMs;
+        if (next >= scopeWindowEndMs) {
           setPlaying(false);
           return scopeWindowStartMs;
         }
-        return Math.min(scopeWindowEndMs, current + stepMs);
+        return next;
       });
-    }, stepMs);
-    return () => window.clearInterval(timer);
+      frame = window.requestAnimationFrame(advance);
+    };
+    frame = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(frame);
   }, [hasNarration, narrationClockFailed, playing, scopeWindowEndMs, scopeWindowStartMs]);
 
   useEffect(() => {

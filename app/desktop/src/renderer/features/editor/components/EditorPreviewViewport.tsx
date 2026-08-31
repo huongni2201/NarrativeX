@@ -219,7 +219,6 @@ export function EditorPreviewViewport({
               style={{
                 objectFit,
                 transform: playback?.imageTransform || "scale(1)",
-                transition: playing ? "transform 90ms linear" : "none",
               }}
               draggable={false}
             />
@@ -265,7 +264,7 @@ export function EditorPreviewViewport({
 
           {activeSubtitle && (
             <div className="pointer-events-none absolute inset-x-[8%] bottom-[7%] z-20 flex justify-center">
-              <span className="max-w-[90%] rounded-md bg-black/70 px-3 py-1.5 text-center text-[clamp(12px,1.5vw,22px)] font-semibold leading-snug text-white shadow-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+              <span className="max-w-[90%] rounded-md bg-black/70 px-3 py-1.5 text-center text-[clamp(11px,1.25vw,19px)] font-semibold leading-snug text-white shadow-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
                 {activeSubtitle.text}
               </span>
             </div>
