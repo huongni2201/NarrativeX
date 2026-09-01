@@ -50,7 +50,7 @@ export function useProjectAssetImport(projectId: string) {
 
       return {
         originalFilename: selection.originalFilename,
-        durationMs: selection.durationMs,
+        durationMs: selection.durationMs ?? null,
         repaired: Boolean(repairAssetId),
       };
     },
