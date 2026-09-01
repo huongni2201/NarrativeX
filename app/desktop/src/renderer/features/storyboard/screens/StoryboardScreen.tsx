@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { runBoundedParallel } from "../../../shared/bounded-parallel";
 import { InlineNotice, WorkspaceToolbar } from "../../workspace/components/WorkstationPrimitives";
 import type { StoryboardVisualBeat } from "../api/storyboard.api";
 import { GeminiQueueBanner } from "../components/GeminiQueueBanner";
@@ -56,6 +57,7 @@ export function StoryboardScreen({
   const [visualIntent, setVisualIntent] = useState("");
   const [pendingImportBeatId, setPendingImportBeatId] = useState<string | null>(null);
   const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
+  const activeGeminiBeatIdsRef = useRef(new Set<string>());
   const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
@@ -156,8 +158,13 @@ export function StoryboardScreen({
     [scenes],
   );
 
+  function publishActiveGeminiBeat() {
+    setMediaBusyBeatId(activeGeminiBeatIdsRef.current.values().next().value ?? null);
+  }
+
   async function generateGeminiImage(beat: StoryboardVisualBeat, queueMode = false): Promise<boolean> {
-    if (mediaBusyBeatId) return false;
+    if (!queueMode && mediaBusyBeatId) return false;
+    if (activeGeminiBeatIdsRef.current.has(beat.id)) return false;
     if (!beat.prompt) {
       setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
       return false;
@@ -167,7 +174,8 @@ export function StoryboardScreen({
       return false;
     }
 
-    setMediaBusyBeatId(beat.id);
+    activeGeminiBeatIdsRef.current.add(beat.id);
+    publishActiveGeminiBeat();
     setPendingImportBeatId(null);
     setNotice(
       queueMode
@@ -197,7 +205,8 @@ export function StoryboardScreen({
       setNotice(errorMessage(error, "Không thể tự động generate ảnh bằng Gemini Web."));
       return false;
     } finally {
-      setMediaBusyBeatId(null);
+      activeGeminiBeatIdsRef.current.delete(beat.id);
+      publishActiveGeminiBeat();
     }
   }
 
@@ -209,51 +218,60 @@ export function StoryboardScreen({
     await generateGeminiImage(beat, false);
   }
 
+  async function storyboardConcurrency(): Promise<number> {
+    try {
+      return (await window.narrativex.preferences.get()).gemini.storyboardTabs;
+    } catch {
+      return 4;
+    }
+  }
+
   async function runGeminiQueue(initialQueue: GeminiQueueState, runToken: number) {
     let queue: GeminiQueueState = { ...initialQueue, status: "RUNNING" };
     const processed = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
+    const pendingBeatIds = queue.beatIds.filter((beatId) => !processed.has(beatId));
+    let acceptNewWork = true;
+    const concurrency = await storyboardConcurrency();
 
-    for (let index = queue.currentIndex; index < queue.beatIds.length; index += 1) {
-      if (runToken !== geminiRunTokenRef.current) return;
-      const beatId = queue.beatIds[index];
-      if (processed.has(beatId)) continue;
-      const beat = beatById.get(beatId);
-      if (!beat) {
-        processed.add(beatId);
-        queue = markQueueBeatSkipped(queue, beatId);
-        publishGeminiQueue(queue);
-        continue;
-      }
+    await runBoundedParallel(
+      pendingBeatIds,
+      concurrency,
+      async (beatId) => {
+        if (runToken !== geminiRunTokenRef.current || !acceptNewWork) return;
+        const beat = beatById.get(beatId);
+        if (!beat) {
+          processed.add(beatId);
+          queue = markQueueBeatSkipped(queue, beatId);
+          publishGeminiQueue(queue);
+          return;
+        }
 
-      const queueAfterMediaCheck = skipQueueBeatIfMediaReady(queue, beat);
-      if (queueAfterMediaCheck !== queue) {
-        processed.add(beatId);
-        queue = queueAfterMediaCheck;
-        publishGeminiQueue(queue);
-        continue;
-      }
+        const queueAfterMediaCheck = skipQueueBeatIfMediaReady(queue, beat);
+        if (queueAfterMediaCheck !== queue) {
+          processed.add(beatId);
+          queue = queueAfterMediaCheck;
+          publishGeminiQueue(queue);
+          return;
+        }
 
-      queue = { ...queue, currentIndex: index, status: "RUNNING" };
-      publishGeminiQueue(queue);
-      setSelectedSceneId(beat.sceneId);
-      setReviewStatusFilter("ALL");
-
-      const generated = await generateGeminiImage(beat, true);
-      if (generated) {
-        processed.add(beatId);
-        queue = markQueueBeatCompleted(queue, beatId);
-        publishGeminiQueue(queue);
-      }
-      if (runToken !== geminiRunTokenRef.current) return;
-      if (!generated) {
-        const pausedQueue = { ...queue, status: "PAUSED" as const };
-        queue = pausedQueue;
-        publishGeminiQueue(pausedQueue);
-        return;
-      }
-    }
+        const generated = await generateGeminiImage(beat, true);
+        if (runToken !== geminiRunTokenRef.current) return;
+        if (generated) {
+          processed.add(beatId);
+          queue = markQueueBeatCompleted(queue, beatId);
+          publishGeminiQueue(queue);
+          return;
+        }
+        acceptNewWork = false;
+      },
+      () => runToken === geminiRunTokenRef.current && acceptNewWork,
+    );
 
     if (runToken !== geminiRunTokenRef.current) return;
+    if (!acceptNewWork) {
+      publishGeminiQueue({ ...queue, status: "PAUSED" });
+      return;
+    }
     const completedQueue: GeminiQueueState = {
       ...queue,
       currentIndex: queue.beatIds.length,
@@ -302,7 +320,7 @@ export function StoryboardScreen({
     geminiRunTokenRef.current += 1;
     publishGeminiQueue(geminiQueue ? { ...geminiQueue, status: "PAUSED" } : null);
     setPendingImportBeatId(null);
-    setNotice("Đã dừng Gemini All. Generation đang chạy trên Chrome (nếu có) sẽ không tiếp tục sang beat kế tiếp.");
+    setNotice("Đã dừng Gemini All. Các tab đang generate sẽ hoàn tất nhưng không nhận Visual Beat mới.");
   }
 
   async function copyPrompt(beat: StoryboardVisualBeat) {
