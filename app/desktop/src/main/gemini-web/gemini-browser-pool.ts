@@ -1,17 +1,17 @@
-import type { EffectiveDesktopPreferences, DesktopPreferencesStore } from "../preferences/desktop-preferences";
-import type { GeminiBrowserProfile } from "./gemini-browser-registry";
-import { GeminiBrowserStorage } from "./gemini-browser-storage";
+import type { EffectiveDesktopPreferences, DesktopPreferencesStore } from "../preferences/desktop-preferences.ts";
+import type { GeminiBrowserProfile } from "./gemini-browser-registry.ts";
+import { GeminiBrowserStorage } from "./gemini-browser-storage.ts";
 import {
   GeminiBrowserHost,
   type GeminiBrowserHostLike,
-} from "./gemini-browser-host";
-import { GeminiWebSlotPool } from "./gemini-web-slot-pool";
+} from "./gemini-browser-host.ts";
+import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
 import type {
   GeminiPoolGenerationResult,
   GeminiPoolReferenceFile,
-} from "./gemini-web-automation-pool";
-import type { GeminiWebLane } from "../../shared/gemini-web-lanes";
-import type { GeminiBrowserAuthStatus } from "./gemini-browser-session";
+} from "./gemini-web-automation-pool.ts";
+import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
+import type { GeminiBrowserAuthStatus } from "./gemini-browser-session.ts";
 
 export type GeminiBrowserViewStatus = "CHECKING" | GeminiBrowserAuthStatus;
 
