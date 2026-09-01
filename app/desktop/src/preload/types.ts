@@ -44,6 +44,21 @@ export interface DesktopPreferences {
   window: DesktopWindowPreference | null;
 }
 
+export type GeminiBrowserAuthStatus =
+  | "CHECKING"
+  | "LOGGED_IN"
+  | "NOT_LOGGED_IN"
+  | "UNAVAILABLE";
+
+export interface GeminiBrowserView {
+  id: string;
+  name: string;
+  createdAt: string;
+  authStatus: GeminiBrowserAuthStatus;
+  activeLeases: number;
+  canRemove: boolean;
+}
+
 export interface LocalExecutionStatus {
   state: LocalExecutionConnectionState;
   backendBaseUrl: string;
@@ -272,6 +287,14 @@ export interface NarrativeXDesktopBridge {
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
   };
   geminiWeb: {
+    browsers: {
+      list(): Promise<GeminiBrowserView[]>;
+      add(): Promise<GeminiBrowserView[]>;
+      open(browserId: string): Promise<void>;
+      login(browserId: string): Promise<GeminiBrowserView[]>;
+      resetLogin(browserId: string): Promise<GeminiBrowserView[]>;
+      remove(browserId: string): Promise<GeminiBrowserView[]>;
+    };
     generateImage(input: GeminiWebGenerateImageInput): Promise<LocalAssetSelection>;
     commitImage(input: {
       lane: GeminiWebLaneType;
