@@ -6,7 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   GeminiBrowserCdpClient,
   evaluateBrowserPage,
-} from "./gemini-browser-cdp";
+} from "./gemini-browser-cdp.ts";
 
 const GEMINI_URL = "https://gemini.google.com/app";
 const CHROME_START_TIMEOUT_MS = 20_000;
