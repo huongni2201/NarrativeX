@@ -4,9 +4,9 @@ import {
   GeminiWebAutomation,
   type GeminiWebGenerationResult,
   type GeminiWebReferenceFile,
-} from "./gemini-web-automation";
-import { GeminiWebSlotPool } from "./gemini-web-slot-pool";
-import type { GeminiWebLane } from "../../shared/gemini-web-lanes";
+} from "./gemini-web-automation.ts";
+import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
+import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
 
 const SHARED_PORT_TIMEOUT_MS = 20_000;
 
