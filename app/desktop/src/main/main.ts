@@ -29,6 +29,11 @@ import {
   REPLACE_PROJECT_DIALOG_RESPONSE,
   shouldProceedWithRestore,
 } from "./local-storage/restore-confirmation";
+import {
+  DesktopPreferencesStore,
+  type DesktopPreferenceResetScope,
+} from "./preferences/desktop-preferences";
+import { resolveRestoredWindowState } from "./preferences/window-state";
 import { probeMediaDuration } from "./rendering/ffprobe";
 import { resolveFfmpegRuntime, type FfmpegRuntimeStatus } from "./rendering/ffmpeg-runtime";
 import { ProjectRenderer } from "./rendering/project-renderer";
@@ -45,22 +50,14 @@ import { SelectionTokenStore } from "./security/selection-token-store";
 
 registerLocalAssetPreviewScheme();
 
-// Hardware acceleration is important for timeline/video preview performance. Keep it
-// enabled by default and expose an explicit safe mode for machines with broken GPU
-// drivers or Chromium initialization issues.
 if (shouldDisableHardwareAcceleration(process.env, process.argv)) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
 }
 
-// Prevent Chromium on Windows from calling the native Windows spellchecker API,
-// which can create corrupted unicode directories (e.g. Microsoft/Spelling) in cwd.
 app.commandLine.appendSwitch("disable-features", "WinUseBrowserSpellChecker");
 
-// Electron's default Chromium profile can remain locked by a stale dev
-// process on Windows. Keep development state isolated in a writable profile;
-// packaged Desktop builds continue using the normal persistent userData path.
 if (!app.isPackaged) {
   app.setPath("userData", join(app.getPath("temp"), "narrativex-desktop-dev"));
 }
@@ -70,6 +67,7 @@ let localExecution: LocalExecutionService | null = null;
 let projectStorage: ProjectStorage | null = null;
 let desktopAuth: DesktopAuthService | null = null;
 let desktopApi: DesktopBackendApiService | null = null;
+let desktopPreferences: DesktopPreferencesStore | null = null;
 let ffmpegRuntime: FfmpegRuntimeStatus = {
   available: false,
   ffmpegPath: null,
@@ -198,13 +196,18 @@ async function showRendererFailure(window: BrowserWindow, rendererUrl: string, e
   }
 }
 
-function createWindow() {
+async function createWindow() {
   const iconPath = join(__dirname, "../../resources/narrativex-icon.png");
   const trustPolicy = rendererTrustPolicy();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const savedPreferences = await desktopPreferences?.getLastActive();
+  const restored = resolveRestoredWindowState(
+    savedPreferences?.window,
+    screen.getAllDisplays(),
+    display,
+  );
   const window = new BrowserWindow({
-    width: Math.max(1180, display.workAreaSize.width),
-    height: Math.max(720, display.workAreaSize.height),
+    ...restored.bounds,
     minWidth: 1180,
     minHeight: 720,
     backgroundColor: "#080b10",
@@ -214,16 +217,34 @@ function createWindow() {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      // Keep the renderer isolated from Node while allowing Chromium renderer
-      // startup on environments where the Electron sandbox cannot initialize.
       sandbox: false,
       spellcheck: false,
     },
   });
   mainWindow = window;
-  window.maximize();
+  if (savedPreferences?.window ? restored.maximized : true) window.maximize();
+
+  let windowSaveTimer: NodeJS.Timeout | null = null;
+  const persistWindowState = (immediate = false) => {
+    if (windowSaveTimer) clearTimeout(windowSaveTimer);
+    const save = () => {
+      if (window.isDestroyed() || !desktopPreferences) return;
+      const bounds = window.getNormalBounds();
+      void desktopPreferences
+        .updateWindow({ ...bounds, maximized: window.isMaximized() })
+        .catch((error) => console.error("Failed to persist Desktop window state", error));
+    };
+    if (immediate) save();
+    else windowSaveTimer = setTimeout(save, 180);
+  };
+  for (const eventName of ["resize", "move", "maximize", "unmaximize"] as const) {
+    window.on(eventName, () => persistWindowState());
+  }
+  window.on("close", () => persistWindowState(true));
+
   let rendererFailureShown = false;
   window.on("closed", () => {
+    if (windowSaveTimer) clearTimeout(windowSaveTimer);
     if (mainWindow === window) mainWindow = null;
   });
   hardenRendererWebContents(window.webContents, trustPolicy);
@@ -270,7 +291,6 @@ function createWindow() {
       event.preventDefault();
       toggleDevTools();
     });
-
   }
 }
 
@@ -289,6 +309,11 @@ function requireDesktopApi(): DesktopBackendApiService {
   return desktopApi;
 }
 
+function requireDesktopPreferences(): DesktopPreferencesStore {
+  if (!desktopPreferences) throw new Error("Desktop preferences are not initialized.");
+  return desktopPreferences;
+}
+
 function requireMainWindow(): BrowserWindow {
   if (!mainWindow || mainWindow.isDestroyed()) {
     throw new Error("NarrativeX main window is not available.");
@@ -296,10 +321,20 @@ function requireMainWindow(): BrowserWindow {
   return mainWindow;
 }
 
+function applyWindowPreference(windowPreference: Awaited<ReturnType<DesktopPreferencesStore["get"]>>["window"]): void {
+  const window = requireMainWindow();
+  const fallback = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const restored = resolveRestoredWindowState(windowPreference, screen.getAllDisplays(), fallback);
+  if (window.isMaximized()) window.unmaximize();
+  window.setBounds(restored.bounds);
+  if (windowPreference ? restored.maximized : true) window.maximize();
+}
+
+function isPreferenceResetScope(value: unknown): value is DesktopPreferenceResetScope {
+  return value === "GEMINI" || value === "WINDOW" || value === "ALL";
+}
+
 function registerNarrativeXProtocol(): void {
-  // Electron's one-argument registration is correct for packaged apps. In
-  // development, Windows otherwise launches Electron with the callback URL as
-  // the app path (for example, `C:\\Windows\\System32\\narrativex:\\auth\\callback`).
   if (process.defaultApp && process.argv[1]) {
     app.setAsDefaultProtocolClient("narrativex", process.execPath, [
       resolve(process.argv[1]),
@@ -325,6 +360,10 @@ void app.whenReady().then(async () => {
     config.backendBaseUrl,
     desktopApi,
     (url) => shell.openExternal(url),
+  );
+  desktopPreferences = new DesktopPreferencesStore(
+    join(app.getPath("userData"), "desktop-preferences.json"),
+    process.env,
   );
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
@@ -374,6 +413,39 @@ void app.whenReady().then(async () => {
     const code = pendingAuthCode;
     pendingAuthCode = null;
     return code ? exchangeDesktopAuthCode(code) : null;
+  });
+  registerTrustedIpcHandler("desktop:preferences:bind-user", trustPolicy, async (userId) => {
+    if (typeof userId !== "string" || !userId.trim()) throw new Error("Invalid Desktop preference userId.");
+    const next = await requireDesktopPreferences().bindUser(userId);
+    if (mainWindow && !mainWindow.isDestroyed()) applyWindowPreference(next.window);
+    return next;
+  });
+  registerTrustedIpcHandler("desktop:preferences:get", trustPolicy, () =>
+    requireDesktopPreferences().get(),
+  );
+  registerTrustedIpcHandler("desktop:preferences:update-gemini", trustPolicy, (input) => {
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw new Error("Invalid Gemini preference update.");
+    }
+    const update = input as { characterTabs?: unknown; storyboardTabs?: unknown };
+    if (
+      update.characterTabs !== undefined && typeof update.characterTabs !== "number" ||
+      update.storyboardTabs !== undefined && typeof update.storyboardTabs !== "number"
+    ) {
+      throw new Error("Gemini preference values must be numbers.");
+    }
+    return requireDesktopPreferences().updateGemini({
+      ...(typeof update.characterTabs === "number" ? { characterTabs: update.characterTabs } : {}),
+      ...(typeof update.storyboardTabs === "number" ? { storyboardTabs: update.storyboardTabs } : {}),
+    });
+  });
+  registerTrustedIpcHandler("desktop:preferences:reset", trustPolicy, async (scope) => {
+    if (!isPreferenceResetScope(scope)) throw new Error("Invalid Desktop preference reset scope.");
+    const next = await requireDesktopPreferences().reset(scope);
+    if ((scope === "WINDOW" || scope === "ALL") && mainWindow && !mainWindow.isDestroyed()) {
+      applyWindowPreference(next.window);
+    }
+    return next;
   });
   registerTrustedIpcHandler("desktop:local-execution:status", trustPolicy, () =>
     requireLocalExecution().status(),
@@ -569,7 +641,7 @@ void app.whenReady().then(async () => {
     mainWindow?.webContents.send("desktop:local-execution:status-changed", status);
   });
 
-  createWindow();
+  await createWindow();
   if (initialProtocolUrl) {
     deliverProtocolUrl(initialProtocolUrl);
     initialProtocolUrl = null;
@@ -579,7 +651,7 @@ void app.whenReady().then(async () => {
   });
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) void createWindow();
   });
 });
 
