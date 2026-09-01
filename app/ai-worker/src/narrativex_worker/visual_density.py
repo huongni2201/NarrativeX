@@ -15,15 +15,15 @@ HARD_MAX_VISUAL_BEAT_MS = 10_000
 
 def estimated_narration_duration_ms(source_text: str) -> int:
     word_count = max(1, len(_WORD_PATTERN.findall(source_text)))
-    return max(15_000, round(word_count * 60_000 / _NARRATION_WORDS_PER_MINUTE))
+    return max(1_000, round(word_count * 60_000 / _NARRATION_WORDS_PER_MINUTE))
 
 
 def minimum_visual_beats(duration_ms: int) -> int:
-    return max(2, math.ceil(max(1, duration_ms) / HARD_MAX_VISUAL_BEAT_MS))
+    return max(1, math.ceil(max(1, duration_ms) / HARD_MAX_VISUAL_BEAT_MS))
 
 
 def target_visual_beats(duration_ms: int) -> int:
-    return max(2, math.ceil(max(1, duration_ms) / TARGET_VISUAL_BEAT_MS))
+    return max(1, math.ceil(max(1, duration_ms) / TARGET_VISUAL_BEAT_MS))
 
 
 def maximum_visual_beats(duration_ms: int) -> int:
