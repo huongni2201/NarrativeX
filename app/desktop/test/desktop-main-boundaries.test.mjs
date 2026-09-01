@@ -34,6 +34,17 @@ test("Gemini scheduling lives in focused pool modules", () => {
   assert.match(slotPool, /acquire/);
   assert.match(slotPool, /release/);
   assert.match(automationPool, /GeminiWebSlotPool/);
-  assert.match(automationPool, /seedSecondarySession/);
   assert.match(ipc, /GeminiWebAutomationPool/);
+});
+
+test("Gemini page automation no longer owns Chrome process or socket discovery", () => {
+  const automation = source("src/main/gemini-web/gemini-web-automation.ts");
+  const session = source("src/main/gemini-web/gemini-chrome-session.ts");
+
+  assert.doesNotMatch(automation, /node:child_process/);
+  assert.doesNotMatch(automation, /node:net/);
+  assert.doesNotMatch(automation, /spawn\(/);
+  assert.match(session, /node:child_process/);
+  assert.match(session, /node:net/);
+  assert.match(session, /class GeminiChromeSession/);
 });
