@@ -20,12 +20,15 @@ test("an indeterminate reachable page is unavailable rather than falsely authent
   assert.equal(classifyGeminiAuthSnapshot({ composer: false, signIn: false }), "UNAVAILABLE");
 });
 
-test("status checks never start Chrome and only Open may create a browser process", () => {
+test("status checks are passive and only Open may start Chrome or create its control target", () => {
   const authStatusBody = sessionSource.match(/async authStatus\(\)[\s\S]*?\n  async login\(\)/)?.[0] ?? "";
   const loginBody = sessionSource.match(/async login\(\)[\s\S]*?\n  async open\(\)/)?.[0] ?? "";
   const openBody = sessionSource.match(/async open\(\)[\s\S]*?\n  async stop\(\)/)?.[0] ?? "";
 
   assert.doesNotMatch(authStatusBody, /ensureBrowser\(/);
+  assert.doesNotMatch(authStatusBody, /ensureControlTarget\(/);
   assert.doesNotMatch(loginBody, /ensureBrowser\(/);
+  assert.doesNotMatch(loginBody, /ensureControlTarget\(/);
   assert.match(openBody, /ensureBrowser\(/);
+  assert.match(openBody, /ensureControlTarget\(/);
 });
