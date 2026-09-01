@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DesktopCharacter } from "@narrativex/client-contracts";
+import { runBoundedParallel } from "../../../shared/bounded-parallel";
 import { charactersApi } from "../api/characters.api";
 import {
   createCharacterGeminiQueue,
@@ -39,6 +40,7 @@ export function useCharacterGeminiQueue(
   const queryClient = useQueryClient();
   const [geminiQueue, setGeminiQueue] = useState<CharacterGeminiQueueState | null>(null);
   const [generatingCharacterId, setGeneratingCharacterId] = useState<string | null>(null);
+  const activeCharacterIdsRef = useRef(new Set<string>());
   const geminiRunTokenRef = useRef(0);
   const characterById = useMemo(
     () => new Map(characters.map((character) => [character.id, character])),
@@ -92,9 +94,14 @@ export function useCharacterGeminiQueue(
     ]);
   }
 
+  function publishActiveCharacter() {
+    setGeneratingCharacterId(activeCharacterIdsRef.current.values().next().value ?? null);
+  }
+
   async function generateCharacterIdentity(characterId: string): Promise<QueueGenerationResult> {
-    if (generatingCharacterId) return "failed";
-    setGeneratingCharacterId(characterId);
+    if (activeCharacterIdsRef.current.has(characterId)) return "failed";
+    activeCharacterIdsRef.current.add(characterId);
+    publishActiveCharacter();
     callbacks.onSelectCharacter(characterId);
     try {
       const character = await charactersApi.detail(projectId, characterId);
@@ -130,43 +137,62 @@ export function useCharacterGeminiQueue(
       callbacks.onNotice(errorMessage(error, "Không thể generate character identity reference."));
       return "failed";
     } finally {
-      setGeneratingCharacterId(null);
+      activeCharacterIdsRef.current.delete(characterId);
+      publishActiveCharacter();
+    }
+  }
+
+  async function characterConcurrency(): Promise<number> {
+    try {
+      return (await window.narrativex.preferences.get()).gemini.characterTabs;
+    } catch {
+      return 2;
     }
   }
 
   async function runGeminiQueue(initialQueue: CharacterGeminiQueueState, runToken: number) {
     let queue: CharacterGeminiQueueState = { ...initialQueue, status: "RUNNING" };
     const processed = new Set([...queue.completedCharacterIds, ...queue.skippedCharacterIds]);
-    for (let index = queue.currentIndex; index < queue.characterIds.length; index += 1) {
-      if (runToken !== geminiRunTokenRef.current) return;
-      const characterId = queue.characterIds[index];
-      if (processed.has(characterId)) continue;
-      if (!characterById.has(characterId)) {
-        processed.add(characterId);
-        queue = markCharacterQueueSkipped(queue, characterId);
-        publishGeminiQueue(queue);
-        continue;
-      }
-      queue = { ...queue, currentIndex: index, status: "RUNNING" };
-      publishGeminiQueue(queue);
-      const result = await generateCharacterIdentity(characterId);
-      if (runToken !== geminiRunTokenRef.current) return;
-      if (result === "generated") {
-        processed.add(characterId);
-        queue = markCharacterQueueCompleted(queue, characterId);
-        publishGeminiQueue(queue);
-        continue;
-      }
-      if (result === "skipped") {
-        processed.add(characterId);
-        queue = markCharacterQueueSkipped(queue, characterId);
-        publishGeminiQueue(queue);
-        continue;
-      }
+    const pendingIds = queue.characterIds.filter((characterId) => !processed.has(characterId));
+    let acceptNewWork = true;
+    const concurrency = await characterConcurrency();
+
+    await runBoundedParallel(
+      pendingIds,
+      concurrency,
+      async (characterId) => {
+        if (runToken !== geminiRunTokenRef.current || !acceptNewWork) return;
+        if (!characterById.has(characterId)) {
+          processed.add(characterId);
+          queue = markCharacterQueueSkipped(queue, characterId);
+          publishGeminiQueue(queue);
+          return;
+        }
+
+        const result = await generateCharacterIdentity(characterId);
+        if (runToken !== geminiRunTokenRef.current) return;
+        if (result === "generated") {
+          processed.add(characterId);
+          queue = markCharacterQueueCompleted(queue, characterId);
+          publishGeminiQueue(queue);
+          return;
+        }
+        if (result === "skipped") {
+          processed.add(characterId);
+          queue = markCharacterQueueSkipped(queue, characterId);
+          publishGeminiQueue(queue);
+          return;
+        }
+        acceptNewWork = false;
+      },
+      () => runToken === geminiRunTokenRef.current && acceptNewWork,
+    );
+
+    if (runToken !== geminiRunTokenRef.current) return;
+    if (!acceptNewWork) {
       publishGeminiQueue({ ...queue, status: "PAUSED" });
       return;
     }
-    if (runToken !== geminiRunTokenRef.current) return;
     const completedQueue: CharacterGeminiQueueState = {
       ...queue,
       currentIndex: queue.characterIds.length,
@@ -208,7 +234,7 @@ export function useCharacterGeminiQueue(
       publishGeminiQueue({ ...geminiQueue, status: "PAUSED" });
     }
     callbacks.onNotice(
-      "Đã dừng Character All. Tác vụ Gemini đang chạy sẽ không tiếp tục sang character kế tiếp.",
+      "Đã dừng Character All. Các tab đang generate sẽ hoàn tất nhưng không nhận character mới.",
     );
   }
 
