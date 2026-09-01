@@ -12,6 +12,31 @@ export type LocalExecutionConnectionState =
   | "ONLINE"
   | "OFFLINE";
 
+export type DesktopPreferenceResetScope = "GEMINI" | "WINDOW" | "ALL";
+
+export interface DesktopWindowPreference {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  maximized: boolean;
+}
+
+export interface DesktopGeminiPreferences {
+  characterTabs: number;
+  storyboardTabs: number;
+  environmentDefaults: {
+    characterTabs: number;
+    storyboardTabs: number;
+  };
+}
+
+export interface DesktopPreferences {
+  userId: string;
+  gemini: DesktopGeminiPreferences;
+  window: DesktopWindowPreference | null;
+}
+
 export interface LocalExecutionStatus {
   state: LocalExecutionConnectionState;
   backendBaseUrl: string;
@@ -197,6 +222,12 @@ export interface NarrativeXDesktopBridge {
     login(): Promise<void>;
     logout(): Promise<DesktopApiResponse>;
     onCallback(listener: (response: DesktopApiResponse) => void): () => void;
+  };
+  preferences: {
+    bindUser(userId: string): Promise<DesktopPreferences>;
+    get(): Promise<DesktopPreferences>;
+    updateGemini(input: { characterTabs?: number; storyboardTabs?: number }): Promise<DesktopPreferences>;
+    reset(scope: DesktopPreferenceResetScope): Promise<DesktopPreferences>;
   };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;
