@@ -5,14 +5,19 @@ import { registerDesktopPreferencesIpc } from "./desktop-preferences-ipc";
 import { resolveRestoredWindowState } from "./window-state";
 import type { RendererTrustPolicy } from "../security/renderer-security";
 
-const preferences = new DesktopPreferencesStore(
-  join(app.getPath("userData"), "desktop-preferences.json"),
-  process.env,
-);
+let preferences: DesktopPreferencesStore | null = null;
+
+export function desktopPreferencesStore(): DesktopPreferencesStore {
+  preferences ??= new DesktopPreferencesStore(
+    join(app.getPath("userData"), "desktop-preferences.json"),
+    process.env,
+  );
+  return preferences;
+}
 
 function rendererTrustPolicy(): RendererTrustPolicy {
   return {
-    productionEntryPath: join(__dirname, "../renderer/index.html"),
+    productionEntryPath: join(__dirname, "../../renderer/index.html"),
     developmentRendererUrl: app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL,
   };
 }
@@ -26,8 +31,11 @@ async function waitForMainWindow(): Promise<BrowserWindow | null> {
   return null;
 }
 
-async function restoreAndTrackWindow(window: BrowserWindow): Promise<void> {
-  const lastActive = await preferences.getLastActive();
+async function restoreAndTrackWindow(
+  window: BrowserWindow,
+  store: DesktopPreferencesStore,
+): Promise<void> {
+  const lastActive = await store.getLastActive();
   if (lastActive?.window) {
     const fallbackDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const restored = resolveRestoredWindowState(
@@ -47,7 +55,7 @@ async function restoreAndTrackWindow(window: BrowserWindow): Promise<void> {
     timer = setTimeout(() => {
       timer = null;
       const bounds = window.getNormalBounds();
-      void preferences
+      void store
         .updateWindow({ ...bounds, maximized: window.isMaximized() })
         .catch(() => undefined);
     }, 150);
@@ -60,22 +68,19 @@ async function restoreAndTrackWindow(window: BrowserWindow): Promise<void> {
   window.on("close", () => {
     if (timer) clearTimeout(timer);
     const bounds = window.getNormalBounds();
-    void preferences
+    void store
       .updateWindow({ ...bounds, maximized: window.isMaximized() })
       .catch(() => undefined);
   });
 }
 
 void app.whenReady().then(async () => {
+  const store = desktopPreferencesStore();
   registerDesktopPreferencesIpc(
     rendererTrustPolicy(),
-    preferences,
+    store,
     () => BrowserWindow.getAllWindows()[0] ?? null,
   );
   const window = await waitForMainWindow();
-  if (window) await restoreAndTrackWindow(window);
+  if (window) await restoreAndTrackWindow(window, store);
 });
-
-export function desktopPreferencesStore(): DesktopPreferencesStore {
-  return preferences;
-}
