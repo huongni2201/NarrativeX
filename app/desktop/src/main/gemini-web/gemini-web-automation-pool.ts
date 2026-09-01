@@ -10,6 +10,21 @@ type TabCounts = {
   storyboardTabs: number;
 };
 
+type PersistedPoolSession = {
+  port?: number;
+  targets?: Partial<Record<GeminiWebLane, string>>;
+};
+
+export function mergeSharedPortSession(
+  current: PersistedPoolSession | null | undefined,
+  port: number,
+): PersistedPoolSession {
+  return {
+    port,
+    ...(current?.targets ? { targets: { ...current.targets } } : {}),
+  };
+}
+
 export interface GeminiPoolReferenceFile {
   path: string;
   refLabel: string;
@@ -120,10 +135,25 @@ export class GeminiWebAutomationPool {
         };
         if (Number.isInteger(persisted.port) && Number(persisted.port) > 0) {
           const sessionFile = join(slotRoot, "session.json");
+          let current: PersistedPoolSession | null = null;
+          try {
+            const parsed = JSON.parse(await readFile(sessionFile, "utf8")) as unknown;
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              const candidate = parsed as PersistedPoolSession;
+              current = {
+                ...(Number.isInteger(candidate.port) ? { port: candidate.port } : {}),
+                ...(candidate.targets && typeof candidate.targets === "object"
+                  ? { targets: { ...candidate.targets } }
+                  : {}),
+              };
+            }
+          } catch {
+            // A missing or malformed secondary session is safe to rebuild from the shared port.
+          }
           await mkdir(dirname(sessionFile), { recursive: true });
           await writeFile(
             sessionFile,
-            `${JSON.stringify({ port: Number(persisted.port) }, null, 2)}\n`,
+            `${JSON.stringify(mergeSharedPortSession(current, Number(persisted.port)), null, 2)}\n`,
             "utf8",
           );
           return;
