@@ -1,6 +1,6 @@
 import { access, mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { geminiBrowserUserKey } from "./gemini-browser-registry";
+import { geminiBrowserUserKey } from "./gemini-browser-registry.ts";
 
 const BROWSER_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 const LEGACY_ENTRIES = ["chrome-profile", "session.json", "lanes", "slots"] as const;
