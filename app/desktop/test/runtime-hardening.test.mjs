@@ -128,21 +128,21 @@ test("local quality gate includes backend verify and worker static analysis", ()
 });
 
 test("desktop renderer keeps Node isolation while disabling Chromium sandbox", () => {
-  const main = source("app", "desktop", "src", "main", "main.ts");
-  assert.match(main, /contextIsolation: true/);
-  assert.match(main, /nodeIntegration: false/);
-  assert.match(main, /sandbox: false/);
+  const bootstrap = source("app", "desktop", "src", "main", "bootstrap-core.ts");
+  assert.match(bootstrap, /contextIsolation: true/);
+  assert.match(bootstrap, /nodeIntegration: false/);
+  assert.match(bootstrap, /sandbox: false/);
 });
 
 test("desktop does not open DevTools automatically after renderer load", () => {
-  const main = source("app", "desktop", "src", "main", "main.ts");
-  assert.doesNotMatch(main, /window\.webContents\.once\("did-finish-load",/);
-  assert.match(main, /before-input-event/);
-  assert.match(main, /openDevTools/);
+  const bootstrap = source("app", "desktop", "src", "main", "bootstrap-core.ts");
+  assert.doesNotMatch(bootstrap, /window\.webContents\.once\("did-finish-load",/);
+  assert.match(bootstrap, /before-input-event/);
+  assert.match(bootstrap, /openDevTools/);
 });
 
 test("desktop removes the native application menu", () => {
-  const main = source("app", "desktop", "src", "main", "main.ts");
-  assert.match(main, /import \{[^}]*\bMenu\b[^}]*\} from "electron"/s);
-  assert.match(main, /Menu\.setApplicationMenu\(null\)/);
+  const bootstrap = source("app", "desktop", "src", "main", "bootstrap-core.ts");
+  assert.match(bootstrap, /import \{[^}]*\bMenu\b[^}]*\} from "electron"/s);
+  assert.match(bootstrap, /Menu\.setApplicationMenu\(null\)/);
 });

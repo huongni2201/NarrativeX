@@ -12,6 +12,53 @@ export type LocalExecutionConnectionState =
   | "ONLINE"
   | "OFFLINE";
 
+export type DesktopPreferenceResetScope = "GEMINI" | "WINDOW" | "ALL";
+
+export interface DesktopWindowPreference {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  maximized: boolean;
+}
+
+export interface DesktopGeminiBrowserProfile {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface DesktopGeminiPreferences {
+  characterTabs: number;
+  storyboardTabs: number;
+  browsers: DesktopGeminiBrowserProfile[];
+  environmentDefaults: {
+    characterTabs: number;
+    storyboardTabs: number;
+  };
+}
+
+export interface DesktopPreferences {
+  userId: string;
+  gemini: DesktopGeminiPreferences;
+  window: DesktopWindowPreference | null;
+}
+
+export type GeminiBrowserAuthStatus =
+  | "CHECKING"
+  | "LOGGED_IN"
+  | "NOT_LOGGED_IN"
+  | "UNAVAILABLE";
+
+export interface GeminiBrowserView {
+  id: string;
+  name: string;
+  createdAt: string;
+  authStatus: GeminiBrowserAuthStatus;
+  activeLeases: number;
+  canRemove: boolean;
+}
+
 export interface LocalExecutionStatus {
   state: LocalExecutionConnectionState;
   backendBaseUrl: string;
@@ -198,6 +245,12 @@ export interface NarrativeXDesktopBridge {
     logout(): Promise<DesktopApiResponse>;
     onCallback(listener: (response: DesktopApiResponse) => void): () => void;
   };
+  preferences: {
+    bindUser(userId: string): Promise<DesktopPreferences>;
+    get(): Promise<DesktopPreferences>;
+    updateGemini(input: { characterTabs?: number; storyboardTabs?: number }): Promise<DesktopPreferences>;
+    reset(scope: DesktopPreferenceResetScope): Promise<DesktopPreferences>;
+  };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;
     setUser(userId: string | null): Promise<LocalExecutionStatus>;
@@ -234,6 +287,14 @@ export interface NarrativeXDesktopBridge {
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
   };
   geminiWeb: {
+    browsers: {
+      list(): Promise<GeminiBrowserView[]>;
+      add(): Promise<GeminiBrowserView[]>;
+      open(browserId: string): Promise<void>;
+      login(browserId: string): Promise<GeminiBrowserView[]>;
+      resetLogin(browserId: string): Promise<GeminiBrowserView[]>;
+      remove(browserId: string): Promise<GeminiBrowserView[]>;
+    };
     generateImage(input: GeminiWebGenerateImageInput): Promise<LocalAssetSelection>;
     commitImage(input: {
       lane: GeminiWebLaneType;

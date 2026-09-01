@@ -63,7 +63,7 @@ test("watermark remover installs sharp in the same dlx environment", () => {
 });
 
 test("Gemini generation stages only the postprocessed image", () => {
-  const generateIndex = ipcSource.indexOf("await automation.generateImage");
+  const generateIndex = ipcSource.indexOf("await browsers.generateImage");
   const postprocessIndex = ipcSource.indexOf("await removeGeminiWatermark", generateIndex);
   const stageIndex = ipcSource.indexOf("stageGeneratedImage", postprocessIndex);
 

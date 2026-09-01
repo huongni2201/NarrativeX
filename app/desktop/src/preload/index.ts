@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import type {
   DesktopApiRequest,
   DesktopApiResponse,
+  DesktopPreferenceResetScope,
   DesktopSseEvent,
   DesktopSseHandlers,
   GeminiWebGenerateImageInput,
@@ -36,6 +37,12 @@ const bridge: NarrativeXDesktopBridge = {
         .catch(() => undefined);
       return () => ipcRenderer.removeListener("desktop:auth:callback", handler);
     },
+  },
+  preferences: {
+    bindUser: (userId: string) => ipcRenderer.invoke("desktop:preferences:bind-user", userId),
+    get: () => ipcRenderer.invoke("desktop:preferences:get"),
+    updateGemini: (input) => ipcRenderer.invoke("desktop:preferences:update-gemini", input),
+    reset: (scope: DesktopPreferenceResetScope) => ipcRenderer.invoke("desktop:preferences:reset", scope),
   },
   localExecution: {
     status: () => ipcRenderer.invoke("desktop:local-execution:status"),
@@ -79,6 +86,18 @@ const bridge: NarrativeXDesktopBridge = {
       ipcRenderer.invoke("desktop:local-storage:reveal-artifact", input),
   },
   geminiWeb: {
+    browsers: {
+      list: () => ipcRenderer.invoke("desktop:gemini-web:browsers:list"),
+      add: () => ipcRenderer.invoke("desktop:gemini-web:browsers:add"),
+      open: (browserId: string) =>
+        ipcRenderer.invoke("desktop:gemini-web:browsers:open", browserId),
+      login: (browserId: string) =>
+        ipcRenderer.invoke("desktop:gemini-web:browsers:login", browserId),
+      resetLogin: (browserId: string) =>
+        ipcRenderer.invoke("desktop:gemini-web:browsers:reset-login", browserId),
+      remove: (browserId: string) =>
+        ipcRenderer.invoke("desktop:gemini-web:browsers:remove", browserId),
+    },
     generateImage: (input: GeminiWebGenerateImageInput) =>
       ipcRenderer.invoke("desktop:gemini-web:generate-image", input),
     commitImage: (input) => ipcRenderer.invoke("desktop:gemini-web:commit-image", input),

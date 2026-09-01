@@ -3,16 +3,17 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import {
-  GeminiWebAutomation,
-  type GeminiWebReferenceFile,
-} from "./gemini-web-automation";
+import type { GeminiWebReferenceFile } from "./gemini-web-automation";
+import { GeminiBrowserHost } from "./gemini-browser-host";
+import { GeminiBrowserPool } from "./gemini-browser-pool";
+import { registerGeminiBrowserIpc } from "./gemini-browser-ipc";
 import {
   cleanupGeminiTempFile,
   removeGeminiWatermark,
 } from "./gemini-image-postprocessor";
 import { isGeminiWebLane, type GeminiWebLane } from "../../shared/gemini-web-lanes";
 import { ProjectStorage } from "../local-storage/project-storage";
+import { desktopPreferencesStore } from "../preferences/preferences-bootstrap";
 import {
   registerTrustedIpcHandlerWithEvent,
   type RendererTrustPolicy,
@@ -31,7 +32,14 @@ export function registerGeminiWebIpc(
   projectStorage: ProjectStorage,
 ): void {
   const automationRoot = join(dirname(projectStorage.rootDirectory()), "gemini-web");
-  const automation = new GeminiWebAutomation(automationRoot);
+  const browsers = new GeminiBrowserPool(
+    automationRoot,
+    desktopPreferencesStore(),
+    ({ browser, rootDirectory, getTabCounts }) =>
+      new GeminiBrowserHost(browser.id, rootDirectory, getTabCounts),
+  );
+
+  registerGeminiBrowserIpc(policy, browsers);
 
   registerTrustedIpcHandlerWithEvent(
     "desktop:gemini-web:generate-image",
@@ -39,7 +47,7 @@ export function registerGeminiWebIpc(
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
       const references = await resolveReferenceFiles(projectStorage, input);
-      const result = await automation.generateImage(input.lane, input.prompt, references);
+      const result = await browsers.generateImage(input.lane, input.prompt, references);
       const cleanedSourcePath = await removeGeminiWatermark(result.sourcePath);
       return stageGeneratedImage(event.sender.id, cleanedSourcePath, input.lane);
     },
@@ -74,7 +82,7 @@ export function registerGeminiWebIpc(
   );
 
   app.on("before-quit", () => {
-    void automation.stop().catch(() => undefined);
+    void browsers.stop().catch(() => undefined);
   });
 }
 

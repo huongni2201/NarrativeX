@@ -117,6 +117,13 @@ export function AuthGuard({ children }: PropsWithChildren) {
     };
   }, [currentUser.isPending, guestBootstrapPending, localExecutionUserId]);
 
+  useEffect(() => {
+    if (!currentUser.data || !window.narrativex?.preferences) return;
+    void window.narrativex.preferences.bindUser(currentUser.data.id).catch((error) => {
+      console.error("Failed to bind Desktop preferences to the current user", error);
+    });
+  }, [currentUser.data?.id]);
+
   if (currentUser.isPending || (needsGuestBootstrap && !bootstrapError)) {
     return (
       <main className="grid min-h-dvh place-items-center bg-[var(--bg)] p-6 text-sm text-[var(--text-3)]">

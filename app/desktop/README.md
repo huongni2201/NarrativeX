@@ -59,9 +59,40 @@ Current storage tooling includes project verification, storage accounting, compl
 
 ## Gemini Web image generation
 
-The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the serial `Gemini All` queue; it does not create an API media job or cost estimate. Electron main owns one user-authenticated Chrome profile with isolated Character and Storyboard Gemini tabs/lane resources, so identity and storyboard generation can run concurrently without sharing prompts, captures, or downloads. Chrome starts minimized (its taskbar icon remains available), uses background-throttling safeguards, and brings the requested lane to the front before submit so a minimized or occluded window can continue processing. The user signs in manually when needed; NarrativeX never fills provider credentials.
+The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the bounded-parallel `Gemini All` queue; it does not create an API media job or cost estimate.
 
-The main process applies the locked Chinese romantic-fantasy manhua series style wrapper, treats the scene block as untrusted narrative input, waits for a full-size download, validates the image and SHA-256, then exposes only a short-lived sender-bound selection token to the renderer. The renderer registers asset metadata with the backend and asks main to commit bytes into ProjectStorage. `NARRATIVEX_CHROME_PATH` can override Chrome discovery.
+Each NarrativeX user has one Gemini browser profile by default and may add more from Desktop Settings. Every browser profile owns an independent Chrome process lifecycle, persistent `--user-data-dir`, local CDP port, automation session and download/slot namespace. Browser profile roots are device-local and user-local. The first browser is `Browser 1`; at least one browser must remain.
+
+The user signs in manually inside each selected Chrome profile. NarrativeX never stores or autofills Google passwords, OAuth tokens or browser cookies in Desktop preferences. Chrome keeps its own cookies/local storage in the profile directory so login may survive NarrativeX/Chrome restart until Google expires, revokes or re-verifies the session. Settings derives `Logged in`, `Not logged in` and `Unavailable` state from the live Gemini page instead of trusting a saved login boolean.
+
+Settings provides per-browser `Open`, `Login`, `Reset login` and `Remove` actions plus `Add browser`. `Login` is shown for a browser detected as not logged in. Reset Login affects only the selected browser profile. Resetting Gemini concurrency or all normal personalized settings does not silently delete browser login profiles. Removing/resetting a browser while it owns active generation leases is rejected.
+
+Electron main automatically selects an authenticated browser for generation; renderer generation requests remain browser-agnostic. Scheduling favors the least-active ready browser and rotates equal-load choices. A request that fails after submission is not silently replayed through another browser/account.
+
+Character defaults to 2 concurrent Gemini tabs and Storyboard defaults to 4, configurable from 1 to 8. These are **global per-user concurrency limits across the complete browser pool**, not per-browser multipliers. For example, two signed-in browsers with Storyboard set to 4 still allow at most four Storyboard generations at once, not eight. Within each browser host, prompts, target identity, captures and download namespaces remain slot-scoped.
+
+Chrome uses background-throttling safeguards and brings the requested page to the front before submit when required. `NARRATIVEX_CHROME_PATH` can override Chrome discovery.
+
+The main process applies the locked Chinese romantic-fantasy manhua series style wrapper, treats the scene block as untrusted narrative input, waits for a full-size download, validates the image and SHA-256, then exposes only a short-lived sender-bound selection token to the renderer. The renderer registers asset metadata with the backend and asks main to commit bytes into ProjectStorage.
+
+The pre-browser-pool single profile is migrated to the current user's Browser 1 through an idempotent, allowlisted migration of known Gemini automation entries. Existing destination data is never overwritten and unknown legacy files are left untouched.
+
+## Personalized Desktop settings
+
+Electron main persists versioned `desktop-preferences.json` data under `userData`, keyed by the stable current NarrativeX user id. Guest and signed-in profiles stay isolated on the same machine.
+
+Personalized settings currently include:
+
+- Character and Storyboard Gemini Web global concurrency;
+- per-user Gemini browser registry metadata;
+- main-window normal `x/y/width/height` and maximized state;
+- reset Gemini concurrency back to environment defaults while preserving browser profiles;
+- reset the current user's window layout;
+- reset normal personalized settings for only the current user while preserving explicit Gemini browser login/profile data.
+
+Chrome-owned authentication/session bytes are not stored in `desktop-preferences.json`; they live inside isolated browser profile directories under the Gemini Web local root.
+
+Window bounds are validated against currently connected displays before restore. A layout saved on a disconnected monitor falls back to a visible current display instead of reopening off-screen.
 
 ## Production timeline
 
@@ -101,7 +132,7 @@ Richer recovery/resume UX after abrupt process/OS failure remains roadmap work.
 
 ## Configuration
 
-Copy `.env.example` to `.env` for development. `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime overrides and take precedence.
+Copy `.env.example` to `.env` for development. `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime defaults/overrides. For personalized Gemini concurrency, a saved user setting takes precedence over the corresponding environment default.
 
 Important values include:
 
@@ -110,6 +141,8 @@ VITE_API_BASE_URL=http://localhost:8080
 VITE_DESKTOP_PROJECT_RENDER_ENABLED=true
 VITE_DESKTOP_HEARTBEAT_MS=15000
 NARRATIVEX_CHROME_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
+NARRATIVEX_GEMINI_CHARACTER_TAB_COUNT=2
+NARRATIVEX_GEMINI_STORYBOARD_TAB_COUNT=4
 ```
 
 Remote backend origins must use HTTPS. Plain HTTP is accepted only for loopback development hosts.
