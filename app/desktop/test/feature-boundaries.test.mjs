@@ -118,6 +118,31 @@ test("EditorScreen delegates media persistence and preview transport to feature 
   assert.match(source, /useEditorPreviewSources/);
 });
 
+test("AssetsScreen delegates local media workflows to feature queries", () => {
+  const source = readFileSync(
+    join(featuresRoot, "assets", "screens", "AssetsScreen.tsx"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(source, /import\s+\{[^}]*\buseQueryClient\b[^}]*\}\s+from\s+["']@tanstack\/react-query["']/s);
+  assert.doesNotMatch(source, /import\s+\{\s*assetsApi\s*\}/);
+  assert.doesNotMatch(source, /window\.narrativex\.localStorage\.(?:selectAsset|commitSelectedAsset|repairSelectedAsset|verifyProject)\s*\(/);
+  assert.match(source, /useProjectAssetLocalStates/);
+  assert.match(source, /useProjectAssetImport/);
+});
+
+test("CharactersScreen delegates generation and queue workflows to feature queries", () => {
+  const source = readFileSync(
+    join(featuresRoot, "characters", "screens", "CharactersScreen.tsx"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(source, /import\s+\{[^}]*\buseQueryClient\b[^}]*\}\s+from\s+["']@tanstack\/react-query["']/s);
+  assert.doesNotMatch(source, /import\s+\{\s*charactersApi\s*\}/);
+  assert.doesNotMatch(source, /generateCharacterIdentityReference\s*\(/);
+  assert.match(source, /useCharacterGeminiQueue/);
+});
+
 test("ChaptersScreen delegates analysis mutation polling and invalidation to chapter queries", () => {
   const source = readFileSync(
     join(featuresRoot, "chapters", "screens", "ChaptersScreen.tsx"),
