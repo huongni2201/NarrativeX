@@ -13,7 +13,7 @@ const ipcSource = await readFile(
   "utf8",
 );
 
-test("Gemini images are postprocessed with the watermark remover in a hidden child process", () => {
+test("Gemini images can be postprocessed with the watermark remover in a hidden child process", () => {
   assert.match(postprocessorSource, /@pilio\/gemini-watermark-remover/);
   assert.match(postprocessorSource, /["']remove["']/);
   assert.match(postprocessorSource, /["']--output["']/);
@@ -62,17 +62,17 @@ test("watermark remover installs sharp in the same dlx environment", () => {
   );
 });
 
-test("Gemini generation stages only the postprocessed image", () => {
+test("Gemini generation stages the raw downloaded image before watermark removal", () => {
   const generateIndex = ipcSource.indexOf("await browsers.generateImage");
-  const postprocessIndex = ipcSource.indexOf("await removeGeminiWatermark", generateIndex);
-  const stageIndex = ipcSource.indexOf("stageGeneratedImage", postprocessIndex);
+  const stageIndex = ipcSource.indexOf("stageGeneratedImage", generateIndex);
+  const postprocessIndex = ipcSource.indexOf("createGeminiWatermarkRemovedCopy", generateIndex);
 
   assert.ok(generateIndex >= 0);
-  assert.ok(postprocessIndex > generateIndex);
-  assert.ok(stageIndex > postprocessIndex);
+  assert.ok(stageIndex > generateIndex);
+  assert.ok(postprocessIndex === -1 || postprocessIndex > stageIndex);
 });
 
-test("Gemini temporary processed image is cleaned after project asset registration", () => {
+test("Gemini temporary image is cleaned after project asset registration", () => {
   const registerIndex = ipcSource.indexOf("await projectStorage.registerAsset");
   const cleanupIndex = ipcSource.indexOf("await cleanupGeminiTempFile", registerIndex);
 
