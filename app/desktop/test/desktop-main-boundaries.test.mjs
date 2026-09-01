@@ -28,23 +28,25 @@ test("main entrypoint stays thin while personalized preferences own native persi
 test("Gemini scheduling lives in focused pool modules", () => {
   const automationPool = source("src/main/gemini-web/gemini-web-automation-pool.ts");
   const slotPool = source("src/main/gemini-web/gemini-web-slot-pool.ts");
+  const browserPool = source("src/main/gemini-web/gemini-browser-pool.ts");
+  const browserSession = source("src/main/gemini-web/gemini-browser-session.ts");
+  const browserStorage = source("src/main/gemini-web/gemini-browser-storage.ts");
   const ipc = source("src/main/gemini-web/gemini-web-ipc.ts");
 
   assert.match(slotPool, /class GeminiWebSlotPool/);
   assert.match(slotPool, /acquire/);
   assert.match(slotPool, /release/);
   assert.match(automationPool, /GeminiWebSlotPool/);
-  assert.match(ipc, /GeminiWebAutomationPool/);
+  assert.match(browserPool, /class GeminiBrowserPool/);
+  assert.match(browserSession, /class GeminiBrowserSession/);
+  assert.match(browserStorage, /class GeminiBrowserStorage/);
+  assert.match(ipc, /GeminiBrowserPool/);
 });
 
-test("Gemini page automation no longer owns Chrome process or socket discovery", () => {
+test("multi-browser responsibilities stay out of the large page-automation file", () => {
   const automation = source("src/main/gemini-web/gemini-web-automation.ts");
-  const session = source("src/main/gemini-web/gemini-chrome-session.ts");
-
-  assert.doesNotMatch(automation, /node:child_process/);
-  assert.doesNotMatch(automation, /node:net/);
-  assert.doesNotMatch(automation, /spawn\(/);
-  assert.match(session, /node:child_process/);
-  assert.match(session, /node:net/);
-  assert.match(session, /class GeminiChromeSession/);
+  assert.doesNotMatch(automation, /GeminiBrowserPool/);
+  assert.doesNotMatch(automation, /GeminiBrowserStorage/);
+  assert.doesNotMatch(automation, /addGeminiBrowser/);
+  assert.doesNotMatch(automation, /removeGeminiBrowser/);
 });
