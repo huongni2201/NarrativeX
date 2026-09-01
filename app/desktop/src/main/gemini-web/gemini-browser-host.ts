@@ -1,14 +1,14 @@
-import { GeminiWebAutomation } from "./gemini-web-automation";
+import { GeminiWebAutomation } from "./gemini-web-automation.ts";
 import {
   GeminiWebAutomationPool,
   type GeminiPoolGenerationResult,
   type GeminiPoolReferenceFile,
-} from "./gemini-web-automation-pool";
+} from "./gemini-web-automation-pool.ts";
 import {
   GeminiBrowserSession,
   type GeminiBrowserAuthStatus,
-} from "./gemini-browser-session";
-import type { GeminiWebLane } from "../../shared/gemini-web-lanes";
+} from "./gemini-browser-session.ts";
+import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
 
 export type GeminiHostTabCounts = {
   characterTabs: number;
