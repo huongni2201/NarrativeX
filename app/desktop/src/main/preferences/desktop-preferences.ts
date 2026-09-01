@@ -5,7 +5,7 @@ import {
   removeGeminiBrowserProfile,
   sanitizeGeminiBrowserProfiles,
   type GeminiBrowserProfile,
-} from "../gemini-web/gemini-browser-registry";
+} from "../gemini-web/gemini-browser-registry.ts";
 
 export const MIN_GEMINI_TAB_COUNT = 1;
 export const MAX_GEMINI_TAB_COUNT = 8;
