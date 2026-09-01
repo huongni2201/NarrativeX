@@ -52,7 +52,10 @@ async def latest_narration_duration_ms(
     source_hash: str,
 ) -> int | None:
     """Return authoritative narration duration for the current source snapshot when available."""
-    value = await connection.fetchval(
+    fetchval = getattr(connection, "fetchval", None)
+    if not callable(fetchval):
+        return None
+    value = await fetchval(
         """
         SELECT na.duration_ms
           FROM narration_requests nr
