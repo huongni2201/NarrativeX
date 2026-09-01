@@ -1,8 +1,10 @@
-import type { BrowserWindow } from "electron";
+import { screen, type BrowserWindow } from "electron";
 import {
   DesktopPreferencesStore,
   type DesktopPreferenceResetScope,
+  type SavedWindowState,
 } from "./desktop-preferences";
+import { resolveRestoredWindowState } from "./window-state";
 import {
   registerTrustedIpcHandler,
   type RendererTrustPolicy,
@@ -39,6 +41,14 @@ function parseGeminiUpdate(value: unknown): {
   return update;
 }
 
+function applyWindowState(window: BrowserWindow, saved: SavedWindowState | null): void {
+  const fallbackDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const restored = resolveRestoredWindowState(saved, screen.getAllDisplays(), fallbackDisplay);
+  if (window.isMaximized()) window.unmaximize();
+  window.setBounds(restored.bounds);
+  if (saved ? restored.maximized : true) window.maximize();
+}
+
 export function registerDesktopPreferencesIpc(
   policy: RendererTrustPolicy,
   preferences: DesktopPreferencesStore,
@@ -48,7 +58,10 @@ export function registerDesktopPreferencesIpc(
     if (typeof userId !== "string" || !userId.trim()) {
       throw new Error("userId must be a non-empty string.");
     }
-    return preferences.bindUser(userId);
+    const next = await preferences.bindUser(userId);
+    const window = getMainWindow();
+    if (window && !window.isDestroyed()) applyWindowState(window, next.window);
+    return next;
   });
 
   registerTrustedIpcHandler("desktop:preferences:get", policy, () => preferences.get());
@@ -62,9 +75,7 @@ export function registerDesktopPreferencesIpc(
     const next = await preferences.reset(scope);
     if (scope === "WINDOW" || scope === "ALL") {
       const window = getMainWindow();
-      if (window && !window.isDestroyed()) {
-        window.maximize();
-      }
+      if (window && !window.isDestroyed()) applyWindowState(window, next.window);
     }
     return next;
   });
