@@ -39,7 +39,8 @@ export function installLocalAssetPreviewProtocol(
     if (!target) return new Response("Invalid preview URL", { status: 400 });
 
     try {
-      const key = `${target.projectId}:${target.assetId}`;
+      const revision = new URL(request.url).search;
+      const key = `${target.projectId}:${target.assetId}:${revision}`;
       const now = Date.now();
       const cached = verifiedPaths.get(key);
       const localPath =
