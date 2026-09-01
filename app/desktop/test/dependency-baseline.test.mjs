@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 
 test("desktop dependency baseline stays on the migrated stable majors", () => {
-  assert.match(pkg.dependencies.electron, /^\^44\./);
+  assert.match(pkg.devDependencies.electron, /^\^44\./);
   assert.match(pkg.dependencies["electron-vite"], /^\^5\./);
   assert.match(pkg.dependencies["@vitejs/plugin-react"], /^\^5\./);
   assert.match(pkg.dependencies.react, /^\^19\.2\./);

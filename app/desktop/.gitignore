@@ -1,4 +1,6 @@
 node_modules/
+dist/
+.npm-cache/
 out/
 out_old/
 release/

@@ -271,9 +271,6 @@ function createWindow() {
       toggleDevTools();
     });
 
-    window.webContents.once("did-finish-load", () => {
-      toggleDevTools();
-    });
   }
 }
 

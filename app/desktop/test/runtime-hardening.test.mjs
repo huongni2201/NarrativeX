@@ -134,6 +134,13 @@ test("desktop renderer keeps Node isolation while disabling Chromium sandbox", (
   assert.match(main, /sandbox: false/);
 });
 
+test("desktop does not open DevTools automatically after renderer load", () => {
+  const main = source("app", "desktop", "src", "main", "main.ts");
+  assert.doesNotMatch(main, /window\.webContents\.once\("did-finish-load",/);
+  assert.match(main, /before-input-event/);
+  assert.match(main, /openDevTools/);
+});
+
 test("desktop removes the native application menu", () => {
   const main = source("app", "desktop", "src", "main", "main.ts");
   assert.match(main, /import \{[^}]*\bMenu\b[^}]*\} from "electron"/s);

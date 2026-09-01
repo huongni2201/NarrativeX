@@ -143,7 +143,7 @@ export function ProjectsScreen() {
         actions={
           <>
             <span className="mr-1 text-[10px] tabular-nums text-text-dim">{projectCount} projects</span>
-            <Button size="sm" onClick={() => setIsCreating((value) => !value)}>
+            <Button size="sm" onClick={() => setIsCreating(true)}>
               <Plus size={12} /> New project
             </Button>
             <Button variant="outline" size="sm" onClick={() => void projects.refetch()}>
@@ -152,79 +152,6 @@ export function ProjectsScreen() {
           </>
         }
       >
-        {isCreating && (
-          <form
-            className="mb-4 grid max-w-2xl gap-3 rounded-md border border-border bg-surface-panel p-4"
-            onSubmit={submitProject}
-          >
-            <div className="border-b border-border-subtle pb-2.5">
-              <h2 className="text-[13px] font-semibold text-foreground">Create project</h2>
-              <p className="mt-0.5 text-[11px] leading-4 text-text-muted">
-                Khởi tạo workspace mới rồi mở thẳng vào Editor.
-              </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-[minmax(220px,1.2fr)_minmax(180px,.8fr)]">
-              <label className="grid gap-1.5 text-[10px] font-medium text-text-secondary">
-                <span>Name</span>
-                <Input
-                  autoFocus
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={160}
-                  placeholder="My next story"
-                />
-              </label>
-              <div className="grid content-start gap-1.5 text-[10px] font-medium text-text-secondary">
-                <label htmlFor="project-aspect-ratio">Khung hình</label>
-                <Select
-                  value={imageAspectRatio}
-                  onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}
-                >
-                  <SelectTrigger id="project-aspect-ratio" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ASPECT_RATIOS.map((ratio) => (
-                      <SelectItem key={ratio.value} value={ratio.value}>
-                        {ratio.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="font-normal leading-4 text-text-dim">
-                  Dùng cho storyboard, ảnh và bản render của project.
-                </span>
-              </div>
-              <label className="grid gap-1.5 text-[10px] font-medium text-text-secondary md:col-span-2">
-                <span>Description</span>
-                <Textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  maxLength={2000}
-                  placeholder="Optional project description"
-                  className="min-h-16"
-                />
-              </label>
-            </div>
-
-            {createProject.isError && (
-              <p className="m-0 border-l-2 border-danger bg-danger-bg px-2.5 py-2 text-[10px] text-danger" role="alert">
-                {createProject.error.message}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsCreating(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={createProject.isPending || !name.trim()}>
-                {createProject.isPending ? "Creating…" : "Create project"}
-              </Button>
-            </div>
-          </form>
-        )}
-
         {toggleFavorite.isError && (
           <p className="mb-3 border-l-2 border-danger bg-danger-bg px-2.5 py-2 text-[10px] text-danger" role="alert">
             Không thể cập nhật favorite: {toggleFavorite.error.message}
@@ -281,6 +208,90 @@ export function ProjectsScreen() {
           </div>
         )}
       </FeaturePage>
+
+      <Dialog
+        open={isCreating}
+        onOpenChange={(open) => {
+          if (!open && !createProject.isPending) setIsCreating(false);
+        }}
+      >
+        <DialogContent
+          className="w-[min(640px,calc(100vw-32px))] gap-4 bg-surface-panel p-5"
+          aria-describedby="create-project-description"
+        >
+          <DialogCloseButton disabled={createProject.isPending} />
+          <DialogHeader className="pr-6 text-left">
+            <DialogTitle className="text-[14px] text-foreground">Create project</DialogTitle>
+            <DialogDescription id="create-project-description" className="text-[11px] leading-5 text-text-muted">
+              Khởi tạo workspace mới rồi mở thẳng vào Editor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="grid gap-3" onSubmit={submitProject}>
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,1.2fr)_minmax(180px,.8fr)]">
+              <label className="grid gap-1.5 text-[10px] font-medium text-text-secondary">
+                <span>Name</span>
+                <Input
+                  autoFocus
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  maxLength={160}
+                  placeholder="My next story"
+                />
+              </label>
+              <div className="grid content-start gap-1.5 text-[10px] font-medium text-text-secondary">
+                <label htmlFor="project-aspect-ratio">Khung hình</label>
+                <Select
+                  value={imageAspectRatio}
+                  onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}
+                >
+                  <SelectTrigger id="project-aspect-ratio" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASPECT_RATIOS.map((ratio) => (
+                      <SelectItem key={ratio.value} value={ratio.value}>
+                        {ratio.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <label className="grid gap-1.5 text-[10px] font-medium text-text-secondary md:col-span-2">
+                <span>Description</span>
+                <Textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  maxLength={2000}
+                  placeholder="Optional project description"
+                  className="min-h-24"
+                />
+              </label>
+            </div>
+
+            {createProject.isError && (
+              <p className="m-0 border-l-2 border-danger bg-danger-bg px-2.5 py-2 text-[10px] text-danger" role="alert">
+                {createProject.error.message}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={createProject.isPending}
+                onClick={() => setIsCreating(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={createProject.isPending || !name.trim()}>
+                {createProject.isPending ? "Creating…" : "Create project"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={projectToDelete !== null}
