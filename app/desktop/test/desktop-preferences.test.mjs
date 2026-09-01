@@ -26,7 +26,7 @@ test("Gemini defaults use env values only inside the supported range", () => {
   );
 });
 
-test("preference profiles are isolated per user and reset to environment defaults", async () => {
+test("preference profiles are isolated per user and reset to environment defaults without deleting browser metadata", async () => {
   const directory = await mkdtemp(join(tmpdir(), "narrativex-preferences-"));
   const filePath = join(directory, "desktop-preferences.json");
   const store = new DesktopPreferencesStore(filePath, {
@@ -36,14 +36,19 @@ test("preference profiles are isolated per user and reset to environment default
 
   await store.bindUser("user-a");
   await store.updateGemini({ characterTabs: 6, storyboardTabs: 8 });
+  await store.addGeminiBrowser();
+  const userABrowsers = (await store.get()).gemini.browsers;
+  assert.equal(userABrowsers.length, 2);
   assert.deepEqual((await store.get()).gemini, {
     characterTabs: 6,
     storyboardTabs: 8,
+    browsers: userABrowsers,
     environmentDefaults: { characterTabs: 3, storyboardTabs: 5 },
   });
 
   await store.bindUser("user-b");
   assert.equal((await store.get()).gemini.characterTabs, 3);
+  assert.equal((await store.get()).gemini.browsers.length, 1);
   await store.updateGemini({ storyboardTabs: 2 });
 
   await store.bindUser("user-a");
@@ -52,12 +57,57 @@ test("preference profiles are isolated per user and reset to environment default
   assert.deepEqual((await store.get()).gemini, {
     characterTabs: 3,
     storyboardTabs: 5,
+    browsers: userABrowsers,
     environmentDefaults: { characterTabs: 3, storyboardTabs: 5 },
   });
 
+  await store.reset("ALL");
+  assert.deepEqual((await store.get()).gemini.browsers, userABrowsers);
+  assert.equal((await store.get()).window, null);
+
   const persisted = JSON.parse(await readFile(filePath, "utf8"));
+  assert.equal(persisted.schemaVersion, 2);
   assert.equal(persisted.lastActiveUserId, "user-a");
   assert.equal(persisted.profiles["user-b"].gemini.storyboardTabs, 2);
+});
+
+test("schema v1 preferences migrate to v2 with Browser 1 while preserving existing settings", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "narrativex-preferences-v1-"));
+  const filePath = join(directory, "desktop-preferences.json");
+  await writeFile(
+    filePath,
+    JSON.stringify({
+      schemaVersion: 1,
+      lastActiveUserId: "user-a",
+      profiles: {
+        "user-a": {
+          gemini: { characterTabs: 6, storyboardTabs: 7 },
+          window: { x: 10, y: 20, width: 1400, height: 900, maximized: true },
+        },
+      },
+    }),
+    "utf8",
+  );
+
+  const store = new DesktopPreferencesStore(filePath, {});
+  const preferences = await store.getLastActive();
+  assert.equal(preferences?.gemini.characterTabs, 6);
+  assert.equal(preferences?.gemini.storyboardTabs, 7);
+  assert.equal(preferences?.gemini.browsers.length, 1);
+  assert.equal(preferences?.gemini.browsers[0].id, "browser-1");
+  assert.deepEqual(preferences?.window, {
+    x: 10,
+    y: 20,
+    width: 1400,
+    height: 900,
+    maximized: true,
+  });
+
+  await store.bindUser("user-a");
+  const persisted = JSON.parse(await readFile(filePath, "utf8"));
+  assert.equal(persisted.schemaVersion, 2);
+  assert.equal(persisted.profiles["user-a"].gemini.characterTabs, 6);
+  assert.equal(persisted.profiles["user-a"].gemini.browsers.length, 1);
 });
 
 test("corrupted preference files recover without leaking invalid state", async () => {
@@ -68,6 +118,7 @@ test("corrupted preference files recover without leaking invalid state", async (
   await store.bindUser("user-a");
   const preferences = await store.get();
   assert.equal(preferences.gemini.characterTabs, 2);
+  assert.equal(preferences.gemini.browsers.length, 1);
   assert.equal(preferences.window, null);
 });
 
