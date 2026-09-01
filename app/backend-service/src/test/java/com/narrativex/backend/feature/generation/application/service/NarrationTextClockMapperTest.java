@@ -39,4 +39,17 @@ class NarrationTextClockMapperTest {
 
     assertThat(ranges).isEmpty();
   }
+
+  @Test
+  void rejectsAlignedClockWhenAnyVisualBeatExceedsTenSeconds() {
+    String spans = """
+        [{"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":25000}]
+        """;
+
+    var ranges =
+        NarrationTextClockMapper.map(
+            List.of(new TextRange(0, 50), new TextRange(50, 100)), spans, 25_000L);
+
+    assertThat(ranges).isEmpty();
+  }
 }
