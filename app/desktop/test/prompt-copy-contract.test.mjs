@@ -11,7 +11,7 @@ test("storyboard prompt copy uses the protected Desktop clipboard bridge", () =>
     "utf8",
   );
   const preload = readFileSync(resolve(desktopRoot, "src/preload/index.ts"), "utf8");
-  const main = readFileSync(resolve(desktopRoot, "src/main/main.ts"), "utf8");
+  const bootstrap = readFileSync(resolve(desktopRoot, "src/main/bootstrap-core.ts"), "utf8");
 
   assert.match(screen, /window\.narrativex\.system\.copyText\(beat\.prompt\)/);
   assert.doesNotMatch(screen, /compileGeminiPrompt/);
@@ -19,8 +19,8 @@ test("storyboard prompt copy uses the protected Desktop clipboard bridge", () =>
   assert.doesNotMatch(screen, /navigator\.clipboard/);
   assert.match(preload, /desktop:system:clipboard-write/);
   assert.match(
-    main,
+    bootstrap,
     /registerTrustedIpcHandler\("desktop:system:clipboard-write", trustPolicy, async \(text\) =>/,
   );
-  assert.match(main, /await clipboard\.writeText\(text\);/);
+  assert.match(bootstrap, /await clipboard\.writeText\(text\);/);
 });
