@@ -22,9 +22,16 @@ export interface DesktopWindowPreference {
   maximized: boolean;
 }
 
+export interface DesktopGeminiBrowserProfile {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface DesktopGeminiPreferences {
   characterTabs: number;
   storyboardTabs: number;
+  browsers: DesktopGeminiBrowserProfile[];
   environmentDefaults: {
     characterTabs: number;
     storyboardTabs: number;
