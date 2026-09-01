@@ -35,6 +35,7 @@ type Slot = {
 type LanePoolState = {
   capacity: number;
   pool: GeminiWebSlotPool<Slot>;
+  activeLeases: number;
 };
 
 export class GeminiWebAutomationPool {
@@ -58,14 +59,16 @@ export class GeminiWebAutomationPool {
   ): Promise<GeminiWebGenerationResult> {
     const counts = await this.getTabCounts();
     const capacity = lane === "CHARACTER" ? counts.characterTabs : counts.storyboardTabs;
-    const pool = this.poolFor(lane, capacity);
-    const lease = await pool.acquire();
+    const state = this.poolFor(lane, capacity);
+    const lease = await state.pool.acquire();
+    state.activeLeases += 1;
     try {
       if (!lease.slot.primary) {
         await this.seedSecondarySession(lease.slot.rootDirectory);
       }
       return await lease.slot.automation.generateImage(lane, prompt, references);
     } finally {
+      state.activeLeases = Math.max(0, state.activeLeases - 1);
       lease.release();
     }
   }
@@ -75,9 +78,9 @@ export class GeminiWebAutomationPool {
     this.lanes.clear();
   }
 
-  private poolFor(lane: GeminiWebLane, capacity: number): GeminiWebSlotPool<Slot> {
+  private poolFor(lane: GeminiWebLane, capacity: number): LanePoolState {
     const current = this.lanes.get(lane);
-    if (current?.capacity === capacity) return current.pool;
+    if (current && (current.capacity === capacity || current.activeLeases > 0)) return current;
 
     const laneDirectory = lane.toLowerCase();
     const pool = new GeminiWebSlotPool<Slot>(capacity, (index) => {
@@ -95,8 +98,9 @@ export class GeminiWebAutomationPool {
         primary: false,
       };
     });
-    this.lanes.set(lane, { capacity, pool });
-    return pool;
+    const next = { capacity, pool, activeLeases: 0 };
+    this.lanes.set(lane, next);
+    return next;
   }
 
   private async seedSecondarySession(slotRoot: string): Promise<void> {
