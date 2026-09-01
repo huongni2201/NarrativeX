@@ -112,33 +112,27 @@ def test_video_analysis_prompt_requests_motion_friendly_beats_without_image_prov
     assert "stable subject identity" in prompt
 
 
-def test_short_form_density_keeps_eight_second_target() -> None:
-    # 910 words at 140 wpm is approximately 6m30s, matching the common chapter case.
-    prompt = build_chapter_analysis_prompt(_request("word " * 910))
-    assert "TARGET_VISUAL_BEAT_MS=8000" in prompt
-    assert "TARGET_VISUAL_BEATS=49" in prompt
+def test_ten_minute_density_targets_eighty_and_hard_floor_sixty() -> None:
+    prompt = build_chapter_analysis_prompt(_request("word " * 1000))
+    assert "ESTIMATED_NARRATION_DURATION_MS=600000" in prompt
+    assert "TARGET_VISUAL_BEAT_MS=7500" in prompt
+    assert "HARD_MAX_VISUAL_BEAT_MS=10000" in prompt
+    assert "TARGET_VISUAL_BEATS=80" in prompt
+    assert "MIN_VISUAL_BEATS=60" in prompt
 
 
-def test_seven_minute_density_enforces_floor_and_self_check() -> None:
-    prompt = build_chapter_analysis_prompt(_request("word " * 980))
-    assert "TARGET_VISUAL_BEATS=53" in prompt
-    assert "MIN_VISUAL_BEATS=45" in prompt
-    assert "MAX_VISUAL_BEATS=60" in prompt
-    assert "If the planned total is below MIN_VISUAL_BEATS" in prompt
-    assert "count the total visual_beats" in prompt
-    assert "split overly broad beats" in prompt
+def test_density_prompt_enforces_floor_and_self_check() -> None:
+    prompt = build_chapter_analysis_prompt(_request("word " * 700))
+    assert "MIN_VISUAL_BEATS=" in prompt
+    assert "hard planning floor" in prompt
+    assert "count visual_beats" in prompt
+    assert "refine the storyboard again" in prompt
+    assert "No planned beat may intentionally represent more than 10 seconds" in prompt
 
 
-def test_one_hour_density_uses_twelve_second_target_instead_of_four_hundred_plus_beats() -> None:
+def test_long_form_density_never_relaxes_past_ten_seconds() -> None:
     prompt = build_chapter_analysis_prompt(_request("word " * 8400))
-    assert "ESTIMATED_NARRATION_DURATION_MS=3600000" in prompt
-    assert "TARGET_VISUAL_BEAT_MS=12000" in prompt
-    assert "TARGET_VISUAL_BEATS=300" in prompt
-    assert "extrapolating an 8-second short-form cadence forever" in prompt
-
-
-def test_two_hour_density_relaxes_to_fifteen_second_target() -> None:
-    prompt = build_chapter_analysis_prompt(_request("word " * 16800))
-    assert "ESTIMATED_NARRATION_DURATION_MS=7200000" in prompt
-    assert "TARGET_VISUAL_BEAT_MS=15000" in prompt
-    assert "TARGET_VISUAL_BEATS=480" in prompt
+    assert "TARGET_VISUAL_BEAT_MS=7500" in prompt
+    assert "HARD_MAX_VISUAL_BEAT_MS=10000" in prompt
+    assert "TARGET_VISUAL_BEAT_MS=12000" not in prompt
+    assert "TARGET_VISUAL_BEAT_MS=15000" not in prompt

@@ -7,6 +7,11 @@ import asyncpg  # type: ignore[import-untyped]
 
 from narrativex_worker.schema import ChapterAnalysisResult
 from narrativex_worker.visual_alignment import resolve_visual_beat_ranges
+from narrativex_worker.visual_density import (
+    estimated_narration_duration_ms,
+    latest_narration_duration_ms,
+    validate_visual_beat_density,
+)
 from narrativex_worker.visual_prompt.director import choose_ffmpeg_camera_movement
 
 if TYPE_CHECKING:
@@ -40,6 +45,16 @@ async def materialize_storyboard(
         raise RuntimeError("Storyboard revision source snapshot does not match the analysis job")
     if revision["source_row_version"] != claimed.request.chapter_row_version:
         raise RuntimeError("Storyboard revision row version does not match the analysis job")
+
+    narration_duration_ms = await latest_narration_duration_ms(
+        connection,
+        chapter_id=claimed.request.chapter_id,
+        source_hash=claimed.request.source_hash,
+    )
+    planning_duration_ms = narration_duration_ms or estimated_narration_duration_ms(
+        claimed.request.source_text
+    )
+    validate_visual_beat_density(result, duration_ms=planning_duration_ms)
 
     target_revision_id = revision["id"]
 

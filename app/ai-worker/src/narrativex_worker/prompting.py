@@ -1,10 +1,16 @@
 """Prompt construction with an explicit untrusted-data boundary."""
 
 import json
-import math
-import re
 
 from narrativex_worker.schema import ChapterAnalysisRequest
+from narrativex_worker.visual_density import (
+    HARD_MAX_VISUAL_BEAT_MS,
+    TARGET_VISUAL_BEAT_MS,
+    estimated_narration_duration_ms,
+    maximum_visual_beats,
+    minimum_visual_beats,
+    target_visual_beats,
+)
 from narrativex_worker.visual_prompt.director import VISUAL_DIRECTION_INSTRUCTIONS
 
 SCENE_SEGMENTATION_INSTRUCTIONS = (
@@ -66,64 +72,33 @@ LOCATION_PROFILE_INSTRUCTIONS = (
     "defaults once without contradicting the source, then keep them stable. "
 )
 
-_WORD_PATTERN = re.compile(r"\w+", re.UNICODE)
-_NARRATION_WORDS_PER_MINUTE = 140
-_MIN_VISUAL_BEAT_MS = 8_000
-_MAX_VISUAL_BEAT_MS = 18_000
-
-
-def _target_visual_beat_ms(estimated_duration_ms: int) -> int:
-    """Scale visual pacing smoothly so long-form chapters do not inherit short-form density."""
-    minutes = estimated_duration_ms / 60_000
-    if minutes <= 10:
-        target_ms = 8_000.0
-    elif minutes <= 30:
-        target_ms = 8_000.0 + ((minutes - 10.0) / 20.0) * 2_000.0
-    elif minutes <= 60:
-        target_ms = 10_000.0 + ((minutes - 30.0) / 30.0) * 2_000.0
-    elif minutes <= 120:
-        target_ms = 12_000.0 + ((minutes - 60.0) / 60.0) * 3_000.0
-    else:
-        target_ms = 15_000.0 + min((minutes - 120.0) / 120.0, 1.0) * 3_000.0
-    rounded = round(target_ms / 500.0) * 500
-    return max(_MIN_VISUAL_BEAT_MS, min(_MAX_VISUAL_BEAT_MS, int(rounded)))
-
 
 def _visual_beat_density_guidance(request: ChapterAnalysisRequest) -> str:
-    """Estimate useful seed-beat density before final narration alignment is available."""
-    word_count = max(1, len(_WORD_PATTERN.findall(request.source_text)))
-    estimated_duration_ms = max(
-        15_000,
-        round(word_count * 60_000 / _NARRATION_WORDS_PER_MINUTE),
-    )
-    target_beat_ms = _target_visual_beat_ms(estimated_duration_ms)
-    target = max(2, math.ceil(estimated_duration_ms / target_beat_ms))
-    lower_ratio = 0.88 if estimated_duration_ms >= 30 * 60_000 else 0.86
-    upper_ratio = 1.08 if estimated_duration_ms >= 30 * 60_000 else 1.12
-    lower = max(2, math.floor(target * lower_ratio))
-    upper = max(lower, math.ceil(target * upper_ratio))
+    """Plan dense seed beats before authoritative narration timing is available."""
+    estimated_duration_ms = estimated_narration_duration_ms(request.source_text)
+    target = target_visual_beats(estimated_duration_ms)
+    lower = minimum_visual_beats(estimated_duration_ms)
+    upper = maximum_visual_beats(estimated_duration_ms)
     return (
-        " Plan visual-beat density for watchable long-form video pacing. Estimate narration "
-        f"duration from the source at {_NARRATION_WORDS_PER_MINUTE} words/minute: "
-        f"ESTIMATED_NARRATION_DURATION_MS={estimated_duration_ms}. Use an adaptive pacing target "
-        f"of TARGET_VISUAL_BEAT_MS={target_beat_ms}. Use TARGET_VISUAL_BEATS={target}, "
-        f"MIN_VISUAL_BEATS={lower}, and MAX_VISUAL_BEATS={upper} for the whole chapter. "
-        "Treat MIN_VISUAL_BEATS as a strong planning floor, not optional guidance. "
-        "Distribute beats roughly in proportion to each scene's narration length and narrative "
-        "activity so long scenes do not collapse into one or two static images. If the planned "
-        "total is below MIN_VISUAL_BEATS, revisit substantial scenes and split overly broad beats "
-        "at source-backed changes in action, reaction, reveal/detail, emotional emphasis, "
-        "POV/focus, composition, or transition state. Do not create fake scenes merely to increase "
-        "the count. Before returning JSON, count the total visual_beats across all scenes; "
-        "if it is still below MIN_VISUAL_BEATS, refine again unless doing so would require "
-        "inventing story events. Use shorter beats for action, reveals, reactions, or strong "
-        "composition changes, and allow longer beats for genuinely stable dialogue, exposition, "
-        "atmosphere, or intentionally slow moments. These are seed visual beats; "
-        "the narration-aligned planner may later split or merge them using actual audio timing, "
-        "and the asset resolver may reuse or reframe an image across multiple beats. Do not "
-        "mechanically create a beat for every sentence, and do not invent events merely to reach "
-        "the target. Long-form pacing must become progressively calmer instead of extrapolating "
-        "an 8-second short-form cadence forever. "
+        " Plan visual-beat density for a visually active story video. Before authoritative audio "
+        "timing exists, use a conservative narration estimate so the storyboard is never planned "
+        "too sparsely. "
+        f"ESTIMATED_NARRATION_DURATION_MS={estimated_duration_ms}. "
+        f"TARGET_VISUAL_BEAT_MS={TARGET_VISUAL_BEAT_MS}. "
+        f"HARD_MAX_VISUAL_BEAT_MS={HARD_MAX_VISUAL_BEAT_MS}. "
+        f"TARGET_VISUAL_BEATS={target}, MIN_VISUAL_BEATS={lower}, MAX_VISUAL_BEATS={upper}. "
+        "MIN_VISUAL_BEATS is a hard planning floor. No planned beat may intentionally represent "
+        "more than 10 seconds of narration. Aim for about 7.5 seconds per beat, with 4-7 second "
+        "beats for action, reactions, speaker-focus changes, reveals, or strong emotional turns, "
+        "and 8-10 second beats only for genuinely stable exposition or atmosphere. "
+        "A single narrative scene must contain many visual beats when its narration is long. "
+        "Split broad beats at source-backed changes in action, reaction, speaker focus, emotional "
+        "emphasis, reveal/detail, POV/focus, composition, or transition state. Do not invent fake "
+        "story events and do not create fake scenes merely to raise the count. Before returning "
+        "JSON, count visual_beats across every scene. If the total is below MIN_VISUAL_BEATS, "
+        "refine the storyboard again until it reaches the floor using additional source-grounded "
+        "moments. These are seed beats; authoritative narration alignment later verifies the "
+        "10-second maximum against real audio timing. "
     )
 
 
