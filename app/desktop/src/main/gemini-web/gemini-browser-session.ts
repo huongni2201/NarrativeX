@@ -67,14 +67,14 @@ export class GeminiBrowserSession {
 
   async authStatus(): Promise<GeminiBrowserAuthStatus> {
     try {
-      const port = await this.ensureBrowser(true);
-      const target = await this.ensureControlTarget(port);
-      const cdp = await GeminiBrowserCdpClient.connect(target.webSocketDebuggerUrl as string);
+      const port = await this.runningPort();
+      if (!port) return "UNAVAILABLE";
+      const target = await this.findControlTarget(port);
+      if (!target?.webSocketDebuggerUrl) return "UNAVAILABLE";
+      const cdp = await GeminiBrowserCdpClient.connect(target.webSocketDebuggerUrl);
       try {
         await cdp.send("Runtime.enable");
         await cdp.send("Page.enable");
-        await this.ensureGeminiLocation(cdp);
-        await delay(800);
         return classifyGeminiAuthSnapshot(await this.authSnapshot(cdp));
       } finally {
         cdp.close();
@@ -85,9 +85,15 @@ export class GeminiBrowserSession {
   }
 
   async login(): Promise<GeminiBrowserAuthStatus> {
-    const port = await this.ensureBrowser(false);
-    const target = await this.ensureControlTarget(port);
-    const cdp = await GeminiBrowserCdpClient.connect(target.webSocketDebuggerUrl as string);
+    const port = await this.runningPort();
+    if (!port) {
+      throw new Error("Open this Gemini browser before signing in.");
+    }
+    const target = await this.findControlTarget(port);
+    if (!target?.webSocketDebuggerUrl) {
+      throw new Error("Open this Gemini browser before signing in.");
+    }
+    const cdp = await GeminiBrowserCdpClient.connect(target.webSocketDebuggerUrl);
     try {
       await cdp.send("Runtime.enable");
       await cdp.send("Page.enable");
@@ -139,6 +145,12 @@ export class GeminiBrowserSession {
     this.chromeProcess = null;
   }
 
+  private async runningPort(): Promise<number | null> {
+    const port = await this.readPersistedPort();
+    if (!port) return null;
+    return (await this.devToolsAvailable(port)) ? port : null;
+  }
+
   private async ensureBrowser(startMinimized: boolean): Promise<number> {
     await mkdir(this.profileDirectory, { recursive: true });
     const persistedPort = await this.readPersistedPort();
@@ -183,7 +195,7 @@ export class GeminiBrowserSession {
     throw new Error("Chrome opened but NarrativeX could not connect to its DevTools endpoint.");
   }
 
-  private async ensureControlTarget(port: number): Promise<DevToolsTarget> {
+  private async findControlTarget(port: number): Promise<DevToolsTarget | null> {
     const targets = await this.fetchJson<DevToolsTarget[]>(port, "/json");
     const persisted = await this.readControlTarget();
     if (persisted?.targetId) {
@@ -194,6 +206,20 @@ export class GeminiBrowserSession {
           typeof candidate.webSocketDebuggerUrl === "string",
       );
       if (existing?.webSocketDebuggerUrl) return existing;
+    }
+    return targets.find(
+      (candidate) =>
+        candidate.type === "page" &&
+        candidate.url?.includes("gemini.google.com") &&
+        typeof candidate.webSocketDebuggerUrl === "string",
+    ) ?? null;
+  }
+
+  private async ensureControlTarget(port: number): Promise<DevToolsTarget> {
+    const existing = await this.findControlTarget(port);
+    if (existing?.id && existing.webSocketDebuggerUrl) {
+      await writeFile(this.controlFile, JSON.stringify({ targetId: existing.id }), "utf8");
+      return existing;
     }
 
     const created = await this.fetchJson<DevToolsTarget>(
