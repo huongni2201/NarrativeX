@@ -8,6 +8,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Maps UTF-16 source offsets onto the authoritative narration alignment clock. */
 public final class NarrationTextClockMapper {
   private static final JsonMapper JSON = JsonMapper.builder().build();
+  private static final long HARD_MAX_VISUAL_BEAT_MS = 10_000L;
 
   private NarrationTextClockMapper() {}
 
@@ -47,7 +48,7 @@ public final class NarrationTextClockMapper {
     for (int index = 0; index < starts.size(); index++) {
       long start = starts.get(index);
       long end = index + 1 < starts.size() ? starts.get(index + 1) : audioDurationMs;
-      if (end <= start) return List.of();
+      if (end <= start || end - start > HARD_MAX_VISUAL_BEAT_MS) return List.of();
       result.add(new AudioRange(start, end));
     }
     return List.copyOf(result);
