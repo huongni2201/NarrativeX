@@ -3,7 +3,10 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import type { GeminiWebReferenceFile } from "./gemini-web-automation";
+import {
+  GeminiWebAutomation,
+  type GeminiWebReferenceFile,
+} from "./gemini-web-automation";
 import { GeminiWebAutomationPool } from "./gemini-web-automation-pool";
 import {
   cleanupGeminiTempFile,
@@ -31,17 +34,21 @@ export function registerGeminiWebIpc(
   projectStorage: ProjectStorage,
 ): void {
   const automationRoot = join(dirname(projectStorage.rootDirectory()), "gemini-web");
-  const automation = new GeminiWebAutomationPool(automationRoot, async () => {
-    try {
-      const preferences = await desktopPreferencesStore().get();
-      return {
-        characterTabs: preferences.gemini.characterTabs,
-        storyboardTabs: preferences.gemini.storyboardTabs,
-      };
-    } catch {
-      return resolveGeminiDefaults(process.env);
-    }
-  });
+  const automation = new GeminiWebAutomationPool(
+    automationRoot,
+    async () => {
+      try {
+        const preferences = await desktopPreferencesStore().get();
+        return {
+          characterTabs: preferences.gemini.characterTabs,
+          storyboardTabs: preferences.gemini.storyboardTabs,
+        };
+      } catch {
+        return resolveGeminiDefaults(process.env);
+      }
+    },
+    (rootDirectory) => new GeminiWebAutomation(rootDirectory),
+  );
 
   registerTrustedIpcHandlerWithEvent(
     "desktop:gemini-web:generate-image",
