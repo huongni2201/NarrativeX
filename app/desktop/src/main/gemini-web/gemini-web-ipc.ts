@@ -4,6 +4,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import type { GeminiWebReferenceFile } from "./gemini-web-automation";
+import { GeminiBrowserHost } from "./gemini-browser-host";
 import { GeminiBrowserPool } from "./gemini-browser-pool";
 import { registerGeminiBrowserIpc } from "./gemini-browser-ipc";
 import {
@@ -34,6 +35,8 @@ export function registerGeminiWebIpc(
   const browsers = new GeminiBrowserPool(
     automationRoot,
     desktopPreferencesStore(),
+    ({ browser, rootDirectory, getTabCounts }) =>
+      new GeminiBrowserHost(browser.id, rootDirectory, getTabCounts),
   );
 
   registerGeminiBrowserIpc(policy, browsers);
