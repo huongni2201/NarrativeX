@@ -33,13 +33,33 @@ test("personalized preference bootstrap restores and persists native window stat
   assert.match(ipc, /desktop:preferences:reset/);
 });
 
-test("Settings exposes Gemini concurrency and reset actions", () => {
+test("Settings delegates Gemini browser and concurrency behavior to focused components", () => {
   const settings = source("src", "renderer", "features", "settings", "screens", "SettingsScreen.tsx");
-  assert.match(settings, /Gemini Image Generation/);
-  assert.match(settings, /Character parallel tabs/);
-  assert.match(settings, /Storyboard parallel tabs/);
-  assert.match(settings, /Reset Gemini generation settings/);
+  const browsers = source("src", "renderer", "features", "settings", "components", "GeminiBrowserSettings.tsx");
+  const concurrency = source("src", "renderer", "features", "settings", "components", "GeminiConcurrencySettings.tsx");
+
+  assert.match(settings, /GeminiBrowserSettings/);
+  assert.match(settings, /GeminiConcurrencySettings/);
+  assert.doesNotMatch(settings, /function ConcurrencyRow/);
+
+  assert.match(browsers, /Gemini Browsers/);
+  assert.match(browsers, /Add browser/);
+  assert.match(browsers, /Login/);
+  assert.match(browsers, /Reset login/);
+  assert.match(browsers, /Remove/);
+  assert.match(browsers, /geminiWeb\.browsers\.list/);
+  assert.match(browsers, /geminiWeb\.browsers\.add/);
+  assert.match(browsers, /geminiWeb\.browsers\.login/);
+  assert.match(browsers, /geminiWeb\.browsers\.open/);
+  assert.match(browsers, /geminiWeb\.browsers\.resetLogin/);
+  assert.match(browsers, /geminiWeb\.browsers\.remove/);
+
+  assert.match(concurrency, /Generation Concurrency/);
+  assert.match(concurrency, /Character parallel tabs/);
+  assert.match(concurrency, /Storyboard parallel tabs/);
+  assert.match(concurrency, /environmentDefaults/);
+  assert.match(concurrency, /Reset Gemini generation settings/);
+
   assert.match(settings, /Reset window layout/);
   assert.match(settings, /Reset all personalized settings/);
-  assert.match(settings, /environmentDefaults/);
 });
