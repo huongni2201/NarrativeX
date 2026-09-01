@@ -1,7 +1,7 @@
 """Regression tests for public worker contract boundaries."""
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from narrativex_worker.repository import WorkerRepository as PublicWorkerRepository
 from narrativex_worker.repository.claims import (
