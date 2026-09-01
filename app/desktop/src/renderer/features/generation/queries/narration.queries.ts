@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type {
   GenerateBatchNarrationInput,
   GenerateNarrationInput,
@@ -7,10 +11,7 @@ import type {
 import { chapterQueryKeys } from "../../chapters/queries/chapters.queries";
 import { narrationApi } from "../api/narration.api";
 
-async function invalidateNarrationState(
-  queryClient: ReturnType<typeof useQueryClient>,
-  projectId: string,
-) {
+async function invalidateNarrationState(queryClient: QueryClient, projectId: string) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
     queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
