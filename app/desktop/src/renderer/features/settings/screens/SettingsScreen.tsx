@@ -1,9 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Cpu, Database, HardDrive, Palette, RotateCcw, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Cpu, Database, HardDrive, Palette, RotateCcw } from "lucide-react";
 import type { DesktopPreferences, DesktopPreferenceResetScope } from "../../../../preload/types";
 import { Button } from "../../../components/ui/button";
 import { FeaturePage } from "../../workspace/components/FeaturePage";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
+import { GeminiBrowserSettings } from "../components/GeminiBrowserSettings";
+import { GeminiConcurrencySettings } from "../components/GeminiConcurrencySettings";
 
 const MIN_TABS = 1;
 const MAX_TABS = 8;
@@ -28,13 +30,17 @@ export function SettingsScreen({
       .catch((error) => setPreferenceNotice(error instanceof Error ? error.message : "Unable to load personalized settings."));
   }, []);
 
+  const showNotice = useCallback((message: string) => {
+    setPreferenceNotice(message);
+  }, []);
+
   async function updateGemini(field: "characterTabs" | "storyboardTabs", value: number) {
     if (!preferences) return;
     const clamped = Math.min(MAX_TABS, Math.max(MIN_TABS, value));
     try {
       const next = await window.narrativex.preferences.updateGemini({ [field]: clamped });
       setPreferences(next);
-      setPreferenceNotice("Saved. New Gemini queues will use this concurrency.");
+      setPreferenceNotice("Saved. New Gemini queues will use this global concurrency.");
     } catch (error) {
       setPreferenceNotice(error instanceof Error ? error.message : "Unable to save Gemini settings.");
     }
@@ -46,10 +52,10 @@ export function SettingsScreen({
       setPreferences(next);
       setPreferenceNotice(
         scope === "GEMINI"
-          ? "Gemini settings reset to environment defaults."
+          ? "Gemini concurrency reset to environment defaults. Browser logins were preserved."
           : scope === "WINDOW"
             ? "Window layout reset."
-            : "All personalized settings reset.",
+            : "Personalized settings reset. Gemini browser profiles and logins were preserved.",
       );
     } catch (error) {
       setPreferenceNotice(error instanceof Error ? error.message : "Unable to reset personalized settings.");
@@ -81,30 +87,23 @@ export function SettingsScreen({
         </SettingsGroup>
 
         <div className="lg:col-span-2">
+          <GeminiBrowserSettings onNotice={showNotice} />
+        </div>
+
+        <div className="lg:col-span-2">
+          <GeminiConcurrencySettings
+            preferences={preferences}
+            onUpdate={(field, value) => void updateGemini(field, value)}
+            onReset={() => void resetPreferences("GEMINI")}
+          />
+        </div>
+
+        <div className="lg:col-span-2">
           <SettingsGroup
             eyebrow="Personalization"
-            title="Gemini Image Generation"
-            description="Mỗi user có cấu hình riêng trên máy này. Thay đổi concurrency được áp dụng cho queue Gemini tiếp theo."
+            title="Reset Actions"
+            description="Reset Desktop layout/preferences without silently deleting saved Gemini browser logins."
           >
-            <ConcurrencyRow
-              icon={<Sparkles size={16} />}
-              title="Character parallel tabs"
-              value={preferences?.gemini.characterTabs ?? 2}
-              environmentDefault={preferences?.gemini.environmentDefaults.characterTabs ?? 2}
-              onChange={(value) => void updateGemini("characterTabs", value)}
-            />
-            <ConcurrencyRow
-              icon={<Sparkles size={16} />}
-              title="Storyboard parallel tabs"
-              value={preferences?.gemini.storyboardTabs ?? 4}
-              environmentDefault={preferences?.gemini.environmentDefaults.storyboardTabs ?? 4}
-              onChange={(value) => void updateGemini("storyboardTabs", value)}
-            />
-            <ResetRow
-              title="Reset Gemini generation settings"
-              description="Remove this user's overrides and use environment defaults again."
-              onReset={() => void resetPreferences("GEMINI")}
-            />
             <ResetRow
               title="Reset window layout"
               description="Forget this user's saved size/position and restore the default Desktop layout."
@@ -112,7 +111,7 @@ export function SettingsScreen({
             />
             <ResetRow
               title="Reset all personalized settings"
-              description="Reset only the current user's Gemini and window preferences on this device."
+              description="Reset window and Gemini concurrency preferences. Browser profiles and login sessions are preserved."
               onReset={() => void resetPreferences("ALL")}
             />
           </SettingsGroup>
@@ -154,39 +153,6 @@ function SettingRow({ icon, title, value }: Readonly<{ icon: ReactNode; title: s
       <span className="grid size-7 place-items-center text-text-muted">{icon}</span>
       <span className="text-[11px] font-medium text-foreground">{title}</span>
       <span className="min-w-0 truncate text-right text-[10px] text-text-muted" title={value}>{value}</span>
-    </div>
-  );
-}
-
-function ConcurrencyRow({
-  icon,
-  title,
-  value,
-  environmentDefault,
-  onChange,
-}: Readonly<{
-  icon: ReactNode;
-  title: string;
-  value: number;
-  environmentDefault: number;
-  onChange: (value: number) => void;
-}>) {
-  return (
-    <div className="grid min-h-14 grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2">
-      <span className="grid size-7 place-items-center text-text-muted">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-[11px] font-medium text-foreground">{title}</div>
-        <div className="text-[9px] text-text-dim">Environment default: {environmentDefault} · allowed 1–8</div>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button size="sm" variant="outline" disabled={value <= MIN_TABS} onClick={() => onChange(value - 1)} aria-label={`Decrease ${title}`}>
-          −
-        </Button>
-        <span className="w-8 text-center text-[11px] font-semibold text-foreground">{value}</span>
-        <Button size="sm" variant="outline" disabled={value >= MAX_TABS} onClick={() => onChange(value + 1)} aria-label={`Increase ${title}`}>
-          +
-        </Button>
-      </div>
     </div>
   );
 }
