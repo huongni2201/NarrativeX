@@ -1,2 +1,2 @@
-import "./preferences/preferences-bootstrap";
 import "./bootstrap-core";
+import "./preferences/preferences-bootstrap";
