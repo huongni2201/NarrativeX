@@ -1,10 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import {
-  GeminiWebAutomation,
-  type GeminiWebGenerationResult,
-  type GeminiWebReferenceFile,
-} from "./gemini-web-automation.ts";
 import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
 import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
 
@@ -15,20 +10,33 @@ type TabCounts = {
   storyboardTabs: number;
 };
 
-type AutomationLike = {
+export interface GeminiPoolReferenceFile {
+  path: string;
+  refLabel: string;
+  canonicalName: string;
+  characterId: string;
+  beatRole?: string | null;
+}
+
+export interface GeminiPoolGenerationResult {
+  sourcePath: string;
+  captureMethod: "NETWORK" | "DOWNLOAD";
+}
+
+export interface GeminiPoolAutomation {
   generateImage(
     lane: GeminiWebLane,
     prompt: string,
-    references?: readonly GeminiWebReferenceFile[],
-  ): Promise<GeminiWebGenerationResult>;
+    references?: readonly GeminiPoolReferenceFile[],
+  ): Promise<GeminiPoolGenerationResult>;
   stop(): Promise<void>;
-};
+}
 
-type AutomationFactory = (rootDirectory: string) => AutomationLike;
+export type GeminiPoolAutomationFactory = (rootDirectory: string) => GeminiPoolAutomation;
 
 type Slot = {
   rootDirectory: string;
-  automation: AutomationLike;
+  automation: GeminiPoolAutomation;
   primary: boolean;
 };
 
@@ -39,14 +47,14 @@ type LanePoolState = {
 };
 
 export class GeminiWebAutomationPool {
-  private readonly primaryAutomation: AutomationLike;
+  private readonly primaryAutomation: GeminiPoolAutomation;
   private readonly primarySessionFile: string;
   private readonly lanes = new Map<GeminiWebLane, LanePoolState>();
 
   constructor(
     private readonly rootDirectory: string,
     private readonly getTabCounts: () => Promise<TabCounts>,
-    private readonly createAutomation: AutomationFactory = (root) => new GeminiWebAutomation(root),
+    private readonly createAutomation: GeminiPoolAutomationFactory,
   ) {
     this.primaryAutomation = this.createAutomation(rootDirectory);
     this.primarySessionFile = join(rootDirectory, "session.json");
@@ -55,8 +63,8 @@ export class GeminiWebAutomationPool {
   async generateImage(
     lane: GeminiWebLane,
     prompt: string,
-    references: readonly GeminiWebReferenceFile[] = [],
-  ): Promise<GeminiWebGenerationResult> {
+    references: readonly GeminiPoolReferenceFile[] = [],
+  ): Promise<GeminiPoolGenerationResult> {
     const counts = await this.getTabCounts();
     const capacity = lane === "CHARACTER" ? counts.characterTabs : counts.storyboardTabs;
     const state = this.poolFor(lane, capacity);
