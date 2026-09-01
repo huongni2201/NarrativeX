@@ -1,10 +1,6 @@
 import type { EffectiveDesktopPreferences, DesktopPreferencesStore } from "../preferences/desktop-preferences.ts";
 import type { GeminiBrowserProfile } from "./gemini-browser-registry.ts";
 import { GeminiBrowserStorage } from "./gemini-browser-storage.ts";
-import {
-  GeminiBrowserHost,
-  type GeminiBrowserHostLike,
-} from "./gemini-browser-host.ts";
 import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
 import type {
   GeminiPoolGenerationResult,
@@ -22,6 +18,20 @@ export interface GeminiBrowserView {
   authStatus: GeminiBrowserViewStatus;
   activeLeases: number;
   canRemove: boolean;
+}
+
+export interface GeminiBrowserHostLike {
+  readonly browserId: string;
+  authStatus(): Promise<GeminiBrowserAuthStatus>;
+  open(): Promise<void>;
+  login(): Promise<GeminiBrowserAuthStatus>;
+  generateImage(
+    lane: GeminiWebLane,
+    prompt: string,
+    references?: readonly GeminiPoolReferenceFile[],
+  ): Promise<GeminiPoolGenerationResult>;
+  activeLeaseCount(): number;
+  stop(): Promise<void>;
 }
 
 export interface GeminiBrowserPreferenceStore {
@@ -53,8 +63,7 @@ export class GeminiBrowserPool {
   constructor(
     rootDirectory: string,
     private readonly preferences: GeminiBrowserPreferenceStore | DesktopPreferencesStore,
-    private readonly createHost: GeminiBrowserHostFactory = ({ browser, rootDirectory, getTabCounts }) =>
-      new GeminiBrowserHost(browser.id, rootDirectory, getTabCounts),
+    private readonly createHost: GeminiBrowserHostFactory,
     storage?: GeminiBrowserStorage,
   ) {
     this.storage = storage ?? new GeminiBrowserStorage(rootDirectory);
@@ -62,9 +71,9 @@ export class GeminiBrowserPool {
 
   async list(): Promise<GeminiBrowserView[]> {
     const preferences = await this.ensureUserContext();
-    const statuses = await Promise.all(
+    return Promise.all(
       preferences.gemini.browsers.map(async (browser) => {
-        const host = this.hosts.get(browser.id) as GeminiBrowserHostLike;
+        const host = this.requireExistingHost(browser.id);
         const authStatus = await host.authStatus();
         return {
           id: browser.id,
@@ -76,7 +85,6 @@ export class GeminiBrowserPool {
         } satisfies GeminiBrowserView;
       }),
     );
-    return statuses;
   }
 
   async add(): Promise<GeminiBrowserView[]> {
@@ -231,7 +239,7 @@ export class GeminiBrowserPool {
       browsers.map(async (browser) => {
         const host = this.requireExistingHost(browser.id);
         const authStatus = await host.authStatus();
-        return { browser, host, authStatus, load: host.activeLeaseCount() };
+        return { host, authStatus, load: host.activeLeaseCount() };
       }),
     );
     const eligible = candidates.filter((candidate) => candidate.authStatus === "LOGGED_IN");
