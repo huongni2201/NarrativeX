@@ -10,6 +10,10 @@ const manifest = await readFile(
   new URL("../src/main/rendering/render-manifest.ts", import.meta.url),
   "utf8",
 );
+const backendClient = await readFile(
+  new URL("../src/main/local-execution/backend-client.ts", import.meta.url),
+  "utf8",
+);
 const preflight = await readFile(
   new URL("../src/renderer/features/production/render-preflight.ts", import.meta.url),
   "utf8",
@@ -18,5 +22,6 @@ const preflight = await readFile(
 test("project media is implicitly local without storage-mode branching", () => {
   assert.doesNotMatch(contracts, /BeatMediaStorageMode|storageMode|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
   assert.doesNotMatch(manifest, /storageMode|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
+  assert.doesNotMatch(backendClient, /storageMode|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
   assert.doesNotMatch(preflight, /storageMode|materializable|PROJECT_LOCAL|LOCAL_ONLY|HYBRID/);
 });

@@ -376,13 +376,10 @@ class StoryboardApiIntegrationTest {
         .perform(get("/api/v1/artifacts/" + FINAL_ARTIFACT))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.status").value("READY"))
-        .andExpect(jsonPath("$.data.previewAvailable").value(true))
-        .andExpect(
-            jsonPath("$.data.previewUrl").value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/content"))
-        .andExpect(jsonPath("$.data.downloadAvailable").value(true))
-        .andExpect(
-            jsonPath("$.data.downloadUrl")
-                .value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/download"))
+        .andExpect(jsonPath("$.data.previewAvailable").value(false))
+        .andExpect(jsonPath("$.data.previewUrl").doesNotExist())
+        .andExpect(jsonPath("$.data.downloadAvailable").value(false))
+        .andExpect(jsonPath("$.data.downloadUrl").doesNotExist())
         .andExpect(jsonPath("$.data.externalFileId").doesNotExist())
         .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
         .andExpect(jsonPath("$.data.accessToken").doesNotExist());

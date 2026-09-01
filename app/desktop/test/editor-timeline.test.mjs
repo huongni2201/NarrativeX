@@ -144,7 +144,7 @@ function beat(chapterId, sceneIndex, beatIndex, visualBeatId, startMs, endMs) {
     title: visualBeatId,
     visualIntent: "visual intent",
     cameraMovement: "STATIC",
-    assetStrategy: "GENERATE",
+    assetStrategy: "GENERATE_NEW",
     mediaAssetId: null,
     startMs,
     endMs,

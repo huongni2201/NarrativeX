@@ -50,7 +50,6 @@ export interface ClaimedProjectRenderBeat {
   durationMs: number;
   cameraMovement: string;
   mediaType: "IMAGE" | "VIDEO";
-  storageMode: "REMOTE" | "LOCAL_ONLY" | "HYBRID";
   sourceDurationMs: number | null;
   fitMode: "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
   trimStartMs: number;

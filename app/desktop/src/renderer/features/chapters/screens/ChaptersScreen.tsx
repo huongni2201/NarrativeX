@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
@@ -35,7 +34,6 @@ import {
   useChapterAnalysis,
 } from "../queries/chapter-analysis.queries";
 import {
-  chapterQueryKeys,
   useChapterWorkspacesQuery,
   useCreateChapter,
   useDeleteChapter,
@@ -74,7 +72,6 @@ export function ChaptersScreen({
   const generateBatchNarration = useGenerateBatchNarration();
   const bulkChapterAnalysis = useBulkChapterAnalysis(projectId);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -367,7 +364,6 @@ export function ChaptersScreen({
           speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
         },
       });
-      await queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) });
       setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được worker xử lý.`);
     } catch (error) {
       const message = toErrorMessage(error, "Tạo audio thất bại.");
@@ -387,10 +383,6 @@ export function ChaptersScreen({
         voiceId,
         speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
       });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      ]);
       setNotice(`Đã xếp hàng tạo audio cho ${admitted.length} chapter. Narration worker sẽ xử lý song song theo concurrency.`);
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể xếp hàng tạo audio cho các chapter."));
