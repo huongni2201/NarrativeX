@@ -106,15 +106,31 @@ test("Character queue persistence is scoped by project and malformed payloads ar
   assert.equal(storage.getItem(key), null);
 });
 
-test("Characters screen wires Generate All through the CHARACTER lane service and persists transitions", () => {
-  const source = readFileSync(
+test("Characters screen delegates Generate All while the feature hook owns queue transitions", () => {
+  const screenSource = readFileSync(
     "src/renderer/features/characters/screens/CharactersScreen.tsx",
     "utf8",
   );
-  assert.match(source, /CharacterGeminiQueueBanner/);
-  assert.match(source, /function publishGeminiQueue/);
-  assert.match(source, /generateCharacterIdentityReference/);
-  assert.match(source, /markCharacterQueueCompleted/);
-  assert.match(source, /markCharacterQueueSkipped/);
-  assert.match(source, /generationLocked=\{geminiQueueActive\}/);
+  const hookSource = readFileSync(
+    "src/renderer/features/characters/queries/character-gemini-queue.ts",
+    "utf8",
+  );
+  const generationSource = readFileSync(
+    "src/renderer/features/characters/services/character-reference-generation.ts",
+    "utf8",
+  );
+
+  assert.match(screenSource, /CharacterGeminiQueueBanner/);
+  assert.match(screenSource, /useCharacterGeminiQueue/);
+  assert.match(screenSource, /generationLocked=\{geminiQueueActive\}/);
+  assert.doesNotMatch(screenSource, /function publishGeminiQueue/);
+  assert.doesNotMatch(screenSource, /generateCharacterIdentityReference/);
+
+  assert.match(hookSource, /publishGeminiQueue/);
+  assert.match(hookSource, /saveCharacterGeminiQueue\(projectId, next\)/);
+  assert.match(hookSource, /generateCharacterIdentityReference/);
+  assert.match(hookSource, /markCharacterQueueCompleted/);
+  assert.match(hookSource, /markCharacterQueueSkipped/);
+  assert.match(hookSource, /geminiRunTokenRef/);
+  assert.match(generationSource, /lane:\s*"CHARACTER"/);
 });
