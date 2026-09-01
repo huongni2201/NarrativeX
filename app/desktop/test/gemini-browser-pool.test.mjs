@@ -29,7 +29,7 @@ function preferences(initialBrowsers, counts = { characterTabs: 2, storyboardTab
   };
 }
 
-function fakeHost(browserId, status = "LOGGED_IN") {
+function fakeHost(browserId, status = "LOGGED_IN", hooks = {}) {
   let active = 0;
   let calls = 0;
   let maxActive = 0;
@@ -42,9 +42,14 @@ function fakeHost(browserId, status = "LOGGED_IN") {
       calls += 1;
       active += 1;
       maxActive = Math.max(maxActive, active);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      active -= 1;
-      return { sourcePath: `${browserId}:${lane}:${prompt}`, captureMethod: "DOWNLOAD" };
+      hooks.onStart?.();
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return { sourcePath: `${browserId}:${lane}:${prompt}`, captureMethod: "DOWNLOAD" };
+      } finally {
+        active -= 1;
+        hooks.onFinish?.();
+      }
     },
     activeLeaseCount() { return active; },
     async stop() {},
@@ -55,23 +60,19 @@ function fakeHost(browserId, status = "LOGGED_IN") {
 
 test("two browsers do not multiply Character concurrency", async () => {
   const prefs = preferences([profile("browser-1", "Browser 1"), profile("browser-2", "Browser 2")]);
-  const hosts = new Map();
-  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => {
-    const host = fakeHost(browser.id);
-    hosts.set(browser.id, host);
-    return host;
-  });
-
-  let active = 0;
-  let maxActive = 0;
-  for (const host of hosts.values()) {
-    const original = host.generateImage.bind(host);
-    host.generateImage = async (...args) => {
-      active += 1;
-      maxActive = Math.max(maxActive, active);
-      try { return await original(...args); } finally { active -= 1; }
-    };
-  }
+  let totalActive = 0;
+  let maxTotalActive = 0;
+  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) =>
+    fakeHost(browser.id, "LOGGED_IN", {
+      onStart() {
+        totalActive += 1;
+        maxTotalActive = Math.max(maxTotalActive, totalActive);
+      },
+      onFinish() {
+        totalActive -= 1;
+      },
+    }),
+  );
 
   await Promise.all([
     pool.generateImage("CHARACTER", "a"),
@@ -79,7 +80,7 @@ test("two browsers do not multiply Character concurrency", async () => {
     pool.generateImage("CHARACTER", "c"),
     pool.generateImage("CHARACTER", "d"),
   ]);
-  assert.equal(maxActive, 2);
+  assert.equal(maxTotalActive, 2);
 });
 
 test("scheduler ignores logged-out and unavailable browsers", async () => {
