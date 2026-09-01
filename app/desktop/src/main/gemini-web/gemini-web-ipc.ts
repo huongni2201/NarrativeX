@@ -3,16 +3,16 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import {
-  GeminiWebAutomation,
-  type GeminiWebReferenceFile,
-} from "./gemini-web-automation";
+import type { GeminiWebReferenceFile } from "./gemini-web-automation";
+import { GeminiWebAutomationPool } from "./gemini-web-automation-pool";
 import {
   cleanupGeminiTempFile,
   removeGeminiWatermark,
 } from "./gemini-image-postprocessor";
 import { isGeminiWebLane, type GeminiWebLane } from "../../shared/gemini-web-lanes";
 import { ProjectStorage } from "../local-storage/project-storage";
+import { resolveGeminiDefaults } from "../preferences/desktop-preferences";
+import { desktopPreferencesStore } from "../preferences/preferences-bootstrap";
 import {
   registerTrustedIpcHandlerWithEvent,
   type RendererTrustPolicy,
@@ -31,7 +31,17 @@ export function registerGeminiWebIpc(
   projectStorage: ProjectStorage,
 ): void {
   const automationRoot = join(dirname(projectStorage.rootDirectory()), "gemini-web");
-  const automation = new GeminiWebAutomation(automationRoot);
+  const automation = new GeminiWebAutomationPool(automationRoot, async () => {
+    try {
+      const preferences = await desktopPreferencesStore().get();
+      return {
+        characterTabs: preferences.gemini.characterTabs,
+        storyboardTabs: preferences.gemini.storyboardTabs,
+      };
+    } catch {
+      return resolveGeminiDefaults(process.env);
+    }
+  });
 
   registerTrustedIpcHandlerWithEvent(
     "desktop:gemini-web:generate-image",
