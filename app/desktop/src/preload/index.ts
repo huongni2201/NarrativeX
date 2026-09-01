@@ -101,6 +101,10 @@ const bridge: NarrativeXDesktopBridge = {
     generateImage: (input: GeminiWebGenerateImageInput) =>
       ipcRenderer.invoke("desktop:gemini-web:generate-image", input),
     commitImage: (input) => ipcRenderer.invoke("desktop:gemini-web:commit-image", input),
+    watermarkStates: (input) =>
+      ipcRenderer.invoke("desktop:gemini-web:watermark-states", input),
+    removeWatermarks: (input) =>
+      ipcRenderer.invoke("desktop:gemini-web:remove-watermarks", input),
   },
   render: {
     status: () => ipcRenderer.invoke("desktop:render:status"),
