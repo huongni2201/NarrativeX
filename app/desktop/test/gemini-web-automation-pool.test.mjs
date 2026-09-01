@@ -3,7 +3,20 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { GeminiWebAutomationPool } from "../src/main/gemini-web/gemini-web-automation-pool.ts";
+import {
+  GeminiWebAutomationPool,
+  mergeSharedPortSession,
+} from "../src/main/gemini-web/gemini-web-automation-pool.ts";
+
+test("refreshing a shared Chrome port preserves the slot's persisted Gemini targets", () => {
+  assert.deepEqual(
+    mergeSharedPortSession(
+      { port: 9111, targets: { CHARACTER: "character-target" } },
+      9222,
+    ),
+    { port: 9222, targets: { CHARACTER: "character-target" } },
+  );
+});
 
 test("Gemini automation pool runs Character requests up to configured concurrency", async () => {
   const root = await mkdtemp(join(tmpdir(), "nx-gemini-pool-"));
