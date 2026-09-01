@@ -23,69 +23,6 @@ public record MediaBeatPlan(
     String characterSnapshotJson,
     String snapshotFingerprint,
     UUID reuseSourceVisualBeatId) {
-  public MediaBeatPlan(
-      UUID visualBeatId,
-      int orderIndex,
-      String visualIntent,
-      String motionMode,
-      MotionStrategy motionStrategy) {
-    this(
-        visualBeatId,
-        orderIndex,
-        visualIntent,
-        motionMode,
-        motionStrategy,
-        "GENERATE_NEW",
-        "prompt-v1",
-        visualIntent,
-        null,
-        null,
-        null,
-        null,
-        "NONE",
-        "{}",
-        "{}",
-        null,
-        null);
-  }
-
-  /** Compatibility constructor for callers created before intra-plan image reuse was added. */
-  public MediaBeatPlan(
-      UUID visualBeatId,
-      int orderIndex,
-      String visualIntent,
-      String motionMode,
-      MotionStrategy motionStrategy,
-      String assetStrategy,
-      String promptTemplateVersion,
-      String promptSnapshot,
-      String negativePrompt,
-      Long audioStartMs,
-      Long audioEndMs,
-      Long audioDurationMs,
-      String cameraMovement,
-      String imageSettingsJson,
-      String characterSnapshotJson,
-      String snapshotFingerprint) {
-    this(
-        visualBeatId,
-        orderIndex,
-        visualIntent,
-        motionMode,
-        motionStrategy,
-        assetStrategy,
-        promptTemplateVersion,
-        promptSnapshot,
-        negativePrompt,
-        audioStartMs,
-        audioEndMs,
-        audioDurationMs,
-        cameraMovement,
-        imageSettingsJson,
-        characterSnapshotJson,
-        snapshotFingerprint,
-        null);
-  }
 
   public MediaBeatPlan {
     Objects.requireNonNull(visualBeatId, "visualBeatId must not be null");
