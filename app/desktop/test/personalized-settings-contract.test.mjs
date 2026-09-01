@@ -21,13 +21,16 @@ test("AuthGuard binds desktop preferences to the resolved current user", () => {
   assert.match(authGuard, /window\.narrativex\.preferences\.bindUser\(currentUser\.data\.id\)/);
 });
 
-test("main process restores persisted window state instead of always maximizing", () => {
+test("personalized preference bootstrap restores and persists native window state", () => {
   const main = source("src", "main", "main.ts");
-  assert.match(main, /DesktopPreferencesStore/);
-  assert.match(main, /resolveRestoredWindowState/);
-  assert.match(main, /desktop:preferences:bind-user/);
-  assert.match(main, /desktop:preferences:reset/);
-  assert.doesNotMatch(main, /mainWindow = window;\s*window\.maximize\(\)/);
+  const bootstrap = source("src", "main", "preferences", "preferences-bootstrap.ts");
+  const ipc = source("src", "main", "preferences", "desktop-preferences-ipc.ts");
+  assert.match(main, /preferences\/preferences-bootstrap/);
+  assert.match(bootstrap, /DesktopPreferencesStore/);
+  assert.match(bootstrap, /resolveRestoredWindowState/);
+  assert.match(bootstrap, /getNormalBounds\(\)/);
+  assert.match(ipc, /desktop:preferences:bind-user/);
+  assert.match(ipc, /desktop:preferences:reset/);
 });
 
 test("Settings exposes Gemini concurrency and reset actions", () => {
