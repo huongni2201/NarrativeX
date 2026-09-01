@@ -5,6 +5,7 @@ from narrativex_worker.visual_density import (
     HARD_MAX_VISUAL_BEAT_MS,
     TARGET_VISUAL_BEAT_MS,
     estimated_narration_duration_ms,
+    latest_narration_duration_ms,
     minimum_visual_beats,
     target_visual_beats,
     validate_visual_beat_density,
@@ -38,6 +39,22 @@ def test_ten_minute_narration_requires_at_least_sixty_beats_and_targets_eighty()
 
 def test_pre_narration_estimate_is_conservative() -> None:
     assert estimated_narration_duration_ms("word " * 1000) == 600_000
+
+
+@pytest.mark.asyncio
+async def test_actual_narration_duration_is_preferred_when_available() -> None:
+    class Connection:
+        async def fetchval(self, query: str, *args: object) -> int:
+            assert "narration_assets" in query
+            assert args[1] == "a" * 64
+            return 600_000
+
+    assert (
+        await latest_narration_duration_ms(
+            Connection(), chapter_id="chapter-1", source_hash="a" * 64
+        )
+        == 600_000
+    )
 
 
 def test_under_dense_storyboard_is_rejected_before_activation() -> None:
