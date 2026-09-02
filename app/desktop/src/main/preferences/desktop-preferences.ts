@@ -154,7 +154,7 @@ export class DesktopPreferencesStore {
   private loaded: StoredPreferences | null = null;
   private loadPromise: Promise<StoredPreferences> | null = null;
   private activeUserId: string | null = null;
-  private writeChain: Promise<void> = Promise.resolve();
+  private mutationChain: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly filePath: string,
@@ -166,12 +166,14 @@ export class DesktopPreferencesStore {
   async bindUser(userId: string): Promise<EffectiveDesktopPreferences> {
     const normalized = userId.trim();
     if (!normalized) throw new Error("Desktop preference userId must not be empty.");
-    const state = await this.load();
-    this.activeUserId = normalized;
-    state.lastActiveUserId = normalized;
-    state.profiles[normalized] ??= sanitizeProfile(undefined);
-    await this.persist();
-    return this.effective(normalized, state.profiles[normalized]);
+    return this.commitMutation((state) => {
+      state.lastActiveUserId = normalized;
+      state.profiles[normalized] ??= sanitizeProfile(undefined);
+      return {
+        value: this.effective(normalized, state.profiles[normalized]),
+        activeUserId: normalized,
+      };
+    });
   }
 
   async get(): Promise<EffectiveDesktopPreferences> {
@@ -179,114 +181,114 @@ export class DesktopPreferencesStore {
     const userId = this.activeUserId ?? state.lastActiveUserId;
     if (!userId) throw new Error("Desktop preferences are not bound to a user.");
     this.activeUserId = userId;
-    state.profiles[userId] ??= sanitizeProfile(undefined);
-    return this.effective(userId, state.profiles[userId]);
+    const profile = state.profiles[userId] ?? sanitizeProfile(undefined);
+    return this.effective(userId, profile);
   }
 
   async getLastActive(): Promise<EffectiveDesktopPreferences | null> {
     const state = await this.load();
     if (!state.lastActiveUserId) return null;
     this.activeUserId = state.lastActiveUserId;
-    state.profiles[state.lastActiveUserId] ??= sanitizeProfile(undefined);
-    return this.effective(state.lastActiveUserId, state.profiles[state.lastActiveUserId]);
+    const profile = state.profiles[state.lastActiveUserId] ?? sanitizeProfile(undefined);
+    return this.effective(state.lastActiveUserId, profile);
   }
 
   async updateGemini(update: Partial<GeminiTabCounts>): Promise<EffectiveDesktopPreferences> {
-    const { userId, state, profile } = await this.requireActive();
-    const next: StoredGeminiPreferences = {
-      ...(profile.gemini ?? {}),
-      browsers: this.browserProfiles(profile),
-    };
-    if (update.characterTabs !== undefined) {
-      if (!validTabCount(update.characterTabs)) throw new Error("Character Gemini tab count must be between 1 and 8.");
-      next.characterTabs = update.characterTabs;
-    }
-    if (update.storyboardTabs !== undefined) {
-      if (!validTabCount(update.storyboardTabs)) throw new Error("Storyboard Gemini tab count must be between 1 and 8.");
-      next.storyboardTabs = update.storyboardTabs;
-    }
-    profile.gemini = next;
-    state.profiles[userId] = profile;
-    await this.persist();
-    return this.effective(userId, profile);
+    return this.mutateActive((state, userId, profile) => {
+      const next: StoredGeminiPreferences = {
+        ...(profile.gemini ?? {}),
+        browsers: this.browserProfiles(profile),
+      };
+      if (update.characterTabs !== undefined) {
+        if (!validTabCount(update.characterTabs)) throw new Error("Character Gemini tab count must be between 1 and 8.");
+        next.characterTabs = update.characterTabs;
+      }
+      if (update.storyboardTabs !== undefined) {
+        if (!validTabCount(update.storyboardTabs)) throw new Error("Storyboard Gemini tab count must be between 1 and 8.");
+        next.storyboardTabs = update.storyboardTabs;
+      }
+      profile.gemini = next;
+      state.profiles[userId] = profile;
+    });
   }
 
   async addGeminiBrowser(): Promise<EffectiveDesktopPreferences> {
-    const { userId, state, profile } = await this.requireActive();
-    profile.gemini = {
-      ...(profile.gemini ?? {}),
-      browsers: addGeminiBrowserProfile(this.browserProfiles(profile)),
-    };
-    state.profiles[userId] = profile;
-    await this.persist();
-    return this.effective(userId, profile);
+    return this.mutateActive((state, userId, profile) => {
+      profile.gemini = {
+        ...(profile.gemini ?? {}),
+        browsers: addGeminiBrowserProfile(this.browserProfiles(profile)),
+      };
+      state.profiles[userId] = profile;
+    });
   }
 
   async setGeminiBrowserLoginConfirmed(
     browserId: string,
     loginConfirmed: boolean,
   ): Promise<EffectiveDesktopPreferences> {
-    const { userId, state, profile } = await this.requireActive();
-    profile.gemini = {
-      ...(profile.gemini ?? {}),
-      browsers: setGeminiBrowserLoginConfirmed(
-        this.browserProfiles(profile),
-        browserId,
-        loginConfirmed,
-      ),
-    };
-    state.profiles[userId] = profile;
-    await this.persist();
-    return this.effective(userId, profile);
+    return this.mutateActive((state, userId, profile) => {
+      profile.gemini = {
+        ...(profile.gemini ?? {}),
+        browsers: setGeminiBrowserLoginConfirmed(
+          this.browserProfiles(profile),
+          browserId,
+          loginConfirmed,
+        ),
+      };
+      state.profiles[userId] = profile;
+    });
   }
 
   async removeGeminiBrowser(browserId: string): Promise<EffectiveDesktopPreferences> {
-    const { userId, state, profile } = await this.requireActive();
-    profile.gemini = {
-      ...(profile.gemini ?? {}),
-      browsers: removeGeminiBrowserProfile(this.browserProfiles(profile), browserId),
-    };
-    state.profiles[userId] = profile;
-    await this.persist();
-    return this.effective(userId, profile);
+    return this.mutateActive((state, userId, profile) => {
+      profile.gemini = {
+        ...(profile.gemini ?? {}),
+        browsers: removeGeminiBrowserProfile(this.browserProfiles(profile), browserId),
+      };
+      state.profiles[userId] = profile;
+    });
   }
 
   async updateWindow(window: SavedWindowState): Promise<EffectiveDesktopPreferences> {
     if (!validWindowState(window)) throw new Error("Invalid Desktop window state.");
-    const { userId, state, profile } = await this.requireActive();
-    profile.window = { ...window };
-    state.profiles[userId] = profile;
-    await this.persist();
-    return this.effective(userId, profile);
+    return this.mutateActive((state, userId, profile) => {
+      profile.window = { ...window };
+      state.profiles[userId] = profile;
+    });
   }
 
   async reset(scope: DesktopPreferenceResetScope): Promise<EffectiveDesktopPreferences> {
-    const { userId, state, profile } = await this.requireActive();
-    if (scope === "ALL") {
-      state.profiles[userId] = {
-        gemini: { browsers: this.browserProfiles(profile) },
-      };
-    } else if (scope === "GEMINI") {
-      profile.gemini = { browsers: this.browserProfiles(profile) };
-      state.profiles[userId] = profile;
-    } else if (scope === "WINDOW") {
-      delete profile.window;
-      state.profiles[userId] = profile;
-    } else {
-      throw new Error("Unsupported Desktop preference reset scope.");
-    }
-    await this.persist();
-    return this.effective(userId, state.profiles[userId]);
+    return this.mutateActive((state, userId, profile) => {
+      if (scope === "ALL") {
+        state.profiles[userId] = {
+          gemini: { browsers: this.browserProfiles(profile) },
+        };
+      } else if (scope === "GEMINI") {
+        profile.gemini = { browsers: this.browserProfiles(profile) };
+        state.profiles[userId] = profile;
+      } else if (scope === "WINDOW") {
+        delete profile.window;
+        state.profiles[userId] = profile;
+      } else {
+        throw new Error("Unsupported Desktop preference reset scope.");
+      }
+    });
   }
 
-  private async requireActive() {
-    const state = await this.load();
-    const userId = this.activeUserId ?? state.lastActiveUserId;
-    if (!userId) throw new Error("Desktop preferences are not bound to a user.");
-    this.activeUserId = userId;
-    const profile = state.profiles[userId] ?? sanitizeProfile(undefined);
-    state.profiles[userId] = profile;
-    return { userId, state, profile };
+  private async mutateActive(
+    mutate: (state: StoredPreferences, userId: string, profile: StoredProfile) => void,
+  ): Promise<EffectiveDesktopPreferences> {
+    return this.commitMutation((state) => {
+      const userId = this.activeUserId ?? state.lastActiveUserId;
+      if (!userId) throw new Error("Desktop preferences are not bound to a user.");
+      const profile = state.profiles[userId] ?? sanitizeProfile(undefined);
+      state.profiles[userId] = profile;
+      mutate(state, userId, profile);
+      return {
+        value: this.effective(userId, state.profiles[userId]),
+        activeUserId: userId,
+      };
+    });
   }
 
   private browserProfiles(profile: StoredProfile): GeminiBrowserProfile[] {
@@ -328,18 +330,30 @@ export class DesktopPreferencesStore {
     }
   }
 
-  private async persist(): Promise<void> {
-    const state = await this.load();
-    const payload = `${JSON.stringify(state, null, 2)}\n`;
-    const write = this.writeChain
+  private async commitMutation<T>(
+    mutate: (state: StoredPreferences) => { value: T; activeUserId?: string },
+  ): Promise<T> {
+    let result: T | undefined;
+    const operation = this.mutationChain
       .catch(() => undefined)
       .then(async () => {
-        await mkdir(dirname(this.filePath), { recursive: true });
-        const temporaryPath = `${this.filePath}.tmp`;
-        await writeFile(temporaryPath, payload, { encoding: "utf8", mode: 0o600 });
-        await rename(temporaryPath, this.filePath);
+        const state = structuredClone(await this.load());
+        const mutation = mutate(state);
+        await this.persist(state);
+        this.loaded = state;
+        if (mutation.activeUserId !== undefined) this.activeUserId = mutation.activeUserId;
+        result = mutation.value;
       });
-    this.writeChain = write.catch(() => undefined);
-    return write;
+    this.mutationChain = operation.catch(() => undefined);
+    await operation;
+    return result as T;
+  }
+
+  private async persist(state: StoredPreferences): Promise<void> {
+    const payload = `${JSON.stringify(state, null, 2)}\n`;
+    await mkdir(dirname(this.filePath), { recursive: true });
+    const temporaryPath = `${this.filePath}.tmp`;
+    await writeFile(temporaryPath, payload, { encoding: "utf8", mode: 0o600 });
+    await rename(temporaryPath, this.filePath);
   }
 }
