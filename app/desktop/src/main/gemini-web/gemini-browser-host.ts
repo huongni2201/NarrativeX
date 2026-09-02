@@ -1,4 +1,5 @@
 import { GeminiWebAutomation } from "./gemini-web-automation.ts";
+import { GeminiWebAttachedAutomation } from "./gemini-web-attached-automation.ts";
 import {
   GeminiWebAutomationPool,
   type GeminiPoolGenerationResult,
@@ -38,7 +39,10 @@ export class GeminiBrowserHost implements GeminiBrowserHostLike {
     this.automation = new GeminiWebAutomationPool(
       rootDirectory,
       getTabCounts,
-      (slotRoot) => new GeminiWebAutomation(slotRoot),
+      (slotRoot, options) =>
+        options.attachOnly
+          ? new GeminiWebAttachedAutomation(slotRoot)
+          : new GeminiWebAutomation(slotRoot),
     );
   }
 
