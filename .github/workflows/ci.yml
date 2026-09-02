@@ -53,6 +53,21 @@ jobs:
           cache: maven
           cache-dependency-path: app/backend-service/pom.xml
 
+      - name: Apply backend formatter for repair artifact
+        run: |
+          ./mvnw --batch-mode --no-transfer-progress spotless:apply
+          git diff --name-only --diff-filter=ACMRTUXB > spotless-files.txt
+          tar -czf spotless-formatted-files.tar.gz -T spotless-files.txt
+
+      - name: Upload backend formatting repair
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-spotless-repair
+          path: |
+            app/backend-service/spotless-files.txt
+            app/backend-service/spotless-formatted-files.tar.gz
+          if-no-files-found: error
+
       - name: Verify
         run: |
           set -o pipefail
@@ -92,7 +107,17 @@ jobs:
         run: python -m pytest
 
       - name: Ruff
-        run: python -m ruff check src tests
+        run: |
+          set -o pipefail
+          python -m ruff check src tests 2>&1 | tee ruff-check.log
+
+      - name: Upload Ruff diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ai-worker-ruff-log
+          path: app/ai-worker/ruff-check.log
+          if-no-files-found: warn
 
       - name: Mypy
         run: python -m mypy src
