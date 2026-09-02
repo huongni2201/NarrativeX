@@ -18,6 +18,38 @@ test("refreshing a shared Chrome port preserves the slot's persisted Gemini targ
   );
 });
 
+test("secondary Gemini slots are attach-only and cannot start another Chrome profile", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nx-gemini-attach-only-"));
+  const created = [];
+  const pool = new GeminiWebAutomationPool(
+    root,
+    async () => ({ characterTabs: 2, storyboardTabs: 4 }),
+    (slotRoot, options) => {
+      created.push({ slotRoot, options });
+      return {
+        async generateImage() {
+          if (slotRoot === root) {
+            await writeFile(join(root, "session.json"), JSON.stringify({ port: 9222 }));
+          }
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return { sourcePath: slotRoot, captureMethod: "DOWNLOAD" };
+        },
+        async stop() {},
+      };
+    },
+  );
+
+  await Promise.all([
+    pool.generateImage("CHARACTER", "a"),
+    pool.generateImage("CHARACTER", "b"),
+  ]);
+
+  const primary = created.find((entry) => entry.slotRoot === root);
+  const secondary = created.find((entry) => entry.slotRoot !== root);
+  assert.equal(primary?.options?.attachOnly, false);
+  assert.equal(secondary?.options?.attachOnly, true);
+});
+
 test("Gemini automation pool runs Character requests up to configured concurrency", async () => {
   const root = await mkdtemp(join(tmpdir(), "nx-gemini-pool-"));
   let active = 0;
