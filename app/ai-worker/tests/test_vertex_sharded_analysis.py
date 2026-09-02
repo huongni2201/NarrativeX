@@ -10,9 +10,17 @@ from narrativex_worker.chapter_analysis_sharding import (
     VisualBeatShardResult,
 )
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.providers.ports import ProviderBilling, ProviderPricingSnapshot, ProviderTokenUsage
+from narrativex_worker.providers.ports import (
+    ProviderBilling,
+    ProviderPricingSnapshot,
+    ProviderTokenUsage,
+)
 from narrativex_worker.providers.vertex import VertexGeminiProvider
-from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus, VisualBeatAnalysis
+from narrativex_worker.schema import (
+    ChapterAnalysisRequest,
+    ProviderOperationStatus,
+    VisualBeatAnalysis,
+)
 
 
 def _billing(cost: str = "0.000001000") -> ProviderBilling:
@@ -44,11 +52,12 @@ def _request(source: str) -> ChapterAnalysisRequest:
     )
 
 
-def _provider() -> VertexGeminiProvider:
+def _provider(*, shard_concurrency: int = 3) -> VertexGeminiProvider:
     settings = WorkerSettings(
         provider_mode="vertex",
         vertex_project_id="test-project",
         vertex_model="gemini-2.5-flash",
+        vertex_analysis_shard_concurrency=shard_concurrency,
     )
     credentials = Mock(valid=True, token="token")
     with patch(
@@ -60,9 +69,8 @@ def _provider() -> VertexGeminiProvider:
 
 @pytest.mark.asyncio
 async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() -> None:
-    source = ("alpha " * 220).strip()
-    provider = _provider()
-    provider._SHARD_CONCURRENCY = 2
+    source = ("alpha " * 1000).strip()
+    provider = _provider(shard_concurrency=2)
     active = 0
     peak = 0
     calls = 0
@@ -107,9 +115,9 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
 
     assert operation.status is ProviderOperationStatus.COMPLETED
     assert operation.result is not None
-    assert peak <= 2
+    assert peak == 2
     assert operation.billing is not None
-    assert operation.billing.actual_cost >= Decimal("0.000002000")
+    assert operation.billing.actual_cost >= Decimal("0.000005000")
 
 
 @pytest.mark.asyncio
