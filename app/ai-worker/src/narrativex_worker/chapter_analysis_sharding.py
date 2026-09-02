@@ -26,8 +26,8 @@ class SceneStructure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
-    narration: str = Field(default="", max_length=500_000)
-    source_anchor: str = Field(min_length=1, max_length=500_000)
+    source_start_anchor: str = Field(min_length=1, max_length=1_000)
+    source_end_anchor: str = Field(min_length=1, max_length=1_000)
     characters: list[SceneCharacterRef] = Field(default_factory=list)
     location_key: str | None = None
 
@@ -96,7 +96,7 @@ def plan_visual_beat_shards(
     target_beats: int,
     max_beats: int,
 ) -> list[VisualBeatShard]:
-    """Resolve scene anchors and split long scenes into bounded deterministic shards."""
+    """Resolve compact scene boundary anchors and split ranges into bounded shards."""
     if target_beats < 1:
         raise ValueError("target_beats must be positive")
     if max_beats < target_beats:
@@ -105,13 +105,27 @@ def plan_visual_beat_shards(
     shards: list[VisualBeatShard] = []
     cursor = 0
     for scene_index, scene in enumerate(structure.scenes):
-        scene_start = source_text.find(scene.source_anchor, cursor)
+        scene_start = source_text.find(scene.source_start_anchor, cursor)
         if scene_start < 0:
-            raise ValueError(f"scene {scene_index} source_anchor was not found in source order")
-        scene_end = scene_start + len(scene.source_anchor)
+            raise ValueError(
+                f"scene {scene_index} source_start_anchor was not found in source order"
+            )
+        if scene.source_end_anchor == scene.source_start_anchor:
+            scene_end = scene_start + len(scene.source_start_anchor)
+        else:
+            end_start = source_text.find(
+                scene.source_end_anchor,
+                scene_start + len(scene.source_start_anchor),
+            )
+            if end_start < 0:
+                raise ValueError(
+                    f"scene {scene_index} source_end_anchor was not found after its start anchor"
+                )
+            scene_end = end_start + len(scene.source_end_anchor)
         cursor = scene_end
 
-        duration_ms = estimated_narration_duration_ms(scene.source_anchor)
+        scene_text = source_text[scene_start:scene_end]
+        duration_ms = estimated_narration_duration_ms(scene_text)
         scene_target = max(1, math.ceil(duration_ms / TARGET_VISUAL_BEAT_MS))
         shard_count = max(1, math.ceil(scene_target / target_beats))
         ranges = _split_source_range(source_text, scene_start, scene_end, shard_count)
@@ -147,6 +161,7 @@ def merge_shard_results(
 ) -> ChapterAnalysisResult:
     """Validate source grounding and merge shard output into the final durable contract."""
     by_scene: dict[int, list[VisualBeatAnalysis]] = defaultdict(list)
+    source_by_scene: dict[int, list[str]] = defaultdict(list)
     for shard in sorted(shards, key=lambda item: (item.scene_index, item.shard_index)):
         key = (shard.scene_index, shard.shard_index)
         result = results.get(key)
@@ -159,6 +174,7 @@ def merge_shard_results(
             )
         _validate_shard_anchors(shard, result)
         by_scene[shard.scene_index].extend(result.visual_beats)
+        source_by_scene[shard.scene_index].append(shard.source_text)
 
     scenes: list[SceneAnalysis] = []
     for scene_index, scene in enumerate(structure.scenes):
@@ -168,7 +184,7 @@ def merge_shard_results(
         scenes.append(
             SceneAnalysis(
                 title=scene.title,
-                narration=scene.narration,
+                narration="".join(source_by_scene[scene_index]),
                 characters=scene.characters,
                 location_key=scene.location_key,
                 visual_beats=beats,
