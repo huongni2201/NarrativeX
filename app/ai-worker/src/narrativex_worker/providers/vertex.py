@@ -69,6 +69,9 @@ class VertexGeminiProvider(LlmProvider):
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         self._credentials: Credentials = credentials
+        self._analysis_request_gate = asyncio.Semaphore(
+            settings.vertex_analysis_shard_concurrency
+        )
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
@@ -87,41 +90,45 @@ class VertexGeminiProvider(LlmProvider):
                 status=ProviderOperationStatus.FAILED,
             )
 
-        structure, structure_billing, response_id = await self._generate_structured(
-            token,
-            build_chapter_structure_prompt(request),
-            ChapterStructureResult,
+        limits = httpx.Limits(
+            max_connections=self.settings.vertex_analysis_shard_concurrency,
+            max_keepalive_connections=self.settings.vertex_analysis_shard_concurrency,
         )
-        if structure is None:
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=response_id,
-                status=ProviderOperationStatus.FAILED,
-                billing=structure_billing,
+        async with httpx.AsyncClient(timeout=self._http_timeout(), limits=limits) as client:
+            structure, structure_billing, response_id = await self._bounded_generate_structured(
+                client,
+                token,
+                build_chapter_structure_prompt(request),
+                ChapterStructureResult,
             )
+            if structure is None:
+                return ProviderOperation(
+                    provider_key="vertex",
+                    operation_id=response_id,
+                    status=ProviderOperationStatus.FAILED,
+                    billing=structure_billing,
+                )
 
-        try:
-            shards = plan_visual_beat_shards(
-                request.source_text,
-                structure,
-                target_beats=self.settings.vertex_analysis_shard_target_beats,
-                max_beats=self.settings.vertex_analysis_shard_max_beats,
-            )
-        except ValueError:
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=response_id,
-                status=ProviderOperationStatus.FAILED,
-                billing=structure_billing,
-            )
+            try:
+                shards = plan_visual_beat_shards(
+                    request.source_text,
+                    structure,
+                    target_beats=self.settings.vertex_analysis_shard_target_beats,
+                    max_beats=self.settings.vertex_analysis_shard_max_beats,
+                )
+            except ValueError:
+                return ProviderOperation(
+                    provider_key="vertex",
+                    operation_id=response_id,
+                    status=ProviderOperationStatus.FAILED,
+                    billing=structure_billing,
+                )
 
-        semaphore = asyncio.Semaphore(self.settings.vertex_analysis_shard_concurrency)
-
-        async def generate(
-            shard: VisualBeatShard,
-        ) -> tuple[VisualBeatShard, VisualBeatShardResult | None, list[ProviderBilling], str]:
-            async with semaphore:
-                result, billing, shard_response_id = await self._generate_structured(
+            async def generate(
+                shard: VisualBeatShard,
+            ) -> tuple[VisualBeatShard, VisualBeatShardResult | None, list[ProviderBilling], str]:
+                result, billing, shard_response_id = await self._bounded_generate_structured(
+                    client,
                     token,
                     build_visual_beat_shard_prompt(request, structure, shard),
                     VisualBeatShardResult,
@@ -134,15 +141,18 @@ class VertexGeminiProvider(LlmProvider):
                     missing = shard.minimum_beats - len(result.visual_beats)
                     if missing <= 0:
                         break
-                    repaired, repair_billing, repair_response_id = await self._generate_structured(
-                        token,
-                        build_visual_beat_shard_prompt(
-                            request,
-                            structure,
-                            shard,
-                            missing_count=missing,
-                        ),
-                        VisualBeatShardResult,
+                    repaired, repair_billing, repair_response_id = (
+                        await self._bounded_generate_structured(
+                            client,
+                            token,
+                            build_visual_beat_shard_prompt(
+                                request,
+                                structure,
+                                shard,
+                                missing_count=missing,
+                            ),
+                            VisualBeatShardResult,
+                        )
                     )
                     billings.append(repair_billing)
                     shard_response_id = repair_response_id
@@ -151,7 +161,16 @@ class VertexGeminiProvider(LlmProvider):
                     result = repaired
                 return shard, result, billings, shard_response_id
 
-        generated = await asyncio.gather(*(generate(shard) for shard in shards))
+            tasks = [asyncio.create_task(generate(shard)) for shard in shards]
+            try:
+                generated = await asyncio.gather(*tasks)
+            except BaseException:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                raise
+
         results: dict[tuple[int, int], VisualBeatShardResult] = {}
         all_billings = [structure_billing]
         final_response_id = response_id
@@ -191,8 +210,27 @@ class VertexGeminiProvider(LlmProvider):
     async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
         return operation
 
+    def _http_timeout(self) -> httpx.Timeout:
+        return httpx.Timeout(
+            connect=10.0,
+            write=30.0,
+            read=self.settings.vertex_timeout_seconds,
+            pool=10.0,
+        )
+
+    async def _bounded_generate_structured(
+        self,
+        client: httpx.AsyncClient,
+        token: str,
+        prompt: str,
+        model: type[ModelT],
+    ) -> tuple[ModelT | None, ProviderBilling, str]:
+        async with self._analysis_request_gate:
+            return await self._generate_structured(client, token, prompt, model)
+
     async def _generate_structured(
         self,
+        client: httpx.AsyncClient,
         token: str,
         prompt: str,
         model: type[ModelT],
@@ -210,19 +248,12 @@ class VertexGeminiProvider(LlmProvider):
                 "responseJsonSchema": model.model_json_schema(),
             },
         }
-        timeout = httpx.Timeout(
-            connect=10.0,
-            write=30.0,
-            read=self.settings.vertex_timeout_seconds,
-            pool=10.0,
-        )
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    endpoint,
-                    headers={"Authorization": f"Bearer {token}"},
-                    json=body,
-                )
+            response = await client.post(
+                endpoint,
+                headers={"Authorization": f"Bearer {token}"},
+                json=body,
+            )
         except (httpx.TimeoutException, httpx.NetworkError) as exception:
             raise VertexSubmissionUnknownError(
                 f"Vertex submission outcome is unknown: {type(exception).__name__}"
