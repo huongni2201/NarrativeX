@@ -13,6 +13,13 @@ function parseBrowserId(value: unknown): string {
   return value;
 }
 
+function parseLoginConfirmed(value: unknown): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error("Invalid Gemini browser login confirmation.");
+  }
+  return value;
+}
+
 export function registerGeminiBrowserIpc(
   policy: RendererTrustPolicy,
   browsers: GeminiBrowserPool,
@@ -22,8 +29,14 @@ export function registerGeminiBrowserIpc(
   registerTrustedIpcHandler("desktop:gemini-web:browsers:open", policy, (browserId) =>
     browsers.open(parseBrowserId(browserId)),
   );
-  registerTrustedIpcHandler("desktop:gemini-web:browsers:login", policy, (browserId) =>
-    browsers.login(parseBrowserId(browserId)),
+  registerTrustedIpcHandler(
+    "desktop:gemini-web:browsers:set-login-confirmed",
+    policy,
+    (browserId, loginConfirmed) =>
+      browsers.setLoginConfirmed(
+        parseBrowserId(browserId),
+        parseLoginConfirmed(loginConfirmed),
+      ),
   );
   registerTrustedIpcHandler("desktop:gemini-web:browsers:reset-login", policy, (browserId) =>
     browsers.resetLogin(parseBrowserId(browserId)),
