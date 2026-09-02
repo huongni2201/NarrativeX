@@ -148,10 +148,16 @@ def merge_shard_results(
         result = results.get(key)
         if result is None:
             raise ValueError(f"missing visual beat result for shard {key}")
-        if len(result.visual_beats) < shard.minimum_beats:
+        beat_count = len(result.visual_beats)
+        if beat_count < shard.minimum_beats:
             raise ValueError(
                 f"shard {key} is under-dense: expected at least {shard.minimum_beats}, "
-                f"received {len(result.visual_beats)}"
+                f"received {beat_count}"
+            )
+        if beat_count > shard.maximum_beats:
+            raise ValueError(
+                f"shard {key} is over-dense: expected at most {shard.maximum_beats}, "
+                f"received {beat_count}"
             )
         _validate_shard_anchors(shard, result)
         by_scene[shard.scene_index].extend(result.visual_beats)
