@@ -96,34 +96,15 @@ def plan_visual_beat_shards(
     target_beats: int,
     max_beats: int,
 ) -> list[VisualBeatShard]:
-    """Resolve compact scene boundary anchors and split ranges into bounded shards."""
+    """Resolve compact scene boundaries and split exact source coverage into bounded shards."""
     if target_beats < 1:
         raise ValueError("target_beats must be positive")
     if max_beats < target_beats:
         raise ValueError("max_beats must be >= target_beats")
 
+    scene_ranges = _resolve_scene_ranges(source_text, structure)
     shards: list[VisualBeatShard] = []
-    cursor = 0
-    for scene_index, scene in enumerate(structure.scenes):
-        scene_start = source_text.find(scene.source_start_anchor, cursor)
-        if scene_start < 0:
-            raise ValueError(
-                f"scene {scene_index} source_start_anchor was not found in source order"
-            )
-        if scene.source_end_anchor == scene.source_start_anchor:
-            scene_end = scene_start + len(scene.source_start_anchor)
-        else:
-            end_start = source_text.find(
-                scene.source_end_anchor,
-                scene_start + len(scene.source_start_anchor),
-            )
-            if end_start < 0:
-                raise ValueError(
-                    f"scene {scene_index} source_end_anchor was not found after its start anchor"
-                )
-            scene_end = end_start + len(scene.source_end_anchor)
-        cursor = scene_end
-
+    for scene_index, (scene_start, scene_end) in enumerate(scene_ranges):
         scene_text = source_text[scene_start:scene_end]
         duration_ms = estimated_narration_duration_ms(scene_text)
         scene_target = max(1, math.ceil(duration_ms / TARGET_VISUAL_BEAT_MS))
@@ -196,6 +177,49 @@ def merge_shard_results(
         locations=structure.locations,
         scenes=scenes,
     )
+
+
+def _resolve_scene_ranges(
+    source_text: str, structure: ChapterStructureResult
+) -> list[tuple[int, int]]:
+    anchor_starts: list[int] = []
+    search_cursor = 0
+    for scene_index, scene in enumerate(structure.scenes):
+        start = source_text.find(scene.source_start_anchor, search_cursor)
+        if start < 0:
+            raise ValueError(
+                f"scene {scene_index} source_start_anchor was not found in source order"
+            )
+        anchor_starts.append(start)
+        search_cursor = start + len(scene.source_start_anchor)
+
+    if source_text[: anchor_starts[0]].strip():
+        raise ValueError("first scene start anchor leaves uncovered non-whitespace source")
+
+    ranges: list[tuple[int, int]] = []
+    for scene_index, scene in enumerate(structure.scenes):
+        range_start = 0 if scene_index == 0 else anchor_starts[scene_index]
+        range_end = (
+            anchor_starts[scene_index + 1]
+            if scene_index + 1 < len(anchor_starts)
+            else len(source_text)
+        )
+        end_anchor_start = source_text.rfind(
+            scene.source_end_anchor,
+            anchor_starts[scene_index],
+            range_end,
+        )
+        if end_anchor_start < 0:
+            raise ValueError(
+                f"scene {scene_index} source_end_anchor was not found before the next scene"
+            )
+        end_anchor_end = end_anchor_start + len(scene.source_end_anchor)
+        if source_text[end_anchor_end:range_end].strip():
+            raise ValueError(
+                f"scene {scene_index} source_end_anchor leaves uncovered non-whitespace source"
+            )
+        ranges.append((range_start, range_end))
+    return ranges
 
 
 def _validate_shard_anchors(shard: VisualBeatShard, result: VisualBeatShardResult) -> None:
