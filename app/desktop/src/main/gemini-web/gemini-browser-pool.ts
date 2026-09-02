@@ -149,7 +149,14 @@ export class GeminiBrowserPool {
     state.activeLeases += 1;
     try {
       const host = this.selectConfirmedHost(lane, preferences.gemini.browsers);
-      return await host.generateImage(lane, prompt, references);
+      try {
+        return await host.generateImage(lane, prompt, references);
+      } catch (error) {
+        if (error instanceof Error && error.name === "GEMINI_AUTH_REQUIRED") {
+          await this.preferences.setGeminiBrowserLoginConfirmed(host.browserId, false);
+        }
+        throw error;
+      }
     } finally {
       state.activeLeases = Math.max(0, state.activeLeases - 1);
       lease.release();

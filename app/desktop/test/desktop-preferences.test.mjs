@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -136,4 +136,31 @@ test("window state can be saved and reset independently", async () => {
   });
   await store.reset("WINDOW");
   assert.equal((await store.get()).window, null);
+});
+
+test("a failed preference write does not poison later saves", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "narrativex-preferences-recovery-"));
+  const filePath = join(directory, "desktop-preferences.json");
+  const store = new DesktopPreferencesStore(filePath, {});
+  await store.bindUser("user-a");
+
+  await rm(filePath, { force: true });
+  await mkdir(filePath);
+  await assert.rejects(() => store.updateGemini({ characterTabs: 6 }));
+  await rm(filePath, { recursive: true, force: true });
+
+  await store.updateGemini({ characterTabs: 7 });
+  const persisted = JSON.parse(await readFile(filePath, "utf8"));
+  assert.equal(persisted.profiles["user-a"].gemini.characterTabs, 7);
+});
+
+test("concurrent cold-start binds share one loaded state without losing profiles", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "narrativex-preferences-concurrent-"));
+  const filePath = join(directory, "desktop-preferences.json");
+  const store = new DesktopPreferencesStore(filePath, {});
+
+  await Promise.all([store.bindUser("user-a"), store.bindUser("user-b")]);
+
+  const persisted = JSON.parse(await readFile(filePath, "utf8"));
+  assert.deepEqual(Object.keys(persisted.profiles).sort(), ["user-a", "user-b"]);
 });
