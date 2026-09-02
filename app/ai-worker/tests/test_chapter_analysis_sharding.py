@@ -38,6 +38,17 @@ def _structure(source: str) -> ChapterStructureResult:
     )
 
 
+def _beats(anchor: str, count: int) -> list[VisualBeatAnalysis]:
+    return [
+        VisualBeatAnalysis(
+            title=f"beat-{index}",
+            visual_intent="source grounded",
+            source_anchor=anchor,
+        )
+        for index in range(count)
+    ]
+
+
 def test_planner_resolves_scene_anchors_in_source_order() -> None:
     source = _scene_source("ALPHA", 120) + "\n\n" + _scene_source("BETA", 120)
     shards = plan_visual_beat_shards(source, _structure(source), target_beats=12, max_beats=20)
@@ -73,13 +84,7 @@ def test_merge_rejects_visual_beat_anchor_outside_its_shard() -> None:
     first = shards[0]
     results = {
         (first.scene_index, first.shard_index): VisualBeatShardResult(
-            visual_beats=[
-                VisualBeatAnalysis(
-                    title="bad",
-                    visual_intent="bad anchor",
-                    source_anchor="not present in shard",
-                )
-            ]
+            visual_beats=_beats("not present in shard", first.minimum_beats)
         )
     }
 
@@ -89,6 +94,26 @@ def test_merge_rejects_visual_beat_anchor_outside_its_shard() -> None:
         assert "outside shard source" in str(exc)
     else:
         raise AssertionError("expected invalid source anchor to be rejected")
+
+
+def test_merge_rejects_more_than_shard_maximum_beats() -> None:
+    source = _scene_source("ALPHA", 40) + "\n\n" + _scene_source("BETA", 40)
+    structure = _structure(source)
+    shards = plan_visual_beat_shards(source, structure, target_beats=12, max_beats=20)
+    first = shards[0]
+    anchor = first.source_text.split()[0]
+    results = {
+        (first.scene_index, first.shard_index): VisualBeatShardResult(
+            visual_beats=_beats(anchor, first.maximum_beats + 1)
+        )
+    }
+
+    try:
+        merge_shard_results(structure, shards[:1], results)
+    except ValueError as exc:
+        assert "over-dense" in str(exc)
+    else:
+        raise AssertionError("expected over-dense shard to be rejected")
 
 
 def test_merge_reconstructs_source_preserving_scene_narration() -> None:
@@ -102,19 +127,15 @@ def test_merge_reconstructs_source_preserving_scene_narration() -> None:
     for shard in shards:
         anchor = shard.source_text.split()[0]
         results[(shard.scene_index, shard.shard_index)] = VisualBeatShardResult(
-            visual_beats=[
-                VisualBeatAnalysis(
-                    title=f"beat-{shard.scene_index}-{shard.shard_index}",
-                    visual_intent="source grounded",
-                    source_anchor=anchor,
-                )
-            ]
+            visual_beats=_beats(anchor, shard.minimum_beats)
         )
 
     merged = merge_shard_results(structure, shards, results)
 
     assert len(merged.scenes) == 2
     assert "".join(scene.narration for scene in merged.scenes) == source
-    assert sum(len(scene.visual_beats) for scene in merged.scenes) == len(shards)
+    assert sum(len(scene.visual_beats) for scene in merged.scenes) == sum(
+        shard.minimum_beats for shard in shards
+    )
     assert merged.characters[0].key == "lead"
     assert merged.locations[0].key == "room"
