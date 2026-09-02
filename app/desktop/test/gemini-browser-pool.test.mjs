@@ -152,3 +152,26 @@ test("auth-required generation automatically removes the browser from the eligib
   await assert.rejects(() => pool.generateImage("CHARACTER", "b"), /No Gemini browser is marked as signed in/);
   assert.equal(calls, 1);
 });
+
+test("configured tab totals are divided evenly across confirmed browser hosts", async () => {
+  const prefs = preferences(
+    [profile("browser-1", "Browser 1"), profile("browser-2", "Browser 2")],
+    { characterTabs: 2, storyboardTabs: 5 },
+  );
+  const tabCountsByBrowser = new Map();
+  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser, getTabCounts }) => {
+    tabCountsByBrowser.set(browser.id, getTabCounts);
+    return fakeHost(browser.id);
+  });
+
+  await pool.list();
+
+  assert.deepEqual(await tabCountsByBrowser.get("browser-1")(), {
+    characterTabs: 1,
+    storyboardTabs: 3,
+  });
+  assert.deepEqual(await tabCountsByBrowser.get("browser-2")(), {
+    characterTabs: 1,
+    storyboardTabs: 2,
+  });
+});
