@@ -59,7 +59,8 @@ public class CreateMediaJobUseCase {
     if (!"IMAGE_MOTION".equals(command.productionMode())
         || !"IMAGE".equals(normalizeVisualMode(command.visualGenerationMode()))) {
       throw new GenerationAdmissionDeniedException(
-          "UNSUPPORTED_MEDIA_STRATEGY", "Only IMAGE generation with IMAGE_MOTION is available in the MVP.");
+          "UNSUPPORTED_MEDIA_STRATEGY",
+          "Only IMAGE generation with IMAGE_MOTION is available in the MVP.");
     }
 
     String imageProvider = normalizeImageProvider(command.imageProvider());
@@ -101,7 +102,8 @@ public class CreateMediaJobUseCase {
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(command.chapterId())
-            .flatMap(internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
+            .flatMap(
+                internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       log.info(

@@ -12,8 +12,7 @@ class RenderBeatOverrideTest {
   void acceptsAutoEditFitAndTrimWithoutManualTimingOverride() {
     UUID beatId = UUID.randomUUID();
 
-    RenderBeatOverride override =
-        new RenderBeatOverride(beatId, null, null, " trim ", 1_250L);
+    RenderBeatOverride override = new RenderBeatOverride(beatId, null, null, " trim ", 1_250L);
 
     assertThat(override.visualBeatId()).isEqualTo(beatId);
     assertThat(override.fitMode()).isEqualTo("TRIM");

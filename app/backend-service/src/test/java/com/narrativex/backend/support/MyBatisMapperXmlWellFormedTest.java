@@ -18,10 +18,7 @@ class MyBatisMapperXmlWellFormedTest {
     List<Path> mappers;
     try (var files = Files.list(mapperDirectory)) {
       mappers =
-          files
-              .filter(path -> path.getFileName().toString().endsWith(".xml"))
-              .sorted()
-              .toList();
+          files.filter(path -> path.getFileName().toString().endsWith(".xml")).sorted().toList();
     }
     assertFalse(mappers.isEmpty(), "No MyBatis mapper XML files were discovered");
 
@@ -29,7 +26,8 @@ class MyBatisMapperXmlWellFormedTest {
       assertDoesNotThrow(
           () -> {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            factory.setFeature(
+                "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
             factory.setXIncludeAware(false);

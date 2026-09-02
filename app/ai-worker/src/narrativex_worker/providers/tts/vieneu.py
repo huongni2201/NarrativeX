@@ -46,7 +46,7 @@ class VieneuTtsProvider:
 
         if client is None:
             try:
-                from vieneu import Vieneu  # type: ignore[import-untyped]
+                from vieneu import Vieneu  # type: ignore[import-not-found]
             except ImportError as exception:
                 raise RuntimeError(
                     "TTS_PROVIDER_MODE=vieneu requires the vieneu package. "
@@ -118,7 +118,6 @@ class VieneuTtsProvider:
                 "VieNeu inference returned incomplete batch voice=%s expected=%s actual=%s",
                 voice_name,
                 len(requests),
-                len(audios),
             )
             raise RuntimeError(
                 f"VieNeu returned {len(audios)} waveforms for {len(requests)} requests"

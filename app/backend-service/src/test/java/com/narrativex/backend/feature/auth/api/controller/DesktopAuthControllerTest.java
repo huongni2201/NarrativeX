@@ -164,9 +164,7 @@ class DesktopAuthControllerTest {
     SecurityContextHolder.getContext()
         .setAuthentication(
             UsernamePasswordAuthenticationToken.authenticated(
-                "guest-legacy",
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
+                "guest-legacy", null, List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
     DesktopAuthController controller =
         new DesktopAuthController(handoffStore, guestIdentity, securityContextRepository);
 
@@ -227,7 +225,8 @@ class DesktopAuthControllerTest {
     assertTrue(context.getAuthentication().getPrincipal() instanceof DesktopUserPrincipal);
     assertDoesNotThrow(
         () -> {
-          try (var bytes = new ByteArrayOutputStream(); var output = new ObjectOutputStream(bytes)) {
+          try (var bytes = new ByteArrayOutputStream();
+              var output = new ObjectOutputStream(bytes)) {
             output.writeObject(context);
           }
         });
@@ -244,9 +243,7 @@ class DesktopAuthControllerTest {
     SecurityContextHolder.getContext()
         .setAuthentication(
             UsernamePasswordAuthenticationToken.authenticated(
-                "guest-stable",
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
+                "guest-stable", null, List.of(new SimpleGrantedAuthority("ROLE_GUEST"))));
     DesktopAuthController controller =
         new DesktopAuthController(handoffStore, guestIdentity, securityContextRepository);
 

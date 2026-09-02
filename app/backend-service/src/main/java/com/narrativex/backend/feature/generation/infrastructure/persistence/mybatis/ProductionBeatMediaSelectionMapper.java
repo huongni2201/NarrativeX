@@ -18,6 +18,5 @@ public interface ProductionBeatMediaSelectionMapper extends NarrativeXMyBatisMap
       @Param("fitMode") BeatMediaFitMode fitMode,
       @Param("trimStartMs") long trimStartMs);
 
-  int clear(
-      @Param("projectId") UUID projectId, @Param("visualBeatId") UUID visualBeatId);
+  int clear(@Param("projectId") UUID projectId, @Param("visualBeatId") UUID visualBeatId);
 }

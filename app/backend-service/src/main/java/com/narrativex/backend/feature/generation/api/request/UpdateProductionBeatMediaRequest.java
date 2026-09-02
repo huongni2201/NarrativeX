@@ -6,9 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public record UpdateProductionBeatMediaRequest(
-    @NotNull UUID mediaAssetId,
-    BeatMediaFitMode fitMode,
-    @Min(0) Long trimStartMs) {
+    @NotNull UUID mediaAssetId, BeatMediaFitMode fitMode, @Min(0) Long trimStartMs) {
   public long normalizedTrimStartMs() {
     return trimStartMs == null ? 0L : trimStartMs;
   }

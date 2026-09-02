@@ -189,10 +189,7 @@ public class DesktopAuthController {
   }
 
   static String canonicalPublicStartUrl(
-      String publicBaseUrl,
-      HttpServletRequest request,
-      String redirectUri,
-      String codeChallenge) {
+      String publicBaseUrl, HttpServletRequest request, String redirectUri, String codeChallenge) {
     if (publicBaseUrl == null || publicBaseUrl.isBlank()) {
       return null;
     }

@@ -80,13 +80,15 @@ public class CharacterController {
 
   @PostMapping("/{characterId}/versions")
   public ResponseEntity<ApiResponse<CharacterVersionResponse>> createVersion(
-      @PathVariable UUID characterId,
-      @Valid @RequestBody CreateCharacterVersionRequest request) {
+      @PathVariable UUID characterId, @Valid @RequestBody CreateCharacterVersionRequest request) {
     var version =
         createCharacterVersionUseCase.execute(
-            new CreateCharacterVersionCommand(characterId, request.bible(), request.visualPrompt()));
+            new CreateCharacterVersionCommand(
+                characterId, request.bible(), request.visualPrompt()));
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(ApiResponse.success("Character version created", CharacterVersionResponse.from(version)));
+        .body(
+            ApiResponse.success(
+                "Character version created", CharacterVersionResponse.from(version)));
   }
 
   @PostMapping("/{characterId}/versions/{versionId}/review")
@@ -106,7 +108,8 @@ public class CharacterController {
       @PathVariable UUID characterId, @PathVariable UUID versionId) {
     getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     var version =
-        lockCharacterVersionUseCase.execute(new ChangeCharacterVersionStatusCommand(versionId, null));
+        lockCharacterVersionUseCase.execute(
+            new ChangeCharacterVersionStatusCommand(versionId, null));
     return ResponseEntity.ok(
         ApiResponse.success("Character version locked", CharacterVersionResponse.from(version)));
   }

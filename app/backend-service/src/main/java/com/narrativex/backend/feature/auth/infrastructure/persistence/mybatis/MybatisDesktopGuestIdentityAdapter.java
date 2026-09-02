@@ -24,7 +24,8 @@ public class MybatisDesktopGuestIdentityAdapter
     DesktopGuestInstallationRow row = mapper.findByDeviceId(deviceId);
     return row == null
         ? Optional.empty()
-        : Optional.of(new Installation(row.getDeviceId(), row.getGuestUserId(), row.getSecretHash()));
+        : Optional.of(
+            new Installation(row.getDeviceId(), row.getGuestUserId(), row.getSecretHash()));
   }
 
   @Override

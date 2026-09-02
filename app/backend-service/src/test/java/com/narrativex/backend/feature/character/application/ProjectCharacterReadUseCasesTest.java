@@ -103,8 +103,7 @@ class ProjectCharacterReadUseCasesTest {
         4L,
         Instant.parse("2026-08-20T00:00:00Z"),
         Instant.parse("2026-08-21T00:00:00Z"),
-        new ProjectCharacterReadModel.Version(
-            PINNED_VERSION_ID, 3, "APPROVED", "bible", "prompt"),
+        new ProjectCharacterReadModel.Version(PINNED_VERSION_ID, 3, "APPROVED", "bible", "prompt"),
         new ProjectCharacterReadModel.Appearance(
             "adult", "black hair", null, "default outfit", "appearance prompt"));
   }

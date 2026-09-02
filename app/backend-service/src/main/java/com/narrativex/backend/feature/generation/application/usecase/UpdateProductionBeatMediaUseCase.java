@@ -38,14 +38,15 @@ public class UpdateProductionBeatMediaUseCase {
   }
 
   /**
-   * Validates every render-scoped fit/trim change before writing any of them. The caller is expected
-   * to invoke this inside the same transaction that creates the render job so admission failures
-   * roll the media edits back as one unit.
+   * Validates every render-scoped fit/trim change before writing any of them. The caller is
+   * expected to invoke this inside the same transaction that creates the render job so admission
+   * failures roll the media edits back as one unit.
    */
   @Transactional
   public void applyRenderOverrides(UUID projectId, List<RenderBeatOverride> overrides) {
     if (overrides == null
-        || overrides.stream().noneMatch(value -> value.fitMode() != null || value.trimStartMs() != null)) {
+        || overrides.stream()
+            .noneMatch(value -> value.fitMode() != null || value.trimStartMs() != null)) {
       return;
     }
 
@@ -142,10 +143,7 @@ public class UpdateProductionBeatMediaUseCase {
   }
 
   private static void validateVideoFit(
-      long effectiveDurationMs,
-      Long sourceDurationMs,
-      BeatMediaFitMode fitMode,
-      long trimStartMs) {
+      long effectiveDurationMs, Long sourceDurationMs, BeatMediaFitMode fitMode, long trimStartMs) {
     if (sourceDurationMs != null && trimStartMs >= sourceDurationMs) {
       throw invalid("Video trim start must be before the source duration.");
     }
@@ -167,8 +165,5 @@ public class UpdateProductionBeatMediaUseCase {
   }
 
   private record PendingMediaUpdate(
-      UUID visualBeatId,
-      UUID mediaAssetId,
-      BeatMediaFitMode fitMode,
-      long trimStartMs) {}
+      UUID visualBeatId, UUID mediaAssetId, BeatMediaFitMode fitMode, long trimStartMs) {}
 }

@@ -176,9 +176,11 @@ public class CreateProjectRenderUseCase {
           "LOCAL_DEVICE_REQUIRED", "Project render requires a paired Desktop device.");
     }
     try {
-      localDeviceAccess.requireEligibleOwnedDevice(userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
+      localDeviceAccess.requireEligibleOwnedDevice(
+          userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
     } catch (IllegalArgumentException | IllegalStateException exception) {
-      throw new GenerationAdmissionDeniedException("LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
+      throw new GenerationAdmissionDeniedException(
+          "LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
     }
   }
 

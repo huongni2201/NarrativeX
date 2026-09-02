@@ -94,7 +94,8 @@ public class GenerationJobEventStreamService {
       JobResponse snapshot = JobResponse.from(job);
       if (!snapshot.equals(subscription.lastSnapshot())) {
         sendSnapshot(jobId, subscription, job);
-      } else if (Duration.between(subscription.lastSentAt(), Instant.now()).compareTo(HEARTBEAT_INTERVAL)
+      } else if (Duration.between(subscription.lastSentAt(), Instant.now())
+              .compareTo(HEARTBEAT_INTERVAL)
           >= 0) {
         sendHeartbeat(jobId, subscription);
       }

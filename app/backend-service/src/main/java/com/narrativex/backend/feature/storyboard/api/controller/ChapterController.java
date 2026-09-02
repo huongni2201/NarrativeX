@@ -64,7 +64,10 @@ public class ChapterController {
       @PathVariable UUID projectId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody CreateChapterRequest request) {
-    log.info("API POST create chapter for projectId={}, storyVersionId={}", projectId, request.storyVersionId());
+    log.info(
+        "API POST create chapter for projectId={}, storyVersionId={}",
+        projectId,
+        request.storyVersionId());
     ApiResponse<ChapterResponse> response =
         createChapterWithStoryUseCase.execute(
             new CreateChapterWithStoryCommand(
@@ -183,7 +186,8 @@ public class ChapterController {
       if (version < 0) throw new NumberFormatException("negative version");
       return version;
     } catch (NumberFormatException exception) {
-      throw new IllegalArgumentException("If-Match must contain a non-negative row version", exception);
+      throw new IllegalArgumentException(
+          "If-Match must contain a non-negative row version", exception);
     }
   }
 

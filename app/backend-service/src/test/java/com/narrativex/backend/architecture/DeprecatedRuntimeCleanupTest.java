@@ -18,7 +18,9 @@ class DeprecatedRuntimeCleanupTest {
     String v4 = read("V4__narration_notifications_and_artifacts.sql");
     String v7 = read("V7__indexes.sql");
     String finalArtifacts =
-        v4.substring(v4.indexOf("CREATE TABLE final_artifacts"), v4.indexOf("CREATE TABLE short_clip_requests"));
+        v4.substring(
+            v4.indexOf("CREATE TABLE final_artifacts"),
+            v4.indexOf("CREATE TABLE short_clip_requests"));
 
     assertThat(finalArtifacts)
         .doesNotContain("storage_provider")

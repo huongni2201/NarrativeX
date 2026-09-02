@@ -60,9 +60,7 @@ class GetProductionTimelineAlignedTimingTest {
 
     assertThat(timeline.beats())
         .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
-        .containsExactly(
-            List.of(0L, 2_000L, 2_000L),
-            List.of(2_000L, 10_000L, 8_000L));
+        .containsExactly(List.of(0L, 2_000L, 2_000L), List.of(2_000L, 10_000L, 8_000L));
   }
 
   private static BeatSource beat(

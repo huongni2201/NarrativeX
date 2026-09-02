@@ -36,11 +36,14 @@ class UpdateProductionBeatMediaUseCaseTest {
     when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
     when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
-        .thenReturn(java.util.Optional.of(new SelectableMediaAsset(mediaAssetId, "VIDEO", 5_000L, 123L, "a".repeat(64))));
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(mediaAssetId, "VIDEO", 5_000L, 123L, "a".repeat(64))));
 
     useCase.update(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.FREEZE_END, 0L);
 
-    verify(repository).upsert(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.FREEZE_END, 0L);
+    verify(repository)
+        .upsert(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.FREEZE_END, 0L);
   }
 
   @Test
@@ -52,15 +55,19 @@ class UpdateProductionBeatMediaUseCaseTest {
     when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
     when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
-        .thenReturn(java.util.Optional.of(new SelectableMediaAsset(mediaAssetId, "VIDEO", 5_000L, 123L, "b".repeat(64))));
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(mediaAssetId, "VIDEO", 5_000L, 123L, "b".repeat(64))));
 
-    assertThatThrownBy(() -> useCase.update(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.TRIM, 0L))
+    assertThatThrownBy(
+            () -> useCase.update(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.TRIM, 0L))
         .isInstanceOfSatisfying(
             GenerationAdmissionDeniedException.class,
             error -> assertThat(error.getCode()).isEqualTo("INVALID_BEAT_MEDIA_SELECTION"))
         .hasMessageContaining("shorter than the narration span");
 
-    verify(repository, never()).upsert(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.TRIM, 0L);
+    verify(repository, never())
+        .upsert(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.TRIM, 0L);
   }
 
   @Test
@@ -72,13 +79,17 @@ class UpdateProductionBeatMediaUseCaseTest {
     when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
     when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
-        .thenReturn(java.util.Optional.of(new SelectableMediaAsset(mediaAssetId, "IMAGE", null, 123L, "c".repeat(64))));
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(mediaAssetId, "IMAGE", null, 123L, "c".repeat(64))));
 
-    assertThatThrownBy(() -> useCase.update(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.LOOP, 0L))
+    assertThatThrownBy(
+            () -> useCase.update(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.LOOP, 0L))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .hasMessageContaining("Image beats do not support video trim/loop/speed fit modes");
 
-    verify(repository, never()).upsert(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.LOOP, 0L);
+    verify(repository, never())
+        .upsert(projectId, visualBeatId, mediaAssetId, BeatMediaFitMode.LOOP, 0L);
   }
 
   @Test
@@ -103,9 +114,13 @@ class UpdateProductionBeatMediaUseCaseTest {
                     beat(chapterId, firstBeatId, firstAssetId, 0L, 10_000L),
                     beat(chapterId, secondBeatId, secondAssetId, 10_000L, 10_000L))));
     when(repository.findSelectableAsset(projectId, "owner", firstAssetId))
-        .thenReturn(java.util.Optional.of(new SelectableMediaAsset(firstAssetId, "VIDEO", 20_000L, 123L, "e".repeat(64))));
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(firstAssetId, "VIDEO", 20_000L, 123L, "e".repeat(64))));
     when(repository.findSelectableAsset(projectId, "owner", secondAssetId))
-        .thenReturn(java.util.Optional.of(new SelectableMediaAsset(secondAssetId, "IMAGE", null, 123L, "f".repeat(64))));
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(secondAssetId, "IMAGE", null, 123L, "f".repeat(64))));
 
     assertThatThrownBy(
             () ->
@@ -117,7 +132,8 @@ class UpdateProductionBeatMediaUseCaseTest {
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .hasMessageContaining("Image beats do not support video trim/loop/speed fit modes");
 
-    verify(repository, never()).upsert(projectId, firstBeatId, firstAssetId, BeatMediaFitMode.TRIM, 1_000L);
+    verify(repository, never())
+        .upsert(projectId, firstBeatId, firstAssetId, BeatMediaFitMode.TRIM, 1_000L);
   }
 
   @Test
@@ -133,7 +149,8 @@ class UpdateProductionBeatMediaUseCaseTest {
     verify(repository).clear(projectId, visualBeatId);
   }
 
-  private static ProductionTimelineView timeline(UUID projectId, UUID visualBeatId, long durationMs) {
+  private static ProductionTimelineView timeline(
+      UUID projectId, UUID visualBeatId, long durationMs) {
     UUID chapterId = UUID.randomUUID();
     return new ProductionTimelineView(
         projectId,
@@ -169,11 +186,7 @@ class UpdateProductionBeatMediaUseCaseTest {
   }
 
   private static ProductionTimelineView.Beat beat(
-      UUID chapterId,
-      UUID visualBeatId,
-      UUID mediaAssetId,
-      long startMs,
-      long durationMs) {
+      UUID chapterId, UUID visualBeatId, UUID mediaAssetId, long startMs, long durationMs) {
     return new ProductionTimelineView.Beat(
         chapterId,
         0,

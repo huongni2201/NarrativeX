@@ -40,7 +40,8 @@ class MediaStorageCleanupJobTest {
     var storage = Mockito.mock(ObjectStoragePort.class);
     var voiceReferences = Mockito.mock(VoiceReferenceAssetRepository.class);
     var task =
-        new CleanupTask(UUID.randomUUID(), "voices/account/y", "retry", "RUNNING", 4, Instant.now());
+        new CleanupTask(
+            UUID.randomUUID(), "voices/account/y", "retry", "RUNNING", 4, Instant.now());
     when(tasks.claimDue(any(Integer.class), any(Instant.class), any(Instant.class)))
         .thenReturn(List.of(task));
     when(voiceReferences.isReferencedByReadyAsset(task.storageKey())).thenReturn(false);

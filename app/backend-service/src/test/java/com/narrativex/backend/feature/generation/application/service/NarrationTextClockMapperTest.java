@@ -9,7 +9,8 @@ import org.junit.jupiter.api.Test;
 class NarrationTextClockMapperTest {
   @Test
   void mapsSemanticBeatStartsAcrossNarrationSpans() {
-    String spans = """
+    String spans =
+        """
         [
           {"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":5000},
           {"textStart":50,"textEnd":100,"audioStartMs":5000,"audioEndMs":10000}
@@ -29,7 +30,8 @@ class NarrationTextClockMapperTest {
 
   @Test
   void rejectsNonIncreasingSemanticTransitions() {
-    String spans = """
+    String spans =
+        """
         [{"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":10000}]
         """;
 
@@ -42,7 +44,8 @@ class NarrationTextClockMapperTest {
 
   @Test
   void rejectsAlignedClockWhenAnyVisualBeatExceedsTenSeconds() {
-    String spans = """
+    String spans =
+        """
         [{"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":25000}]
         """;
 

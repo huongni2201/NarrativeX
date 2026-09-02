@@ -25,11 +25,7 @@ public record ProjectCharacterReadModel(
     Appearance appearance) {
 
   public record Version(
-      UUID id,
-      Integer versionNumber,
-      String status,
-      String bible,
-      String visualPrompt) {}
+      UUID id, Integer versionNumber, String status, String bible, String visualPrompt) {}
 
   public record Appearance(
       String ageState,

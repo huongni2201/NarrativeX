@@ -49,8 +49,7 @@ class CreateProjectRenderRequestValidationTest {
   @Test
   void preservesDisabledSubtitlePreference() {
     var request =
-        new CreateProjectRenderRequest(
-            "1080p", "mp4", UUID.randomUUID(), Boolean.FALSE, List.of());
+        new CreateProjectRenderRequest("1080p", "mp4", UUID.randomUUID(), Boolean.FALSE, List.of());
 
     assertThat(request.subtitlesEnabled()).isFalse();
     assertThat(request.fps()).isEqualTo(30);
@@ -59,8 +58,7 @@ class CreateProjectRenderRequestValidationTest {
   @Test
   void defaultsMissingSubtitlePreferenceToEnabled() {
     var request =
-        new CreateProjectRenderRequest(
-            "1080p", "mp4", UUID.randomUUID(), null, List.of());
+        new CreateProjectRenderRequest("1080p", "mp4", UUID.randomUUID(), null, List.of());
 
     assertThat(request.subtitlesEnabled()).isTrue();
     assertThat(request.fps()).isEqualTo(30);

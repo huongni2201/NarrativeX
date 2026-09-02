@@ -61,11 +61,8 @@ class FlywayBaselineStructureTest {
 
     assertTrue(v4.contains("CREATE TABLE narration_requests"));
     assertTrue(v4.contains("speaking_rate NUMERIC(8, 4) NOT NULL"));
-    assertTrue(
-        v4.contains(
-            "project_voice_reference_asset_id UUID REFERENCES media_assets(id)"));
-    assertFalse(
-        v4.contains("\n    voice_reference_asset_id UUID REFERENCES media_assets(id),"));
+    assertTrue(v4.contains("project_voice_reference_asset_id UUID REFERENCES media_assets(id)"));
+    assertFalse(v4.contains("\n    voice_reference_asset_id UUID REFERENCES media_assets(id),"));
     assertTrue(v4.contains("CREATE TABLE notifications"));
     assertTrue(v4.contains("CREATE TABLE final_artifacts"));
 
@@ -76,7 +73,8 @@ class FlywayBaselineStructureTest {
     assertTrue(v5.contains("ck_project_render_subtitle_spans_array"));
     assertTrue(v5.contains("media_selection_active BOOLEAN NOT NULL DEFAULT FALSE"));
 
-    assertTrue(v6.contains("CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal"));
+    assertTrue(
+        v6.contains("CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal"));
     assertTrue(v6.contains("CREATE TRIGGER trg_generation_jobs_finalize_quota"));
     assertTrue(v6.contains("NEW.job_type = 'RENDER_PROJECT'"));
     assertTrue(v6.contains("CREATE TABLE voice_reference_assets"));

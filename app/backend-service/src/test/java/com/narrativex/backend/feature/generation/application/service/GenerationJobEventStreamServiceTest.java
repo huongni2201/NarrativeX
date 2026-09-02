@@ -32,8 +32,7 @@ class GenerationJobEventStreamServiceTest {
   void rejectsSubscriptionWhenJobIsNotOwned() {
     UUID jobId = UuidV7.random();
     when(currentUserId.get()).thenReturn(OWNER_ID);
-    when(generationJobRepository.findByJobIdAndOwner(jobId, OWNER_ID))
-        .thenReturn(Optional.empty());
+    when(generationJobRepository.findByJobIdAndOwner(jobId, OWNER_ID)).thenReturn(Optional.empty());
 
     assertThrows(ResourceNotFoundException.class, () -> service.subscribe(jobId));
     assertEquals(0, service.activeSubscriptionCount());

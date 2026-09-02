@@ -28,10 +28,7 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
       throws IOException, ServletException {
     boolean guest = isGuest(SecurityContextHolder.getContext().getAuthentication());
     ApiErrorCode code = guest ? ApiErrorCode.AUTHENTICATION_REQUIRED : ApiErrorCode.FORBIDDEN;
-    String message =
-        guest
-            ? "Đăng nhập để sử dụng tính năng này."
-            : "Access denied.";
+    String message = guest ? "Đăng nhập để sử dụng tính năng này." : "Access denied.";
     ApiErrorWriter.write(
         response,
         objectMapper,

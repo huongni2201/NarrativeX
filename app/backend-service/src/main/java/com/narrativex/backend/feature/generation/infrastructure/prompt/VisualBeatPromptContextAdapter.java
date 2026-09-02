@@ -26,9 +26,13 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
             .flatMap(scene -> scene.visualBeats().stream())
             .filter(candidate -> candidate.id().equals(visualBeatId))
             .findFirst()
-            .orElseThrow(() -> new ResourceNotFoundException("Visual Beat not found in the current Chapter storyboard"));
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "Visual Beat not found in the current Chapter storyboard"));
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
-    String aspectRatio = beat.aspectRatioOverride() == null ? null : beat.aspectRatioOverride().name();
+    String aspectRatio =
+        beat.aspectRatioOverride() == null ? null : beat.aspectRatioOverride().name();
     return visualPromptComposer.compose(
         ImageStyle.CINEMATIC_ANIME,
         beat.visualIntent(),

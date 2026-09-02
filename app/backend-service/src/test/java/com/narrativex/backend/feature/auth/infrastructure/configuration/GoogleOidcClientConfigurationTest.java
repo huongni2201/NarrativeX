@@ -12,7 +12,8 @@ class GoogleOidcClientConfigurationTest {
   @Test
   void usesConfiguredPublicOriginForGoogleCallback() {
     ClientRegistrationRepository repository =
-        configuration.clientRegistrationRepository("client-id", "client-secret", "https://narrativex.cloud/");
+        configuration.clientRegistrationRepository(
+            "client-id", "client-secret", "https://narrativex.cloud/");
 
     assertEquals(
         "https://narrativex.cloud/login/oauth2/code/{registrationId}",

@@ -113,7 +113,9 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.previewScenes[0].visualBeatCount").value(1))
-        .andExpect(jsonPath("$.data.previewScenes[0].previewMediaAssetId").value(MEDIA_ASSET_ID.toString()))
+        .andExpect(
+            jsonPath("$.data.previewScenes[0].previewMediaAssetId")
+                .value(MEDIA_ASSET_ID.toString()))
         .andExpect(jsonPath("$.data.previewScenes[0].previewImageUrl").doesNotExist());
   }
 

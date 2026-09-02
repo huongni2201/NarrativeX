@@ -67,8 +67,7 @@ public class GetChapterStoryboardUseCase {
                           .map(
                               beat ->
                                   VisualBeatResponse.from(
-                                      beat,
-                                      visualBeatPromptProvider.promptFor(projectId, beat)))
+                                      beat, visualBeatPromptProvider.promptFor(projectId, beat)))
                           .toList());
                 })
             .toList();

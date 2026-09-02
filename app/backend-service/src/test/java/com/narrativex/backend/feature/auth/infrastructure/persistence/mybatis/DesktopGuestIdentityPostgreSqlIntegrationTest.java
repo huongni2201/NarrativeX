@@ -148,7 +148,8 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
 
     try (Connection connection = dataSource.getConnection()) {
       assertEquals(
-          targetUserId, scalarString(connection, "SELECT owner_id FROM projects WHERE id = ?", projectId));
+          targetUserId,
+          scalarString(connection, "SELECT owner_id FROM projects WHERE id = ?", projectId));
       assertEquals(
           1L,
           scalarLong(
@@ -163,7 +164,8 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
               projectId));
       assertEquals(
           targetUserId,
-          scalarString(connection, "SELECT account_id FROM media_assets WHERE id = ?", guestAssetId));
+          scalarString(
+              connection, "SELECT account_id FROM media_assets WHERE id = ?", guestAssetId));
       assertEquals(
           guestUserId,
           scalarString(
@@ -196,7 +198,8 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
         checksum);
   }
 
-  private static void execute(Connection connection, String sql, Object... values) throws Exception {
+  private static void execute(Connection connection, String sql, Object... values)
+      throws Exception {
     try (PreparedStatement statement = connection.prepareStatement(sql)) {
       bind(statement, values);
       assertEquals(1, statement.executeUpdate());

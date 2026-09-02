@@ -41,7 +41,8 @@ public class LocalProjectRenderUseCase {
       throw new IllegalArgumentException("currentStep must contain 1 to 80 characters");
     }
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
-    if (!store.updateProgress(jobId, device.id(), workerId(device.id()), leaseToken, progress, step)) {
+    if (!store.updateProgress(
+        jobId, device.id(), workerId(device.id()), leaseToken, progress, step)) {
       throw leaseLost();
     }
   }

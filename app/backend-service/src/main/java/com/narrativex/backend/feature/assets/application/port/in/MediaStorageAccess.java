@@ -9,7 +9,8 @@ public interface MediaStorageAccess {
   URI createDownloadUrl(String storageKey, Instant expiresAt);
 
   default LocalMediaFile resolve(String token) {
-    throw new UnsupportedOperationException("This media storage does not expose local capability tokens");
+    throw new UnsupportedOperationException(
+        "This media storage does not expose local capability tokens");
   }
 
   record LocalMediaFile(

@@ -41,7 +41,8 @@ public class AssetLibraryController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Assets retrieved successfully",
-            MediaAssetResponse.Page.from(useCase.list(projectId, type, status, search, cursor, limit))));
+            MediaAssetResponse.Page.from(
+                useCase.list(projectId, type, status, search, cursor, limit))));
   }
 
   @GetMapping("/{id}")
@@ -60,7 +61,9 @@ public class AssetLibraryController {
   public ResponseEntity<ApiResponse<MediaAssetDownloadUrlResponse>> downloadUrl(
       @PathVariable UUID id, @RequestParam UUID projectId) {
     var asset = useCase.find(projectId, id);
-    if (!"READY".equals(asset.status()) || asset.storageKey() == null || asset.storageKey().isBlank()) {
+    if (!"READY".equals(asset.status())
+        || asset.storageKey() == null
+        || asset.storageKey().isBlank()) {
       throw new ResourceNotFoundException("Asset transport is not available");
     }
     Instant expiresAt = Instant.now().plus(Duration.ofMinutes(10));

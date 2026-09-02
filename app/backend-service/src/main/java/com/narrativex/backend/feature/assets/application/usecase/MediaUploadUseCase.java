@@ -156,8 +156,10 @@ public class MediaUploadUseCase {
     if (!ALLOWED_VOICE_CONTENT_TYPES.containsKey(contentType)) {
       throw new IllegalArgumentException("Content type is not allowed for a voice reference");
     }
-    if (request.expectedSizeBytes() <= 0 || request.expectedSizeBytes() > MAX_VOICE_REFERENCE_BYTES) {
-      throw new IllegalArgumentException("Voice reference exceeds the server-authorized size limit");
+    if (request.expectedSizeBytes() <= 0
+        || request.expectedSizeBytes() > MAX_VOICE_REFERENCE_BYTES) {
+      throw new IllegalArgumentException(
+          "Voice reference exceeds the server-authorized size limit");
     }
     String filename = request.originalFilename() == null ? "" : request.originalFilename().trim();
     if (filename.isBlank()
@@ -174,9 +176,7 @@ public class MediaUploadUseCase {
 
   private static String voiceStorageKey(String accountId, UUID uploadId) {
     String safeAccount =
-        accountId == null
-            ? "unknown"
-            : accountId.trim().replaceAll("[^A-Za-z0-9._-]", "_");
+        accountId == null ? "unknown" : accountId.trim().replaceAll("[^A-Za-z0-9._-]", "_");
     if (safeAccount.isBlank()) {
       throw new IllegalArgumentException("Authenticated account id is required for voice upload");
     }

@@ -71,7 +71,8 @@ public class EnqueueStoryAnalysisUseCase {
       if (!canRetry(existing.getStatus())) {
         return existing;
       }
-      var latest = generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+      var latest =
+          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
       if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
         return latest.get();
       }

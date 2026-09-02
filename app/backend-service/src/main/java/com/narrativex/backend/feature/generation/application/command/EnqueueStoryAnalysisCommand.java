@@ -4,10 +4,7 @@ import java.util.UUID;
 
 /** Requests durable analysis for one Chapter within an owned Project. */
 public record EnqueueStoryAnalysisCommand(
-    UUID projectId,
-    UUID chapterId,
-    String visualGenerationMode,
-    String imageProvider) {
+    UUID projectId, UUID chapterId, String visualGenerationMode, String imageProvider) {
 
   public EnqueueStoryAnalysisCommand(UUID projectId, UUID chapterId) {
     this(projectId, chapterId, "IMAGE", "API");
@@ -21,7 +18,8 @@ public record EnqueueStoryAnalysisCommand(
     }
     if ("IMAGE".equals(visualGenerationMode)) {
       if (!"GEMINI_WEB".equals(imageProvider) && !"API".equals(imageProvider)) {
-        throw new IllegalArgumentException("imageProvider must be GEMINI_WEB or API for IMAGE mode");
+        throw new IllegalArgumentException(
+            "imageProvider must be GEMINI_WEB or API for IMAGE mode");
       }
     } else {
       imageProvider = null;

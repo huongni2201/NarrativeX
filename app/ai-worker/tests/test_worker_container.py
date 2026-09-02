@@ -33,6 +33,16 @@ def test_worker_dependencies_are_split_by_role() -> None:
     assert "render" not in extras
 
 
+def test_dev_dependencies_do_not_install_tts_runtime_stack() -> None:
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    dev_dependencies = project["project"]["optional-dependencies"]["dev"]
+
+    assert not any(
+        dependency.lower().startswith(("vieneu==", "torch==", "torchaudio=="))
+        for dependency in dev_dependencies
+    )
+
+
 def test_dockerfile_has_only_active_role_targets() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
 

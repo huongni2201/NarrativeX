@@ -37,8 +37,7 @@ public class GetProductionTimelineUseCase {
     projectAccess.findOwnedProject(projectId, ownerId);
     List<ChapterSource> chapterSources = sourceRepository.findChapters(projectId, ownerId);
     if (chapterSources.isEmpty()) {
-      return new ProductionTimelineView(
-          projectId, null, 0L, "16:9", false, List.of(), List.of());
+      return new ProductionTimelineView(projectId, null, 0L, "16:9", false, List.of(), List.of());
     }
 
     UUID storyVersionId = chapterSources.getFirst().storyVersionId();
@@ -70,12 +69,14 @@ public class GetProductionTimelineUseCase {
           resolveAlignedSources(chapter, storedChapterBeats, chapterDurationMs);
       long chapterStartMs = cursorMs;
       long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
-      boolean timingRepresentable = chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
+      boolean timingRepresentable =
+          chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
       boolean exactTiming = hasCompleteAlignedClock(chapterBeats, chapterDurationMs);
 
       List<ProductionTimelineView.Beat> plannedBeats =
           timingRepresentable
-              ? planBeatTiming(chapter, chapterBeats, chapterStartMs, chapterDurationMs, exactTiming)
+              ? planBeatTiming(
+                  chapter, chapterBeats, chapterStartMs, chapterDurationMs, exactTiming)
               : List.of();
       beats.addAll(plannedBeats);
 
@@ -203,8 +204,7 @@ public class GetProductionTimelineUseCase {
       for (int index = 0; index < sources.size(); index++) {
         BeatSource source = sources.get(index);
         long relativeStartMs = source.audioStartMs();
-        long relativeEndMs =
-            index == sources.size() - 1 ? chapterDurationMs : source.audioEndMs();
+        long relativeEndMs = index == sources.size() - 1 ? chapterDurationMs : source.audioEndMs();
         aligned.add(
             buildBeat(
                 chapter,

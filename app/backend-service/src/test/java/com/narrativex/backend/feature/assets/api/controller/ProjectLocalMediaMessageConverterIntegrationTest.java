@@ -18,6 +18,8 @@ class ProjectLocalMediaMessageConverterIntegrationTest {
   @Test
   void mvcCanWriteAudioResourceRegions() {
     assertThat(handlerAdapter.getMessageConverters())
-        .anyMatch(converter -> converter.canWrite(ResourceRegion.class, MediaType.parseMediaType("audio/mpeg")));
+        .anyMatch(
+            converter ->
+                converter.canWrite(ResourceRegion.class, MediaType.parseMediaType("audio/mpeg")));
   }
 }
