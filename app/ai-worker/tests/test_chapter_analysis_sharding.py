@@ -8,6 +8,10 @@ from narrativex_worker.chapter_analysis_sharding import (
 from narrativex_worker.schema import CharacterAnalysis, LocationAnalysis, VisualBeatAnalysis
 
 
+def _scene_source(marker: str, words: int) -> str:
+    return f"BEGIN_{marker} " + (f"{marker.lower()} " * words).strip() + f" END_{marker}"
+
+
 def _structure(source: str) -> ChapterStructureResult:
     first, second = source.split("\n\n", 1)
     return ChapterStructureResult(
@@ -18,15 +22,15 @@ def _structure(source: str) -> ChapterStructureResult:
         scenes=[
             SceneStructure(
                 title="First",
-                narration=first,
-                source_anchor=first,
+                source_start_anchor=first[: min(32, len(first))],
+                source_end_anchor=first[-min(32, len(first)) :],
                 characters=[{"character_key": "lead"}],
                 location_key="room",
             ),
             SceneStructure(
                 title="Second",
-                narration=second,
-                source_anchor=second,
+                source_start_anchor=second[: min(32, len(second))],
+                source_end_anchor=second[-min(32, len(second)) :],
                 characters=[{"character_key": "lead"}],
                 location_key="room",
             ),
@@ -35,7 +39,7 @@ def _structure(source: str) -> ChapterStructureResult:
 
 
 def test_planner_resolves_scene_anchors_in_source_order() -> None:
-    source = ("alpha " * 120).strip() + "\n\n" + ("beta " * 120).strip()
+    source = _scene_source("ALPHA", 120) + "\n\n" + _scene_source("BETA", 120)
     shards = plan_visual_beat_shards(source, _structure(source), target_beats=12, max_beats=20)
 
     assert shards
@@ -45,17 +49,18 @@ def test_planner_resolves_scene_anchors_in_source_order() -> None:
     assert all(source[shard.source_start : shard.source_end] == shard.source_text for shard in shards)
 
 
-def test_long_scene_is_split_before_any_shard_exceeds_max_beats() -> None:
-    source = ("word " * 1000).strip() + "\n\nshort scene"
+def test_long_scene_targets_about_twelve_beats_without_exceeding_max() -> None:
+    source = _scene_source("LONG", 1000) + "\n\n" + _scene_source("SHORT", 2)
     shards = plan_visual_beat_shards(source, _structure(source), target_beats=12, max_beats=20)
 
     scene_zero = [shard for shard in shards if shard.scene_index == 0]
-    assert len(scene_zero) >= 4
+    assert len(scene_zero) >= 6
     assert all(1 <= shard.minimum_beats <= shard.target_beats <= 20 for shard in scene_zero)
+    assert max(shard.target_beats for shard in scene_zero) <= 14
 
 
 def test_merge_rejects_visual_beat_anchor_outside_its_shard() -> None:
-    source = ("alpha " * 40).strip() + "\n\n" + ("beta " * 40).strip()
+    source = _scene_source("ALPHA", 40) + "\n\n" + _scene_source("BETA", 40)
     structure = _structure(source)
     shards = plan_visual_beat_shards(source, structure, target_beats=12, max_beats=20)
     first = shards[0]
@@ -79,8 +84,10 @@ def test_merge_rejects_visual_beat_anchor_outside_its_shard() -> None:
         raise AssertionError("expected invalid source anchor to be rejected")
 
 
-def test_merge_builds_final_scene_with_source_ordered_beats() -> None:
-    source = "alpha one alpha two\n\nbeta one beta two"
+def test_merge_reconstructs_source_preserving_scene_narration() -> None:
+    first = "BEGIN_ALPHA alpha one alpha two END_ALPHA"
+    second = "BEGIN_BETA beta one beta two END_BETA"
+    source = first + "\n\n" + second
     structure = _structure(source)
     shards = plan_visual_beat_shards(source, structure, target_beats=12, max_beats=20)
     results: dict[tuple[int, int], VisualBeatShardResult] = {}
@@ -99,6 +106,8 @@ def test_merge_builds_final_scene_with_source_ordered_beats() -> None:
     merged = merge_shard_results(structure, shards, results)
 
     assert len(merged.scenes) == 2
+    assert merged.scenes[0].narration == first
+    assert merged.scenes[1].narration == second
     assert sum(len(scene.visual_beats) for scene in merged.scenes) == len(shards)
     assert merged.characters[0].key == "lead"
     assert merged.locations[0].key == "room"
