@@ -9,7 +9,6 @@ from narrativex_worker.repository.claims import (
 )
 from narrativex_worker.schema import ChapterAnalysisRequest
 
-
 SOURCE_HASH = "a" * 64
 
 
