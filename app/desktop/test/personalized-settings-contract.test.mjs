@@ -44,12 +44,14 @@ test("Settings delegates Gemini browser and concurrency behavior to focused comp
 
   assert.match(browsers, /Gemini Browsers/);
   assert.match(browsers, /Add browser/);
-  assert.match(browsers, /Login/);
+  assert.match(browsers, /I&apos;m logged in/);
+  assert.match(browsers, /Mark logged out/);
   assert.match(browsers, /Reset login/);
   assert.match(browsers, /Remove/);
   assert.match(browsers, /geminiWeb\.browsers\.list/);
   assert.match(browsers, /geminiWeb\.browsers\.add/);
-  assert.match(browsers, /geminiWeb\.browsers\.login/);
+  assert.match(browsers, /geminiWeb\.browsers\.setLoginConfirmed/);
+  assert.doesNotMatch(browsers, /geminiWeb\.browsers\.login/);
   assert.match(browsers, /geminiWeb\.browsers\.open/);
   assert.match(browsers, /geminiWeb\.browsers\.resetLogin/);
   assert.match(browsers, /geminiWeb\.browsers\.remove/);

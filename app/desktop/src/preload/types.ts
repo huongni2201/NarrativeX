@@ -33,6 +33,7 @@ export interface DesktopGeminiBrowserProfile {
   id: string;
   name: string;
   createdAt: string;
+  loginConfirmed: boolean;
 }
 
 export interface DesktopGeminiPreferences {
@@ -51,11 +52,7 @@ export interface DesktopPreferences {
   window: DesktopWindowPreference | null;
 }
 
-export type GeminiBrowserAuthStatus =
-  | "CHECKING"
-  | "LOGGED_IN"
-  | "NOT_LOGGED_IN"
-  | "UNAVAILABLE";
+export type GeminiBrowserAuthStatus = "LOGGED_IN" | "NOT_LOGGED_IN";
 
 export interface GeminiBrowserView {
   id: string;
@@ -298,7 +295,7 @@ export interface NarrativeXDesktopBridge {
       list(): Promise<GeminiBrowserView[]>;
       add(): Promise<GeminiBrowserView[]>;
       open(browserId: string): Promise<void>;
-      login(browserId: string): Promise<GeminiBrowserView[]>;
+      setLoginConfirmed(browserId: string, loginConfirmed: boolean): Promise<GeminiBrowserView[]>;
       resetLogin(browserId: string): Promise<GeminiBrowserView[]>;
       remove(browserId: string): Promise<GeminiBrowserView[]>;
     };

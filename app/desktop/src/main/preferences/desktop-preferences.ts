@@ -4,6 +4,7 @@ import {
   addGeminiBrowserProfile,
   removeGeminiBrowserProfile,
   sanitizeGeminiBrowserProfiles,
+  setGeminiBrowserLoginConfirmed,
   type GeminiBrowserProfile,
 } from "../gemini-web/gemini-browser-registry.ts";
 
@@ -214,6 +215,24 @@ export class DesktopPreferencesStore {
     profile.gemini = {
       ...(profile.gemini ?? {}),
       browsers: addGeminiBrowserProfile(this.browserProfiles(profile)),
+    };
+    state.profiles[userId] = profile;
+    await this.persist();
+    return this.effective(userId, profile);
+  }
+
+  async setGeminiBrowserLoginConfirmed(
+    browserId: string,
+    loginConfirmed: boolean,
+  ): Promise<EffectiveDesktopPreferences> {
+    const { userId, state, profile } = await this.requireActive();
+    profile.gemini = {
+      ...(profile.gemini ?? {}),
+      browsers: setGeminiBrowserLoginConfirmed(
+        this.browserProfiles(profile),
+        browserId,
+        loginConfirmed,
+      ),
     };
     state.profiles[userId] = profile;
     await this.persist();

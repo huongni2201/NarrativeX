@@ -91,8 +91,12 @@ const bridge: NarrativeXDesktopBridge = {
       add: () => ipcRenderer.invoke("desktop:gemini-web:browsers:add"),
       open: (browserId: string) =>
         ipcRenderer.invoke("desktop:gemini-web:browsers:open", browserId),
-      login: (browserId: string) =>
-        ipcRenderer.invoke("desktop:gemini-web:browsers:login", browserId),
+      setLoginConfirmed: (browserId: string, loginConfirmed: boolean) =>
+        ipcRenderer.invoke(
+          "desktop:gemini-web:browsers:set-login-confirmed",
+          browserId,
+          loginConfirmed,
+        ),
       resetLogin: (browserId: string) =>
         ipcRenderer.invoke("desktop:gemini-web:browsers:reset-login", browserId),
       remove: (browserId: string) =>

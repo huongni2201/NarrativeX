@@ -10,7 +10,6 @@ import {
 
 const GEMINI_URL = "https://gemini.google.com/app";
 const CHROME_START_TIMEOUT_MS = 20_000;
-const LOGIN_TIMEOUT_MS = 10 * 60_000;
 const CONTROL_TARGET_FILE = "browser-control.json";
 const BACKGROUND_FLAGS = [
   "--disable-background-timer-throttling",
@@ -18,13 +17,6 @@ const BACKGROUND_FLAGS = [
   "--disable-backgrounding-occluded-windows",
   "--disable-features=CalculateNativeWinOcclusion",
 ] as const;
-
-export type GeminiBrowserAuthStatus = "LOGGED_IN" | "NOT_LOGGED_IN" | "UNAVAILABLE";
-
-export type GeminiAuthSnapshot = {
-  composer: boolean;
-  signIn: boolean;
-};
 
 type DevToolsVersion = {
   webSocketDebuggerUrl?: string;
@@ -46,12 +38,6 @@ type PersistedControlTarget = {
   targetId?: string;
 };
 
-export function classifyGeminiAuthSnapshot(snapshot: GeminiAuthSnapshot): GeminiBrowserAuthStatus {
-  if (snapshot.composer) return "LOGGED_IN";
-  if (snapshot.signIn) return "NOT_LOGGED_IN";
-  return "UNAVAILABLE";
-}
-
 export class GeminiBrowserSession {
   private readonly profileDirectory: string;
   private readonly sessionFile: string;
@@ -63,52 +49,6 @@ export class GeminiBrowserSession {
     this.profileDirectory = join(rootDirectory, "chrome-profile");
     this.sessionFile = join(rootDirectory, "session.json");
     this.controlFile = join(rootDirectory, CONTROL_TARGET_FILE);
-  }
-
-  async authStatus(): Promise<GeminiBrowserAuthStatus> {
-    try {
-      const port = await this.runningPort();
-      if (!port) return "UNAVAILABLE";
-      const target = await this.findControlTarget(port);
-      if (!target?.webSocketDebuggerUrl) return "UNAVAILABLE";
-      const cdp = await GeminiBrowserCdpClient.connect(target.webSocketDebuggerUrl);
-      try {
-        await cdp.send("Runtime.enable");
-        await cdp.send("Page.enable");
-        return classifyGeminiAuthSnapshot(await this.authSnapshot(cdp));
-      } finally {
-        cdp.close();
-      }
-    } catch {
-      return "UNAVAILABLE";
-    }
-  }
-
-  async login(): Promise<GeminiBrowserAuthStatus> {
-    const port = await this.runningPort();
-    if (!port) {
-      throw new Error("Open this Gemini browser before signing in.");
-    }
-    const target = await this.findControlTarget(port);
-    if (!target?.webSocketDebuggerUrl) {
-      throw new Error("Open this Gemini browser before signing in.");
-    }
-    const cdp = await GeminiBrowserCdpClient.connect(target.webSocketDebuggerUrl);
-    try {
-      await cdp.send("Runtime.enable");
-      await cdp.send("Page.enable");
-      await this.ensureGeminiLocation(cdp);
-      await this.bringTargetToFront(cdp);
-      const deadline = Date.now() + LOGIN_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        const status = classifyGeminiAuthSnapshot(await this.authSnapshot(cdp));
-        if (status === "LOGGED_IN") return status;
-        await delay(750);
-      }
-      return "NOT_LOGGED_IN";
-    } finally {
-      cdp.close();
-    }
   }
 
   async open(): Promise<void> {
@@ -143,12 +83,6 @@ export class GeminiBrowserSession {
     }
     if (this.chromeProcess && !this.chromeProcess.killed) this.chromeProcess.kill();
     this.chromeProcess = null;
-  }
-
-  private async runningPort(): Promise<number | null> {
-    const port = await this.readPersistedPort();
-    if (!port) return null;
-    return (await this.devToolsAvailable(port)) ? port : null;
   }
 
   private async ensureBrowser(startMinimized: boolean): Promise<number> {
@@ -228,28 +162,10 @@ export class GeminiBrowserSession {
       "PUT",
     );
     if (!created.id || !created.webSocketDebuggerUrl) {
-      throw new Error("Chrome did not expose a Gemini page for browser login management.");
+      throw new Error("Chrome did not expose a Gemini page for browser management.");
     }
     await writeFile(this.controlFile, JSON.stringify({ targetId: created.id }), "utf8");
     return created;
-  }
-
-  private async authSnapshot(cdp: GeminiBrowserCdpClient): Promise<GeminiAuthSnapshot> {
-    return evaluateBrowserPage<GeminiAuthSnapshot>(
-      cdp,
-      `(() => {
-        const visible = (element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 8 && rect.height > 8;
-        };
-        const composer = [...document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"][role="textbox"], [contenteditable="true"]')]
-          .some((element) => visible(element));
-        const text = (document.body?.innerText || "").toLowerCase();
-        const signIn = text.includes("sign in") || text.includes("đăng nhập");
-        return { composer, signIn };
-      })()`,
-    );
   }
 
   private async ensureGeminiLocation(cdp: GeminiBrowserCdpClient): Promise<void> {

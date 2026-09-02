@@ -4,10 +4,7 @@ import {
   type GeminiPoolGenerationResult,
   type GeminiPoolReferenceFile,
 } from "./gemini-web-automation-pool.ts";
-import {
-  GeminiBrowserSession,
-  type GeminiBrowserAuthStatus,
-} from "./gemini-browser-session.ts";
+import { GeminiBrowserSession } from "./gemini-browser-session.ts";
 import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
 
 export type GeminiHostTabCounts = {
@@ -17,9 +14,7 @@ export type GeminiHostTabCounts = {
 
 export interface GeminiBrowserHostLike {
   readonly browserId: string;
-  authStatus(): Promise<GeminiBrowserAuthStatus>;
   open(): Promise<void>;
-  login(): Promise<GeminiBrowserAuthStatus>;
   generateImage(
     lane: GeminiWebLane,
     prompt: string,
@@ -47,16 +42,8 @@ export class GeminiBrowserHost implements GeminiBrowserHostLike {
     );
   }
 
-  authStatus(): Promise<GeminiBrowserAuthStatus> {
-    return this.session.authStatus();
-  }
-
   open(): Promise<void> {
     return this.session.open();
-  }
-
-  login(): Promise<GeminiBrowserAuthStatus> {
-    return this.session.login();
   }
 
   async generateImage(

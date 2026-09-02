@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { GeminiBrowserPool } from "../src/main/gemini-web/gemini-browser-pool.ts";
 
-function profile(id, name) {
-  return { id, name, createdAt: "2026-09-01T00:00:00.000Z" };
+function profile(id, name, loginConfirmed = true) {
+  return { id, name, createdAt: "2026-09-01T00:00:00.000Z", loginConfirmed };
 }
 
 function preferences(initialBrowsers, counts = { characterTabs: 2, storyboardTabs: 4 }) {
@@ -17,7 +17,7 @@ function preferences(initialBrowsers, counts = { characterTabs: 2, storyboardTab
       };
     },
     async addGeminiBrowser() {
-      const next = profile(`browser-${browsers.length + 1}`, `Browser ${browsers.length + 1}`);
+      const next = profile(`browser-${browsers.length + 1}`, `Browser ${browsers.length + 1}`, false);
       browsers = [...browsers, next];
       return this.get();
     },
@@ -26,22 +26,24 @@ function preferences(initialBrowsers, counts = { characterTabs: 2, storyboardTab
       browsers = browsers.filter((browser) => browser.id !== browserId);
       return this.get();
     },
+    async setGeminiBrowserLoginConfirmed(browserId, loginConfirmed) {
+      browsers = browsers.map((browser) => browser.id === browserId ? { ...browser, loginConfirmed } : browser);
+      return this.get();
+    },
   };
 }
 
-function fakeHost(browserId, status = "LOGGED_IN", hooks = {}) {
+function fakeHost(browserId, hooks = {}) {
   let active = 0;
   let calls = 0;
-  let maxActive = 0;
   return {
     browserId,
-    async authStatus() { return status; },
+    async authStatus() { throw new Error("manual status must not probe the browser DOM"); },
     async open() {},
-    async login() { status = "LOGGED_IN"; },
+    async login() { throw new Error("manual confirmation replaces automatic login probing"); },
     async generateImage(lane, prompt) {
       calls += 1;
       active += 1;
-      maxActive = Math.max(maxActive, active);
       hooks.onStart?.();
       try {
         await new Promise((resolve) => setTimeout(resolve, 20));
@@ -53,17 +55,46 @@ function fakeHost(browserId, status = "LOGGED_IN", hooks = {}) {
     },
     activeLeaseCount() { return active; },
     async stop() {},
-    stats() { return { calls, maxActive }; },
-    setStatus(next) { status = next; },
+    stats() { return { calls }; },
   };
 }
 
-test("two browsers do not multiply Character concurrency", async () => {
+test("browser list reflects manual confirmation without probing Gemini DOM", async () => {
+  const prefs = preferences([
+    profile("browser-1", "Browser 1", true),
+    profile("browser-2", "Browser 2", false),
+  ]);
+  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => fakeHost(browser.id));
+
+  const views = await pool.list();
+  assert.equal(views[0].authStatus, "LOGGED_IN");
+  assert.equal(views[1].authStatus, "NOT_LOGGED_IN");
+});
+
+test("scheduler ignores browsers that user has not confirmed as logged in", async () => {
+  const prefs = preferences([
+    profile("browser-1", "Browser 1", false),
+    profile("browser-2", "Browser 2", true),
+  ]);
+  const hosts = new Map();
+  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => {
+    const host = fakeHost(browser.id);
+    hosts.set(browser.id, host);
+    return host;
+  });
+
+  const result = await pool.generateImage("CHARACTER", "a");
+  assert.match(result.sourcePath, /^browser-2:/);
+  assert.equal(hosts.get("browser-1").stats().calls, 0);
+  assert.equal(hosts.get("browser-2").stats().calls, 1);
+});
+
+test("two confirmed browsers do not multiply Character concurrency", async () => {
   const prefs = preferences([profile("browser-1", "Browser 1"), profile("browser-2", "Browser 2")]);
   let totalActive = 0;
   let maxTotalActive = 0;
   const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) =>
-    fakeHost(browser.id, "LOGGED_IN", {
+    fakeHost(browser.id, {
       onStart() {
         totalActive += 1;
         maxTotalActive = Math.max(maxTotalActive, totalActive);
@@ -83,61 +114,19 @@ test("two browsers do not multiply Character concurrency", async () => {
   assert.equal(maxTotalActive, 2);
 });
 
-test("scheduler ignores logged-out and unavailable browsers", async () => {
-  const prefs = preferences([profile("browser-1", "Browser 1"), profile("browser-2", "Browser 2")]);
-  const hosts = new Map();
-  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => {
-    const host = fakeHost(browser.id, browser.id === "browser-1" ? "NOT_LOGGED_IN" : "LOGGED_IN");
-    hosts.set(browser.id, host);
-    return host;
-  });
-
-  const result = await pool.generateImage("CHARACTER", "a");
-  assert.match(result.sourcePath, /^browser-2:/);
-  assert.equal(hosts.get("browser-1").stats().calls, 0);
-  assert.equal(hosts.get("browser-2").stats().calls, 1);
-});
-
-test("equal-load scheduling distributes work across authenticated browsers", async () => {
-  const prefs = preferences([profile("browser-1", "Browser 1"), profile("browser-2", "Browser 2")]);
-  const hosts = new Map();
-  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => {
-    const host = fakeHost(browser.id);
-    hosts.set(browser.id, host);
-    return host;
-  });
-
-  await Promise.all([
-    pool.generateImage("CHARACTER", "a"),
-    pool.generateImage("CHARACTER", "b"),
-  ]);
-  assert.equal(hosts.get("browser-1").stats().calls, 1);
-  assert.equal(hosts.get("browser-2").stats().calls, 1);
-});
-
 test("generation failure is not replayed on another browser", async () => {
   const prefs = preferences([profile("browser-1", "Browser 1"), profile("browser-2", "Browser 2")], { characterTabs: 1, storyboardTabs: 1 });
   let secondCalls = 0;
   const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => {
     if (browser.id === "browser-1") {
       return {
-        browserId: browser.id,
-        async authStatus() { return "LOGGED_IN"; },
-        async open() {},
-        async login() {},
+        ...fakeHost(browser.id),
         async generateImage() { throw new Error("submitted then failed"); },
-        activeLeaseCount() { return 0; },
-        async stop() {},
       };
     }
     return {
-      browserId: browser.id,
-      async authStatus() { return "LOGGED_IN"; },
-      async open() {},
-      async login() {},
+      ...fakeHost(browser.id),
       async generateImage() { secondCalls += 1; return { sourcePath: "second", captureMethod: "DOWNLOAD" }; },
-      activeLeaseCount() { return 0; },
-      async stop() {},
     };
   });
 
