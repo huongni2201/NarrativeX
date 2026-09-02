@@ -80,6 +80,12 @@ export const charactersApi = {
       `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`,
     ),
 
+  remove: (projectId: string, characterId: string) =>
+    apiRequest<void>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`,
+      { method: "DELETE" },
+    ),
+
   versionReferences: (characterId: string, versionId: string) =>
     apiRequest<unknown>(
       `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/references`,
