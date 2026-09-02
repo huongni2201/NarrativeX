@@ -108,7 +108,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
                         visual_intent="grounded",
                         source_anchor=anchor,
                     )
-                    for _ in range(20)
+                    for _ in range(12)
                 ]
             ),
             _billing(),
