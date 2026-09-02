@@ -133,3 +133,22 @@ test("generation failure is not replayed on another browser", async () => {
   await assert.rejects(() => pool.generateImage("CHARACTER", "a"), /submitted then failed/);
   assert.equal(secondCalls, 0);
 });
+
+test("auth-required generation automatically removes the browser from the eligible pool", async () => {
+  const prefs = preferences([profile("browser-1", "Browser 1", true)], { characterTabs: 1, storyboardTabs: 1 });
+  let calls = 0;
+  const pool = new GeminiBrowserPool("/tmp/gemini", prefs, ({ browser }) => ({
+    ...fakeHost(browser.id),
+    async generateImage() {
+      calls += 1;
+      const error = new Error("[GEMINI_AUTH_REQUIRED] Sign in again.");
+      error.name = "GEMINI_AUTH_REQUIRED";
+      throw error;
+    },
+  }));
+
+  await assert.rejects(() => pool.generateImage("CHARACTER", "a"), /GEMINI_AUTH_REQUIRED/);
+  assert.equal((await prefs.get()).gemini.browsers[0].loginConfirmed, false);
+  await assert.rejects(() => pool.generateImage("CHARACTER", "b"), /No Gemini browser is marked as signed in/);
+  assert.equal(calls, 1);
+});
