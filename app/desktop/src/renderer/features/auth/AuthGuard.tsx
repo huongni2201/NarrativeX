@@ -20,6 +20,10 @@ export function AuthGuard({ children }: PropsWithChildren) {
   const [guestBootstrapPending, setGuestBootstrapPending] = useState(false);
   const [loginReason, setLoginReason] = useState<string | null>(null);
   const [boundLocalUserId, setBoundLocalUserId] = useState<string | null | undefined>(undefined);
+  const [boundPreferenceUserId, setBoundPreferenceUserId] = useState<string | null | undefined>(
+    undefined,
+  );
+  const [preferenceBindingError, setPreferenceBindingError] = useState<string | null>(null);
   const signedIn = Boolean(currentUser.data && !currentUser.data.guest);
 
   useEffect(() => {
@@ -118,11 +122,39 @@ export function AuthGuard({ children }: PropsWithChildren) {
   }, [currentUser.isPending, guestBootstrapPending, localExecutionUserId]);
 
   useEffect(() => {
-    if (!currentUser.data || !window.narrativex?.preferences) return;
-    void window.narrativex.preferences.bindUser(currentUser.data.id).catch((error) => {
-      console.error("Failed to bind Desktop preferences to the current user", error);
-    });
-  }, [currentUser.data?.id]);
+    if (currentUser.isPending || guestBootstrapPending) return;
+    if (!currentUser.data) {
+      setBoundPreferenceUserId(null);
+      setPreferenceBindingError(null);
+      return;
+    }
+    if (!window.narrativex?.preferences) {
+      setBoundPreferenceUserId(currentUser.data.id);
+      setPreferenceBindingError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const preferenceUserId = currentUser.data.id;
+    setBoundPreferenceUserId(undefined);
+    setPreferenceBindingError(null);
+    void window.narrativex.preferences
+      .bindUser(currentUser.data.id)
+      .then(() => {
+        if (!cancelled) setBoundPreferenceUserId(preferenceUserId);
+      })
+      .catch((error) => {
+        console.error("Failed to bind Desktop preferences to the current user", error);
+        if (!cancelled) {
+          setPreferenceBindingError(
+            error instanceof Error ? error.message : "Không thể mở cài đặt của tài khoản hiện tại.",
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.isPending, currentUser.data?.id, guestBootstrapPending]);
 
   if (currentUser.isPending || (needsGuestBootstrap && !bootstrapError)) {
     return (
@@ -132,9 +164,21 @@ export function AuthGuard({ children }: PropsWithChildren) {
     );
   }
 
+  if (preferenceBindingError && currentUser.data) {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-[var(--bg)] p-6 text-sm text-[var(--text-3)]">
+        <div className="max-w-md rounded-lg border border-[var(--danger)]/40 bg-[var(--surface)] px-6 py-5 text-[var(--danger)]">
+          Không thể chuẩn bị cài đặt cho tài khoản hiện tại: {preferenceBindingError}
+        </div>
+      </main>
+    );
+  }
+
   const syncingLocalIdentity =
     currentUser.data && boundLocalUserId !== localExecutionUserId;
-  if (syncingLocalIdentity) {
+  const syncingPreferenceIdentity =
+    currentUser.data && boundPreferenceUserId !== currentUser.data.id;
+  if (syncingLocalIdentity || syncingPreferenceIdentity) {
     return (
       <main className="grid min-h-dvh place-items-center bg-[var(--bg)] p-6 text-sm text-[var(--text-3)]">
         <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-6 py-5">Đang chuẩn bị local workspace…</div>
