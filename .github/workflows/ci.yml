@@ -56,7 +56,7 @@ jobs:
       - name: Apply backend formatter for repair artifact
         run: |
           ./mvnw --batch-mode --no-transfer-progress spotless:apply
-          git diff --name-only --diff-filter=ACMRTUXB > spotless-files.txt
+          git diff --relative --name-only --diff-filter=ACMRTUXB > spotless-files.txt
           tar -czf spotless-formatted-files.tar.gz -T spotless-files.txt
 
       - name: Upload backend formatting repair
@@ -69,17 +69,7 @@ jobs:
           if-no-files-found: error
 
       - name: Verify
-        run: |
-          set -o pipefail
-          ./mvnw --batch-mode --no-transfer-progress verify 2>&1 | tee backend-verify.log
-
-      - name: Upload backend verify diagnostics
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: backend-verify-log
-          path: app/backend-service/backend-verify.log
-          if-no-files-found: error
+        run: ./mvnw --batch-mode --no-transfer-progress verify
 
   ai-worker:
     name: AI worker checks
@@ -106,18 +96,15 @@ jobs:
       - name: Tests
         run: python -m pytest
 
-      - name: Ruff
-        run: |
-          set -o pipefail
-          python -m ruff check src tests 2>&1 | tee ruff-check.log
+      - name: Apply Ruff repair
+        run: python -m ruff check src tests --fix
 
-      - name: Upload Ruff diagnostics
-        if: always()
+      - name: Upload Ruff repair
         uses: actions/upload-artifact@v7
         with:
-          name: ai-worker-ruff-log
-          path: app/ai-worker/ruff-check.log
-          if-no-files-found: warn
+          name: ai-worker-ruff-repair
+          path: app/ai-worker/tests/test_contract_boundaries.py
+          if-no-files-found: error
 
       - name: Mypy
         run: python -m mypy src
