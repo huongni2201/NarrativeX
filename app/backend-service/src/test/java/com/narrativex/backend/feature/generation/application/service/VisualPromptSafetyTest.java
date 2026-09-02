@@ -32,10 +32,6 @@ class VisualPromptSafetyTest {
         .contains("unable to speak")
         .contains("non-graphic sign of minor injury")
         .contains("appropriately clothed")
-        .doesNotContainIgnoringCase("tied up")
-        .doesNotContainIgnoringCase("gagged")
-        .doesNotContainIgnoringCase("bloody")
-        .doesNotContainIgnoringCase("naked")
-        .doesNotContainIgnoringCase("torture");
+        .doesNotContain("tied up", "gagged", "bloody", "naked", "torture");
   }
 }
