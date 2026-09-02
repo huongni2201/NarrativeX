@@ -26,8 +26,8 @@ class SceneStructure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
-    narration: str = Field(default="", max_length=50_000)
-    source_anchor: str = Field(min_length=1, max_length=100_000)
+    narration: str = Field(default="", max_length=500_000)
+    source_anchor: str = Field(min_length=1, max_length=500_000)
     characters: list[SceneCharacterRef] = Field(default_factory=list)
     location_key: str | None = None
 
@@ -113,14 +113,17 @@ def plan_visual_beat_shards(
 
         duration_ms = estimated_narration_duration_ms(scene.source_anchor)
         scene_target = max(1, math.ceil(duration_ms / TARGET_VISUAL_BEAT_MS))
-        shard_count = max(1, math.ceil(scene_target / max_beats))
+        shard_count = max(1, math.ceil(scene_target / target_beats))
         ranges = _split_source_range(source_text, scene_start, scene_end, shard_count)
         for shard_index, (start, end) in enumerate(ranges):
             shard_text = source_text[start:end]
             shard_duration = estimated_narration_duration_ms(shard_text)
             minimum = max(1, math.ceil(shard_duration / HARD_MAX_VISUAL_BEAT_MS))
             target = max(minimum, math.ceil(shard_duration / TARGET_VISUAL_BEAT_MS))
-            target = min(max_beats, max(1, target))
+            if target > max_beats:
+                raise ValueError(
+                    f"planned shard exceeds max beats: target={target}, max={max_beats}"
+                )
             maximum = min(max_beats, max(target, math.ceil(target * 1.15)))
             shards.append(
                 VisualBeatShard(
@@ -129,7 +132,7 @@ def plan_visual_beat_shards(
                     source_start=start,
                     source_end=end,
                     source_text=shard_text,
-                    minimum_beats=min(minimum, target),
+                    minimum_beats=minimum,
                     target_beats=target,
                     maximum_beats=maximum,
                 )
