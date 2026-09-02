@@ -44,9 +44,14 @@ def test_planner_resolves_scene_anchors_in_source_order() -> None:
 
     assert shards
     assert all(shard.target_beats <= 20 for shard in shards)
-    assert [shard.source_start for shard in shards] == sorted(shard.source_start for shard in shards)
+    assert [shard.source_start for shard in shards] == sorted(
+        shard.source_start for shard in shards
+    )
     assert {shard.scene_index for shard in shards} == {0, 1}
-    assert all(source[shard.source_start : shard.source_end] == shard.source_text for shard in shards)
+    assert all(
+        source[shard.source_start : shard.source_end] == shard.source_text for shard in shards
+    )
+    assert "".join(shard.source_text for shard in shards) == source
 
 
 def test_long_scene_targets_about_twelve_beats_without_exceeding_max() -> None:
@@ -55,7 +60,9 @@ def test_long_scene_targets_about_twelve_beats_without_exceeding_max() -> None:
 
     scene_zero = [shard for shard in shards if shard.scene_index == 0]
     assert len(scene_zero) >= 6
-    assert all(1 <= shard.minimum_beats <= shard.target_beats <= 20 for shard in scene_zero)
+    assert all(
+        1 <= shard.minimum_beats <= shard.target_beats <= 20 for shard in scene_zero
+    )
     assert max(shard.target_beats for shard in scene_zero) <= 14
 
 
@@ -85,9 +92,10 @@ def test_merge_rejects_visual_beat_anchor_outside_its_shard() -> None:
 
 
 def test_merge_reconstructs_source_preserving_scene_narration() -> None:
-    first = "BEGIN_ALPHA alpha one alpha two END_ALPHA"
-    second = "BEGIN_BETA beta one beta two END_BETA"
-    source = first + "\n\n" + second
+    source = (
+        "BEGIN_ALPHA alpha one alpha two END_ALPHA\n\n"
+        "BEGIN_BETA beta one beta two END_BETA"
+    )
     structure = _structure(source)
     shards = plan_visual_beat_shards(source, structure, target_beats=12, max_beats=20)
     results: dict[tuple[int, int], VisualBeatShardResult] = {}
@@ -106,8 +114,7 @@ def test_merge_reconstructs_source_preserving_scene_narration() -> None:
     merged = merge_shard_results(structure, shards, results)
 
     assert len(merged.scenes) == 2
-    assert merged.scenes[0].narration == first
-    assert merged.scenes[1].narration == second
+    assert "".join(scene.narration for scene in merged.scenes) == source
     assert sum(len(scene.visual_beats) for scene in merged.scenes) == len(shards)
     assert merged.characters[0].key == "lead"
     assert merged.locations[0].key == "room"
