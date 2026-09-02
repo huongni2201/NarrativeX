@@ -152,6 +152,7 @@ function sanitizePreferences(value: unknown): StoredPreferences {
 export class DesktopPreferencesStore {
   private readonly environmentDefaults: GeminiTabCounts;
   private loaded: StoredPreferences | null = null;
+  private loadPromise: Promise<StoredPreferences> | null = null;
   private activeUserId: string | null = null;
   private writeChain: Promise<void> = Promise.resolve();
 
@@ -307,26 +308,38 @@ export class DesktopPreferencesStore {
 
   private async load(): Promise<StoredPreferences> {
     if (this.loaded) return this.loaded;
+    this.loadPromise ??= this.readPreferences();
     try {
-      this.loaded = sanitizePreferences(JSON.parse(await readFile(this.filePath, "utf8")));
+      this.loaded = await this.loadPromise;
+      return this.loaded;
+    } finally {
+      this.loadPromise = null;
+    }
+  }
+
+  private async readPreferences(): Promise<StoredPreferences> {
+    try {
+      return sanitizePreferences(JSON.parse(await readFile(this.filePath, "utf8")));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT" && !(error instanceof SyntaxError)) {
         throw error;
       }
-      this.loaded = { ...EMPTY_PREFERENCES, profiles: {} };
+      return { ...EMPTY_PREFERENCES, profiles: {} };
     }
-    return this.loaded;
   }
 
   private async persist(): Promise<void> {
     const state = await this.load();
     const payload = `${JSON.stringify(state, null, 2)}\n`;
-    this.writeChain = this.writeChain.then(async () => {
-      await mkdir(dirname(this.filePath), { recursive: true });
-      const temporaryPath = `${this.filePath}.tmp`;
-      await writeFile(temporaryPath, payload, { encoding: "utf8", mode: 0o600 });
-      await rename(temporaryPath, this.filePath);
-    });
-    return this.writeChain;
+    const write = this.writeChain
+      .catch(() => undefined)
+      .then(async () => {
+        await mkdir(dirname(this.filePath), { recursive: true });
+        const temporaryPath = `${this.filePath}.tmp`;
+        await writeFile(temporaryPath, payload, { encoding: "utf8", mode: 0o600 });
+        await rename(temporaryPath, this.filePath);
+      });
+    this.writeChain = write.catch(() => undefined);
+    return write;
   }
 }
