@@ -55,10 +55,6 @@ class VertexGeminiProvider(LlmProvider):
     _FLASH_25_OUTPUT = Decimal("0.60")
     _FLASH_25_THINKING_OUTPUT = Decimal("3.50")
     _PRICING_CATALOG_VERSION = "vertex-public-2026-08-19"
-    _SHARD_CONCURRENCY = 3
-    _SHARD_TARGET_BEATS = 12
-    _SHARD_MAX_BEATS = 20
-    _REPAIR_ATTEMPTS = 1
 
     def __init__(self, settings: WorkerSettings) -> None:
         if not settings.vertex_project_id:
@@ -108,8 +104,8 @@ class VertexGeminiProvider(LlmProvider):
             shards = plan_visual_beat_shards(
                 request.source_text,
                 structure,
-                target_beats=self._SHARD_TARGET_BEATS,
-                max_beats=self._SHARD_MAX_BEATS,
+                target_beats=self.settings.vertex_analysis_shard_target_beats,
+                max_beats=self.settings.vertex_analysis_shard_max_beats,
             )
         except ValueError:
             return ProviderOperation(
@@ -119,7 +115,7 @@ class VertexGeminiProvider(LlmProvider):
                 billing=structure_billing,
             )
 
-        semaphore = asyncio.Semaphore(self._SHARD_CONCURRENCY)
+        semaphore = asyncio.Semaphore(self.settings.vertex_analysis_shard_concurrency)
 
         async def generate(
             shard: VisualBeatShard,
@@ -134,7 +130,7 @@ class VertexGeminiProvider(LlmProvider):
                 if result is None:
                     return shard, None, billings, shard_response_id
 
-                for _ in range(self._REPAIR_ATTEMPTS):
+                for _ in range(self.settings.vertex_analysis_repair_attempts):
                     missing = shard.minimum_beats - len(result.visual_beats)
                     if missing <= 0:
                         break
