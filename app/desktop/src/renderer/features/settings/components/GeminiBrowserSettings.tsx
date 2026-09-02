@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  CheckCircle2,
   ExternalLink,
   Globe2,
-  LogIn,
+  LogOut,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -12,10 +13,8 @@ import type { GeminiBrowserView } from "../../../../preload/types";
 import { Button } from "../../../components/ui/button";
 
 const STATUS_LABEL: Record<GeminiBrowserView["authStatus"], string> = {
-  CHECKING: "Checking…",
-  LOGGED_IN: "Logged in",
-  NOT_LOGGED_IN: "Not logged in",
-  UNAVAILABLE: "Unavailable",
+  LOGGED_IN: "Login confirmed",
+  NOT_LOGGED_IN: "Login not confirmed",
 };
 
 export function GeminiBrowserSettings({
@@ -33,7 +32,7 @@ export function GeminiBrowserSettings({
     try {
       setBrowsers(await window.narrativex.geminiWeb.browsers.list());
     } catch (error) {
-      onNotice(errorMessage(error, "Unable to check Gemini browsers."));
+      onNotice(errorMessage(error, "Unable to load Gemini browsers."));
     } finally {
       setLoading(false);
     }
@@ -65,7 +64,7 @@ export function GeminiBrowserSettings({
     setAdding(true);
     try {
       setBrowsers(await window.narrativex.geminiWeb.browsers.add());
-      onNotice("Added a new Gemini browser. Sign in when you are ready to use it.");
+      onNotice("Added a new Gemini browser. Open it, sign in, then confirm the login here.");
     } catch (error) {
       onNotice(errorMessage(error, "Unable to add Gemini browser."));
     } finally {
@@ -73,9 +72,19 @@ export function GeminiBrowserSettings({
     }
   }
 
+  function setLoginConfirmed(browser: GeminiBrowserView, loginConfirmed: boolean) {
+    void runBrowserAction(
+      browser.id,
+      () => window.narrativex.geminiWeb.browsers.setLoginConfirmed(browser.id, loginConfirmed),
+      loginConfirmed
+        ? `${browser.name} is marked as logged in.`
+        : `${browser.name} is marked as not logged in.`,
+    );
+  }
+
   function resetLogin(browser: GeminiBrowserView) {
     const confirmed = window.confirm(
-      `Reset ${browser.name} login? This removes only this browser's saved Chrome login on this device.`,
+      `Reset ${browser.name} login? This removes only this browser's saved Chrome login on this device and marks it as not logged in.`,
     );
     if (!confirmed) return;
     void runBrowserAction(
@@ -104,7 +113,7 @@ export function GeminiBrowserSettings({
           <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-text-dim">Gemini</span>
           <h2 className="mt-0.5 text-[13px] font-semibold text-foreground">Gemini Browsers</h2>
           <p className="mt-1 max-w-xl text-[10px] leading-4 text-text-muted">
-            Mỗi browser có Chrome profile và phiên đăng nhập riêng. NarrativeX không lưu mật khẩu Google.
+            Mỗi browser có Chrome profile riêng. Open browser, đăng nhập Google/Gemini, sau đó xác nhận trạng thái đăng nhập tại đây.
           </p>
         </div>
         <Button
@@ -112,7 +121,7 @@ export function GeminiBrowserSettings({
           variant="outline"
           disabled={loading || adding}
           onClick={() => void refresh()}
-          aria-label="Refresh Gemini browser status"
+          aria-label="Refresh Gemini browser settings"
         >
           <RefreshCw size={14} />
         </Button>
@@ -120,11 +129,11 @@ export function GeminiBrowserSettings({
 
       <div className="divide-y divide-border-subtle">
         {loading && browsers.length === 0 ? (
-          <div className="px-4 py-4 text-[10px] text-text-muted">Checking browser profiles…</div>
+          <div className="px-4 py-4 text-[10px] text-text-muted">Loading browser profiles…</div>
         ) : (
           browsers.map((browser) => {
             const busy = busyBrowserId === browser.id;
-            const disabled = busy || browser.authStatus === "CHECKING" || browser.activeLeases > 0;
+            const hasActiveGeneration = browser.activeLeases > 0;
             return (
               <div
                 key={browser.id}
@@ -137,34 +146,19 @@ export function GeminiBrowserSettings({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[11px] font-medium text-foreground">{browser.name}</span>
                     <span className={statusClass(browser.authStatus)}>{STATUS_LABEL[browser.authStatus]}</span>
-                    {browser.activeLeases > 0 && (
+                    {hasActiveGeneration && (
                       <span className="text-[9px] text-text-dim">{browser.activeLeases} active</span>
                     )}
                   </div>
                   <p className="mt-0.5 text-[9px] text-text-dim">
-                    Independent local Chrome profile · login persists on this device
+                    Independent local Chrome profile · NarrativeX does not inspect your Google login
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-end gap-1.5">
-                  {browser.authStatus === "NOT_LOGGED_IN" && (
-                    <Button
-                      size="sm"
-                      disabled={disabled}
-                      onClick={() =>
-                        void runBrowserAction(
-                          browser.id,
-                          () => window.narrativex.geminiWeb.browsers.login(browser.id),
-                          `${browser.name} is signed in.`,
-                        )
-                      }
-                    >
-                      <LogIn size={13} /> Login
-                    </Button>
-                  )}
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={busy || browser.authStatus === "CHECKING"}
+                    disabled={busy}
                     onClick={() =>
                       void runBrowserAction(
                         browser.id,
@@ -174,11 +168,29 @@ export function GeminiBrowserSettings({
                   >
                     <ExternalLink size={13} /> Open
                   </Button>
+                  {browser.authStatus === "NOT_LOGGED_IN" ? (
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setLoginConfirmed(browser, true)}
+                    >
+                      <CheckCircle2 size={13} /> I&apos;m logged in
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => setLoginConfirmed(browser, false)}
+                    >
+                      <LogOut size={13} /> Mark logged out
+                    </Button>
+                  )}
                   {browser.authStatus === "LOGGED_IN" && (
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={disabled}
+                      disabled={busy || hasActiveGeneration}
                       onClick={() => resetLogin(browser)}
                     >
                       <RotateCcw size={13} /> Reset login
@@ -188,7 +200,7 @@ export function GeminiBrowserSettings({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={disabled}
+                      disabled={busy || hasActiveGeneration}
                       onClick={() => removeBrowser(browser)}
                     >
                       <Trash2 size={13} /> Remove
