@@ -6,6 +6,7 @@ export interface GeminiBrowserProfile {
   id: string;
   name: string;
   createdAt: string;
+  loginConfirmed: boolean;
 }
 
 const BROWSER_ID_PATTERN = /^browser-[A-Za-z0-9-]+$/;
@@ -16,6 +17,7 @@ export function defaultGeminiBrowserProfile(now = new Date()): GeminiBrowserProf
     id: DEFAULT_GEMINI_BROWSER_ID,
     name: "Browser 1",
     createdAt: now.toISOString(),
+    loginConfirmed: false,
   };
 }
 
@@ -42,6 +44,7 @@ export function sanitizeGeminiBrowserProfiles(value: unknown): GeminiBrowserProf
       id: candidate.id,
       name: candidate.name,
       createdAt: new Date(candidate.createdAt).toISOString(),
+      loginConfirmed: candidate.loginConfirmed === true,
     });
   }
   return sanitized.length > 0 ? sanitized : [defaultGeminiBrowserProfile()];
@@ -62,8 +65,22 @@ export function addGeminiBrowserProfile(
       id: `browser-${randomUUID()}`,
       name: `Browser ${nextIndex}`,
       createdAt: now.toISOString(),
+      loginConfirmed: false,
     },
   ];
+}
+
+export function setGeminiBrowserLoginConfirmed(
+  current: readonly GeminiBrowserProfile[],
+  browserId: string,
+  loginConfirmed: boolean,
+): GeminiBrowserProfile[] {
+  if (!current.some((entry) => entry.id === browserId)) {
+    throw new Error("Gemini browser was not found.");
+  }
+  return current.map((entry) =>
+    entry.id === browserId ? { ...entry, loginConfirmed } : entry,
+  );
 }
 
 export function removeGeminiBrowserProfile(
