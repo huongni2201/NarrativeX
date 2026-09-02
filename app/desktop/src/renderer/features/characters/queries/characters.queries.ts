@@ -30,6 +30,17 @@ export function useCreateCharacter(projectId: string) {
   });
 }
 
+export function useDeleteCharacter(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (characterId: string) => charactersApi.remove(projectId, characterId),
+    onSuccess: async (_data, characterId) => {
+      queryClient.removeQueries({ queryKey: characterDetailKey(projectId, characterId) });
+      await queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters"] });
+    },
+  });
+}
+
 export function useCharacterDetail(projectId: string, characterId: string | null) {
   return useQuery({
     queryKey: characterDetailKey(projectId, characterId),

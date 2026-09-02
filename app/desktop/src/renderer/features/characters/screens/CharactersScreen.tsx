@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
-import { Loader2, Plus, Search, Sparkles } from "lucide-react";
+import { Loader2, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
@@ -15,7 +15,7 @@ import {
 import { CharacterGeminiQueueBanner } from "../components/CharacterGeminiQueueBanner";
 import { CharacterReferenceStudio } from "../components/CharacterReferenceStudio";
 import { useCharacterGeminiQueue } from "../queries/character-gemini-queue";
-import { useCharacterDetail, useCharacterPortrait, useCreateCharacter } from "../queries/characters.queries";
+import { useCharacterDetail, useCharacterPortrait, useCreateCharacter, useDeleteCharacter } from "../queries/characters.queries";
 
 function normalizeLabel(value?: string | null) {
   return value ? value.replaceAll("_", " ") : "—";
@@ -80,6 +80,7 @@ function CharacterRow({ projectId, character, selected, onSelect }: Readonly<{
 
 export function CharactersScreen({ projectId, characters }: Readonly<{ projectId: string; characters: DesktopCharacter[] }>) {
   const createCharacter = useCreateCharacter(projectId);
+  const deleteCharacter = useDeleteCharacter(projectId);
   const [name, setName] = useState("");
   const [aliases, setAliases] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -139,6 +140,19 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
       setNotice("Character đã được tạo và assign vào project.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Không thể tạo character.");
+    }
+  }
+
+  async function removeSelectedCharacter() {
+    if (!detail || geminiQueueActive || deleteCharacter.isPending) return;
+    if (!window.confirm(`Xoá ${detail.canonicalName} khỏi project này?`)) return;
+    setNotice(null);
+    try {
+      await deleteCharacter.mutateAsync(detail.id);
+      setSelectedId(null);
+      setNotice(`Đã xoá ${detail.canonicalName} khỏi project.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Không thể xoá character.");
     }
   }
 
@@ -214,7 +228,23 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                   <PaneHeader
                     title={detail.canonicalName}
                     meta={`${normalizeLabel(detail.role)} · ${detail.sceneCount ?? 0} scene appearances`}
-                    actions={detailQuery.isFetching ? <span className="text-[9px] text-text-dim">Refreshing…</span> : undefined}
+                    actions={
+                      <div className="flex items-center gap-1.5">
+                        {detailQuery.isFetching ? <span className="text-[9px] text-text-dim">Refreshing…</span> : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={geminiQueueActive || deleteCharacter.isPending}
+                          onClick={() => void removeSelectedCharacter()}
+                          aria-label={`Xoá ${detail.canonicalName}`}
+                          title={geminiQueueActive ? "Dừng Generate All trước khi xoá nhân vật" : "Xoá nhân vật khỏi project"}
+                        >
+                          {deleteCharacter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                          Delete
+                        </Button>
+                      </div>
+                    }
                   />
                   {detailQuery.isError ? <InlineNotice tone="danger">Không tải được dữ liệu chi tiết. Đang hiển thị dữ liệu tóm tắt.</InlineNotice> : null}
                   <div className="min-h-0 flex-1 overflow-y-auto p-3">

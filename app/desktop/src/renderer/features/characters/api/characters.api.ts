@@ -5,7 +5,7 @@ import type {
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
+import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isNumber, isRecord, isString } from "../../../api/guards";
 import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
 
@@ -78,6 +78,12 @@ export const charactersApi = {
   detail: (projectId: string, characterId: string) =>
     apiRequest<DesktopCharacterDetail>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`,
+    ),
+
+  remove: (projectId: string, characterId: string) =>
+    apiCommand(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`,
+      { method: "DELETE" },
     ),
 
   versionReferences: (characterId: string, versionId: string) =>
