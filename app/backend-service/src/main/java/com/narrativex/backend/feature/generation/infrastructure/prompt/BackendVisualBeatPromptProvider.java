@@ -34,6 +34,6 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
             visualBeat.getCameraAngle().name(),
             aspectRatio,
             context);
-    return VisualPromptText.finalPrompt(composedPrompt);
+    return VisualPromptSafety.sanitizeSceneDirection(VisualPromptText.finalPrompt(composedPrompt));
   }
 }
