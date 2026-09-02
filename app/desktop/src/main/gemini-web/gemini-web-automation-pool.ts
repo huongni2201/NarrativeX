@@ -15,6 +15,10 @@ type PersistedPoolSession = {
   targets?: Partial<Record<GeminiWebLane, string>>;
 };
 
+export type GeminiPoolAutomationOptions = {
+  attachOnly: boolean;
+};
+
 export function mergeSharedPortSession(
   current: PersistedPoolSession | null | undefined,
   port: number,
@@ -47,7 +51,10 @@ export interface GeminiPoolAutomation {
   stop(): Promise<void>;
 }
 
-export type GeminiPoolAutomationFactory = (rootDirectory: string) => GeminiPoolAutomation;
+export type GeminiPoolAutomationFactory = (
+  rootDirectory: string,
+  options: GeminiPoolAutomationOptions,
+) => GeminiPoolAutomation;
 
 type Slot = {
   rootDirectory: string;
@@ -71,7 +78,7 @@ export class GeminiWebAutomationPool {
     private readonly getTabCounts: () => Promise<TabCounts>,
     private readonly createAutomation: GeminiPoolAutomationFactory,
   ) {
-    this.primaryAutomation = this.createAutomation(rootDirectory);
+    this.primaryAutomation = this.createAutomation(rootDirectory, { attachOnly: false });
     this.primarySessionFile = join(rootDirectory, "session.json");
   }
 
@@ -117,7 +124,7 @@ export class GeminiWebAutomationPool {
       const rootDirectory = join(this.rootDirectory, "slots", laneDirectory, String(index));
       return {
         rootDirectory,
-        automation: this.createAutomation(rootDirectory),
+        automation: this.createAutomation(rootDirectory, { attachOnly: true }),
         primary: false,
       };
     });
