@@ -97,8 +97,8 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
     presets: false,
   },
   assets: {
-    timeline: false,
-    chapters: false,
+    timeline: true,
+    chapters: true,
     assetScope: "all",
     characters: false,
     voices: false,

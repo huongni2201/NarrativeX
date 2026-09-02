@@ -72,7 +72,12 @@ export function ProjectWorkspaceRoute() {
         />
       )}
       {screen === "assets" && (
-        <AssetsScreen projectId={projectId} assets={workspace.assets} />
+        <AssetsScreen
+          projectId={projectId}
+          assets={workspace.assets}
+          chapters={workspace.chapters}
+          timeline={workspace.timeline}
+        />
       )}
       {screen === "render" && (
         <RenderScreen projectId={projectId} timeline={workspace.timeline} />

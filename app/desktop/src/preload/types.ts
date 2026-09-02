@@ -13,6 +13,13 @@ export type LocalExecutionConnectionState =
   | "OFFLINE";
 
 export type DesktopPreferenceResetScope = "GEMINI" | "WINDOW" | "ALL";
+export type GeminiWatermarkState = "PENDING" | "REMOVED" | "NOT_APPLICABLE";
+
+export interface GeminiWatermarkRemovalResult {
+  processed: string[];
+  skipped: string[];
+  failed: Array<{ assetId: string; message: string }>;
+}
 
 export interface DesktopWindowPreference {
   x: number;
@@ -302,6 +309,14 @@ export interface NarrativeXDesktopBridge {
       assetId: string;
       selectionToken: string;
     }): Promise<LocalAssetImportResult>;
+    watermarkStates(input: {
+      projectId: string;
+      assetIds: string[];
+    }): Promise<Record<string, GeminiWatermarkState>>;
+    removeWatermarks(input: {
+      projectId: string;
+      assetIds: string[];
+    }): Promise<GeminiWatermarkRemovalResult>;
   };
   render: {
     status(): Promise<FfmpegRuntimeStatus>;

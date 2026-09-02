@@ -9,8 +9,9 @@ import { GeminiBrowserPool } from "./gemini-browser-pool";
 import { registerGeminiBrowserIpc } from "./gemini-browser-ipc";
 import {
   cleanupGeminiTempFile,
-  removeGeminiWatermark,
+  createGeminiWatermarkRemovedCopy,
 } from "./gemini-image-postprocessor";
+import { installGeminiWatermarkAssetVariants } from "./gemini-watermark-asset-variants";
 import { isGeminiWebLane, type GeminiWebLane } from "../../shared/gemini-web-lanes";
 import { ProjectStorage } from "../local-storage/project-storage";
 import { desktopPreferencesStore } from "../preferences/preferences-bootstrap";
@@ -25,6 +26,7 @@ const pendingGeminiSelections = new SelectionTokenStore<{
   lane: GeminiWebLane;
 }>();
 const MAX_REFERENCE_IMAGES = 3;
+const MAX_WATERMARK_BATCH = 1_000;
 const OPAQUE_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 
 export function registerGeminiWebIpc(
@@ -38,6 +40,7 @@ export function registerGeminiWebIpc(
     ({ browser, rootDirectory, getTabCounts }) =>
       new GeminiBrowserHost(browser.id, rootDirectory, getTabCounts),
   );
+  const watermarkVariants = installGeminiWatermarkAssetVariants(projectStorage);
 
   registerGeminiBrowserIpc(policy, browsers);
 
@@ -48,8 +51,7 @@ export function registerGeminiWebIpc(
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
       const references = await resolveReferenceFiles(projectStorage, input);
       const result = await browsers.generateImage(input.lane, input.prompt, references);
-      const cleanedSourcePath = await removeGeminiWatermark(result.sourcePath);
-      return stageGeneratedImage(event.sender.id, cleanedSourcePath, input.lane);
+      return stageGeneratedImage(event.sender.id, result.sourcePath, input.lane);
     },
   );
 
@@ -71,13 +73,61 @@ export function registerGeminiWebIpc(
         event.sender.id,
         "gemini-image-import",
       );
-      const asset = await projectStorage.registerAsset(input.projectId, {
-        assetId: input.assetId,
-        kind: "IMAGE",
-        sourcePath: selection.sourcePath,
-      });
-      await cleanupGeminiTempFile(selection.sourcePath);
-      return asset;
+      try {
+        const asset = await projectStorage.registerAsset(input.projectId, {
+          assetId: input.assetId,
+          kind: "IMAGE",
+          sourcePath: selection.sourcePath,
+        });
+        await watermarkVariants.markGeminiAsset(input.projectId, input.assetId);
+        return asset;
+      } finally {
+        await cleanupGeminiTempFile(selection.sourcePath);
+      }
+    },
+  );
+
+  registerTrustedIpcHandlerWithEvent(
+    "desktop:gemini-web:watermark-states",
+    policy,
+    async (_event, input) => {
+      if (!isWatermarkBatchInput(input)) throw new Error("Invalid Gemini watermark state request.");
+      return watermarkVariants.watermarkStates(input.projectId, [...new Set(input.assetIds)]);
+    },
+  );
+
+  registerTrustedIpcHandlerWithEvent(
+    "desktop:gemini-web:remove-watermarks",
+    policy,
+    async (_event, input) => {
+      if (!isWatermarkBatchInput(input)) throw new Error("Invalid Gemini watermark removal request.");
+      const assetIds = [...new Set(input.assetIds)];
+      const states = await watermarkVariants.watermarkStates(input.projectId, assetIds);
+      const processed: string[] = [];
+      const skipped: string[] = [];
+      const failed: Array<{ assetId: string; message: string }> = [];
+
+      for (const assetId of assetIds) {
+        if (states[assetId] !== "PENDING") {
+          skipped.push(assetId);
+          continue;
+        }
+        let cleanedPath: string | null = null;
+        try {
+          const sourcePath = await watermarkVariants.resolveCanonicalAsset(input.projectId, assetId);
+          cleanedPath = await createGeminiWatermarkRemovedCopy(sourcePath);
+          await watermarkVariants.registerRemovedVariant(input.projectId, assetId, cleanedPath);
+          processed.push(assetId);
+        } catch (error) {
+          failed.push({
+            assetId,
+            message: error instanceof Error ? error.message : "Gemini watermark removal failed.",
+          });
+        } finally {
+          if (cleanedPath) await cleanupGeminiTempFile(cleanedPath).catch(() => undefined);
+        }
+      }
+      return { processed, skipped, failed };
     },
   );
 
@@ -154,6 +204,11 @@ type GeminiGenerateInput = {
   references?: GeminiReferenceInput[];
 };
 
+type GeminiWatermarkBatchInput = {
+  projectId: string;
+  assetIds: string[];
+};
+
 function isGenerateInput(value: unknown): value is GeminiGenerateInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
@@ -198,6 +253,18 @@ function isCommitInput(value: unknown): value is {
     typeof input.projectId === "string" &&
     typeof input.assetId === "string" &&
     typeof input.selectionToken === "string"
+  );
+}
+
+function isWatermarkBatchInput(value: unknown): value is GeminiWatermarkBatchInput {
+  if (!value || typeof value !== "object") return false;
+  const input = value as Record<string, unknown>;
+  return (
+    typeof input.projectId === "string" &&
+    input.projectId.length > 0 &&
+    Array.isArray(input.assetIds) &&
+    input.assetIds.length <= MAX_WATERMARK_BATCH &&
+    input.assetIds.every((assetId) => typeof assetId === "string" && OPAQUE_ID_PATTERN.test(assetId))
   );
 }
 

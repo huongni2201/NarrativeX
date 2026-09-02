@@ -9,7 +9,7 @@ const SHARP_PACKAGE = "sharp@0.35.4";
 const POSTPROCESS_TIMEOUT_MS = 120_000;
 const MAX_STDERR_CHARS = 8_000;
 
-export async function removeGeminiWatermark(sourcePath: string): Promise<string> {
+export async function createGeminiWatermarkRemovedCopy(sourcePath: string): Promise<string> {
   const source = await stat(sourcePath);
   if (!source.isFile() || source.size <= 0) {
     throw new Error("Gemini image postprocessing source is missing or empty.");
@@ -17,10 +17,7 @@ export async function removeGeminiWatermark(sourcePath: string): Promise<string>
 
   const extension = extname(sourcePath).toLowerCase() || ".png";
   const stem = basename(sourcePath, extname(sourcePath));
-  const outputPath = join(
-    dirname(sourcePath),
-    `${stem}-clean-${randomUUID()}${extension}`,
-  );
+  const outputPath = join(dirname(sourcePath), `${stem}-clean-${randomUUID()}${extension}`);
 
   try {
     await runWatermarkRemover(sourcePath, outputPath);
@@ -28,8 +25,6 @@ export async function removeGeminiWatermark(sourcePath: string): Promise<string>
     if (!output.isFile() || output.size <= 0) {
       throw new Error("Gemini watermark remover finished without producing a valid image.");
     }
-
-    await rm(sourcePath, { force: true });
     return outputPath;
   } catch (error) {
     await rm(outputPath, { force: true }).catch(() => undefined);
@@ -66,11 +61,7 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
     });
 
     child.once("error", (error) => {
-      finish(
-        new Error(
-          `Could not start Gemini watermark remover. Ensure pnpm is installed and available in PATH. ${error.message}`,
-        ),
-      );
+      finish(new Error(`Could not start Gemini watermark remover. Ensure pnpm is installed and available in PATH. ${error.message}`));
     });
 
     child.once("exit", (code, signal) => {
@@ -79,11 +70,7 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
         return;
       }
       const detail = stderr.trim();
-      finish(
-        new Error(
-          `Gemini watermark remover failed${code === null ? "" : ` with exit code ${code}`}${signal ? ` (${signal})` : ""}${detail ? `: ${detail}` : "."}`,
-        ),
-      );
+      finish(new Error(`Gemini watermark remover failed${code === null ? "" : ` with exit code ${code}`}${signal ? ` (${signal})` : ""}${detail ? `: ${detail}` : "."}`));
     });
 
     const timeout = setTimeout(() => {
