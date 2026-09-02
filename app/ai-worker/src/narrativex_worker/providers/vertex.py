@@ -34,10 +34,7 @@ from narrativex_worker.providers.ports import (
     ProviderSubmissionUnknownError,
     ProviderTokenUsage,
 )
-from narrativex_worker.schema import (
-    ChapterAnalysisRequest,
-    ProviderOperationStatus,
-)
+from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
 
 class VertexProviderError(RuntimeError):
@@ -155,9 +152,7 @@ class VertexGeminiProvider(LlmProvider):
                     shard_response_id = repair_response_id
                     if repaired is None:
                         return shard, None, billings, shard_response_id
-                    result = VisualBeatShardResult(
-                        visual_beats=[*result.visual_beats, *repaired.visual_beats]
-                    )
+                    result = repaired
                 return shard, result, billings, shard_response_id
 
         generated = await asyncio.gather(*(generate(shard) for shard in shards))
@@ -320,13 +315,13 @@ class VertexGeminiProvider(LlmProvider):
             catalog_version=self._PRICING_CATALOG_VERSION,
             model_key=self.settings.vertex_model,
             location=self.settings.vertex_location,
-            pricing_mode="STANDARD_THINKING" if thought_tokens > 0 else "STANDARD",
+            pricing_mode="SHARDED_THINKING" if thought_tokens > 0 else "SHARDED",
             input_usd_per_million=self._FLASH_25_INPUT,
             cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
             output_usd_per_million=output_rate,
         )
         return ProviderBilling(
-            actual_cost=sum((item.actual_cost for item in billings), Decimal("0" )).quantize(
+            actual_cost=sum((item.actual_cost for item in billings), Decimal("0")).quantize(
                 Decimal("0.000000001")
             ),
             currency="USD",
