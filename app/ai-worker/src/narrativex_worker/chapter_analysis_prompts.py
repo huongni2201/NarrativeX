@@ -74,8 +74,9 @@ def build_visual_beat_shard_prompt(
         ensure_ascii=False,
     )
     repair = (
-        f" This is a repair pass. Add exactly the missing source-grounded coverage needed for at "
-        f"least {shard.minimum_beats} total beats; MISSING_BEATS={missing_count}."
+        " This is a repair pass because the prior response was under-dense. Regenerate the COMPLETE "
+        f"replacement beat set for this shard, not only the missing beats. The replacement must "
+        f"contain at least {shard.minimum_beats} beats; PRIOR_MISSING_BEATS={missing_count}."
         if missing_count > 0
         else ""
     )
