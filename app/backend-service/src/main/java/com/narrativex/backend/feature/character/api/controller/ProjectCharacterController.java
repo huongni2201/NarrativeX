@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.character.api.response.ProjectCharacterSum
 import com.narrativex.backend.feature.character.application.command.AssignCharacterToProjectCommand;
 import com.narrativex.backend.feature.character.application.usecase.AssignCharacterToProjectUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ComposeCharacterIdentityPromptUseCase;
+import com.narrativex.backend.feature.character.application.usecase.DeleteProjectCharacterUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetProjectCharacterDetailUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListProjectCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.PinCharacterVersionUseCase;
@@ -18,6 +19,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +36,7 @@ public class ProjectCharacterController {
   private final ListProjectCharactersUseCase listProjectCharactersUseCase;
   private final GetProjectCharacterDetailUseCase getProjectCharacterDetailUseCase;
   private final AssignCharacterToProjectUseCase assignCharacterToProjectUseCase;
+  private final DeleteProjectCharacterUseCase deleteProjectCharacterUseCase;
   private final PinCharacterVersionUseCase pinCharacterVersionUseCase;
   private final ComposeCharacterIdentityPromptUseCase composeCharacterIdentityPromptUseCase;
 
@@ -78,6 +81,13 @@ public class ProjectCharacterController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Project character retrieved successfully", detailResponse(projectId, characterId)));
+  }
+
+  @DeleteMapping("/{characterId}")
+  public ResponseEntity<Void> delete(
+      @PathVariable UUID projectId, @PathVariable UUID characterId) {
+    deleteProjectCharacterUseCase.execute(projectId, characterId);
+    return ResponseEntity.noContent().build();
   }
 
   @PutMapping("/{characterId}/pinned-version")
