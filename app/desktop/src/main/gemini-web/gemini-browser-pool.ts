@@ -7,9 +7,8 @@ import type {
   GeminiPoolReferenceFile,
 } from "./gemini-web-automation-pool.ts";
 import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
-import type { GeminiBrowserAuthStatus } from "./gemini-browser-session.ts";
 
-export type GeminiBrowserViewStatus = "CHECKING" | GeminiBrowserAuthStatus;
+export type GeminiBrowserViewStatus = "LOGGED_IN" | "NOT_LOGGED_IN";
 
 export interface GeminiBrowserView {
   id: string;
@@ -22,9 +21,7 @@ export interface GeminiBrowserView {
 
 export interface GeminiBrowserHostLike {
   readonly browserId: string;
-  authStatus(): Promise<GeminiBrowserAuthStatus>;
   open(): Promise<void>;
-  login(): Promise<GeminiBrowserAuthStatus>;
   generateImage(
     lane: GeminiWebLane,
     prompt: string,
@@ -37,6 +34,10 @@ export interface GeminiBrowserHostLike {
 export interface GeminiBrowserPreferenceStore {
   get(): Promise<EffectiveDesktopPreferences>;
   addGeminiBrowser(): Promise<EffectiveDesktopPreferences>;
+  setGeminiBrowserLoginConfirmed(
+    browserId: string,
+    loginConfirmed: boolean,
+  ): Promise<EffectiveDesktopPreferences>;
   removeGeminiBrowser(browserId: string): Promise<EffectiveDesktopPreferences>;
 }
 
@@ -71,20 +72,17 @@ export class GeminiBrowserPool {
 
   async list(): Promise<GeminiBrowserView[]> {
     const preferences = await this.ensureUserContext();
-    return Promise.all(
-      preferences.gemini.browsers.map(async (browser) => {
-        const host = this.requireExistingHost(browser.id);
-        const authStatus = await host.authStatus();
-        return {
-          id: browser.id,
-          name: browser.name,
-          createdAt: browser.createdAt,
-          authStatus,
-          activeLeases: host.activeLeaseCount(),
-          canRemove: preferences.gemini.browsers.length > 1 && host.activeLeaseCount() === 0,
-        } satisfies GeminiBrowserView;
-      }),
-    );
+    return preferences.gemini.browsers.map((browser) => {
+      const host = this.requireExistingHost(browser.id);
+      return {
+        id: browser.id,
+        name: browser.name,
+        createdAt: browser.createdAt,
+        authStatus: browser.loginConfirmed ? "LOGGED_IN" : "NOT_LOGGED_IN",
+        activeLeases: host.activeLeaseCount(),
+        canRemove: preferences.gemini.browsers.length > 1 && host.activeLeaseCount() === 0,
+      } satisfies GeminiBrowserView;
+    });
   }
 
   async add(): Promise<GeminiBrowserView[]> {
@@ -98,12 +96,12 @@ export class GeminiBrowserPool {
     await host.open();
   }
 
-  async login(browserId: string): Promise<GeminiBrowserView[]> {
-    const host = await this.requireHost(browserId);
-    const status = await host.login();
-    if (status !== "LOGGED_IN") {
-      throw new Error("Gemini login was not completed. Finish signing in to Google in the selected browser and try again.");
-    }
+  async setLoginConfirmed(
+    browserId: string,
+    loginConfirmed: boolean,
+  ): Promise<GeminiBrowserView[]> {
+    await this.ensureUserContext();
+    await this.preferences.setGeminiBrowserLoginConfirmed(browserId, loginConfirmed);
     return this.list();
   }
 
@@ -115,6 +113,7 @@ export class GeminiBrowserPool {
     }
     await host.stop();
     await this.storage.resetLogin(preferences.userId, browserId);
+    await this.preferences.setGeminiBrowserLoginConfirmed(browserId, false);
     this.hosts.delete(browserId);
     await this.ensureUserContext();
     return this.list();
@@ -149,7 +148,7 @@ export class GeminiBrowserPool {
     const lease = await state.pool.acquire();
     state.activeLeases += 1;
     try {
-      const host = await this.selectAuthenticatedHost(lane, preferences.gemini.browsers);
+      const host = this.selectConfirmedHost(lane, preferences.gemini.browsers);
       return await host.generateImage(lane, prompt, references);
     } finally {
       state.activeLeases = Math.max(0, state.activeLeases - 1);
@@ -231,20 +230,20 @@ export class GeminiBrowserPool {
     return next;
   }
 
-  private async selectAuthenticatedHost(
+  private selectConfirmedHost(
     lane: GeminiWebLane,
     browsers: readonly GeminiBrowserProfile[],
-  ): Promise<GeminiBrowserHostLike> {
-    const candidates = await Promise.all(
-      browsers.map(async (browser) => {
+  ): GeminiBrowserHostLike {
+    const eligible = browsers
+      .filter((browser) => browser.loginConfirmed)
+      .map((browser) => {
         const host = this.requireExistingHost(browser.id);
-        const authStatus = await host.authStatus();
-        return { host, authStatus, load: host.activeLeaseCount() };
-      }),
-    );
-    const eligible = candidates.filter((candidate) => candidate.authStatus === "LOGGED_IN");
+        return { host, load: host.activeLeaseCount() };
+      });
     if (!eligible.length) {
-      throw new Error("No signed-in Gemini browser is available. Open Desktop Settings and sign in to at least one Gemini browser.");
+      throw new Error(
+        "No Gemini browser is marked as signed in. Open Desktop Settings, open a browser, sign in to Google, then confirm that it is logged in.",
+      );
     }
 
     const minimumLoad = Math.min(...eligible.map((candidate) => candidate.load));
