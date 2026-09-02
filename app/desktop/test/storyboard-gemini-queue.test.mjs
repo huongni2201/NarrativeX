@@ -139,7 +139,10 @@ test("Storyboard queue transitions publish to local storage from the runner", ()
   );
   assert.match(source, /function publishGeminiQueue/);
   assert.match(source, /publishGeminiQueue\(queue\)/);
-  assert.match(source, /generated[\s\S]*markQueueBeatCompleted[\s\S]*publishGeminiQueue/);
+  assert.match(
+    source,
+    /generationResult === "GENERATED"[\s\S]*markQueueBeatCompleted[\s\S]*publishGeminiQueue/,
+  );
   assert.doesNotMatch(source, /useEffect\(\(\) => \{[\s\S]*saveGeminiQueue\(projectId, selectedChapterId, geminiQueue\)/);
 });
 
