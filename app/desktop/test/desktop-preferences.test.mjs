@@ -141,10 +141,12 @@ test("window state can be saved and reset independently", async () => {
 test("a failed preference write does not poison later saves", async () => {
   const directory = await mkdtemp(join(tmpdir(), "narrativex-preferences-recovery-"));
   const filePath = join(directory, "desktop-preferences.json");
-  await mkdir(filePath);
   const store = new DesktopPreferencesStore(filePath, {});
+  await store.bindUser("user-a");
 
-  await assert.rejects(() => store.bindUser("user-a"));
+  await rm(filePath, { force: true });
+  await mkdir(filePath);
+  await assert.rejects(() => store.updateGemini({ characterTabs: 6 }));
   await rm(filePath, { recursive: true, force: true });
 
   await store.updateGemini({ characterTabs: 7 });
