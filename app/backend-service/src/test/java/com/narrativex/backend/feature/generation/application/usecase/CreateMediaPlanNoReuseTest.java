@@ -70,9 +70,15 @@ class CreateMediaPlanNoReuseTest {
                         8,
                         List.of(
                             new BeatSnapshot(
-                                firstBeatId, 0, "Same subject in the same room", MotionIntent.STILL),
+                                firstBeatId,
+                                0,
+                                "Same subject in the same room",
+                                MotionIntent.STILL),
                             new BeatSnapshot(
-                                secondBeatId, 1, "Same subject in the same room", MotionIntent.STILL)))),
+                                secondBeatId,
+                                1,
+                                "Same subject in the same room",
+                                MotionIntent.STILL)))),
                 UUID.randomUUID(),
                 "source-hash",
                 null,

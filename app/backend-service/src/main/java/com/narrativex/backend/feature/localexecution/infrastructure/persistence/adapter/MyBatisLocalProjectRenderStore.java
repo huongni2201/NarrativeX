@@ -47,14 +47,17 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
             .toList();
     Map<UUID, LocalProjectRenderBeatMediaRow> mediaByBeat =
         beatMediaMapper.listBeatMedia(row.generationJobId()).stream()
-            .collect(Collectors.toMap(LocalProjectRenderBeatMediaRow::visualBeatId, Function.identity()));
+            .collect(
+                Collectors.toMap(
+                    LocalProjectRenderBeatMediaRow::visualBeatId, Function.identity()));
     var beats =
         mapper.listBeats(row.generationJobId()).stream()
             .map(
                 beat -> {
                   var media = mediaByBeat.get(beat.visualBeatId());
                   if (media == null) {
-                    throw new IllegalStateException("Project render beat media snapshot is missing");
+                    throw new IllegalStateException(
+                        "Project render beat media snapshot is missing");
                   }
                   return new BeatInput(
                       beat.chapterId(),
@@ -112,7 +115,8 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
   public void complete(
       UUID jobId, UUID deviceId, String workerId, UUID leaseToken, CompletionResult result) {
     if (!mapper.ownsLease(jobId, deviceId, workerId, leaseToken)) {
-      throw new IllegalStateException("Desktop project render lease is no longer owned by this device");
+      throw new IllegalStateException(
+          "Desktop project render lease is no longer owned by this device");
     }
 
     LocalProjectRenderArtifactRow existing = mapper.findArtifact(jobId);

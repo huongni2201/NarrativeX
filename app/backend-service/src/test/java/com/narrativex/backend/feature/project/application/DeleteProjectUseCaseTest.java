@@ -45,8 +45,7 @@ class DeleteProjectUseCaseTest {
   @Test
   void hidesProjectsOutsideCurrentOwnerScope() {
     UUID projectId = UuidV7.random();
-    when(projectRepository.findOwnedByIdForUpdate(projectId, "owner"))
-        .thenReturn(Optional.empty());
+    when(projectRepository.findOwnedByIdForUpdate(projectId, "owner")).thenReturn(Optional.empty());
     CurrentUserId currentUserId = () -> "owner";
     DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository, currentUserId);
 

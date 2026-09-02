@@ -40,7 +40,8 @@ class LockCharacterVersionUseCaseTest {
     var version = reviewVersion();
     when(versionRepository.findOwnedById(VERSION_ID, "owner")).thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(List.of());
-    var useCase = new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
+    var useCase =
+        new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
 
     assertThatThrownBy(
             () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null)))
@@ -57,7 +58,8 @@ class LockCharacterVersionUseCaseTest {
     when(referenceRepository.findByVersionId(VERSION_ID))
         .thenReturn(List.of(new CharacterVersionReference(IDENTITY_ASSET_ID, "IDENTITY", 0)));
     when(versionRepository.save(version)).thenReturn(version);
-    var useCase = new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
+    var useCase =
+        new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
 
     var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null));
 

@@ -112,8 +112,7 @@ class CreateMediaJobUseCaseTest {
         .hasMessageContaining("already active");
 
     verify(generationJobRepository).findByIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
-    verify(generationJobRepository, never())
-        .findByJobIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
+    verify(generationJobRepository, never()).findByJobIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
     verifyNoInteractions(
         mediaPlanningSourceAccess,
         createMediaPlanUseCase,

@@ -116,7 +116,10 @@ public class LocalProjectRenderController {
         value.renderProfileJson(),
         value.leaseToken(),
         value.chapters().stream()
-            .map(chapter -> ChapterInputResponse.from(chapter, downloadUrl(chapter.storageKey(), expiresAt)))
+            .map(
+                chapter ->
+                    ChapterInputResponse.from(
+                        chapter, downloadUrl(chapter.storageKey(), expiresAt)))
             .toList(),
         value.beats().stream()
             .map(beat -> BeatInputResponse.from(beat, downloadUrl(beat.storageKey(), expiresAt)))

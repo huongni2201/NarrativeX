@@ -39,8 +39,7 @@ public class GetChapterWorkspaceUseCase {
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(
-        projectId, chapter.getStoryVersionId(), userId);
+    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), userId);
 
     var snapshot = chapterWorkspaceReadRepository.get(projectId, chapterId);
     var analysis = snapshot.analysis();
@@ -98,8 +97,7 @@ public class GetChapterWorkspaceUseCase {
             .findCurrentQuota(userId)
             .map(quota -> quota.features().narrationEnabled())
             .orElse(false);
-    String audioGenerationBlockReason =
-        narrationEntitled ? null : "NARRATION_NOT_ENTITLED";
+    String audioGenerationBlockReason = narrationEntitled ? null : "NARRATION_NOT_ENTITLED";
     boolean canGenerateAudio =
         narrationEntitled
             && !chapter.getSourceText().isBlank()

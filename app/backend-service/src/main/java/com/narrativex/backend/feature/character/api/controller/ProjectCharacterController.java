@@ -87,8 +87,7 @@ public class ProjectCharacterController {
       @Valid @RequestBody PinCharacterVersionRequest request) {
     pinCharacterVersionUseCase.execute(projectId, characterId, request.versionId());
     return ResponseEntity.ok(
-        ApiResponse.success(
-            "Character version pinned", detailResponse(projectId, characterId)));
+        ApiResponse.success("Character version pinned", detailResponse(projectId, characterId)));
   }
 
   private ProjectCharacterDetailResponse detailResponse(UUID projectId, UUID characterId) {

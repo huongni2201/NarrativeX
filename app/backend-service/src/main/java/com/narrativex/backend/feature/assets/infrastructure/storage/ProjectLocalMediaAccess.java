@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.assets.infrastructure.storage;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess.LocalMediaFile;
-
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -95,7 +94,8 @@ public class ProjectLocalMediaAccess implements MediaStorageAccess {
   }
 
   private Path resolvePath(String storageKey, boolean requireExistingFile) {
-    if (!supports(storageKey)) throw new IllegalArgumentException("Unsupported project-local media key");
+    if (!supports(storageKey))
+      throw new IllegalArgumentException("Unsupported project-local media key");
     Path candidate = root.resolve(storageKey).normalize();
     if (!candidate.startsWith(root)) {
       throw new IllegalArgumentException("Project-local media key escapes configured root");
@@ -132,5 +132,4 @@ public class ProjectLocalMediaAccess implements MediaStorageAccess {
   }
 
   private record Ticket(String storageKey, Instant expiresAt) {}
-
 }

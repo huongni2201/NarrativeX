@@ -15,15 +15,14 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 import org.springframework.stereotype.Component;
 
 /**
- * Keeps pending OAuth requests independent when a user opens more than one Google login tab.
- * Spring Security's default repository stores only one request per HTTP session, so a later login
- * attempt can overwrite the state needed by an earlier callback.
+ * Keeps pending OAuth requests independent when a user opens more than one Google login tab. Spring
+ * Security's default repository stores only one request per HTTP session, so a later login attempt
+ * can overwrite the state needed by an earlier callback.
  */
 @Component
 public final class DesktopOAuth2AuthorizationRequestRepository
     implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
-  private static final String ATTRIBUTE_PREFIX =
-      "NARRATIVEX_OAUTH2_AUTHORIZATION_REQUEST:";
+  private static final String ATTRIBUTE_PREFIX = "NARRATIVEX_OAUTH2_AUTHORIZATION_REQUEST:";
   private static final String INDEX_ATTRIBUTE = "NARRATIVEX_OAUTH2_AUTHORIZATION_REQUEST_INDEX";
   private static final int MAX_PENDING_REQUESTS = 8;
 
@@ -106,8 +105,7 @@ public final class DesktopOAuth2AuthorizationRequestRepository
   private static String hashState(String state) {
     try {
       byte[] digest =
-          MessageDigest.getInstance("SHA-256")
-              .digest(state.getBytes(StandardCharsets.UTF_8));
+          MessageDigest.getInstance("SHA-256").digest(state.getBytes(StandardCharsets.UTF_8));
       return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is required for OAuth state storage", exception);

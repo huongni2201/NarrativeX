@@ -25,7 +25,15 @@ public record CreateProjectRenderCommand(
       UUID localDeviceId,
       boolean subtitlesEnabled,
       List<RenderBeatOverride> beatOverrides) {
-    this(projectId, resolution, format, idempotencyKey, localDeviceId, 30, subtitlesEnabled, beatOverrides);
+    this(
+        projectId,
+        resolution,
+        format,
+        idempotencyKey,
+        localDeviceId,
+        30,
+        subtitlesEnabled,
+        beatOverrides);
   }
 
   public CreateProjectRenderCommand(

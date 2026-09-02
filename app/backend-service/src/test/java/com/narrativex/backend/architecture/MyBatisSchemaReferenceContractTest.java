@@ -35,8 +35,7 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern ALTER_TABLE_BLOCK =
       Pattern.compile("(?is)ALTER\\s+TABLE\\s+([a-z_][a-z0-9_]*)\\s+(.*?);");
   private static final Pattern ADD_COLUMN =
-      Pattern.compile(
-          "(?i)ADD\\s+COLUMN(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
+      Pattern.compile("(?i)ADD\\s+COLUMN(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern TABLE_REFERENCE =
       Pattern.compile(
           "(?i)\\b(?:FROM|JOIN|UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+([a-z_][a-z0-9_]*)\\b");
@@ -56,8 +55,7 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern XML_TAG = Pattern.compile("(?s)<[^>]*>");
   private static final Pattern MYBATIS_PARAMETER = Pattern.compile("(?s)[#$]\\{[^}]*}");
   private static final Pattern COMMON_TABLE_EXPRESSION =
-      Pattern.compile(
-          "(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
+      Pattern.compile("(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
 
   private static final Set<String> SQL_REFERENCE_KEYWORDS =
       Set.of(
@@ -117,7 +115,8 @@ class MyBatisSchemaReferenceContractTest {
     for (Path mapper : mapperFiles()) {
       String sql = mapperSql(mapper);
       Set<String> commonTableExpressions = commonTableExpressions(sql);
-      Map<String, String> aliases = tableAliases(sql, schemaColumns.keySet(), commonTableExpressions);
+      Map<String, String> aliases =
+          tableAliases(sql, schemaColumns.keySet(), commonTableExpressions);
 
       Matcher qualified = QUALIFIED_COLUMN.matcher(sql);
       while (qualified.find()) {
@@ -178,7 +177,8 @@ class MyBatisSchemaReferenceContractTest {
   private static Set<String> schemaTables() throws IOException {
     Set<String> tables = new HashSet<>();
     for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
-      Matcher matcher = CREATE_TABLE.matcher(Files.readString(FlywayMigrationContract.migration(name)));
+      Matcher matcher =
+          CREATE_TABLE.matcher(Files.readString(FlywayMigrationContract.migration(name)));
       while (matcher.find()) {
         tables.add(matcher.group(1).toLowerCase(Locale.ROOT));
       }
@@ -259,11 +259,7 @@ class MyBatisSchemaReferenceContractTest {
   }
 
   private static String normalizeColumn(String rawColumn) {
-    return rawColumn
-        .trim()
-        .replace("\"", "")
-        .toLowerCase(Locale.ROOT)
-        .replaceAll("\\s+", "");
+    return rawColumn.trim().replace("\"", "").toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
   }
 
   private static boolean isFunctionCall(String sql, int identifierEnd) {

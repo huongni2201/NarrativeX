@@ -20,7 +20,8 @@ class RenderOverrideDurationValidationTest {
   void trimValidationUsesOverriddenBeatDuration() {
     CurrentUserId currentUserId = mock(CurrentUserId.class);
     GetProductionTimelineUseCase timelineUseCase = mock(GetProductionTimelineUseCase.class);
-    ProductionBeatMediaSelectionRepository repository = mock(ProductionBeatMediaSelectionRepository.class);
+    ProductionBeatMediaSelectionRepository repository =
+        mock(ProductionBeatMediaSelectionRepository.class);
     UpdateProductionBeatMediaUseCase useCase =
         new UpdateProductionBeatMediaUseCase(currentUserId, timelineUseCase, repository);
 
@@ -57,18 +58,10 @@ class RenderOverrideDurationValidationTest {
     when(timelineUseCase.executeOwned(projectId, "owner"))
         .thenReturn(
             new ProductionTimelineView(
-                projectId,
-                UUID.randomUUID(),
-                10_000L,
-                "16:9",
-                true,
-                List.of(),
-                List.of(beat)));
+                projectId, UUID.randomUUID(), 10_000L, "16:9", true, List.of(), List.of(beat)));
     when(repository.findSelectableAsset(projectId, "owner", assetId))
         .thenReturn(
-            Optional.of(
-                new SelectableMediaAsset(
-                    assetId, "VIDEO", 8_000L, 100L, "a".repeat(64))));
+            Optional.of(new SelectableMediaAsset(assetId, "VIDEO", 8_000L, 100L, "a".repeat(64))));
 
     useCase.applyRenderOverrides(
         projectId, List.of(new RenderBeatOverride(beatId, 6_000L, null, "TRIM", 0L)));

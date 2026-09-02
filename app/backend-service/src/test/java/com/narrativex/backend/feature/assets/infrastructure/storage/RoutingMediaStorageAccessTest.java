@@ -13,8 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,7 +29,9 @@ class RoutingMediaStorageAccessTest {
     when(objectStorage.createDownload("voices/account-a/reference.wav", expiresAt))
         .thenReturn(
             new PresignedDownload(
-                "voices/account-a/reference.wav", URI.create("https://r2.example/voice"), expiresAt));
+                "voices/account-a/reference.wav",
+                URI.create("https://r2.example/voice"),
+                expiresAt));
     Path audio = root.resolve("narration/request-1/chapter.mp3");
     Files.createDirectories(audio.getParent());
     Files.write(audio, new byte[] {1, 2, 3});

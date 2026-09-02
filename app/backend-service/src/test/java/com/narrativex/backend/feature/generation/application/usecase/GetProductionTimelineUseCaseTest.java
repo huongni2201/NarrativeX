@@ -79,7 +79,8 @@ class GetProductionTimelineUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-    String spans = """
+    String spans =
+        """
         [
           {"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":5000},
           {"index":1,"textStart":50,"textEnd":100,"audioStartMs":5000,"audioEndMs":10000}
@@ -143,9 +144,21 @@ class GetProductionTimelineUseCaseTest {
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(List.of(chapter(storyVersionId, chapterId, 0, 10_000L, "audio/chapter.mp3", "a".repeat(64), 2)));
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    10_000L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    2)));
     when(sourceRepository.findBeats(projectId, "owner"))
-        .thenReturn(List.of(beat(chapterId, 0, 0, null, null, "b".repeat(64)), beat(chapterId, 0, 1, null, null, "c".repeat(64))));
+        .thenReturn(
+            List.of(
+                beat(chapterId, 0, 0, null, null, "b".repeat(64)),
+                beat(chapterId, 0, 1, null, null, "c".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
@@ -162,9 +175,21 @@ class GetProductionTimelineUseCaseTest {
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(List.of(chapter(storyVersionId, chapterId, 0, 10_000L, "audio/chapter.mp3", "a".repeat(64), 2)));
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    10_000L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    2)));
     when(sourceRepository.findBeats(projectId, "owner"))
-        .thenReturn(List.of(beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64)), beat(chapterId, 0, 1, 5_000L, 10_000L, "c".repeat(64))));
+        .thenReturn(
+            List.of(
+                beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64)),
+                beat(chapterId, 0, 1, 5_000L, 10_000L, "c".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
@@ -179,7 +204,16 @@ class GetProductionTimelineUseCaseTest {
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(List.of(chapter(storyVersionId, chapterId, 0, 10_000L, "audio/chapter.mp3", "a".repeat(64), 2)));
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    10_000L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    2)));
     BeatSource ready = beat(chapterId, 0, 0, 0L, 4_000L, "b".repeat(64));
     BeatSource missing =
         new BeatSource(
@@ -280,9 +314,10 @@ class GetProductionTimelineUseCaseTest {
       Long audioEndMs,
       String checksum) {
     UUID visualBeatId = UUID.randomUUID();
-    Long durationMs = audioStartMs != null && audioEndMs != null && audioEndMs > audioStartMs
-        ? audioEndMs - audioStartMs
-        : null;
+    Long durationMs =
+        audioStartMs != null && audioEndMs != null && audioEndMs > audioStartMs
+            ? audioEndMs - audioStartMs
+            : null;
     return new BeatSource(
         chapterId,
         chapterOrderIndex,

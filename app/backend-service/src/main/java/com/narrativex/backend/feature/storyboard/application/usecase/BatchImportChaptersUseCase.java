@@ -74,7 +74,8 @@ public class BatchImportChaptersUseCase {
     for (var draft : drafts) {
       validateSourceSize(draft.sourceText());
       if (chapterRepository.existsByStoryVersionIdAndOrderIndex(storyVersionId, nextOrderIndex)) {
-        throw new IllegalStateException("Chapter order changed during batch import; retry the request");
+        throw new IllegalStateException(
+            "Chapter order changed during batch import; retry the request");
       }
       var normalized = sourceHasher.normalizeAndHash(draft.sourceText());
       Chapter saved =
@@ -99,7 +100,8 @@ public class BatchImportChaptersUseCase {
   private void validateSourceSize(String sourceText) {
     int characterCount = sourceText.codePointCount(0, sourceText.length());
     if (characterCount > limits.getMaxStoryCharacters()) {
-      throw new IllegalArgumentException("Imported chapter exceeds the configured Unicode character limit");
+      throw new IllegalArgumentException(
+          "Imported chapter exceeds the configured Unicode character limit");
     }
   }
 }

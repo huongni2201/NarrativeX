@@ -26,9 +26,11 @@ class ProjectGenerationControllerContractTest {
     EnqueueStoryAnalysisUseCase useCase = mock(EnqueueStoryAnalysisUseCase.class);
     GenerateChapterNarrationUseCase narrationUseCase = mock(GenerateChapterNarrationUseCase.class);
     GenerateBatchNarrationUseCase batchNarrationUseCase = mock(GenerateBatchNarrationUseCase.class);
-    GetVoicePreviewResultUseCase voicePreviewResultUseCase = mock(GetVoicePreviewResultUseCase.class);
+    GetVoicePreviewResultUseCase voicePreviewResultUseCase =
+        mock(GetVoicePreviewResultUseCase.class);
     GetChapterStoryboardUseCase storyboardUseCase = mock(GetChapterStoryboardUseCase.class);
-    VisualPromptContextRepository visualPromptContextRepository = mock(VisualPromptContextRepository.class);
+    VisualPromptContextRepository visualPromptContextRepository =
+        mock(VisualPromptContextRepository.class);
     VisualPromptComposer visualPromptComposer = mock(VisualPromptComposer.class);
     UUID projectId = UuidV7.random();
     UUID storyVersionId = UuidV7.random();

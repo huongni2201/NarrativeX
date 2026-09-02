@@ -18,9 +18,5 @@ public interface ProductionBeatMediaSelectionRepository {
   void clear(UUID projectId, UUID visualBeatId);
 
   record SelectableMediaAsset(
-      UUID mediaAssetId,
-      String mediaType,
-      Long durationMs,
-      long sizeBytes,
-      String checksum) {}
+      UUID mediaAssetId, String mediaType, Long durationMs, long sizeBytes, String checksum) {}
 }

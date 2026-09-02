@@ -32,5 +32,4 @@ public interface DesktopGuestIdentityMapper extends NarrativeXMyBatisMapper {
 
   int transferMediaAssets(
       @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
-
 }

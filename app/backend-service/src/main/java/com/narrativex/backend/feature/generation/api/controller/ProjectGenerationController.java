@@ -47,7 +47,8 @@ public class ProjectGenerationController {
       @PathVariable UUID projectId,
       @PathVariable UUID chapterId,
       @Valid @RequestBody(required = false) AnalyzeChapterRequest request) {
-    AnalyzeChapterRequest effective = request == null ? new AnalyzeChapterRequest(null, null) : request;
+    AnalyzeChapterRequest effective =
+        request == null ? new AnalyzeChapterRequest(null, null) : request;
     log.info(
         "Requesting story analysis for chapter {} in project {} (visualMode={}, imageProvider={})",
         chapterId,
@@ -71,9 +72,7 @@ public class ProjectGenerationController {
 
   @GetMapping("/{projectId}/chapters/{chapterId}/visual-beats/{visualBeatId}/gemini-context")
   public ResponseEntity<ApiResponse<VisualBeatGeminiContextResponse>> getVisualBeatGeminiContext(
-      @PathVariable UUID projectId,
-      @PathVariable UUID chapterId,
-      @PathVariable UUID visualBeatId) {
+      @PathVariable UUID projectId, @PathVariable UUID chapterId, @PathVariable UUID visualBeatId) {
     var composedPrompt = visualBeatPromptContext.get(projectId, chapterId, visualBeatId);
     return ResponseEntity.ok(
         ApiResponse.success(
@@ -132,7 +131,8 @@ public class ProjectGenerationController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Voice preview result retrieved",
-            VoicePreviewResultResponse.from(getVoicePreviewResultUseCase.execute(projectId, jobId))));
+            VoicePreviewResultResponse.from(
+                getVoicePreviewResultUseCase.execute(projectId, jobId))));
   }
 
   @PostMapping("/{projectId}/narration-jobs:batch")
@@ -148,7 +148,9 @@ public class ProjectGenerationController {
                 request.voiceReference()));
     var response =
         jobs.stream()
-            .map(item -> new BatchNarrationJobResponse(item.chapterId(), JobResponse.from(item.job())))
+            .map(
+                item ->
+                    new BatchNarrationJobResponse(item.chapterId(), JobResponse.from(item.job())))
             .toList();
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Narration jobs accepted", response));

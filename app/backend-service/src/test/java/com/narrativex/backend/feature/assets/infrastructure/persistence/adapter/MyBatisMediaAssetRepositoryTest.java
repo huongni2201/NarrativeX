@@ -27,10 +27,14 @@ class MyBatisMediaAssetRepositoryTest {
   @Test
   void cursorPageIsProjectScopedAndReturnsNextCursor() {
     UUID projectId = UUID.randomUUID();
-    MediaAssetRow first = row(UUID.randomUUID(), projectId, "READY", Instant.parse("2026-01-01T00:00:00Z"));
-    MediaAssetRow second = row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-31T00:00:00Z"));
-    MediaAssetRow third = row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-30T00:00:00Z"));
-    when(mapper.findPage(eq(ACCOUNT), eq(projectId), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
+    MediaAssetRow first =
+        row(UUID.randomUUID(), projectId, "READY", Instant.parse("2026-01-01T00:00:00Z"));
+    MediaAssetRow second =
+        row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-31T00:00:00Z"));
+    MediaAssetRow third =
+        row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-30T00:00:00Z"));
+    when(mapper.findPage(
+            eq(ACCOUNT), eq(projectId), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
         .thenReturn(List.of(first, second, third));
 
     CursorPage<com.narrativex.backend.feature.assets.application.query.MediaAssetView> page =

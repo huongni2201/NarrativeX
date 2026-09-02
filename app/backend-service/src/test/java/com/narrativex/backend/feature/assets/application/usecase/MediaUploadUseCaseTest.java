@@ -63,9 +63,11 @@ class MediaUploadUseCaseTest {
         .thenAnswer(
             invocation ->
                 new VoiceReferenceAsset(
-                    invocation.<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
+                    invocation
+                        .<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
                         .proposedId(),
-                    invocation.<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
+                    invocation
+                        .<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
                         .storageKey(),
                     "voice.wav",
                     "audio/wav",

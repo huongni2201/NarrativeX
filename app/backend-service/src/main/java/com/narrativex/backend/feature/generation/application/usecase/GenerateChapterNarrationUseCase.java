@@ -185,8 +185,7 @@ public class GenerateChapterNarrationUseCase {
     return job;
   }
 
-  private void registerCommittedLog(
-      GenerationJob job, GenerateChapterNarrationCommand command) {
+  private void registerCommittedLog(GenerationJob job, GenerateChapterNarrationCommand command) {
     Runnable committedLog =
         () ->
             log.info(
@@ -207,9 +206,7 @@ public class GenerateChapterNarrationUseCase {
       return;
     }
     log.warn(
-        "Narration job commit observer unavailable rowId={} jobId={}",
-        job.getId(),
-        job.getJobId());
+        "Narration job commit observer unavailable rowId={} jobId={}", job.getId(), job.getJobId());
   }
 
   static boolean canStartAnotherAttempt(JobStatus status, boolean forceRegenerate) {
@@ -256,8 +253,7 @@ public class GenerateChapterNarrationUseCase {
           "Selected narration voice does not support uploaded voice references");
     }
     var asset =
-        voiceReferenceAssetAccess.findOwned(
-            userId, command.projectId(), command.voiceReference());
+        voiceReferenceAssetAccess.findOwned(userId, command.projectId(), command.voiceReference());
     if (!"READY".equals(asset.status())) {
       throw new IllegalArgumentException("Voice reference asset must be READY");
     }
@@ -268,7 +264,8 @@ public class GenerateChapterNarrationUseCase {
     }
     if (asset.scope() == VoiceReferenceScope.ACCOUNT
         && (asset.storageKey() == null || asset.storageKey().isBlank())) {
-      throw new IllegalArgumentException("Account voice reference asset is missing R2 storage metadata");
+      throw new IllegalArgumentException(
+          "Account voice reference asset is missing R2 storage metadata");
     }
     if (asset.scope() == VoiceReferenceScope.PROJECT && asset.storageKey() != null) {
       throw new IllegalArgumentException("Project voice reference must remain device-local");

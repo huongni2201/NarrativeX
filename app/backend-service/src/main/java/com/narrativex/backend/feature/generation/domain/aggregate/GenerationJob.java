@@ -388,29 +388,97 @@ public final class GenerationJob extends AggregateRoot {
         analysisImageProvider);
   }
 
-  public UUID getJobId() { return jobId; }
-  public UUID getProjectId() { return projectId; }
-  public JobType getType() { return type; }
-  public JobStatus getStatus() { return status; }
-  public ResourceClass getResourceClass() { return resourceClass; }
-  public int getProgress() { return progress; }
-  public String getCurrentStep() { return currentStep; }
-  public String getErrorCode() { return errorCode; }
-  public String getRequestedByUserId() { return requestedByUserId; }
-  public String getBilledToUserId() { return billedToUserId; }
-  public UUID getStoryVersionId() { return storyVersionId; }
-  public UUID getChapterId() { return chapterId; }
-  public UUID getStoryboardRevisionId() { return storyboardRevisionId; }
-  public Long getChapterRowVersion() { return chapterRowVersion; }
-  public String getSourceHash() { return sourceHash; }
-  public String getSourceText() { return sourceText; }
-  public String getSourceLanguage() { return sourceLanguage; }
-  public String getIdempotencyKey() { return idempotencyKey; }
-  public UUID getMediaPlanId() { return mediaPlanId; }
-  public Integer getMediaPlanRevision() { return mediaPlanRevision; }
-  public ProductionMode getProductionMode() { return productionMode; }
-  public String getAnalysisVisualGenerationMode() { return analysisVisualGenerationMode; }
-  public String getAnalysisImageProvider() { return analysisImageProvider; }
+  public UUID getJobId() {
+    return jobId;
+  }
+
+  public UUID getProjectId() {
+    return projectId;
+  }
+
+  public JobType getType() {
+    return type;
+  }
+
+  public JobStatus getStatus() {
+    return status;
+  }
+
+  public ResourceClass getResourceClass() {
+    return resourceClass;
+  }
+
+  public int getProgress() {
+    return progress;
+  }
+
+  public String getCurrentStep() {
+    return currentStep;
+  }
+
+  public String getErrorCode() {
+    return errorCode;
+  }
+
+  public String getRequestedByUserId() {
+    return requestedByUserId;
+  }
+
+  public String getBilledToUserId() {
+    return billedToUserId;
+  }
+
+  public UUID getStoryVersionId() {
+    return storyVersionId;
+  }
+
+  public UUID getChapterId() {
+    return chapterId;
+  }
+
+  public UUID getStoryboardRevisionId() {
+    return storyboardRevisionId;
+  }
+
+  public Long getChapterRowVersion() {
+    return chapterRowVersion;
+  }
+
+  public String getSourceHash() {
+    return sourceHash;
+  }
+
+  public String getSourceText() {
+    return sourceText;
+  }
+
+  public String getSourceLanguage() {
+    return sourceLanguage;
+  }
+
+  public String getIdempotencyKey() {
+    return idempotencyKey;
+  }
+
+  public UUID getMediaPlanId() {
+    return mediaPlanId;
+  }
+
+  public Integer getMediaPlanRevision() {
+    return mediaPlanRevision;
+  }
+
+  public ProductionMode getProductionMode() {
+    return productionMode;
+  }
+
+  public String getAnalysisVisualGenerationMode() {
+    return analysisVisualGenerationMode;
+  }
+
+  public String getAnalysisImageProvider() {
+    return analysisImageProvider;
+  }
 
   private static void requireCompleteMediaPlanPointer(
       UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
@@ -429,14 +497,16 @@ public final class GenerationJob extends AggregateRoot {
       JobType type, String visualGenerationMode, String imageProvider) {
     if (visualGenerationMode == null && imageProvider == null) return;
     if (type != JobType.CHAPTER_ANALYZE) {
-      throw new IllegalArgumentException("analysis preferences are only valid for CHAPTER_ANALYZE jobs");
+      throw new IllegalArgumentException(
+          "analysis preferences are only valid for CHAPTER_ANALYZE jobs");
     }
     if (!"IMAGE".equals(visualGenerationMode) && !"VIDEO".equals(visualGenerationMode)) {
       throw new IllegalArgumentException("visualGenerationMode must be IMAGE or VIDEO");
     }
     if ("IMAGE".equals(visualGenerationMode)) {
       if (!"GEMINI_WEB".equals(imageProvider) && !"API".equals(imageProvider)) {
-        throw new IllegalArgumentException("imageProvider must be GEMINI_WEB or API for IMAGE mode");
+        throw new IllegalArgumentException(
+            "imageProvider must be GEMINI_WEB or API for IMAGE mode");
       }
       return;
     }

@@ -27,7 +27,8 @@ class DesktopGuestIdentityServiceTest {
 
   @Test
   void resumesTheSameGuestForTheSameInstallationSecret() throws Exception {
-    DesktopGuestInstallationRepository installations = mock(DesktopGuestInstallationRepository.class);
+    DesktopGuestInstallationRepository installations =
+        mock(DesktopGuestInstallationRepository.class);
     GuestOwnershipTransferPort ownership = mock(GuestOwnershipTransferPort.class);
     when(installations.findByDeviceId(DEVICE_UUID))
         .thenReturn(
@@ -45,7 +46,8 @@ class DesktopGuestIdentityServiceTest {
 
   @Test
   void rejectsASecretThatDoesNotBelongToTheInstallation() throws Exception {
-    DesktopGuestInstallationRepository installations = mock(DesktopGuestInstallationRepository.class);
+    DesktopGuestInstallationRepository installations =
+        mock(DesktopGuestInstallationRepository.class);
     GuestOwnershipTransferPort ownership = mock(GuestOwnershipTransferPort.class);
     when(installations.findByDeviceId(DEVICE_UUID))
         .thenReturn(
@@ -55,15 +57,15 @@ class DesktopGuestIdentityServiceTest {
     DesktopGuestIdentityService service = new DesktopGuestIdentityService(installations, ownership);
 
     assertThrows(
-        InvalidDesktopGuestCredentialException.class,
-        () -> service.establish(DEVICE_ID, SECRET));
+        InvalidDesktopGuestCredentialException.class, () -> service.establish(DEVICE_ID, SECRET));
 
     verify(installations, never()).touch(any(UUID.class), any());
   }
 
   @Test
   void ownershipTransferIsDelegatedWithoutChangingEntityIds() {
-    DesktopGuestInstallationRepository installations = mock(DesktopGuestInstallationRepository.class);
+    DesktopGuestInstallationRepository installations =
+        mock(DesktopGuestInstallationRepository.class);
     GuestOwnershipTransferPort ownership = mock(GuestOwnershipTransferPort.class);
     DesktopGuestIdentityService service = new DesktopGuestIdentityService(installations, ownership);
 
@@ -75,7 +77,6 @@ class DesktopGuestIdentityServiceTest {
   private static String sha256(String value) throws Exception {
     return HexFormat.of()
         .formatHex(
-            MessageDigest.getInstance("SHA-256")
-                .digest(value.getBytes(StandardCharsets.UTF_8)));
+            MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
   }
 }

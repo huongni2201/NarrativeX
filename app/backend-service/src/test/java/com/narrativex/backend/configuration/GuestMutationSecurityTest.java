@@ -60,12 +60,10 @@ class GuestMutationSecurityTest {
   @Test
   void guestStillCannotStartPaidProduction() throws Exception {
     assertAuthenticationRequired(
-        post(
-                "/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002/analysis-jobs")
+        post("/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002/analysis-jobs")
             .with(csrf()));
     assertAuthenticationRequired(
-        post(
-                "/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002/narration-jobs")
+        post("/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002/narration-jobs")
             .with(csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"));

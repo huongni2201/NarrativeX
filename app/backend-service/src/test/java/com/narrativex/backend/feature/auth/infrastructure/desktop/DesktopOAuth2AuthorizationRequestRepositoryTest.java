@@ -27,7 +27,8 @@ class DesktopOAuth2AuthorizationRequestRepositoryTest {
     Map<String, Object> attributes = new HashMap<>();
     when(request.getSession(true)).thenReturn(session);
     when(request.getSession(false)).thenReturn(session);
-    when(session.getAttribute(anyString())).thenAnswer(invocation -> attributes.get(invocation.getArgument(0)));
+    when(session.getAttribute(anyString()))
+        .thenAnswer(invocation -> attributes.get(invocation.getArgument(0)));
     doAnswer(
             invocation -> {
               attributes.put(invocation.getArgument(0), invocation.getArgument(1));
@@ -45,7 +46,8 @@ class DesktopOAuth2AuthorizationRequestRepositoryTest {
 
     OAuth2AuthorizationRequest first = authorizationRequest("state-first");
     OAuth2AuthorizationRequest second = authorizationRequest("state-second");
-    when(request.getParameter("state")).thenReturn("state-first", "state-second", "state-first", "state-second");
+    when(request.getParameter("state"))
+        .thenReturn("state-first", "state-second", "state-first", "state-second");
 
     repository.saveAuthorizationRequest(first, request, response);
     repository.saveAuthorizationRequest(second, request, response);

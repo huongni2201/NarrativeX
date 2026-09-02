@@ -34,11 +34,11 @@ public class CharacterIdentityPromptComposer {
     addLabeled(appearance, "HAIRSTYLE STATE", hairstyle);
     addLabeled(appearance, "INJURY / MARKINGS", injury);
 
-    StringBuilder prompt =
-        new StringBuilder("GLOBAL VISUAL STYLE: ").append(style.promptSuffix());
+    StringBuilder prompt = new StringBuilder("GLOBAL VISUAL STYLE: ").append(style.promptSuffix());
     prompt
         .append("\nCHARACTER IDENTITY REFERENCE TASK")
-        .append("\nGenerate exactly one canonical identity reference for the established character below as a premium manhwa protagonist reference, not a plain realistic portrait.")
+        .append(
+            "\nGenerate exactly one canonical identity reference for the established character below as a premium manhwa protagonist reference, not a plain realistic portrait.")
         .append("\nCHARACTER: ")
         .append(canonicalName.trim())
         .append("\nIDENTITY LOCK: ")

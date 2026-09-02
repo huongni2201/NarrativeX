@@ -238,9 +238,7 @@ class VisualPromptComposerTest {
 
     var result =
         composer.compose(
-            ImageStyle.CINEMATIC,
-            "Lan waits",
-            new VisualPromptContext(null, List.of(character)));
+            ImageStyle.CINEMATIC, "Lan waits", new VisualPromptContext(null, List.of(character)));
 
     assertThat(result.prompt())
         .contains(

@@ -57,8 +57,7 @@ public class SecurityConfig {
   };
 
   private static final String[] GUEST_WORKSPACE_PUT_PATHS = {
-    "/api/v1/projects/*/chapters/*",
-    "/api/v1/characters/*/versions/*/references"
+    "/api/v1/projects/*/chapters/*", "/api/v1/characters/*/versions/*/references"
   };
 
   private static final String[] GUEST_WORKSPACE_DELETE_PATHS = {

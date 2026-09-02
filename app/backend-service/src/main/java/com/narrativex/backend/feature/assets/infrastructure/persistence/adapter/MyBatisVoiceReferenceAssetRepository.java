@@ -34,7 +34,8 @@ public class MyBatisVoiceReferenceAssetRepository implements VoiceReferenceAsset
   @Override
   @Transactional(readOnly = true)
   public Optional<VoiceReferenceAsset> findOwned(String accountId, UUID id) {
-    return Optional.ofNullable(mapper.findOwned(accountId, id)).map(VoiceReferenceAssetRow::toDomain);
+    return Optional.ofNullable(mapper.findOwned(accountId, id))
+        .map(VoiceReferenceAssetRow::toDomain);
   }
 
   @Override

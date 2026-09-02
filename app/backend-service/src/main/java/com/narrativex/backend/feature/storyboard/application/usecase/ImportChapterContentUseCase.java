@@ -50,7 +50,8 @@ public class ImportChapterContentUseCase {
     log.info("Imported chapter content for chapterId={} for projectId={}", chapterId, projectId);
     return ApiResponse.success(
         "Chapter content imported",
-        new ChapterContentImportResponse(saved.getId(), saved.getRowVersion(), saved.getSourceHash()));
+        new ChapterContentImportResponse(
+            saved.getId(), saved.getRowVersion(), saved.getSourceHash()));
   }
 
   private void validateSourceSize(String content) {

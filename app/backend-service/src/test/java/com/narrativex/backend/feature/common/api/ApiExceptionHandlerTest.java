@@ -55,7 +55,8 @@ class ApiExceptionHandlerTest {
 
   @Test
   void domainConflictUsesStableConflictCode() {
-    ErrorResponse error = body(handler.handleDomainConflict(new ArchivedProjectException(), request));
+    ErrorResponse error =
+        body(handler.handleDomainConflict(new ArchivedProjectException(), request));
     assertEquals(409, error.status());
     assertEquals("RESOURCE_CONFLICT", error.code());
     assertEquals("Archived projects cannot receive story versions", error.message());

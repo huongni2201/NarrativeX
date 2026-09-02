@@ -22,8 +22,7 @@ class ProjectLocalMediaAccessTest {
         new ProjectLocalMediaAccess(root.toString(), "http://localhost:8080/");
 
     var url =
-        access.createDownloadUrl(
-            "narration/request-1/chapter.mp3", Instant.now().plusSeconds(60));
+        access.createDownloadUrl("narration/request-1/chapter.mp3", Instant.now().plusSeconds(60));
     String token = token(url.getPath());
     var resolved = access.resolve(token);
 
@@ -64,9 +63,7 @@ class ProjectLocalMediaAccessTest {
     assertThatThrownBy(
             () ->
                 access.createDownloadUrl(
-                    "projects/"
-                        + projectId
-                        + "/assets/audio/../../project.manifest.json",
+                    "projects/" + projectId + "/assets/audio/../../project.manifest.json",
                     Instant.now().plusSeconds(60)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unsupported");
@@ -110,9 +107,7 @@ class ProjectLocalMediaAccessTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("expire in the future");
     assertThatThrownBy(
-            () ->
-                access.createDownloadUrl(
-                    "narration/missing.mp3", Instant.now().minusSeconds(1)))
+            () -> access.createDownloadUrl("narration/missing.mp3", Instant.now().minusSeconds(1)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("expire in the future");
     assertThatThrownBy(() -> access.resolve("not-a-ticket"))
@@ -133,8 +128,7 @@ class ProjectLocalMediaAccessTest {
     ProjectLocalMediaAccess access =
         new ProjectLocalMediaAccess(root.toString(), "http://localhost:8080");
     var url =
-        access.createDownloadUrl(
-            "narration/request-2/chapter.wav", Instant.now().plusSeconds(60));
+        access.createDownloadUrl("narration/request-2/chapter.wav", Instant.now().plusSeconds(60));
     Files.delete(audio);
 
     assertThatThrownBy(() -> access.resolve(token(url.getPath())))

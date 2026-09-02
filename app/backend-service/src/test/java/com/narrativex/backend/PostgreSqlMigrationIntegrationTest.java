@@ -181,12 +181,14 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals(
           "character varying", columnType(connection, "project_render_input_beats", "media_type"));
       assertFalse(columnExists(connection, "project_render_input_beats", "storage_mode"));
-      assertEquals("bigint", columnType(connection, "project_render_input_beats", "source_duration_ms"));
+      assertEquals(
+          "bigint", columnType(connection, "project_render_input_beats", "source_duration_ms"));
       assertEquals(
           "character varying", columnType(connection, "project_render_input_beats", "fit_mode"));
       assertEquals("bigint", columnType(connection, "project_render_input_beats", "trim_start_ms"));
       assertEquals(
-          "boolean", columnType(connection, "project_render_input_beats", "media_selection_active"));
+          "boolean",
+          columnType(connection, "project_render_input_beats", "media_selection_active"));
       assertTrue(indexExists(connection, "idx_project_render_input_local_claim"));
 
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
