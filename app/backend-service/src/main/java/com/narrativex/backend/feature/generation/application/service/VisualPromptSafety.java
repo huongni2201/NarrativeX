@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.generation.application.service;
 import java.util.regex.Pattern;
 
 /** Adapts sensitive story wording into non-graphic still-image direction without changing plot facts. */
-final class VisualPromptSafety {
+public final class VisualPromptSafety {
   private static final Pattern VI_TIED =
       Pattern.compile("(?iu)\\b(?:bị\\s+)?trói(?:\\s+chặt)?\\b");
   private static final Pattern VI_GAGGED =
@@ -28,7 +28,7 @@ final class VisualPromptSafety {
 
   private VisualPromptSafety() {}
 
-  static String sanitizeSceneDirection(String input) {
+  public static String sanitizeSceneDirection(String input) {
     if (input == null || input.isBlank()) return input;
     String value = input.trim();
     value = VI_TIED.matcher(value).replaceAll("bị hạn chế cử động trong tình huống căng thẳng");
