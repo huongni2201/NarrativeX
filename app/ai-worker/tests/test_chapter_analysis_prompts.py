@@ -22,11 +22,13 @@ def _request(source: str) -> ChapterAnalysisRequest:
     )
 
 
-def test_structure_prompt_explicitly_defers_visual_beats() -> None:
+def test_structure_prompt_defers_visual_beats_and_full_scene_echo() -> None:
     prompt = build_chapter_structure_prompt(_request("full chapter text"))
 
-    assert "Do NOT create visual beats in this phase" in prompt
-    assert "source_anchor" in prompt
+    assert "Do NOT create visual beats or rewrite scene narration" in prompt
+    assert "source_start_anchor" in prompt
+    assert "source_end_anchor" in prompt
+    assert "never duplicate the full scene source" in prompt
     assert "full chapter text" in prompt
 
 
@@ -37,8 +39,8 @@ def test_shard_prompt_contains_only_shard_source_not_full_chapter() -> None:
         scenes=[
             SceneStructure(
                 title="Scene",
-                narration="prefix",
-                source_anchor="prefix",
+                source_start_anchor="prefix",
+                source_end_anchor="prefix",
                 characters=[{"character_key": "lead"}],
             )
         ],
