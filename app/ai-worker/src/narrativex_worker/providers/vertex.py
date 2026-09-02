@@ -4,14 +4,26 @@ import asyncio
 import json
 import uuid
 from decimal import Decimal
+from typing import TypeVar
 
 import google.auth
 import httpx
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
+from pydantic import BaseModel
 
+from narrativex_worker.chapter_analysis_prompts import (
+    build_chapter_structure_prompt,
+    build_visual_beat_shard_prompt,
+)
+from narrativex_worker.chapter_analysis_sharding import (
+    ChapterStructureResult,
+    VisualBeatShard,
+    VisualBeatShardResult,
+    merge_shard_results,
+    plan_visual_beat_shards,
+)
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.ports import (
     LlmProvider,
     ProviderBilling,
@@ -24,7 +36,6 @@ from narrativex_worker.providers.ports import (
 )
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
-    ChapterAnalysisResult,
     ProviderOperationStatus,
 )
 
@@ -37,6 +48,9 @@ class VertexSubmissionUnknownError(VertexProviderError, ProviderSubmissionUnknow
     """The request may have crossed the provider boundary; never blind-retry it."""
 
 
+ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
 class VertexGeminiProvider(LlmProvider):
     _MILLION = Decimal("1000000")
     _FLASH_25_INPUT = Decimal("0.15")
@@ -44,6 +58,10 @@ class VertexGeminiProvider(LlmProvider):
     _FLASH_25_OUTPUT = Decimal("0.60")
     _FLASH_25_THINKING_OUTPUT = Decimal("3.50")
     _PRICING_CATALOG_VERSION = "vertex-public-2026-08-19"
+    _SHARD_CONCURRENCY = 3
+    _SHARD_TARGET_BEATS = 12
+    _SHARD_MAX_BEATS = 20
+    _REPAIR_ATTEMPTS = 1
 
     def __init__(self, settings: WorkerSettings) -> None:
         if not settings.vertex_project_id:
@@ -76,28 +94,139 @@ class VertexGeminiProvider(LlmProvider):
                 status=ProviderOperationStatus.FAILED,
             )
 
+        structure, structure_billing, response_id = await self._generate_structured(
+            token,
+            build_chapter_structure_prompt(request),
+            ChapterStructureResult,
+        )
+        if structure is None:
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=response_id,
+                status=ProviderOperationStatus.FAILED,
+                billing=structure_billing,
+            )
+
+        try:
+            shards = plan_visual_beat_shards(
+                request.source_text,
+                structure,
+                target_beats=self._SHARD_TARGET_BEATS,
+                max_beats=self._SHARD_MAX_BEATS,
+            )
+        except ValueError:
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=response_id,
+                status=ProviderOperationStatus.FAILED,
+                billing=structure_billing,
+            )
+
+        semaphore = asyncio.Semaphore(self._SHARD_CONCURRENCY)
+
+        async def generate(
+            shard: VisualBeatShard,
+        ) -> tuple[VisualBeatShard, VisualBeatShardResult | None, list[ProviderBilling], str]:
+            async with semaphore:
+                result, billing, shard_response_id = await self._generate_structured(
+                    token,
+                    build_visual_beat_shard_prompt(request, structure, shard),
+                    VisualBeatShardResult,
+                )
+                billings = [billing]
+                if result is None:
+                    return shard, None, billings, shard_response_id
+
+                for _ in range(self._REPAIR_ATTEMPTS):
+                    missing = shard.minimum_beats - len(result.visual_beats)
+                    if missing <= 0:
+                        break
+                    repaired, repair_billing, repair_response_id = await self._generate_structured(
+                        token,
+                        build_visual_beat_shard_prompt(
+                            request,
+                            structure,
+                            shard,
+                            missing_count=missing,
+                        ),
+                        VisualBeatShardResult,
+                    )
+                    billings.append(repair_billing)
+                    shard_response_id = repair_response_id
+                    if repaired is None:
+                        return shard, None, billings, shard_response_id
+                    result = VisualBeatShardResult(
+                        visual_beats=[*result.visual_beats, *repaired.visual_beats]
+                    )
+                return shard, result, billings, shard_response_id
+
+        generated = await asyncio.gather(*(generate(shard) for shard in shards))
+        results: dict[tuple[int, int], VisualBeatShardResult] = {}
+        all_billings = [structure_billing]
+        final_response_id = response_id
+        for shard, result, billings, shard_response_id in generated:
+            all_billings.extend(billings)
+            final_response_id = shard_response_id
+            if result is None:
+                return ProviderOperation(
+                    provider_key="vertex",
+                    operation_id=final_response_id,
+                    status=ProviderOperationStatus.FAILED,
+                    billing=self._merge_billings(all_billings),
+                )
+            results[(shard.scene_index, shard.shard_index)] = result
+
+        try:
+            merged = merge_shard_results(structure, shards, results)
+        except ValueError:
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=final_response_id,
+                status=ProviderOperationStatus.FAILED,
+                billing=self._merge_billings(all_billings),
+            )
+
+        return ProviderOperation(
+            provider_key="vertex",
+            operation_id=final_response_id,
+            status=ProviderOperationStatus.COMPLETED,
+            result=merged,
+            billing=self._merge_billings(all_billings),
+        )
+
+    async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
+        return operation
+
+    async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
+        return operation
+
+    async def _generate_structured(
+        self,
+        token: str,
+        prompt: str,
+        model: type[ModelT],
+    ) -> tuple[ModelT | None, ProviderBilling, str]:
         endpoint = (
             f"https://{self.settings.vertex_location}-aiplatform.googleapis.com/v1/projects/"
             f"{self.settings.vertex_project_id}/locations/{self.settings.vertex_location}/"
             f"publishers/google/models/{self.settings.vertex_model}:generateContent"
         )
-        response_schema = ChapterAnalysisResult.model_json_schema()
         body = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": build_chapter_analysis_prompt(request)}],
-                }
-            ],
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.2,
                 "responseMimeType": "application/json",
-                "responseJsonSchema": response_schema,
+                "responseJsonSchema": model.model_json_schema(),
             },
         }
-
+        timeout = httpx.Timeout(
+            connect=10.0,
+            write=30.0,
+            read=self.settings.vertex_timeout_seconds,
+            pool=10.0,
+        )
         try:
-            async with httpx.AsyncClient(timeout=self.settings.vertex_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(
                     endpoint,
                     headers={"Authorization": f"Bearer {token}"},
@@ -110,54 +239,22 @@ class VertexGeminiProvider(LlmProvider):
 
         raw = self._response_json(response)
         response_id = self._response_id(raw)
-
         if response.status_code >= 500:
             raise VertexSubmissionUnknownError(
                 f"Vertex returned HTTP {response.status_code}; execution outcome is unknown"
             )
-
         if response.is_error:
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=response_id,
-                status=ProviderOperationStatus.FAILED,
-                billing=self._zero_billing(),
-            )
+            return None, self._zero_billing(), response_id
 
         billing = self._billing(raw)
         text = self._candidate_text(raw)
         if text is None:
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=response_id,
-                status=ProviderOperationStatus.FAILED,
-                billing=billing,
-            )
-
+            return None, billing, response_id
         try:
             parsed = json.loads(text)
-            result = ChapterAnalysisResult.model_validate(parsed)
+            return model.model_validate(parsed), billing, response_id
         except (TypeError, ValueError, json.JSONDecodeError):
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=response_id,
-                status=ProviderOperationStatus.FAILED,
-                billing=billing,
-            )
-
-        return ProviderOperation(
-            provider_key="vertex",
-            operation_id=response_id,
-            status=ProviderOperationStatus.COMPLETED,
-            result=result,
-            billing=billing,
-        )
-
-    async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
-        return operation
-
-    async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
-        return operation
+            return None, billing, response_id
 
     def _billing(self, raw: dict[str, object]) -> ProviderBilling:
         usage_raw = raw.get("usageMetadata")
@@ -194,6 +291,44 @@ class VertexGeminiProvider(LlmProvider):
         )
         return ProviderBilling(
             actual_cost=actual_cost.quantize(Decimal("0.000000001")),
+            currency="USD",
+            usage=usage,
+            pricing=pricing,
+        )
+
+    def _merge_billings(self, billings: list[ProviderBilling]) -> ProviderBilling:
+        prompt_tokens = sum(item.usage.prompt_tokens for item in billings)
+        candidate_tokens = sum(item.usage.candidate_tokens for item in billings)
+        thought_tokens = sum(item.usage.thought_tokens for item in billings)
+        cached_input_tokens = sum(item.usage.cached_input_tokens for item in billings)
+        tool_input_tokens = sum(item.usage.tool_input_tokens for item in billings)
+        total_tokens = sum(item.usage.total_tokens for item in billings)
+        traffic_types = {item.usage.traffic_type for item in billings if item.usage.traffic_type}
+        usage = ProviderTokenUsage(
+            prompt_tokens=prompt_tokens,
+            candidate_tokens=candidate_tokens,
+            thought_tokens=thought_tokens,
+            cached_input_tokens=cached_input_tokens,
+            tool_input_tokens=tool_input_tokens,
+            total_tokens=total_tokens,
+            traffic_type=next(iter(traffic_types)) if len(traffic_types) == 1 else None,
+        )
+        output_rate = (
+            self._FLASH_25_THINKING_OUTPUT if thought_tokens > 0 else self._FLASH_25_OUTPUT
+        )
+        pricing = ProviderPricingSnapshot(
+            catalog_version=self._PRICING_CATALOG_VERSION,
+            model_key=self.settings.vertex_model,
+            location=self.settings.vertex_location,
+            pricing_mode="STANDARD_THINKING" if thought_tokens > 0 else "STANDARD",
+            input_usd_per_million=self._FLASH_25_INPUT,
+            cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
+            output_usd_per_million=output_rate,
+        )
+        return ProviderBilling(
+            actual_cost=sum((item.actual_cost for item in billings), Decimal("0" )).quantize(
+                Decimal("0.000000001")
+            ),
             currency="USD",
             usage=usage,
             pricing=pricing,
