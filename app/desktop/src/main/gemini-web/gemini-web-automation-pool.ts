@@ -15,10 +15,6 @@ type PersistedPoolSession = {
   targets?: Partial<Record<GeminiWebLane, string>>;
 };
 
-type DevToolsVersion = {
-  webSocketDebuggerUrl?: unknown;
-};
-
 export type GeminiPoolAutomationOptions = {
   attachOnly: boolean;
 };
@@ -145,11 +141,6 @@ export class GeminiWebAutomationPool {
           port?: unknown;
         };
         if (Number.isInteger(persisted.port) && Number(persisted.port) > 0) {
-          const port = Number(persisted.port);
-          if (!(await devToolsAvailable(port))) {
-            await new Promise((resolve) => setTimeout(resolve, 50));
-            continue;
-          }
           const sessionFile = join(slotRoot, "session.json");
           let current: PersistedPoolSession | null = null;
           try {
@@ -169,7 +160,7 @@ export class GeminiWebAutomationPool {
           await mkdir(dirname(sessionFile), { recursive: true });
           await writeFile(
             sessionFile,
-            `${JSON.stringify(mergeSharedPortSession(current, port), null, 2)}\n`,
+            `${JSON.stringify(mergeSharedPortSession(current, Number(persisted.port)), null, 2)}\n`,
             "utf8",
           );
           return;
@@ -180,18 +171,5 @@ export class GeminiWebAutomationPool {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     throw new Error("Gemini shared Chrome session was not ready for a parallel tab.");
-  }
-}
-
-async function devToolsAvailable(port: number): Promise<boolean> {
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
-      signal: AbortSignal.timeout(1_500),
-    });
-    if (!response.ok) return false;
-    const version = (await response.json()) as DevToolsVersion;
-    return typeof version.webSocketDebuggerUrl === "string";
-  } catch {
-    return false;
   }
 }
