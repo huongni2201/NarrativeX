@@ -72,6 +72,19 @@ LOCATION_PROFILE_INSTRUCTIONS = (
     "defaults once without contradicting the source, then keep them stable. "
 )
 
+IMAGE_SAFETY_ADAPTATION = (
+    " IMAGE-SAFETY ADAPTATION: write every image visual_intent in provider-safe, non-graphic "
+    "language. Preserve the narrative fact and emotional stakes, but translate sensitive events "
+    "into indirect visual language suitable for a still illustration. Keep subjects appropriately "
+    "clothed and use neutral, non-sexualized framing. Prefer facial tension, posture, distance, "
+    "occlusion, off-screen implication, aftermath, and environmental cues instead of explicit "
+    "physical or coercive mechanics. Avoid detailed descriptions of severe injury, exposed body "
+    "detail, humiliating restraint, or other graphic treatment. Do not erase a source-backed "
+    "conflict or consequence; represent it through a safer visible state that preserves what the "
+    "viewer needs to understand. If age is unknown or a character may be young, use especially "
+    "conservative, fully non-sexualized depiction. "
+)
+
 
 def _visual_beat_density_guidance(request: ChapterAnalysisRequest) -> str:
     """Plan dense seed beats before authoritative narration timing is available."""
@@ -117,6 +130,7 @@ def _visual_workflow_guidance(request: ChapterAnalysisRequest) -> str:
             "The downstream visual workflow is IMAGE. Favor visual beats that are legible as "
             "strong single-frame compositions while still preserving narrative continuity between "
             "adjacent beats."
+            + IMAGE_SAFETY_ADAPTATION
         )
     return (
         f" VISUAL_GENERATION_MODE={request.visual_generation_mode}. IMAGE_PROVIDER={provider}. "

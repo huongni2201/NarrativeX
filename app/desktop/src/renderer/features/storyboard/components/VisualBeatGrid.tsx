@@ -15,6 +15,7 @@ export function VisualBeatGrid({
   timelineBeats,
   updating,
   mediaBusyBeatId,
+  activeGeminiBeatIds,
   pendingImportBeatId,
   copiedPromptBeatId,
   currentQueueBeatId,
@@ -31,6 +32,7 @@ export function VisualBeatGrid({
   timelineBeats: Map<string, DesktopTimelineBeat>;
   updating: boolean;
   mediaBusyBeatId: string | null;
+  activeGeminiBeatIds: ReadonlySet<string>;
   pendingImportBeatId: string | null;
   copiedPromptBeatId: string | null;
   currentQueueBeatId: string | null;
@@ -52,24 +54,28 @@ export function VisualBeatGrid({
 
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5">
-      {beats.map((beat) => (
-        <VisualBeatCard
-          key={beat.id}
-          projectId={projectId}
-          beat={beat}
-          timelineBeat={timelineBeats.get(beat.id) ?? null}
-          updating={updating}
-          mediaBusy={mediaBusyBeatId === beat.id}
-          pendingImport={pendingImportBeatId === beat.id}
-          promptCopied={copiedPromptBeatId === beat.id}
-          queueCurrent={currentQueueBeatId === beat.id && queueStatus !== "COMPLETED"}
-          generationLocked={queueStatus === "RUNNING" && currentQueueBeatId !== beat.id}
-          onReview={(status) => onReview(beat, status)}
-          onGenerate={() => onGenerate(beat)}
-          onCopyPrompt={() => onCopyPrompt(beat)}
-          onImport={() => onImport(beat)}
-        />
-      ))}
+      {beats.map((beat) => {
+        const queueRunning = activeGeminiBeatIds.has(beat.id);
+        return (
+          <VisualBeatCard
+            key={beat.id}
+            projectId={projectId}
+            beat={beat}
+            timelineBeat={timelineBeats.get(beat.id) ?? null}
+            updating={updating}
+            mediaBusy={queueRunning || mediaBusyBeatId === beat.id}
+            pendingImport={pendingImportBeatId === beat.id}
+            promptCopied={copiedPromptBeatId === beat.id}
+            queueRunning={queueRunning}
+            queueCurrent={currentQueueBeatId === beat.id && queueStatus !== "COMPLETED"}
+            generationLocked={queueStatus === "RUNNING" && !queueRunning}
+            onReview={(status) => onReview(beat, status)}
+            onGenerate={() => onGenerate(beat)}
+            onCopyPrompt={() => onCopyPrompt(beat)}
+            onImport={() => onImport(beat)}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -82,6 +88,7 @@ function VisualBeatCard({
   mediaBusy,
   pendingImport,
   promptCopied,
+  queueRunning,
   queueCurrent,
   generationLocked,
   onReview,
@@ -96,6 +103,7 @@ function VisualBeatCard({
   mediaBusy: boolean;
   pendingImport: boolean;
   promptCopied: boolean;
+  queueRunning: boolean;
   queueCurrent: boolean;
   generationLocked: boolean;
   onReview: (status: VisualBeatReviewStatus) => void;
@@ -105,9 +113,14 @@ function VisualBeatCard({
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
   const prompt = beat.prompt ?? "Backend prompt unavailable.";
+  const borderClass = queueRunning
+    ? "border-primary ring-1 ring-primary/35"
+    : queueCurrent
+      ? "border-primary/60"
+      : "border-border-subtle hover:border-border";
 
   return (
-    <article className={`group min-w-0 overflow-hidden border bg-surface-panel transition-colors ${queueCurrent ? "border-primary/60" : "border-border-subtle hover:border-border"}`}>
+    <article className={`group min-w-0 overflow-hidden border bg-surface-panel transition-colors ${borderClass}`}>
       <div className="relative bg-surface-dark">
         <BeatImagePreview projectId={projectId} beat={beat} timelineBeat={timelineBeat} />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
@@ -130,7 +143,11 @@ function VisualBeatCard({
               <span>{formatEnum(beat.motionMode)}</span>
             </div>
           </div>
-          {queueCurrent ? <StatusIndicator label="Current" tone="accent" className="shrink-0" /> : null}
+          {queueRunning ? (
+            <StatusIndicator label="Generating" tone="accent" className="shrink-0" />
+          ) : queueCurrent ? (
+            <StatusIndicator label="Current" tone="accent" className="shrink-0" />
+          ) : null}
         </div>
 
         <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-text-muted">{beat.visualIntent}</p>

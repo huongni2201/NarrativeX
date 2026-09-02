@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptSafety;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.out.VisualBeatPromptProvider;
@@ -24,13 +25,15 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
         visualBeat.getAspectRatioOverride() != null
             ? visualBeat.getAspectRatioOverride().name()
             : null;
+    String safeVisualIntent =
+        VisualPromptSafety.sanitizeSceneDirection(visualBeat.getVisualIntent());
     var composedPrompt =
         visualPromptComposer.compose(
             ImageStyle.CINEMATIC_ANIME,
-            visualBeat.getVisualIntent(),
+            safeVisualIntent,
             visualBeat.getCameraAngle().name(),
             aspectRatio,
             context);
-    return VisualPromptText.finalPrompt(composedPrompt);
+    return VisualPromptSafety.sanitizeSceneDirection(VisualPromptText.finalPrompt(composedPrompt));
   }
 }

@@ -1,4 +1,5 @@
 export type GeminiQueueStatus = "RUNNING" | "PAUSED" | "COMPLETED";
+export type GeminiQueueGenerationErrorAction = "SKIP_BEAT" | "PAUSE_QUEUE";
 
 export interface GeminiQueueState {
   chapterId: string;
@@ -40,6 +41,15 @@ export function skipQueueBeatIfMediaReady(
   return beat.previewMediaAssetId
     ? markQueueBeatSkipped(state, beat.id)
     : state;
+}
+
+export function classifyGeminiQueueGenerationError(
+  error: unknown,
+): GeminiQueueGenerationErrorAction {
+  const text = error instanceof Error
+    ? `${error.name} ${error.message}`
+    : String(error ?? "");
+  return text.includes("GEMINI_GENERATION_REJECTED") ? "SKIP_BEAT" : "PAUSE_QUEUE";
 }
 
 function uniqueIds(ids: readonly string[]) {
