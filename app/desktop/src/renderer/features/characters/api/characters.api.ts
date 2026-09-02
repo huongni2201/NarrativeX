@@ -5,7 +5,7 @@ import type {
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
+import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isNumber, isRecord, isString } from "../../../api/guards";
 import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
 
@@ -81,7 +81,7 @@ export const charactersApi = {
     ),
 
   remove: (projectId: string, characterId: string) =>
-    apiRequest<void>(
+    apiCommand(
       `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`,
       { method: "DELETE" },
     ),
