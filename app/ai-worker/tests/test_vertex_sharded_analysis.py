@@ -69,7 +69,7 @@ def _provider(*, shard_concurrency: int = 3) -> VertexGeminiProvider:
 
 @pytest.mark.asyncio
 async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() -> None:
-    source = ("alpha " * 1000).strip()
+    source = "BEGIN_ALPHA " + ("alpha " * 1000).strip() + " END_ALPHA"
     provider = _provider(shard_concurrency=2)
     active = 0
     peak = 0
@@ -83,7 +83,11 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
             return (
                 ChapterStructureResult(
                     scenes=[
-                        SceneStructure(title="Scene", narration=source, source_anchor=source)
+                        SceneStructure(
+                            title="Scene",
+                            source_start_anchor="BEGIN_ALPHA",
+                            source_end_anchor="END_ALPHA",
+                        )
                     ]
                 ),
                 _billing(),
@@ -95,13 +99,14 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
         await asyncio.sleep(0.01)
         active -= 1
         assert "SHARD_SOURCE" in prompt
+        anchor = "alpha" if "alpha" in prompt else "BEGIN_ALPHA"
         return (
             VisualBeatShardResult(
                 visual_beats=[
                     VisualBeatAnalysis(
                         title="beat",
                         visual_intent="grounded",
-                        source_anchor="alpha",
+                        source_anchor=anchor,
                     )
                     for _ in range(20)
                 ]
@@ -115,6 +120,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
 
     assert operation.status is ProviderOperationStatus.COMPLETED
     assert operation.result is not None
+    assert operation.result.scenes[0].narration == source
     assert peak == 2
     assert operation.billing is not None
     assert operation.billing.actual_cost >= Decimal("0.000005000")
@@ -122,7 +128,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
 
 @pytest.mark.asyncio
 async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
-    source = ("word " * 100).strip()
+    source = "BEGIN_WORD " + ("word " * 100).strip() + " END_WORD"
     provider = _provider()
     shard_calls = 0
 
@@ -132,7 +138,13 @@ async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
         if model is ChapterStructureResult:
             return (
                 ChapterStructureResult(
-                    scenes=[SceneStructure(title="Scene", narration=source, source_anchor=source)]
+                    scenes=[
+                        SceneStructure(
+                            title="Scene",
+                            source_start_anchor="BEGIN_WORD",
+                            source_end_anchor="END_WORD",
+                        )
+                    ]
                 ),
                 _billing(),
                 "structure",
