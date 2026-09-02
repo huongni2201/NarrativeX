@@ -61,11 +61,18 @@ public class GenerationDatabaseEventListener {
 
   private void listenUntilStopped() {
     while (running) {
-      try (Connection connection = dataSource.getConnection();
-          Statement statement = connection.createStatement()) {
-        PGConnection postgresConnection = connection.unwrap(PGConnection.class);
-        statement.execute("LISTEN " + CHANNEL);
-        listenOnConnection(postgresConnection);
+      try (Connection connection = dataSource.getConnection()) {
+        if (!connection.isWrapperFor(PGConnection.class)) {
+          log.info(
+              "Generation PostgreSQL event listener disabled because the datasource is not PostgreSQL");
+          running = false;
+          return;
+        }
+        try (Statement statement = connection.createStatement()) {
+          PGConnection postgresConnection = connection.unwrap(PGConnection.class);
+          statement.execute("LISTEN " + CHANNEL);
+          listenOnConnection(postgresConnection);
+        }
       } catch (Exception exception) {
         if (running) {
           log.warn("Generation PostgreSQL event listener disconnected; retrying", exception);

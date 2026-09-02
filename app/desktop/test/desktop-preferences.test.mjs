@@ -138,7 +138,7 @@ test("window state can be saved and reset independently", async () => {
   assert.equal((await store.get()).window, null);
 });
 
-test("a failed preference write does not poison later saves", async () => {
+test("a failed preference write does not poison later saves or leak into memory", async () => {
   const directory = await mkdtemp(join(tmpdir(), "narrativex-preferences-recovery-"));
   const filePath = join(directory, "desktop-preferences.json");
   const store = new DesktopPreferencesStore(filePath, {});
@@ -147,11 +147,13 @@ test("a failed preference write does not poison later saves", async () => {
   await rm(filePath, { force: true });
   await mkdir(filePath);
   await assert.rejects(() => store.updateGemini({ characterTabs: 6 }));
+  assert.equal((await store.get()).gemini.characterTabs, 2);
   await rm(filePath, { recursive: true, force: true });
 
-  await store.updateGemini({ characterTabs: 7 });
+  await store.updateWindow({ x: 10, y: 20, width: 1400, height: 900, maximized: false });
   const persisted = JSON.parse(await readFile(filePath, "utf8"));
-  assert.equal(persisted.profiles["user-a"].gemini.characterTabs, 7);
+  assert.equal(persisted.profiles["user-a"].gemini.characterTabs, undefined);
+  assert.equal(persisted.profiles["user-a"].window.width, 1400);
 });
 
 test("concurrent cold-start binds share one loaded state without losing profiles", async () => {
