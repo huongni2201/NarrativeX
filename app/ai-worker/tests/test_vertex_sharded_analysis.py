@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
 from narrativex_worker.chapter_analysis_sharding import (
@@ -75,9 +76,11 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
     peak = 0
     calls = 0
 
-    async def fake_generate(token: str, prompt: str, model: type[object]):
+    async def fake_generate(
+        client: httpx.AsyncClient, token: str, prompt: str, model: type[object]
+    ):
         nonlocal active, peak, calls
-        del token
+        del client, token
         calls += 1
         if model is ChapterStructureResult:
             return (
@@ -127,14 +130,73 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
 
 
 @pytest.mark.asyncio
+async def test_provider_gate_bounds_analysis_calls_across_concurrent_jobs() -> None:
+    source = "BEGIN_JOB " + ("word " * 100).strip() + " END_JOB"
+    provider = _provider(shard_concurrency=1)
+    active = 0
+    peak = 0
+
+    async def fake_generate(
+        client: httpx.AsyncClient, token: str, prompt: str, model: type[object]
+    ):
+        nonlocal active, peak
+        del client, token
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        if model is ChapterStructureResult:
+            return (
+                ChapterStructureResult(
+                    scenes=[
+                        SceneStructure(
+                            title="Scene",
+                            source_start_anchor="BEGIN_JOB",
+                            source_end_anchor="END_JOB",
+                        )
+                    ]
+                ),
+                _billing(),
+                "structure",
+            )
+        assert "SHARD_SOURCE" in prompt
+        return (
+            VisualBeatShardResult(
+                visual_beats=[
+                    VisualBeatAnalysis(
+                        title=f"beat-{index}",
+                        visual_intent="grounded",
+                        source_anchor="word",
+                    )
+                    for index in range(9)
+                ]
+            ),
+            _billing(),
+            "shard",
+        )
+
+    provider._generate_structured = fake_generate  # type: ignore[method-assign]
+    first, second = await asyncio.gather(
+        provider.submit(_request(source)),
+        provider.submit(_request(source)),
+    )
+
+    assert first.status is ProviderOperationStatus.COMPLETED
+    assert second.status is ProviderOperationStatus.COMPLETED
+    assert peak == 1
+
+
+@pytest.mark.asyncio
 async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
     source = "BEGIN_WORD " + ("word " * 100).strip() + " END_WORD"
     provider = _provider()
     shard_calls = 0
 
-    async def fake_generate(token: str, prompt: str, model: type[object]):
+    async def fake_generate(
+        client: httpx.AsyncClient, token: str, prompt: str, model: type[object]
+    ):
         nonlocal shard_calls
-        del token
+        del client, token
         if model is ChapterStructureResult:
             return (
                 ChapterStructureResult(
