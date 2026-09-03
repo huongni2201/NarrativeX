@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.time.Instant;
@@ -95,8 +94,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
         "vi-VN",
         "vi-VN",
         "vi-VN",
-        AspectRatio.RATIO_16_9,
-        ImageQualityTier.STANDARD);
+        AspectRatio.RATIO_16_9);
   }
 
   private Instant timestamp(String column, UUID projectId) {
