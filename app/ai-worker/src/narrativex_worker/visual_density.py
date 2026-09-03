@@ -4,43 +4,101 @@ import math
 import re
 from typing import Any
 
-from narrativex_worker.schema import ChapterAnalysisResult
+from pydantic import Field
+
+from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 
 _WORD_PATTERN = re.compile(r"\w+", re.UNICODE)
 # Conservative pre-narration estimate. Actual narration duration is preferred whenever available.
 _NARRATION_WORDS_PER_MINUTE = 100
 TARGET_VISUAL_BEAT_MS = 7_500
 HARD_MAX_VISUAL_BEAT_MS = 10_000
+MAX_VISUAL_BEATS_OVER_TARGET_RATIO = 1.15
 
 
-def estimated_narration_duration_ms(source_text: str) -> int:
+class ChapterAnalysisPlanningRequest(ChapterAnalysisRequest):
+    """Chapter request enriched with a duration snapshot used consistently by one analysis job."""
+
+    narration_duration_ms: int | None = Field(default=None, gt=0)
+
+
+def estimated_narration_duration_ms(
+    source_text: str,
+    *,
+    words_per_minute: int = _NARRATION_WORDS_PER_MINUTE,
+) -> int:
+    if words_per_minute <= 0:
+        raise ValueError("words_per_minute must be positive")
     word_count = max(1, len(_WORD_PATTERN.findall(source_text)))
-    return max(1_000, round(word_count * 60_000 / _NARRATION_WORDS_PER_MINUTE))
+    return max(1_000, round(word_count * 60_000 / words_per_minute))
 
 
-def minimum_visual_beats(duration_ms: int) -> int:
-    return max(1, math.ceil(max(1, duration_ms) / HARD_MAX_VISUAL_BEAT_MS))
+def planning_duration_ms(request: ChapterAnalysisRequest) -> int:
+    """Prefer the narration snapshot captured for this source, else estimate from source text."""
+    narration_duration = getattr(request, "narration_duration_ms", None)
+    if isinstance(narration_duration, int) and narration_duration > 0:
+        return narration_duration
+    return estimated_narration_duration_ms(request.source_text)
 
 
-def target_visual_beats(duration_ms: int) -> int:
-    return max(1, math.ceil(max(1, duration_ms) / TARGET_VISUAL_BEAT_MS))
+def minimum_visual_beats(
+    duration_ms: int,
+    *,
+    hard_max_visual_beat_ms: int = HARD_MAX_VISUAL_BEAT_MS,
+) -> int:
+    if hard_max_visual_beat_ms <= 0:
+        raise ValueError("hard_max_visual_beat_ms must be positive")
+    return max(1, math.ceil(max(1, duration_ms) / hard_max_visual_beat_ms))
 
 
-def maximum_visual_beats(duration_ms: int) -> int:
-    target = target_visual_beats(duration_ms)
-    return max(target, math.ceil(target * 1.15))
+def target_visual_beats(
+    duration_ms: int,
+    *,
+    target_visual_beat_ms: int = TARGET_VISUAL_BEAT_MS,
+) -> int:
+    if target_visual_beat_ms <= 0:
+        raise ValueError("target_visual_beat_ms must be positive")
+    return max(1, math.ceil(max(1, duration_ms) / target_visual_beat_ms))
+
+
+def maximum_visual_beats(
+    duration_ms: int,
+    *,
+    target_visual_beat_ms: int = TARGET_VISUAL_BEAT_MS,
+    max_over_target_ratio: float = MAX_VISUAL_BEATS_OVER_TARGET_RATIO,
+) -> int:
+    if max_over_target_ratio < 1:
+        raise ValueError("max_over_target_ratio must be >= 1")
+    target = target_visual_beats(duration_ms, target_visual_beat_ms=target_visual_beat_ms)
+    return max(target, math.ceil(target * max_over_target_ratio))
 
 
 def validate_visual_beat_density(
     result: ChapterAnalysisResult,
     *,
     duration_ms: int,
+    hard_max_visual_beat_ms: int = HARD_MAX_VISUAL_BEAT_MS,
+    target_visual_beat_ms: int = TARGET_VISUAL_BEAT_MS,
+    max_over_target_ratio: float = MAX_VISUAL_BEATS_OVER_TARGET_RATIO,
 ) -> None:
-    minimum = minimum_visual_beats(duration_ms)
+    minimum = minimum_visual_beats(
+        duration_ms,
+        hard_max_visual_beat_ms=hard_max_visual_beat_ms,
+    )
+    maximum = maximum_visual_beats(
+        duration_ms,
+        target_visual_beat_ms=target_visual_beat_ms,
+        max_over_target_ratio=max_over_target_ratio,
+    )
     actual = sum(len(scene.visual_beats) for scene in result.scenes)
     if actual < minimum:
         raise ValueError(
             f"Storyboard is under-dense: expected at least {minimum} visual beats for "
+            f"{duration_ms}ms narration planning duration, received {actual}"
+        )
+    if actual > maximum:
+        raise ValueError(
+            f"Storyboard is over-dense: expected at most {maximum} visual beats for "
             f"{duration_ms}ms narration planning duration, received {actual}"
         )
 
