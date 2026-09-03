@@ -8,10 +8,15 @@ import { muxNarration } from "./audio-muxer";
 import { probeVideo } from "./ffprobe";
 import type { FfmpegRuntimeStatus } from "./ffmpeg-runtime";
 import { RenderExecutionError } from "./render-errors";
-import { buildLocalRenderManifest } from "./render-manifest";
-import { renderSegments } from "./segment-renderer";
+import { buildLocalRenderManifest, renderDimensions } from "./render-manifest";
+import { parseRenderProfile } from "./render-profile";
+import { renderSegments, renderWorkingDimensions } from "./segment-renderer";
 import { writeSubtitleTrack } from "./subtitle-srt";
 import { concatVideo } from "./video-concat";
+import {
+  renderConcurrencyForWorkload,
+  resolveVideoEncoderForProfile,
+} from "./video-encoder";
 import { RenderJournalStore, type RenderJournal, type RenderJournalStage } from "./render-journal";
 
 export class ProjectRenderer {
@@ -34,7 +39,28 @@ export class ProjectRenderer {
       );
     }
 
-    const manifest = buildLocalRenderManifest(prepared);
+    const profile = parseRenderProfile(prepared.renderProfileJson);
+    const dimensions = renderDimensions(prepared.resolution, prepared.aspectRatio);
+    const videoEncoder = await resolveVideoEncoderForProfile(
+      this.runtime.ffmpegPath,
+      this.runtime.videoEncoder === "h264_nvenc",
+      profile.video,
+      dimensions.width,
+      dimensions.height,
+    );
+    const manifest = buildLocalRenderManifest(prepared, videoEncoder);
+    const hasMovingStills = manifest.beats.some(
+      (beat) => beat.mediaType === "IMAGE" && beat.cameraMovement.trim().toUpperCase() !== "NONE",
+    );
+    const working = renderWorkingDimensions(manifest.width, manifest.height, hasMovingStills);
+    const renderConcurrency = renderConcurrencyForWorkload(
+      videoEncoder,
+      working.width,
+      working.height,
+      manifest.fps,
+      hasMovingStills,
+    );
+
     const workDirectory = join(
       this.storage.projectDirectory(prepared.projectId),
       "work",
@@ -116,8 +142,8 @@ export class ProjectRenderer {
         signal,
         join(this.storage.projectDirectory(prepared.projectId), "cache", "segments"),
         {
-          videoEncoder: this.runtime.videoEncoder,
-          concurrency: this.runtime.renderConcurrency,
+          videoEncoder,
+          concurrency: renderConcurrency,
         },
       );
       await onProgress(85, "Concatenating video segments");
@@ -137,7 +163,8 @@ export class ProjectRenderer {
         audio,
         subtitlePath,
         signal,
-        this.runtime.videoEncoder,
+        videoEncoder,
+        manifest.videoQuality,
       );
       await onProgress(98, "Validating final artifact");
       await checkpoint("VERIFY");
