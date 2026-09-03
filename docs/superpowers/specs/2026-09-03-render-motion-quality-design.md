@@ -27,6 +27,7 @@ It does not change subtitle generation or narration alignment. Those are separat
 - Do not synthesize intermediate frames for 24/30 fps source video. Source-video motion can still repeat frames when exported at 60 fps.
 - Do not add CROSS_DISSOLVE in this cutover. The supported transition contract remains `CUT | FADE_BLACK` because the current concat-copy pipeline does not overlap adjacent clips.
 - Do not use output resolution alone as evidence of source detail.
+- Do not implement HDR tone mapping in this workstream.
 
 ## Authoritative Composition Contract
 
@@ -59,6 +60,7 @@ export function sampleCompositionFrame(
   policy: BeatCompositionPolicyV1,
   localFrame: number,
   frameCount: number,
+  fps: number,
 ): CompositionFrameSample;
 ```
 
@@ -73,8 +75,10 @@ Contract rules:
 - Smoothstep is exactly `t * t * (3 - 2 * t)` after clamping `t` to `[0, 1]`.
 - Intensity scales every preset away from the neutral sample: `1 + (presetZoom - 1) * intensity` for zoom and `0.5 + (presetCenter - 0.5) * intensity` for centers.
 - Existing movement endpoint values remain sourced from the versioned shared movement presets.
+- Transition milliseconds are converted once to frame counts with `round(ms * fps / 1000)` and clamped to at most half the beat frame count.
+- `FADE_BLACK` opacity is sampled from those integer transition-frame counts. Preview and FFmpeg must not each invent a different time-based fade curve.
 
-CSS and FFmpeg adapters may format these values differently, but neither adapter may independently choose framing, easing, endpoints, or transition timing.
+CSS and FFmpeg adapters may format these values differently, but neither adapter may independently choose framing, easing, endpoints, transition timing, or transition opacity.
 
 ## Preview Source of Truth
 
@@ -87,22 +91,40 @@ Required behavior:
 3. Preview must not call a second hard-coded `AUTO` planner for presentation.
 4. The preview `Fit / 100% / Fill` control is either removed or renamed as a viewer-only zoom control; it cannot alter media framing.
 5. The same render frame rate selected in the dialog drives preview frame sampling.
+6. Preview and render manifest record the same `rendererVersion` and `compositionPolicyVersion`; a preview cannot claim v3 parity while displaying a legacy v2 decision set.
 
-## Deterministic Frame Clock
+## Deterministic Frame Partition and Narration Master Clock
 
-`renderFrameWindow(globalStartMs, globalEndMs, fps)` remains the canonical interval quantizer. Beat windows are half-open `[startFrame, endFrame)`.
+Replace independent per-beat duration rounding with one project-level frame partition. The project timeline is partitioned into contiguous half-open windows `[startFrame, endFrame)`.
+
+Rules:
+
+- frame zero corresponds to project time zero;
+- interior beat boundaries use `round(boundaryMs * fps / 1000)`;
+- the final project boundary uses `ceil(totalDurationMs * fps / 1000)` so the video can never end before narration audio;
+- each beat receives at least one frame;
+- if a pathological set of sub-frame beats cannot satisfy contiguity and one-frame minimums, render admission fails with a precise timeline error rather than silently changing narration timing;
+- the sum of all beat frame counts equals the final project end frame.
 
 For preview and render:
 
 ```text
-projectFrame = round(projectTimeMs * fps / 1000)
-localFrame = clamp(projectFrame - startFrame, 0, frameCount - 1)
-progress = localFrame / max(1, frameCount - 1)
+projectFrame = clamp(floor(projectTimeMs * fps / 1000), 0, projectEndFrame - 1)
+localFrame = projectFrame - beat.startFrame
+progress = localFrame / max(1, beat.frameCount - 1)
 ```
 
-The active preview beat must be resolved by frame window when playing at the selected render fps. This permits at most half a frame of quantization relative to raw millisecond boundaries and guarantees that the preview displays a frame that can exist in the export.
+The active preview beat is resolved from the same frame windows. The maximum visual boundary displacement from an interior millisecond boundary is half a frame. Every previewed animation state therefore corresponds to a frame that can exist in the export.
 
-Each rendered segment must contain exactly `frameCount` frames. Command generation must use an exact frame limit and normalized CFR timestamps rather than relying on the interaction between `-t` and an output `-r` alone. Concatenated output must preserve the sum of all expected segment frame counts.
+Each rendered segment must contain exactly its assigned `frameCount`. Command generation uses an exact frame limit and normalized CFR timestamps rather than relying on the interaction between `-t` and output `-r` alone.
+
+Final mux rules:
+
+- narration duration remains authoritative;
+- the concatenated video stream must cover at least the probed narration duration;
+- if a codec/container timestamp edge still leaves video shorter, clone/pad the final video frame before muxing;
+- `-shortest` may end excess padded video at the narration endpoint, but it must never truncate narration because of a rounded-down video timeline;
+- verification permits less than one output-frame of video-over-audio tail and zero audio truncation.
 
 ## Renderer Adapter Decision Gate
 
@@ -141,11 +163,45 @@ Preflight behavior:
 - strong warning when either effective dimension is below 75% of target;
 - rendering remains allowed unless the media file is unreadable.
 
-The warning must identify the beat and source/target effective dimensions. Lanczos may improve resampling quality but must not be described as restoring missing detail.
+The warning identifies the beat and source/target effective dimensions. Lanczos may improve resampling quality but must not be described as restoring missing detail.
 
-## Explicit Video Quality Profile
+## Immutable Render Profile V2
 
-Normalize the backend render profile into an application-owned structure:
+New render jobs must not inherit quality policy accidentally from a database column default and then mutate only individual JSON fields. The backend owns one render-profile factory and writes the full immutable profile when the snapshot header is inserted.
+
+New profile shape:
+
+```json
+{
+  "schemaVersion": 2,
+  "rendererVersion": "project-image-motion-v3-composition",
+  "compositionPolicyVersion": 1,
+  "fps": 60,
+  "video": {
+    "x264Preset": "medium",
+    "crf": 18,
+    "nvencPreset": "p6",
+    "nvencCq": 19,
+    "pixelFormat": "yuv420p"
+  },
+  "color": {
+    "mode": "SDR_BT709_LIMITED"
+  },
+  "subtitles": {
+    "mode": "burn_in"
+  }
+}
+```
+
+Persistence rules:
+
+- the create-render use case builds this JSON once from validated request values and catalog defaults;
+- `ProjectRenderInputSnapshotMapper.insertHeader` stores it in the same insert as the immutable snapshot header;
+- new v2 snapshots do not rely on sequential `jsonb_set` updates for fps/subtitle mode;
+- existing schemaVersion 1 snapshots remain readable and map to the legacy renderer/profile defaults;
+- unsupported future schema versions fail clearly instead of being interpreted as schemaVersion 1.
+
+Normalized Desktop structure:
 
 ```ts
 export interface ParsedVideoQualityProfile {
@@ -157,7 +213,7 @@ export interface ParsedVideoQualityProfile {
 }
 ```
 
-Defaults for new high-quality render jobs are:
+Defaults for new schemaVersion 2 jobs are:
 
 ```text
 x264Preset = medium
@@ -169,10 +225,10 @@ pixelFormat = yuv420p
 
 Validation rules:
 
-- CRF and CQ must be integers in `[0, 51]`; malformed values use the documented defaults rather than arbitrary clamping.
+- CRF and CQ must be integers in `[0, 51]`; malformed values use the defaults associated with that profile schema rather than arbitrary clamping.
 - Presets and pixel format are allow-listed.
 - The normalized profile is included in the immutable render manifest and fingerprint.
-- Legacy snapshots lacking these values use the prior catalog defaults (`veryfast/20`, `p5/21`, `yuv420p`) so old queued jobs stay reproducible.
+- Legacy schemaVersion 1 snapshots use `veryfast/20`, `p5/21`, and `yuv420p` so old queued jobs remain reproducible.
 
 Argument generation:
 
@@ -193,11 +249,20 @@ Rules:
 - an encoder failure after rendering starts fails the attempt as retryable; it does not silently continue with a second encoder inside the same attempt;
 - an explicit retry may choose software after the hardware failure is recorded.
 
-## Color and Output Cadence
+## SDR Color Contract
 
-The export contract is SDR BT.709 with limited-range `yuv420p`. Image inputs are treated as sRGB and converted explicitly. Color conversion happens once after spatial composition. Output metadata must identify BT.709 primaries, transfer, and matrix.
+V3 supports SDR inputs and emits BT.709 limited-range `yuv420p`.
 
-All segment and final streams must be constant frame rate. Verification must inspect both `r_frame_rate` and `avg_frame_rate`, expected video frame count, dimensions, and timestamp continuity. Merely reading one nominal frame-rate field is insufficient.
+Rules:
+
+- still images are treated as sRGB and converted to the BT.709 output contract through an explicit supported FFmpeg color-conversion path before final YUV conversion;
+- SDR videos with valid color metadata are converted deliberately when their metadata differs from the output contract;
+- videos with missing color metadata are treated as BT.709 SDR and produce a diagnostic warning;
+- PQ/HLG/BT.2020 HDR input is rejected by v3 preflight with `HDR_INPUT_UNSUPPORTED`; the renderer must not silently retag HDR pixels as SDR;
+- output metadata identifies BT.709 primaries, transfer, matrix, and limited range;
+- setting metadata tags without performing the required pixel conversion is not sufficient.
+
+All segment and final streams are constant frame rate. Verification inspects `r_frame_rate`, `avg_frame_rate`, expected decoded video frame count, dimensions, output color metadata, audio duration, and timestamp continuity. Reading one nominal frame-rate field is insufficient.
 
 ## Performance Budget
 
@@ -209,19 +274,20 @@ Default concurrency caps:
 - 3840x2160-or-larger working canvas at 30 fps: 2 moving-still segments;
 - lower working sizes: retain the existing encoder cap, never above 4.
 
-The preflight temporary-space estimate must include working policy, output fps, cache profile, and whether subtitle composition will later require additional artifacts. Cache writes remain atomic.
+The preflight temporary-space estimate includes working policy, output fps, cache profile, and whether later subtitle composition requires an additional encoded artifact. Cache writes remain atomic.
 
 ## Cache and Versioning
 
-Introduce a new renderer version, for example `project-image-motion-v3-composition`, and include in segment cache keys and manifest fingerprints:
+Introduce `project-image-motion-v3-composition` and include in segment cache keys and manifest fingerprints:
 
-- renderer policy version;
+- render-profile schema version;
+- renderer policy version and composition-policy version;
 - selected renderer adapter;
 - output and working dimensions;
 - fps and exact frame window;
 - framing;
 - movement preset version, intensity, and easing;
-- transition type/durations;
+- transition type/durations/frame counts;
 - chosen encoder and normalized quality profile;
 - output color policy.
 
@@ -232,14 +298,21 @@ No v2 segment may be reused as v3 output.
 ### Pure contract tests
 
 - easing endpoints are exactly 0 and 1 and samples are monotonic;
+- transition opacity is derived from integer transition-frame counts;
 - preview and FFmpeg adapters consume the same numeric samples;
 - IMAGE resolves to COVER and VIDEO to CONTAIN;
 - the selected render style and frame rate, not hard-coded AUTO/continuous time, drive preview;
-- frame windows are contiguous and sum to the expected project frame count.
+- frame windows are contiguous, cover narration, and sum to the project end frame;
+- final project frame count uses ceiling while interior boundaries retain nearest-frame quantization;
+- v1 and v2 render profiles normalize to their own reproducible defaults.
+
+### Preview/render geometry tests
+
+For synthetic media with known dimensions, calculate the source crop rectangle used by the browser adapter and FFmpeg adapter at start, middle, and final frames. Corresponding rectangle edges may differ by at most 0.5 target pixel after conversion to target-space coordinates. Pan direction, zoom direction, framing mode, and transition opacity must agree exactly.
 
 ### FFmpeg integration tests
 
-CI must execute FFmpeg, not only inspect generated argument strings. Use a pinned/tested FFmpeg version and a high-contrast fixture with known edges.
+CI executes FFmpeg instead of only inspecting generated argument strings. Use a pinned/tested FFmpeg build and a high-contrast fixture with known edges.
 
 For a 24-pixel one-second pan at 60 fps:
 
@@ -247,29 +320,37 @@ For a 24-pixel one-second pan at 60 fps:
 - measured edge-centroid movement is monotonic;
 - maximum deviation from the ideal sampled position is at most 0.5 target pixel;
 - no backward jump is permitted;
-- the chosen adapter must visibly outperform the current target-resolution `zoompan` baseline on the same metric.
+- the chosen adapter measurably outperforms the current target-resolution `zoompan` baseline on the same metric.
 
-Also verify 30/60 fps, 1080p/1440p dimensions, BT.709 metadata, normalized encoder arguments, and cache invalidation.
+Also verify:
+
+- 30/60 fps and 1080p/1440p dimensions;
+- video duration covers narration and final mux does not truncate audio;
+- BT.709 conversion and metadata for an sRGB still fixture;
+- HDR fixture rejection;
+- normalized encoder arguments and full-profile NVENC fallback;
+- cache invalidation across renderer/profile/encoder changes.
 
 ### Manual packaged-Windows smoke test
 
-Render the same fixed fixture in Editor preview and the packaged Windows build, compare start/middle/end frames, and verify no visible crop-direction reversal, hold-and-jump motion, or unexpected fit-mode change.
+Render the same fixed fixture in Editor preview and the packaged Windows build, compare start/middle/end frames, and verify no visible crop-direction reversal, hold-and-jump motion, unexpected fit-mode change, audio-tail cut, or color-space shift.
 
 ## Rollout and Rollback
 
-- New jobs carry the v3 renderer version.
+- New jobs carry schemaVersion 2 and the v3 renderer version.
 - Preview switches to v3 only when the same v3 policy is used for the pending render settings.
-- Existing v2 jobs remain readable and render through the legacy adapter.
-- Rollback disables v3 admission without rewriting existing project media or narration.
+- Existing schemaVersion 1/v2 jobs remain readable and render through the legacy adapter.
+- Rollback disables schemaVersion 2 admission without rewriting existing project media, narration, or immutable render snapshots.
 
 ## Success Criteria
 
 This workstream is complete when:
 
 - still-image motion meets the measured spatial-error and frame-count criteria at 30/60 fps;
-- preview samples the exact selected render plan and frame rate;
+- preview samples the exact selected render plan, policy version, and frame rate;
 - source images that cannot genuinely support 1440p are reported clearly;
 - the selected encoder profile is explicit, fully probed, fingerprinted, and reproducible;
-- 1440p output has correct dimensions, cadence, and BT.709 metadata;
+- 1440p output has correct dimensions, cadence, SDR conversion, and BT.709 metadata;
+- narration audio is never truncated by frame quantization;
 - resource limits prevent 4K/60 intermediates from running with unsafe concurrency;
 - all affected Desktop, backend, repository, and FFmpeg integration gates pass.
