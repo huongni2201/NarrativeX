@@ -54,14 +54,10 @@ export const generationApi = {
       },
     ),
 
-  estimate: (
-    projectId: string,
-    chapterId: string,
-    input: Pick<CreateMediaJobInput, "qualityTier">,
-  ) =>
+  estimate: (projectId: string, chapterId: string) =>
     apiRequest<MediaJobCostEstimate>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/media-jobs/estimate`,
-      { method: "POST", body: JSON.stringify(input) },
+      { method: "POST", body: JSON.stringify({}) },
     ),
 
   createMediaJob: (
