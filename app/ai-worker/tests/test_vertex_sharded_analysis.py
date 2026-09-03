@@ -24,6 +24,7 @@ from narrativex_worker.schema import (
     ProviderOperationStatus,
     VisualBeatAnalysis,
 )
+from tests.visual_direction_fixture import visual_direction
 
 
 def _billing(cost: str = "0.000001000") -> ProviderBilling:
@@ -95,6 +96,7 @@ def _beats_for_prompt(prompt: str, *, anchor: str) -> VisualBeatShardResult:
                 title=f"beat-{index}",
                 visual_intent="grounded",
                 source_anchor=anchor,
+                visual_direction=visual_direction(),
             )
             for index in range(_target_beats_from_prompt(prompt))
         ]
@@ -190,6 +192,7 @@ async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
                         title="under-dense",
                         visual_intent="grounded",
                         source_anchor="word",
+                        visual_direction=visual_direction(),
                     )
                 ]
             )
