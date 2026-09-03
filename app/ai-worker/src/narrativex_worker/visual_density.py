@@ -2,6 +2,7 @@
 
 import math
 import re
+from contextvars import ContextVar
 from typing import Any
 
 from pydantic import Field
@@ -14,12 +15,20 @@ _NARRATION_WORDS_PER_MINUTE = 100
 TARGET_VISUAL_BEAT_MS = 7_500
 HARD_MAX_VISUAL_BEAT_MS = 10_000
 MAX_VISUAL_BEATS_OVER_TARGET_RATIO = 1.15
+_ANALYSIS_PLANNING_DURATION_MS: ContextVar[int | None] = ContextVar(
+    "analysis-planning-duration-ms", default=None
+)
 
 
 class ChapterAnalysisPlanningRequest(ChapterAnalysisRequest):
     """Chapter request enriched with a duration snapshot used consistently by one analysis job."""
 
     narration_duration_ms: int | None = Field(default=None, gt=0)
+
+
+def bind_planning_duration(duration_ms: int | None) -> None:
+    """Bind a claim's narration snapshot so the processing task inherits the same duration."""
+    _ANALYSIS_PLANNING_DURATION_MS.set(duration_ms if duration_ms and duration_ms > 0 else None)
 
 
 def estimated_narration_duration_ms(
@@ -39,6 +48,14 @@ def planning_duration_ms(request: ChapterAnalysisRequest) -> int:
     if isinstance(narration_duration, int) and narration_duration > 0:
         return narration_duration
     return estimated_narration_duration_ms(request.source_text)
+
+
+def current_planning_duration_ms(source_text: str) -> int:
+    """Resolve the task-local narration duration, falling back to source-based estimation."""
+    narration_duration = _ANALYSIS_PLANNING_DURATION_MS.get()
+    if isinstance(narration_duration, int) and narration_duration > 0:
+        return narration_duration
+    return estimated_narration_duration_ms(source_text)
 
 
 def minimum_visual_beats(
