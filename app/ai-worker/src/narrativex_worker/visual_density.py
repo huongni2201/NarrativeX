@@ -36,6 +36,9 @@ def estimated_narration_duration_ms(
     *,
     words_per_minute: int = _NARRATION_WORDS_PER_MINUTE,
 ) -> int:
+    bound_duration = _ANALYSIS_PLANNING_DURATION_MS.get()
+    if isinstance(bound_duration, int) and bound_duration > 0:
+        return bound_duration
     if words_per_minute <= 0:
         raise ValueError("words_per_minute must be positive")
     word_count = max(1, len(_WORD_PATTERN.findall(source_text)))
