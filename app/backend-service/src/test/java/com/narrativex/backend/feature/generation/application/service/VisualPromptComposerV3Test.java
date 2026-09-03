@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 class VisualPromptComposerV3Test {
-  private final VisualPromptComposer composer =
-      new VisualPromptComposer(JsonMapper.builder().build());
+  private final VisualPromptComposerV3 composer =
+      new VisualPromptComposerV3(JsonMapper.builder().build());
 
   private static final String DIRECTION =
       "{\"shot_size\":\"MEDIUM_CLOSE_UP\",\"camera_angle\":\"LOW\",\"lens_mm\":50,"
@@ -27,7 +27,7 @@ class VisualPromptComposerV3Test {
   @Test
   void ordersStoryAndShotBeforeStyle() {
     var result =
-        composer.composeV3(
+        composer.compose(
             ImageStyle.CINEMATIC_ANIME,
             "Lan steadies the letter after the impact",
             DIRECTION,
@@ -69,7 +69,7 @@ class VisualPromptComposerV3Test {
             List.of(character));
 
     var result =
-        composer.composeV3(
+        composer.compose(
             ImageStyle.CINEMATIC_ANIME,
             "Lan reads the warning",
             DIRECTION,
@@ -89,7 +89,7 @@ class VisualPromptComposerV3Test {
   void wideShotDoesNotReceivePortraitOnlyNegativeConstraint() {
     String wide = DIRECTION.replace("MEDIUM_CLOSE_UP", "WIDE");
     var result =
-        composer.composeV3(
+        composer.compose(
             ImageStyle.CINEMATIC_ANIME,
             "Lan crosses the courtyard",
             wide,
