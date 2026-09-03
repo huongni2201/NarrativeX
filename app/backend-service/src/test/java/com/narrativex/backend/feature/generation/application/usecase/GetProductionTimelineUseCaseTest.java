@@ -139,7 +139,7 @@ class GetProductionTimelineUseCaseTest {
   }
 
   @Test
-  void keepsTimelineInspectableButLocksRenderWhenExactTimingIsMissing() {
+  void usesFallbackTimingForRenderWhenExactTimingIsMissing() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -165,12 +165,12 @@ class GetProductionTimelineUseCaseTest {
     assertThat(timeline.beats()).hasSize(2);
     assertThat(timeline.beats().getFirst().startMs()).isZero();
     assertThat(timeline.beats().getLast().endMs()).isEqualTo(10_000L);
-    assertThat(timeline.readyForRender()).isFalse();
-    assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
+    assertThat(timeline.readyForRender()).isTrue();
+    assertThat(timeline.chapters().getFirst().readyForRender()).isTrue();
   }
 
   @Test
-  void keepsTimelineInspectableButLocksRenderWhenTimingHasGap() {
+  void usesFallbackTimingForRenderWhenStoredTimingHasGap() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -194,8 +194,10 @@ class GetProductionTimelineUseCaseTest {
     var timeline = useCase.executeOwned(projectId, "owner");
 
     assertThat(timeline.beats()).hasSize(2);
-    assertThat(timeline.readyForRender()).isFalse();
-    assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
+    assertThat(timeline.beats().getFirst().startMs()).isZero();
+    assertThat(timeline.beats().getLast().endMs()).isEqualTo(10_000L);
+    assertThat(timeline.readyForRender()).isTrue();
+    assertThat(timeline.chapters().getFirst().readyForRender()).isTrue();
   }
 
   @Test
