@@ -125,6 +125,7 @@ async def materialize_storyboard(
                 beat.visual_intent,
                 legacy_camera_movement(beat.visual_direction),
                 legacy_camera_angle(beat.visual_direction),
+                beat.visual_direction.model_dump_json(),
             )
             for scene_index, scene in enumerate(result.scenes)
             for beat_index, beat in enumerate(scene.visual_beats)
@@ -135,13 +136,15 @@ async def materialize_storyboard(
                 """
                 INSERT INTO visual_beats
                   (scene_id, order_index, title, visual_intent, motion_mode,
-                   camera_movement, camera_angle, review_status)
+                   camera_movement, camera_angle, visual_direction_json, review_status)
                 SELECT source.scene_id, source.order_index, source.title, source.visual_intent,
-                       'STILL', source.camera_movement, source.camera_angle, 'NEEDS_REVIEW'
+                       'STILL', source.camera_movement, source.camera_angle,
+                       source.visual_direction_json, 'NEEDS_REVIEW'
                   FROM UNNEST(
-                       $1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[])
+                       $1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[],
+                       $7::text[])
                        AS source(scene_id, order_index, title, visual_intent,
-                                 camera_movement, camera_angle)
+                                 camera_movement, camera_angle, visual_direction_json)
                  ORDER BY source.scene_id, source.order_index
                 RETURNING id, scene_id, order_index
                 """,
@@ -151,6 +154,7 @@ async def materialize_storyboard(
                 [row[3] for row in beat_rows],
                 [row[4] for row in beat_rows],
                 [row[5] for row in beat_rows],
+                [row[6] for row in beat_rows],
             )
             beat_ids = {
                 (row["scene_id"], row["order_index"]): row["id"] for row in inserted_beats
