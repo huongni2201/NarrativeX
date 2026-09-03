@@ -1,6 +1,7 @@
 import type { EffectiveDesktopPreferences, DesktopPreferencesStore } from "../preferences/desktop-preferences.ts";
 import type { GeminiBrowserProfile } from "./gemini-browser-registry.ts";
 import { GeminiBrowserStorage } from "./gemini-browser-storage.ts";
+import { GeminiAdaptiveConcurrency } from "./gemini-concurrency-policy.ts";
 import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
 import type {
   GeminiPoolGenerationResult,
@@ -34,10 +35,7 @@ export interface GeminiBrowserHostLike {
 export interface GeminiBrowserPreferenceStore {
   get(): Promise<EffectiveDesktopPreferences>;
   addGeminiBrowser(): Promise<EffectiveDesktopPreferences>;
-  setGeminiBrowserLoginConfirmed(
-    browserId: string,
-    loginConfirmed: boolean,
-  ): Promise<EffectiveDesktopPreferences>;
+  setGeminiBrowserLoginConfirmed(browserId: string, loginConfirmed: boolean): Promise<EffectiveDesktopPreferences>;
   removeGeminiBrowser(browserId: string): Promise<EffectiveDesktopPreferences>;
 }
 
@@ -48,16 +46,8 @@ export type GeminiBrowserHostFactory = (input: {
   getTabCounts: () => Promise<{ characterTabs: number; storyboardTabs: number }>;
 }) => GeminiBrowserHostLike;
 
-type GlobalLaneState = {
-  capacity: number;
-  activeLeases: number;
-  pool: GeminiWebSlotPool<null>;
-};
-
-type BrowserTabCounts = {
-  characterTabs: number;
-  storyboardTabs: number;
-};
+type GlobalLaneState = { capacity: number; activeLeases: number; pool: GeminiWebSlotPool<null> };
+type BrowserTabCounts = { characterTabs: number; storyboardTabs: number };
 
 function distributedShare(total: number, index: number, browserCount: number): number {
   if (browserCount <= 0 || index < 0 || index >= browserCount) return 0;
@@ -65,10 +55,7 @@ function distributedShare(total: number, index: number, browserCount: number): n
   return base + (index < total % browserCount ? 1 : 0);
 }
 
-function tabCountsForBrowser(
-  preferences: EffectiveDesktopPreferences,
-  browserId: string,
-): BrowserTabCounts {
+function tabCountsForBrowser(preferences: EffectiveDesktopPreferences, browserId: string): BrowserTabCounts {
   const confirmed = preferences.gemini.browsers.filter((browser) => browser.loginConfirmed);
   const index = confirmed.findIndex((browser) => browser.id === browserId);
   if (index < 0) return { characterTabs: 0, storyboardTabs: 0 };
@@ -82,6 +69,7 @@ export class GeminiBrowserPool {
   private readonly storage: GeminiBrowserStorage;
   private readonly hosts = new Map<string, GeminiBrowserHostLike>();
   private readonly laneStates = new Map<GeminiWebLane, GlobalLaneState>();
+  private readonly concurrencyPolicies = new Map<GeminiWebLane, GeminiAdaptiveConcurrency>();
   private readonly roundRobinCursor = new Map<GeminiWebLane, number>();
   private activeUserId: string | null = null;
 
@@ -120,10 +108,7 @@ export class GeminiBrowserPool {
     await host.open();
   }
 
-  async setLoginConfirmed(
-    browserId: string,
-    loginConfirmed: boolean,
-  ): Promise<GeminiBrowserView[]> {
+  async setLoginConfirmed(browserId: string, loginConfirmed: boolean): Promise<GeminiBrowserView[]> {
     await this.ensureUserContext();
     await this.preferences.setGeminiBrowserLoginConfirmed(browserId, loginConfirmed);
     return this.list();
@@ -145,9 +130,7 @@ export class GeminiBrowserPool {
 
   async remove(browserId: string): Promise<GeminiBrowserView[]> {
     const preferences = await this.ensureUserContext();
-    if (preferences.gemini.browsers.length <= 1) {
-      throw new Error("At least one Gemini browser must remain.");
-    }
+    if (preferences.gemini.browsers.length <= 1) throw new Error("At least one Gemini browser must remain.");
     const host = this.requireExistingHost(browserId);
     if (host.activeLeaseCount() > 0) {
       throw new Error("This Gemini browser is generating an image. Wait for its active generation to finish before removing it.");
@@ -165,17 +148,20 @@ export class GeminiBrowserPool {
     references: readonly GeminiPoolReferenceFile[] = [],
   ): Promise<GeminiPoolGenerationResult> {
     const preferences = await this.ensureUserContext();
-    const capacity = lane === "CHARACTER"
-      ? preferences.gemini.characterTabs
-      : preferences.gemini.storyboardTabs;
-    const state = this.globalLanePool(lane, capacity);
+    const configuredCapacity = lane === "CHARACTER" ? preferences.gemini.characterTabs : preferences.gemini.storyboardTabs;
+    const concurrency = this.concurrencyPolicy(lane);
+    const effectiveCapacity = concurrency.capacity(configuredCapacity);
+    const state = this.globalLanePool(lane, effectiveCapacity);
     const lease = await state.pool.acquire();
     state.activeLeases += 1;
     try {
       const host = this.selectConfirmedHost(lane, preferences);
       try {
-        return await host.generateImage(lane, prompt, references);
+        const result = await host.generateImage(lane, prompt, references);
+        concurrency.recordSuccess(configuredCapacity);
+        return result;
       } catch (error) {
+        concurrency.recordFailure(error);
         if (error instanceof Error && error.name === "GEMINI_AUTH_REQUIRED") {
           await this.preferences.setGeminiBrowserLoginConfirmed(host.browserId, false);
         }
@@ -191,6 +177,7 @@ export class GeminiBrowserPool {
     const hosts = [...this.hosts.values()];
     this.hosts.clear();
     this.laneStates.clear();
+    this.concurrencyPolicies.clear();
     this.roundRobinCursor.clear();
     this.activeUserId = null;
     await Promise.allSettled(hosts.map((host) => host.stop()));
@@ -202,6 +189,7 @@ export class GeminiBrowserPool {
       const previousHosts = [...this.hosts.values()];
       this.hosts.clear();
       this.laneStates.clear();
+      this.concurrencyPolicies.clear();
       this.roundRobinCursor.clear();
       await Promise.allSettled(previousHosts.map((host) => host.stop()));
       this.activeUserId = preferences.userId;
@@ -213,24 +201,14 @@ export class GeminiBrowserPool {
 
   private syncHosts(preferences: EffectiveDesktopPreferences): void {
     const liveIds = new Set(preferences.gemini.browsers.map((browser) => browser.id));
-    for (const browserId of this.hosts.keys()) {
-      if (!liveIds.has(browserId)) this.hosts.delete(browserId);
-    }
+    for (const browserId of this.hosts.keys()) if (!liveIds.has(browserId)) this.hosts.delete(browserId);
     for (const browser of preferences.gemini.browsers) {
       if (this.hosts.has(browser.id)) continue;
       const rootDirectory = this.storage.browserRoot(preferences.userId, browser.id);
-      const getTabCounts = async () => {
-        const current = await this.preferences.get();
-        return tabCountsForBrowser(current, browser.id);
-      };
+      const getTabCounts = async () => tabCountsForBrowser(await this.preferences.get(), browser.id);
       this.hosts.set(
         browser.id,
-        this.createHost({
-          userId: preferences.userId,
-          browser,
-          rootDirectory,
-          getTabCounts,
-        }),
+        this.createHost({ userId: preferences.userId, browser, rootDirectory, getTabCounts }),
       );
     }
   }
@@ -246,29 +224,27 @@ export class GeminiBrowserPool {
     return host;
   }
 
+  private concurrencyPolicy(lane: GeminiWebLane): GeminiAdaptiveConcurrency {
+    const current = this.concurrencyPolicies.get(lane);
+    if (current) return current;
+    const created = new GeminiAdaptiveConcurrency();
+    this.concurrencyPolicies.set(lane, created);
+    return created;
+  }
+
   private globalLanePool(lane: GeminiWebLane, capacity: number): GlobalLaneState {
     const current = this.laneStates.get(lane);
     if (current && (current.capacity === capacity || current.activeLeases > 0)) return current;
-    const next: GlobalLaneState = {
-      capacity,
-      activeLeases: 0,
-      pool: new GeminiWebSlotPool<null>(capacity, () => null),
-    };
+    const next: GlobalLaneState = { capacity, activeLeases: 0, pool: new GeminiWebSlotPool<null>(capacity, () => null) };
     this.laneStates.set(lane, next);
     return next;
   }
 
-  private selectConfirmedHost(
-    lane: GeminiWebLane,
-    preferences: EffectiveDesktopPreferences,
-  ): GeminiBrowserHostLike {
+  private selectConfirmedHost(lane: GeminiWebLane, preferences: EffectiveDesktopPreferences): GeminiBrowserHostLike {
     const confirmed = preferences.gemini.browsers.filter((browser) => browser.loginConfirmed);
     if (!confirmed.length) {
-      throw new Error(
-        "No Gemini browser is marked as signed in. Open Desktop Settings, open a browser, sign in to Google, then confirm that it is logged in.",
-      );
+      throw new Error("No Gemini browser is marked as signed in. Open Desktop Settings, open a browser, sign in to Google, then confirm that it is logged in.");
     }
-
     const eligible = confirmed
       .map((browser) => {
         const host = this.requireExistingHost(browser.id);
@@ -277,7 +253,7 @@ export class GeminiBrowserPool {
         return { host, load: host.activeLeaseCount(), quota };
       })
       .filter((candidate) => candidate.quota > 0);
-
+    if (!eligible.length) throw new Error(`No configured Gemini ${lane.toLowerCase()} tab is available.`);
     const minimumLoad = Math.min(...eligible.map((candidate) => candidate.load));
     const leastActive = eligible.filter((candidate) => candidate.load === minimumLoad);
     const cursor = this.roundRobinCursor.get(lane) ?? 0;
