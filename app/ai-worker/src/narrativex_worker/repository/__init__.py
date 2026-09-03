@@ -17,6 +17,10 @@ from narrativex_worker.repository.implementation import (
     WorkerRepository as WorkerRepositoryImplementation,
 )
 from narrativex_worker.schema import ChapterAnalysisResult
+from narrativex_worker.visual_density import (
+    ChapterAnalysisPlanningRequest,
+    bind_planning_duration,
+)
 
 
 class WorkerRepository(WorkerRepositoryImplementation):
@@ -33,6 +37,7 @@ class WorkerRepository(WorkerRepositoryImplementation):
         claimed = await super().claim_next(claim_owner)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         if claimed is None:
+            bind_planning_duration(None)
             return None
         return await self._hydrate_analysis_preferences(claimed)
 
@@ -42,9 +47,19 @@ class WorkerRepository(WorkerRepositoryImplementation):
         pool = self._require_pool()
         row = await pool.fetchrow(
             """
-            SELECT analysis_visual_generation_mode, analysis_image_provider
-              FROM generation_jobs
-             WHERE id = $1
+            SELECT gj.analysis_visual_generation_mode,
+                   gj.analysis_image_provider,
+                   (
+                       SELECT na.duration_ms
+                         FROM narration_requests nr
+                         JOIN narration_assets na ON na.narration_request_id = nr.id
+                        WHERE nr.chapter_id = gj.chapter_id
+                          AND nr.source_hash = gj.source_hash
+                        ORDER BY nr.created_at DESC, na.created_at DESC, na.id DESC
+                        LIMIT 1
+                   ) AS narration_duration_ms
+              FROM generation_jobs gj
+             WHERE gj.id = $1
             """,
             claimed.generation_job_id,
         )
@@ -62,14 +77,23 @@ class WorkerRepository(WorkerRepositoryImplementation):
         if visual_generation_mode == "IMAGE" and image_provider is None:
             image_provider = "API"
 
+        raw_duration = row.get("narration_duration_ms") if row is not None else None
+        narration_duration_ms = (
+            raw_duration if isinstance(raw_duration, int) and raw_duration > 0 else None
+        )
+        bind_planning_duration(narration_duration_ms)
+
+        request_payload = claimed.request.model_dump(mode="python")
+        request_payload.update(
+            {
+                "visual_generation_mode": visual_generation_mode,
+                "image_provider": image_provider,
+                "narration_duration_ms": narration_duration_ms,
+            }
+        )
         return replace(
             claimed,
-            request=claimed.request.model_copy(
-                update={
-                    "visual_generation_mode": visual_generation_mode,
-                    "image_provider": image_provider,
-                }
-            ),
+            request=ChapterAnalysisPlanningRequest.model_validate(request_payload),
         )
 
     async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:

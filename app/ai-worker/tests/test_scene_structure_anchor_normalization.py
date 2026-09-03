@@ -1,6 +1,5 @@
 from narrativex_worker.chapter_analysis_sharding import SceneStructure
 
-
 ANCHOR_TARGET_CHARS = 200
 
 

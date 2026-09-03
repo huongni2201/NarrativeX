@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -122,6 +123,16 @@ def _beats(
     )
 
 
+def _prompt_count(prompt: str, name: str) -> int:
+    match = re.search(rf"{name}=(\d+)", prompt)
+    assert match is not None
+    return int(match.group(1))
+
+
+def _target_beats(prompt: str) -> int:
+    return _prompt_count(prompt, "TARGET_VISUAL_BEATS")
+
+
 def test_structured_validation_diagnostic_does_not_include_exception_message() -> None:
     reason = VertexGeminiProvider._safe_exception_reason(
         ValueError("SECRET_STORY_FRAGMENT must not enter logs")
@@ -145,10 +156,11 @@ async def test_invalid_source_anchor_gets_full_replacement_repair() -> None:
         if model is ChapterStructureResult:
             return _structure(), _billing(), "structure"
         shard_calls += 1
+        count = _target_beats(prompt)
         if shard_calls == 1:
-            return _beats("NOT_IN_SHARD", 10), _billing(), "invalid-anchor"
+            return _beats("NOT_IN_SHARD", count), _billing(), "invalid-anchor"
         assert "repair" in prompt.lower()
-        return _beats("word", 10), _billing(), "repaired-anchor"
+        return _beats("word", count), _billing(), "repaired-anchor"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
 
@@ -173,9 +185,10 @@ async def test_over_dense_shard_gets_full_replacement_repair() -> None:
             return _structure(), _billing(), "structure"
         shard_calls += 1
         if shard_calls == 1:
-            return _beats("word", 21), _billing(), "over-dense"
+            count = _prompt_count(prompt, "MAX_VISUAL_BEATS") + 1
+            return _beats("word", count), _billing(), "over-dense"
         assert "repair" in prompt.lower()
-        return _beats("word", 10), _billing(), "repaired-density"
+        return _beats("word", _target_beats(prompt)), _billing(), "repaired-density"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
 
@@ -202,7 +215,7 @@ async def test_invalid_structured_shard_output_gets_one_repair() -> None:
         if shard_calls == 1:
             return None, _billing(), "invalid-schema"
         assert "repair" in prompt.lower()
-        return _beats("word", 10), _billing(), "repaired-schema"
+        return _beats("word", _target_beats(prompt)), _billing(), "repaired-schema"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
 
@@ -226,15 +239,16 @@ async def test_beat_character_outside_scene_gets_full_replacement_repair() -> No
         if model is ChapterStructureResult:
             return _character_structure(), _billing(), "structure"
         shard_calls += 1
+        count = _target_beats(prompt)
         if shard_calls == 1:
             return (
-                _beats("word", 10, character_key="other"),
+                _beats("word", count, character_key="other"),
                 _billing(),
                 "wrong-character",
             )
         assert "repair" in prompt.lower()
         return (
-            _beats("word", 10, character_key="lead"),
+            _beats("word", count, character_key="lead"),
             _billing(),
             "repaired-character",
         )
