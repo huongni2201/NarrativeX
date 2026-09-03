@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import uuid
 from decimal import Decimal
 from typing import TypeVar
@@ -22,6 +23,7 @@ from narrativex_worker.chapter_analysis_sharding import (
     VisualBeatShardResult,
     merge_shard_results,
     plan_visual_beat_shards,
+    validate_visual_beat_shard,
 )
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.ports import (
@@ -65,6 +67,7 @@ class VertexGeminiProvider(LlmProvider):
                 f"model; unsupported model={settings.vertex_model}"
             )
         self.settings = settings
+        self.logger = logging.getLogger("narrativex.worker.vertex")
         credentials, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
@@ -83,7 +86,8 @@ class VertexGeminiProvider(LlmProvider):
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         try:
             token = await self._access_token()
-        except VertexProviderError:
+        except VertexProviderError as exception:
+            self.logger.error("Vertex access token acquisition failed: %s", exception)
             return ProviderOperation(
                 provider_key="vertex",
                 operation_id=None,
@@ -102,6 +106,10 @@ class VertexGeminiProvider(LlmProvider):
                 ChapterStructureResult,
             )
             if structure is None:
+                self.logger.error(
+                    "Vertex chapter structure response failed validation responseId=%s",
+                    response_id,
+                )
                 return ProviderOperation(
                     provider_key="vertex",
                     operation_id=response_id,
@@ -116,7 +124,12 @@ class VertexGeminiProvider(LlmProvider):
                     target_beats=self.settings.vertex_analysis_shard_target_beats,
                     max_beats=self.settings.vertex_analysis_shard_max_beats,
                 )
-            except ValueError:
+            except ValueError as exception:
+                self.logger.error(
+                    "Vertex chapter shard planning failed responseId=%s reason=%s",
+                    response_id,
+                    self._safe_exception_reason(exception),
+                )
                 return ProviderOperation(
                     provider_key="vertex",
                     operation_id=response_id,
@@ -134,13 +147,19 @@ class VertexGeminiProvider(LlmProvider):
                     VisualBeatShardResult,
                 )
                 billings = [billing]
-                if result is None:
-                    return shard, None, billings, shard_response_id
+                reason = self._shard_validation_error(structure, shard, result)
 
-                for _ in range(self.settings.vertex_analysis_repair_attempts):
-                    missing = shard.minimum_beats - len(result.visual_beats)
-                    if missing <= 0:
+                for repair_attempt in range(1, self.settings.vertex_analysis_repair_attempts + 1):
+                    if reason is None:
                         break
+                    self.logger.warning(
+                        "Vertex shard validation failed scene=%s shard=%s reason=%s "
+                        "repairAttempt=%s",
+                        shard.scene_index,
+                        shard.shard_index,
+                        reason,
+                        repair_attempt,
+                    )
                     repaired, repair_billing, repair_response_id = (
                         await self._bounded_generate_structured(
                             client,
@@ -149,16 +168,26 @@ class VertexGeminiProvider(LlmProvider):
                                 request,
                                 structure,
                                 shard,
-                                missing_count=missing,
+                                repair_reason=reason,
                             ),
                             VisualBeatShardResult,
                         )
                     )
                     billings.append(repair_billing)
                     shard_response_id = repair_response_id
-                    if repaired is None:
-                        return shard, None, billings, shard_response_id
                     result = repaired
+                    reason = self._shard_validation_error(structure, shard, result)
+
+                if reason is not None:
+                    self.logger.error(
+                        "Vertex shard rejected after repair scene=%s shard=%s reason=%s "
+                        "responseId=%s",
+                        shard.scene_index,
+                        shard.shard_index,
+                        reason,
+                        shard_response_id,
+                    )
+                    return shard, None, billings, shard_response_id
                 return shard, result, billings, shard_response_id
 
             tasks = [asyncio.create_task(generate(shard)) for shard in shards]
@@ -188,7 +217,12 @@ class VertexGeminiProvider(LlmProvider):
 
         try:
             merged = merge_shard_results(structure, shards, results)
-        except ValueError:
+        except ValueError as exception:
+            self.logger.error(
+                "Vertex chapter merge failed responseId=%s reason=%s",
+                final_response_id,
+                self._safe_exception_reason(exception),
+            )
             return ProviderOperation(
                 provider_key="vertex",
                 operation_id=final_response_id,
@@ -203,6 +237,31 @@ class VertexGeminiProvider(LlmProvider):
             result=merged,
             billing=self._merge_billings(all_billings),
         )
+
+    @staticmethod
+    def _shard_validation_error(
+        structure: ChapterStructureResult,
+        shard: VisualBeatShard,
+        result: VisualBeatShardResult | None,
+    ) -> str | None:
+        if result is None:
+            return "invalid structured shard output"
+        scene = structure.scenes[shard.scene_index]
+        allowed_character_keys = {ref.character_key for ref in scene.characters}
+        try:
+            validate_visual_beat_shard(
+                shard,
+                result,
+                allowed_character_keys=allowed_character_keys,
+            )
+        except ValueError as exception:
+            return str(exception)
+        return None
+
+    @staticmethod
+    def _safe_exception_reason(exception: BaseException) -> str:
+        """Return a diagnostic label without serializing model input or story content."""
+        return type(exception).__name__
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
         return operation
@@ -266,16 +325,33 @@ class VertexGeminiProvider(LlmProvider):
                 f"Vertex returned HTTP {response.status_code}; execution outcome is unknown"
             )
         if response.is_error:
+            self.logger.error(
+                "Vertex structured request failed httpStatus=%s responseId=%s model=%s",
+                response.status_code,
+                response_id,
+                model.__name__,
+            )
             return None, self._zero_billing(), response_id
 
         billing = self._billing(raw)
         text = self._candidate_text(raw)
         if text is None:
+            self.logger.error(
+                "Vertex response missing candidate text responseId=%s model=%s",
+                response_id,
+                model.__name__,
+            )
             return None, billing, response_id
         try:
             parsed = json.loads(text)
             return model.model_validate(parsed), billing, response_id
-        except (TypeError, ValueError, json.JSONDecodeError):
+        except (TypeError, ValueError, json.JSONDecodeError) as exception:
+            self.logger.warning(
+                "Vertex structured response validation failed responseId=%s model=%s reason=%s",
+                response_id,
+                model.__name__,
+                self._safe_exception_reason(exception),
+            )
             return None, billing, response_id
 
     def _billing(self, raw: dict[str, object]) -> ProviderBilling:

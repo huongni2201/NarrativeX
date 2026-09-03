@@ -41,15 +41,25 @@ class ChapterStructureResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_references(self) -> ChapterStructureResult:
-        character_keys = {character.key for character in self.characters}
-        location_keys = {location.key for location in self.locations}
+        character_keys = [character.key for character in self.characters]
+        location_keys = [location.key for location in self.locations]
+        if len(character_keys) != len(set(character_keys)):
+            raise ValueError("character keys must be unique")
+        if len(location_keys) != len(set(location_keys)):
+            raise ValueError("location keys must be unique")
+
+        known_character_keys = set(character_keys)
+        known_location_keys = set(location_keys)
         for scene_index, scene in enumerate(self.scenes):
-            for ref in scene.characters:
-                if ref.character_key not in character_keys:
+            scene_character_keys = [ref.character_key for ref in scene.characters]
+            if len(scene_character_keys) != len(set(scene_character_keys)):
+                raise ValueError(f"scene {scene_index} contains duplicate character references")
+            for character_key in scene_character_keys:
+                if character_key not in known_character_keys:
                     raise ValueError(
-                        f"scene {scene_index} references unknown character_key {ref.character_key!r}"
+                        f"scene {scene_index} references unknown character_key {character_key!r}"
                     )
-            if scene.location_key is not None and scene.location_key not in location_keys:
+            if scene.location_key is not None and scene.location_key not in known_location_keys:
                 raise ValueError(
                     f"scene {scene_index} references unknown location_key {scene.location_key!r}"
                 )
@@ -135,6 +145,42 @@ def plan_visual_beat_shards(
     return shards
 
 
+def validate_visual_beat_shard(
+    shard: VisualBeatShard,
+    result: VisualBeatShardResult,
+    *,
+    allowed_character_keys: set[str] | None = None,
+) -> None:
+    """Validate a shard result before it is admitted into the chapter merge."""
+    key = (shard.scene_index, shard.shard_index)
+    beat_count = len(result.visual_beats)
+    if beat_count < shard.minimum_beats:
+        raise ValueError(
+            f"shard {key} is under-dense: expected at least {shard.minimum_beats}, "
+            f"received {beat_count}"
+        )
+    if beat_count > shard.maximum_beats:
+        raise ValueError(
+            f"shard {key} is over-dense: expected at most {shard.maximum_beats}, "
+            f"received {beat_count}"
+        )
+    _validate_shard_anchors(shard, result)
+
+    if allowed_character_keys is not None:
+        for beat_index, beat in enumerate(result.visual_beats):
+            beat_character_keys = [ref.character_key for ref in beat.characters]
+            if len(beat_character_keys) != len(set(beat_character_keys)):
+                raise ValueError(
+                    f"visual beat {beat_index} contains duplicate character references"
+                )
+            for character_key in beat_character_keys:
+                if character_key not in allowed_character_keys:
+                    raise ValueError(
+                        f"visual beat {beat_index} references character_key {character_key!r} "
+                        "that is not present in the scene"
+                    )
+
+
 def merge_shard_results(
     structure: ChapterStructureResult,
     shards: list[VisualBeatShard],
@@ -148,18 +194,13 @@ def merge_shard_results(
         result = results.get(key)
         if result is None:
             raise ValueError(f"missing visual beat result for shard {key}")
-        beat_count = len(result.visual_beats)
-        if beat_count < shard.minimum_beats:
-            raise ValueError(
-                f"shard {key} is under-dense: expected at least {shard.minimum_beats}, "
-                f"received {beat_count}"
-            )
-        if beat_count > shard.maximum_beats:
-            raise ValueError(
-                f"shard {key} is over-dense: expected at most {shard.maximum_beats}, "
-                f"received {beat_count}"
-            )
-        _validate_shard_anchors(shard, result)
+        scene = structure.scenes[shard.scene_index]
+        allowed_character_keys = {ref.character_key for ref in scene.characters}
+        validate_visual_beat_shard(
+            shard,
+            result,
+            allowed_character_keys=allowed_character_keys,
+        )
         by_scene[shard.scene_index].extend(result.visual_beats)
         source_by_scene[shard.scene_index].append(shard.source_text)
 
