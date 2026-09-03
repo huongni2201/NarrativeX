@@ -37,7 +37,7 @@ class ImageAspectRatio(StrEnum):
 
 
 class ImageQualityTier(StrEnum):
-    """Legacy provider/storage boundary; active product settings no longer expose this choice."""
+    """Legacy provider/storage boundary; active product settings always resolve best quality."""
 
     DRAFT = "DRAFT"
     STANDARD = "STANDARD"
@@ -110,7 +110,7 @@ class ModerationDecision(StrEnum):
 
 
 class ImageGenerationSettings(BaseModel):
-    """Provider-neutral image settings; image generation always uses the best quality path."""
+    """Provider-neutral settings; image generation always uses the best-quality active path."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -118,7 +118,7 @@ class ImageGenerationSettings(BaseModel):
     source: str = Field(default="PROJECT_DEFAULT", pattern=r"^(PROJECT_DEFAULT|BEAT_OVERRIDE)$")
 
 
-class VisualDirectionV3(BaseModel):
+class VisualDirection(BaseModel):
     """Structured, provider-neutral direction for one storyboard frame and its subtle motion."""
 
     model_config = ConfigDict(extra="forbid")
@@ -150,6 +150,8 @@ class VisualDirectionV3(BaseModel):
             MovementDirection.DOWN,
         }:
             raise ValueError("TILT requires UP or DOWN movement_direction")
+        if self.camera_movement not in {CameraMovement.PAN, CameraMovement.TILT}:
+            self.movement_direction = None
         return self
 
 
@@ -194,7 +196,7 @@ class VisualBeatAnalysis(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     visual_intent: str = Field(min_length=1, max_length=8000)
     source_anchor: str = Field(min_length=1, max_length=2000)
-    visual_direction: VisualDirectionV3
+    visual_direction: VisualDirection
     characters: list[VisualBeatCharacterRef] = Field(default_factory=list)
 
 
