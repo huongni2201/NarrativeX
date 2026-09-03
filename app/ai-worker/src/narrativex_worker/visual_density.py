@@ -10,8 +10,11 @@ from pydantic import Field
 from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 
 _WORD_PATTERN = re.compile(r"\w+", re.UNICODE)
-# Conservative pre-narration estimate. Actual narration duration is preferred whenever available.
+# Generic legacy estimate used by callers without an analysis planning request.
 _NARRATION_WORDS_PER_MINUTE = 100
+# Vietnamese source tokenization is whitespace/syllable-like rather than English-word-like.
+# This planning default remains overrideable on the request and scales with text length.
+DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE = 250
 TARGET_VISUAL_BEAT_MS = 7_500
 HARD_MAX_VISUAL_BEAT_MS = 10_000
 MAX_VISUAL_BEATS_OVER_TARGET_RATIO = 1.15
@@ -21,14 +24,26 @@ _ANALYSIS_PLANNING_DURATION_MS: ContextVar[int | None] = ContextVar(
 
 
 class ChapterAnalysisPlanningRequest(ChapterAnalysisRequest):
-    """Chapter request enriched with a duration snapshot used consistently by one analysis job."""
+    """Chapter request enriched with the duration policy snapshot for one analysis job."""
 
     narration_duration_ms: int | None = Field(default=None, gt=0)
+    text_units_per_minute: int = Field(
+        default=DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE,
+        ge=60,
+        le=600,
+    )
 
 
 def bind_planning_duration(duration_ms: int | None) -> None:
     """Bind a claim's narration snapshot so the processing task inherits the same duration."""
     _ANALYSIS_PLANNING_DURATION_MS.set(duration_ms if duration_ms and duration_ms > 0 else None)
+
+
+def _estimate_from_text(source_text: str, *, units_per_minute: int) -> int:
+    if units_per_minute <= 0:
+        raise ValueError("units_per_minute must be positive")
+    unit_count = max(1, len(_WORD_PATTERN.findall(source_text)))
+    return max(1_000, round(unit_count * 60_000 / units_per_minute))
 
 
 def estimated_narration_duration_ms(
@@ -39,26 +54,33 @@ def estimated_narration_duration_ms(
     bound_duration = _ANALYSIS_PLANNING_DURATION_MS.get()
     if isinstance(bound_duration, int) and bound_duration > 0:
         return bound_duration
-    if words_per_minute <= 0:
-        raise ValueError("words_per_minute must be positive")
-    word_count = max(1, len(_WORD_PATTERN.findall(source_text)))
-    return max(1_000, round(word_count * 60_000 / words_per_minute))
+    return _estimate_from_text(source_text, units_per_minute=words_per_minute)
 
 
 def planning_duration_ms(request: ChapterAnalysisRequest) -> int:
-    """Prefer the narration snapshot captured for this source, else estimate from source text."""
+    """Prefer captured audio duration; otherwise estimate from text using request policy."""
     narration_duration = getattr(request, "narration_duration_ms", None)
     if isinstance(narration_duration, int) and narration_duration > 0:
         return narration_duration
-    return estimated_narration_duration_ms(request.source_text)
+    units_per_minute = getattr(
+        request,
+        "text_units_per_minute",
+        DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE,
+    )
+    if not isinstance(units_per_minute, int):
+        units_per_minute = DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE
+    return _estimate_from_text(request.source_text, units_per_minute=units_per_minute)
 
 
 def current_planning_duration_ms(source_text: str) -> int:
-    """Resolve the task-local narration duration, falling back to source-based estimation."""
+    """Resolve task-local audio duration, falling back to analysis text pacing."""
     narration_duration = _ANALYSIS_PLANNING_DURATION_MS.get()
     if isinstance(narration_duration, int) and narration_duration > 0:
         return narration_duration
-    return estimated_narration_duration_ms(source_text)
+    return _estimate_from_text(
+        source_text,
+        units_per_minute=DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE,
+    )
 
 
 def minimum_visual_beats(
