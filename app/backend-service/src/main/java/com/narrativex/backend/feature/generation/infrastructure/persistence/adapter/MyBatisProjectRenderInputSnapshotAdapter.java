@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.ProjectRenderInputSnapshotRepository;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
+import com.narrativex.backend.feature.generation.application.render.ProjectRenderProfileFactory;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProjectRenderInputSnapshotMapper;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class MyBatisProjectRenderInputSnapshotAdapter
     if (fps != 30 && fps != 60) {
       throw new IllegalArgumentException("Project render fps must be 30 or 60");
     }
+    String renderProfileJson = ProjectRenderProfileFactory.create(fps, subtitlesEnabled);
     if (mapper.insertHeader(
             generationJobId,
             timeline,
@@ -39,15 +41,10 @@ public class MyBatisProjectRenderInputSnapshotAdapter
             format,
             assignedLocalDeviceId,
             timeline.chapters().size(),
-            timeline.beats().size())
+            timeline.beats().size(),
+            renderProfileJson)
         != 1) {
       throw new IllegalStateException("Project render snapshot header was not inserted");
-    }
-    if (mapper.updateFrameRate(generationJobId, fps) != 1) {
-      throw new IllegalStateException("Project render frame rate was not persisted");
-    }
-    if (mapper.updateSubtitleMode(generationJobId, subtitlesEnabled ? "burn_in" : "none") != 1) {
-      throw new IllegalStateException("Project render subtitle mode was not persisted");
     }
     for (ProductionTimelineView.Chapter chapter : timeline.chapters()) {
       if (!chapter.readyForRender()) {
