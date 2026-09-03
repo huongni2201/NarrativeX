@@ -7,38 +7,16 @@
     INSERT INTO project_render_input_snapshots (
       generation_job_id, project_id, story_version_id, resolution, render_format,
       aspect_ratio, total_duration_ms, assigned_local_device_id,
-      chapter_count, beat_count
+      chapter_count, beat_count, render_profile_json
     ) VALUES (
       #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{timeline.projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{timeline.storyVersionId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{resolution}, #{format}, #{timeline.aspectRatio}, #{timeline.totalDurationMs},
       #{assignedLocalDeviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
-      #{chapterCount}, #{beatCount}
+      #{chapterCount}, #{beatCount}, CAST(#{renderProfileJson} AS jsonb)
     )
   </insert>
-
-  <update id="updateFrameRate">
-    UPDATE project_render_input_snapshots
-       SET render_profile_json = jsonb_set(
-         render_profile_json,
-         '{fps}',
-         to_jsonb(CAST(#{fps} AS INTEGER)),
-         TRUE
-       )
-     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-  </update>
-
-  <update id="updateSubtitleMode">
-    UPDATE project_render_input_snapshots
-       SET render_profile_json = jsonb_set(
-         render_profile_json,
-         '{subtitles,mode}',
-         to_jsonb(CAST(#{subtitleMode} AS TEXT)),
-         TRUE
-       )
-     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-  </update>
 
   <insert id="insertChapter">
     INSERT INTO project_render_input_chapters (
