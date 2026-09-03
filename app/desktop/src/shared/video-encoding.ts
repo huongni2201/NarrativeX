@@ -8,14 +8,6 @@ export interface VideoQualityProfile {
   pixelFormat: "yuv420p";
 }
 
-export const LEGACY_VIDEO_QUALITY: VideoQualityProfile = Object.freeze({
-  x264Preset: "veryfast",
-  crf: 20,
-  nvencPreset: "p5",
-  nvencCq: 21,
-  pixelFormat: "yuv420p",
-});
-
 export const V2_VIDEO_QUALITY: VideoQualityProfile = Object.freeze({
   x264Preset: "medium",
   crf: 18,
