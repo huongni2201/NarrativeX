@@ -27,12 +27,8 @@ public record MediaPlanningSource(
       List<BeatSnapshot> beats) {
     public SceneSnapshot {
       Objects.requireNonNull(sceneId, "sceneId");
-      if (orderIndex < 0) {
-        throw new IllegalArgumentException("orderIndex must not be negative");
-      }
-      if (durationSeconds != null && durationSeconds < 0) {
-        throw new IllegalArgumentException("durationSeconds must not be negative");
-      }
+      if (orderIndex < 0) throw new IllegalArgumentException("orderIndex must not be negative");
+      if (durationSeconds != null && durationSeconds < 0) throw new IllegalArgumentException("durationSeconds must not be negative");
       beats = List.copyOf(Objects.requireNonNull(beats, "beats"));
     }
   }
@@ -46,7 +42,6 @@ public record MediaPlanningSource(
       String cameraMovement,
       String cameraAngle,
       String aspectRatioOverride,
-      String qualityTierOverride,
       Long audioStartMs,
       Long audioEndMs) {
     public BeatSnapshot(
@@ -61,44 +56,13 @@ public record MediaPlanningSource(
           "MEDIUM",
           null,
           null,
-          null,
           null);
-    }
-
-    /** Backward-compatible constructor for callers created before cameraAngle became structured. */
-    public BeatSnapshot(
-        UUID visualBeatId,
-        int orderIndex,
-        String visualIntent,
-        MotionIntent motionIntent,
-        String reviewStatus,
-        String cameraMovement,
-        String aspectRatioOverride,
-        String qualityTierOverride,
-        Long audioStartMs,
-        Long audioEndMs) {
-      this(
-          visualBeatId,
-          orderIndex,
-          visualIntent,
-          motionIntent,
-          reviewStatus,
-          cameraMovement,
-          "MEDIUM",
-          aspectRatioOverride,
-          qualityTierOverride,
-          audioStartMs,
-          audioEndMs);
     }
 
     public BeatSnapshot {
       Objects.requireNonNull(visualBeatId, "visualBeatId");
-      if (orderIndex < 0) {
-        throw new IllegalArgumentException("orderIndex must not be negative");
-      }
-      if (visualIntent == null || visualIntent.isBlank()) {
-        throw new IllegalArgumentException("visualIntent must not be blank");
-      }
+      if (orderIndex < 0) throw new IllegalArgumentException("orderIndex must not be negative");
+      if (visualIntent == null || visualIntent.isBlank()) throw new IllegalArgumentException("visualIntent must not be blank");
       Objects.requireNonNull(motionIntent, "motionIntent");
       cameraAngle = cameraAngle == null || cameraAngle.isBlank() ? "MEDIUM" : cameraAngle;
     }
