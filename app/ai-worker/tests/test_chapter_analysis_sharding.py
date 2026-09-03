@@ -104,6 +104,23 @@ def test_long_scene_targets_about_twelve_beats_without_exceeding_max() -> None:
     assert max(shard.target_beats for shard in scene_zero) <= 14
 
 
+def test_audio_duration_controls_global_visual_beat_budget() -> None:
+    source = _scene_source("ALPHA", 900) + "\n\n" + _scene_source("BETA", 900)
+    shards = plan_visual_beat_shards(
+        source,
+        _structure(source),
+        target_beats=12,
+        max_beats=20,
+        planning_duration_ms=240_000,
+        target_visual_beat_ms=7_500,
+        hard_max_visual_beat_ms=10_000,
+        max_over_target_ratio=1.15,
+    )
+
+    assert sum(shard.target_beats for shard in shards) == 32
+    assert sum(shard.maximum_beats for shard in shards) <= 37
+
+
 def test_merge_rejects_visual_beat_anchor_outside_its_shard() -> None:
     source = _scene_source("ALPHA", 40) + "\n\n" + _scene_source("BETA", 40)
     structure = _structure(source)
