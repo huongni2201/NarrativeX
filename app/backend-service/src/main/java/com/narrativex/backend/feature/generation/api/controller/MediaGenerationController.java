@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaJobDetailsResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
+import com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.usecase.CreateMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.EstimateMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetCurrentMediaJobUseCase;
@@ -58,7 +59,6 @@ public class MediaGenerationController {
                 idempotencyKey,
                 request.productionMode(),
                 request.aspectRatio(),
-                request.qualityTier(),
                 request.maxAuthorizedCost(),
                 ImageStyle.from(request.imageStyle()),
                 request.effectiveVisualGenerationMode(),
@@ -74,9 +74,7 @@ public class MediaGenerationController {
       @Valid @RequestBody EstimateMediaJobRequest request) {
     requireMediaGenerationEnabled();
     return ResponseEntity.ok(
-        estimateMediaJobUseCase.execute(
-            new com.narrativex.backend.feature.generation.application.command
-                .EstimateMediaJobCommand(projectId, chapterId, request.qualityTier())));
+        estimateMediaJobUseCase.execute(new EstimateMediaJobCommand(projectId, chapterId)));
   }
 
   @GetMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs/current")
