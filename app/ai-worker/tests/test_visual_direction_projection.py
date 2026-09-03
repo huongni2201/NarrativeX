@@ -1,11 +1,11 @@
-from narrativex_worker.schema import VisualDirectionV3
+from narrativex_worker.schema import VisualDirection
 from narrativex_worker.visual_prompt.legacy_projection import (
     legacy_camera_angle,
     legacy_camera_movement,
 )
 
 
-def _direction(**overrides: object) -> VisualDirectionV3:
+def _direction(**overrides: object) -> VisualDirection:
     value: dict[str, object] = {
         "shot_size": "MEDIUM_CLOSE_UP",
         "camera_angle": "LOW",
@@ -23,7 +23,7 @@ def _direction(**overrides: object) -> VisualDirectionV3:
         "crop_safe_area": "right edge",
     }
     value.update(overrides)
-    return VisualDirectionV3.model_validate(value)
+    return VisualDirection.model_validate(value)
 
 
 def test_legacy_projection_prefers_explicit_low_high_and_pov_angles() -> None:
