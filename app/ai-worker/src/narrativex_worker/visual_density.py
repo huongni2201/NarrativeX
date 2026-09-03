@@ -10,11 +10,11 @@ from pydantic import Field
 from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 
 _WORD_PATTERN = re.compile(r"\w+", re.UNICODE)
-# Generic legacy estimate used by callers without an analysis planning request.
-_NARRATION_WORDS_PER_MINUTE = 100
-# Vietnamese source tokenization is whitespace/syllable-like rather than English-word-like.
-# This planning default remains overrideable on the request and scales with text length.
+# NarrativeX Vietnamese source tokenization is whitespace/syllable-like rather than
+# English-word-like. This is a pacing policy default, not a fixed beat count: duration
+# and therefore beat budget still scale continuously with source length or real audio.
 DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE = 250
+_NARRATION_WORDS_PER_MINUTE = DEFAULT_ANALYSIS_TEXT_UNITS_PER_MINUTE
 TARGET_VISUAL_BEAT_MS = 7_500
 HARD_MAX_VISUAL_BEAT_MS = 10_000
 MAX_VISUAL_BEATS_OVER_TARGET_RATIO = 1.15
