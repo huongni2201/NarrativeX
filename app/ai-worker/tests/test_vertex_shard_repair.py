@@ -18,6 +18,7 @@ from narrativex_worker.providers.ports import (
 from narrativex_worker.providers.vertex import VertexGeminiProvider
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
+    CharacterAnalysis,
     ProviderOperationStatus,
     VisualBeatAnalysis,
 )
@@ -80,13 +81,32 @@ def _structure() -> ChapterStructureResult:
     )
 
 
-def _beats(anchor: str, count: int) -> VisualBeatShardResult:
+def _character_structure() -> ChapterStructureResult:
+    return ChapterStructureResult(
+        characters=[
+            CharacterAnalysis(key="lead", name="Lead"),
+            CharacterAnalysis(key="other", name="Other"),
+        ],
+        scenes=[
+            SceneStructure(
+                title="Scene",
+                source_start_anchor="BEGIN_WORD",
+                source_end_anchor="END_WORD",
+                characters=[{"character_key": "lead"}],
+            )
+        ],
+    )
+
+
+def _beats(anchor: str, count: int, *, character_key: str | None = None) -> VisualBeatShardResult:
+    characters = [] if character_key is None else [{"character_key": character_key, "role": "PRIMARY"}]
     return VisualBeatShardResult(
         visual_beats=[
             VisualBeatAnalysis(
                 title=f"beat-{index}",
                 visual_intent="grounded",
                 source_anchor=anchor,
+                characters=characters,
             )
             for index in range(count)
         ]
@@ -165,6 +185,33 @@ async def test_invalid_structured_shard_output_gets_one_repair() -> None:
             return None, _billing(), "invalid-schema"
         assert "repair" in prompt.lower()
         return _beats("word", 10), _billing(), "repaired-schema"
+
+    provider._generate_structured = fake_generate  # type: ignore[method-assign]
+
+    operation = await provider.submit(_request(source))
+
+    assert shard_calls == 2
+    assert operation.status is ProviderOperationStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_beat_character_outside_scene_gets_full_replacement_repair() -> None:
+    source = "BEGIN_WORD " + ("word " * 100).strip() + " END_WORD"
+    provider = _provider()
+    shard_calls = 0
+
+    async def fake_generate(
+        client: httpx.AsyncClient, token: str, prompt: str, model: type[object]
+    ):
+        nonlocal shard_calls
+        del client, token
+        if model is ChapterStructureResult:
+            return _character_structure(), _billing(), "structure"
+        shard_calls += 1
+        if shard_calls == 1:
+            return _beats("word", 10, character_key="other"), _billing(), "wrong-character"
+        assert "repair" in prompt.lower()
+        return _beats("word", 10, character_key="lead"), _billing(), "repaired-character"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
 
