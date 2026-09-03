@@ -199,11 +199,11 @@ def _resolve_scene_ranges(
         anchor_starts.append(start)
         search_cursor = start + len(scene.source_start_anchor)
 
-    if source_text[: anchor_starts[0]].strip():
-        raise ValueError("first scene start anchor leaves uncovered non-whitespace source")
-
     ranges: list[tuple[int, int]] = []
     for scene_index, scene in enumerate(structure.scenes):
+        # Start anchors are location hints, not exact coverage boundaries. The first
+        # scene owns any chapter prefix and every following scene begins at its own
+        # start anchor so the complete source is covered exactly once.
         range_start = 0 if scene_index == 0 else anchor_starts[scene_index]
         range_end = (
             anchor_starts[scene_index + 1]
@@ -218,11 +218,6 @@ def _resolve_scene_ranges(
         if end_anchor_start < 0:
             raise ValueError(
                 f"scene {scene_index} source_end_anchor was not found before the next scene"
-            )
-        end_anchor_end = end_anchor_start + len(scene.source_end_anchor)
-        if source_text[end_anchor_end:range_end].strip():
-            raise ValueError(
-                f"scene {scene_index} source_end_anchor leaves uncovered non-whitespace source"
             )
         ranges.append((range_start, range_end))
     return ranges
