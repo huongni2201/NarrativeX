@@ -11,7 +11,7 @@ import google.auth
 import httpx
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from narrativex_worker.chapter_analysis_prompts import (
     build_chapter_structure_prompt,
@@ -105,16 +105,39 @@ class VertexGeminiProvider(LlmProvider):
                 build_chapter_structure_prompt(request),
                 ChapterStructureResult,
             )
+            structure_billings = [structure_billing]
+            for repair_attempt in range(1, self.settings.vertex_analysis_repair_attempts + 1):
+                if structure is not None:
+                    break
+                self.logger.warning(
+                    "Vertex chapter structure validation failed responseId=%s repairAttempt=%s",
+                    response_id,
+                    repair_attempt,
+                )
+                structure, repair_billing, repair_response_id = (
+                    await self._bounded_generate_structured(
+                        client,
+                        token,
+                        build_chapter_structure_prompt(
+                            request,
+                            repair_reason="invalid structured chapter structure output",
+                        ),
+                        ChapterStructureResult,
+                    )
+                )
+                structure_billings.append(repair_billing)
+                response_id = repair_response_id
+
             if structure is None:
                 self.logger.error(
-                    "Vertex chapter structure response failed validation responseId=%s",
+                    "Vertex chapter structure rejected after repair responseId=%s",
                     response_id,
                 )
                 return ProviderOperation(
                     provider_key="vertex",
                     operation_id=response_id,
                     status=ProviderOperationStatus.FAILED,
-                    billing=structure_billing,
+                    billing=self._merge_billings(structure_billings),
                 )
 
             try:
@@ -134,7 +157,7 @@ class VertexGeminiProvider(LlmProvider):
                     provider_key="vertex",
                     operation_id=response_id,
                     status=ProviderOperationStatus.FAILED,
-                    billing=structure_billing,
+                    billing=self._merge_billings(structure_billings),
                 )
 
             async def generate(
@@ -201,7 +224,7 @@ class VertexGeminiProvider(LlmProvider):
                 raise
 
         results: dict[tuple[int, int], VisualBeatShardResult] = {}
-        all_billings = [structure_billing]
+        all_billings = list(structure_billings)
         final_response_id = response_id
         for shard, result, billings, shard_response_id in generated:
             all_billings.extend(billings)
@@ -259,8 +282,20 @@ class VertexGeminiProvider(LlmProvider):
         return None
 
     @staticmethod
+    def _safe_validation_reason(exception: ValidationError) -> str:
+        """Return Pydantic field paths and error types without serializing rejected input."""
+        reasons: list[str] = []
+        for error in exception.errors(include_input=False, include_url=False):
+            location = ".".join(str(part) for part in error.get("loc", ())) or "root"
+            error_type = str(error.get("type", "validation_error"))
+            reasons.append(f"{location}:{error_type}")
+        return ",".join(reasons[:8]) or "ValidationError"
+
+    @staticmethod
     def _safe_exception_reason(exception: BaseException) -> str:
         """Return a diagnostic label without serializing model input or story content."""
+        if isinstance(exception, ValidationError):
+            return VertexGeminiProvider._safe_validation_reason(exception)
         return type(exception).__name__
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
