@@ -3,8 +3,8 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.port.in.VisualBeatPromptContext;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer.ComposedVisualPrompt;
-import com.narrativex.backend.feature.generation.application.service.VisualPromptComposerV3;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
 import java.util.UUID;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
   private final GetChapterStoryboardUseCase getChapterStoryboardUseCase;
   private final VisualPromptContextRepository visualPromptContextRepository;
-  private final VisualPromptComposerV3 visualPromptComposer;
+  private final VisualPromptComposer visualPromptComposer;
 
   @Override
   public ComposedVisualPrompt get(UUID projectId, UUID chapterId, UUID visualBeatId) {
