@@ -16,7 +16,6 @@ import com.narrativex.backend.feature.project.application.usecase.CreateStoryVer
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import java.util.UUID;
@@ -63,7 +62,6 @@ class CreateStoryVersionUseCaseTest {
         "vi-VN",
         "vi-VN",
         AspectRatio.RATIO_16_9,
-        ImageQualityTier.STANDARD,
         null);
   }
 }
