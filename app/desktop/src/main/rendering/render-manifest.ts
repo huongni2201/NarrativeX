@@ -19,9 +19,9 @@ export interface LocalRenderManifest {
   readonly jobId: string;
   readonly projectId: string;
   readonly renderFingerprint: string;
-  readonly renderProfileSchemaVersion: 1 | 2;
-  readonly rendererVersion: string;
-  readonly compositionPolicyVersion: number;
+  readonly renderProfileSchemaVersion: 2;
+  readonly rendererVersion: "project-image-motion-v3-composition";
+  readonly compositionPolicyVersion: 1;
   readonly width: number;
   readonly height: number;
   readonly fps: 30 | 60;
