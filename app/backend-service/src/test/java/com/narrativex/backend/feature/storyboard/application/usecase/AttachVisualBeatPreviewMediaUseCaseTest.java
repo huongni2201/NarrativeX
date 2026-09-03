@@ -62,10 +62,10 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
             0,
             "Beat",
             "Intent",
+            null,
             MotionMode.STILL,
             CameraMovement.NONE,
             CameraAngle.MEDIUM,
-            null,
             null,
             VisualBeatReviewStatus.NEEDS_REVIEW);
     when(currentUserId.get()).thenReturn("owner");
