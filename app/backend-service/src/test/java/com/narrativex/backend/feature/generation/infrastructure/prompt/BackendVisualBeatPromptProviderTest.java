@@ -32,10 +32,10 @@ class BackendVisualBeatPromptProviderTest {
             0,
             "Doorway beat",
             "Lan pauses in the doorway before entering the room",
+            null,
             MotionMode.STILL,
             CameraMovement.NONE,
             CameraAngle.CLOSE_UP,
-            null,
             null,
             VisualBeatReviewStatus.NEEDS_REVIEW);
 
