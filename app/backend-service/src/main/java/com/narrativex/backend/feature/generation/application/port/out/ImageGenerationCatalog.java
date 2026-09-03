@@ -3,11 +3,12 @@ package com.narrativex.backend.feature.generation.application.port.out;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** Resolves the backend-authoritative image provider/model/pricing profile for a media job. */
+/** Resolves the single backend-authoritative image provider/model/pricing profile. */
 public interface ImageGenerationCatalog {
-  ImageGenerationProfile resolve(String qualityTier);
+  ImageGenerationProfile resolve();
 
   record ImageGenerationProfile(
+      String profileVersion,
       String providerKey,
       String model,
       BigDecimal unitCostUsd,
