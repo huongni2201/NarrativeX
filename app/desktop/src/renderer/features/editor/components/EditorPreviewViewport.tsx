@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   Maximize2,
@@ -12,7 +11,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { DesktopTimelineBeat, RenderFrameRate } from "@narrativex/client-contracts";
 import { activeSubtitleAt, type PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import {
   globalPlayheadFromNarrationSeconds,
@@ -23,6 +22,7 @@ import {
 
 interface EditorPreviewViewportProps {
   selectedBeat: DesktopTimelineBeat | null;
+  frameRate: RenderFrameRate;
   subtitleCues: PlannedSubtitle[];
   transitionBlackOpacity: number;
   mediaUrl: string | null;
@@ -46,6 +46,7 @@ interface EditorPreviewViewportProps {
 
 export function EditorPreviewViewport({
   selectedBeat,
+  frameRate,
   subtitleCues,
   transitionBlackOpacity,
   mediaUrl,
@@ -70,8 +71,6 @@ export function EditorPreviewViewport({
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [muted, setMuted] = useState(false);
-  const [fitMode, setFitMode] = useState<"Fit" | "100%" | "Fill">("Fit");
-  const [isFitOpen, setIsFitOpen] = useState(false);
   const [mediaFailed, setMediaFailed] = useState(false);
   const [audioFailed, setAudioFailed] = useState(false);
 
@@ -79,7 +78,7 @@ export function EditorPreviewViewport({
   const totalScopeDurationMs = Math.max(0, scopeWindowEndMs - scopeWindowStartMs);
   const beatNumber = selectedBeat ? String(selectedBeat.beatIndex + 1).padStart(2, "0") : "01";
   const beatTitle = selectedBeat?.title || "Visual Beat";
-  const playback = selectedBeat ? previewPlaybackState(selectedBeat, playheadMs) : null;
+  const playback = selectedBeat ? previewPlaybackState(selectedBeat, playheadMs, frameRate) : null;
   const activeSubtitle = activeSubtitleAt(subtitleCues, playheadMs);
 
   useEffect(() => setMediaFailed(false), [mediaUrl, selectedBeat?.visualBeatId]);
@@ -161,7 +160,7 @@ export function EditorPreviewViewport({
     return () => window.cancelAnimationFrame(frame);
   }, [audioFailed, narrationEndMs, narrationStartMs, onNarrationClock, playing]);
 
-  const objectFit = fitMode === "Fill" ? "cover" : "contain";
+  const objectFit = selectedBeat?.mediaType === "IMAGE" ? "cover" : "contain";
   const showMedia = Boolean(mediaUrl && selectedBeat?.mediaType && !mediaFailed);
   const previewStatus = audioFailed
     ? "Audio error"
@@ -295,23 +294,9 @@ export function EditorPreviewViewport({
           <button type="button" onClick={() => setMuted(!muted)} className="nx-icon-button ml-1" title={muted ? "Unmute narration" : "Mute narration"}>{muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <button type="button" onClick={() => setIsFitOpen(!isFitOpen)} className="flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-input px-2.5 text-[10px] font-medium text-text-secondary transition-colors hover:border-border-dark hover:bg-surface-2"><span>{fitMode}</span><ChevronDown size={11} /></button>
-            {isFitOpen && (
-              <div className="absolute bottom-8 right-0 z-30 w-24 rounded-md border border-border bg-surface-elevated p-1 shadow-[var(--shadow-panel)]">
-                {(["Fit", "100%", "Fill"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => { setFitMode(mode); setIsFitOpen(false); }}
-                    className={`w-full rounded-sm px-2 py-1.5 text-left text-[10px] transition-colors ${fitMode === mode ? "bg-primary-muted font-medium text-primary" : "text-text-muted hover:bg-surface-3 hover:text-foreground"}`}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <span className="text-[10px] text-text-dim" title="Preview framing follows final render policy">
+            {selectedBeat?.mediaType === "IMAGE" ? "Cover" : "Contain"}
+          </span>
           <button type="button" onClick={() => void toggleFullscreen()} className="nx-icon-button size-7 border border-border-subtle bg-surface-input" title="Toàn màn hình"><Maximize2 size={12} /></button>
         </div>
       </div>

@@ -2,11 +2,10 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { imageMotionPreset } from "../../shared/image-motion.ts";
-import { renderFrameWindow } from "../../shared/render-frame-clock.ts";
+import { buildVideoEncodeArgs, type VideoEncoder } from "../../shared/video-encoding.ts";
 import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
 import { runProcess, type ProcessResult } from "./process-runner";
 import { RenderExecutionError } from "./render-errors";
-import type { VideoEncoder } from "./video-encoder";
 
 export interface SegmentRenderOptions {
   videoEncoder?: VideoEncoder;
@@ -25,7 +24,7 @@ export async function renderSegments(
   await mkdir(directory, { recursive: true });
   if (cacheDirectory) await mkdir(cacheDirectory, { recursive: true });
   const paths = new Array<string>(manifest.beats.length);
-  const videoEncoder = options.videoEncoder ?? "libx264";
+  const videoEncoder = options.videoEncoder ?? manifest.videoEncoder;
   const concurrency = Math.max(
     1,
     Math.min(manifest.beats.length || 1, Math.floor(options.concurrency ?? 1)),
@@ -58,15 +57,7 @@ export async function renderSegments(
         continue;
       }
 
-      const frameWindow = renderFrameWindow(beat.globalStartMs, beat.globalEndMs, manifest.fps);
-      const args = buildBeatRenderArgs(
-        manifest,
-        beat,
-        frameWindow.durationSeconds,
-        frameWindow.frameCount,
-        output,
-        videoEncoder,
-      );
+      const args = buildBeatRenderArgs(manifest, beat, output, videoEncoder);
       const process = runProcess(ffmpegPath, args, undefined, executionSignal);
       let result: ProcessResult;
       try {
@@ -99,46 +90,43 @@ export async function renderSegments(
   return paths;
 }
 
-function buildBeatRenderArgs(
+export function buildBeatRenderArgs(
   manifest: LocalRenderManifest,
   beat: LocalRenderBeat,
-  targetDurationSeconds: number,
-  targetFrameCount: number,
   output: string,
-  videoEncoder: VideoEncoder,
+  videoEncoder: VideoEncoder = manifest.videoEncoder,
 ): string[] {
-  if (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {
+  const targetDurationSeconds = beat.frameCount / manifest.fps;
+  if (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0 || beat.frameCount <= 0) {
     throw new RenderExecutionError(
       "INVALID_BEAT_DURATION",
       `Visual beat ${beat.visualBeatId} has an invalid narration duration.`,
     );
   }
 
-  const target = targetDurationSeconds.toFixed(6);
   const baseFilter =
-    `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease,` +
-    `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2`;
+    `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+    `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,` +
+    `fps=${manifest.fps}`;
 
   if (beat.mediaType === "IMAGE") {
     const filter = withTransitionFilters(
-      imageMotionFilter(manifest, beat, targetFrameCount),
+      imageMotionFilter(manifest, beat),
       beat,
-      targetDurationSeconds,
+      manifest.fps,
     );
     return [
       "-i",
       beat.localPath,
-      "-t",
-      target,
       "-vf",
       filter,
+      "-frames:v",
+      String(beat.frameCount),
       "-r",
       String(manifest.fps),
       "-an",
-      "-c:v",
-      videoEncoder,
-      "-pix_fmt",
-      "yuv420p",
+      ...buildVideoEncodeArgs(videoEncoder, manifest.videoQuality),
+      ...colorMetadataArgs(manifest),
       "-y",
       output,
     ];
@@ -168,9 +156,9 @@ function buildBeatRenderArgs(
       }
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
-        withTransitionFilters(baseFilter, beat, targetDurationSeconds),
-        target,
-        manifest.fps,
+        withTransitionFilters(baseFilter, beat, manifest.fps),
+        beat.frameCount,
+        manifest,
         output,
         videoEncoder,
       );
@@ -178,23 +166,23 @@ function buildBeatRenderArgs(
     case "LOOP":
       return encodeVideoArgs(
         ["-stream_loop", "-1", ...inputSeek, "-i", beat.localPath],
-        withTransitionFilters(baseFilter, beat, targetDurationSeconds),
-        target,
-        manifest.fps,
+        withTransitionFilters(baseFilter, beat, manifest.fps),
+        beat.frameCount,
+        manifest,
         output,
         videoEncoder,
       );
     case "FREEZE_END": {
       const filter = withTransitionFilters(
-        `${baseFilter},tpad=stop_mode=clone:stop_duration=${target}`,
+        `${baseFilter},tpad=stop_mode=clone:stop_duration=${targetDurationSeconds.toFixed(6)}`,
         beat,
-        targetDurationSeconds,
+        manifest.fps,
       );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
         filter,
-        target,
-        manifest.fps,
+        beat.frameCount,
+        manifest,
         output,
         videoEncoder,
       );
@@ -214,15 +202,17 @@ function buildBeatRenderArgs(
         );
       }
       const filter = withTransitionFilters(
-        `${baseFilter},setpts=${ptsFactor.toFixed(8)}*PTS`,
+        `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+          `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,` +
+          `setpts=${ptsFactor.toFixed(8)}*PTS,fps=${manifest.fps}`,
         beat,
-        targetDurationSeconds,
+        manifest.fps,
       );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
         filter,
-        target,
-        manifest.fps,
+        beat.frameCount,
+        manifest,
         output,
         videoEncoder,
       );
@@ -235,25 +225,56 @@ function buildBeatRenderArgs(
   }
 }
 
-function imageMotionFilter(
-  manifest: LocalRenderManifest,
-  beat: LocalRenderBeat,
-  frames: number,
-): string {
-  const progress = `(on/${Math.max(1, frames - 1)})`;
+export function renderWorkingDimensions(
+  width: number,
+  height: number,
+  moving: boolean,
+): { width: number; height: number } {
+  if (!moving) return { width: even(width), height: even(height) };
+  let workingWidth = even(width * 2);
+  let workingHeight = even(height * 2);
+  const longEdge = Math.max(workingWidth, workingHeight);
+  if (longEdge > 5120) {
+    const ratio = 5120 / longEdge;
+    workingWidth = even(workingWidth * ratio);
+    workingHeight = even(workingHeight * ratio);
+  }
+  return {
+    width: Math.max(even(width), workingWidth),
+    height: Math.max(even(height), workingHeight),
+  };
+}
+
+function imageMotionFilter(manifest: LocalRenderManifest, beat: LocalRenderBeat): string {
+  const moving = beat.cameraMovement?.trim().toUpperCase() !== "NONE";
+  const working = renderWorkingDimensions(manifest.width, manifest.height, moving);
+  if (!moving) {
+    return [
+      `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=increase:flags=lanczos`,
+      `crop=${manifest.width}:${manifest.height}`,
+      `fps=${manifest.fps}`,
+      "setsar=1",
+      `format=${manifest.videoQuality.pixelFormat}`,
+    ].join(",");
+  }
+
+  const frameProgress = `(on/${Math.max(1, beat.frameCount - 1)})`;
+  const easedProgress = `((${frameProgress})*(${frameProgress})*(3-2*(${frameProgress})))`;
   const preset = imageMotionPreset(beat.cameraMovement);
-  const zoom = linearExpression(preset.zoomStart, preset.zoomEnd, progress);
-  const panX = linearExpression(preset.panXStart, preset.panXEnd, progress);
-  const panY = linearExpression(preset.panYStart, preset.panYEnd, progress);
+  const zoom = linearExpression(preset.zoomStart, preset.zoomEnd, easedProgress);
+  const panX = linearExpression(preset.panXStart, preset.panXEnd, easedProgress);
+  const panY = linearExpression(preset.panYStart, preset.panYEnd, easedProgress);
   const x = `(iw-iw/zoom)*(0.5+0.5*(${panX}))`;
   const y = `(ih-ih/zoom)*(0.5+0.5*(${panY}))`;
 
   return [
-    `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=increase`,
-    `crop=${manifest.width}:${manifest.height}`,
-    `zoompan=z='${zoom}':x='${x}':y='${y}':d=${frames}:s=${manifest.width}x${manifest.height}:fps=${manifest.fps}`,
+    "format=gbrp",
+    `scale=${working.width}:${working.height}:force_original_aspect_ratio=increase:flags=lanczos`,
+    `crop=${working.width}:${working.height}`,
+    `zoompan=z='${zoom}':x='${x}':y='${y}':d=${beat.frameCount}:s=${working.width}x${working.height}:fps=${manifest.fps}`,
+    `scale=${manifest.width}:${manifest.height}:flags=lanczos`,
     "setsar=1",
-    "format=yuv420p",
+    `format=${manifest.videoQuality.pixelFormat}`,
   ].join(",");
 }
 
@@ -266,25 +287,24 @@ function linearExpression(start: number, end: number, progress: string): string 
 function withTransitionFilters(
   videoFilter: string,
   beat: LocalRenderBeat,
-  targetDurationSeconds: number,
+  fps: number,
 ): string {
   const filters = [videoFilter];
-  const transitionInSeconds = Math.min(
-    targetDurationSeconds / 2,
-    Math.max(0, beat.transitionInMs) / 1000,
+  const maxTransitionFrames = Math.floor(beat.frameCount / 2);
+  const transitionInFrames = Math.min(
+    maxTransitionFrames,
+    Math.max(0, Math.round((beat.transitionInMs * fps) / 1000)),
   );
-  const transitionOutSeconds = Math.min(
-    targetDurationSeconds / 2,
-    Math.max(0, beat.transitionOutMs) / 1000,
+  const transitionOutFrames = Math.min(
+    maxTransitionFrames,
+    Math.max(0, Math.round((beat.transitionOutMs * fps) / 1000)),
   );
-  if (transitionInSeconds > 0) {
-    filters.push(`fade=t=in:st=0:d=${transitionInSeconds.toFixed(3)}`);
+  if (transitionInFrames > 0) {
+    filters.push(`fade=t=in:s=0:n=${transitionInFrames}`);
   }
-  if (transitionOutSeconds > 0) {
-    const start = Math.max(0, targetDurationSeconds - transitionOutSeconds);
-    filters.push(
-      `fade=t=out:st=${start.toFixed(3)}:d=${transitionOutSeconds.toFixed(3)}`,
-    );
+  if (transitionOutFrames > 0) {
+    const startFrame = Math.max(0, beat.frameCount - transitionOutFrames);
+    filters.push(`fade=t=out:s=${startFrame}:n=${transitionOutFrames}`);
   }
   return filters.join(",");
 }
@@ -292,26 +312,38 @@ function withTransitionFilters(
 function encodeVideoArgs(
   input: string[],
   videoFilter: string,
-  targetDuration: string,
-  fps: number,
+  frameCount: number,
+  manifest: LocalRenderManifest,
   output: string,
   videoEncoder: VideoEncoder,
 ): string[] {
   return [
     ...input,
-    "-t",
-    targetDuration,
     "-vf",
     videoFilter,
+    "-frames:v",
+    String(frameCount),
     "-r",
-    String(fps),
+    String(manifest.fps),
     "-an",
-    "-c:v",
-    videoEncoder,
-    "-pix_fmt",
-    "yuv420p",
+    ...buildVideoEncodeArgs(videoEncoder, manifest.videoQuality),
+    ...colorMetadataArgs(manifest),
     "-y",
     output,
+  ];
+}
+
+function colorMetadataArgs(manifest: LocalRenderManifest): string[] {
+  if (manifest.colorMode !== "SDR_BT709_LIMITED") return [];
+  return [
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-colorspace",
+    "bt709",
+    "-color_range",
+    "tv",
   ];
 }
 
@@ -320,14 +352,25 @@ function segmentCacheKey(
   beat: LocalRenderBeat,
   videoEncoder: VideoEncoder,
 ): string {
+  const working = renderWorkingDimensions(
+    manifest.width,
+    manifest.height,
+    beat.mediaType === "IMAGE" && beat.cameraMovement?.trim().toUpperCase() !== "NONE",
+  );
   return createHash("sha256")
     .update(
       JSON.stringify({
-        rendererVersion: "segment-render-v6-global-frame-clock",
+        rendererVersion: manifest.rendererVersion,
+        renderProfileSchemaVersion: manifest.renderProfileSchemaVersion,
+        compositionPolicyVersion: manifest.compositionPolicyVersion,
+        adapter: "zoompan-rgb-supersample-lanczos-v1",
         width: manifest.width,
         height: manifest.height,
+        working,
         fps: manifest.fps,
         videoEncoder,
+        videoQuality: manifest.videoQuality,
+        colorMode: manifest.colorMode,
         beat: {
           visualBeatId: beat.visualBeatId,
           mediaAssetId: beat.mediaAssetId,
@@ -336,14 +379,23 @@ function segmentCacheKey(
           durationMs: beat.durationMs,
           sourceDurationMs: beat.sourceDurationMs,
           fitMode: beat.fitMode,
+          framing: beat.framing,
           trimStartMs: beat.trimStartMs,
           cameraMovement: beat.cameraMovement,
+          motionEasing: beat.motionEasing,
+          startFrame: beat.startFrame,
+          endFrame: beat.endFrame,
+          frameCount: beat.frameCount,
           transitionInMs: beat.transitionInMs,
           transitionOutMs: beat.transitionOutMs,
         },
       }),
     )
     .digest("hex");
+}
+
+function even(value: number): number {
+  return Math.max(2, Math.round(value / 2) * 2);
 }
 
 async function validCachedSegment(path: string): Promise<boolean> {

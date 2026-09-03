@@ -134,7 +134,6 @@ CREATE TABLE media_asset_lineage (
     CONSTRAINT ck_media_asset_lineage_prompt_snapshot_size CHECK (prompt_snapshot IS NULL OR length(prompt_snapshot) <= 16000)
 );
 
--- Current media-job recovery pointer used by Chapter Workspace.
 CREATE TABLE chapter_media_heads (
     chapter_id UUID PRIMARY KEY REFERENCES chapters(id) ON DELETE CASCADE,
     generation_job_id UUID NOT NULL UNIQUE REFERENCES generation_jobs(id) ON DELETE CASCADE,
@@ -157,53 +156,25 @@ CREATE TABLE project_render_input_snapshots (
     beat_count INTEGER NOT NULL CHECK (beat_count > 0),
     assigned_local_device_id UUID NOT NULL REFERENCES local_devices(id),
     render_profile_json JSONB NOT NULL DEFAULT '{
-      "schemaVersion": 1,
-      "engine": "electron-ffmpeg",
-      "rendererVersion": "project-image-motion-v2-frame-quantized",
+      "schemaVersion": 2,
+      "rendererVersion": "project-image-motion-v3-composition",
+      "compositionPolicyVersion": 1,
       "fps": 30,
       "video": {
-        "encoder": "libx264",
-        "x264Preset": "veryfast",
-        "crf": 20,
-        "nvencPreset": "p5",
-        "nvencCq": 21,
+        "x264Preset": "medium",
+        "crf": 18,
+        "nvencPreset": "p6",
+        "nvencCq": 19,
         "pixelFormat": "yuv420p"
       },
-      "audio": {
-        "codec": "aac",
-        "bitrate": "192k",
-        "sampleRate": 48000
-      },
-      "effects": {
-        "transition": "LEGACY_FADE",
-        "transitionSeconds": 0.12,
-        "colorGrade": "NONE",
-        "backgroundMode": "COVER",
-        "backgroundBlurSigma": 22.0,
-        "overlayStyle": "NONE",
-        "overlayOpacity": 0.30,
-        "watermarkWidthRatio": 0.12,
-        "watermarkOpacity": 0.82,
-        "watermarkPosition": "TOP_RIGHT",
-        "bgmVolume": 0.18,
-        "duckThreshold": 0.08,
-        "duckRatio": 8.0,
-        "duckAttackMs": 20.0,
-        "duckReleaseMs": 350.0,
-        "motionEasing": "LINEAR",
-        "textOverlays": [],
-        "lutAsset": null,
-        "overlayAsset": null,
-        "watermarkAsset": null,
-        "bgmAsset": null
-      },
+      "color": {"mode": "SDR_BT709_LIMITED"},
       "subtitles": {"mode": "none"}
     }'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p', '1440p')),
     CONSTRAINT ck_project_render_input_format CHECK (render_format = 'mp4'),
     CONSTRAINT ck_project_render_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
-    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1)
+    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 2)
 );
 
 CREATE TABLE project_render_input_chapters (
@@ -236,9 +207,6 @@ COMMENT ON COLUMN project_render_input_chapters.subtitle_text IS
 COMMENT ON COLUMN project_render_input_chapters.subtitle_spans_json IS
     'Immutable narration alignment spans [{index,textStart,textEnd,audioStartMs,audioEndMs}] used for subtitle timing.';
 
--- Render jobs snapshot editor media choices immutably. LOCAL_ONLY media deliberately
--- has no backend storage key; the assigned Desktop resolves it by stable mediaAssetId
--- from its project.manifest.json.
 CREATE TABLE project_render_input_beats (
     generation_job_id UUID NOT NULL REFERENCES project_render_input_snapshots(generation_job_id) ON DELETE CASCADE,
     chapter_id UUID NOT NULL REFERENCES chapters(id),

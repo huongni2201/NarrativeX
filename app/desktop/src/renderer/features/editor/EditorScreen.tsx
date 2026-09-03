@@ -5,7 +5,6 @@ import type {
 } from "@narrativex/client-contracts";
 import { Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createBeatDecision } from "../production/auto-edit-planner";
 import { RenderDialog } from "../production/components/RenderDialog";
 import { useRenderController } from "../production/useRenderController";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
@@ -108,8 +107,13 @@ export function EditorScreen({
     narrationChecksum: selectedChapter?.audioChecksum ?? null,
   });
   const autoDecision = useMemo(
-    () => (selected ? createBeatDecision(selected, "AUTO") : null),
-    [selected],
+    () =>
+      selected
+        ? renderController.autoEditPlan?.decisions.find(
+            (decision) => decision.visualBeatId === selected.visualBeatId,
+          ) ?? null
+        : null,
+    [renderController.autoEditPlan, selected],
   );
   const previewBeat = useMemo<DesktopTimelineBeat | null>(
     () =>
@@ -303,6 +307,7 @@ export function EditorScreen({
         subtitleCues={subtitles.cues}
         selectedBeatId={selectedId}
         previewBeat={previewBeat}
+        frameRate={renderController.frameRate}
         mediaUrl={previewSources.mediaUrl}
         narrationUrl={previewSources.narrationUrl}
         narrationStartMs={selectedChapter?.startMs ?? null}

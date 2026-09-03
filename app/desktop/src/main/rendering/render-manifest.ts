@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
+import { compositionPolicyForBeat } from "../../shared/image-motion.ts";
+import { renderProjectFrameWindows } from "../../shared/render-frame-clock.ts";
+import type { VideoEncoder, VideoQualityProfile } from "../../shared/video-encoding.ts";
 import type {
   ClaimedProjectRender,
   ClaimedProjectRenderBeat,
   ClaimedProjectRenderChapter,
 } from "../local-execution/backend-client";
-import { parseRenderProfile } from "./render-profile";
+import { parseRenderProfile, type RenderColorMode } from "./render-profile";
 import { planSubtitles, type PlannedSubtitle } from "./subtitle-planner";
 import { planBeatTransitions } from "./transition-planner";
 
@@ -16,9 +19,15 @@ export interface LocalRenderManifest {
   readonly jobId: string;
   readonly projectId: string;
   readonly renderFingerprint: string;
+  readonly renderProfileSchemaVersion: 2;
+  readonly rendererVersion: "project-image-motion-v3-composition";
+  readonly compositionPolicyVersion: 1;
   readonly width: number;
   readonly height: number;
-  readonly fps: number;
+  readonly fps: 30 | 60;
+  readonly videoEncoder: VideoEncoder;
+  readonly videoQuality: VideoQualityProfile;
+  readonly colorMode: RenderColorMode;
   readonly beats: readonly LocalRenderBeat[];
   readonly audio: { readonly chapters: readonly LocalRenderAudio[] };
   readonly subtitles: readonly PlannedSubtitle[];
@@ -32,6 +41,11 @@ export interface LocalRenderManifest {
 export interface LocalRenderBeat
   extends Omit<ClaimedProjectRenderBeat, "localPath"> {
   readonly localPath: string;
+  readonly startFrame: number;
+  readonly endFrame: number;
+  readonly frameCount: number;
+  readonly framing: "COVER" | "CONTAIN";
+  readonly motionEasing: "LINEAR" | "SMOOTHSTEP";
   readonly transitionInMs: number;
   readonly transitionOutMs: number;
 }
@@ -46,6 +60,7 @@ export function buildLocalRenderManifest(
     chapters: Array<ClaimedProjectRenderChapter & { localPath: string }>;
     beats: Array<ClaimedProjectRenderBeat & { localPath: string }>;
   },
+  videoEncoder: VideoEncoder = "libx264",
 ): LocalRenderManifest {
   const { width, height } = renderDimensions(render.resolution, render.aspectRatio);
   const profile = parseRenderProfile(render.renderProfileJson);
@@ -60,14 +75,33 @@ export function buildLocalRenderManifest(
       left.sceneIndex - right.sceneIndex ||
       left.beatIndex - right.beatIndex,
   );
+  const frameWindows = renderProjectFrameWindows(
+    orderedForTransitions.map((beat) => ({ startMs: beat.globalStartMs, endMs: beat.globalEndMs })),
+    render.totalDurationMs,
+    profile.fps,
+  );
+  const frameWindowByBeat = new Map(
+    orderedForTransitions.map((beat, index) => [beat.visualBeatId, frameWindows[index]!] as const),
+  );
   const transitionByBeat = new Map(
     planBeatTransitions(orderedForTransitions).map((plan) => [plan.visualBeatId, plan]),
   );
   const beats = renderBeats.map(({ localPath, ...beat }) => {
     const transition = transitionByBeat.get(beat.visualBeatId);
+    const frameWindow = frameWindowByBeat.get(beat.visualBeatId);
+    if (!frameWindow) throw new Error(`Missing render frame window for ${beat.visualBeatId}.`);
+    const composition = compositionPolicyForBeat(beat.mediaType, beat.cameraMovement, {
+      transitionInMs: transition?.transitionInMs ?? 0,
+      transitionOutMs: transition?.transitionOutMs ?? 0,
+    });
     return {
       ...beat,
       localPath,
+      startFrame: frameWindow.startFrame,
+      endFrame: frameWindow.endFrame,
+      frameCount: frameWindow.frameCount,
+      framing: composition.framing,
+      motionEasing: composition.motionEasing,
       transitionInMs: transition?.transitionInMs ?? 0,
       transitionOutMs: transition?.transitionOutMs ?? 0,
     };
@@ -87,9 +121,15 @@ export function buildLocalRenderManifest(
     version: 1,
     jobId: render.jobId,
     projectId: render.projectId,
+    renderProfileSchemaVersion: profile.schemaVersion,
+    rendererVersion: profile.rendererVersion,
+    compositionPolicyVersion: profile.compositionPolicyVersion,
     width,
     height,
     fps: profile.fps,
+    videoEncoder,
+    videoQuality: profile.video,
+    colorMode: profile.colorMode,
     beats: beats.map(({ localPath: _path, ...beat }) => beat),
     audio: {
       chapters: audio.chapters.map(({ localPath: _path, ...chapter }) => chapter),
@@ -104,9 +144,15 @@ export function buildLocalRenderManifest(
     jobId: render.jobId,
     projectId: render.projectId,
     renderFingerprint: createHash("sha256").update(fingerprintSource).digest("hex"),
+    renderProfileSchemaVersion: profile.schemaVersion,
+    rendererVersion: profile.rendererVersion,
+    compositionPolicyVersion: profile.compositionPolicyVersion,
     width,
     height,
     fps: profile.fps,
+    videoEncoder,
+    videoQuality: profile.video,
+    colorMode: profile.colorMode,
     beats,
     audio,
     subtitles,

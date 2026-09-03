@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type {
+  DesktopTimeline,
+  DesktopTimelineBeat,
+  RenderFrameRate,
+} from "@narrativex/client-contracts";
 import { planBeatTransitions } from "../../../../shared/transition-planner";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
@@ -14,6 +18,7 @@ interface EditorPlaybackSurfaceProps {
   subtitleCues: PlannedSubtitle[];
   selectedBeatId: string;
   previewBeat: DesktopTimelineBeat | null;
+  frameRate: RenderFrameRate;
   mediaUrl: string | null;
   narrationUrl: string | null;
   narrationStartMs: number | null;
@@ -33,6 +38,7 @@ export function EditorPlaybackSurface({
   subtitleCues,
   selectedBeatId,
   previewBeat,
+  frameRate,
   mediaUrl,
   narrationUrl,
   narrationStartMs,
@@ -185,6 +191,7 @@ export function EditorPlaybackSurface({
       <div className="nx-editor-preview-panel min-h-0 overflow-hidden">
         <EditorPreviewViewport
           selectedBeat={previewBeat}
+          frameRate={frameRate}
           subtitleCues={subtitleCues}
           transitionBlackOpacity={activeTransitionOpacity}
           mediaUrl={mediaUrl}
