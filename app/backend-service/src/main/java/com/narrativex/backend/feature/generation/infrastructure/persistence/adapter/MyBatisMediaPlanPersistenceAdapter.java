@@ -45,7 +45,6 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
             plan.storyboardRevisionId(),
             plan.workflowVersion(),
             plan.imageAspectRatio(),
-            plan.imageQualityTier(),
             plan.imageProviderKey(),
             plan.imageModelKey(),
             plan.pricingSnapshotJson(),
