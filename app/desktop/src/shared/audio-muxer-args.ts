@@ -1,6 +1,6 @@
 import {
   buildVideoEncodeArgs,
-  LEGACY_VIDEO_QUALITY,
+  V2_VIDEO_QUALITY,
   type VideoEncoder,
   type VideoQualityProfile,
 } from "./video-encoding.ts";
@@ -11,7 +11,7 @@ export function buildMuxNarrationArgs(
   subtitlePath: string | null,
   output: string,
   videoEncoder: VideoEncoder = "libx264",
-  videoQuality: VideoQualityProfile = LEGACY_VIDEO_QUALITY,
+  videoQuality: VideoQualityProfile = V2_VIDEO_QUALITY,
 ): string[] {
   if (!subtitlePath) {
     return [
