@@ -13,7 +13,6 @@ import com.narrativex.backend.feature.project.application.port.out.ProjectReposi
 import com.narrativex.backend.feature.project.application.usecase.DeleteProjectUseCase;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import java.util.Optional;
 import java.util.UUID;
@@ -65,7 +64,6 @@ class DeleteProjectUseCaseTest {
         "vi-VN",
         "vi-VN",
         AspectRatio.RATIO_16_9,
-        ImageQualityTier.STANDARD,
         null);
   }
 }
