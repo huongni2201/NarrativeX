@@ -65,6 +65,33 @@ def test_planner_resolves_scene_anchors_in_source_order() -> None:
     assert "".join(shard.source_text for shard in shards) == source
 
 
+def test_planner_uses_scene_anchors_as_hints_without_dropping_source_edges() -> None:
+    source = (
+        "Chapter title. BEGIN_ALPHA alpha one alpha two END_ALPHA.\n\n"
+        "BEGIN_BETA beta one beta two END_BETA. trailing note"
+    )
+    structure = ChapterStructureResult(
+        scenes=[
+            SceneStructure(
+                title="First",
+                source_start_anchor="BEGIN_ALPHA alpha one",
+                source_end_anchor="alpha two END_ALPHA",
+            ),
+            SceneStructure(
+                title="Second",
+                source_start_anchor="BEGIN_BETA beta one",
+                source_end_anchor="beta two END_BETA",
+            ),
+        ]
+    )
+
+    shards = plan_visual_beat_shards(source, structure, target_beats=12, max_beats=20)
+
+    assert "".join(shard.source_text for shard in shards) == source
+    assert shards[0].source_start == 0
+    assert shards[-1].source_end == len(source)
+
+
 def test_long_scene_targets_about_twelve_beats_without_exceeding_max() -> None:
     source = _scene_source("LONG", 1000) + "\n\n" + _scene_source("SHORT", 2)
     shards = plan_visual_beat_shards(source, _structure(source), target_beats=12, max_beats=20)
