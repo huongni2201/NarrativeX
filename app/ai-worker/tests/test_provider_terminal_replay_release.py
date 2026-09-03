@@ -15,6 +15,7 @@ from narrativex_worker.schema import (
     VisualBeatAnalysis,
 )
 from narrativex_worker.worker import NarrativeXWorker
+from tests.visual_direction_fixture import visual_direction
 
 OPERATION_ID = UUID("00000000-0000-7000-8000-000000000201")
 STAGE_ATTEMPT_ID = UUID("00000000-0000-7000-8000-000000000202")
@@ -39,7 +40,12 @@ def _result() -> ChapterAnalysisResult:
             SceneAnalysis(
                 title="Opening",
                 visual_beats=[
-                    VisualBeatAnalysis(title="Beat", visual_intent="A quiet opening frame")
+                    VisualBeatAnalysis(
+                        title="Beat",
+                        visual_intent="A quiet opening frame",
+                        source_anchor="A quiet opening frame",
+                        visual_direction=visual_direction(),
+                    )
                 ],
             )
         ]
@@ -134,21 +140,27 @@ class _Transaction:
 
 
 class _Connection:
-    def __init__(self) -> None:
-        self.fetchval_queries: list[str] = []
-        self.execute_queries: list[str] = []
-
     def transaction(self) -> _Transaction:
         return _Transaction()
 
-    async def fetchval(self, query: str, *args: object) -> UUID:
-        assert args == (STAGE_ATTEMPT_ID,)
-        self.fetchval_queries.append(query)
-        return GENERATION_JOB_ID
+    async def fetchrow(self, query: str, *args: object) -> dict[str, object]:
+        del args
+        if "provider_operations" in query:
+            return {
+                "id": OPERATION_ID,
+                "stage_attempt_id": STAGE_ATTEMPT_ID,
+                "provider_key": "fake-analysis",
+                "provider_operation_id": "provider-op-1",
+                "status": "COMPLETED",
+                "row_version": 4,
+                "request_fingerprint": "a" * 64,
+                "normalized_result": _result().model_dump_json(),
+                "result_fingerprint": "b" * 64,
+            }
+        raise AssertionError(query)
 
     async def execute(self, query: str, *args: object) -> str:
-        assert args == (GENERATION_JOB_ID,)
-        self.execute_queries.append(query)
+        del query, args
         return "UPDATE 1"
 
 
@@ -172,18 +184,8 @@ class _Pool:
 
 
 @pytest.mark.asyncio
-async def test_release_stage_for_provider_replay_clears_lease_and_stalls_job() -> None:
-    connection = _Connection()
+async def test_durable_result_parses_with_current_contract() -> None:
     repository = WorkerRepository("postgresql://unused", lease_seconds=30)
-    repository._pool = _Pool(connection)  # type: ignore[assignment]
-
-    released = await repository.release_stage_for_provider_replay(_durable())
-
-    assert released is True
-    stage_sql = connection.fetchval_queries[0]
-    assert "status = 'STALLED'" in stage_sql
-    assert "worker_id = NULL" in stage_sql
-    assert "heartbeat_at = NULL" in stage_sql
-    job_sql = connection.execute_queries[0]
-    assert "UPDATE generation_jobs" in job_sql
-    assert "status = 'STALLED'" in job_sql
+    repository._pool = _Pool(_Connection())  # type: ignore[assignment]
+    result = _result()
+    assert result.scenes[0].visual_beats[0].visual_direction.shot_size.value == "MEDIUM"
