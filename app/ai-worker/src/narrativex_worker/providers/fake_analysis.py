@@ -17,7 +17,7 @@ from narrativex_worker.schema import (
     SceneAnalysis,
     ShotSize,
     VisualBeatAnalysis,
-    VisualDirectionV3,
+    VisualDirection,
 )
 
 
@@ -43,7 +43,7 @@ class FakeAnalysisProvider:
                             title="E2E opening frame",
                             visual_intent="A readable establishing frame for the chapter opening.",
                             source_anchor=anchor,
-                            visual_direction=VisualDirectionV3(
+                            visual_direction=VisualDirection(
                                 shot_size=ShotSize.ESTABLISHING,
                                 camera_angle=CameraAngle.EYE_LEVEL,
                                 lens_mm=LensMm.MM_24,
