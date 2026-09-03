@@ -43,7 +43,6 @@ public record MediaPlanningSource(
       String cameraMovement,
       String cameraAngle,
       String aspectRatioOverride,
-      String qualityTierOverride,
       Long audioStartMs,
       Long audioEndMs,
       String visualDirectionJson) {
@@ -60,7 +59,6 @@ public record MediaPlanningSource(
           null,
           null,
           null,
-          null,
           null);
     }
 
@@ -72,7 +70,6 @@ public record MediaPlanningSource(
         String reviewStatus,
         String cameraMovement,
         String aspectRatioOverride,
-        String qualityTierOverride,
         Long audioStartMs,
         Long audioEndMs) {
       this(
@@ -84,7 +81,6 @@ public record MediaPlanningSource(
           cameraMovement,
           "MEDIUM",
           aspectRatioOverride,
-          qualityTierOverride,
           audioStartMs,
           audioEndMs,
           null);
@@ -99,7 +95,6 @@ public record MediaPlanningSource(
         String cameraMovement,
         String cameraAngle,
         String aspectRatioOverride,
-        String qualityTierOverride,
         Long audioStartMs,
         Long audioEndMs) {
       this(
@@ -111,7 +106,6 @@ public record MediaPlanningSource(
           cameraMovement,
           cameraAngle,
           aspectRatioOverride,
-          qualityTierOverride,
           audioStartMs,
           audioEndMs,
           null);

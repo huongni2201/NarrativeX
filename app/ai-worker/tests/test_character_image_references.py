@@ -5,7 +5,7 @@ from narrativex_worker.image_generation_repository import _parse_image_reference
 from narrativex_worker.image_generation_worker import _partition_batches
 from narrativex_worker.providers.image import ImageBatchItem, ImageGenerationRequest, ImageReference
 from narrativex_worker.providers.vertex_image_reference_batch import _reference_request_body
-from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier
+from narrativex_worker.schema import ImageAspectRatio
 
 
 def _reference(asset_id: str, checksum: str, name: str = "Lan") -> ImageReference:
@@ -27,7 +27,6 @@ def _request(
         prompt=prompt,
         negative_prompt="watermark",
         aspect_ratio=ImageAspectRatio.RATIO_16_9,
-        quality_tier=ImageQualityTier.STANDARD,
         provider_key="vertex",
         model_key="gemini-2.5-flash-image",
         location="global",

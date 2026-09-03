@@ -26,7 +26,7 @@ public class EstimateMediaJobUseCase {
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int generatedImageCount =
         planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
-    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
+    var imageProfile = imageGenerationCatalog.resolve();
     return ApiResponse.success(
         new MediaCostEstimateResponse(
             generatedImageCount,

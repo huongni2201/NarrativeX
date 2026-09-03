@@ -7,7 +7,6 @@ import type {
   MediaAspectRatio,
   MediaImageStyle,
   MediaJobCostEstimate,
-  MediaQualityTier,
 } from "@narrativex/client-contracts";
 import { Check, Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   const createJob = useCreateMediaJob();
   const review = useReviewMediaItem();
   const [chapterId, setChapterId] = useState("");
-  const [qualityTier, setQualityTier] = useState<MediaQualityTier>("STANDARD");
   const [imageStyle, setImageStyle] = useState<MediaImageStyle>("CINEMATIC");
   const [imageProvider, setImageProvider] = useState<ImageGenerationProvider>("API");
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
@@ -84,7 +82,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   useEffect(() => {
     setCostEstimate(null);
     mediaIntentRef.current = null;
-  }, [imageStyle, qualityTier, timeline?.aspectRatio]);
+  }, [imageStyle, timeline?.aspectRatio]);
 
   useEffect(() => {
     if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) mediaIntentRef.current = null;
@@ -117,7 +115,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
       return null;
     }
     try {
-      const result = await estimate.mutateAsync({ projectId, chapterId, qualityTier });
+      const result = await estimate.mutateAsync({ projectId, chapterId });
       setCostEstimate(result);
       setNotice(`Ước tính ${result.estimatedCost} ${result.currency} cho ${result.visualBeatCount} visual beat.`);
       return result;
@@ -143,7 +141,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
         return;
       }
       const aspectRatio = asAspectRatio(timeline?.aspectRatio);
-      const signature = [projectId, chapterId, qualityTier, imageStyle, imageProvider, aspectRatio, latestEstimate.estimatedCost].join(":");
+      const signature = [projectId, chapterId, imageStyle, imageProvider, aspectRatio, latestEstimate.estimatedCost].join(":");
       if (mediaIntentRef.current?.signature !== signature) mediaIntentRef.current = { signature, idempotencyKey: crypto.randomUUID() };
       const job = await createJob.mutateAsync({
         projectId,
@@ -152,7 +150,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
         request: {
           productionMode: "IMAGE_MOTION",
           aspectRatio,
-          qualityTier,
           maxAuthorizedCost,
           imageStyle,
           visualGenerationMode: "IMAGE",
@@ -160,7 +157,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
         },
       });
       setMediaJobId(job.jobId);
-      setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới. Cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`);
+      setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới bằng profile chất lượng cao mặc định. Cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`);
     } catch (error) {
       setNotice(toMessage(error));
     }
@@ -204,10 +201,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
               <SelectTrigger aria-label="Provider" className="min-w-[128px]"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="GEMINI_WEB">Gemini Web</SelectItem><SelectItem value="API">API</SelectItem></SelectContent>
             </Select>
-            <Select value={qualityTier} disabled={imageProvider === "GEMINI_WEB"} onValueChange={(value) => setQualityTier(value as MediaQualityTier)}>
-              <SelectTrigger aria-label="Quality" className="min-w-[108px]"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="DRAFT">Draft</SelectItem><SelectItem value="STANDARD">Standard</SelectItem><SelectItem value="HIGH">High</SelectItem></SelectContent>
-            </Select>
             <Select value={imageStyle} disabled={imageProvider === "GEMINI_WEB"} onValueChange={(value) => setImageStyle(value as MediaImageStyle)}>
               <SelectTrigger aria-label="Image style" className="min-w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="CINEMATIC">Cinematic</SelectItem><SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem></SelectContent>
@@ -229,6 +222,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
             items={[
               { label: "beats", value: beats.length },
               { label: "provider", value: formatProvider(imageProvider) },
+              { label: "profile", value: imageProvider === "API" ? "Premium" : "Gemini Web" },
               { label: "analysis", value: analysisJob.data?.status ?? "idle" },
               { label: "generation", value: mediaGenerationJob.data?.status ?? "idle" },
               { label: "estimate", value: costEstimate ? `${costEstimate.estimatedCost} ${costEstimate.currency}` : "—" },

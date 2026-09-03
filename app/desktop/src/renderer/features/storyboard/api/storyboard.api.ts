@@ -14,7 +14,6 @@ export interface StoryboardVisualBeat {
   cameraAngle: string;
   reviewStatus: VisualBeatReviewStatus;
   aspectRatioOverride: string | null;
-  qualityTierOverride: string | null;
   previewMediaAssetId: string | null;
   rowVersion: number;
 }

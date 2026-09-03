@@ -7,7 +7,6 @@ import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.domain.exception.InvalidStoryVersionTransitionException;
@@ -25,9 +24,7 @@ class ProjectStoryVersionLifecycleTest {
     Project project = project(PROJECT_ID);
     StoryVersion current = story(STORY_10, PROJECT_ID, 1, StoryVersionStatus.ACTIVE);
     StoryVersion next = story(STORY_11, PROJECT_ID, 2, StoryVersionStatus.DRAFT);
-
     project.activateStoryVersion(next, current);
-
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
     assertEquals(ProjectStatus.ACTIVE, project.getStatus());
@@ -37,9 +34,7 @@ class ProjectStoryVersionLifecycleTest {
   void reconcilingAlreadyActiveVersionRepairsDraftProject() {
     Project project = project(PROJECT_ID);
     StoryVersion active = story(STORY_10, PROJECT_ID, 1, StoryVersionStatus.ACTIVE);
-
     project.reconcileActiveStoryVersion(active);
-
     assertEquals(ProjectStatus.ACTIVE, project.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, active.getStatus());
   }
@@ -48,7 +43,6 @@ class ProjectStoryVersionLifecycleTest {
   void activationRejectsStoryVersionFromAnotherProject() {
     Project project = project(PROJECT_ID);
     StoryVersion next = story(STORY_11, OTHER_PROJECT_ID, 2, StoryVersionStatus.DRAFT);
-
     assertThrows(IllegalArgumentException.class, () -> project.activateStoryVersion(next, null));
     assertEquals(StoryVersionStatus.DRAFT, next.getStatus());
     assertEquals(ProjectStatus.DRAFT, project.getStatus());
@@ -58,24 +52,14 @@ class ProjectStoryVersionLifecycleTest {
   void invalidStoryVersionTransitionsStillFail() {
     StoryVersion active = story(STORY_10, PROJECT_ID, 1, StoryVersionStatus.ACTIVE);
     StoryVersion draft = story(STORY_11, PROJECT_ID, 2, StoryVersionStatus.DRAFT);
-
     assertThrows(InvalidStoryVersionTransitionException.class, active::activate);
     assertThrows(InvalidStoryVersionTransitionException.class, draft::supersede);
   }
 
   private static Project project(UUID id) {
     return Project.rehydrate(
-        id,
-        0L,
-        "Project",
-        "owner",
-        ProjectStatus.DRAFT,
-        "vi-VN",
-        "vi-VN",
-        "vi-VN",
-        AspectRatio.RATIO_16_9,
-        ImageQualityTier.STANDARD,
-        null);
+        id, 0L, "Project", "owner", ProjectStatus.DRAFT, "vi-VN", "vi-VN", "vi-VN",
+        AspectRatio.RATIO_16_9, null);
   }
 
   private static StoryVersion story(

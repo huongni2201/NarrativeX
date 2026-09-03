@@ -11,7 +11,6 @@ from typing import Protocol
 
 from narrativex_worker.schema import (
     ImageAspectRatio,
-    ImageQualityTier,
     ModerationDecision,
     ProviderOperationStatus,
 )
@@ -47,7 +46,6 @@ class ImageGenerationRequest:
     prompt: str
     negative_prompt: str | None
     aspect_ratio: ImageAspectRatio
-    quality_tier: ImageQualityTier
     provider_key: str
     model_key: str
     location: str

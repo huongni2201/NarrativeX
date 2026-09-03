@@ -317,7 +317,6 @@ def _partition_batches(
             item.request.prompt,
             item.request.negative_prompt,
             item.request.aspect_ratio.value,
-            item.request.quality_tier.value,
             item.request.model_key,
             tuple(
                 (reference.asset_id, reference.sha256, reference.role)

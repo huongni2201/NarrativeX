@@ -99,7 +99,6 @@ class CreateMediaPlanNoReuseTest {
                 ProductionMode.IMAGE_MOTION,
                 new BigDecimal("1.00"),
                 "16:9",
-                "STANDARD",
                 "vertex",
                 "gemini-2.5-flash-image",
                 null,

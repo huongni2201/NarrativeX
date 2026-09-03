@@ -8,7 +8,7 @@ from narrativex_worker.image_generation_repository.core import ImageRepositoryMi
 from narrativex_worker.image_generation_repository.models import DurableImageOperation
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageBatchItem, ImageGenerationRequest
-from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier
+from narrativex_worker.schema import ImageAspectRatio
 from narrativex_worker.uuid_v7 import uuid7
 
 
@@ -52,9 +52,7 @@ class ImageReconciliationMixin(ImageRepositoryMixin):
         return str(result) == "UPDATE 1"
 
     async def resolve_reused_items(self, stage_attempt_id: uuid.UUID) -> int:
-        """Bind reusable beats to their generated anchor without crossing a paid provider
-        boundary.
-        """
+        """Bind reusable beats to their generated anchor without crossing a paid provider boundary."""
         pool = self._require_pool()
         resolved = 0
         async with pool.acquire() as connection:
@@ -214,7 +212,7 @@ class ImageReconciliationMixin(ImageRepositoryMixin):
             """
             SELECT mgi.item_key, mgi.request_fingerprint,
                    COALESCE(mbp.prompt_snapshot, mbp.visual_intent) AS prompt,
-                   mbp.negative_prompt, mp.image_aspect_ratio, mp.image_quality_tier,
+                   mbp.negative_prompt, mp.image_aspect_ratio,
                    mp.image_model_key, mp.image_provider_key
               FROM media_generation_items mgi
               JOIN media_plans mp ON mp.id = mgi.media_plan_id
@@ -232,7 +230,6 @@ class ImageReconciliationMixin(ImageRepositoryMixin):
                     prompt=row["prompt"] or "",
                     negative_prompt=row["negative_prompt"],
                     aspect_ratio=ImageAspectRatio(row["image_aspect_ratio"] or "16:9"),
-                    quality_tier=ImageQualityTier(row["image_quality_tier"] or "STANDARD"),
                     provider_key=row["image_provider_key"] or "vertex",
                     model_key=row["image_model_key"] or self.settings.vertex_image_model,
                     location=self.settings.vertex_image_batch_location,

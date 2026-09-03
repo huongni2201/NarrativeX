@@ -12,7 +12,6 @@ import com.narrativex.backend.feature.project.application.query.ProjectOverviewV
 import com.narrativex.backend.feature.project.application.query.ProjectResourceView;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.UUID;
@@ -82,23 +81,11 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     Project p1 =
         projectRepository.save(
             Project.create(
-                "P1",
-                ownerId,
-                "vi-VN",
-                "vi-VN",
-                "vi-VN",
-                AspectRatio.RATIO_16_9,
-                ImageQualityTier.STANDARD));
+                "P1", ownerId, "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
     Project p2 =
         projectRepository.save(
             Project.create(
-                "P2",
-                ownerId,
-                "vi-VN",
-                "vi-VN",
-                "vi-VN",
-                AspectRatio.RATIO_16_9,
-                ImageQualityTier.STANDARD));
+                "P2", ownerId, "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
 
     jdbcTemplate.update(
         "UPDATE projects SET status = 'ACTIVE' WHERE id IN (?, ?)", p1.getId(), p2.getId());
@@ -165,7 +152,6 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         "vi-VN",
         "vi-VN",
         "vi-VN",
-        AspectRatio.RATIO_16_9,
-        ImageQualityTier.STANDARD);
+        AspectRatio.RATIO_16_9);
   }
 }

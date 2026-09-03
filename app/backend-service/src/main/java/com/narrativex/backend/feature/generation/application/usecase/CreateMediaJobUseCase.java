@@ -87,10 +87,6 @@ public class CreateMediaJobUseCase {
         throw new GenerationAdmissionDeniedException(
             "IDEMPOTENCY_CONFLICT", "The Idempotency-Key is already bound to a different request.");
       }
-      log.debug(
-          "Found existing media generation job id={} for idempotencyKey='{}'",
-          existing.get().getId(),
-          idempotencyKey);
       return existing.get();
     }
 
@@ -98,28 +94,20 @@ public class CreateMediaJobUseCase {
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
-
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(command.chapterId())
-            .flatMap(
-                internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
+            .flatMap(internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
-      log.info(
-          "Rejected duplicate media generation submission while job id={} is active for projectId={}, chapterId={}",
-          activeCurrentJob.get().getId(),
-          command.projectId(),
-          command.chapterId());
       throw new GenerationAdmissionDeniedException(
           "MEDIA_JOB_ACTIVE", "A media generation job is already active for this chapter.");
     }
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
-    int generatedImageCount = beatCount;
-    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
-    BigDecimal expectedCost = imageProfile.estimateCost(generatedImageCount);
+    var imageProfile = imageGenerationCatalog.resolve();
+    BigDecimal expectedCost = imageProfile.estimateCost(beatCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException(
           "COST_LIMIT", "The requested authorization cap is below the server estimate.");
@@ -128,13 +116,8 @@ public class CreateMediaJobUseCase {
         userQuotaAccess
             .findCurrentQuota(userId)
             .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "ENTITLEMENT_DENIED", "No active plan is available."));
-    if (!qualityAllowed(command.qualityTier(), quota.maxVideoQuality())) {
-      throw new GenerationAdmissionDeniedException(
-          "ENTITLEMENT_DENIED", "The requested quality exceeds the active plan entitlement.");
-    }
+                () -> new GenerationAdmissionDeniedException(
+                    "ENTITLEMENT_DENIED", "No active plan is available."));
     var plan =
         createMediaPlanUseCase.execute(
             new CreateMediaPlanCommand(
@@ -143,7 +126,6 @@ public class CreateMediaJobUseCase {
                 ProductionMode.IMAGE_MOTION,
                 expectedCost,
                 command.aspectRatio(),
-                command.qualityTier(),
                 imageProfile.providerKey(),
                 imageProfile.model(),
                 imageProfile.pricingSnapshot(),
@@ -153,9 +135,8 @@ public class CreateMediaJobUseCase {
         quotaReservation
             .reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "COST_LIMIT", "Media generation quota is exhausted."));
+                () -> new GenerationAdmissionDeniedException(
+                    "COST_LIMIT", "Media generation quota is exhausted."));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -183,22 +164,23 @@ public class CreateMediaJobUseCase {
     for (var scene : plan.scenes()) {
       for (var beat : scene.beats()) {
         String itemKey = "beat-" + beat.visualBeatId();
-        String shotFingerprint =
-            itemFingerprint(requestFingerprint, plan.id(), beat.visualBeatId());
         mediaGenerationItemRepository.save(
             MediaGenerationItem.create(
-                job.getId(), plan.id(), beat.visualBeatId(), itemKey, 1, shotFingerprint));
+                job.getId(),
+                plan.id(),
+                beat.visualBeatId(),
+                itemKey,
+                1,
+                itemFingerprint(requestFingerprint, plan.id(), beat.visualBeatId())));
       }
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, provider={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
+        "Created shot-image media job id={} planId={} beats={} provider={} model={} estimatedCost={} projectId={} chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
-        generatedImageCount,
-        imageProvider,
-        command.qualityTier(),
+        imageProfile.providerKey(),
         imageProfile.model(),
         expectedCost,
         command.projectId(),
@@ -235,20 +217,12 @@ public class CreateMediaJobUseCase {
   private static String fingerprint(CreateMediaJobCommand command, String imageProvider) {
     return sha256(
         command.projectId()
-            + ":"
-            + command.chapterId()
-            + ":"
-            + command.productionMode()
-            + ":"
-            + command.aspectRatio()
-            + ":"
-            + command.qualityTier()
-            + ":"
-            + command.imageStyle()
-            + ":"
-            + imageProvider
-            + ":"
-            + command.maxAuthorizedCost().toPlainString());
+            + ":" + command.chapterId()
+            + ":" + command.productionMode()
+            + ":" + command.aspectRatio()
+            + ":" + command.imageStyle()
+            + ":" + imageProvider
+            + ":" + command.maxAuthorizedCost().toPlainString());
   }
 
   private static String itemFingerprint(
@@ -264,20 +238,5 @@ public class CreateMediaJobUseCase {
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }
-  }
-
-  private static boolean qualityAllowed(String requested, String maximum) {
-    if (maximum == null || maximum.isBlank()) return false;
-    return qualityRank(requested) <= qualityRank(maximum);
-  }
-
-  private static int qualityRank(String value) {
-    return switch (value == null ? "" : value.toUpperCase()) {
-      case "DRAFT", "720P" -> 1;
-      case "STANDARD" -> 2;
-      case "HIGH", "1080P" -> 3;
-      case "ULTRA" -> 4;
-      default -> 0;
-    };
   }
 }

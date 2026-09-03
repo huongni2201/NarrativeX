@@ -4,7 +4,6 @@ import com.narrativex.backend.feature.common.domain.DomainEntity;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.CameraAngle;
 import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
-import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.Objects;
@@ -24,7 +23,6 @@ public final class VisualBeat extends DomainEntity {
   private final CameraMovement cameraMovement;
   private final CameraAngle cameraAngle;
   private final AspectRatio aspectRatioOverride;
-  private final ImageQualityTier qualityTierOverride;
   private VisualBeatReviewStatus reviewStatus;
   private UUID previewMediaAssetId;
 
@@ -45,7 +43,6 @@ public final class VisualBeat extends DomainEntity {
         CameraMovement.NONE,
         CameraAngle.MEDIUM,
         null,
-        null,
         VisualBeatReviewStatus.NEEDS_REVIEW);
   }
 
@@ -61,7 +58,6 @@ public final class VisualBeat extends DomainEntity {
       CameraMovement cameraMovement,
       CameraAngle cameraAngle,
       AspectRatio aspectRatioOverride,
-      ImageQualityTier qualityTierOverride,
       VisualBeatReviewStatus reviewStatus) {
     super(id, rowVersion);
     this.sceneId = Objects.requireNonNull(sceneId, "sceneId");
@@ -76,7 +72,6 @@ public final class VisualBeat extends DomainEntity {
     this.cameraMovement = Objects.requireNonNull(cameraMovement, "cameraMovement");
     this.cameraAngle = Objects.requireNonNull(cameraAngle, "cameraAngle");
     this.aspectRatioOverride = aspectRatioOverride;
-    this.qualityTierOverride = qualityTierOverride;
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus");
   }
 
@@ -89,8 +84,7 @@ public final class VisualBeat extends DomainEntity {
       MotionMode motionMode,
       CameraMovement cameraMovement,
       CameraAngle cameraAngle,
-      AspectRatio aspectRatioOverride,
-      ImageQualityTier qualityTierOverride) {
+      AspectRatio aspectRatioOverride) {
     return rehydrate(
         id,
         rowVersion,
@@ -103,7 +97,6 @@ public final class VisualBeat extends DomainEntity {
         cameraMovement,
         cameraAngle,
         aspectRatioOverride,
-        qualityTierOverride,
         VisualBeatReviewStatus.NEEDS_REVIEW);
   }
 
@@ -118,7 +111,6 @@ public final class VisualBeat extends DomainEntity {
       CameraMovement cameraMovement,
       CameraAngle cameraAngle,
       AspectRatio aspectRatioOverride,
-      ImageQualityTier qualityTierOverride,
       VisualBeatReviewStatus reviewStatus) {
     return rehydrate(
         id,
@@ -132,7 +124,6 @@ public final class VisualBeat extends DomainEntity {
         cameraMovement,
         cameraAngle,
         aspectRatioOverride,
-        qualityTierOverride,
         reviewStatus);
   }
 
@@ -148,7 +139,6 @@ public final class VisualBeat extends DomainEntity {
       CameraMovement cameraMovement,
       CameraAngle cameraAngle,
       AspectRatio aspectRatioOverride,
-      ImageQualityTier qualityTierOverride,
       VisualBeatReviewStatus reviewStatus) {
     return new VisualBeat(
         id,
@@ -162,7 +152,6 @@ public final class VisualBeat extends DomainEntity {
         cameraMovement,
         cameraAngle,
         aspectRatioOverride,
-        qualityTierOverride,
         reviewStatus);
   }
 
@@ -204,10 +193,6 @@ public final class VisualBeat extends DomainEntity {
 
   public AspectRatio getAspectRatioOverride() {
     return aspectRatioOverride;
-  }
-
-  public ImageQualityTier getQualityTierOverride() {
-    return qualityTierOverride;
   }
 
   public VisualBeatReviewStatus getReviewStatus() {

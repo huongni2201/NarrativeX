@@ -13,7 +13,6 @@ public record ProjectResponse(
     String narrationLanguage,
     String metadataLanguage,
     String imageAspectRatio,
-    String imageQualityTier,
     long rowVersion) {
   public static ProjectResponse from(Project project) {
     return new ProjectResponse(
@@ -26,7 +25,6 @@ public record ProjectResponse(
         project.getNarrationLanguage(),
         project.getMetadataLanguage(),
         project.getImageAspectRatio().getCode(),
-        project.getImageQualityTier().name(),
         project.getRowVersion());
   }
 }

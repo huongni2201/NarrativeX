@@ -20,9 +20,7 @@ public class ConfiguredImageGenerationCatalog implements ImageGenerationCatalog 
   private final String model;
   private final String pricingVersion;
   private final String executionMode;
-  private final BigDecimal draftUnitCost;
-  private final BigDecimal standardUnitCost;
-  private final BigDecimal highUnitCost;
+  private final BigDecimal unitCost;
 
   public ConfiguredImageGenerationCatalog(
       ObjectMapper objectMapper,
@@ -30,28 +28,21 @@ public class ConfiguredImageGenerationCatalog implements ImageGenerationCatalog 
       @Value("${narrativex.generation.image.model}") String model,
       @Value("${narrativex.generation.image.pricing-version}") String pricingVersion,
       @Value("${narrativex.generation.image.execution-mode}") String executionMode,
-      @Value("${narrativex.generation.image.unit-cost-draft}") BigDecimal draftUnitCost,
-      @Value("${narrativex.generation.image.unit-cost-standard}") BigDecimal standardUnitCost,
-      @Value("${narrativex.generation.image.unit-cost-high}") BigDecimal highUnitCost) {
+      @Value("${narrativex.generation.image.unit-cost}") BigDecimal unitCost) {
     this.objectMapper = objectMapper;
     this.providerKey = requireText(providerKey, "providerKey");
     this.model = requireText(model, "model");
     this.pricingVersion = requireText(pricingVersion, "pricingVersion");
     this.executionMode = requireText(executionMode, "executionMode");
-    this.draftUnitCost = requireCost(draftUnitCost, "draftUnitCost");
-    this.standardUnitCost = requireCost(standardUnitCost, "standardUnitCost");
-    this.highUnitCost = requireCost(highUnitCost, "highUnitCost");
+    this.unitCost = requireCost(unitCost, "unitCost");
   }
 
   @Override
-  public ImageGenerationProfile resolve(String qualityTier) {
-    String normalizedTier = requireText(qualityTier, "qualityTier").toUpperCase();
-    BigDecimal unitCost = unitCost(normalizedTier);
+  public ImageGenerationProfile resolve() {
     Map<String, String> snapshot = new LinkedHashMap<>();
     snapshot.put("catalogVersion", pricingVersion);
     snapshot.put("providerKey", providerKey);
     snapshot.put("model", model);
-    snapshot.put("tier", normalizedTier);
     snapshot.put("executionMode", executionMode);
     snapshot.put("unitCostUsd", unitCost.toPlainString());
     try {
@@ -61,14 +52,6 @@ public class ConfiguredImageGenerationCatalog implements ImageGenerationCatalog 
     } catch (JacksonException exception) {
       throw new IllegalStateException("Could not serialize image pricing snapshot", exception);
     }
-  }
-
-  private BigDecimal unitCost(String tier) {
-    return switch (tier) {
-      case "DRAFT" -> draftUnitCost;
-      case "HIGH" -> highUnitCost;
-      default -> standardUnitCost;
-    };
   }
 
   private static String requireText(String value, String field) {

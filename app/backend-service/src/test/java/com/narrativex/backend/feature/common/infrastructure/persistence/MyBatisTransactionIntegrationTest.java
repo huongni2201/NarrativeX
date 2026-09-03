@@ -11,7 +11,6 @@ import com.narrativex.backend.feature.project.application.port.out.StoryVersionR
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -88,14 +87,13 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
         "en-US",
         "en-US",
         "en-US",
-        AspectRatio.RATIO_16_9,
-        ImageQualityTier.STANDARD);
+        AspectRatio.RATIO_16_9);
   }
 
   private UUID insertStageAttempt() {
     UUID projectId =
         jdbcTemplate.queryForObject(
-            "INSERT INTO projects (name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'transaction-fixture', 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD') RETURNING id",
+            "INSERT INTO projects (name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'transaction-fixture', 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9') RETURNING id",
             UUID.class,
             "fixture-" + UuidV7.random());
     UUID jobId =

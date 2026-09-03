@@ -17,11 +17,9 @@ class ConfiguredImageGenerationCatalogTest {
             "custom-model",
             "pricing-v2",
             "BATCH",
-            new BigDecimal("0.10"),
-            new BigDecimal("0.25"),
             new BigDecimal("0.40"));
 
-    var profile = catalog.resolve("HIGH");
+    var profile = catalog.resolve();
 
     assertThat(profile.providerKey()).isEqualTo("custom-provider");
     assertThat(profile.model()).isEqualTo("custom-model");
@@ -31,14 +29,14 @@ class ConfiguredImageGenerationCatalogTest {
     assertThat(snapshot.get("catalogVersion").asText()).isEqualTo("pricing-v2");
     assertThat(snapshot.get("providerKey").asText()).isEqualTo("custom-provider");
     assertThat(snapshot.get("model").asText()).isEqualTo("custom-model");
-    assertThat(snapshot.get("tier").asText()).isEqualTo("HIGH");
     assertThat(snapshot.get("executionMode").asText()).isEqualTo("BATCH");
     assertThat(snapshot.get("unitCostUsd").asText()).isEqualTo("0.40");
+    assertThat(snapshot.get("tier")).isNull();
     assertThat(profile.pricingFingerprint()).hasSize(64);
   }
 
   @Test
-  void pricingFingerprintChangesWhenAnyPricedExecutionIdentityChanges() {
+  void pricingFingerprintChangesWhenPricedExecutionIdentityChanges() {
     var base =
         new ConfiguredImageGenerationCatalog(
             new ObjectMapper(),
@@ -46,8 +44,6 @@ class ConfiguredImageGenerationCatalogTest {
             "gemini-image-a",
             "pricing-v1",
             "BATCH",
-            new BigDecimal("0.10"),
-            new BigDecimal("0.25"),
             new BigDecimal("0.40"));
     var differentModel =
         new ConfiguredImageGenerationCatalog(
@@ -56,8 +52,6 @@ class ConfiguredImageGenerationCatalogTest {
             "gemini-image-b",
             "pricing-v1",
             "BATCH",
-            new BigDecimal("0.10"),
-            new BigDecimal("0.25"),
             new BigDecimal("0.40"));
     var differentExecution =
         new ConfiguredImageGenerationCatalog(
@@ -66,19 +60,24 @@ class ConfiguredImageGenerationCatalogTest {
             "gemini-image-a",
             "pricing-v1",
             "ONLINE",
-            new BigDecimal("0.10"),
-            new BigDecimal("0.25"),
             new BigDecimal("0.40"));
+    var differentCost =
+        new ConfiguredImageGenerationCatalog(
+            new ObjectMapper(),
+            "vertex",
+            "gemini-image-a",
+            "pricing-v1",
+            "BATCH",
+            new BigDecimal("0.45"));
 
-    var standard = base.resolve("STANDARD");
+    var profile = base.resolve();
 
-    assertThat(base.resolve("HIGH").pricingFingerprint())
-        .isNotEqualTo(standard.pricingFingerprint());
-    assertThat(differentModel.resolve("STANDARD").pricingFingerprint())
-        .isNotEqualTo(standard.pricingFingerprint());
-    assertThat(differentExecution.resolve("STANDARD").pricingFingerprint())
-        .isNotEqualTo(standard.pricingFingerprint());
-    assertThat(base.resolve("STANDARD").pricingFingerprint())
-        .isEqualTo(standard.pricingFingerprint());
+    assertThat(differentModel.resolve().pricingFingerprint())
+        .isNotEqualTo(profile.pricingFingerprint());
+    assertThat(differentExecution.resolve().pricingFingerprint())
+        .isNotEqualTo(profile.pricingFingerprint());
+    assertThat(differentCost.resolve().pricingFingerprint())
+        .isNotEqualTo(profile.pricingFingerprint());
+    assertThat(base.resolve().pricingFingerprint()).isEqualTo(profile.pricingFingerprint());
   }
 }

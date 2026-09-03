@@ -9,7 +9,7 @@ from narrativex_worker.image_generation_repository.models import (
     ImageGenerationLeaseLostError,
 )
 from narrativex_worker.providers.image import ImageGenerationRequest
-from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier
+from narrativex_worker.schema import ImageAspectRatio
 
 
 class ImageClaimsMixin(ImageRepositoryMixin):
@@ -105,7 +105,7 @@ class ImageClaimsMixin(ImageRepositoryMixin):
             """
             SELECT mgi.id, mgi.item_key, mgi.visual_beat_id, mgi.request_fingerprint,
                    COALESCE(mbp.prompt_snapshot, mbp.visual_intent) AS prompt,
-                   mbp.negative_prompt, mp.image_aspect_ratio, mp.image_quality_tier,
+                   mbp.negative_prompt, mp.image_aspect_ratio,
                    mp.image_model_key, mp.image_provider_key
               FROM media_generation_items mgi
               JOIN media_plans mp ON mp.id = mgi.media_plan_id
@@ -120,8 +120,6 @@ class ImageClaimsMixin(ImageRepositoryMixin):
         )
         items: list[ClaimedImageGenerationItem] = []
         for row in rows:
-            aspect = ImageAspectRatio(row["image_aspect_ratio"] or "16:9")
-            quality = ImageQualityTier(row["image_quality_tier"] or "STANDARD")
             items.append(
                 ClaimedImageGenerationItem(
                     id=row["id"],
@@ -131,8 +129,7 @@ class ImageClaimsMixin(ImageRepositoryMixin):
                         request_fingerprint=row["request_fingerprint"],
                         prompt=row["prompt"] or "",
                         negative_prompt=row["negative_prompt"],
-                        aspect_ratio=aspect,
-                        quality_tier=quality,
+                        aspect_ratio=ImageAspectRatio(row["image_aspect_ratio"] or "16:9"),
                         provider_key=row["image_provider_key"] or "vertex",
                         model_key=row["image_model_key"] or self.settings.vertex_image_model,
                         location=self.settings.vertex_image_batch_location,

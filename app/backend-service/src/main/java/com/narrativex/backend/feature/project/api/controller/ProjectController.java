@@ -130,7 +130,6 @@ public class ProjectController {
             request.narrationLanguage(),
             request.metadataLanguage(),
             request.imageAspectRatio(),
-            request.imageQualityTier(),
             null);
     log.debug("Creating project for authenticated principal");
     return ResponseEntity.status(HttpStatus.CREATED)

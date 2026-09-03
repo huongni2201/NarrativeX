@@ -7,5 +7,4 @@ public record CreateProjectCommand(
     String narrationLanguage,
     String metadataLanguage,
     String imageAspectRatio,
-    String imageQualityTier,
     String ownerId) {}

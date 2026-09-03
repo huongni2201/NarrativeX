@@ -5,12 +5,7 @@ from uuid import UUID
 import pytest
 
 from narrativex_worker.repository import ClaimedChapterAnalysisJob, WorkerRepository
-from narrativex_worker.schema import (
-    ChapterAnalysisRequest,
-    ChapterAnalysisResult,
-    SceneAnalysis,
-    VisualBeatAnalysis,
-)
+from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 
 PROJECT_ID = UUID("00000000-0000-4000-8000-000000000011")
 STORY_VERSION_ID = UUID("00000000-0000-4000-8000-000000000012")
@@ -82,13 +77,37 @@ def _claimed_job() -> ClaimedChapterAnalysisJob:
 
 
 def _result() -> ChapterAnalysisResult:
-    return ChapterAnalysisResult(
-        scenes=[
-            SceneAnalysis(
-                title="Opening",
-                visual_beats=[VisualBeatAnalysis(title="Door", visual_intent="Warm light")],
-            )
-        ]
+    return ChapterAnalysisResult.model_validate(
+        {
+            "scenes": [
+                {
+                    "title": "Opening",
+                    "visual_beats": [
+                        {
+                            "title": "Door",
+                            "visual_intent": "Warm light",
+                            "source_anchor": "A short story.",
+                            "visual_direction": {
+                                "shot_size": "WIDE",
+                                "camera_angle": "EYE_LEVEL",
+                                "lens_mm": 50,
+                                "focus_target": "door",
+                                "action_phase": "AFTER",
+                                "subject_placement": "center third",
+                                "foreground": None,
+                                "background": "room",
+                                "motivated_light": "warm light",
+                                "palette": "warm",
+                                "camera_movement": "NONE",
+                                "movement_direction": None,
+                                "movement_intensity": "SUBTLE",
+                                "crop_safe_area": "all sides",
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
     )
 
 
@@ -123,4 +142,3 @@ async def test_complete_binds_project_advisory_lock_key_as_text(
     repository._pool = _Pool(connection)  # type: ignore[assignment]
 
     await repository.complete(_claimed_job(), "worker-1", _result())
-

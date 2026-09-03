@@ -37,13 +37,11 @@ export interface AnalyzeChapterInput {
 }
 
 export type MediaAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
-export type MediaQualityTier = "DRAFT" | "STANDARD" | "HIGH";
 export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR";
 
 export interface CreateMediaJobInput {
   productionMode: "IMAGE_MOTION";
   aspectRatio: MediaAspectRatio;
-  qualityTier: MediaQualityTier;
   maxAuthorizedCost: number;
   imageStyle?: MediaImageStyle;
   visualGenerationMode: VisualGenerationMode;

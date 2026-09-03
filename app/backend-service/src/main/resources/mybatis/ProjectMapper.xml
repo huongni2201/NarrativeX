@@ -17,14 +17,13 @@
         <result property="narrationLanguage" column="narration_language" />
         <result property="metadataLanguage" column="metadata_language" />
         <result property="imageAspectRatio" column="image_aspect_ratio" />
-        <result property="imageQualityTier" column="image_quality_tier" />
         <result property="archivedAt" column="archived_at" />
     </resultMap>
 
     <sql id="columns">
         id, row_version, created_at, updated_at, name, description, cover_image_url,
         owner_id, status, source_language, narration_language, metadata_language,
-        image_aspect_ratio, image_quality_tier, archived_at
+        image_aspect_ratio, archived_at
     </sql>
 
     <select id="insert"
@@ -34,12 +33,12 @@
         INSERT INTO projects (
             row_version, created_at, updated_at, name, description, cover_image_url,
             owner_id, status, source_language, narration_language, metadata_language,
-            image_aspect_ratio, image_quality_tier, archived_at
+            image_aspect_ratio, archived_at
         )
         VALUES (
             #{rowVersion}, #{createdAt}, #{updatedAt}, #{name}, #{description}, #{coverImageUrl},
             #{ownerId}, #{status}, #{sourceLanguage}, #{narrationLanguage}, #{metadataLanguage},
-            #{imageAspectRatio}, #{imageQualityTier}, #{archivedAt}
+            #{imageAspectRatio}, #{archivedAt}
         )
         RETURNING id
     </select>
@@ -56,7 +55,6 @@
                narration_language = #{narrationLanguage},
                metadata_language = #{metadataLanguage},
                image_aspect_ratio = #{imageAspectRatio},
-               image_quality_tier = #{imageQualityTier},
                archived_at = #{archivedAt},
                updated_at = #{updatedAt},
                row_version = row_version + 1

@@ -13,7 +13,6 @@ public record CreateMediaPlanCommand(
     ProductionMode productionMode,
     BigDecimal estimatedCost,
     String imageAspectRatio,
-    String imageQualityTier,
     String imageProviderKey,
     String imageModelKey,
     String pricingSnapshotJson,

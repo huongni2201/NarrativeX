@@ -32,8 +32,8 @@
         INSERT INTO media_plans (
           id, chapter_id, chapter_row_version, source_hash, production_mode, revision,
           narration_characters, image_generate_count, image_edit_count, basic_motion_seconds,
-          planned_i2v_seconds, estimated_cost, created_at
-          , storyboard_revision_id, workflow_version, image_aspect_ratio, image_quality_tier,
+          planned_i2v_seconds, estimated_cost, created_at,
+          storyboard_revision_id, workflow_version, image_aspect_ratio,
           image_provider_key, image_model_key, pricing_snapshot_json, pricing_fingerprint,
           narration_set_id, narration_alignment_run_id
         ) VALUES (
@@ -41,7 +41,7 @@
           #{chapterId}, #{chapterRowVersion}, #{sourceHash}, #{productionMode}, #{revision},
           #{narrationCharacters}, #{imageGenerateCount}, #{imageEditCount}, #{basicMotionSeconds},
           #{plannedI2vSeconds}, #{estimatedCost}, #{createdAt},
-          #{storyboardRevisionId}, #{workflowVersion}, #{imageAspectRatio}, #{imageQualityTier},
+          #{storyboardRevisionId}, #{workflowVersion}, #{imageAspectRatio},
           #{imageProviderKey}, #{imageModelKey},
           CAST(#{pricingSnapshotJson} AS jsonb), #{pricingFingerprint},
           CAST(#{narrationSetId} AS uuid), CAST(#{narrationAlignmentRunId} AS uuid)

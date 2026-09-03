@@ -49,7 +49,7 @@ def _beat(index: int, shot_size: str = "WIDE", *, title: str | None = None) -> d
 
 
 def test_planner_prevents_three_identical_shot_sizes_in_a_row() -> None:
-    result = _chapter([_beat(1), _beat(2), _beat(3)])
+    result = _chapter([_beat(1), _beat(2), _beat(3)], location_key=None)
 
     planned = plan_chapter_shots(result)
     shots = [beat.visual_direction.shot_size.value for beat in planned.scenes[0].visual_beats]

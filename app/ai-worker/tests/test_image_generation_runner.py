@@ -20,7 +20,6 @@ from narrativex_worker.providers.image import (
 )
 from narrativex_worker.schema import (
     ImageAspectRatio,
-    ImageQualityTier,
     ModerationDecision,
     ProviderOperationStatus,
 )
@@ -85,7 +84,6 @@ def _request() -> ImageGenerationRequest:
         prompt="cinematic scene",
         negative_prompt=None,
         aspect_ratio=ImageAspectRatio.RATIO_16_9,
-        quality_tier=ImageQualityTier.STANDARD,
         provider_key="vertex",
         model_key="gemini-2.5-flash-image",
         location="global",

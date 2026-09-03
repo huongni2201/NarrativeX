@@ -5,7 +5,6 @@ import com.narrativex.backend.feature.project.application.command.CreateProjectC
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,10 +27,6 @@ public class CreateProjectUseCase {
         command.imageAspectRatio() == null || command.imageAspectRatio().isBlank()
             ? AspectRatio.RATIO_16_9
             : AspectRatio.fromCode(command.imageAspectRatio());
-    ImageQualityTier quality =
-        command.imageQualityTier() == null || command.imageQualityTier().isBlank()
-            ? ImageQualityTier.STANDARD
-            : ImageQualityTier.valueOf(command.imageQualityTier());
     Project project =
         projectRepository.save(
             Project.create(
@@ -41,8 +36,7 @@ public class CreateProjectUseCase {
                 sourceLanguage,
                 narrationLanguage,
                 metadataLanguage,
-                ratio,
-                quality));
+                ratio));
     log.info(
         "Created project id={} (name='{}', ownerId={}, sourceLanguage={})",
         project.getId(),

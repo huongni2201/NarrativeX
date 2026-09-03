@@ -8,6 +8,8 @@ import {
 import { renderProjectFrameWindows } from "../src/shared/render-frame-clock.ts";
 import { renderWorkingDimensions } from "../src/main/rendering/segment-renderer.ts";
 import { estimateRenderOutputBytes } from "../src/renderer/features/production/render-preflight.ts";
+import { subtitleSlicesForBeat } from "../src/main/rendering/subtitle-ass.ts";
+import { buildMuxNarrationArgs } from "../src/shared/audio-muxer-args.ts";
 
 async function source(relative) {
   return readFile(new URL(relative, import.meta.url), "utf8");
@@ -54,10 +56,32 @@ test("v3 moving still motion uses deterministic smoothstep samples", () => {
   assert.equal(end.centerX, 0);
 });
 
-test("moving stills use bounded 2x working canvas while static images do not", () => {
-  assert.deepEqual(renderWorkingDimensions(1920, 1080, false), { width: 1920, height: 1080 });
-  assert.deepEqual(renderWorkingDimensions(1920, 1080, true), { width: 3840, height: 2160 });
-  assert.deepEqual(renderWorkingDimensions(2560, 1440, true), { width: 5120, height: 2880 });
+test("working canvas adapts to motion complexity instead of forcing 2x", () => {
+  assert.deepEqual(renderWorkingDimensions(1920, 1080, false, "NONE", 30), { width: 1920, height: 1080 });
+  assert.deepEqual(renderWorkingDimensions(1920, 1080, true, "PUSH_IN", 30), { width: 2400, height: 1350 });
+  assert.deepEqual(renderWorkingDimensions(1920, 1080, true, "PAN", 30), { width: 2880, height: 1620 });
+  assert.deepEqual(renderWorkingDimensions(2560, 1440, true, "PAN", 60), { width: 5120, height: 2880 });
+});
+
+test("subtitle cues are sliced against exact beat frame windows", () => {
+  const beat = {
+    startFrame: 300,
+    endFrame: 540,
+    frameCount: 240,
+  };
+  const slices = subtitleSlicesForBeat(
+    [{ chapterId: "ch", startMs: 9500, endMs: 10500, text: "Hello", timingSource: "NARRATION_ALIGNMENT" }],
+    beat,
+    30,
+  );
+  assert.deepEqual(slices, [{ startMs: 0, endMs: 500, text: "Hello" }]);
+});
+
+test("final mux stream-copies both already encoded video and narration audio", () => {
+  const args = buildMuxNarrationArgs("video.mp4", "narration.m4a", "final.mp4");
+  assert.deepEqual(args.filter((value) => value === "copy"), ["copy", "copy"]);
+  assert.doesNotMatch(args.join(" "), /subtitles=/);
+  assert.doesNotMatch(args.join(" "), /-c:a aac/);
 });
 
 test("preview fallback uses requestAnimationFrame without transform chase", async () => {
@@ -76,12 +100,21 @@ test("render UI and API expose selected frame rate", async () => {
   assert.match(api, /fps: frameRate/);
 });
 
-test("v3 segment renderer uses shared presets, exact frames and Lanczos supersampling", async () => {
+test("segment renderer burns ASS after transition and uses exact frames", async () => {
   const renderer = await source("../src/main/rendering/segment-renderer.ts");
   assert.match(renderer, /imageMotionPreset/);
+  assert.match(renderer, /writeBeatSubtitleTrack/);
+  assert.match(renderer, /subtitles=filename/);
   assert.match(renderer, /-frames:v/);
   assert.match(renderer, /flags=lanczos/);
   assert.match(renderer, /zoompan/);
   assert.doesNotMatch(renderer, /renderFrameWindow/);
   assert.doesNotMatch(renderer, /Math\.round\(targetDurationSeconds \* manifest\.fps\)/);
+});
+
+test("project renderer no longer creates a final SRT burn-in pass", async () => {
+  const renderer = await source("../src/main/rendering/project-renderer.ts");
+  assert.doesNotMatch(renderer, /subtitle-srt/);
+  assert.doesNotMatch(renderer, /writeSubtitleTrack/);
+  assert.match(renderer, /Muxing audio/);
 });
