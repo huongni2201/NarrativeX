@@ -37,8 +37,10 @@ class ImageAspectRatio(StrEnum):
 
 
 class ImageQualityTier(StrEnum):
-    """Legacy provider boundary; product configuration no longer exposes a tier choice."""
+    """Legacy provider/storage boundary; active product settings no longer expose this choice."""
 
+    DRAFT = "DRAFT"
+    STANDARD = "STANDARD"
     HIGH = "HIGH"
 
 
