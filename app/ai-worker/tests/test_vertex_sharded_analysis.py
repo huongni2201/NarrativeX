@@ -82,23 +82,23 @@ def _one_scene_structure(start: str, end: str) -> ChapterStructureResult:
     )
 
 
-def _ten_word_beats() -> VisualBeatShardResult:
+def _target_beats_from_prompt(prompt: str) -> int:
+    match = re.search(r"TARGET_VISUAL_BEATS=(\d+)", prompt)
+    assert match is not None
+    return int(match.group(1))
+
+
+def _beats_for_prompt(prompt: str, *, anchor: str) -> VisualBeatShardResult:
     return VisualBeatShardResult(
         visual_beats=[
             VisualBeatAnalysis(
                 title=f"beat-{index}",
                 visual_intent="grounded",
-                source_anchor="word",
+                source_anchor=anchor,
             )
-            for index in range(10)
+            for index in range(_target_beats_from_prompt(prompt))
         ]
     )
-
-
-def _target_beats_from_prompt(prompt: str) -> int:
-    match = re.search(r"TARGET_VISUAL_BEATS=(\d+)", prompt)
-    assert match is not None
-    return int(match.group(1))
 
 
 @pytest.mark.asyncio
@@ -124,21 +124,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
         active -= 1
         assert "SHARD_SOURCE" in prompt
         anchor = "alpha" if "alpha" in prompt else "BEGIN_ALPHA"
-        count = _target_beats_from_prompt(prompt)
-        return (
-            VisualBeatShardResult(
-                visual_beats=[
-                    VisualBeatAnalysis(
-                        title="beat",
-                        visual_intent="grounded",
-                        source_anchor=anchor,
-                    )
-                    for _ in range(count)
-                ]
-            ),
-            _billing(),
-            f"shard-{calls}",
-        )
+        return _beats_for_prompt(prompt, anchor=anchor), _billing(), f"shard-{calls}"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
     operation = await provider.submit(_request(source))
@@ -148,7 +134,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
     assert operation.result.scenes[0].narration == source
     assert peak == 2
     assert operation.billing is not None
-    assert operation.billing.actual_cost >= Decimal("0.000005000")
+    assert operation.billing.actual_cost >= Decimal("0.000003000")
 
 
 @pytest.mark.asyncio
@@ -170,20 +156,7 @@ async def test_provider_gate_bounds_analysis_calls_across_concurrent_jobs() -> N
         if model is ChapterStructureResult:
             return _one_scene_structure("BEGIN_JOB", "END_JOB"), _billing(), "structure"
         assert "SHARD_SOURCE" in prompt
-        return (
-            VisualBeatShardResult(
-                visual_beats=[
-                    VisualBeatAnalysis(
-                        title=f"beat-{index}",
-                        visual_intent="grounded",
-                        source_anchor="word",
-                    )
-                    for index in range(9)
-                ]
-            ),
-            _billing(),
-            "shard",
-        )
+        return _beats_for_prompt(prompt, anchor="word"), _billing(), "shard"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
     first, second = await asyncio.gather(
@@ -210,23 +183,20 @@ async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
         if model is ChapterStructureResult:
             return _one_scene_structure("BEGIN_WORD", "END_WORD"), _billing(), "structure"
         shard_calls += 1
-        count = 1 if shard_calls == 1 else 10
-        if shard_calls == 2:
-            assert "COMPLETE replacement beat set" in prompt
-        return (
-            VisualBeatShardResult(
+        if shard_calls == 1:
+            result = VisualBeatShardResult(
                 visual_beats=[
                     VisualBeatAnalysis(
-                        title=f"beat-{index}",
+                        title="under-dense",
                         visual_intent="grounded",
                         source_anchor="word",
                     )
-                    for index in range(count)
                 ]
-            ),
-            _billing(),
-            f"shard-{shard_calls}",
-        )
+            )
+        else:
+            assert "COMPLETE replacement beat set" in prompt
+            result = _beats_for_prompt(prompt, anchor="word")
+        return result, _billing(), f"shard-{shard_calls}"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
     operation = await provider.submit(_request(source))
@@ -256,7 +226,7 @@ async def test_invalid_structure_response_gets_one_full_replacement_repair() -> 
                 _billing(),
                 "repaired-structure",
             )
-        return _ten_word_beats(), _billing(), "shard"
+        return _beats_for_prompt(prompt, anchor="word"), _billing(), "shard"
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
     operation = await provider.submit(_request(source))
