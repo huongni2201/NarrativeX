@@ -128,7 +128,7 @@ class VertexGeminiProvider(LlmProvider):
                 self.logger.error(
                     "Vertex chapter shard planning failed responseId=%s reason=%s",
                     response_id,
-                    exception,
+                    self._safe_exception_reason(exception),
                 )
                 return ProviderOperation(
                     provider_key="vertex",
@@ -221,7 +221,7 @@ class VertexGeminiProvider(LlmProvider):
             self.logger.error(
                 "Vertex chapter merge failed responseId=%s reason=%s",
                 final_response_id,
-                exception,
+                self._safe_exception_reason(exception),
             )
             return ProviderOperation(
                 provider_key="vertex",
@@ -257,6 +257,11 @@ class VertexGeminiProvider(LlmProvider):
         except ValueError as exception:
             return str(exception)
         return None
+
+    @staticmethod
+    def _safe_exception_reason(exception: BaseException) -> str:
+        """Return a diagnostic label without serializing model input or story content."""
+        return type(exception).__name__
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
         return operation
@@ -345,7 +350,7 @@ class VertexGeminiProvider(LlmProvider):
                 "Vertex structured response validation failed responseId=%s model=%s reason=%s",
                 response_id,
                 model.__name__,
-                exception,
+                self._safe_exception_reason(exception),
             )
             return None, billing, response_id
 
