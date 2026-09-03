@@ -10,7 +10,7 @@ from narrativex_worker.schema import (
     SceneAnalysis,
     ShotSize,
     VisualBeatAnalysis,
-    VisualDirectionV3,
+    VisualDirection,
 )
 
 
@@ -34,21 +34,15 @@ _LENS_FOR_SHOT: dict[ShotSize, LensMm] = {
 
 
 def plan_chapter_shots(result: ChapterAnalysisResult) -> ChapterAnalysisResult:
-    """Coordinate authored directions without introducing random camera decisions.
-
-    AI analysis remains the primary author. This pass only resolves chapter-level conflicts that a
-    single-beat prompt cannot see: location-establishing coverage, reaction readability, and runs
-    of more than two identical shot sizes. The same input always produces the same output.
-    """
+    """Coordinate authored directions without introducing random camera decisions."""
 
     planned_scenes: list[SceneAnalysis] = []
     previous_location: str | None = None
     for scene in result.scenes:
-        beats = list(scene.visual_beats)
         planned: list[VisualBeatAnalysis] = []
         location_changed = scene.location_key is not None and scene.location_key != previous_location
 
-        for index, beat in enumerate(beats):
+        for index, beat in enumerate(scene.visual_beats):
             direction = beat.visual_direction
 
             if index == 0 and location_changed and direction.shot_size != ShotSize.ESTABLISHING:
@@ -74,7 +68,7 @@ def plan_chapter_shots(result: ChapterAnalysisResult) -> ChapterAnalysisResult:
     return result.model_copy(update={"scenes": planned_scenes})
 
 
-def _with_shot(direction: VisualDirectionV3, shot_size: ShotSize) -> VisualDirectionV3:
+def _with_shot(direction: VisualDirection, shot_size: ShotSize) -> VisualDirection:
     updates: dict[str, object] = {
         "shot_size": shot_size,
         "lens_mm": _LENS_FOR_SHOT[shot_size],
