@@ -23,4 +23,4 @@ def test_visual_beat_prompt_requires_verbatim_source_anchor_without_timestamps()
     assert "verbatim contiguous excerpt" in prompt
     assert "Never invent timestamps" in prompt
     assert "Never invent character offsets" in prompt
-    assert "visual_beats:[{title,visual_intent,source_anchor,camera_angle," in prompt
+    assert "visual_beats:[{title,visual_intent,source_anchor,visual_direction:" in prompt
