@@ -10,6 +10,9 @@ export type GeminiImageMetadata = {
   format: "PNG" | "JPEG" | "WEBP";
 };
 
+const DEFAULT_MIN_LONG_EDGE = 2560;
+const DEFAULT_MIN_SHORT_EDGE = 1440;
+
 export async function inspectGeminiImage(path: string): Promise<GeminiImageMetadata> {
   const bytes = await readFile(path);
   const dimensions = readDimensions(bytes);
@@ -26,17 +29,24 @@ export async function inspectGeminiImage(path: string): Promise<GeminiImageMetad
 
 export function validateGeneratedGeminiImage(
   metadata: GeminiImageMetadata,
-  options: { minimumWidth?: number; minimumHeight?: number; expectedAspectRatio?: number } = {},
+  options: {
+    minimumLongEdge?: number;
+    minimumShortEdge?: number;
+    expectedAspectRatio?: number;
+  } = {},
 ): void {
-  const minimumWidth = options.minimumWidth ?? 1280;
-  const minimumHeight = options.minimumHeight ?? 720;
-  if (metadata.width < minimumWidth || metadata.height < minimumHeight) {
+  const minimumLongEdge = options.minimumLongEdge ?? DEFAULT_MIN_LONG_EDGE;
+  const minimumShortEdge = options.minimumShortEdge ?? DEFAULT_MIN_SHORT_EDGE;
+  const longEdge = Math.max(metadata.width, metadata.height);
+  const shortEdge = Math.min(metadata.width, metadata.height);
+  if (longEdge < minimumLongEdge || shortEdge < minimumShortEdge) {
     throw new Error(
-      `Gemini image resolution ${metadata.width}x${metadata.height} is below ${minimumWidth}x${minimumHeight}.`,
+      `Gemini image resolution ${metadata.width}x${metadata.height} is below the required 2K envelope (${minimumLongEdge}x${minimumShortEdge} across long/short edges).`,
     );
   }
   if (options.expectedAspectRatio) {
-    const relativeError = Math.abs(metadata.aspectRatio - options.expectedAspectRatio) / options.expectedAspectRatio;
+    const relativeError =
+      Math.abs(metadata.aspectRatio - options.expectedAspectRatio) / options.expectedAspectRatio;
     if (relativeError > 0.08) {
       throw new Error("Gemini image aspect ratio does not match the requested frame closely enough.");
     }
@@ -69,7 +79,11 @@ function readDimensions(
   ) {
     return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), format: "PNG" };
   }
-  if (bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP") {
+  if (
+    bytes.length >= 12 &&
+    bytes.toString("ascii", 0, 4) === "RIFF" &&
+    bytes.toString("ascii", 8, 12) === "WEBP"
+  ) {
     const chunk = bytes.toString("ascii", 12, 16);
     if (chunk === "VP8X" && bytes.length >= 30) {
       return {
@@ -93,7 +107,11 @@ function readDimensions(
       }
       const length = bytes.readUInt16BE(offset + 2);
       if (length < 2 || offset + 2 + length > bytes.length) break;
-      if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
+      if (
+        [0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(
+          marker,
+        )
+      ) {
         return {
           height: bytes.readUInt16BE(offset + 5),
           width: bytes.readUInt16BE(offset + 7),
