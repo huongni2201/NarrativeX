@@ -37,8 +37,9 @@ def test_ten_minute_narration_requires_at_least_sixty_beats_and_targets_eighty()
     assert target_visual_beats(600_000) == 80
 
 
-def test_pre_narration_estimate_is_conservative() -> None:
-    assert estimated_narration_duration_ms("word " * 1000) == 600_000
+def test_pre_narration_estimate_scales_with_text_units() -> None:
+    assert estimated_narration_duration_ms("word " * 1000) == 240_000
+    assert estimated_narration_duration_ms("word " * 2000) == 480_000
 
 
 @pytest.mark.asyncio
@@ -60,6 +61,11 @@ async def test_actual_narration_duration_is_preferred_when_available() -> None:
 def test_under_dense_storyboard_is_rejected_before_activation() -> None:
     with pytest.raises(ValueError, match="at least 60 visual beats"):
         validate_visual_beat_density(_result(28), duration_ms=600_000)
+
+
+def test_over_dense_storyboard_is_rejected_before_activation() -> None:
+    with pytest.raises(ValueError, match="at most 92 visual beats"):
+        validate_visual_beat_density(_result(93), duration_ms=600_000)
 
 
 def test_storyboard_at_hard_floor_is_accepted() -> None:
