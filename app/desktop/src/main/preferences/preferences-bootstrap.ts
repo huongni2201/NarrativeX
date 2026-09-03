@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { DesktopPreferencesStore } from "./desktop-preferences";
 import { registerDesktopPreferencesIpc } from "./desktop-preferences-ipc";
 import { resolveRestoredWindowState } from "./window-state";
-import type { RendererTrustPolicy } from "../security/renderer-security";
+import { createRendererTrustPolicy } from "../security/renderer-trust-policy";
 
 let preferences: DesktopPreferencesStore | null = null;
 
@@ -13,13 +13,6 @@ export function desktopPreferencesStore(): DesktopPreferencesStore {
     process.env,
   );
   return preferences;
-}
-
-function rendererTrustPolicy(): RendererTrustPolicy {
-  return {
-    productionEntryPath: join(__dirname, "../../renderer/index.html"),
-    developmentRendererUrl: app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL,
-  };
 }
 
 async function waitForMainWindow(): Promise<BrowserWindow | null> {
@@ -77,7 +70,7 @@ async function restoreAndTrackWindow(
 void app.whenReady().then(async () => {
   const store = desktopPreferencesStore();
   registerDesktopPreferencesIpc(
-    rendererTrustPolicy(),
+    createRendererTrustPolicy(__dirname, app.isPackaged, process.env.ELECTRON_RENDERER_URL),
     store,
     () => BrowserWindow.getAllWindows()[0] ?? null,
   );
