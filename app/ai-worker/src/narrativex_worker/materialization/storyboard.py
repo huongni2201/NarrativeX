@@ -12,7 +12,6 @@ from narrativex_worker.visual_prompt.legacy_projection import (
     legacy_camera_angle,
     legacy_camera_movement,
 )
-from narrativex_worker.visual_prompt.sequence_planner import plan_chapter_shots
 
 if TYPE_CHECKING:
     from narrativex_worker.repository import ClaimedChapterAnalysisJob
@@ -46,7 +45,6 @@ async def materialize_storyboard(
     if revision["source_row_version"] != claimed.request.chapter_row_version:
         raise RuntimeError("Storyboard revision row version does not match the analysis job")
 
-    result = plan_chapter_shots(result)
     duration_ms = planning_duration_ms(claimed.request)
     validate_visual_beat_density(result, duration_ms=duration_ms)
 
