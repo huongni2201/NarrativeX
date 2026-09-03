@@ -104,7 +104,6 @@ class CreateMediaJobUseCaseTest {
             "intent-2",
             "IMAGE_MOTION",
             "16:9",
-            "STANDARD",
             new BigDecimal("0.25"));
 
     assertThatThrownBy(() -> useCase.execute(command))
