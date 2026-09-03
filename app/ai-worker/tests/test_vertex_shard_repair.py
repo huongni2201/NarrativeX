@@ -98,8 +98,17 @@ def _character_structure() -> ChapterStructureResult:
     )
 
 
-def _beats(anchor: str, count: int, *, character_key: str | None = None) -> VisualBeatShardResult:
-    characters = [] if character_key is None else [{"character_key": character_key, "role": "PRIMARY"}]
+def _beats(
+    anchor: str,
+    count: int,
+    *,
+    character_key: str | None = None,
+) -> VisualBeatShardResult:
+    characters = (
+        []
+        if character_key is None
+        else [{"character_key": character_key, "role": "PRIMARY"}]
+    )
     return VisualBeatShardResult(
         visual_beats=[
             VisualBeatAnalysis(
@@ -209,9 +218,17 @@ async def test_beat_character_outside_scene_gets_full_replacement_repair() -> No
             return _character_structure(), _billing(), "structure"
         shard_calls += 1
         if shard_calls == 1:
-            return _beats("word", 10, character_key="other"), _billing(), "wrong-character"
+            return (
+                _beats("word", 10, character_key="other"),
+                _billing(),
+                "wrong-character",
+            )
         assert "repair" in prompt.lower()
-        return _beats("word", 10, character_key="lead"), _billing(), "repaired-character"
+        return (
+            _beats("word", 10, character_key="lead"),
+            _billing(),
+            "repaired-character",
+        )
 
     provider._generate_structured = fake_generate  # type: ignore[method-assign]
 
