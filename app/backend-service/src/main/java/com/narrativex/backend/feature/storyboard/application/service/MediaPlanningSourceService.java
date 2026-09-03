@@ -67,7 +67,8 @@ public class MediaPlanningSourceService implements MediaPlanningSourceAccess {
                                             ? null
                                             : beat.getQualityTierOverride().name(),
                                         null,
-                                        null))
+                                        null,
+                                        beat.getVisualDirectionJson()))
                             .toList()))
             .toList();
 
