@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { buildMuxNarrationArgs } from "../../shared/audio-muxer-args";
-import { LEGACY_VIDEO_QUALITY, type VideoQualityProfile } from "../../shared/video-encoding.ts";
+import { V2_VIDEO_QUALITY, type VideoQualityProfile } from "../../shared/video-encoding.ts";
 import { runProcess } from "./process-runner";
 import { RenderExecutionError } from "./render-errors";
 import type { VideoEncoder } from "./video-encoder";
@@ -13,7 +13,7 @@ export async function muxNarration(
   subtitlePath: string | null = null,
   signal?: AbortSignal,
   videoEncoder: VideoEncoder = "libx264",
-  videoQuality: VideoQualityProfile = LEGACY_VIDEO_QUALITY,
+  videoQuality: VideoQualityProfile = V2_VIDEO_QUALITY,
 ): Promise<string> {
   const output = join(workDirectory, "final.mp4");
   const process = runProcess(
