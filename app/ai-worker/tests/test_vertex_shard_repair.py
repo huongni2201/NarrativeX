@@ -122,6 +122,15 @@ def _beats(
     )
 
 
+def test_structured_validation_diagnostic_does_not_include_exception_message() -> None:
+    reason = VertexGeminiProvider._safe_exception_reason(
+        ValueError("SECRET_STORY_FRAGMENT must not enter logs")
+    )
+
+    assert reason == "ValueError"
+    assert "SECRET_STORY_FRAGMENT" not in reason
+
+
 @pytest.mark.asyncio
 async def test_invalid_source_anchor_gets_full_replacement_repair() -> None:
     source = "BEGIN_WORD " + ("word " * 100).strip() + " END_WORD"
