@@ -41,7 +41,6 @@ narrativex:
   generation:
     media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
     image:
-      profile-version: ${NARRATIVEX_IMAGE_PROFILE_VERSION:premium-image-v1}
       provider-key: ${NARRATIVEX_IMAGE_PROVIDER_KEY:vertex}
       model: ${NARRATIVEX_IMAGE_MODEL:gemini-2.5-flash-image}
       pricing-version: ${NARRATIVEX_IMAGE_PRICING_VERSION:gemini-2.5-flash-image-batch-2026-08-22}
