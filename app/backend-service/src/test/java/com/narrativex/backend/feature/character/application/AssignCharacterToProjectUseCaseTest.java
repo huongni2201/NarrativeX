@@ -24,7 +24,6 @@ import com.narrativex.backend.feature.common.exception.ResourceConflictException
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import java.util.List;
 import java.util.Optional;
@@ -251,7 +250,6 @@ class AssignCharacterToProjectUseCaseTest {
             "vi-VN",
             "vi-VN",
             AspectRatio.RATIO_16_9,
-            ImageQualityTier.STANDARD,
             null);
     when(projectAccess.findOwnedProject(projectId, "owner")).thenReturn(project);
     when(characterRepository.findOwnedById(characterId, "owner"))
