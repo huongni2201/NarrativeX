@@ -11,6 +11,7 @@ from narrativex_worker.materialization.storyboard import materialize_storyboard
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.repository import ClaimedChapterAnalysisJob
 from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
+from tests.visual_direction_fixture import visual_direction_json
 
 SOURCE_HASH = "b" * 64
 
@@ -30,6 +31,18 @@ def claimed_job() -> ClaimedChapterAnalysisJob:
             source_text="Hero enters the old house.",
         ),
     )
+
+
+def _beat(**overrides: object) -> dict[str, object]:
+    beat: dict[str, object] = {
+        "title": "Beat",
+        "visual_intent": "Intent",
+        "source_anchor": "Hero enters the old house.",
+        "visual_direction": visual_direction_json(),
+        "characters": [],
+    }
+    beat.update(overrides)
+    return beat
 
 
 def continuity_result() -> ChapterAnalysisResult:
@@ -58,12 +71,11 @@ def continuity_result() -> ChapterAnalysisResult:
                     "characters": [{"character_key": "hero"}],
                     "location_key": "old-house",
                     "visual_beats": [
-                        {
-                            "title": "Threshold",
-                            "visual_intent": "The hero crosses a dusty threshold.",
-                            "source_anchor": "Hero enters the old house.",
-                            "characters": [{"character_key": "hero", "role": "PRIMARY"}],
-                        }
+                        _beat(
+                            title="Threshold",
+                            visual_intent="The hero crosses a dusty threshold.",
+                            characters=[{"character_key": "hero", "role": "PRIMARY"}],
+                        )
                     ],
                 }
             ],
@@ -80,7 +92,7 @@ def test_analysis_result_rejects_dangling_character_reference() -> None:
                     {
                         "title": "Broken",
                         "characters": [{"character_key": "missing"}],
-                        "visual_beats": [{"title": "Beat", "visual_intent": "Intent"}],
+                        "visual_beats": [_beat()],
                     }
                 ],
             }
@@ -96,7 +108,7 @@ def test_analysis_result_rejects_dangling_location_reference() -> None:
                     {
                         "title": "Broken",
                         "location_key": "missing",
-                        "visual_beats": [{"title": "Beat", "visual_intent": "Intent"}],
+                        "visual_beats": [_beat()],
                     }
                 ],
             }
@@ -116,13 +128,10 @@ def test_analysis_result_rejects_beat_character_not_in_parent_scene() -> None:
                         "title": "Solo",
                         "characters": [{"character_key": "hero"}],
                         "visual_beats": [
-                            {
-                                "title": "Beat",
-                                "visual_intent": "Hero stands alone.",
-                                "characters": [
-                                    {"character_key": "friend", "role": "SECONDARY"}
-                                ],
-                            }
+                            _beat(
+                                visual_intent="Hero stands alone.",
+                                characters=[{"character_key": "friend", "role": "SECONDARY"}],
+                            )
                         ],
                     }
                 ],
@@ -264,13 +273,13 @@ async def test_storyboard_materializer_persists_scene_beat_character_and_locatio
 
     assert connection.beat_insert_args is not None
     assert connection.beat_insert_args[0] == [UUID("00000000-0000-4000-8000-000000001001")]
-    assert connection.beat_insert_args[1:] == (
-        [0],
-        ["Threshold"],
-        ["The hero crosses a dusty threshold."],
-        ["NONE"],
-        ["MEDIUM"],
-    )
+    assert connection.beat_insert_args[1] == [0]
+    assert connection.beat_insert_args[2] == ["Threshold"]
+    assert connection.beat_insert_args[3] == ["The hero crosses a dusty threshold."]
+    assert connection.beat_insert_args[4] == ["NONE"]
+    assert connection.beat_insert_args[5] == ["MEDIUM"]
+    assert len(connection.beat_insert_args[6]) == 1
+    assert '"shot_size":"MEDIUM"' in connection.beat_insert_args[6][0]
 
     beat_character_call = next(
         call

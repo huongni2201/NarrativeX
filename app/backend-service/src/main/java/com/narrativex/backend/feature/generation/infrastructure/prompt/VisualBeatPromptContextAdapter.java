@@ -36,7 +36,7 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
     return visualPromptComposer.compose(
         ImageStyle.CINEMATIC_ANIME,
         beat.visualIntent(),
-        beat.cameraAngle().name(),
+        beat.visualDirectionJson(),
         aspectRatio,
         context);
   }

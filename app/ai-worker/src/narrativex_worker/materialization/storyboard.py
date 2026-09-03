@@ -8,7 +8,10 @@ import asyncpg  # type: ignore[import-untyped]
 from narrativex_worker.schema import ChapterAnalysisResult
 from narrativex_worker.visual_alignment import resolve_visual_beat_ranges
 from narrativex_worker.visual_density import planning_duration_ms, validate_visual_beat_density
-from narrativex_worker.visual_prompt.director import choose_ffmpeg_camera_movement
+from narrativex_worker.visual_prompt.legacy_projection import (
+    legacy_camera_angle,
+    legacy_camera_movement,
+)
 
 if TYPE_CHECKING:
     from narrativex_worker.repository import ClaimedChapterAnalysisJob
@@ -106,15 +109,10 @@ async def materialize_storyboard(
                 scene_character_rows,
             )
 
-        flattened_beats = [
-            beat for scene in result.scenes for beat in scene.visual_beats
-        ]
-        anchors = [beat.source_anchor for beat in flattened_beats]
-        if not all(anchor is not None for anchor in anchors):
-            raise ValueError("visual beat source anchors are required")
+        flattened_beats = [beat for scene in result.scenes for beat in scene.visual_beats]
         anchored_ranges = resolve_visual_beat_ranges(
             claimed.request.source_text,
-            [anchor for anchor in anchors if anchor is not None],
+            [beat.source_anchor for beat in flattened_beats],
         )
 
         beat_rows = [
@@ -123,8 +121,9 @@ async def materialize_storyboard(
                 beat_index,
                 beat.title,
                 beat.visual_intent,
-                choose_ffmpeg_camera_movement(beat.title, beat.visual_intent),
-                beat.camera_angle.value,
+                legacy_camera_movement(beat.visual_direction),
+                legacy_camera_angle(beat.visual_direction),
+                beat.visual_direction.model_dump_json(),
             )
             for scene_index, scene in enumerate(result.scenes)
             for beat_index, beat in enumerate(scene.visual_beats)
@@ -135,13 +134,15 @@ async def materialize_storyboard(
                 """
                 INSERT INTO visual_beats
                   (scene_id, order_index, title, visual_intent, motion_mode,
-                   camera_movement, camera_angle, review_status)
+                   camera_movement, camera_angle, visual_direction_json, review_status)
                 SELECT source.scene_id, source.order_index, source.title, source.visual_intent,
-                       'STILL', source.camera_movement, source.camera_angle, 'NEEDS_REVIEW'
+                       'STILL', source.camera_movement, source.camera_angle,
+                       source.visual_direction_json, 'NEEDS_REVIEW'
                   FROM UNNEST(
-                       $1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[])
+                       $1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[],
+                       $7::text[])
                        AS source(scene_id, order_index, title, visual_intent,
-                                 camera_movement, camera_angle)
+                                 camera_movement, camera_angle, visual_direction_json)
                  ORDER BY source.scene_id, source.order_index
                 RETURNING id, scene_id, order_index
                 """,
@@ -151,6 +152,7 @@ async def materialize_storyboard(
                 [row[3] for row in beat_rows],
                 [row[4] for row in beat_rows],
                 [row[5] for row in beat_rows],
+                [row[6] for row in beat_rows],
             )
             beat_ids = {
                 (row["scene_id"], row["order_index"]): row["id"] for row in inserted_beats

@@ -1,6 +1,6 @@
 """Durable worker payloads shared with the backend contract."""
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Self
 from uuid import UUID
 
@@ -37,20 +37,64 @@ class ImageAspectRatio(StrEnum):
 
 
 class ImageQualityTier(StrEnum):
+    """Legacy provider/storage boundary; active product settings always resolve best quality."""
+
     DRAFT = "DRAFT"
     STANDARD = "STANDARD"
     HIGH = "HIGH"
 
 
-class CameraAngle(StrEnum):
+class ShotSize(StrEnum):
+    ESTABLISHING = "ESTABLISHING"
     WIDE = "WIDE"
     MEDIUM = "MEDIUM"
+    MEDIUM_CLOSE_UP = "MEDIUM_CLOSE_UP"
     CLOSE_UP = "CLOSE_UP"
     EXTREME_CLOSE_UP = "EXTREME_CLOSE_UP"
-    LOW_ANGLE = "LOW_ANGLE"
-    HIGH_ANGLE = "HIGH_ANGLE"
-    OVER_THE_SHOULDER = "OVER_THE_SHOULDER"
+
+
+class CameraAngle(StrEnum):
+    EYE_LEVEL = "EYE_LEVEL"
+    LOW = "LOW"
+    HIGH = "HIGH"
+    OVERHEAD = "OVERHEAD"
+    OVER_SHOULDER = "OVER_SHOULDER"
     POV = "POV"
+
+
+class LensMm(IntEnum):
+    MM_24 = 24
+    MM_35 = 35
+    MM_50 = 50
+    MM_85 = 85
+
+
+class ActionPhase(StrEnum):
+    BEFORE = "BEFORE"
+    IMPACT = "IMPACT"
+    AFTER = "AFTER"
+    REACTION = "REACTION"
+
+
+class CameraMovement(StrEnum):
+    NONE = "NONE"
+    PUSH_IN = "PUSH_IN"
+    PULL_OUT = "PULL_OUT"
+    PAN = "PAN"
+    TILT = "TILT"
+    PARALLAX = "PARALLAX"
+
+
+class MovementDirection(StrEnum):
+    LEFT = "LEFT"
+    RIGHT = "RIGHT"
+    UP = "UP"
+    DOWN = "DOWN"
+
+
+class MovementIntensity(StrEnum):
+    SUBTLE = "SUBTLE"
+    MODERATE = "MODERATE"
 
 
 class VisualBeatCharacterRole(StrEnum):
@@ -66,13 +110,49 @@ class ModerationDecision(StrEnum):
 
 
 class ImageGenerationSettings(BaseModel):
-    """Provider-neutral image settings; adapters resolve vendor dimensions later."""
+    """Provider-neutral settings; image generation always uses the best-quality active path."""
 
     model_config = ConfigDict(extra="forbid")
 
     aspect_ratio: ImageAspectRatio = ImageAspectRatio.RATIO_16_9
-    quality_tier: ImageQualityTier = ImageQualityTier.STANDARD
     source: str = Field(default="PROJECT_DEFAULT", pattern=r"^(PROJECT_DEFAULT|BEAT_OVERRIDE)$")
+
+
+class VisualDirection(BaseModel):
+    """Structured, provider-neutral direction for one storyboard frame and its subtle motion."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shot_size: ShotSize
+    camera_angle: CameraAngle
+    lens_mm: LensMm
+    focus_target: str = Field(min_length=1, max_length=1000)
+    action_phase: ActionPhase
+    subject_placement: str = Field(min_length=1, max_length=1000)
+    foreground: str | None = Field(default=None, min_length=1, max_length=1000)
+    background: str = Field(min_length=1, max_length=2000)
+    motivated_light: str = Field(min_length=1, max_length=1000)
+    palette: str = Field(min_length=1, max_length=1000)
+    camera_movement: CameraMovement = CameraMovement.NONE
+    movement_direction: MovementDirection | None = None
+    movement_intensity: MovementIntensity = MovementIntensity.SUBTLE
+    crop_safe_area: str = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_movement_direction(self) -> Self:
+        if self.camera_movement == CameraMovement.PAN and self.movement_direction not in {
+            MovementDirection.LEFT,
+            MovementDirection.RIGHT,
+        }:
+            raise ValueError("PAN requires LEFT or RIGHT movement_direction")
+        if self.camera_movement == CameraMovement.TILT and self.movement_direction not in {
+            MovementDirection.UP,
+            MovementDirection.DOWN,
+        }:
+            raise ValueError("TILT requires UP or DOWN movement_direction")
+        if self.camera_movement not in {CameraMovement.PAN, CameraMovement.TILT}:
+            self.movement_direction = None
+        return self
 
 
 class CharacterAnalysis(BaseModel):
@@ -115,8 +195,8 @@ class VisualBeatAnalysis(BaseModel):
 
     title: str = Field(min_length=1, max_length=200)
     visual_intent: str = Field(min_length=1, max_length=8000)
-    source_anchor: str | None = Field(default=None, min_length=1, max_length=2000)
-    camera_angle: CameraAngle = CameraAngle.MEDIUM
+    source_anchor: str = Field(min_length=1, max_length=2000)
+    visual_direction: VisualDirection
     characters: list[VisualBeatCharacterRef] = Field(default_factory=list)
 
 

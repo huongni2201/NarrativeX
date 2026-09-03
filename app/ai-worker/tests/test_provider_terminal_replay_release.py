@@ -15,6 +15,7 @@ from narrativex_worker.schema import (
     VisualBeatAnalysis,
 )
 from narrativex_worker.worker import NarrativeXWorker
+from tests.visual_direction_fixture import visual_direction
 
 OPERATION_ID = UUID("00000000-0000-7000-8000-000000000201")
 STAGE_ATTEMPT_ID = UUID("00000000-0000-7000-8000-000000000202")
@@ -39,7 +40,12 @@ def _result() -> ChapterAnalysisResult:
             SceneAnalysis(
                 title="Opening",
                 visual_beats=[
-                    VisualBeatAnalysis(title="Beat", visual_intent="A quiet opening frame")
+                    VisualBeatAnalysis(
+                        title="Beat",
+                        visual_intent="A quiet opening frame",
+                        source_anchor="A quiet opening frame",
+                        visual_direction=visual_direction(),
+                    )
                 ],
             )
         ]

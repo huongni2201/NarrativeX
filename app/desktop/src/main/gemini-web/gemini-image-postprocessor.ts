@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { rm, stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
+import { inspectGeminiImage, validateCleanedVariant } from "./gemini-image-quality";
 
 const WATERMARK_REMOVER_PACKAGE = "@pilio/gemini-watermark-remover@1.0.41";
 const WATERMARK_REMOVER_BINARY = "gwr";
@@ -14,6 +15,7 @@ export async function createGeminiWatermarkRemovedCopy(sourcePath: string): Prom
   if (!source.isFile() || source.size <= 0) {
     throw new Error("Gemini image postprocessing source is missing or empty.");
   }
+  const original = await inspectGeminiImage(sourcePath);
 
   const extension = extname(sourcePath).toLowerCase() || ".png";
   const stem = basename(sourcePath, extname(sourcePath));
@@ -25,6 +27,8 @@ export async function createGeminiWatermarkRemovedCopy(sourcePath: string): Prom
     if (!output.isFile() || output.size <= 0) {
       throw new Error("Gemini watermark remover finished without producing a valid image.");
     }
+    const cleaned = await inspectGeminiImage(outputPath);
+    validateCleanedVariant(original, cleaned);
     return outputPath;
   } catch (error) {
     await rm(outputPath, { force: true }).catch(() => undefined);
@@ -38,13 +42,8 @@ export async function cleanupGeminiTempFile(sourcePath: string): Promise<void> {
 
 async function runWatermarkRemover(sourcePath: string, outputPath: string): Promise<void> {
   const { command, args } = createWatermarkRemoverCommand(sourcePath, outputPath);
-
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, {
-      stdio: ["ignore", "ignore", "pipe"],
-      windowsHide: true,
-    });
-
+    const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     let stderr = "";
     let settled = false;
     const finish = (error?: Error) => {
@@ -54,16 +53,13 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
       if (error) reject(error);
       else resolve();
     };
-
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
       stderr = (stderr + chunk).slice(-MAX_STDERR_CHARS);
     });
-
     child.once("error", (error) => {
       finish(new Error(`Could not start Gemini watermark remover. Ensure pnpm is installed and available in PATH. ${error.message}`));
     });
-
     child.once("exit", (code, signal) => {
       if (code === 0) {
         finish();
@@ -72,7 +68,6 @@ async function runWatermarkRemover(sourcePath: string, outputPath: string): Prom
       const detail = stderr.trim();
       finish(new Error(`Gemini watermark remover failed${code === null ? "" : ` with exit code ${code}`}${signal ? ` (${signal})` : ""}${detail ? `: ${detail}` : "."}`));
     });
-
     const timeout = setTimeout(() => {
       child.kill();
       finish(new Error("Gemini watermark remover timed out after 120 seconds."));

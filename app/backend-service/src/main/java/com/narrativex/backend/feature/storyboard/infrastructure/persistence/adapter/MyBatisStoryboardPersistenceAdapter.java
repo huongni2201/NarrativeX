@@ -81,6 +81,7 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
     row.setOrderIndex(value.getOrderIndex());
     row.setTitle(value.getTitle());
     row.setVisualIntent(value.getVisualIntent());
+    row.setVisualDirectionJson(value.getVisualDirectionJson());
     row.setReviewStatus(value.getReviewStatus().name());
     row.setMotionMode(value.getMotionMode().name());
     row.setCameraMovement(value.getCameraMovement().name());
@@ -127,6 +128,7 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
             row.getOrderIndex(),
             row.getTitle(),
             row.getVisualIntent(),
+            row.getVisualDirectionJson(),
             MotionMode.valueOf(row.getMotionMode()),
             CameraMovement.valueOf(row.getCameraMovement()),
             row.getCameraAngle() == null

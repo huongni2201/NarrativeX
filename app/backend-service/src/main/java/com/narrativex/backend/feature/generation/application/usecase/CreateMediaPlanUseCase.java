@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
   private static final String GENERATE_NEW = "GENERATE_NEW";
+  private static final String PROMPT_CONTRACT = "structured-visual-prompt";
 
   private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
@@ -40,11 +41,9 @@ public class CreateMediaPlanUseCase {
   @Transactional
   public MediaPlan execute(CreateMediaPlanCommand command) {
     String userId = currentUserId.get();
-
     var chapter =
         chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
-
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     if (planningSource.sourceHash() != null
         && !planningSource.sourceHash().equals(chapter.sourceHash())) {
@@ -67,7 +66,6 @@ public class CreateMediaPlanUseCase {
 
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
-
     MediaPlan savedPlan =
         mediaPlanRepository.save(
             MediaPlan.createExecutable(
@@ -82,7 +80,7 @@ public class CreateMediaPlanUseCase {
                 java.time.Instant.now(),
                 planningSource.storyboardRevisionId(),
                 command.imageAspectRatio(),
-                command.imageQualityTier(),
+                "HIGH",
                 command.imageProviderKey(),
                 command.imageModelKey(),
                 command.pricingSnapshotJson(),
@@ -110,9 +108,17 @@ public class CreateMediaPlanUseCase {
       for (var beat : scene.beats()) {
         var context =
             visualPromptContextRepository.findForBeat(command.projectId(), beat.visualBeatId());
+        String aspectRatio =
+            beat.aspectRatioOverride() == null
+                ? command.imageAspectRatio()
+                : beat.aspectRatioOverride();
         var composed =
             visualPromptComposer.compose(
-                command.imageStyle(), beat.visualIntent(), beat.cameraAngle(), context);
+                command.imageStyle(),
+                beat.visualIntent(),
+                beat.visualDirectionJson(),
+                aspectRatio,
+                context);
         String cameraMovement =
             beat.cameraMovement() == null || beat.cameraMovement().isBlank()
                 ? "NONE"
@@ -125,7 +131,7 @@ public class CreateMediaPlanUseCase {
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
                 GENERATE_NEW,
-                "prompt-v8-" + command.imageStyle().name().toLowerCase(),
+                PROMPT_CONTRACT + "-" + command.imageStyle().name().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
                 beat.audioStartMs(),
@@ -134,19 +140,7 @@ public class CreateMediaPlanUseCase {
                     ? beat.audioEndMs() - beat.audioStartMs()
                     : null,
                 cameraMovement,
-                "{\"aspectRatio\":\""
-                    + (beat.aspectRatioOverride() == null
-                        ? command.imageAspectRatio()
-                        : beat.aspectRatioOverride())
-                    + "\",\"qualityTier\":\""
-                    + (beat.qualityTierOverride() == null
-                        ? command.imageQualityTier()
-                        : beat.qualityTierOverride())
-                    + "\",\"visualStyle\":\""
-                    + command.imageStyle().name()
-                    + "\",\"cameraAngle\":\""
-                    + beat.cameraAngle()
-                    + "\"}",
+                renderSettingsJson(command, beat, aspectRatio),
                 composed.characterSnapshotJson(),
                 null,
                 null));
@@ -162,16 +156,28 @@ public class CreateMediaPlanUseCase {
     return List.copyOf(resolved);
   }
 
+  private static String renderSettingsJson(
+      CreateMediaPlanCommand command, MediaPlanningSource.BeatSnapshot beat, String aspectRatio) {
+    String direction = beat.visualDirectionJson();
+    return "{\"aspectRatio\":\""
+        + aspectRatio
+        + "\",\"qualityTier\":\"HIGH\",\"visualStyle\":\""
+        + command.imageStyle().name()
+        + "\",\"cameraAngle\":\""
+        + beat.cameraAngle()
+        + "\",\"visualDirection\":"
+        + (direction == null ? "null" : direction)
+        + "}";
+  }
+
   private static MediaWorkload calculateWorkload(List<MediaScenePlan> scenes) {
     long narrationCharacters = 0L;
     int imageGenerateCount = 0;
     int basicMotionSeconds = 0;
     int plannedI2vSeconds = 0;
-
     for (var scene : scenes) {
       if (scene.narration() != null) narrationCharacters += scene.narration().length();
       imageGenerateCount += scene.beats().size();
-
       int duration = scene.durationSeconds() == null ? 0 : scene.durationSeconds();
       boolean usesI2v =
           scene.beats().stream()
@@ -179,7 +185,6 @@ public class CreateMediaPlanUseCase {
       if (usesI2v) plannedI2vSeconds += duration;
       else basicMotionSeconds += duration;
     }
-
     return new MediaWorkload(
         narrationCharacters, imageGenerateCount, 0, basicMotionSeconds, plannedI2vSeconds);
   }

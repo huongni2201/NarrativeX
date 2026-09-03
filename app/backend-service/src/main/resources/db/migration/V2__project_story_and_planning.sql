@@ -299,6 +299,7 @@ CREATE TABLE visual_beats (
     order_index INTEGER NOT NULL,
     title VARCHAR(200) NOT NULL,
     visual_intent TEXT NOT NULL,
+    visual_direction_json TEXT,
     review_status VARCHAR(24) NOT NULL DEFAULT 'NEEDS_REVIEW',
     motion_mode VARCHAR(24) NOT NULL DEFAULT 'STILL',
     camera_movement VARCHAR(32) NOT NULL DEFAULT 'NONE',
