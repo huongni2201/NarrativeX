@@ -22,7 +22,7 @@ from narrativex_worker.providers.vertex_image import (
     VertexImageProviderError,
     VertexImageSubmissionUnknownError,
 )
-from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier, ProviderOperationStatus
+from narrativex_worker.schema import ImageAspectRatio, ProviderOperationStatus
 
 
 class _Repository:
@@ -100,11 +100,7 @@ class _Repository:
 
 
 class _PersistenceFailureRepository(_Repository):
-    def __init__(
-        self,
-        operation: DurableImageOperation,
-        exception: Exception,
-    ) -> None:
+    def __init__(self, operation: DurableImageOperation, exception: Exception) -> None:
         super().__init__(operation)
         self.exception = exception
 
@@ -181,7 +177,6 @@ def _item() -> ImageBatchItem:
             prompt="A quiet room",
             negative_prompt=None,
             aspect_ratio=ImageAspectRatio.RATIO_16_9,
-            quality_tier=ImageQualityTier.STANDARD,
             provider_key="vertex",
             model_key="gemini-2.5-flash-image",
             location="global",
@@ -227,9 +222,7 @@ def _running_operation() -> ImageBatchOperation:
 async def test_submit_batch_persists_provider_failed_and_fails_items() -> None:
     repository = _Repository(_operation())
     runner = _runner(repository, _Provider(_failed_operation()))
-
     await runner._submit_batch(_job(), (_item(),))
-
     assert repository.mark_submitted_calls == []
     assert repository.fail_provider_operation_calls == ["HTTP_400"]
     assert repository.complete_provider_operation_calls == 0
@@ -240,9 +233,7 @@ async def test_submit_batch_persists_provider_failed_and_fails_items() -> None:
 async def test_submit_batch_treats_deterministic_provider_error_as_failed() -> None:
     repository = _Repository(_operation())
     runner = _runner(repository, _Provider(VertexImageProviderError("HTTP_400")))
-
     await runner._submit_batch(_job(), (_item(),))
-
     assert repository.mark_unknown_calls == []
     assert repository.fail_provider_operation_calls == ["HTTP_400"]
 
@@ -253,27 +244,17 @@ async def test_submit_batch_does_not_call_provider_when_circuit_is_open() -> Non
     provider = _Provider(VertexImageProviderError("HTTP_503"))
     runner = _runner(repository, provider)
     runner.circuit_breaker = ProviderCircuitBreaker(1, 120)
-
     await runner._submit_batch(_job(), (_item(),))
     await runner._submit_batch(_job(), (_item(),))
-
     assert provider.calls == 1
-    assert repository.fail_provider_operation_calls == [
-        "HTTP_503",
-        "IMAGE_CIRCUIT_BREAKER_OPEN",
-    ]
+    assert repository.fail_provider_operation_calls == ["HTTP_503", "IMAGE_CIRCUIT_BREAKER_OPEN"]
 
 
 @pytest.mark.asyncio
 async def test_submit_batch_keeps_unknown_for_ambiguous_provider_error() -> None:
     repository = _Repository(_operation())
-    runner = _runner(
-        repository,
-        _Provider(VertexImageSubmissionUnknownError("request timed out")),
-    )
-
+    runner = _runner(repository, _Provider(VertexImageSubmissionUnknownError("request timed out")))
     await runner._submit_batch(_job(), (_item(),))
-
     assert repository.mark_unknown_calls == ["REQUEST TIMED OUT"]
     assert repository.fail_provider_operation_calls == []
 
@@ -282,9 +263,7 @@ async def test_submit_batch_keeps_unknown_for_ambiguous_provider_error() -> None
 async def test_submit_batch_keeps_unknown_for_unclassified_exception_after_paid_boundary() -> None:
     repository = _Repository(_operation())
     runner = _runner(repository, _Provider(RuntimeError("connection reset")))
-
     await runner._submit_batch(_job(), (_item(),))
-
     assert repository.mark_unknown_calls == ["CONNECTION RESET"]
     assert repository.fail_provider_operation_calls == []
 
@@ -293,25 +272,17 @@ async def test_submit_batch_keeps_unknown_for_unclassified_exception_after_paid_
 async def test_submit_batch_persistence_failure_stays_recoverable_instead_of_failed() -> None:
     repository = _PersistenceFailureRepository(_operation(), RuntimeError("db unavailable"))
     runner = _runner(repository, _Provider(_running_operation()))
-
     await runner._submit_batch(_job(), (_item(),))
-
     assert repository.mark_submitted_calls == [ProviderOperationStatus.RUNNING]
     assert repository.fail_provider_operation_calls == []
-    assert repository.mark_unknown_calls == [
-        "PROVIDER_SUBMISSION_PERSISTENCE_UNKNOWN:DB UNAVAILABLE"
-    ]
+    assert repository.mark_unknown_calls == ["PROVIDER_SUBMISSION_PERSISTENCE_UNKNOWN:DB UNAVAILABLE"]
 
 
 @pytest.mark.asyncio
 async def test_submit_batch_lease_loss_after_provider_return_does_not_terminalize() -> None:
-    repository = _PersistenceFailureRepository(
-        _operation(), ImageGenerationLeaseLostError("reclaimed")
-    )
+    repository = _PersistenceFailureRepository(_operation(), ImageGenerationLeaseLostError("reclaimed"))
     runner = _runner(repository, _Provider(_running_operation()))
-
     await runner._submit_batch(_job(), (_item(),))
-
     assert repository.mark_submitted_calls == [ProviderOperationStatus.RUNNING]
     assert repository.mark_unknown_calls == []
     assert repository.fail_provider_operation_calls == []
@@ -328,9 +299,7 @@ async def test_process_cancels_processing_when_heartbeat_loses_lease() -> None:
         raise ImageGenerationLeaseLostError("reclaimed")
 
     runner._heartbeat = lost_heartbeat
-
     await runner._process(_job())
-
     assert provider.calls == 0
     assert repository.assert_lease_calls == 0
 
@@ -347,8 +316,6 @@ async def test_lease_loss_cancels_provider_call_already_in_flight() -> None:
         raise ImageGenerationLeaseLostError("reclaimed")
 
     runner._heartbeat = lost_after_provider_starts
-
     await runner._process(_job())
-
     assert repository.assert_lease_calls == 1
     assert provider.cancelled is True
