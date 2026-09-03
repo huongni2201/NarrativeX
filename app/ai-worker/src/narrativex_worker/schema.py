@@ -36,12 +36,6 @@ class ImageAspectRatio(StrEnum):
     RATIO_3_4 = "3:4"
 
 
-class ImageQualityTier(StrEnum):
-    DRAFT = "DRAFT"
-    STANDARD = "STANDARD"
-    HIGH = "HIGH"
-
-
 class CameraAngle(StrEnum):
     WIDE = "WIDE"
     MEDIUM = "MEDIUM"
@@ -71,7 +65,6 @@ class ImageGenerationSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     aspect_ratio: ImageAspectRatio = ImageAspectRatio.RATIO_16_9
-    quality_tier: ImageQualityTier = ImageQualityTier.STANDARD
     source: str = Field(default="PROJECT_DEFAULT", pattern=r"^(PROJECT_DEFAULT|BEAT_OVERRIDE)$")
 
 
