@@ -92,16 +92,16 @@ def test_planner_uses_scene_anchors_as_hints_without_dropping_source_edges() -> 
     assert shards[-1].source_end == len(source)
 
 
-def test_long_scene_targets_about_twelve_beats_without_exceeding_max() -> None:
+def test_long_scene_keeps_each_shard_near_configured_target() -> None:
     source = _scene_source("LONG", 1000) + "\n\n" + _scene_source("SHORT", 2)
     shards = plan_visual_beat_shards(source, _structure(source), target_beats=12, max_beats=20)
 
     scene_zero = [shard for shard in shards if shard.scene_index == 0]
-    assert len(scene_zero) >= 6
+    assert len(scene_zero) == 3
     assert all(
         1 <= shard.minimum_beats <= shard.target_beats <= 20 for shard in scene_zero
     )
-    assert max(shard.target_beats for shard in scene_zero) <= 14
+    assert max(shard.target_beats for shard in scene_zero) <= 12
 
 
 def test_audio_duration_controls_global_visual_beat_budget() -> None:
