@@ -7,12 +7,6 @@ export interface ImageMotionPreset {
   panYEnd: number;
 }
 
-export interface ImageMotionSample {
-  zoom: number;
-  panX: number;
-  panY: number;
-}
-
 export type MediaFramingMode = "COVER" | "CONTAIN";
 export type MotionEasing = "LINEAR" | "SMOOTHSTEP";
 export type BeatTransitionType = "CUT" | "FADE_BLACK";
@@ -152,32 +146,6 @@ export function cssTransformFromCompositionSample(sample: CompositionFrameSample
   return `translate(${translateX.toFixed(3)}%, ${translateY.toFixed(3)}%) scale(${sample.zoom.toFixed(4)})`;
 }
 
-export function sampleImageMotion(
-  cameraMovement: string | null | undefined,
-  progress: number,
-): ImageMotionSample {
-  const preset = imageMotionPreset(cameraMovement);
-  const clamped = clamp(progress, 0, 1);
-  return {
-    zoom: lerp(preset.zoomStart, preset.zoomEnd, clamped),
-    panX: lerp(preset.panXStart, preset.panXEnd, clamped),
-    panY: lerp(preset.panYStart, preset.panYEnd, clamped),
-  };
-}
-
-export function cssImageTransform(
-  cameraMovement: string | null | undefined,
-  progress: number,
-): string {
-  const sample = sampleImageMotion(cameraMovement, progress);
-  const translateX = -sample.panX * (sample.zoom - 1) * 50;
-  const translateY = -sample.panY * (sample.zoom - 1) * 50;
-  if (Math.abs(translateX) < 0.0005 && Math.abs(translateY) < 0.0005) {
-    return sample.zoom === 1 ? "scale(1)" : `scale(${sample.zoom.toFixed(4)})`;
-  }
-  return `translate(${translateX.toFixed(3)}%, ${translateY.toFixed(3)}%) scale(${sample.zoom.toFixed(4)})`;
-}
-
 function transitionOpacity(
   policy: BeatCompositionPolicyV1,
   localFrame: number,
@@ -186,12 +154,21 @@ function transitionOpacity(
 ): number {
   if (policy.transitionType === "CUT" || !Number.isFinite(fps) || fps <= 0) return 1;
   const half = Math.floor(frameCount / 2);
-  const transitionInFrames = Math.min(half, Math.max(0, Math.round((policy.transitionInMs * fps) / 1000)));
-  const transitionOutFrames = Math.min(half, Math.max(0, Math.round((policy.transitionOutMs * fps) / 1000)));
+  const transitionInFrames = Math.min(
+    half,
+    Math.max(0, Math.round((policy.transitionInMs * fps) / 1000)),
+  );
+  const transitionOutFrames = Math.min(
+    half,
+    Math.max(0, Math.round((policy.transitionOutMs * fps) / 1000)),
+  );
 
   let opacity = 1;
   if (transitionInFrames > 0 && localFrame < transitionInFrames) {
-    opacity = Math.min(opacity, transitionInFrames === 1 ? 1 : localFrame / (transitionInFrames - 1));
+    opacity = Math.min(
+      opacity,
+      transitionInFrames === 1 ? 1 : localFrame / (transitionInFrames - 1),
+    );
   }
   const framesFromEnd = frameCount - 1 - localFrame;
   if (transitionOutFrames > 0 && framesFromEnd < transitionOutFrames) {
