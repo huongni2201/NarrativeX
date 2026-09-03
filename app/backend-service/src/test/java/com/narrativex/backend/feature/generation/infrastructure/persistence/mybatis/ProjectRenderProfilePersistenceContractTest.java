@@ -21,13 +21,18 @@ class ProjectRenderProfilePersistenceContractTest {
   }
 
   @Test
-  void migrationPermitsLegacyAndV2ProfilesWithoutRewritingHistory() throws Exception {
-    Path migration = Path.of("src/main/resources/db/migration/V9__render_profile_v2.sql");
-    assertTrue(Files.exists(migration), "V9 migration must introduce profile v2 compatibility");
+  void preReleaseBaselineDefinesRenderProfileV2() throws Exception {
+    String sql =
+        Files.readString(
+            Path.of(
+                "src/main/resources/db/migration/V5__catalog_generation_and_render_snapshots.sql"));
 
-    String sql = Files.readString(migration);
-    assertTrue(sql.contains("ck_project_render_profile_version"));
-    assertTrue(sql.matches("(?s).*schemaVersion.*IN\\s*\\(1,\\s*2\\).*"));
-    assertFalse(sql.matches("(?s).*UPDATE\\s+project_render_input_snapshots.*"));
+    assertTrue(sql.contains("\"schemaVersion\": 2"));
+    assertTrue(sql.contains("\"rendererVersion\": \"project-image-motion-v3-composition\""));
+    assertTrue(sql.contains("\"compositionPolicyVersion\": 1"));
+    assertTrue(
+        sql.matches(
+            "(?s).*ck_project_render_profile_version.*schemaVersion.*=\\s*2.*"),
+        "The pre-release baseline must admit only the current render-profile schema");
   }
 }
