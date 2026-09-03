@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.project.infrastructure.persistence.mybati
 
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import java.time.Instant;
 import java.util.UUID;
@@ -32,7 +31,6 @@ public class ProjectRow {
   private String narrationLanguage;
   private String metadataLanguage;
   private AspectRatio imageAspectRatio;
-  private ImageQualityTier imageQualityTier;
   private Instant archivedAt;
 
   public Project toDomain() {
@@ -48,7 +46,6 @@ public class ProjectRow {
         narrationLanguage,
         metadataLanguage,
         imageAspectRatio,
-        imageQualityTier,
         archivedAt);
   }
 }
