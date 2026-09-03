@@ -92,7 +92,7 @@ public class GetProductionTimelineUseCase {
       boolean assetsReady =
           beatSetComplete
               && plannedBeats.stream().allMatch(ProductionTimelineView.Beat::assetReady);
-      boolean chapterReady = audioReady && exactTiming && assetsReady;
+      boolean chapterReady = audioReady && assetsReady;
       readyForRender &= chapterReady;
 
       chapters.add(
