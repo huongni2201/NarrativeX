@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { DesktopTimelineBeat, RenderFrameRate } from "@narrativex/client-contracts";
 import { activeSubtitleAt, type PlannedSubtitle } from "../../../../shared/subtitle-planner";
+import { SUBTITLE_STYLE_V1 } from "../../../../shared/subtitle-style";
 import {
   globalPlayheadFromNarrationSeconds,
   narrationSeekSeconds,
@@ -264,8 +265,29 @@ export function EditorPreviewViewport({
           />
 
           {activeSubtitle && (
-            <div className="pointer-events-none absolute inset-x-[8%] bottom-[7%] z-20 flex justify-center">
-              <span className="max-w-[90%] rounded-sm bg-black/75 px-3 py-1.5 text-center text-[clamp(11px,1.25vw,19px)] font-semibold leading-snug text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+            <div
+              className="pointer-events-none absolute z-20 flex justify-center"
+              style={{
+                left: `${((1 - SUBTITLE_STYLE_V1.maxWidthRatio) / 2) * 100}%`,
+                right: `${((1 - SUBTITLE_STYLE_V1.maxWidthRatio) / 2) * 100}%`,
+                bottom: `${SUBTITLE_STYLE_V1.bottomMarginRatio * 100}%`,
+              }}
+            >
+              <span
+                className="rounded-sm px-3 py-1.5 text-center leading-snug"
+                style={{
+                  maxWidth: "100%",
+                  fontFamily: SUBTITLE_STYLE_V1.fontFamily,
+                  fontWeight: SUBTITLE_STYLE_V1.fontWeight,
+                  fontSize: `clamp(11px, ${SUBTITLE_STYLE_V1.fontSizeRatio * 100}vw, 19px)`,
+                  color: SUBTITLE_STYLE_V1.primaryColor,
+                  backgroundColor: hexToRgba(
+                    SUBTITLE_STYLE_V1.backgroundColor,
+                    SUBTITLE_STYLE_V1.backgroundOpacity,
+                  ),
+                  textShadow: `0 ${Math.max(1, SUBTITLE_STYLE_V1.shadowDepthRatio * 1000)}px ${Math.max(2, SUBTITLE_STYLE_V1.outlineWidthRatio * 1600)}px ${SUBTITLE_STYLE_V1.outlineColor}`,
+                }}
+              >
                 {activeSubtitle.text}
               </span>
             </div>
@@ -302,6 +324,15 @@ export function EditorPreviewViewport({
       </div>
     </div>
   );
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace(/^#/, "");
+  const value = Number.parseInt(normalized.padEnd(6, "0").slice(0, 6), 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha))})`;
 }
 
 function formatTimecode(ms: number): string {
