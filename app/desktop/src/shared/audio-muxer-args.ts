@@ -1,9 +1,17 @@
+import {
+  buildVideoEncodeArgs,
+  LEGACY_VIDEO_QUALITY,
+  type VideoEncoder,
+  type VideoQualityProfile,
+} from "./video-encoding.ts";
+
 export function buildMuxNarrationArgs(
   videoPath: string,
   audioPath: string,
   subtitlePath: string | null,
   output: string,
-  videoEncoder = "libx264",
+  videoEncoder: VideoEncoder = "libx264",
+  videoQuality: VideoQualityProfile = LEGACY_VIDEO_QUALITY,
 ): string[] {
   if (!subtitlePath) {
     return [
@@ -24,8 +32,7 @@ export function buildMuxNarrationArgs(
     "-vf", `subtitles=filename='${escapeSubtitleFilterPath(subtitlePath)}'`,
     "-map", "0:v:0",
     "-map", "1:a:0",
-    "-c:v", videoEncoder,
-    "-pix_fmt", "yuv420p",
+    ...buildVideoEncodeArgs(videoEncoder, videoQuality),
     "-c:a", "aac",
     "-shortest",
     "-y", output,
