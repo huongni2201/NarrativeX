@@ -36,14 +36,6 @@ class ImageAspectRatio(StrEnum):
     RATIO_3_4 = "3:4"
 
 
-class ImageQualityTier(StrEnum):
-    """Legacy provider/storage boundary; active product settings always resolve best quality."""
-
-    DRAFT = "DRAFT"
-    STANDARD = "STANDARD"
-    HIGH = "HIGH"
-
-
 class ShotSize(StrEnum):
     ESTABLISHING = "ESTABLISHING"
     WIDE = "WIDE"
