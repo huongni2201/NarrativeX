@@ -24,5 +24,4 @@ export interface CreateProjectInput {
   narrationLanguage?: string;
   metadataLanguage?: string;
   imageAspectRatio?: ProjectAspectRatio;
-  imageQualityTier?: string;
 }
