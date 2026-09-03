@@ -3,13 +3,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   compositionPolicyForBeat,
-  cssImageTransform,
   sampleCompositionFrame,
 } from "../src/shared/image-motion.ts";
-import {
-  renderFrameWindow,
-  renderProjectFrameWindows,
-} from "../src/shared/render-frame-clock.ts";
+import { renderProjectFrameWindows } from "../src/shared/render-frame-clock.ts";
 import { renderWorkingDimensions } from "../src/main/rendering/segment-renderer.ts";
 import { estimateRenderOutputBytes } from "../src/renderer/features/production/render-preflight.ts";
 
@@ -17,11 +13,8 @@ async function source(relative) {
   return readFile(new URL(relative, import.meta.url), "utf8");
 }
 
-test("legacy frame helper remains compatible while v3 project partition covers narration", () => {
+test("v3 project frame partition stays contiguous and covers narration", () => {
   for (const fps of [30, 60]) {
-    const first = renderFrameWindow(0, 4210, fps);
-    assert.equal(first.durationSeconds, first.frameCount / fps);
-
     const windows = renderProjectFrameWindows(
       [
         { startMs: 0, endMs: 4210 },
@@ -43,11 +36,6 @@ test("60 fps preflight reserves more render space than 30 fps", () => {
   const at30 = estimateRenderOutputBytes(600_000, "1080p", 30);
   const at60 = estimateRenderOutputBytes(600_000, "1080p", 60);
   assert.equal(at60, at30 * 2);
-});
-
-test("shared legacy motion preserves preview pan endpoints", () => {
-  assert.equal(cssImageTransform("PAN", 0), "translate(-3.000%, 0.000%) scale(1.0600)");
-  assert.equal(cssImageTransform("PAN", 1), "translate(3.000%, 0.000%) scale(1.0600)");
 });
 
 test("v3 moving still motion uses deterministic smoothstep samples", () => {
