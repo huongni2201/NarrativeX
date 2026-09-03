@@ -47,7 +47,7 @@ def build_visual_beat_shard_prompt(
     structure: ChapterStructureResult,
     shard: VisualBeatShard,
     *,
-    missing_count: int = 0,
+    repair_reason: str | None = None,
 ) -> str:
     scene = structure.scenes[shard.scene_index]
     characters = {
@@ -76,10 +76,12 @@ def build_visual_beat_shard_prompt(
         ensure_ascii=False,
     )
     repair = (
-        " This is a repair pass because the prior response was under-dense. Regenerate the COMPLETE "
-        f"replacement beat set for this shard, not only the missing beats. The replacement must "
-        f"contain at least {shard.minimum_beats} beats; PRIOR_MISSING_BEATS={missing_count}."
-        if missing_count > 0
+        " This is a repair pass because the prior response failed deterministic validation. "
+        "Regenerate the COMPLETE replacement beat set for this shard, not a patch or append. "
+        f"REPAIR_REASON={repair_reason}. The replacement must satisfy every MIN/TARGET/MAX beat "
+        "constraint and every source_anchor must be copied verbatim from SHARD_SOURCE in source "
+        "order without overlap."
+        if repair_reason is not None
         else ""
     )
     workflow = (
