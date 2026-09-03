@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.project.domain.aggregate;
 import com.narrativex.backend.feature.common.domain.UuidAggregateRoot;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
@@ -23,7 +22,6 @@ public final class Project extends UuidAggregateRoot {
   private final String narrationLanguage;
   private final String metadataLanguage;
   private final AspectRatio imageAspectRatio;
-  private final ImageQualityTier imageQualityTier;
   private Instant archivedAt;
 
   private Project(
@@ -38,7 +36,6 @@ public final class Project extends UuidAggregateRoot {
       String narrationLanguage,
       String metadataLanguage,
       AspectRatio imageAspectRatio,
-      ImageQualityTier imageQualityTier,
       Instant archivedAt) {
     super(id, rowVersion);
     this.name = required(name, "name", 160);
@@ -50,7 +47,6 @@ public final class Project extends UuidAggregateRoot {
     this.narrationLanguage = required(narrationLanguage, "narrationLanguage", 16);
     this.metadataLanguage = required(metadataLanguage, "metadataLanguage", 16);
     this.imageAspectRatio = Objects.requireNonNull(imageAspectRatio, "imageAspectRatio");
-    this.imageQualityTier = Objects.requireNonNull(imageQualityTier, "imageQualityTier");
     this.archivedAt = archivedAt;
   }
 
@@ -60,8 +56,7 @@ public final class Project extends UuidAggregateRoot {
       String sourceLanguage,
       String narrationLanguage,
       String metadataLanguage,
-      AspectRatio imageAspectRatio,
-      ImageQualityTier imageQualityTier) {
+      AspectRatio imageAspectRatio) {
     return create(
         name,
         null,
@@ -69,8 +64,7 @@ public final class Project extends UuidAggregateRoot {
         sourceLanguage,
         narrationLanguage,
         metadataLanguage,
-        imageAspectRatio,
-        imageQualityTier);
+        imageAspectRatio);
   }
 
   public static Project create(
@@ -80,8 +74,7 @@ public final class Project extends UuidAggregateRoot {
       String sourceLanguage,
       String narrationLanguage,
       String metadataLanguage,
-      AspectRatio imageAspectRatio,
-      ImageQualityTier imageQualityTier) {
+      AspectRatio imageAspectRatio) {
     return new Project(
         null,
         0L,
@@ -94,7 +87,6 @@ public final class Project extends UuidAggregateRoot {
         narrationLanguage,
         metadataLanguage,
         imageAspectRatio,
-        imageQualityTier,
         null);
   }
 
@@ -108,7 +100,6 @@ public final class Project extends UuidAggregateRoot {
       String narrationLanguage,
       String metadataLanguage,
       AspectRatio imageAspectRatio,
-      ImageQualityTier imageQualityTier,
       Instant archivedAt) {
     return new Project(
         id,
@@ -122,7 +113,6 @@ public final class Project extends UuidAggregateRoot {
         narrationLanguage,
         metadataLanguage,
         imageAspectRatio,
-        imageQualityTier,
         archivedAt);
   }
 
@@ -138,7 +128,6 @@ public final class Project extends UuidAggregateRoot {
       String narrationLanguage,
       String metadataLanguage,
       AspectRatio imageAspectRatio,
-      ImageQualityTier imageQualityTier,
       Instant archivedAt) {
     return new Project(
         id,
@@ -152,7 +141,6 @@ public final class Project extends UuidAggregateRoot {
         narrationLanguage,
         metadataLanguage,
         imageAspectRatio,
-        imageQualityTier,
         archivedAt);
   }
 
@@ -185,9 +173,7 @@ public final class Project extends UuidAggregateRoot {
   }
 
   public void archive() {
-    if (status == ProjectStatus.ARCHIVED) {
-      return;
-    }
+    if (status == ProjectStatus.ARCHIVED) return;
     status = ProjectStatus.ARCHIVED;
     archivedAt = Instant.now();
   }
@@ -201,67 +187,25 @@ public final class Project extends UuidAggregateRoot {
   }
 
   private void ensureStoryVersionCanBeManaged() {
-    if (status == ProjectStatus.ARCHIVED) {
-      throw new ArchivedProjectException();
-    }
-    if (getId() == null) {
-      throw new ProjectPersistenceRequiredException();
-    }
+    if (status == ProjectStatus.ARCHIVED) throw new ArchivedProjectException();
+    if (getId() == null) throw new ProjectPersistenceRequiredException();
   }
 
   private void ensureProjectActive() {
-    if (status == ProjectStatus.DRAFT) {
-      status = ProjectStatus.ACTIVE;
-    }
+    if (status == ProjectStatus.DRAFT) status = ProjectStatus.ACTIVE;
   }
 
-  public String getName() {
-    return name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public String getCoverImageUrl() {
-    return coverImageUrl;
-  }
-
-  public String getOwnerId() {
-    return ownerId;
-  }
-
-  public ProjectStatus getStatus() {
-    return status;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getProjectLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getNarrationLanguage() {
-    return narrationLanguage;
-  }
-
-  public String getMetadataLanguage() {
-    return metadataLanguage;
-  }
-
-  public AspectRatio getImageAspectRatio() {
-    return imageAspectRatio;
-  }
-
-  public ImageQualityTier getImageQualityTier() {
-    return imageQualityTier;
-  }
-
-  public Instant getArchivedAt() {
-    return archivedAt;
-  }
+  public String getName() { return name; }
+  public String getDescription() { return description; }
+  public String getCoverImageUrl() { return coverImageUrl; }
+  public String getOwnerId() { return ownerId; }
+  public ProjectStatus getStatus() { return status; }
+  public String getSourceLanguage() { return sourceLanguage; }
+  public String getProjectLanguage() { return sourceLanguage; }
+  public String getNarrationLanguage() { return narrationLanguage; }
+  public String getMetadataLanguage() { return metadataLanguage; }
+  public AspectRatio getImageAspectRatio() { return imageAspectRatio; }
+  public Instant getArchivedAt() { return archivedAt; }
 
   private static String required(String value, String field, int maxLength) {
     if (value == null || value.isBlank())
