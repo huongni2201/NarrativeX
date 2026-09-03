@@ -6,11 +6,18 @@ from narrativex_worker.providers.ports import (
     ProviderOperation,
 )
 from narrativex_worker.schema import (
+    ActionPhase,
+    CameraAngle,
+    CameraMovement,
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
+    LensMm,
+    MovementIntensity,
     ProviderOperationStatus,
     SceneAnalysis,
+    ShotSize,
     VisualBeatAnalysis,
+    VisualDirectionV3,
 )
 
 
@@ -25,6 +32,7 @@ class FakeAnalysisProvider:
         return ProviderEstimate(min_cost=0, max_cost=0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
+        anchor = request.source_text[: min(120, len(request.source_text))]
         result = ChapterAnalysisResult(
             scenes=[
                 SceneAnalysis(
@@ -33,7 +41,24 @@ class FakeAnalysisProvider:
                     visual_beats=[
                         VisualBeatAnalysis(
                             title="E2E opening frame",
-                            visual_intent="A cinematic establishing frame for the chapter opening.",
+                            visual_intent="A readable establishing frame for the chapter opening.",
+                            source_anchor=anchor,
+                            visual_direction=VisualDirectionV3(
+                                shot_size=ShotSize.ESTABLISHING,
+                                camera_angle=CameraAngle.EYE_LEVEL,
+                                lens_mm=LensMm.MM_24,
+                                focus_target="chapter opening subject",
+                                action_phase=ActionPhase.AFTER,
+                                subject_placement="primary subject in the middle third",
+                                foreground=None,
+                                background="source-grounded chapter environment",
+                                motivated_light="soft source-grounded ambient light",
+                                palette="neutral balanced palette",
+                                camera_movement=CameraMovement.NONE,
+                                movement_direction=None,
+                                movement_intensity=MovementIntensity.SUBTLE,
+                                crop_safe_area="modest crop room on all sides",
+                            ),
                         )
                     ],
                 )
