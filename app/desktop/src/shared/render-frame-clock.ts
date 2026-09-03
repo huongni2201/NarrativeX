@@ -10,19 +10,6 @@ export interface RenderTimelineBeatWindowInput {
   endMs: number;
 }
 
-export function renderFrameWindow(
-  globalStartMs: number,
-  globalEndMs: number,
-  fps: number,
-): RenderFrameWindow {
-  if (!Number.isFinite(fps) || fps <= 0 || globalEndMs <= globalStartMs) {
-    throw new Error("Invalid render frame window.");
-  }
-  const startFrame = Math.round((globalStartMs * fps) / 1000);
-  const endFrame = Math.max(startFrame + 1, Math.round((globalEndMs * fps) / 1000));
-  return frameWindow(startFrame, endFrame, fps);
-}
-
 export function renderProjectFrameWindows(
   beats: readonly RenderTimelineBeatWindowInput[],
   totalDurationMs: number,
