@@ -17,7 +17,10 @@ from narrativex_worker.repository.implementation import (
     WorkerRepository as WorkerRepositoryImplementation,
 )
 from narrativex_worker.schema import ChapterAnalysisResult
-from narrativex_worker.visual_density import ChapterAnalysisPlanningRequest
+from narrativex_worker.visual_density import (
+    ChapterAnalysisPlanningRequest,
+    bind_planning_duration,
+)
 
 
 class WorkerRepository(WorkerRepositoryImplementation):
@@ -34,6 +37,7 @@ class WorkerRepository(WorkerRepositoryImplementation):
         claimed = await super().claim_next(claim_owner)
         self._claim_owner.set(claim_owner if claimed is not None else None)
         if claimed is None:
+            bind_planning_duration(None)
             return None
         return await self._hydrate_analysis_preferences(claimed)
 
@@ -72,13 +76,12 @@ class WorkerRepository(WorkerRepositoryImplementation):
         )
         if visual_generation_mode == "IMAGE" and image_provider is None:
             image_provider = "API"
+
+        raw_duration = row.get("narration_duration_ms") if row is not None else None
         narration_duration_ms = (
-            row["narration_duration_ms"]
-            if row is not None
-            and isinstance(row["narration_duration_ms"], int)
-            and row["narration_duration_ms"] > 0
-            else None
+            raw_duration if isinstance(raw_duration, int) and raw_duration > 0 else None
         )
+        bind_planning_duration(narration_duration_ms)
 
         request_payload = claimed.request.model_dump(mode="python")
         request_payload.update(
