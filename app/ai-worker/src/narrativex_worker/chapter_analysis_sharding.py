@@ -146,7 +146,10 @@ def plan_visual_beat_shards(
 
 
 def validate_visual_beat_shard(
-    shard: VisualBeatShard, result: VisualBeatShardResult
+    shard: VisualBeatShard,
+    result: VisualBeatShardResult,
+    *,
+    allowed_character_keys: set[str] | None = None,
 ) -> None:
     """Validate a shard result before it is admitted into the chapter merge."""
     key = (shard.scene_index, shard.shard_index)
@@ -163,6 +166,20 @@ def validate_visual_beat_shard(
         )
     _validate_shard_anchors(shard, result)
 
+    if allowed_character_keys is not None:
+        for beat_index, beat in enumerate(result.visual_beats):
+            beat_character_keys = [ref.character_key for ref in beat.characters]
+            if len(beat_character_keys) != len(set(beat_character_keys)):
+                raise ValueError(
+                    f"visual beat {beat_index} contains duplicate character references"
+                )
+            for character_key in beat_character_keys:
+                if character_key not in allowed_character_keys:
+                    raise ValueError(
+                        f"visual beat {beat_index} references character_key {character_key!r} "
+                        "that is not present in the scene"
+                    )
+
 
 def merge_shard_results(
     structure: ChapterStructureResult,
@@ -177,7 +194,13 @@ def merge_shard_results(
         result = results.get(key)
         if result is None:
             raise ValueError(f"missing visual beat result for shard {key}")
-        validate_visual_beat_shard(shard, result)
+        scene = structure.scenes[shard.scene_index]
+        allowed_character_keys = {ref.character_key for ref in scene.characters}
+        validate_visual_beat_shard(
+            shard,
+            result,
+            allowed_character_keys=allowed_character_keys,
+        )
         by_scene[shard.scene_index].extend(result.visual_beats)
         source_by_scene[shard.scene_index].append(shard.source_text)
 
