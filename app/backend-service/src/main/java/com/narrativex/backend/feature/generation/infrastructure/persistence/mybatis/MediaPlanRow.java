@@ -30,7 +30,6 @@ public class MediaPlanRow {
   private UUID storyboardRevisionId;
   private String workflowVersion;
   private String imageAspectRatio;
-  private String imageQualityTier;
   private String imageProviderKey;
   private String imageModelKey;
   private String pricingSnapshotJson;
