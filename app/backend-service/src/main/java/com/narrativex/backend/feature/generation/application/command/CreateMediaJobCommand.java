@@ -10,7 +10,6 @@ public record CreateMediaJobCommand(
     String idempotencyKey,
     String productionMode,
     String aspectRatio,
-    String qualityTier,
     BigDecimal maxAuthorizedCost,
     ImageStyle imageStyle,
     String visualGenerationMode,
@@ -22,7 +21,6 @@ public record CreateMediaJobCommand(
       String idempotencyKey,
       String productionMode,
       String aspectRatio,
-      String qualityTier,
       BigDecimal maxAuthorizedCost,
       ImageStyle imageStyle) {
     this(
@@ -31,7 +29,6 @@ public record CreateMediaJobCommand(
         idempotencyKey,
         productionMode,
         aspectRatio,
-        qualityTier,
         maxAuthorizedCost,
         imageStyle,
         "IMAGE",
@@ -44,7 +41,6 @@ public record CreateMediaJobCommand(
       String idempotencyKey,
       String productionMode,
       String aspectRatio,
-      String qualityTier,
       BigDecimal maxAuthorizedCost) {
     this(
         projectId,
@@ -52,7 +48,6 @@ public record CreateMediaJobCommand(
         idempotencyKey,
         productionMode,
         aspectRatio,
-        qualityTier,
         maxAuthorizedCost,
         ImageStyle.CINEMATIC);
   }
