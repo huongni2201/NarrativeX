@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from narrativex_worker.chapter_analysis_sharding import (
     ChapterStructureResult,
@@ -68,6 +69,31 @@ def _provider(*, shard_concurrency: int = 3) -> VertexGeminiProvider:
         return VertexGeminiProvider(settings)
 
 
+def _one_scene_structure(start: str, end: str) -> ChapterStructureResult:
+    return ChapterStructureResult(
+        scenes=[
+            SceneStructure(
+                title="Scene",
+                source_start_anchor=start,
+                source_end_anchor=end,
+            )
+        ]
+    )
+
+
+def _ten_word_beats() -> VisualBeatShardResult:
+    return VisualBeatShardResult(
+        visual_beats=[
+            VisualBeatAnalysis(
+                title=f"beat-{index}",
+                visual_intent="grounded",
+                source_anchor="word",
+            )
+            for index in range(10)
+        ]
+    )
+
+
 @pytest.mark.asyncio
 async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() -> None:
     source = "BEGIN_ALPHA " + ("alpha " * 1000).strip() + " END_ALPHA"
@@ -83,19 +109,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
         del client, token
         calls += 1
         if model is ChapterStructureResult:
-            return (
-                ChapterStructureResult(
-                    scenes=[
-                        SceneStructure(
-                            title="Scene",
-                            source_start_anchor="BEGIN_ALPHA",
-                            source_end_anchor="END_ALPHA",
-                        )
-                    ]
-                ),
-                _billing(),
-                "structure",
-            )
+            return _one_scene_structure("BEGIN_ALPHA", "END_ALPHA"), _billing(), "structure"
 
         active += 1
         peak = max(peak, active)
@@ -146,19 +160,7 @@ async def test_provider_gate_bounds_analysis_calls_across_concurrent_jobs() -> N
         await asyncio.sleep(0.01)
         active -= 1
         if model is ChapterStructureResult:
-            return (
-                ChapterStructureResult(
-                    scenes=[
-                        SceneStructure(
-                            title="Scene",
-                            source_start_anchor="BEGIN_JOB",
-                            source_end_anchor="END_JOB",
-                        )
-                    ]
-                ),
-                _billing(),
-                "structure",
-            )
+            return _one_scene_structure("BEGIN_JOB", "END_JOB"), _billing(), "structure"
         assert "SHARD_SOURCE" in prompt
         return (
             VisualBeatShardResult(
@@ -198,19 +200,7 @@ async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
         nonlocal shard_calls
         del client, token
         if model is ChapterStructureResult:
-            return (
-                ChapterStructureResult(
-                    scenes=[
-                        SceneStructure(
-                            title="Scene",
-                            source_start_anchor="BEGIN_WORD",
-                            source_end_anchor="END_WORD",
-                        )
-                    ]
-                ),
-                _billing(),
-                "structure",
-            )
+            return _one_scene_structure("BEGIN_WORD", "END_WORD"), _billing(), "structure"
         shard_calls += 1
         count = 1 if shard_calls == 1 else 10
         if shard_calls == 2:
@@ -235,3 +225,57 @@ async def test_under_dense_shard_gets_one_full_replacement_repair() -> None:
 
     assert shard_calls == 2
     assert operation.status is ProviderOperationStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_invalid_structure_response_gets_one_full_replacement_repair() -> None:
+    source = "BEGIN_WORD " + ("word " * 100).strip() + " END_WORD"
+    provider = _provider()
+    structure_calls = 0
+
+    async def fake_generate(
+        client: httpx.AsyncClient, token: str, prompt: str, model: type[object]
+    ):
+        nonlocal structure_calls
+        del client, token
+        if model is ChapterStructureResult:
+            structure_calls += 1
+            if structure_calls == 1:
+                return None, _billing(), "invalid-structure"
+            assert "repair pass" in prompt.lower()
+            return (
+                _one_scene_structure("BEGIN_WORD", "END_WORD"),
+                _billing(),
+                "repaired-structure",
+            )
+        return _ten_word_beats(), _billing(), "shard"
+
+    provider._generate_structured = fake_generate  # type: ignore[method-assign]
+    operation = await provider.submit(_request(source))
+
+    assert structure_calls == 2
+    assert operation.status is ProviderOperationStatus.COMPLETED
+    assert operation.billing is not None
+    assert operation.billing.actual_cost >= Decimal("0.000003000")
+
+
+def test_validation_reason_reports_path_and_type_without_raw_input() -> None:
+    secret = "DO_NOT_LOG_THIS_STORY_TEXT"
+    with pytest.raises(ValidationError) as captured:
+        ChapterStructureResult.model_validate(
+            {
+                "scenes": [
+                    {
+                        "title": "Scene",
+                        "source_start_anchor": "",
+                        "source_end_anchor": secret,
+                    }
+                ]
+            }
+        )
+
+    reason = VertexGeminiProvider._safe_validation_reason(captured.value)
+
+    assert "scenes.0.source_start_anchor" in reason
+    assert "string_too_short" in reason
+    assert secret not in reason
