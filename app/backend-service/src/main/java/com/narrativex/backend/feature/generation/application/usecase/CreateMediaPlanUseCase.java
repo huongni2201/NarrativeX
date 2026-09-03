@@ -40,11 +40,9 @@ public class CreateMediaPlanUseCase {
   @Transactional
   public MediaPlan execute(CreateMediaPlanCommand command) {
     String userId = currentUserId.get();
-
     var chapter =
         chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
-
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     if (planningSource.sourceHash() != null
         && !planningSource.sourceHash().equals(chapter.sourceHash())) {
@@ -67,7 +65,6 @@ public class CreateMediaPlanUseCase {
 
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
-
     MediaPlan savedPlan =
         mediaPlanRepository.save(
             MediaPlan.createExecutable(
@@ -82,7 +79,6 @@ public class CreateMediaPlanUseCase {
                 java.time.Instant.now(),
                 planningSource.storyboardRevisionId(),
                 command.imageAspectRatio(),
-                command.imageProfileVersion(),
                 command.imageProviderKey(),
                 command.imageModelKey(),
                 command.pricingSnapshotJson(),
@@ -91,11 +87,10 @@ public class CreateMediaPlanUseCase {
                 planningSource.narrationAlignmentRunId()));
 
     log.info(
-        "Created media plan id={} (revision={}, mode={}, imageProfile={}, generatedImages={}, totalBeats={}) for chapterId={}, projectId={}",
+        "Created media plan id={} (revision={}, mode={}, generatedImages={}, totalBeats={}) for chapterId={}, projectId={}",
         savedPlan.id(),
         revision,
         command.productionMode(),
-        command.imageProfileVersion(),
         workload.imageGenerateCount(),
         scenes.stream().mapToInt(scene -> scene.beats().size()).sum(),
         command.chapterId(),
@@ -139,8 +134,6 @@ public class CreateMediaPlanUseCase {
                     + (beat.aspectRatioOverride() == null
                         ? command.imageAspectRatio()
                         : beat.aspectRatioOverride())
-                    + "\",\"profileVersion\":\""
-                    + command.imageProfileVersion()
                     + "\",\"visualStyle\":\""
                     + command.imageStyle().name()
                     + "\",\"cameraAngle\":\""
@@ -166,11 +159,9 @@ public class CreateMediaPlanUseCase {
     int imageGenerateCount = 0;
     int basicMotionSeconds = 0;
     int plannedI2vSeconds = 0;
-
     for (var scene : scenes) {
       if (scene.narration() != null) narrationCharacters += scene.narration().length();
       imageGenerateCount += scene.beats().size();
-
       int duration = scene.durationSeconds() == null ? 0 : scene.durationSeconds();
       boolean usesI2v =
           scene.beats().stream()
@@ -178,7 +169,6 @@ public class CreateMediaPlanUseCase {
       if (usesI2v) plannedI2vSeconds += duration;
       else basicMotionSeconds += duration;
     }
-
     return new MediaWorkload(
         narrationCharacters, imageGenerateCount, 0, basicMotionSeconds, plannedI2vSeconds);
   }
