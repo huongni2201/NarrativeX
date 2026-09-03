@@ -147,7 +147,7 @@ class VertexGeminiProvider(LlmProvider):
                     VisualBeatShardResult,
                 )
                 billings = [billing]
-                reason = self._shard_validation_error(shard, result)
+                reason = self._shard_validation_error(structure, shard, result)
 
                 for repair_attempt in range(1, self.settings.vertex_analysis_repair_attempts + 1):
                     if reason is None:
@@ -176,7 +176,7 @@ class VertexGeminiProvider(LlmProvider):
                     billings.append(repair_billing)
                     shard_response_id = repair_response_id
                     result = repaired
-                    reason = self._shard_validation_error(shard, result)
+                    reason = self._shard_validation_error(structure, shard, result)
 
                 if reason is not None:
                     self.logger.error(
@@ -240,12 +240,20 @@ class VertexGeminiProvider(LlmProvider):
 
     @staticmethod
     def _shard_validation_error(
-        shard: VisualBeatShard, result: VisualBeatShardResult | None
+        structure: ChapterStructureResult,
+        shard: VisualBeatShard,
+        result: VisualBeatShardResult | None,
     ) -> str | None:
         if result is None:
             return "invalid structured shard output"
+        scene = structure.scenes[shard.scene_index]
+        allowed_character_keys = {ref.character_key for ref in scene.characters}
         try:
-            validate_visual_beat_shard(shard, result)
+            validate_visual_beat_shard(
+                shard,
+                result,
+                allowed_character_keys=allowed_character_keys,
+            )
         except ValueError as exception:
             return str(exception)
         return None
