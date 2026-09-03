@@ -98,9 +98,9 @@ def build_visual_beat_shard_prompt(
         f"MAX_VISUAL_BEATS={shard.maximum_beats}. Every beat requires source_anchor copied "
         "verbatim from SHARD_SOURCE. Anchors must be in source order and non-overlapping. Split at "
         "meaningful action, reaction, speaker-focus, reveal, emotional emphasis, POV/focus, "
-        "composition, or transition changes without inventing story events. Each beat may reference "
-        "only characters listed in SCENE_CONTEXT and must use PRIMARY, SECONDARY, or BACKGROUND "
-        "roles. "
+        "composition, or transition changes without inventing story events. Each beat may "
+        "reference only characters listed in SCENE_CONTEXT and must use PRIMARY, SECONDARY, or "
+        "BACKGROUND roles. "
         + workflow
         + VISUAL_DIRECTION_INSTRUCTIONS
         + repair
