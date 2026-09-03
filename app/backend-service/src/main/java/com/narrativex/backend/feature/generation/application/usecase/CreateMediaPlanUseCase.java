@@ -80,7 +80,6 @@ public class CreateMediaPlanUseCase {
                 java.time.Instant.now(),
                 planningSource.storyboardRevisionId(),
                 command.imageAspectRatio(),
-                "HIGH",
                 command.imageProviderKey(),
                 command.imageModelKey(),
                 command.pricingSnapshotJson(),
@@ -161,7 +160,7 @@ public class CreateMediaPlanUseCase {
     String direction = beat.visualDirectionJson();
     return "{\"aspectRatio\":\""
         + aspectRatio
-        + "\",\"qualityTier\":\"HIGH\",\"visualStyle\":\""
+        + "\",\"visualStyle\":\""
         + command.imageStyle().name()
         + "\",\"cameraAngle\":\""
         + beat.cameraAngle()
