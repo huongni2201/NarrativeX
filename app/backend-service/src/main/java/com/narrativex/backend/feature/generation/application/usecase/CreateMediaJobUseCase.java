@@ -118,7 +118,7 @@ public class CreateMediaJobUseCase {
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
     int generatedImageCount = beatCount;
-    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
+    var imageProfile = imageGenerationCatalog.resolve();
     BigDecimal expectedCost = imageProfile.estimateCost(generatedImageCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException(
@@ -131,10 +131,6 @@ public class CreateMediaJobUseCase {
                 () ->
                     new GenerationAdmissionDeniedException(
                         "ENTITLEMENT_DENIED", "No active plan is available."));
-    if (!qualityAllowed(command.qualityTier(), quota.maxVideoQuality())) {
-      throw new GenerationAdmissionDeniedException(
-          "ENTITLEMENT_DENIED", "The requested quality exceeds the active plan entitlement.");
-    }
     var plan =
         createMediaPlanUseCase.execute(
             new CreateMediaPlanCommand(
@@ -143,7 +139,7 @@ public class CreateMediaJobUseCase {
                 ProductionMode.IMAGE_MOTION,
                 expectedCost,
                 command.aspectRatio(),
-                command.qualityTier(),
+                imageProfile.profileVersion(),
                 imageProfile.providerKey(),
                 imageProfile.model(),
                 imageProfile.pricingSnapshot(),
@@ -192,13 +188,13 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, provider={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
+        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, provider={}, profile='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
         generatedImageCount,
         imageProvider,
-        command.qualityTier(),
+        imageProfile.profileVersion(),
         imageProfile.model(),
         expectedCost,
         command.projectId(),
@@ -242,8 +238,6 @@ public class CreateMediaJobUseCase {
             + ":"
             + command.aspectRatio()
             + ":"
-            + command.qualityTier()
-            + ":"
             + command.imageStyle()
             + ":"
             + imageProvider
@@ -264,20 +258,5 @@ public class CreateMediaJobUseCase {
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }
-  }
-
-  private static boolean qualityAllowed(String requested, String maximum) {
-    if (maximum == null || maximum.isBlank()) return false;
-    return qualityRank(requested) <= qualityRank(maximum);
-  }
-
-  private static int qualityRank(String value) {
-    return switch (value == null ? "" : value.toUpperCase()) {
-      case "DRAFT", "720P" -> 1;
-      case "STANDARD" -> 2;
-      case "HIGH", "1080P" -> 3;
-      case "ULTRA" -> 4;
-      default -> 0;
-    };
   }
 }
