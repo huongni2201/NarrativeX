@@ -8,7 +8,6 @@ import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.CameraAngle;
 import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
-import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
@@ -88,8 +87,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
     row.setCameraAngle(value.getCameraAngle().name());
     row.setAspectRatioOverride(
         value.getAspectRatioOverride() == null ? null : value.getAspectRatioOverride().name());
-    row.setQualityTierOverride(
-        value.getQualityTierOverride() == null ? null : value.getQualityTierOverride().name());
     row.setPreviewMediaAssetId(value.getPreviewMediaAssetId());
     if (value.getId() == null) {
       row.setId(null);
@@ -137,9 +134,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
             row.getAspectRatioOverride() == null
                 ? null
                 : AspectRatio.valueOf(row.getAspectRatioOverride()),
-            row.getQualityTierOverride() == null
-                ? null
-                : ImageQualityTier.valueOf(row.getQualityTierOverride()),
             VisualBeatReviewStatus.valueOf(row.getReviewStatus()));
     if (row.getPreviewMediaAssetId() != null) {
       beat.attachPreviewMediaAsset(row.getPreviewMediaAssetId());
