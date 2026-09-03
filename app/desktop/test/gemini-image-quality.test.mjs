@@ -18,7 +18,7 @@ function pngHeader(width, height) {
   return bytes;
 }
 
-test("inspects PNG dimensions and checksum without image-processing dependencies", async () => {
+test("inspects 2k PNG dimensions and checksum without image-processing dependencies", async () => {
   const directory = await mkdtemp(join(tmpdir(), "narrativex-image-quality-"));
   const path = join(directory, "frame.png");
   try {
@@ -28,23 +28,35 @@ test("inspects PNG dimensions and checksum without image-processing dependencies
     assert.equal(metadata.height, 1440);
     assert.equal(metadata.format, "PNG");
     assert.equal(metadata.sha256.length, 64);
+    validateGeneratedGeminiImage(metadata);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
 
-test("rejects thumbnail-sized generated images", () => {
+test("accepts portrait 2k by long and short edges", () => {
+  validateGeneratedGeminiImage({
+    width: 1440,
+    height: 2560,
+    aspectRatio: 9 / 16,
+    sha256: "a".repeat(64),
+    byteLength: 1000,
+    format: "PNG",
+  });
+});
+
+test("rejects generated images below the 2k envelope", () => {
   assert.throws(
     () =>
       validateGeneratedGeminiImage({
-        width: 640,
-        height: 360,
+        width: 1920,
+        height: 1080,
         aspectRatio: 16 / 9,
         sha256: "a".repeat(64),
         byteLength: 1000,
         format: "PNG",
       }),
-    /below 1280x720/,
+    /below the required 2K envelope/,
   );
 });
 
