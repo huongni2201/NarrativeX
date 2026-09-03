@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from narrativex_worker.schema import (
     ChapterAnalysisResult,
@@ -21,15 +21,31 @@ from narrativex_worker.visual_density import (
     estimated_narration_duration_ms,
 )
 
+SCENE_BOUNDARY_ANCHOR_MAX_CHARS = 200
+
 
 class SceneStructure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
-    source_start_anchor: str = Field(min_length=1, max_length=1_000)
-    source_end_anchor: str = Field(min_length=1, max_length=1_000)
+    source_start_anchor: str = Field(min_length=1, max_length=SCENE_BOUNDARY_ANCHOR_MAX_CHARS)
+    source_end_anchor: str = Field(min_length=1, max_length=SCENE_BOUNDARY_ANCHOR_MAX_CHARS)
     characters: list[SceneCharacterRef] = Field(default_factory=list)
     location_key: str | None = None
+
+    @field_validator("source_start_anchor", mode="before")
+    @classmethod
+    def normalize_source_start_anchor(cls, value: object) -> object:
+        if isinstance(value, str) and len(value) > SCENE_BOUNDARY_ANCHOR_MAX_CHARS:
+            return value[:SCENE_BOUNDARY_ANCHOR_MAX_CHARS]
+        return value
+
+    @field_validator("source_end_anchor", mode="before")
+    @classmethod
+    def normalize_source_end_anchor(cls, value: object) -> object:
+        if isinstance(value, str) and len(value) > SCENE_BOUNDARY_ANCHOR_MAX_CHARS:
+            return value[-SCENE_BOUNDARY_ANCHOR_MAX_CHARS:]
+        return value
 
 
 class ChapterStructureResult(BaseModel):
