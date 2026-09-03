@@ -5,7 +5,7 @@ import com.narrativex.backend.feature.generation.application.command.CreateMedia
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
-import com.narrativex.backend.feature.generation.application.service.VisualPromptComposerV3;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
   private static final String GENERATE_NEW = "GENERATE_NEW";
-  private static final String PROMPT_VERSION = "prompt-v9-visual-direction-v3";
+  private static final String PROMPT_CONTRACT = "structured-visual-prompt";
 
   private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
@@ -36,7 +36,7 @@ public class CreateMediaPlanUseCase {
   private final MediaPlanRepository mediaPlanRepository;
   private final MotionStrategyResolver motionStrategyResolver;
   private final VisualPromptContextRepository visualPromptContextRepository;
-  private final VisualPromptComposerV3 visualPromptComposer;
+  private final VisualPromptComposer visualPromptComposer;
 
   @Transactional
   public MediaPlan execute(CreateMediaPlanCommand command) {
@@ -80,7 +80,7 @@ public class CreateMediaPlanUseCase {
                 java.time.Instant.now(),
                 planningSource.storyboardRevisionId(),
                 command.imageAspectRatio(),
-                command.imageQualityTier(),
+                "HIGH",
                 command.imageProviderKey(),
                 command.imageModelKey(),
                 command.pricingSnapshotJson(),
@@ -131,7 +131,7 @@ public class CreateMediaPlanUseCase {
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
                 GENERATE_NEW,
-                PROMPT_VERSION + "-" + command.imageStyle().name().toLowerCase(),
+                PROMPT_CONTRACT + "-" + command.imageStyle().name().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
                 beat.audioStartMs(),
