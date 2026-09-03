@@ -1,31 +1,42 @@
 package com.narrativex.backend.feature.generation.application.render;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class ProjectRenderProfileV2ContractTest {
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Test
-  void renderProfileFactoryDefinesVersionedHighQualityDefaults() throws Exception {
-    Path path =
-        Path.of(
-            "src/main/java/com/narrativex/backend/feature/generation/application/render/ProjectRenderProfileFactory.java");
-    assertTrue(Files.exists(path), "ProjectRenderProfileFactory must own the immutable v2 profile");
+  void createsCanonicalHighQualityProfile() throws Exception {
+    JsonNode profile = objectMapper.readTree(ProjectRenderProfileFactory.create(60, true));
 
-    String source = Files.readString(path);
-    assertTrue(source.contains("schemaVersion"));
-    assertTrue(source.contains("project-image-motion-v3-composition"));
-    assertTrue(source.contains("compositionPolicyVersion"));
-    assertTrue(source.contains("medium"));
-    assertTrue(source.contains("18"));
-    assertTrue(source.contains("p6"));
-    assertTrue(source.contains("19"));
-    assertTrue(source.contains("yuv420p"));
-    assertTrue(source.contains("SDR_BT709_LIMITED"));
-    assertTrue(source.contains("burn_in"));
-    assertTrue(source.contains("none"));
+    assertEquals(2, profile.path("schemaVersion").asInt());
+    assertEquals("project-image-motion-v3-composition", profile.path("rendererVersion").asText());
+    assertEquals(1, profile.path("compositionPolicyVersion").asInt());
+    assertEquals(60, profile.path("fps").asInt());
+    assertEquals("medium", profile.path("video").path("x264Preset").asText());
+    assertEquals(18, profile.path("video").path("crf").asInt());
+    assertEquals("p6", profile.path("video").path("nvencPreset").asText());
+    assertEquals(19, profile.path("video").path("nvencCq").asInt());
+    assertEquals("yuv420p", profile.path("video").path("pixelFormat").asText());
+    assertEquals("SDR_BT709_LIMITED", profile.path("color").path("mode").asText());
+    assertEquals("burn_in", profile.path("subtitles").path("mode").asText());
+  }
+
+  @Test
+  void createsSubtitleFreeThirtyFpsProfile() throws Exception {
+    JsonNode profile = objectMapper.readTree(ProjectRenderProfileFactory.create(30, false));
+
+    assertEquals(30, profile.path("fps").asInt());
+    assertEquals("none", profile.path("subtitles").path("mode").asText());
+  }
+
+  @Test
+  void rejectsUnsupportedFrameRate() {
+    assertThrows(IllegalArgumentException.class, () -> ProjectRenderProfileFactory.create(24, false));
   }
 }
