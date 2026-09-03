@@ -2,10 +2,16 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { imageMotionPreset } from "../../shared/image-motion.ts";
+import { SUBTITLE_STYLE_VERSION } from "../../shared/subtitle-style.ts";
 import { buildVideoEncodeArgs, type VideoEncoder } from "../../shared/video-encoding.ts";
 import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
 import { runProcess, type ProcessResult } from "./process-runner";
 import { RenderExecutionError } from "./render-errors";
+import {
+  escapeSubtitleFilterPath,
+  subtitleSlicesForBeat,
+  writeBeatSubtitleTrack,
+} from "./subtitle-ass.ts";
 
 export interface SegmentRenderOptions {
   videoEncoder?: VideoEncoder;
@@ -57,7 +63,8 @@ export async function renderSegments(
         continue;
       }
 
-      const args = buildBeatRenderArgs(manifest, beat, output, videoEncoder);
+      const subtitlePath = await writeBeatSubtitleTrack(workDirectory, manifest, beat, index);
+      const args = buildBeatRenderArgs(manifest, beat, output, videoEncoder, subtitlePath);
       const process = runProcess(ffmpegPath, args, undefined, executionSignal);
       let result: ProcessResult;
       try {
@@ -95,6 +102,7 @@ export function buildBeatRenderArgs(
   beat: LocalRenderBeat,
   output: string,
   videoEncoder: VideoEncoder = manifest.videoEncoder,
+  subtitlePath: string | null = null,
 ): string[] {
   const targetDurationSeconds = beat.frameCount / manifest.fps;
   if (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0 || beat.frameCount <= 0) {
@@ -110,10 +118,9 @@ export function buildBeatRenderArgs(
     `fps=${manifest.fps}`;
 
   if (beat.mediaType === "IMAGE") {
-    const filter = withTransitionFilters(
-      imageMotionFilter(manifest, beat),
-      beat,
-      manifest.fps,
+    const filter = withSubtitleFilter(
+      withTransitionFilters(imageMotionFilter(manifest, beat), beat, manifest.fps),
+      subtitlePath,
     );
     return [
       "-i",
@@ -156,7 +163,7 @@ export function buildBeatRenderArgs(
       }
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
-        withTransitionFilters(baseFilter, beat, manifest.fps),
+        withSubtitleFilter(withTransitionFilters(baseFilter, beat, manifest.fps), subtitlePath),
         beat.frameCount,
         manifest,
         output,
@@ -166,17 +173,20 @@ export function buildBeatRenderArgs(
     case "LOOP":
       return encodeVideoArgs(
         ["-stream_loop", "-1", ...inputSeek, "-i", beat.localPath],
-        withTransitionFilters(baseFilter, beat, manifest.fps),
+        withSubtitleFilter(withTransitionFilters(baseFilter, beat, manifest.fps), subtitlePath),
         beat.frameCount,
         manifest,
         output,
         videoEncoder,
       );
     case "FREEZE_END": {
-      const filter = withTransitionFilters(
-        `${baseFilter},tpad=stop_mode=clone:stop_duration=${targetDurationSeconds.toFixed(6)}`,
-        beat,
-        manifest.fps,
+      const filter = withSubtitleFilter(
+        withTransitionFilters(
+          `${baseFilter},tpad=stop_mode=clone:stop_duration=${targetDurationSeconds.toFixed(6)}`,
+          beat,
+          manifest.fps,
+        ),
+        subtitlePath,
       );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
@@ -201,12 +211,15 @@ export function buildBeatRenderArgs(
           `Unable to calculate video speed for beat ${beat.visualBeatId}.`,
         );
       }
-      const filter = withTransitionFilters(
-        `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
-          `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,` +
-          `setpts=${ptsFactor.toFixed(8)}*PTS,fps=${manifest.fps}`,
-        beat,
-        manifest.fps,
+      const filter = withSubtitleFilter(
+        withTransitionFilters(
+          `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+            `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,` +
+            `setpts=${ptsFactor.toFixed(8)}*PTS,fps=${manifest.fps}`,
+          beat,
+          manifest.fps,
+        ),
+        subtitlePath,
       );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
@@ -229,10 +242,19 @@ export function renderWorkingDimensions(
   width: number,
   height: number,
   moving: boolean,
+  cameraMovement = "NONE",
+  fps: 30 | 60 = 30,
 ): { width: number; height: number } {
   if (!moving) return { width: even(width), height: even(height) };
-  let workingWidth = even(width * 2);
-  let workingHeight = even(height * 2);
+  const movement = cameraMovement.trim().toUpperCase();
+  const factor =
+    fps === 60 && (movement === "PAN" || movement === "TILT")
+      ? 2
+      : movement === "PAN" || movement === "TILT"
+        ? 1.5
+        : 1.25;
+  let workingWidth = even(width * factor);
+  let workingHeight = even(height * factor);
   const longEdge = Math.max(workingWidth, workingHeight);
   if (longEdge > 5120) {
     const ratio = 5120 / longEdge;
@@ -247,7 +269,13 @@ export function renderWorkingDimensions(
 
 function imageMotionFilter(manifest: LocalRenderManifest, beat: LocalRenderBeat): string {
   const moving = beat.cameraMovement?.trim().toUpperCase() !== "NONE";
-  const working = renderWorkingDimensions(manifest.width, manifest.height, moving);
+  const working = renderWorkingDimensions(
+    manifest.width,
+    manifest.height,
+    moving,
+    beat.cameraMovement,
+    manifest.fps,
+  );
   if (!moving) {
     return [
       `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=increase:flags=lanczos`,
@@ -309,6 +337,11 @@ function withTransitionFilters(
   return filters.join(",");
 }
 
+function withSubtitleFilter(videoFilter: string, subtitlePath: string | null): string {
+  if (!subtitlePath) return videoFilter;
+  return `${videoFilter},subtitles=filename='${escapeSubtitleFilterPath(subtitlePath)}'`;
+}
+
 function encodeVideoArgs(
   input: string[],
   videoFilter: string,
@@ -352,18 +385,24 @@ function segmentCacheKey(
   beat: LocalRenderBeat,
   videoEncoder: VideoEncoder,
 ): string {
+  const moving = beat.mediaType === "IMAGE" && beat.cameraMovement?.trim().toUpperCase() !== "NONE";
   const working = renderWorkingDimensions(
     manifest.width,
     manifest.height,
-    beat.mediaType === "IMAGE" && beat.cameraMovement?.trim().toUpperCase() !== "NONE",
+    moving,
+    beat.cameraMovement,
+    manifest.fps,
   );
+  const subtitles = subtitleSlicesForBeat(manifest.subtitles, beat, manifest.fps);
   return createHash("sha256")
     .update(
       JSON.stringify({
         rendererVersion: manifest.rendererVersion,
         renderProfileSchemaVersion: manifest.renderProfileSchemaVersion,
         compositionPolicyVersion: manifest.compositionPolicyVersion,
-        adapter: "zoompan-rgb-supersample-lanczos-v1",
+        adapter: "zoompan-rgb-adaptive-supersample-lanczos-ass-v1",
+        subtitleStyleVersion: SUBTITLE_STYLE_VERSION,
+        subtitles,
         width: manifest.width,
         height: manifest.height,
         working,
