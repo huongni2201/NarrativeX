@@ -35,14 +35,8 @@ export function useAnalyzeChapter() {
 
 export function useEstimateMediaJob() {
   return useMutation({
-    mutationFn: (input: {
-      projectId: string;
-      chapterId: string;
-      qualityTier: CreateMediaJobInput["qualityTier"];
-    }) =>
-      generationApi.estimate(input.projectId, input.chapterId, {
-        qualityTier: input.qualityTier,
-      }),
+    mutationFn: (input: { projectId: string; chapterId: string }) =>
+      generationApi.estimate(input.projectId, input.chapterId),
   });
 }
 
