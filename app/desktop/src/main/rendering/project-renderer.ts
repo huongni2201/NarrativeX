@@ -11,7 +11,6 @@ import { RenderExecutionError } from "./render-errors";
 import { buildLocalRenderManifest, renderDimensions } from "./render-manifest";
 import { parseRenderProfile } from "./render-profile";
 import { renderSegments, renderWorkingDimensions } from "./segment-renderer";
-import { writeSubtitleTrack } from "./subtitle-srt";
 import { concatVideo } from "./video-concat";
 import {
   renderConcurrencyForWorkload,
@@ -49,10 +48,26 @@ export class ProjectRenderer {
       dimensions.height,
     );
     const manifest = buildLocalRenderManifest(prepared, videoEncoder);
-    const hasMovingStills = manifest.beats.some(
+    const movingStillBeats = manifest.beats.filter(
       (beat) => beat.mediaType === "IMAGE" && beat.cameraMovement.trim().toUpperCase() !== "NONE",
     );
-    const working = renderWorkingDimensions(manifest.width, manifest.height, hasMovingStills);
+    const working = movingStillBeats.reduce(
+      (largest, beat) => {
+        const current = renderWorkingDimensions(
+          manifest.width,
+          manifest.height,
+          true,
+          beat.cameraMovement,
+          manifest.fps,
+        );
+        return {
+          width: Math.max(largest.width, current.width),
+          height: Math.max(largest.height, current.height),
+        };
+      },
+      { width: manifest.width, height: manifest.height },
+    );
+    const hasMovingStills = movingStillBeats.length > 0;
     const renderConcurrency = renderConcurrencyForWorkload(
       videoEncoder,
       working.width,
@@ -152,19 +167,14 @@ export class ProjectRenderer {
       await onProgress(93, "Concatenating narration audio");
       await checkpoint("AUDIO_CONCAT");
       const audio = await concatNarration(this.runtime.ffmpegPath, workDirectory, manifest, signal);
-      await onProgress(96, "Preparing subtitles");
-      const subtitlePath = await writeSubtitleTrack(workDirectory, manifest.subtitles);
-      await onProgress(97, subtitlePath ? "Muxing audio and subtitles" : "Muxing audio");
+      await onProgress(97, "Muxing audio");
       await checkpoint("MUX");
       const renderedFinalPath = await muxNarration(
         this.runtime.ffmpegPath,
         workDirectory,
         video,
         audio,
-        subtitlePath,
         signal,
-        videoEncoder,
-        manifest.videoQuality,
       );
       await onProgress(98, "Validating final artifact");
       await checkpoint("VERIFY");
@@ -250,6 +260,7 @@ async function isFile(path: string): Promise<boolean> {
 async function cleanupInterruptedOutputs(workDirectory: string): Promise<void> {
   await Promise.all([
     rm(join(workDirectory, "segments"), { recursive: true, force: true }),
+    rm(join(workDirectory, "subtitles"), { recursive: true, force: true }),
     rm(join(workDirectory, "video.mp4"), { force: true }),
     rm(join(workDirectory, "narration.m4a"), { force: true }),
     rm(join(workDirectory, "subtitles.srt"), { force: true }),
