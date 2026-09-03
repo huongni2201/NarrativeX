@@ -1,358 +1,345 @@
-# Render Composition Parity Design
+# Render Composition Parity Architecture
 
-## Goal
+## Purpose
 
-Make NarrativeX preview and final render consume the same composition decisions so exported video is visually trustworthy, motion remains smooth at 30/60 fps, 1440p output preserves image quality, and subtitle timing/style no longer diverge between preview and final output.
+Define the architecture that makes NarrativeX Editor preview a trustworthy representation of final export without forcing unrelated rendering, subtitle, and narration changes into one implementation plan.
 
-The target is not to reproduce the entire architecture of Premiere Pro, DaVinci Resolve, or Final Cut Pro. The target is to adopt the same core principles that matter for NarrativeX: one authoritative composition contract, subpixel-capable motion evaluation, bounded high-quality rendering, deterministic frame timing, and cacheable render decisions.
+This document is the umbrella specification. It defines project-wide invariants, subsystem boundaries, sequencing, and compatibility rules. Each workstream that changes a concrete pipeline owns its own detailed design and implementation plan.
 
-## Scope
+The target is not to reproduce Premiere Pro, DaVinci Resolve, or Final Cut Pro feature-for-feature. NarrativeX adopts the principles that matter for its current editor:
 
-This design covers four tightly connected render-quality problems:
+- one authoritative composition decision set;
+- narration as the project master clock;
+- deterministic frame sampling;
+- measurable motion quality rather than relying on nominal FPS;
+- explicit and reproducible encoder/color policy;
+- preview and export consuming the same semantic edit decisions;
+- versioned cache and render snapshots;
+- subtitle timing and presentation derived from one canonical subtitle model.
 
-1. preview and export currently use different spatial/composition implementations;
-2. image camera motion is evaluated through FFmpeg `zoompan`, which can visibly step even when the final stream is 60 fps;
-3. render profile quality settings exist in the backend snapshot but are not fully consumed by the desktop encoder path;
-4. subtitle timing is derived from coarse narration segments and final subtitle styling differs from the HTML/CSS preview.
+## Problem Statement
 
-The implementation keeps FFmpeg as the final media encoder/muxer. It does not replace the entire desktop rendering stack with a new native compositor in this change.
+The current application has several different implementations representing one intended video:
 
-## Non-goals
+```text
+Editor preview
+  -> Chromium/CSS transforms
+  -> HTML/CSS subtitle overlay
+  -> browser media playback
 
-- Do not introduce a completely new native GPU rendering engine in this change.
-- Do not add a large third-party video-editing framework solely to solve parity.
-- Do not implement true word-level forced alignment unless the existing TTS provider already exposes stable timing data that can be consumed without a new provider dependency.
-- Do not remove hardware encoding.
-- Do not make output quality depend on machine-specific hidden defaults.
-- Do not fix subtitle lag using a hard-coded global negative offset.
+Final render
+  -> FFmpeg scale/crop/zoompan
+  -> FFmpeg transition filters
+  -> SRT/libass subtitle burn-in
+  -> H.264 encode
 
-## Architectural Principles
+Narration/subtitle timing
+  -> AI-worker narration segments
+  -> alignment spans
+  -> Desktop cue derivation
+```
 
-### 1. One composition contract
+Differences between these paths currently create four user-visible failure classes:
 
-Preview and final render must read the same authoritative presentation values for each beat:
+1. preview framing/motion can differ from final render;
+2. 30/60 fps export can still show visible hold-and-jump image motion;
+3. 1080p/1440p output can use uncontrolled or legacy encoder defaults and can still look soft when source media lacks effective resolution;
+4. subtitle presentation/timing can diverge from spoken narration and from Editor preview.
 
-- frame start/end;
-- media type;
-- fit/framing policy;
+These problems are connected by shared timing and composition semantics, but they do not belong in one code change.
+
+## Architectural Invariants
+
+Every implementation under this architecture must preserve the following rules.
+
+### 1. Narration is the master clock
+
+Narration duration and chapter timing are authoritative. Visual frame quantization, transitions, subtitle cues, and final muxing must adapt to narration; they must not shorten or stretch narration to simplify rendering.
+
+The final video may extend by less than one output frame because of frame quantization, but narration audio must never be truncated by a shorter visual stream.
+
+### 2. One semantic composition decision set
+
+For a pending render configuration, Preview and Export must consume the same authoritative decisions for:
+
+- media selection;
+- frame interval;
+- framing policy;
+- video fit behavior;
 - camera movement;
-- motion intensity;
-- motion easing;
-- transition type/duration;
-- subtitle cue timing;
+- motion intensity/easing where supported by the active composition-policy version;
+- transition type and duration;
+- subtitle cue boundaries;
 - subtitle presentation policy.
 
-The browser preview is allowed to use a lower-cost implementation, but it must not invent presentation behavior that does not exist in final render. Likewise, the FFmpeg path must not have a separate hidden framing or motion policy.
+The browser and FFmpeg may use different rendering adapters, but those adapters are not allowed to invent independent edit decisions.
 
-### 2. Deterministic frame timing
+### 3. Preview represents export frames, not an independent animation
 
-For an output frame rate `fps`, beat animation is evaluated by integer output frame index, not by accumulated wall-clock timers.
+Preview playback remains narration-driven and realtime, but visual animation state must be derived from the selected render FPS and deterministic project frame partition. A displayed preview state must correspond to a state that can exist in the final export.
 
-For frame `n` inside a beat:
+Viewer-only controls such as UI zoom or inspection fit may change how the user looks at the preview surface, but cannot mutate exported framing unless represented as an explicit persisted edit decision.
 
-```text
-progress = clamp((n - firstFrame) / max(1, frameCount - 1), 0, 1)
-```
+### 4. Smoothness is a measured property
 
-Motion easing transforms this progress before camera transform evaluation. The same easing function and motion preset values must be available to preview and render.
+A stream labeled 60 fps is not automatically considered smooth. Motion implementations must be evaluated using decoded output frames and measurable spatial progression.
 
-### 3. Subpixel motion first, encoding second
+Regression tests must detect:
 
-The exported frame sequence must preserve fractional transform progression even when the destination is only 1920x1080 or 2560x1440.
+- repeated-position hold-and-jump behavior;
+- backwards spatial jumps;
+- incorrect frame counts;
+- timeline gaps/overlaps;
+- preview/export geometry drift.
 
-The FFmpeg implementation will therefore render moving still images on a bounded supersampled working canvas, perform zoom/pan there, and downscale to target output dimensions with Lanczos filtering.
+### 5. Output quality is explicit and reproducible
 
-This does not make FFmpeg a full GPU compositor. It specifically addresses the current pixel-stepping weakness while keeping the existing render architecture intact.
+Render jobs must carry a versioned immutable render profile. Application-owned values define encoder quality, pixel format, color contract, renderer policy version, and composition-policy version.
 
-### 4. Explicit quality profile
+Machine-specific FFmpeg defaults cannot silently define output quality. Hardware acceleration may change the encoder implementation but not the semantic composition contract.
 
-Render quality must be represented by validated application values and translated into encoder arguments deliberately. FFmpeg encoder defaults must not silently define NarrativeX quality.
+### 6. Source quality is separate from output size
 
-## Composition Contract
+Selecting 1440p guarantees the output frame dimensions and configured encode policy. It does not guarantee that an undersized source image contains 1440p detail.
 
-Create a small shared presentation policy layer that can be consumed from both renderer-side preview code and main-process render planning.
+Preflight must distinguish output-resolution support from effective source-resolution quality and report insufficient source detail rather than hiding it behind upscaling.
 
-The exact file boundaries may follow existing project conventions, but the contract should expose equivalents of:
+### 7. Cache reuse is version-safe
 
-```ts
-type MediaFramingMode = "COVER" | "CONTAIN";
-type MotionEasing = "LINEAR" | "EASE_IN_OUT";
+Any value that changes generated pixels, frame timing, or encoded representation must participate in the appropriate cache/fingerprint boundary.
 
-interface BeatPresentationPolicy {
-  framing: MediaFramingMode;
-  cameraMovement: string;
-  motionIntensity: number;
-  motionEasing: MotionEasing;
-  transitionOut: string;
-  transitionDurationMs: number;
-}
-```
+A render produced by a previous renderer/composition-policy version must never be reused as though it were produced by the current version.
 
-Default framing policy is explicit:
+### 8. Compatibility is explicit
 
-- IMAGE -> `COVER`;
-- VIDEO -> `CONTAIN`.
+Existing queued/historical render snapshots and narration alignment records remain readable through their legacy versioned behavior. New policy must not be silently applied retroactively to immutable historical records.
 
-The current preview-only `Fit`/`Fill` control must not silently change the authoritative exported composition. If retained, it is an inspection/viewer control only and must be visually labeled or implemented in a way that cannot be mistaken for an export decision.
+Unsupported future schema/policy versions fail clearly instead of being interpreted as the oldest known schema.
 
-## Preview Behavior
+## Workstream Decomposition
 
-### Spatial parity
+### Workstream 1: Motion, Preview/Render Geometry, and Video Quality
 
-`EditorPreviewViewport` must derive media `object-fit` behavior from the shared framing policy:
+Detailed spec:
 
-- image preview uses cover when final render uses scale-increase + crop;
-- video preview uses contain when final render uses scale-decrease + pad.
+`docs/superpowers/specs/2026-09-03-render-motion-quality-design.md`
 
-### Motion parity
+This workstream owns:
 
-Preview continues to use browser/GPU transforms for realtime playback, but transform values are produced from the same shared motion preset/easing functions used to build the offline render transform.
+- canonical numeric composition sampling for image motion and framing;
+- selected render style/FPS as Preview source of truth;
+- project-level frame partition and final-frame handling;
+- subpixel-capable FFmpeg motion adapter selection using measured output;
+- source-resolution diagnostics;
+- immutable render-profile schema/version cutover;
+- explicit x264/NVENC quality policy;
+- SDR output color contract;
+- encoder selection/fallback boundaries;
+- render concurrency and cache invalidation;
+- FFmpeg integration tests that inspect decoded output.
 
-The preview clock continues to use narration-driven project time. Animation progress derives from the deterministic beat/frame interval rather than an independent CSS animation duration.
+This workstream does not change narration segmentation or subtitle cue-generation algorithms.
 
-### Subtitle parity
+### Workstream 2: Subtitle Presentation Parity
 
-Preview and final render both consume the same `PlannedSubtitle[]` cue boundaries. HTML/CSS remains acceptable for live preview, but its safe-area, alignment, font weight, outline/shadow intent, and background policy must be represented by a shared subtitle style policy that the final ASS/libass output can reproduce closely.
+This workstream owns only how an already-planned subtitle cue is presented in Preview and final export.
 
-## Smooth Offline Motion
+Its design must preserve these umbrella requirements:
 
-### Current problem
+- Preview and export receive the exact same cue start/end times and text;
+- subtitle layout is represented by a shared application-owned style policy rather than independent CSS/libass defaults;
+- final rendering uses a styled subtitle representation capable of expressing the selected safe area, alignment, font metrics, outline/shadow, and backing policy;
+- typography must be deterministic across supported packaged systems, including explicit font/fallback behavior;
+- subtitle rendering failure is visible when subtitles were requested; it must not silently export a subtitle-less file;
+- subtitle-style policy version participates in final-output fingerprinting.
 
-The current image pipeline performs target-resolution scale/crop and then `zoompan`. Slow camera movement can advance across integer raster coordinates in visible steps. Raising stream fps from 30 to 60 produces more encoded frames but does not guarantee more unique spatial samples.
+This workstream must not change TTS segmentation merely to improve visual style.
 
-### Working-resolution policy
+### Workstream 3: Narration Alignment and Subtitle Timing Precision
 
-For beats with camera movement other than NONE, calculate a working canvas larger than the target output. The working size is deterministic and bounded:
+This workstream owns the mapping from source narration text to spoken-audio timing anchors.
 
-1. start from a 2x target scale;
-2. preserve the target aspect ratio;
-3. cap the long edge at 3840 pixels;
-4. force even width and height;
-5. never choose dimensions smaller than the target output.
+Its design must preserve these umbrella requirements:
 
-Examples for 16:9:
+- no hard-coded global negative subtitle offset;
+- no fabricated word timestamps presented as precise alignment;
+- provider synthesis grouping and subtitle timing granularity are treated as separate concerns unless evidence shows they must change together;
+- changes to TTS segmentation require audio-quality/prosody and performance evaluation, not only subtitle tests;
+- new alignment records use a new explicit alignment version;
+- historical `segment-duration-v1` data remains readable through deterministic legacy behavior;
+- the final materialized narration duration remains authoritative;
+- timing accuracy is evaluated against known fixtures using measurable cue-to-audio error.
 
-- 1280x720 -> 2560x1440 working canvas;
-- 1920x1080 -> 3840x2160 working canvas;
-- 2560x1440 -> 3840x2160 working canvas.
+This workstream may adopt provider-native word/phrase timestamps in the future if the active provider exposes stable timing data, but such data must be versioned and validated before becoming authoritative.
 
-For static images with no camera motion, supersampling is unnecessary and the renderer may use the target canvas directly.
+## Shared Data Flow
 
-### FFmpeg filter order
-
-Moving still-image render path should conceptually be:
-
-```text
-source image
-  -> scale/crop to working canvas
-  -> zoompan at manifest fps on working canvas
-  -> Lanczos downscale to target dimensions
-  -> setsar=1
-  -> target pixel format
-```
-
-The target output frame count remains authoritative. Supersampling must not change clip duration or output fps.
-
-### Easing
-
-Support the existing `LINEAR` contract and make `EASE_IN_OUT` deterministic through a shared easing helper. The default cinematic motion policy should prefer `EASE_IN_OUT` where the edit decision already requests it; this change must not silently rewrite historical edit decisions.
-
-## Encoder Quality Profile
-
-Extend the parsed desktop render profile so it consumes the existing video settings carried by the backend render snapshot.
-
-Expected normalized structure:
-
-```ts
-interface ParsedVideoQualityProfile {
-  x264Preset: string;
-  crf: number;
-  nvencPreset: string;
-  nvencCq: number;
-  pixelFormat: string;
-}
-
-interface ParsedRenderProfile {
-  fps: number;
-  subtitleMode: "burn_in" | "none";
-  video: ParsedVideoQualityProfile;
-}
-```
-
-Validation rules:
-
-- malformed or absent values fall back to the current catalog defaults;
-- CRF/CQ must remain inside encoder-valid ranges before command generation;
-- pixel format must come from the supported allow-list rather than arbitrary render-profile text;
-- encoder preset values must come from supported allow-lists.
-
-### libx264
-
-Segment and subtitle-burn encode paths must explicitly apply:
+Target architecture:
 
 ```text
--c:v libx264
--preset <x264Preset>
--crf <crf>
--pix_fmt <pixelFormat>
+Timeline + Render Settings
+           |
+           v
+Authoritative Edit / Composition Decisions
+           |
+           +--------------------------+
+           |                          |
+           v                          v
+Narration-driven Preview       Immutable Render Snapshot
+           |                          |
+           |                          v
+           |                    Render Manifest
+           |                          |
+           |                          v
+           |                  FFmpeg render adapters
+           |                          |
+           +------ same policy -------+
+                                      |
+                                      v
+                              Video encode / mux
 ```
 
-### h264_nvenc
-
-Segment and subtitle-burn encode paths must explicitly apply the normalized NVENC quality policy, including preset and constant-quality behavior. The implementation should use an FFmpeg-compatible argument set equivalent to:
+Subtitle timing participates through the same model:
 
 ```text
--c:v h264_nvenc
--preset <nvencPreset>
--rc vbr
--cq <nvencCq>
--b:v 0
--pix_fmt <pixelFormat>
+Narration source text
+       |
+       v
+Versioned alignment
+       |
+       v
+Canonical PlannedSubtitle[]
+       |
+       +------------------+
+       |                  |
+       v                  v
+Preview overlay      Final styled track
 ```
 
-If the installed FFmpeg build rejects a selected hardware encoding mode, preserve the current software fallback behavior rather than producing a corrupted or partially completed render.
+No downstream presentation adapter may recompute subtitle cue timing independently.
 
-### Avoid uncontrolled second-generation loss
+## Transition Boundary
 
-When subtitles are burned into the final video, the final subtitle encode must use the same explicit quality policy rather than FFmpeg defaults. This keeps the unavoidable current second video encode controlled.
+The current render architecture supports duration-preserving `CUT` and `FADE_BLACK` behavior without overlapping adjacent segment timelines.
 
-The implementation may later eliminate the extra generation by integrating subtitle composition earlier, but that larger pipeline rewrite is outside this change.
+A true `CROSS_DISSOLVE` requires overlapping adjacent visual frames and changes concat/cache/timeline behavior. It is therefore outside the current parity cutover and requires a dedicated transition-compositor design before implementation.
 
-## Subtitle Timing
+Documentation or types must not advertise `CROSS_DISSOLVE` as an implemented v3 render capability until that cutover exists end-to-end.
 
-### Current problem
+## FFmpeg Responsibility
 
-Narration alignment currently identifies timing at synthesized narration-segment granularity. A segment may contain up to roughly 1400 characters. Subtitle planner then splits text inside that large audio span and distributes cue boundaries by visible-character weight. This can make a cue appear late or remain on screen after the spoken phrase has moved on.
+FFmpeg remains NarrativeX's media processing and final encoding/muxing engine for this architecture.
 
-### Fine-grained alignment policy
+It is responsible for:
 
-Keep provider synthesis grouping and subtitle alignment concerns explicit rather than hiding lag with an offset.
+- decoding media;
+- deterministic frame production from the render manifest;
+- scale/transform/filter execution selected by the active renderer policy;
+- color conversion;
+- encoded segment output;
+- audio assembly/muxing;
+- styled subtitle composition for final export where applicable;
+- final container production.
 
-Introduce a configurable narration alignment segmentation target that groups complete sentences/phrases into substantially smaller timing spans while preserving natural TTS continuity.
+FFmpeg command strings are implementation details. They are not the authoritative source of composition behavior. Semantic values are computed and versioned by NarrativeX before being translated into FFmpeg filters/arguments.
 
-Requirements:
+## Preview Responsibility
 
-- split only on existing sentence/phrase boundaries where possible;
-- never split inside a word solely to hit a character target;
-- target size is configuration-driven, not embedded independently in subtitle code;
-- retain a safe maximum size for provider requests;
-- exact synthesized audio duration remains authoritative for each materialized span;
-- bump the stored alignment version so new fine-grained alignment can be distinguished from historical `segment-duration-v1` data.
+Chromium remains the realtime preview compositor.
 
-A default target in the 320-480 character range is acceptable, with the implementation selecting one documented default based on existing provider/test behavior. The hard maximum remains separately configurable so the target is a quality policy, not a provider limitation.
+Preview may use GPU-backed CSS/browser transforms for responsiveness, but it must consume the same numeric composition samples, framing rules, transition samples, render-plan decisions, and subtitle cues as final render.
 
-Historical projects with old alignment data continue to use the current deterministic fallback. They are not silently assigned fabricated word timestamps.
+Pixel-identical RGB output between Chromium and compressed YUV video is not a success requirement. Geometry, timing, framing, transition state, and subtitle layout must match within explicit workstream tolerances.
 
-## Subtitle Styling
+## Render Snapshot and Versioning Strategy
 
-Plain SRT cannot encode the current preview presentation accurately. Final subtitle burn-in should therefore generate ASS (or another libass-compatible styled subtitle representation) from the same planned cues.
+New render-policy cutovers must be represented in the immutable render snapshot rather than inferred from the currently installed application version.
 
-The shared style policy must define at least:
+At minimum, snapshots that participate in the v3 cutover carry versioned values equivalent to:
 
-- bottom safe-area position;
-- centered alignment;
-- font size derived from output frame height;
-- semibold/bold intent using an available application/system font fallback;
-- readable outline/shadow;
-- dark translucent backing behavior where supported consistently.
+```text
+renderProfile.schemaVersion
+rendererVersion
+compositionPolicyVersion
+fps
+video quality policy
+color policy
+subtitle mode
+```
 
-The generated subtitle track must not depend on a machine-specific custom font file bundled through an unsafe path. If an exact font is unavailable, fall back predictably while preserving timing and layout.
+Workstreams may add their own independent version fields where needed, such as subtitle-style policy or narration-alignment version. Version ownership follows the subsystem that creates the immutable record.
 
-## Cache and Fingerprinting
+## Error Handling Principles
 
-Any render cache key or manifest fingerprint that can reuse encoded beat output must incorporate values that materially affect generated frames:
+- Invalid new render-profile data is rejected or mapped only according to the rules of its known schema version.
+- Missing source resolution or color metadata produces a diagnostic when a safe deterministic interpretation is possible.
+- Unsupported HDR input is not silently retagged as SDR.
+- Hardware encoder incompatibility is resolved before segment-cache production for an attempt; an attempt does not mix encoders silently.
+- Missing precise narration alignment never blocks rendering when a documented legacy deterministic fallback exists.
+- Requested subtitle burn-in does not silently disappear after a subtitle-generation/rendering failure.
+- Timeline/frame partition errors fail admission with a precise error rather than silently changing narration timing.
 
-- output dimensions;
-- fps;
-- framing policy;
-- camera movement/intensity/easing;
-- working-resolution policy version/dimensions;
-- encoder quality profile where encoded cache artifacts depend on it;
-- subtitle mode/style version for final subtitle output.
+## Testing Strategy
 
-Changing one of these values must invalidate only the render artifacts whose pixels or encoding actually change.
+Testing is divided by responsibility.
 
-## Failure Handling
+### Shared contract tests
 
-- Invalid video profile values fall back to catalog-safe defaults and are logged with enough context to diagnose the bad profile.
-- Unsupported hardware encoder configuration falls back through the existing software encoder path.
-- Working-resolution calculation must remain bounded to avoid accidental 5K/8K intermediate frames for 1440p output.
-- Missing precise narration alignment never blocks rendering; deterministic subtitle fallback remains available.
-- ASS generation failure fails subtitle burn-in clearly instead of silently exporting a subtitle-less file when subtitles were requested.
-- Preview display/inspection controls must never mutate export policy unless they are persisted as explicit edit decisions.
+Prove that Preview and Render consume the same semantic decisions and versioned policy values.
 
-## Testing
+### Desktop unit tests
 
-### Desktop render profile
+Cover render profile parsing, composition sampling, frame partition, preview plan selection, cache/fingerprint inputs, encoder argument generation, and subtitle presentation helpers owned by the corresponding workstream.
 
-Add tests proving:
+### FFmpeg integration tests
 
-- profile parser preserves fps/subtitle mode plus validated video quality values;
-- malformed CRF/CQ/preset/pixel format uses known defaults;
-- x264 command generation includes explicit preset/CRF/pixel format;
-- NVENC command generation includes explicit preset/CQ/rate-control/pixel format;
-- subtitle burn-in receives the same explicit encoder quality policy.
+Execute FFmpeg against deterministic fixtures and inspect actual generated output. Argument-string assertions alone are insufficient for motion, cadence, geometry, color, or mux correctness.
 
-### Motion smoothness
+### AI-worker tests
 
-Add tests proving:
+Cover narration segmentation/alignment only in the alignment workstream. Subtitle visual-style changes do not require AI-worker modifications.
 
-- 30 fps and 60 fps frame windows remain contiguous and duration-preserving;
-- working canvas is larger than target for moving still images and bounded by a 3840-pixel long edge;
-- static images do not pay unnecessary supersampling cost;
-- moving-image FFmpeg filter generation performs motion before Lanczos downscale;
-- shared easing endpoints are exact and monotonic;
-- preview and render use the same motion/framing decision helpers.
+### Packaged Windows smoke tests
 
-### Preview/render parity
+For renderer cutovers, compare fixed Preview and final-render fixtures using the packaged FFmpeg/runtime combination used by desktop releases.
 
-Add tests proving:
+## Delivery Sequence
 
-- IMAGE maps to cover in both preview and render policy;
-- VIDEO maps to contain in both preview and render policy;
-- preview-only inspection state cannot alter persisted render decisions;
-- active preview subtitle and generated final subtitle track derive from the same planned cue times.
+The workstreams are implemented independently in this order:
 
-### Subtitle timing
+1. Motion, Preview/Render Geometry, and Video Quality.
+2. Subtitle Presentation Parity.
+3. Narration Alignment and Subtitle Timing Precision.
 
-Add AI-worker tests proving:
+Reason for this order:
 
-- long narration text is divided at sentence/phrase boundaries into finer alignment spans;
-- spans retain complete source text coverage in order;
-- configuration target changes grouping deterministically;
-- alignment version changes for newly generated fine-grained alignment;
-- existing historical/fallback subtitle planning remains supported.
+- Workstream 1 establishes the authoritative frame/render-policy foundation required by later visual parity work.
+- Workstream 2 can then make subtitle appearance deterministic without changing narration generation.
+- Workstream 3 changes the most sensitive audio/TTS behavior and is isolated so subtitle timing improvements cannot destabilize render motion or encoder quality.
 
-### Verification
+Each workstream gets its own implementation plan, TDD cycle, verification evidence, and review gate. Passing one workstream is not evidence that later workstreams are complete.
 
-Before completion run the repository's normal gates, including:
+## Rollout Principles
 
-- desktop unit tests and `npm run check`;
-- AI-worker pytest/Ruff/mypy gates affected by narration changes;
-- backend verification only if backend contracts are modified;
-- repository gates;
-- targeted render regression tests for 30 fps, 60 fps, 1080p, and 1440p profile generation.
+- New policies are admitted through explicit versions.
+- Legacy immutable records keep legacy interpretation.
+- Cache generations are isolated by renderer/policy version.
+- A workstream can be disabled/rolled back without rewriting project media, narration files, or historical snapshots.
+- No workstream silently migrates historical alignment or render decisions in place.
 
-## Rollout
+## Architecture-Level Success Criteria
 
-This change is designed as a compatible cutover rather than a destructive migration.
+The architecture is fulfilled only when all workstreams relevant to a user-visible promise have completed their own measurable acceptance criteria.
 
-1. New render jobs parse and apply explicit quality settings.
-2. Preview immediately consumes shared framing/motion policies.
-3. New moving still-image renders use bounded supersampling.
-4. Newly generated narration alignment uses the fine-grained alignment version.
-5. Historical narration alignment remains readable through the existing fallback path.
-6. Existing render/profile database rows remain valid because the backend already stores the relevant video quality fields.
+At the umbrella level:
 
-## Success Criteria
-
-The change is complete when all of the following are true:
-
-- a 60 fps pan/zoom produces distinct smooth spatial progression rather than obvious target-resolution pixel stepping;
-- selecting 1440p changes both output dimensions and uses explicit high-quality encoder settings;
-- enabling subtitles no longer falls back to uncontrolled encoder defaults for the final re-encode;
-- image and video framing in the Editor match final-render framing decisions;
-- subtitle preview and final output use identical cue start/end times and closely matching safe-area/style policy;
-- newly generated narration provides materially finer subtitle timing anchors without a hard-coded time offset;
-- render cache invalidation accounts for the new frame-affecting policies;
-- all affected CI gates pass.
+- the Editor no longer maintains an independent hidden composition decision set for final-render behavior;
+- narration remains the master clock through Preview, frame partition, subtitles, and final mux;
+- final motion smoothness is validated from decoded frames rather than nominal FPS;
+- render quality and color behavior are versioned and explicit;
+- source-detail limitations are reported separately from output resolution;
+- subtitle Preview and export consume one canonical cue model;
+- subtitle timing precision can evolve through versioned alignment without hard-coded offsets;
+- historical render/alignment data remains readable;
+- no cache crosses incompatible renderer/policy versions;
+- each affected repository gate and subsystem-specific integration test passes before its workstream is considered complete.
