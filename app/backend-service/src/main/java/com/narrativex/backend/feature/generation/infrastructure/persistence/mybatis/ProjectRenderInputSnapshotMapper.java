@@ -13,12 +13,8 @@ public interface ProjectRenderInputSnapshotMapper extends NarrativeXMyBatisMappe
       @Param("format") String format,
       @Param("assignedLocalDeviceId") UUID assignedLocalDeviceId,
       @Param("chapterCount") int chapterCount,
-      @Param("beatCount") int beatCount);
-
-  int updateFrameRate(@Param("generationJobId") UUID generationJobId, @Param("fps") int fps);
-
-  int updateSubtitleMode(
-      @Param("generationJobId") UUID generationJobId, @Param("subtitleMode") String subtitleMode);
+      @Param("beatCount") int beatCount,
+      @Param("renderProfileJson") String renderProfileJson);
 
   int insertChapter(
       @Param("generationJobId") UUID generationJobId,
