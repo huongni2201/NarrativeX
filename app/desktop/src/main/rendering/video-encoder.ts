@@ -1,6 +1,6 @@
 import {
   buildVideoEncodeArgs,
-  LEGACY_VIDEO_QUALITY,
+  V2_VIDEO_QUALITY,
   type VideoEncoder,
   type VideoQualityProfile,
 } from "../../shared/video-encoding.ts";
@@ -19,7 +19,7 @@ export async function resolveVideoEncoder(
   return resolveVideoEncoderForProfile(
     ffmpegPath,
     hardwareAccelerationAllowed,
-    LEGACY_VIDEO_QUALITY,
+    V2_VIDEO_QUALITY,
     64,
     64,
   );
