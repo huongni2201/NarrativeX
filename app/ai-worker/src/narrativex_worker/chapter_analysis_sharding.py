@@ -17,8 +17,12 @@ from narrativex_worker.schema import (
 )
 from narrativex_worker.visual_density import (
     HARD_MAX_VISUAL_BEAT_MS,
+    MAX_VISUAL_BEATS_OVER_TARGET_RATIO,
     TARGET_VISUAL_BEAT_MS,
     estimated_narration_duration_ms,
+    maximum_visual_beats,
+    minimum_visual_beats,
+    target_visual_beats,
 )
 
 SCENE_BOUNDARY_ANCHOR_MAX_CHARS = 200
@@ -121,44 +125,143 @@ def plan_visual_beat_shards(
     *,
     target_beats: int,
     max_beats: int,
+    planning_duration_ms: int | None = None,
+    target_visual_beat_ms: int = TARGET_VISUAL_BEAT_MS,
+    hard_max_visual_beat_ms: int = HARD_MAX_VISUAL_BEAT_MS,
+    max_over_target_ratio: float = MAX_VISUAL_BEATS_OVER_TARGET_RATIO,
 ) -> list[VisualBeatShard]:
-    """Resolve compact scene boundaries and split exact source coverage into bounded shards."""
+    """Allocate one chapter-level density budget, then distribute it across scenes and shards."""
     if target_beats < 1:
         raise ValueError("target_beats must be positive")
     if max_beats < target_beats:
         raise ValueError("max_beats must be >= target_beats")
 
+    duration_ms = planning_duration_ms or estimated_narration_duration_ms(source_text)
+    if duration_ms <= 0:
+        raise ValueError("planning_duration_ms must be positive")
+
     scene_ranges = _resolve_scene_ranges(source_text, structure)
-    shards: list[VisualBeatShard] = []
-    for scene_index, (scene_start, scene_end) in enumerate(scene_ranges):
-        scene_text = source_text[scene_start:scene_end]
-        duration_ms = estimated_narration_duration_ms(scene_text)
-        scene_target = max(1, math.ceil(duration_ms / TARGET_VISUAL_BEAT_MS))
+    scene_weights = [max(1, end - start) for start, end in scene_ranges]
+    global_minimum = minimum_visual_beats(
+        duration_ms,
+        hard_max_visual_beat_ms=hard_max_visual_beat_ms,
+    )
+    global_target = target_visual_beats(
+        duration_ms,
+        target_visual_beat_ms=target_visual_beat_ms,
+    )
+    global_maximum = maximum_visual_beats(
+        duration_ms,
+        target_visual_beat_ms=target_visual_beat_ms,
+        max_over_target_ratio=max_over_target_ratio,
+    )
+
+    scene_target_total = max(global_target, len(scene_ranges))
+    scene_targets = _allocate_budget(
+        scene_weights,
+        scene_target_total,
+        lower_bounds=[1] * len(scene_ranges),
+    )
+
+    raw_shards: list[tuple[int, int, int, int, str]] = []
+    for scene_index, ((scene_start, scene_end), scene_target) in enumerate(
+        zip(scene_ranges, scene_targets, strict=True)
+    ):
         shard_count = max(1, math.ceil(scene_target / target_beats))
         ranges = _split_source_range(source_text, scene_start, scene_end, shard_count)
         for shard_index, (start, end) in enumerate(ranges):
-            shard_text = source_text[start:end]
-            shard_duration = estimated_narration_duration_ms(shard_text)
-            minimum = max(1, math.ceil(shard_duration / HARD_MAX_VISUAL_BEAT_MS))
-            target = max(minimum, math.ceil(shard_duration / TARGET_VISUAL_BEAT_MS))
-            if target > max_beats:
-                raise ValueError(
-                    f"planned shard exceeds max beats: target={target}, max={max_beats}"
-                )
-            maximum = min(max_beats, max(target, math.ceil(target * 1.15)))
-            shards.append(
-                VisualBeatShard(
-                    scene_index=scene_index,
-                    shard_index=shard_index,
-                    source_start=start,
-                    source_end=end,
-                    source_text=shard_text,
-                    minimum_beats=minimum,
-                    target_beats=target,
-                    maximum_beats=maximum,
-                )
+            raw_shards.append(
+                (scene_index, shard_index, start, end, source_text[start:end])
             )
+
+    shard_weights = [max(1, end - start) for _, _, start, end, _ in raw_shards]
+    shard_count = len(raw_shards)
+    minimum_total = max(global_minimum, shard_count)
+    target_total = max(global_target, minimum_total)
+    maximum_total = max(global_maximum, target_total)
+
+    minimum_allocations = _allocate_budget(
+        shard_weights,
+        minimum_total,
+        lower_bounds=[1] * shard_count,
+    )
+    target_allocations = _allocate_budget(
+        shard_weights,
+        target_total,
+        lower_bounds=minimum_allocations,
+    )
+    maximum_allocations = _allocate_budget(
+        shard_weights,
+        maximum_total,
+        lower_bounds=target_allocations,
+    )
+
+    shards: list[VisualBeatShard] = []
+    for raw, minimum, target, maximum in zip(
+        raw_shards,
+        minimum_allocations,
+        target_allocations,
+        maximum_allocations,
+        strict=True,
+    ):
+        scene_index, shard_index, start, end, shard_text = raw
+        if target > max_beats:
+            raise ValueError(
+                f"planned shard exceeds max beats: target={target}, max={max_beats}"
+            )
+        maximum = min(max_beats, max(target, maximum))
+        shards.append(
+            VisualBeatShard(
+                scene_index=scene_index,
+                shard_index=shard_index,
+                source_start=start,
+                source_end=end,
+                source_text=shard_text,
+                minimum_beats=minimum,
+                target_beats=target,
+                maximum_beats=maximum,
+            )
+        )
     return shards
+
+
+def _allocate_budget(
+    weights: list[int],
+    total: int,
+    *,
+    lower_bounds: list[int],
+) -> list[int]:
+    """Deterministically distribute an integer budget without per-segment ceil inflation."""
+    if not weights or len(weights) != len(lower_bounds):
+        raise ValueError("weights and lower_bounds must be non-empty and aligned")
+    if any(weight <= 0 for weight in weights):
+        raise ValueError("weights must be positive")
+    if any(bound < 0 for bound in lower_bounds):
+        raise ValueError("lower bounds must be non-negative")
+    lower_total = sum(lower_bounds)
+    if total < lower_total:
+        raise ValueError("budget cannot be lower than required allocations")
+
+    allocations = list(lower_bounds)
+    remaining = total - lower_total
+    if remaining == 0:
+        return allocations
+
+    weight_total = sum(weights)
+    quotas = [remaining * weight / weight_total for weight in weights]
+    floors = [math.floor(quota) for quota in quotas]
+    for index, floor in enumerate(floors):
+        allocations[index] += floor
+
+    leftover = remaining - sum(floors)
+    order = sorted(
+        range(len(weights)),
+        key=lambda index: (quotas[index] - floors[index], weights[index], -index),
+        reverse=True,
+    )
+    for index in order[:leftover]:
+        allocations[index] += 1
+    return allocations
 
 
 def validate_visual_beat_shard(
@@ -258,9 +361,6 @@ def _resolve_scene_ranges(
 
     ranges: list[tuple[int, int]] = []
     for scene_index, scene in enumerate(structure.scenes):
-        # Start anchors are location hints, not exact coverage boundaries. The first
-        # scene owns any chapter prefix and every following scene begins at its own
-        # start anchor so the complete source is covered exactly once.
         range_start = 0 if scene_index == 0 else anchor_starts[scene_index]
         range_end = (
             anchor_starts[scene_index + 1]
