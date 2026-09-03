@@ -99,6 +99,28 @@ def test_vieneu_voice_settings_are_available_without_provider_credentials() -> N
     assert settings.narration_mp3_bitrate == "96k"
 
 
+def test_vertex_analysis_sharding_defaults_are_bounded() -> None:
+    settings = WorkerSettings()
+
+    assert settings.vertex_analysis_shard_concurrency == 3
+    assert settings.vertex_analysis_shard_target_beats == 12
+    assert settings.vertex_analysis_shard_max_beats == 20
+    assert settings.vertex_analysis_repair_attempts == 1
+
+
+def test_vertex_analysis_shard_concurrency_rejects_more_than_four() -> None:
+    with pytest.raises(ValidationError):
+        WorkerSettings(vertex_analysis_shard_concurrency=5)
+
+
+def test_vertex_analysis_max_beats_cannot_be_lower_than_target() -> None:
+    with pytest.raises(ValidationError, match="max beats"):
+        WorkerSettings(
+            vertex_analysis_shard_target_beats=16,
+            vertex_analysis_shard_max_beats=12,
+        )
+
+
 def test_worker_roles_can_isolate_narration() -> None:
     settings = WorkerSettings(worker_roles="narration")
 

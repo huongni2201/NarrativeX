@@ -78,6 +78,10 @@ class WorkerSettings(BaseSettings):
     vertex_location: str = "us-central1"
     vertex_model: str = "gemini-2.5-flash"
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
+    vertex_analysis_shard_concurrency: int = Field(default=3, ge=1, le=4)
+    vertex_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
+    vertex_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
+    vertex_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
     image_provider_mode: Literal["disabled", "fake", "vertex"] = Field(
         default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
     )
@@ -190,6 +194,8 @@ class WorkerSettings(BaseSettings):
     def validate_runtime(self) -> "WorkerSettings":
         if self.worker_env.strip().lower() in {"production", "prod"}:
             self._validate_production_runtime()
+        if self.vertex_analysis_shard_max_beats < self.vertex_analysis_shard_target_beats:
+            raise ValueError("Vertex analysis shard max beats must be >= target beats")
         if self.image_provider_mode == "vertex" and not self.vertex_project_id:
             raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
         if self.vertex_image_service_tier == "flex":
