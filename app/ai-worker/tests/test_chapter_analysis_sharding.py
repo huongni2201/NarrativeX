@@ -38,12 +38,34 @@ def _structure(source: str) -> ChapterStructureResult:
     )
 
 
+def _direction() -> dict[str, object]:
+    return {
+        "shot_size": "MEDIUM",
+        "camera_angle": "EYE_LEVEL",
+        "lens_mm": 50,
+        "focus_target": "source-grounded subject",
+        "action_phase": "AFTER",
+        "subject_placement": "middle third",
+        "foreground": None,
+        "background": "source-grounded environment",
+        "motivated_light": "ambient source light",
+        "palette": "neutral",
+        "camera_movement": "NONE",
+        "movement_direction": None,
+        "movement_intensity": "SUBTLE",
+        "crop_safe_area": "all sides",
+    }
+
+
 def _beats(anchor: str, count: int) -> list[VisualBeatAnalysis]:
     return [
-        VisualBeatAnalysis(
-            title=f"beat-{index}",
-            visual_intent="source grounded",
-            source_anchor=anchor,
+        VisualBeatAnalysis.model_validate(
+            {
+                "title": f"beat-{index}",
+                "visual_intent": "source grounded",
+                "source_anchor": anchor,
+                "visual_direction": _direction(),
+            }
         )
         for index in range(count)
     ]

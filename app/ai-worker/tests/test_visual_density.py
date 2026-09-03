@@ -12,16 +12,38 @@ from narrativex_worker.visual_density import (
 )
 
 
+def _direction() -> dict[str, object]:
+    return {
+        "shot_size": "MEDIUM",
+        "camera_angle": "EYE_LEVEL",
+        "lens_mm": 50,
+        "focus_target": "subject",
+        "action_phase": "AFTER",
+        "subject_placement": "middle third",
+        "foreground": None,
+        "background": "environment",
+        "motivated_light": "ambient light",
+        "palette": "neutral",
+        "camera_movement": "NONE",
+        "movement_direction": None,
+        "movement_intensity": "SUBTLE",
+        "crop_safe_area": "all sides",
+    }
+
+
 def _result(count: int) -> ChapterAnalysisResult:
     return ChapterAnalysisResult(
         scenes=[
             SceneAnalysis(
                 title="Scene",
                 visual_beats=[
-                    VisualBeatAnalysis(
-                        title=f"Beat {index}",
-                        visual_intent=f"Moment {index}",
-                        source_anchor=f"anchor {index}",
+                    VisualBeatAnalysis.model_validate(
+                        {
+                            "title": f"Beat {index}",
+                            "visual_intent": f"Moment {index}",
+                            "source_anchor": f"anchor {index}",
+                            "visual_direction": _direction(),
+                        }
                     )
                     for index in range(count)
                 ],

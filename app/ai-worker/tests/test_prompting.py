@@ -78,16 +78,10 @@ def test_chapter_prompt_preserves_untrusted_boundary_and_output_contract() -> No
     assert "<UNTRUSTED_CHAPTER>" in prompt
     assert source in prompt
     assert "SOURCE_LANGUAGE=vi-VN" in prompt
-    assert (
-        "OUTPUT_SCHEMA={characters:[{key,name,aliases,description,role,importance,groups,bible,"
-        in prompt
-    )
-    assert "visual_prompt,age_state,hairstyle,injury,wardrobe_context,appearance_prompt}" in prompt
-    assert "locations:[{key,name,description,visual_prompt}]" in prompt
-    assert (
-        "visual_beats:[{title,visual_intent,source_anchor,camera_angle,"
-        "characters:[{character_key,role}]}]" in prompt
-    )
+    assert "visual_signals:{physical_actions,speaker_changes,reveals,emotional_turns" in prompt
+    assert "visual_direction:{shot_size,camera_angle,lens_mm,focus_target,action_phase" in prompt
+    assert "camera_movement,movement_direction,movement_intensity,crop_safe_area}" in prompt
+    assert "source_anchor,visual_direction" in prompt
 
 
 def test_image_analysis_prompt_preserves_provider_as_routing_metadata() -> None:

@@ -23,6 +23,7 @@ from narrativex_worker.schema import (
     ProviderOperationStatus,
     VisualBeatAnalysis,
 )
+from tests.visual_direction_fixture import visual_direction
 
 
 def _billing() -> ProviderBilling:
@@ -116,6 +117,7 @@ def _beats(
                 title=f"beat-{index}",
                 visual_intent="grounded",
                 source_anchor=anchor,
+                visual_direction=visual_direction(),
                 characters=characters,
             )
             for index in range(count)

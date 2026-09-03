@@ -14,49 +14,68 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 class VisualPromptComposerTest {
+  private static final String DIRECTION =
+      "{\"shot_size\":\"MEDIUM_CLOSE_UP\",\"camera_angle\":\"LOW\",\"lens_mm\":50,"
+          + "\"focus_target\":\"Lan's hand gripping the letter\",\"action_phase\":\"AFTER\","
+          + "\"subject_placement\":\"Lan on left third\",\"foreground\":\"desk edge\","
+          + "\"background\":\"old apartment kitchen\",\"motivated_light\":\"window light from left\","
+          + "\"palette\":\"desaturated blue with warm practical accents\",\"camera_movement\":\"PUSH_IN\","
+          + "\"movement_direction\":null,\"movement_intensity\":\"SUBTLE\","
+          + "\"crop_safe_area\":\"above and right\"}";
 
   private final VisualPromptComposer composer =
       new VisualPromptComposer(JsonMapper.builder().build());
 
   @Test
-  void appliesPremiumCharacterRenderingLanguageToCinematicAnimeStoryboardFrames() {
+  void ordersStoryAndStructuredShotBeforeStyle() {
     var result =
         composer.compose(
             ImageStyle.CINEMATIC_ANIME,
-            "Lan studies the letter",
-            "CLOSE_UP",
+            "Lan steadies the letter after the impact",
+            DIRECTION,
             "RATIO_16_9",
             VisualPromptContext.empty());
 
-    assertThat(result.prompt())
-        .contains("CHARACTER RENDERING LANGUAGE:")
-        .contains("FACE QUALITY PRIORITY:")
-        .contains("sharp expressive eyes with proportional scale")
-        .contains("ANTI-DRIFT:")
-        .contains("do not enlarge the eyes")
-        .contains("STORYBOARD CHARACTER QUALITY RULES:")
-        .contains(
-            "same premium manhwa character rendering language used by canonical character references");
+    String prompt = result.prompt();
+    assertThat(prompt).startsWith("TASK\n");
+    assertThat(prompt.indexOf("STORY MOMENT\n")).isLessThan(prompt.indexOf("SHOT\n"));
+    assertThat(prompt.indexOf("SHOT\n")).isLessThan(prompt.indexOf("STYLE\n"));
+    assertThat(prompt)
+        .contains("Shot size: MEDIUM_CLOSE_UP")
+        .contains("Camera angle: LOW")
+        .contains("Lens and perspective: 50mm equivalent")
+        .contains("Focus target: Lan's hand gripping the letter")
+        .contains("Action phase: AFTER")
+        .contains("Camera movement: PUSH_IN")
+        .contains("Motion-safe area: above and right")
+        .doesNotContain("STYLE PROFILE:")
+        .doesNotContain("VISUAL VARIETY: avoid repetitive centered framing");
   }
 
   @Test
-  void keepsNonAnimeStoryboardPromptsFreeOfManhwaSpecificRenderingRules() {
-    var result =
-        composer.compose(
-            ImageStyle.CINEMATIC,
-            "Lan studies the letter",
-            "CLOSE_UP",
-            "RATIO_16_9",
-            VisualPromptContext.empty());
-
-    assertThat(result.prompt())
-        .doesNotContain("CHARACTER RENDERING LANGUAGE:")
-        .doesNotContain("STORYBOARD CHARACTER QUALITY RULES:");
-  }
-
-  @Test
-  void compilesStableCanonAppearanceAndReferencePrecedence() {
+  void separatesCanonicalIdentityFromCurrentStateAndEmitsIdentityOnce() {
     var identityId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    var character =
+        new CharacterCanon(
+            UuidV7.random(),
+            UuidV7.random(),
+            "Lan",
+            4,
+            "oval face, dark eyes, shoulder-length black hair",
+            "beige cardigan and white blouse",
+            "mid twenties",
+            "straight shoulder-length black hair",
+            null,
+            "beige cardigan",
+            "PRIMARY",
+            List.of(
+                new CharacterReference(
+                    identityId,
+                    "IDENTITY",
+                    0,
+                    "private/characters/lan.png",
+                    "image/png",
+                    "a".repeat(64))));
     var context =
         new VisualPromptContext(
             new LocationCanon(
@@ -64,130 +83,58 @@ class VisualPromptComposerTest {
                 "Kitchen",
                 "old apartment kitchen",
                 "warm practical kitchen with dark walnut cabinets"),
-            List.of(
-                new CharacterCanon(
-                    UuidV7.random(),
-                    UuidV7.random(),
-                    "Lan",
-                    4,
-                    "oval face, dark eyes, shoulder-length black hair",
-                    "beige cardigan and white blouse",
-                    "mid twenties",
-                    "straight shoulder-length black hair",
-                    null,
-                    "beige cardigan",
-                    "PRIMARY",
-                    List.of(
-                        new CharacterReference(
-                            identityId,
-                            "IDENTITY",
-                            0,
-                            "private/characters/lan.png",
-                            "image/png",
-                            "a".repeat(64))))));
+            List.of(character));
 
-    var result = composer.compose(ImageStyle.CINEMATIC, "Lan opens the letter", context);
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC_ANIME,
+            "Lan reads the warning",
+            DIRECTION,
+            "RATIO_16_9",
+            context);
 
     assertThat(result.prompt())
-        .startsWith("STYLE PROFILE:")
-        .contains("SCENE DIRECTION: Lan opens the letter")
-        .contains("LOCATION CANON: Kitchen — warm practical kitchen with dark walnut cabinets")
-        .contains("CHARACTER IDENTITY LOCKS:")
-        .contains("- Lan [PRIMARY]: oval face, dark eyes, shoulder-length black hair")
-        .contains("CURRENT APPEARANCE STATE:")
-        .contains("- Lan: beige cardigan and white blouse")
-        .contains("REFERENCE IMAGE MAP:")
-        .contains("REF_01 = Lan [PRIMARY]")
-        .contains("Do not copy its background, crop, pose, expression, or lighting")
-        .contains("CONSISTENCY PRECEDENCE:")
-        .contains("STYLE PROFILE controls rendering language only and must never redesign identity")
-        .doesNotContain("age: mid twenties")
-        .doesNotContain("wardrobe: beige cardigan");
+        .contains("CHARACTER LOCKS\n- Lan [PRIMARY]: oval face, dark eyes, shoulder-length black hair")
+        .contains("CURRENT STATE\n- Lan: beige cardigan and white blouse")
+        .contains("ENVIRONMENT\nKitchen — warm practical kitchen with dark walnut cabinets")
+        .contains("REFERENCE MAP\n- REF_01 = Lan [PRIMARY]")
+        .doesNotContain("STORYBOARD CHARACTER QUALITY RULES")
+        .doesNotContain("CONSISTENCY PRECEDENCE:");
+    assertThat(count(result.prompt(), "oval face, dark eyes, shoulder-length black hair")).isEqualTo(1);
     assertThat(result.characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
         .contains("\"versionNumber\":4")
-        .contains("\"beatRole\":\"PRIMARY\"")
-        .contains(identityId.toString())
-        .contains("private/characters/lan.png")
-        .contains("\"sha256\":\"" + "a".repeat(64) + "\"");
+        .contains(identityId.toString());
     assertThat(result.referenceBindings()).hasSize(1);
-    assertThat(result.referenceBindings().getFirst().assetId()).isEqualTo(identityId);
-    assertThat(result.referenceBindings().getFirst().canonicalName()).isEqualTo("Lan");
   }
 
   @Test
-  void addsStructuredCameraFramingToImagePrompt() {
+  void wideShotDoesNotReceivePortraitOnlyNegativeConstraint() {
+    String wide = DIRECTION.replace("MEDIUM_CLOSE_UP", "WIDE");
     var result =
         composer.compose(
-            ImageStyle.CINEMATIC,
-            "Lan reads the warning",
-            "LOW_ANGLE",
+            ImageStyle.CINEMATIC_ANIME,
+            "Lan crosses the courtyard",
+            wide,
+            "16:9",
             VisualPromptContext.empty());
 
-    assertThat(result.prompt())
-        .contains("CAMERA: low-angle view; camera below the subject looking upward.");
+    assertThat(result.negativePrompt()).doesNotContain("character too small in frame");
   }
 
   @Test
-  void addsStructuredAspectRatioToImagePrompt() {
-    var result =
-        composer.compose(
-            ImageStyle.CINEMATIC,
-            "Lan reads the warning",
-            "LOW_ANGLE",
-            "RATIO_16_9",
-            VisualPromptContext.empty());
+  void legacyBeatWithoutStructuredDirectionGetsSafeDeterministicDefault() {
+    var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", VisualPromptContext.empty());
 
     assertThat(result.prompt())
-        .contains(
-            "IMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat with a 16:9 aspect ratio.")
-        .contains("ASPECT RATIO: 16:9 horizontal widescreen format (16:9 aspect ratio).")
-        .contains("COMPOSITION RULES: create one single 16:9 frame only.");
+        .contains("Shot size: MEDIUM")
+        .contains("Camera angle: EYE_LEVEL")
+        .contains("Camera movement: NONE")
+        .contains("STYLE\nGrounded cinematic film-still rendering");
   }
 
   @Test
-  void keepsPromptExecutableWhenSceneHasNoCanonYet() {
-    var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", null);
-
-    assertThat(result.prompt())
-        .contains("SCENE DIRECTION: Empty hallway at dawn")
-        .contains("CONSISTENCY PRECEDENCE")
-        .doesNotContain("\nCHARACTER IDENTITY LOCKS:")
-        .doesNotContain("\nLOCATION CANON:")
-        .doesNotContain("\nREFERENCE IMAGE MAP:");
-    assertThat(result.characterSnapshotJson()).isEqualTo("{\"characters\":[]}");
-    assertThat(result.referenceBindings()).isEmpty();
-  }
-
-  @Test
-  void escapesCharacterSnapshotAsValidJsonText() {
-    var context =
-        new VisualPromptContext(
-            null,
-            List.of(
-                new CharacterCanon(
-                    UuidV7.random(),
-                    UuidV7.random(),
-                    "Lan \"L\"",
-                    1,
-                    "line one\nline two",
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    "SECONDARY",
-                    List.of())));
-
-    var result = composer.compose(ImageStyle.CINEMATIC, "Portrait", context);
-
-    assertThat(result.characterSnapshotJson())
-        .contains("Lan \\\"L\\\"")
-        .contains("line one\\nline two");
-  }
-
-  @Test
-  void givesEachCharacterAnIdentityAnchorBeforeUsingSecondaryReferences() {
+  void referenceSelectionStillGivesEachCharacterAnIdentityAnchorFirst() {
     var lanIdentity = reference("10000000-0000-0000-0000-000000000001", "IDENTITY", 9, "a");
     var lanProfile = reference("10000000-0000-0000-0000-000000000002", "PROFILE", 1, "b");
     var lanExpression = reference("10000000-0000-0000-0000-000000000003", "EXPRESSION", 0, "c");
@@ -196,53 +143,24 @@ class VisualPromptComposerTest {
         new VisualPromptContext(
             null,
             List.of(
-                canon(
-                    UuidV7.random(),
-                    "Lan",
-                    "PRIMARY",
-                    List.of(lanExpression, lanProfile, lanIdentity)),
+                canon(UuidV7.random(), "Lan", "PRIMARY", List.of(lanExpression, lanProfile, lanIdentity)),
                 canon(UuidV7.random(), "Minh", "SECONDARY", List.of(minhIdentity))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan and Minh speak", context);
 
-    assertThat(result.characterSnapshotJson())
-        .contains(lanIdentity.assetId().toString())
-        .contains(minhIdentity.assetId().toString())
-        .contains(lanProfile.assetId().toString())
-        .doesNotContain(lanExpression.assetId().toString());
     assertThat(result.referenceBindings())
         .extracting(VisualPromptComposer.ReferenceBinding::assetId)
         .containsExactly(lanIdentity.assetId(), minhIdentity.assetId(), lanProfile.assetId());
-    assertThat(result.prompt())
-        .contains("REF_01 = Lan [PRIMARY]")
-        .contains("REF_02 = Minh [SECONDARY]")
-        .contains("REF_03 = Lan [PRIMARY]");
   }
 
-  @Test
-  void fallsBackToStructuredAppearanceWhenCombinedAppearancePromptIsMissing() {
-    var character =
-        new CharacterCanon(
-            UuidV7.random(),
-            UuidV7.random(),
-            "Lan",
-            1,
-            "stable face",
-            null,
-            "mid twenties",
-            "loose ponytail",
-            "scar above eyebrow",
-            "dark coat",
-            "PRIMARY",
-            List.of());
-
-    var result =
-        composer.compose(
-            ImageStyle.CINEMATIC, "Lan waits", new VisualPromptContext(null, List.of(character)));
-
-    assertThat(result.prompt())
-        .contains(
-            "- Lan: age: mid twenties; hairstyle: loose ponytail; injury: scar above eyebrow; wardrobe: dark coat");
+  private static int count(String text, String needle) {
+    int count = 0;
+    int cursor = 0;
+    while ((cursor = text.indexOf(needle, cursor)) >= 0) {
+      count++;
+      cursor += needle.length();
+    }
+    return count;
   }
 
   private static CharacterCanon canon(

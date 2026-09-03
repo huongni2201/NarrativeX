@@ -24,8 +24,39 @@ from narrativex_worker.visual_density import (
     minimum_visual_beats,
     target_visual_beats,
 )
+from narrativex_worker.visual_prompt.sequence_planner import plan_chapter_shots
 
 SCENE_BOUNDARY_ANCHOR_MAX_CHARS = 200
+_SEMANTIC_BASE_FACTOR = 8
+_SEMANTIC_SIGNAL_CAP = 24
+
+
+class SceneVisualSignals(BaseModel):
+    """Source-grounded scene events used only to redistribute a duration-derived beat budget."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    physical_actions: int = Field(default=0, ge=0, le=100)
+    speaker_changes: int = Field(default=0, ge=0, le=100)
+    reveals: int = Field(default=0, ge=0, le=100)
+    emotional_turns: int = Field(default=0, ge=0, le=100)
+    important_objects: int = Field(default=0, ge=0, le=100)
+    pov_changes: int = Field(default=0, ge=0, le=100)
+    cause_effect_boundaries: int = Field(default=0, ge=0, le=100)
+
+    @property
+    def total(self) -> int:
+        return sum(
+            (
+                self.physical_actions,
+                self.speaker_changes,
+                self.reveals,
+                self.emotional_turns,
+                self.important_objects,
+                self.pov_changes,
+                self.cause_effect_boundaries,
+            )
+        )
 
 
 class SceneStructure(BaseModel):
@@ -34,6 +65,7 @@ class SceneStructure(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     source_start_anchor: str = Field(min_length=1, max_length=SCENE_BOUNDARY_ANCHOR_MAX_CHARS)
     source_end_anchor: str = Field(min_length=1, max_length=SCENE_BOUNDARY_ANCHOR_MAX_CHARS)
+    visual_signals: SceneVisualSignals = Field(default_factory=SceneVisualSignals)
     characters: list[SceneCharacterRef] = Field(default_factory=list)
     location_key: str | None = None
 
@@ -112,12 +144,6 @@ class VisualBeatShardResult(BaseModel):
 
     visual_beats: list[VisualBeatAnalysis] = Field(min_length=1)
 
-    @model_validator(mode="after")
-    def require_source_anchors(self) -> VisualBeatShardResult:
-        if any(beat.source_anchor is None for beat in self.visual_beats):
-            raise ValueError("every generated visual beat requires source_anchor")
-        return self
-
 
 def plan_visual_beat_shards(
     source_text: str,
@@ -130,7 +156,7 @@ def plan_visual_beat_shards(
     hard_max_visual_beat_ms: int = HARD_MAX_VISUAL_BEAT_MS,
     max_over_target_ratio: float = MAX_VISUAL_BEATS_OVER_TARGET_RATIO,
 ) -> list[VisualBeatShard]:
-    """Allocate one chapter-level density budget, then distribute it across scenes and shards."""
+    """Allocate one duration budget, then redistribute it using source-grounded semantic density."""
     if target_beats < 1:
         raise ValueError("target_beats must be positive")
     if max_beats < target_beats:
@@ -141,7 +167,10 @@ def plan_visual_beat_shards(
         raise ValueError("planning_duration_ms must be positive")
 
     scene_ranges = _resolve_scene_ranges(source_text, structure)
-    scene_weights = [max(1, end - start) for start, end in scene_ranges]
+    scene_weights = [
+        max(1, end - start) * _semantic_factor(scene.visual_signals)
+        for (start, end), scene in zip(scene_ranges, structure.scenes, strict=True)
+    ]
     global_minimum = minimum_visual_beats(
         duration_ms,
         hard_max_visual_beat_ms=hard_max_visual_beat_ms,
@@ -174,7 +203,10 @@ def plan_visual_beat_shards(
                 (scene_index, shard_index, start, end, source_text[start:end])
             )
 
-    shard_weights = [max(1, end - start) for _, _, start, end, _ in raw_shards]
+    shard_weights = [
+        max(1, end - start) * _semantic_factor(structure.scenes[scene_index].visual_signals)
+        for scene_index, _, start, end, _ in raw_shards
+    ]
     shard_count = len(raw_shards)
     minimum_total = max(global_minimum, shard_count)
     target_total = max(global_target, minimum_total)
@@ -223,6 +255,10 @@ def plan_visual_beat_shards(
             )
         )
     return shards
+
+
+def _semantic_factor(signals: SceneVisualSignals) -> int:
+    return _SEMANTIC_BASE_FACTOR + min(signals.total, _SEMANTIC_SIGNAL_CAP)
 
 
 def _allocate_budget(
@@ -305,7 +341,7 @@ def merge_shard_results(
     shards: list[VisualBeatShard],
     results: dict[tuple[int, int], VisualBeatShardResult],
 ) -> ChapterAnalysisResult:
-    """Validate source grounding and merge shard output into the final durable contract."""
+    """Validate source grounding, merge shard output, then coordinate chapter-level shots."""
     by_scene: dict[int, list[VisualBeatAnalysis]] = defaultdict(list)
     source_by_scene: dict[int, list[str]] = defaultdict(list)
     for shard in sorted(shards, key=lambda item: (item.scene_index, item.shard_index)):
@@ -338,11 +374,12 @@ def merge_shard_results(
             )
         )
 
-    return ChapterAnalysisResult(
+    merged = ChapterAnalysisResult(
         characters=structure.characters,
         locations=structure.locations,
         scenes=scenes,
     )
+    return plan_chapter_shots(merged)
 
 
 def _resolve_scene_ranges(
@@ -384,8 +421,6 @@ def _validate_shard_anchors(shard: VisualBeatShard, result: VisualBeatShardResul
     cursor = 0
     for beat_index, beat in enumerate(result.visual_beats):
         anchor = beat.source_anchor
-        if anchor is None:
-            raise ValueError(f"visual beat {beat_index} is missing source_anchor")
         offset = shard.source_text.find(anchor, cursor)
         if offset < 0:
             if anchor in shard.source_text:

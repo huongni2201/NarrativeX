@@ -22,6 +22,7 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
         <ChevronDown size={13} />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
+
   );
 }
 

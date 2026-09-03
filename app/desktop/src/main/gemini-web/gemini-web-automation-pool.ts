@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { GeminiAdaptiveConcurrency } from "./gemini-concurrency-policy.ts";
 import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
 import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
 
@@ -63,9 +64,11 @@ type Slot = {
 };
 
 type LanePoolState = {
-  capacity: number;
+  configuredCapacity: number;
+  effectiveCapacity: number;
   pool: GeminiWebSlotPool<Slot>;
   activeLeases: number;
+  policy: GeminiAdaptiveConcurrency;
 };
 
 export class GeminiWebAutomationPool {
@@ -88,18 +91,29 @@ export class GeminiWebAutomationPool {
     references: readonly GeminiPoolReferenceFile[] = [],
   ): Promise<GeminiPoolGenerationResult> {
     const counts = await this.getTabCounts();
-    const capacity = lane === "CHARACTER" ? counts.characterTabs : counts.storyboardTabs;
-    const state = this.poolFor(lane, capacity);
+    const configuredCapacity = Math.max(
+      1,
+      Math.floor(lane === "CHARACTER" ? counts.characterTabs : counts.storyboardTabs),
+    );
+    let state = this.poolFor(lane, configuredCapacity);
+    state = this.refreshEffectivePool(lane, state, configuredCapacity);
+
     const lease = await state.pool.acquire();
     state.activeLeases += 1;
     try {
       if (!lease.slot.primary) {
         await this.seedSecondarySession(lease.slot.rootDirectory);
       }
-      return await lease.slot.automation.generateImage(lane, prompt, references);
+      const result = await lease.slot.automation.generateImage(lane, prompt, references);
+      state.policy.recordSuccess(configuredCapacity);
+      return result;
+    } catch (error) {
+      state.policy.recordFailure(error);
+      throw error;
     } finally {
       state.activeLeases = Math.max(0, state.activeLeases - 1);
       lease.release();
+      this.refreshEffectivePool(lane, state, configuredCapacity);
     }
   }
 
@@ -108,12 +122,42 @@ export class GeminiWebAutomationPool {
     this.lanes.clear();
   }
 
-  private poolFor(lane: GeminiWebLane, capacity: number): LanePoolState {
+  private poolFor(lane: GeminiWebLane, configuredCapacity: number): LanePoolState {
     const current = this.lanes.get(lane);
-    if (current && (current.capacity === capacity || current.activeLeases > 0)) return current;
+    if (current) {
+      current.configuredCapacity = configuredCapacity;
+      return current;
+    }
 
+    const policy = new GeminiAdaptiveConcurrency();
+    const effectiveCapacity = policy.capacity(configuredCapacity);
+    const next = this.createLanePool(lane, configuredCapacity, effectiveCapacity, policy);
+    this.lanes.set(lane, next);
+    return next;
+  }
+
+  private refreshEffectivePool(
+    lane: GeminiWebLane,
+    state: LanePoolState,
+    configuredCapacity: number,
+  ): LanePoolState {
+    state.configuredCapacity = configuredCapacity;
+    const effectiveCapacity = state.policy.capacity(configuredCapacity);
+    if (effectiveCapacity === state.effectiveCapacity || state.activeLeases > 0) return state;
+
+    const next = this.createLanePool(lane, configuredCapacity, effectiveCapacity, state.policy);
+    this.lanes.set(lane, next);
+    return next;
+  }
+
+  private createLanePool(
+    lane: GeminiWebLane,
+    configuredCapacity: number,
+    effectiveCapacity: number,
+    policy: GeminiAdaptiveConcurrency,
+  ): LanePoolState {
     const laneDirectory = lane.toLowerCase();
-    const pool = new GeminiWebSlotPool<Slot>(capacity, (index) => {
+    const pool = new GeminiWebSlotPool<Slot>(effectiveCapacity, (index) => {
       if (index === 0) {
         return {
           rootDirectory: this.rootDirectory,
@@ -128,9 +172,13 @@ export class GeminiWebAutomationPool {
         primary: false,
       };
     });
-    const next = { capacity, pool, activeLeases: 0 };
-    this.lanes.set(lane, next);
-    return next;
+    return {
+      configuredCapacity,
+      effectiveCapacity,
+      pool,
+      activeLeases: 0,
+      policy,
+    };
   }
 
   private async seedSecondarySession(slotRoot: string): Promise<void> {

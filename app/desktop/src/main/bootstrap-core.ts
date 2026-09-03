@@ -39,8 +39,8 @@ import {
   hardenRendererWebContents,
   registerTrustedIpcHandler,
   registerTrustedIpcHandlerWithEvent,
-  type RendererTrustPolicy,
 } from "./security/renderer-security";
+import { createRendererTrustPolicy } from "./security/renderer-trust-policy";
 import { SelectionTokenStore } from "./security/selection-token-store";
 
 registerLocalAssetPreviewScheme();
@@ -149,15 +149,6 @@ if (!hasSingleInstanceLock) {
   });
 }
 
-function rendererTrustPolicy(): RendererTrustPolicy {
-  return {
-    productionEntryPath: join(__dirname, "../renderer/index.html"),
-    developmentRendererUrl: app.isPackaged
-      ? undefined
-      : process.env.ELECTRON_RENDERER_URL,
-  };
-}
-
 function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (character) => {
     const entities: Record<string, string> = {
@@ -200,7 +191,11 @@ async function showRendererFailure(window: BrowserWindow, rendererUrl: string, e
 
 function createWindow() {
   const iconPath = join(__dirname, "../../resources/narrativex-icon.png");
-  const trustPolicy = rendererTrustPolicy();
+  const trustPolicy = createRendererTrustPolicy(
+    __dirname,
+    app.isPackaged,
+    process.env.ELECTRON_RENDERER_URL,
+  );
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const window = new BrowserWindow({
     width: Math.max(1180, display.workAreaSize.width),
@@ -315,7 +310,11 @@ void app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   ffmpegRuntime = await resolveFfmpegRuntime();
   const config = loadLocalExecutionConfig(ffmpegRuntime.available);
-  const trustPolicy = rendererTrustPolicy();
+  const trustPolicy = createRendererTrustPolicy(
+    __dirname,
+    app.isPackaged,
+    process.env.ELECTRON_RENDERER_URL,
+  );
   registerNarrativeXProtocol();
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => callback(false),

@@ -18,6 +18,7 @@ CREATE TABLE projects (
     narration_language VARCHAR(16) NOT NULL,
     metadata_language VARCHAR(16) NOT NULL,
     image_aspect_ratio VARCHAR(16) NOT NULL,
+    image_quality_tier VARCHAR(16) NOT NULL,
     archived_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT ck_projects_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
 );
@@ -298,10 +299,12 @@ CREATE TABLE visual_beats (
     order_index INTEGER NOT NULL,
     title VARCHAR(200) NOT NULL,
     visual_intent TEXT NOT NULL,
+    visual_direction_json TEXT,
     review_status VARCHAR(24) NOT NULL DEFAULT 'NEEDS_REVIEW',
     motion_mode VARCHAR(24) NOT NULL DEFAULT 'STILL',
     camera_movement VARCHAR(32) NOT NULL DEFAULT 'NONE',
     aspect_ratio_override VARCHAR(16),
+    quality_tier_override VARCHAR(16),
     text_start INTEGER,
     text_end INTEGER,
     audio_start_ms BIGINT,
@@ -355,6 +358,7 @@ CREATE TABLE media_plans (
     storyboard_revision_id UUID REFERENCES storyboard_revisions(id),
     workflow_version VARCHAR(64),
     image_aspect_ratio VARCHAR(16),
+    image_quality_tier VARCHAR(16),
     image_provider_key VARCHAR(64),
     image_model_key VARCHAR(128),
     pricing_snapshot_json JSONB,
@@ -366,6 +370,7 @@ CREATE TABLE media_plans (
     CONSTRAINT uq_media_plans_job_pointer UNIQUE (id, revision, production_mode),
     CONSTRAINT ck_media_plans_workflow_version CHECK (workflow_version IS NULL OR length(workflow_version) BETWEEN 1 AND 64),
     CONSTRAINT ck_media_plans_image_aspect_ratio CHECK (image_aspect_ratio IS NULL OR image_aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4')),
+    CONSTRAINT ck_media_plans_image_quality_tier CHECK (image_quality_tier IS NULL OR image_quality_tier IN ('DRAFT', 'STANDARD', 'HIGH')),
     CONSTRAINT ck_media_plans_pricing_snapshot_object CHECK (pricing_snapshot_json IS NULL OR jsonb_typeof(pricing_snapshot_json) = 'object'),
     CONSTRAINT ck_media_plans_pricing_fingerprint CHECK (pricing_fingerprint IS NULL OR pricing_fingerprint ~ '^[0-9a-f]{64,128}$')
 );

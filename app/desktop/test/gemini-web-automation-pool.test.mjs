@@ -90,6 +90,43 @@ test("Gemini automation pool runs Character requests up to configured concurrenc
   assert.equal(secondarySession.port, 9222);
 });
 
+test("capacity pressure reduces effective concurrency without changing configured tabs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nx-gemini-pressure-"));
+  let failOnce = true;
+  let active = 0;
+  let maxActive = 0;
+  const pool = new GeminiWebAutomationPool(
+    root,
+    async () => ({ characterTabs: 2, storyboardTabs: 4 }),
+    (slotRoot) => ({
+      async generateImage(_lane, prompt) {
+        if (slotRoot === root) {
+          await writeFile(join(root, "session.json"), JSON.stringify({ port: 9555 }));
+        }
+        if (prompt === "pressure" && failOnce) {
+          failOnce = false;
+          throw new Error("429 rate limit");
+        }
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        active -= 1;
+        return { sourcePath: slotRoot, captureMethod: "DOWNLOAD" };
+      },
+      async stop() {},
+    }),
+  );
+
+  await assert.rejects(pool.generateImage("CHARACTER", "pressure"), /429/);
+  maxActive = 0;
+  await Promise.all([
+    pool.generateImage("CHARACTER", "after-a"),
+    pool.generateImage("CHARACTER", "after-b"),
+  ]);
+
+  assert.equal(maxActive, 1);
+});
+
 test("Gemini automation pool keeps Character and Storyboard capacities independent", async () => {
   const root = await mkdtemp(join(tmpdir(), "nx-gemini-lanes-"));
   const pool = new GeminiWebAutomationPool(

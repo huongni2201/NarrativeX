@@ -11,6 +11,7 @@ import {
   cleanupGeminiTempFile,
   createGeminiWatermarkRemovedCopy,
 } from "./gemini-image-postprocessor";
+import { inspectGeminiImage, validateGeneratedGeminiImage } from "./gemini-image-quality";
 import { installGeminiWatermarkAssetVariants } from "./gemini-watermark-asset-variants";
 import { isGeminiWebLane, type GeminiWebLane } from "../../shared/gemini-web-lanes";
 import { ProjectStorage } from "../local-storage/project-storage";
@@ -21,18 +22,12 @@ import {
 } from "../security/renderer-security";
 import { SelectionTokenStore } from "../security/selection-token-store";
 
-const pendingGeminiSelections = new SelectionTokenStore<{
-  sourcePath: string;
-  lane: GeminiWebLane;
-}>();
+const pendingGeminiSelections = new SelectionTokenStore<{ sourcePath: string; lane: GeminiWebLane }>();
 const MAX_REFERENCE_IMAGES = 3;
 const MAX_WATERMARK_BATCH = 1_000;
 const OPAQUE_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 
-export function registerGeminiWebIpc(
-  policy: RendererTrustPolicy,
-  projectStorage: ProjectStorage,
-): void {
+export function registerGeminiWebIpc(policy: RendererTrustPolicy, projectStorage: ProjectStorage): void {
   const automationRoot = join(dirname(projectStorage.rootDirectory()), "gemini-web");
   const browsers = new GeminiBrowserPool(
     automationRoot,
@@ -41,7 +36,6 @@ export function registerGeminiWebIpc(
       new GeminiBrowserHost(browser.id, rootDirectory, getTabCounts),
   );
   const watermarkVariants = installGeminiWatermarkAssetVariants(projectStorage);
-
   registerGeminiBrowserIpc(policy, browsers);
 
   registerTrustedIpcHandlerWithEvent(
@@ -106,7 +100,6 @@ export function registerGeminiWebIpc(
       const processed: string[] = [];
       const skipped: string[] = [];
       const failed: Array<{ assetId: string; message: string }> = [];
-
       for (const assetId of assetIds) {
         if (states[assetId] !== "PENDING") {
           skipped.push(assetId);
@@ -142,15 +135,12 @@ async function resolveReferenceFiles(
 ): Promise<GeminiWebReferenceFile[]> {
   if (!input.references?.length) return [];
   if (!input.projectId) throw new Error("projectId is required when Gemini references are supplied.");
-
   const resolved: GeminiWebReferenceFile[] = [];
   const seenAssets = new Set<string>();
   const seenLabels = new Set<string>();
   for (const reference of input.references) {
     if (seenAssets.has(reference.assetId)) continue;
-    if (seenLabels.has(reference.refLabel)) {
-      throw new Error("Gemini reference labels must be unique.");
-    }
+    if (seenLabels.has(reference.refLabel)) throw new Error("Gemini reference labels must be unique.");
     seenAssets.add(reference.assetId);
     seenLabels.add(reference.refLabel);
     const sourcePath = await projectStorage.resolveAsset(input.projectId, reference.assetId);
@@ -167,13 +157,11 @@ async function resolveReferenceFiles(
 
 async function stageGeneratedImage(senderId: number, sourcePath: string, lane: GeminiWebLane) {
   const file = await stat(sourcePath);
-  if (!file.isFile() || file.size <= 0) {
-    throw new Error("Gemini Web downloaded an empty or invalid image file.");
-  }
-  if (kindForPath(sourcePath) !== "IMAGE") {
-    throw new Error("Gemini Web download is not a supported image file.");
-  }
+  if (!file.isFile() || file.size <= 0) throw new Error("Gemini Web downloaded an empty or invalid image file.");
+  if (kindForPath(sourcePath) !== "IMAGE") throw new Error("Gemini Web download is not a supported image file.");
 
+  const metadata = await inspectGeminiImage(sourcePath);
+  validateGeneratedGeminiImage(metadata);
   const selectionToken = pendingGeminiSelections.create(
     senderId,
     "gemini-image-import",
@@ -184,7 +172,9 @@ async function stageGeneratedImage(senderId: number, sourcePath: string, lane: G
     originalFilename: basename(sourcePath),
     contentType: contentTypeForPath(sourcePath),
     sizeBytes: file.size,
-    checksumSha256: await checksumFile(sourcePath),
+    checksumSha256: metadata.sha256,
+    width: metadata.width,
+    height: metadata.height,
     kind: "IMAGE" as const,
   };
 }
@@ -204,10 +194,7 @@ type GeminiGenerateInput = {
   references?: GeminiReferenceInput[];
 };
 
-type GeminiWatermarkBatchInput = {
-  projectId: string;
-  assetIds: string[];
-};
+type GeminiWatermarkBatchInput = { projectId: string; assetIds: string[] };
 
 function isGenerateInput(value: unknown): value is GeminiGenerateInput {
   if (!value || typeof value !== "object") return false;
@@ -234,57 +221,33 @@ function isReferenceInput(value: unknown): value is GeminiReferenceInput {
     typeof reference.canonicalName === "string" &&
     reference.canonicalName.trim().length > 0 &&
     reference.canonicalName.length <= 200 &&
-    (reference.beatRole === undefined ||
-      reference.beatRole === null ||
-      ["PRIMARY", "SECONDARY", "BACKGROUND"].includes(String(reference.beatRole)))
+    (reference.beatRole === undefined || reference.beatRole === null || ["PRIMARY", "SECONDARY", "BACKGROUND"].includes(String(reference.beatRole)))
   );
 }
 
-function isCommitInput(value: unknown): value is {
-  lane: GeminiWebLane;
-  projectId: string;
-  assetId: string;
-  selectionToken: string;
-} {
+function isCommitInput(value: unknown): value is { lane: GeminiWebLane; projectId: string; assetId: string; selectionToken: string } {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
-  return (
-    isGeminiWebLane(input.lane) &&
-    typeof input.projectId === "string" &&
-    typeof input.assetId === "string" &&
-    typeof input.selectionToken === "string"
-  );
+  return isGeminiWebLane(input.lane) && typeof input.projectId === "string" && typeof input.assetId === "string" && typeof input.selectionToken === "string";
 }
 
 function isWatermarkBatchInput(value: unknown): value is GeminiWatermarkBatchInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
-  return (
-    typeof input.projectId === "string" &&
-    input.projectId.length > 0 &&
-    Array.isArray(input.assetIds) &&
-    input.assetIds.length <= MAX_WATERMARK_BATCH &&
-    input.assetIds.every((assetId) => typeof assetId === "string" && OPAQUE_ID_PATTERN.test(assetId))
-  );
+  return typeof input.projectId === "string" && input.projectId.length > 0 && Array.isArray(input.assetIds) && input.assetIds.length <= MAX_WATERMARK_BATCH && input.assetIds.every((assetId) => typeof assetId === "string" && OPAQUE_ID_PATTERN.test(assetId));
 }
 
 function kindForPath(sourcePath: string): "IMAGE" | "OTHER" {
-  return [".png", ".jpg", ".jpeg", ".webp"].includes(extname(sourcePath).toLowerCase())
-    ? "IMAGE"
-    : "OTHER";
+  return [".png", ".jpg", ".jpeg", ".webp"].includes(extname(sourcePath).toLowerCase()) ? "IMAGE" : "OTHER";
 }
 
 function contentTypeForPath(sourcePath: string): string {
   switch (extname(sourcePath).toLowerCase()) {
-    case ".png":
-      return "image/png";
+    case ".png": return "image/png";
     case ".jpg":
-    case ".jpeg":
-      return "image/jpeg";
-    case ".webp":
-      return "image/webp";
-    default:
-      return "application/octet-stream";
+    case ".jpeg": return "image/jpeg";
+    case ".webp": return "image/webp";
+    default: return "application/octet-stream";
   }
 }
 
