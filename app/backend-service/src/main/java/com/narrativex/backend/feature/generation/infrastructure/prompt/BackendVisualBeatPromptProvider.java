@@ -31,7 +31,7 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
         visualPromptComposer.compose(
             ImageStyle.CINEMATIC_ANIME,
             safeVisualIntent,
-            visualBeat.getCameraAngle().name(),
+            visualBeat.getVisualDirectionJson(),
             aspectRatio,
             context);
     return VisualPromptSafety.sanitizeSceneDirection(VisualPromptText.finalPrompt(composedPrompt));
