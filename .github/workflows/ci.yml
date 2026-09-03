@@ -104,6 +104,9 @@ jobs:
           cache: npm
           cache-dependency-path: app/desktop/package-lock.json
 
+      - name: Verify FFmpeg test runtime
+        run: ffmpeg -version && ffprobe -version
+
       - name: Install dependencies
         run: npm ci
 
