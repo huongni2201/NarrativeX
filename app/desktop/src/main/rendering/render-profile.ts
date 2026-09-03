@@ -1,15 +1,11 @@
-import {
-  LEGACY_VIDEO_QUALITY,
-  V2_VIDEO_QUALITY,
-  type VideoQualityProfile,
-} from "../../shared/video-encoding.ts";
+import { V2_VIDEO_QUALITY, type VideoQualityProfile } from "../../shared/video-encoding.ts";
 
-export type RenderColorMode = "LEGACY_UNSPECIFIED" | "SDR_BT709_LIMITED";
+export type RenderColorMode = "SDR_BT709_LIMITED";
 
 export interface ParsedRenderProfile {
-  schemaVersion: 1 | 2;
-  rendererVersion: string;
-  compositionPolicyVersion: number;
+  schemaVersion: 2;
+  rendererVersion: "project-image-motion-v3-composition";
+  compositionPolicyVersion: 1;
   fps: 30 | 60;
   subtitleMode: "burn_in" | "none";
   video: VideoQualityProfile;
@@ -30,40 +26,21 @@ export function parseRenderProfile(renderProfileJson: string): ParsedRenderProfi
   try {
     raw = JSON.parse(renderProfileJson);
   } catch {
-    return legacyProfile({});
+    throw new Error("Invalid render profile JSON.");
   }
-  if (!isRecord(raw)) return legacyProfile({});
-
-  const schemaVersion = raw.schemaVersion;
-  if (schemaVersion == null || schemaVersion === 1) return legacyProfile(raw);
-  if (schemaVersion !== 2) {
-    throw new Error(`Unsupported render profile schema: ${String(schemaVersion)}.`);
+  if (!isRecord(raw)) {
+    throw new Error("Invalid render profile JSON.");
   }
-  return v2Profile(raw);
-}
+  if (raw.schemaVersion !== 2) {
+    throw new Error(`Unsupported render profile schema: ${String(raw.schemaVersion)}.`);
+  }
 
-function legacyProfile(raw: Record<string, unknown>): ParsedRenderProfile {
-  return {
-    schemaVersion: 1,
-    rendererVersion: "project-image-motion-v2-frame-quantized",
-    compositionPolicyVersion: 0,
-    fps: supportedFps(raw.fps),
-    subtitleMode: subtitleMode(raw),
-    video: { ...LEGACY_VIDEO_QUALITY },
-    colorMode: "LEGACY_UNSPECIFIED",
-  };
-}
-
-function v2Profile(raw: Record<string, unknown>): ParsedRenderProfile {
   const video = isRecord(raw.video) ? raw.video : {};
   const color = isRecord(raw.color) ? raw.color : {};
   return {
     schemaVersion: 2,
-    rendererVersion:
-      raw.rendererVersion === "project-image-motion-v3-composition"
-        ? raw.rendererVersion
-        : "project-image-motion-v3-composition",
-    compositionPolicyVersion: raw.compositionPolicyVersion === 1 ? 1 : 1,
+    rendererVersion: "project-image-motion-v3-composition",
+    compositionPolicyVersion: 1,
     fps: supportedFps(raw.fps),
     subtitleMode: subtitleMode(raw),
     video: {
