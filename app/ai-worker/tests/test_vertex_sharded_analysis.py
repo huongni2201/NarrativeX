@@ -1,4 +1,5 @@
 import asyncio
+import re
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -94,6 +95,12 @@ def _ten_word_beats() -> VisualBeatShardResult:
     )
 
 
+def _target_beats_from_prompt(prompt: str) -> int:
+    match = re.search(r"TARGET_VISUAL_BEATS=(\d+)", prompt)
+    assert match is not None
+    return int(match.group(1))
+
+
 @pytest.mark.asyncio
 async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() -> None:
     source = "BEGIN_ALPHA " + ("alpha " * 1000).strip() + " END_ALPHA"
@@ -117,6 +124,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
         active -= 1
         assert "SHARD_SOURCE" in prompt
         anchor = "alpha" if "alpha" in prompt else "BEGIN_ALPHA"
+        count = _target_beats_from_prompt(prompt)
         return (
             VisualBeatShardResult(
                 visual_beats=[
@@ -125,7 +133,7 @@ async def test_submit_runs_shards_with_bounded_concurrency_and_merges_billing() 
                         visual_intent="grounded",
                         source_anchor=anchor,
                     )
-                    for _ in range(12)
+                    for _ in range(count)
                 ]
             ),
             _billing(),
