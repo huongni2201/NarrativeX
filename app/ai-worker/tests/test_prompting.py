@@ -112,13 +112,13 @@ def test_video_analysis_prompt_requests_motion_friendly_beats_without_image_prov
     assert "stable subject identity" in prompt
 
 
-def test_ten_minute_density_targets_eighty_and_hard_floor_sixty() -> None:
+def test_four_minute_text_estimate_targets_thirty_two_beats() -> None:
     prompt = build_chapter_analysis_prompt(_request("word " * 1000))
-    assert "ESTIMATED_NARRATION_DURATION_MS=600000" in prompt
+    assert "ESTIMATED_NARRATION_DURATION_MS=240000" in prompt
     assert "TARGET_VISUAL_BEAT_MS=7500" in prompt
     assert "HARD_MAX_VISUAL_BEAT_MS=10000" in prompt
-    assert "TARGET_VISUAL_BEATS=80" in prompt
-    assert "MIN_VISUAL_BEATS=60" in prompt
+    assert "TARGET_VISUAL_BEATS=32" in prompt
+    assert "MIN_VISUAL_BEATS=24" in prompt
 
 
 def test_density_prompt_enforces_floor_and_self_check() -> None:
