@@ -10,9 +10,6 @@ export type GeminiImageMetadata = {
   format: "PNG" | "JPEG" | "WEBP";
 };
 
-const DEFAULT_MIN_LONG_EDGE = 2560;
-const DEFAULT_MIN_SHORT_EDGE = 1440;
-
 export async function inspectGeminiImage(path: string): Promise<GeminiImageMetadata> {
   const bytes = await readFile(path);
   const dimensions = readDimensions(bytes);
@@ -30,20 +27,9 @@ export async function inspectGeminiImage(path: string): Promise<GeminiImageMetad
 export function validateGeneratedGeminiImage(
   metadata: GeminiImageMetadata,
   options: {
-    minimumLongEdge?: number;
-    minimumShortEdge?: number;
     expectedAspectRatio?: number;
   } = {},
 ): void {
-  const minimumLongEdge = options.minimumLongEdge ?? DEFAULT_MIN_LONG_EDGE;
-  const minimumShortEdge = options.minimumShortEdge ?? DEFAULT_MIN_SHORT_EDGE;
-  const longEdge = Math.max(metadata.width, metadata.height);
-  const shortEdge = Math.min(metadata.width, metadata.height);
-  if (longEdge < minimumLongEdge || shortEdge < minimumShortEdge) {
-    throw new Error(
-      `Gemini image resolution ${metadata.width}x${metadata.height} is below the required 2K envelope (${minimumLongEdge}x${minimumShortEdge} across long/short edges).`,
-    );
-  }
   if (options.expectedAspectRatio) {
     const relativeError =
       Math.abs(metadata.aspectRatio - options.expectedAspectRatio) / options.expectedAspectRatio;
