@@ -58,6 +58,20 @@ test("Gemini automation pool runs Character requests up to configured concurrenc
   const root = await mkdtemp(join(tmpdir(), "nx-gemini-pool-"));
   let active = 0;
   let maxActive = 0;
+  let resolveSecondaryStarted;
+  const secondaryStarted = new Promise((resolve) => {
+    resolveSecondaryStarted = resolve;
+  });
+  const waitForSecondaryStart = new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error("Secondary Gemini slot did not start.")),
+      1_000,
+    );
+    secondaryStarted.then(() => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
   const roots = [];
   const pool = new GeminiWebAutomationPool(
     root,
@@ -70,8 +84,10 @@ test("Gemini automation pool runs Character requests up to configured concurrenc
           maxActive = Math.max(maxActive, active);
           if (slotRoot === root) {
             await writeFile(join(root, "session.json"), JSON.stringify({ port: 9222 }));
+            await waitForSecondaryStart;
+          } else {
+            resolveSecondaryStarted();
           }
-          await new Promise((resolve) => setTimeout(resolve, 20));
           active -= 1;
           return { sourcePath: slotRoot, captureMethod: "DOWNLOAD" };
         },
