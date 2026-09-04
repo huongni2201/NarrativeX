@@ -45,18 +45,16 @@ test("accepts portrait 2k by long and short edges", () => {
   });
 });
 
-test("rejects generated images below the 2k envelope", () => {
-  assert.throws(
-    () =>
-      validateGeneratedGeminiImage({
-        width: 1920,
-        height: 1080,
-        aspectRatio: 16 / 9,
-        sha256: "a".repeat(64),
-        byteLength: 1000,
-        format: "PNG",
-      }),
-    /below the required 2K envelope/,
+test("accepts generated images below the former 2k envelope", () => {
+  assert.doesNotThrow(() =>
+    validateGeneratedGeminiImage({
+      width: 1024,
+      height: 572,
+      aspectRatio: 1024 / 572,
+      sha256: "a".repeat(64),
+      byteLength: 1000,
+      format: "PNG",
+    }),
   );
 });
 
