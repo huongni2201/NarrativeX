@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { rm, stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { inspectGeminiImage, validateCleanedVariant } from "./gemini-image-quality";
+import { inspectGeminiImage, validateCleanedVariant } from "./gemini-image-quality.ts";
 
 const WATERMARK_REMOVER_PACKAGE = "@pilio/gemini-watermark-remover@1.0.41";
 const WATERMARK_REMOVER_BINARY = "gwr";

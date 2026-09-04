@@ -5,6 +5,7 @@ import { GeminiWebSlotPool } from "./gemini-web-slot-pool.ts";
 import type { GeminiWebLane } from "../../shared/gemini-web-lanes.ts";
 
 const SHARED_PORT_TIMEOUT_MS = 20_000;
+const SHARED_PORT_POLL_INTERVAL_MS = 10;
 
 type TabCounts = {
   characterTabs: number;
@@ -216,7 +217,7 @@ export class GeminiWebAutomationPool {
       } catch {
         // Slot zero creates the shared Chrome session. Secondary slots wait for it.
       }
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, SHARED_PORT_POLL_INTERVAL_MS));
     }
     throw new Error("Gemini shared Chrome session was not ready for a parallel tab.");
   }

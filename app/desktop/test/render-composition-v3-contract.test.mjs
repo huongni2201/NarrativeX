@@ -36,5 +36,5 @@ test("segment renderer uses exact frame output and high quality downscale", asyn
   const renderer = await source("../src/main/rendering/segment-renderer.ts");
   assert.match(renderer, /-frames:v/);
   assert.match(renderer, /flags=lanczos/);
-  assert.match(renderer, /project-image-motion-v3-composition/);
+  assert.match(renderer, /rendererVersion:\s*manifest\.rendererVersion/);
 });

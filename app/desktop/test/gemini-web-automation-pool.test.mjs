@@ -8,6 +8,10 @@ import {
   mergeSharedPortSession,
 } from "../src/main/gemini-web/gemini-web-automation-pool.ts";
 
+function normalizedPath(value) {
+  return value.replaceAll("\\", "/");
+}
+
 test("refreshing a shared Chrome port preserves the slot's persisted Gemini targets", () => {
   assert.deepEqual(
     mergeSharedPortSession(
@@ -83,7 +87,7 @@ test("Gemini automation pool runs Character requests up to configured concurrenc
   ]);
 
   assert.equal(maxActive, 2);
-  assert.ok(roots.some((value) => value.includes("slots")));
+  assert.ok(roots.some((value) => normalizedPath(value).includes("slots")));
   const secondarySession = JSON.parse(
     await readFile(join(root, "slots", "character", "1", "session.json"), "utf8"),
   );
@@ -185,12 +189,15 @@ test("changing settings does not replace a lane pool while requests are active",
   releaseFirst();
   await first;
 
-  assert.equal(roots.filter((value) => value.includes("slots/character")).length, 1);
+  assert.equal(
+    roots.filter((value) => normalizedPath(value).includes("slots/character")).length,
+    1,
+  );
 
   await Promise.all([
     pool.generateImage("CHARACTER", "after-a"),
     pool.generateImage("CHARACTER", "after-b"),
     pool.generateImage("CHARACTER", "after-c"),
   ]);
-  assert.ok(roots.some((value) => value.includes("slots/character/2")));
+  assert.ok(roots.some((value) => normalizedPath(value).includes("slots/character/2")));
 });

@@ -5,13 +5,13 @@ import { imageMotionPreset } from "../../shared/image-motion.ts";
 import { SUBTITLE_STYLE_VERSION } from "../../shared/subtitle-style.ts";
 import { buildVideoEncodeArgs, type VideoEncoder } from "../../shared/video-encoding.ts";
 import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
-import { runProcess, type ProcessResult } from "./process-runner";
-import { RenderExecutionError } from "./render-errors";
-import {
-  escapeSubtitleFilterPath,
-  subtitleSlicesForBeat,
-  writeBeatSubtitleTrack,
-} from "./subtitle-ass.ts";
+import { runProcess, type ProcessResult } from "./process-runner.ts";
+import { RenderExecutionError } from "./render-errors.ts";
+ import {
+   escapeSubtitleFilterPath,
+   subtitleSlicesForBeat,
+   writeBeatSubtitleTrack,
+ } from "./subtitle-ass.ts";
 
 export interface SegmentRenderOptions {
   videoEncoder?: VideoEncoder;
