@@ -232,6 +232,33 @@ async def test_retryable_infrastructure_failure_stalls_without_failing() -> None
 
 
 @pytest.mark.asyncio
+async def test_retryable_infrastructure_failure_logs_message_and_underlying_exception(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repository = FakeNarrationRepository([])
+    runner = runner_with_repository(1, repository)
+
+    async def transient_failure(claimed: ClaimedNarrationJob) -> None:
+        del claimed
+        try:
+            raise OSError("R2 write timed out")
+        except OSError as cause:
+            raise NarrationRetryableInfrastructureError(
+                "Final narration persistence is temporarily unavailable"
+            ) from cause
+
+    runner._execute = transient_failure  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING"):
+        await runner._process(claimed_job(0))
+
+    message = " ".join(record.getMessage() for record in caplog.records)
+    assert "Final narration persistence is temporarily unavailable" in message
+    assert "OSError" in message
+    assert "R2 write timed out" in message
+
+
+@pytest.mark.asyncio
 async def test_reconciliation_exhaustion_is_surfaced_as_manual_attention() -> None:
     repository = FakeNarrationRepository([])
     runner = runner_with_repository(1, repository)

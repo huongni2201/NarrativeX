@@ -13,6 +13,7 @@ from narrativex_worker.narration.repository import (
     NarrationProviderStateConflictError,
     NarrationWorkerRepository,
 )
+from narrativex_worker.runtime.retry_policy import NARRATION_STAGE_RETRY_POLICY
 from narrativex_worker.schema import ProviderOperationStatus
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
@@ -33,6 +34,8 @@ async def narration_provider_database() -> AsyncIterator[str]:
             DROP TABLE IF EXISTS narration_operations;
             DROP TABLE IF EXISTS narration_requests;
             DROP TABLE IF EXISTS media_assets;
+            DROP TABLE IF EXISTS voice_reference_assets;
+            DROP TABLE IF EXISTS voice_catalog;
             DROP TABLE IF EXISTS provider_operations;
             DROP TABLE IF EXISTS stage_attempts;
             DROP TABLE IF EXISTS generation_jobs;
@@ -71,11 +74,31 @@ async def narration_provider_database() -> AsyncIterator[str]:
                 voice_id TEXT NOT NULL DEFAULT 'voice',
                 language TEXT NOT NULL DEFAULT 'en-US',
                 speaking_rate DOUBLE PRECISION NOT NULL DEFAULT 1.0,
-                request_fingerprint TEXT NOT NULL UNIQUE
+                request_fingerprint TEXT NOT NULL UNIQUE,
+                project_voice_reference_asset_id UUID,
+                account_voice_reference_asset_id UUID
             );
             CREATE TABLE media_assets (
                 id UUID PRIMARY KEY,
-                storage_key TEXT NOT NULL
+                project_id BIGINT,
+                storage_key TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'READY',
+                content_type TEXT NOT NULL DEFAULT 'audio/wav',
+                size_bytes BIGINT NOT NULL DEFAULT 1,
+                sha256 TEXT NOT NULL DEFAULT repeat('a', 64)
+            );
+            CREATE TABLE voice_reference_assets (
+                id UUID PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'READY',
+                storage_key TEXT,
+                content_type TEXT,
+                size_bytes BIGINT,
+                sha256 TEXT
+            );
+            CREATE TABLE voice_catalog (
+                id TEXT PRIMARY KEY,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                metadata_json JSONB
             );
             CREATE TABLE narration_operations (
                 stage_attempt_id BIGINT PRIMARY KEY REFERENCES stage_attempts(id),
@@ -112,6 +135,8 @@ async def narration_provider_database() -> AsyncIterator[str]:
             DROP TABLE IF EXISTS narration_operations;
             DROP TABLE IF EXISTS narration_requests;
             DROP TABLE IF EXISTS media_assets;
+            DROP TABLE IF EXISTS voice_reference_assets;
+            DROP TABLE IF EXISTS voice_catalog;
             DROP TABLE IF EXISTS provider_operations;
             DROP TABLE IF EXISTS stage_attempts;
             DROP TABLE IF EXISTS generation_jobs;
@@ -515,6 +540,108 @@ async def test_stale_running_narration_lease_is_recovered(
     assert stage_status == "RUNNING"
     assert worker_id == "replacement-worker"
     assert job_status == "RUNNING"
+
+
+@pytest.mark.asyncio
+async def test_retryable_narration_failure_is_not_claimed_before_backoff(
+    narration_provider_database: str,
+) -> None:
+    stage_id, job_id = await seed_normal_candidate(narration_provider_database)
+    repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        claimed = await repository.claim_next("worker-a")
+        assert claimed is not None
+        assert await repository.mark_stalled(
+            claimed,
+            "worker-a",
+            "NARRATION_RETRYABLE",
+        )
+        assert await repository.claim_next("worker-b") is None
+
+        connection = await asyncpg.connect(narration_provider_database)
+        try:
+            await connection.execute(
+                """
+                UPDATE stage_attempts
+                   SET updated_at = CURRENT_TIMESTAMP - ($2 * INTERVAL '1 second')
+                 WHERE id = $1
+                """,
+                stage_id,
+                NARRATION_STAGE_RETRY_POLICY.max_delay_seconds,
+            )
+        finally:
+            await connection.close()
+
+        retry_claim = await repository.claim_next("worker-b")
+    finally:
+        await repository.close()
+
+    assert retry_claim is not None
+    assert retry_claim.stage_attempt_id == stage_id
+
+    connection = await asyncpg.connect(narration_provider_database)
+    try:
+        attempt_number = await connection.fetchval(
+            "SELECT attempt_number FROM stage_attempts WHERE id = $1", stage_id
+        )
+        assert (
+            await connection.fetchval("SELECT status FROM generation_jobs WHERE id = $1", job_id)
+            == "RUNNING"
+        )
+    finally:
+        await connection.close()
+    assert attempt_number == 2
+
+
+@pytest.mark.asyncio
+async def test_exhausted_narration_retries_fail_stage_and_job(
+    narration_provider_database: str,
+) -> None:
+    stage_id, job_id = await seed_normal_candidate(narration_provider_database)
+    repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        for worker_id in ("worker-a", "worker-b", "worker-c"):
+            claimed = await repository.claim_next(worker_id)
+            assert claimed is not None
+            assert await repository.mark_stalled(
+                claimed,
+                worker_id,
+                "NARRATION_RETRYABLE",
+            )
+            if worker_id != "worker-c":
+                connection = await asyncpg.connect(narration_provider_database)
+                try:
+                    await connection.execute(
+                        """
+                        UPDATE stage_attempts
+                           SET updated_at = CURRENT_TIMESTAMP - INTERVAL '1 hour'
+                         WHERE id = $1
+                        """,
+                        stage_id,
+                    )
+                finally:
+                    await connection.close()
+    finally:
+        await repository.close()
+
+    connection = await asyncpg.connect(narration_provider_database)
+    try:
+        stage_status, job_status = await connection.fetchrow(
+            """
+            SELECT sa.status, gj.status
+              FROM stage_attempts sa
+              JOIN generation_jobs gj ON gj.id = sa.generation_job_id
+             WHERE sa.id = $1 AND gj.id = $2
+            """,
+            stage_id,
+            job_id,
+        )
+    finally:
+        await connection.close()
+    assert stage_status == "FAILED"
+    assert job_status == "FAILED"
 
 
 @pytest.mark.asyncio

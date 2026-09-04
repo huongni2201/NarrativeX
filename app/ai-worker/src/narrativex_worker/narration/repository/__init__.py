@@ -92,11 +92,16 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
             self._claim_owner.set(None)
 
     async def mark_stalled(
-        self, claimed: ClaimedNarrationJob, worker_id: str, error_code: str
+        self,
+        claimed: ClaimedNarrationJob,
+        worker_id: str,
+        error_code: str,
     ) -> bool:
         try:
             return await super().mark_stalled(
-                claimed, self._lease_owner(worker_id), error_code
+                claimed,
+                self._lease_owner(worker_id),
+                error_code,
             )
         finally:
             self._claim_owner.set(None)

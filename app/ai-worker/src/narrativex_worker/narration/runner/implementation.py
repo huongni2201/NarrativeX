@@ -235,19 +235,28 @@ class NarrationWorkerRunner:
                     exception.storage_key,
                 )
         except NarrationRetryableInfrastructureError as exception:
+            cause = exception.__cause__ or exception.__context__
+            cause_type = type(cause).__name__ if cause is not None else "None"
+            cause_message = str(cause) if cause is not None else "None"
             self.logger.warning(
-                "narration_retryable_failure_total=1 jobId=%s stageAttemptId=%s error=%s",
+                "narration_retryable_failure_total=1 jobId=%s stageAttemptId=%s "
+                "errorType=%s message=%s underlyingType=%s underlying=%s",
                 claimed.job_id,
                 claimed.stage_attempt_id,
                 type(exception).__name__,
+                str(exception),
+                cause_type,
+                cause_message,
             )
             with contextlib.suppress(Exception):
                 marked = await self.repository.mark_stalled(
-                    claimed, self.worker_id, type(exception).__name__.upper()[:80]
+                    claimed,
+                    self.worker_id,
+                    type(exception).__name__.upper()[:80],
                 )
                 if not marked:
                     self.logger.info(
-                        "Narration STALLED transition skipped after lease loss jobId=%s",
+                        "Narration retry transition skipped after lease loss jobId=%s",
                         claimed.job_id,
                     )
         except NarrationPermanentError as exception:

@@ -27,6 +27,7 @@ from narrativex_worker.narration.storage import (
     InMemoryMediaStorage,
     StoredMediaAsset,
 )
+from narrativex_worker.runtime.retry_policy import NARRATION_STAGE_RETRY_POLICY
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -156,6 +157,14 @@ def test_narration_reconciliation_backoff_is_bounded_and_deterministic() -> None
         160,
         300,
     ]
+
+
+def test_narration_stage_retry_policy_is_bounded_and_backed_off() -> None:
+    assert NARRATION_STAGE_RETRY_POLICY.max_attempts == 3
+    assert [
+        NARRATION_STAGE_RETRY_POLICY.delay_seconds(attempt)
+        for attempt in range(NARRATION_STAGE_RETRY_POLICY.max_attempts - 1)
+    ] == [5, 10]
 
 
 @pytest.mark.asyncio

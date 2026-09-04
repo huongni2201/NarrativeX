@@ -14,6 +14,7 @@ from narrativex_worker.narration.errors import (
 from narrativex_worker.narration.models import AlignmentSpan
 from narrativex_worker.narration.pricing import TtsPricingSnapshot
 from narrativex_worker.narration.storage import StoredMediaAsset
+from narrativex_worker.runtime.retry_policy import NARRATION_STAGE_RETRY_POLICY
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -137,7 +138,17 @@ class NarrationWorkerRepository:
                        AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
                        AND sa.stage_name = 'NARRATION_TTS'
                        AND (
-                           sa.status IN ('QUEUED', 'STALLED')
+                           sa.status = 'QUEUED'
+                           OR (
+                               sa.status = 'STALLED'
+                               AND sa.attempt_number <= $2
+                               AND sa.updated_at <= CURRENT_TIMESTAMP - (
+                                   LEAST(
+                                       $3,
+                                       $4 * POWER($5, GREATEST(sa.attempt_number - 2, 0))
+                                   ) * INTERVAL '1 second'
+                               )
+                           )
                            OR (
                                sa.status = 'RUNNING'
                                AND (
@@ -152,6 +163,10 @@ class NarrationWorkerRepository:
                      LIMIT 1
                     """,
                     self.lease_seconds,
+                    NARRATION_STAGE_RETRY_POLICY.max_attempts,
+                    NARRATION_STAGE_RETRY_POLICY.max_delay_seconds,
+                    NARRATION_STAGE_RETRY_POLICY.base_delay_seconds,
+                    NARRATION_STAGE_RETRY_POLICY.multiplier,
                 )
                 if row is None:
                     return None
@@ -613,27 +628,55 @@ class NarrationWorkerRepository:
                 return True
 
     async def mark_stalled(
-        self, claimed: ClaimedNarrationJob, worker_id: str, error_code: str
+        self,
+        claimed: ClaimedNarrationJob,
+        worker_id: str,
+        error_code: str,
     ) -> bool:
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
-                stage = await connection.execute(
+                stage = await connection.fetchrow(
                     """
                     UPDATE stage_attempts
-                       SET status = 'STALLED', updated_at = CURRENT_TIMESTAMP,
+                       SET status = CASE
+                               WHEN attempt_number >= $3 THEN 'FAILED'
+                               ELSE 'STALLED'
+                           END,
+                           attempt_number = CASE
+                               WHEN attempt_number >= $3 THEN attempt_number
+                               ELSE attempt_number + 1
+                           END,
+                           worker_id = NULL, heartbeat_at = NULL,
+                           updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
+                     RETURNING status
                     """,
                     claimed.stage_attempt_id,
                     worker_id,
+                    NARRATION_STAGE_RETRY_POLICY.max_attempts,
                 )
-                if stage != "UPDATE 1":
+                if stage is None:
                     return False
+                next_status = str(stage["status"])
+                if next_status == "STALLED":
+                    await connection.execute(
+                        """
+                        UPDATE generation_jobs
+                           SET status = 'STALLED', current_step = 'NARRATION_RETRY',
+                               error_code = $2, updated_at = CURRENT_TIMESTAMP,
+                               row_version = row_version + 1
+                         WHERE id = $1 AND status = 'RUNNING'
+                        """,
+                        claimed.generation_job_id,
+                        error_code[:80],
+                    )
+                    return True
                 await connection.execute(
                     """
                     UPDATE generation_jobs
-                       SET status = 'STALLED', current_step = 'NARRATION_RETRY',
+                       SET status = 'FAILED', current_step = 'FAILED',
                            error_code = $2, updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1 AND status = 'RUNNING'

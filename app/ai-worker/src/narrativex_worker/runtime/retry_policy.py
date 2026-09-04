@@ -52,3 +52,10 @@ UNKNOWN_RECONCILIATION_POLICY = RetryPolicy(
     multiplier=2.0,
     max_delay_seconds=300.0,
 )
+
+NARRATION_STAGE_RETRY_POLICY = RetryPolicy(
+    max_attempts=3,
+    base_delay_seconds=5.0,
+    multiplier=2.0,
+    max_delay_seconds=300.0,
+)

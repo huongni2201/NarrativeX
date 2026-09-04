@@ -1,6 +1,7 @@
 """Optimized local narration execution with local project output and scoped voice references."""
 
 import asyncio
+from functools import partial
 from pathlib import Path
 
 from narrativex_worker.narration.alignment import build_alignment, normalize_alignment_duration
@@ -20,7 +21,10 @@ from narrativex_worker.narration.providers import (
 from narrativex_worker.narration.repository import ClaimedNarrationJob
 from narrativex_worker.narration.runner import NarrationWorkerRunner
 from narrativex_worker.narration.segmenter import utf16_length
-from narrativex_worker.narration.storage import MediaAssetConflictError, S3MediaStorage
+from narrativex_worker.narration.storage import (
+    MediaAssetConflictError,
+    S3MediaStorage,
+)
 from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
     prepare_voice_reference,
@@ -99,17 +103,58 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 if temporary_voice is not None:
                     await self.provider.release_reference_voice(temporary_voice)
 
-            pcm_path = job_dir / "chapter.pcm"
-            await self.audio.concatenate_files([item.file_path for item in materialized], pcm_path)
-            mp3_path = job_dir / "chapter.mp3"
-            await self.audio.encode_mp3_file(
-                pcm_path,
-                mp3_path,
-                sample_rate_hz=48000,
-                channels=1,
-                bitrate=self.settings.narration_mp3_bitrate,
-            )
-            actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
+            final_key = self._final_audio_storage_key(claimed)
+            try:
+                existing_final = await retry_local_io(lambda: project_media_storage.find(final_key))
+                mp3_path = job_dir / "chapter.mp3"
+                if existing_final is None:
+                    pcm_path = job_dir / "chapter.pcm"
+                    await self.audio.concatenate_files(
+                        [item.file_path for item in materialized], pcm_path
+                    )
+                    await self.audio.encode_mp3_file(
+                        pcm_path,
+                        mp3_path,
+                        sample_rate_hz=48000,
+                        channels=1,
+                        bitrate=self.settings.narration_mp3_bitrate,
+                    )
+                    actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
+                    checksum = await asyncio.to_thread(sha256_file, mp3_path)
+                    media_asset = await retry_local_io(
+                        lambda: project_media_storage.put_file_immutable(
+                            storage_key=final_key,
+                            file_path=mp3_path,
+                            checksum=checksum,
+                            mime_type="audio/mpeg",
+                            metadata={
+                                "duration-ms": str(actual_duration_ms),
+                                "execution-semantics": "local-retryable",
+                            },
+                        )
+                    )
+                else:
+                    media_asset = await retry_local_io(
+                        lambda: project_media_storage.download_to_file(
+                            final_key,
+                            mp3_path,
+                            expected_checksum=existing_final.checksum,
+                        )
+                    )
+                    checksum = await asyncio.to_thread(sha256_file, mp3_path)
+                    if checksum != existing_final.checksum:
+                        raise MediaAssetConflictError(
+                            "Existing final narration checksum does not match storage metadata"
+                        )
+                    actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
+            except MediaAssetConflictError as exception:
+                raise NarrationPermanentError(str(exception)) from exception
+            except Exception as exception:
+                if is_transient_infrastructure_error(exception):
+                    raise NarrationRetryableInfrastructureError(
+                        "Final narration assembly or storage is temporarily unavailable"
+                    ) from exception
+                raise NarrationPermanentError(str(exception)) from exception
             spans = normalize_alignment_duration(
                 build_alignment(materialized), audio_duration_ms=actual_duration_ms
             )
@@ -118,30 +163,6 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 source_utf16_length=utf16_length(claimed.source_text),
                 audio_duration_ms=actual_duration_ms,
             )
-            checksum = await asyncio.to_thread(sha256_file, mp3_path)
-            final_key = self._final_audio_storage_key(claimed, checksum)
-            try:
-                media_asset = await retry_local_io(
-                    lambda: project_media_storage.put_file_immutable(
-                        storage_key=final_key,
-                        file_path=mp3_path,
-                        checksum=checksum,
-                        mime_type="audio/mpeg",
-                        metadata={
-                            "duration-ms": str(actual_duration_ms),
-                            "execution-semantics": "local-retryable",
-                        },
-                    )
-                )
-            except MediaAssetConflictError as exception:
-                raise NarrationPermanentError(str(exception)) from exception
-            except Exception as exception:
-                if is_transient_infrastructure_error(exception):
-                    raise NarrationRetryableInfrastructureError(
-                        "Final narration local storage is temporarily unavailable"
-                    ) from exception
-                raise NarrationPermanentError(str(exception)) from exception
-
             self.logger.info(
                 "Narration local media persisted job=%s request=%s storageKey=%s "
                 "sizeBytes=%s checksum=%s",
@@ -185,10 +206,17 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             )
 
     @staticmethod
-    def _final_audio_storage_key(claimed: ClaimedNarrationJob, checksum: str) -> str:
+    def _final_audio_storage_key(claimed: ClaimedNarrationJob, checksum: str | None = None) -> str:
+        del checksum
         return (
-            f"projects/{claimed.project_id}/assets/audio/"
-            f"chapter-{checksum[:16]}.mp3"
+            f"projects/{claimed.project_id}/assets/audio/chapter-{claimed.narration_request_id}.mp3"
+        )
+
+    @staticmethod
+    def _local_segment_storage_key(claimed: ClaimedNarrationJob, segment_index: int) -> str:
+        return (
+            f"projects/{claimed.project_id}/assets/audio/narration/"
+            f"{claimed.narration_request_id}/segment-{segment_index:04d}.pcm"
         )
 
     async def _prepare_reference(self, claimed: ClaimedNarrationJob, job_dir: Path) -> Path | None:
@@ -295,6 +323,8 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
         job_dir: Path,
     ) -> list[MaterializedAudioSegment]:
         assert self.provider is not None
+        assert self.storage is not None
+        storage = self.storage
         materialized: list[MaterializedAudioSegment] = []
         batch_size = self.settings.vieneu_batch_max_segments
         for offset in range(0, len(segments), batch_size):
@@ -311,6 +341,15 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 offset,
                 len(batch),
             )
+            reused: dict[int, MaterializedAudioSegment] = {}
+            missing: list[NarrationSegment] = []
+            for expected in batch:
+                existing = await self._load_existing_local_segment(claimed, expected, job_dir)
+                if existing is None:
+                    missing.append(expected)
+                else:
+                    reused[expected.index] = existing
+
             requests = [
                 TtsRequest(
                     request_id=f"{claimed.narration_request_id}:segment:{segment.index:04d}",
@@ -319,46 +358,75 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                     language=claimed.language,
                     speaking_rate=claimed.speaking_rate,
                 )
-                for segment in batch
+                for segment in missing
             ]
-            try:
-                synthesized_batch = await self.provider.synthesize_batch(requests)
-            except TtsProviderRejectedError as exception:
-                raise NarrationPermanentError(str(exception)) from exception
-            except (OSError, TimeoutError, RuntimeError) as exception:
-                raise NarrationRetryableInfrastructureError(
-                    "Local VieNeu synthesis failed and can be retried safely"
-                ) from exception
-            if len(synthesized_batch) != len(batch):
-                raise NarrationRetryableInfrastructureError(
-                    "Local TTS returned an incomplete synthesis batch"
-                )
-            for expected, synthesized in zip(batch, synthesized_batch, strict=True):
-                if synthesized.segment.index != expected.index:
-                    raise NarrationPermanentError("Local TTS returned segments out of order")
+            if missing:
                 try:
-                    self._validate_audio_format(synthesized)
-                except (TypeError, ValueError) as exception:
+                    synthesized_batch = await self.provider.synthesize_batch(requests)
+                except TtsProviderRejectedError as exception:
                     raise NarrationPermanentError(str(exception)) from exception
-                segment_path = job_dir / f"segment-{expected.index:04d}.pcm"
-                try:
-                    segment_path.write_bytes(synthesized.pcm_bytes)
-                    checksum = await asyncio.to_thread(sha256_file, segment_path)
-                except OSError as exception:
+                except (OSError, TimeoutError, RuntimeError) as exception:
                     raise NarrationRetryableInfrastructureError(
-                        "Local narration workspace is temporarily unavailable"
+                        "Local VieNeu synthesis failed and can be retried safely"
                     ) from exception
-                materialized.append(
-                    MaterializedAudioSegment(
+                if len(synthesized_batch) != len(missing):
+                    raise NarrationRetryableInfrastructureError(
+                        "Local TTS returned an incomplete synthesis batch"
+                    )
+                for expected, synthesized in zip(missing, synthesized_batch, strict=True):
+                    if synthesized.segment.index != expected.index:
+                        raise NarrationPermanentError("Local TTS returned segments out of order")
+                    try:
+                        self._validate_audio_format(synthesized)
+                    except (TypeError, ValueError) as exception:
+                        raise NarrationPermanentError(str(exception)) from exception
+                    segment_path = job_dir / f"segment-{expected.index:04d}.pcm"
+                    try:
+                        segment_path.write_bytes(synthesized.pcm_bytes)
+                        checksum = await asyncio.to_thread(sha256_file, segment_path)
+                    except OSError as exception:
+                        raise NarrationRetryableInfrastructureError(
+                            "Local narration workspace is temporarily unavailable"
+                        ) from exception
+                    storage_key = self._local_segment_storage_key(claimed, expected.index)
+                    segment_checksum = checksum
+                    segment_sample_rate_hz = synthesized.sample_rate_hz
+                    segment_channels = synthesized.channels
+                    segment_duration_ms = synthesized.duration_ms
+
+                    try:
+                        stored = await retry_local_io(
+                            partial(
+                                storage.put_file_immutable,
+                                storage_key=storage_key,
+                                file_path=segment_path,
+                                checksum=segment_checksum,
+                                mime_type="audio/L16",
+                                metadata={
+                                    "sample-rate-hz": str(segment_sample_rate_hz),
+                                    "channels": str(segment_channels),
+                                    "duration-ms": str(segment_duration_ms),
+                                },
+                            )
+                        )
+                    except MediaAssetConflictError as exception:
+                        raise NarrationPermanentError(str(exception)) from exception
+                    except Exception as exception:
+                        if is_transient_infrastructure_error(exception):
+                            raise NarrationRetryableInfrastructureError(
+                                "Local narration segment storage is temporarily unavailable"
+                            ) from exception
+                        raise NarrationPermanentError(str(exception)) from exception
+                    reused[expected.index] = MaterializedAudioSegment(
                         segment=expected,
                         file_path=segment_path,
                         sample_rate_hz=synthesized.sample_rate_hz,
                         channels=synthesized.channels,
                         duration_ms=synthesized.duration_ms,
-                        checksum=checksum,
+                        checksum=stored.checksum,
                         frame_count=synthesized.frame_count,
                     )
-                )
+            materialized.extend(reused[expected.index] for expected in batch)
             self.logger.info(
                 "Completed VieNeu batch job=%s request=%s batch=%s/%s materialized=%s",
                 claimed.job_id,
@@ -368,3 +436,47 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 len(materialized),
             )
         return materialized
+
+    async def _load_existing_local_segment(
+        self,
+        claimed: ClaimedNarrationJob,
+        segment: NarrationSegment,
+        job_dir: Path,
+    ) -> MaterializedAudioSegment | None:
+        assert self.storage is not None
+        storage = self.storage
+        storage_key = self._local_segment_storage_key(claimed, segment.index)
+        try:
+            stored = await retry_local_io(lambda: storage.find(storage_key))
+            if stored is None:
+                return None
+            segment_path = job_dir / f"segment-{segment.index:04d}.pcm"
+            downloaded = await retry_local_io(
+                lambda: storage.download_to_file(
+                    storage_key,
+                    segment_path,
+                    expected_checksum=stored.checksum,
+                )
+            )
+        except MediaAssetConflictError as exception:
+            raise NarrationPermanentError(str(exception)) from exception
+        except Exception as exception:
+            if is_transient_infrastructure_error(exception):
+                raise NarrationRetryableInfrastructureError(
+                    "Local narration segment recovery is temporarily unavailable"
+                ) from exception
+            raise NarrationPermanentError(str(exception)) from exception
+        if downloaded.checksum != stored.checksum:
+            raise NarrationPermanentError("Stored local narration segment checksum mismatch")
+        if downloaded.size_bytes <= 0 or downloaded.size_bytes % 2:
+            raise NarrationPermanentError("Stored local narration segment PCM is invalid")
+        frame_count = downloaded.size_bytes // 2
+        return MaterializedAudioSegment(
+            segment=segment,
+            file_path=segment_path,
+            sample_rate_hz=48000,
+            channels=1,
+            duration_ms=round(frame_count * 1000 / 48000),
+            checksum=downloaded.checksum,
+            frame_count=frame_count,
+        )
