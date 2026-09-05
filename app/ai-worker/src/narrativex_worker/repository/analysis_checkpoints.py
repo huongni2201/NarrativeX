@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 from dataclasses import dataclass
-from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
+
+from narrativex_worker.repository.analysis_fingerprint import result_fingerprint
 
 
 class AnalysisCheckpointStatus(StrEnum):
@@ -34,58 +34,6 @@ class AnalysisCheckpoint:
     result_json: dict[str, Any] | None
     result_hash: str | None
     provider_operation_id: uuid.UUID | None
-
-
-def _canonical_value(value: Any) -> Any:
-    if isinstance(value, float):
-        raise TypeError("canonical fingerprints must not contain floating-point values")
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, uuid.UUID):
-        return str(value)
-    if isinstance(value, dict):
-        return {str(key): _canonical_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_canonical_value(item) for item in value]
-    if value is None or isinstance(value, (str, int, bool)):
-        return value
-    raise TypeError(f"unsupported canonical fingerprint value: {type(value).__name__}")
-
-
-def canonical_json(value: Any) -> str:
-    return json.dumps(
-        _canonical_value(value),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
-
-
-def analysis_step_fingerprint(
-    *,
-    tenant_scope: str,
-    chapter_source_hash: str,
-    step_kind: str,
-    owned_source_range: dict[str, Any],
-    input_canon_versions: list[str],
-    continuity_inputs: dict[str, Any],
-    model_config: dict[str, Any],
-    prompt_version: str,
-    schema_version: int,
-) -> str:
-    payload = {
-        "tenantScope": tenant_scope,
-        "chapterSourceHash": chapter_source_hash,
-        "stepKind": step_kind,
-        "ownedSourceRange": owned_source_range,
-        "inputCanonVersions": input_canon_versions,
-        "continuityInputs": continuity_inputs,
-        "modelConfig": model_config,
-        "promptVersion": prompt_version,
-        "schemaVersion": schema_version,
-    }
-    return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
 class AnalysisCheckpointRepository:
@@ -160,8 +108,7 @@ class AnalysisCheckpointRepository:
         result: dict[str, Any],
         provider_operation_id: uuid.UUID | None,
     ) -> AnalysisCheckpoint:
-        result_text = canonical_json(result)
-        result_hash = hashlib.sha256(result_text.encode("utf-8")).hexdigest()
+        result_text, result_hash = result_fingerprint(result)
         row = await self._pool.fetchrow(
             """
             UPDATE analysis_checkpoints ac
@@ -192,14 +139,15 @@ class AnalysisCheckpointRepository:
             result_hash,
             provider_operation_id,
         )
-        if row is None:
-            latest = await self.get(checkpoint.id)
-            if latest.status is AnalysisCheckpointStatus.COMPLETED:
-                if latest.result_hash != result_hash:
-                    raise RuntimeError("terminal analysis checkpoint result is immutable")
-                return latest
-            raise RuntimeError("analysis checkpoint completion lost its lease fence")
-        return _checkpoint(row)
+        if row is not None:
+            return _checkpoint(row)
+
+        latest = await self.get(checkpoint.id)
+        if latest.status is AnalysisCheckpointStatus.COMPLETED:
+            if latest.result_hash != result_hash:
+                raise RuntimeError("terminal analysis checkpoint result is immutable")
+            return latest
+        raise RuntimeError("analysis checkpoint completion lost its lease fence")
 
     async def get(self, checkpoint_id: uuid.UUID) -> AnalysisCheckpoint:
         row = await self._pool.fetchrow(
