@@ -78,11 +78,6 @@ CREATE TABLE media_storage_cleanup_tasks (
 -- Media generation execution and lineage
 -- -----------------------------------------------------------------------------
 
-ALTER TABLE generation_jobs
-    ADD COLUMN request_fingerprint VARCHAR(64),
-    ADD CONSTRAINT ck_generation_jobs_request_fingerprint
-        CHECK (request_fingerprint IS NULL OR request_fingerprint ~ '^[0-9a-f]{64}$');
-
 CREATE TABLE media_generation_items (
     id UUID PRIMARY KEY,
     generation_job_id UUID NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
