@@ -109,6 +109,11 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
   }
 
   @Override
+  public Optional<UUID> findRegenerationPlanIdForJob(UUID generationJobId) {
+    return Optional.ofNullable(mapper.findRegenerationPlanIdForJob(generationJobId));
+  }
+
+  @Override
   public int nextReportRevision(UUID continuityPlanId) {
     return mapper.nextReportRevision(continuityPlanId);
   }
