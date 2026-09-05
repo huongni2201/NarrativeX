@@ -48,6 +48,7 @@ export type ContinuityIssueOrigin = "DETERMINISTIC" | "SEMANTIC" | "HUMAN";
 export type ContinuityReportStatus = "PASS" | "NEEDS_REVIEW";
 
 export interface ChapterContinuityIssue {
+  id: string;
   code: string;
   severity: ContinuityIssueSeverity;
   scopeKeys: string[];
@@ -61,6 +62,7 @@ export interface ChapterContinuityReport {
   revision: number;
   sourceHash: string;
   status: ContinuityReportStatus;
+  reportRevision: number;
   issues: ChapterContinuityIssue[];
 }
 
@@ -94,7 +96,7 @@ export interface ContinuityReviewInput {
 }
 
 export type MediaAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
-export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR";
+export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR" | "CINEMATIC_ANIME";
 
 export interface CreateMediaJobInput {
   productionMode: "IMAGE_MOTION";
