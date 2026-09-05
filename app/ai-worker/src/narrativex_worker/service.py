@@ -3,6 +3,8 @@
 import logging
 
 from narrativex_worker.providers.ports import LlmProvider, ProviderOperation
+from narrativex_worker.providers.vertex import VertexGeminiProvider
+from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
 logger = logging.getLogger("narrativex.worker.service")
@@ -10,7 +12,15 @@ logger = logging.getLogger("narrativex.worker.service")
 
 class WorkerService:
     def __init__(self, provider: LlmProvider) -> None:
-        self.provider = provider
+        # Keep the outer durable worker/provider-operation contract unchanged while cutting the
+        # production Vertex path over to continuity-first orchestration. Fake/disabled providers
+        # remain untouched for deterministic tests and local profiles.
+        self.provider: LlmProvider = (
+            ContinuityVertexGeminiProvider(provider.settings)
+            if isinstance(provider, VertexGeminiProvider)
+            and not isinstance(provider, ContinuityVertexGeminiProvider)
+            else provider
+        )
 
     async def submit_chapter_analysis(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         logger.info(
