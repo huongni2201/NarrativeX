@@ -15,5 +15,9 @@ public interface GenerationJobRepository {
 
   Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey, String ownerId);
 
+  Optional<String> findRequestFingerprint(UUID id);
+
+  void setRequestFingerprint(UUID id, String requestFingerprint);
+
   void acquireIdempotencyLock(String idempotencyKey, String ownerId);
 }
