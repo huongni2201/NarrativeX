@@ -1,77 +1,39 @@
-"""Continuity-first chapter analysis orchestration independent from a concrete provider adapter."""
+"""Continuity-first chapter analysis orchestration independent from provider adapters."""
 
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
-from typing import Protocol, TypeVar
-
-from pydantic import BaseModel, Field, model_validator
 
 from narrativex_worker.chapter_analysis_prompts import (
     build_chapter_structure_prompt,
     build_visual_beat_shard_prompt,
 )
 from narrativex_worker.chapter_analysis_sharding import (
-    ChapterStructureResult,
     VisualBeatShard,
     VisualBeatShardResult,
     merge_shard_results,
     plan_visual_beat_shards,
-    validate_visual_beat_shard,
 )
 from narrativex_worker.continuity.context import build_shard_continuity_contexts
+from narrativex_worker.continuity.pipeline_contracts import (
+    ChapterAnalysisPipelineResult,
+    ChapterStructureWithContinuityResult,
+    StructuredAnalysisAdapter,
+    VisualBeatShardWithContinuityResult,
+)
+from narrativex_worker.continuity.pipeline_validation import (
+    shard_validation_error,
+    validate_shard_continuity_states,
+)
 from narrativex_worker.continuity.planner import validate_plan_source
 from narrativex_worker.continuity.schema import (
     BeatContinuityState,
-    ChapterContinuityPlan,
     ContinuityIssue,
-    ContinuityIssueOrigin,
-    ContinuityIssueSeverity,
     ContinuityReport,
     ContinuityReportStatus,
 )
 from narrativex_worker.providers.ports import ProviderBilling
-from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
-
-
-ModelT = TypeVar("ModelT", bound=BaseModel)
-
-
-class StructuredAnalysisAdapter(Protocol):
-    async def generate(
-        self, prompt: str, model: type[ModelT]
-    ) -> tuple[ModelT | None, ProviderBilling, str]: ...
-
-
-class ChapterStructureWithContinuityResult(ChapterStructureResult):
-    continuity_plan: ChapterContinuityPlan = Field(alias="continuityPlan")
-
-    @model_validator(mode="after")
-    def validate_scene_state_cardinality(self) -> ChapterStructureWithContinuityResult:
-        if len(self.continuity_plan.scene_states) != len(self.scenes):
-            raise ValueError("continuity scene state count must equal scene count")
-        return self
-
-
-class VisualBeatShardWithContinuityResult(VisualBeatShardResult):
-    continuity_states: list[BeatContinuityState] = Field(alias="continuityStates")
-
-    @model_validator(mode="after")
-    def validate_state_cardinality(self) -> VisualBeatShardWithContinuityResult:
-        if len(self.continuity_states) != len(self.visual_beats):
-            raise ValueError("continuityStates must contain exactly one state per visual beat")
-        return self
-
-
-@dataclass(frozen=True)
-class ChapterAnalysisPipelineResult:
-    analysis: ChapterAnalysisResult
-    continuity_plan: ChapterContinuityPlan
-    continuity_states: dict[tuple[int, int], list[BeatContinuityState]]
-    report: ContinuityReport
-    billings: list[ProviderBilling]
-    final_response_id: str
+from narrativex_worker.schema import ChapterAnalysisRequest
 
 
 async def run_chapter_analysis_pipeline(
@@ -121,7 +83,7 @@ async def run_chapter_analysis_pipeline(
                 VisualBeatShardWithContinuityResult,
             )
             billings.append(billing)
-            reason = _shard_error(structure, shard, result)
+            reason = shard_validation_error(structure, shard, result)
             if reason is None and result is not None:
                 return shard, result, billings, shard_response_id
         raise ValueError(
@@ -151,7 +113,7 @@ async def run_chapter_analysis_pipeline(
         shard_results[key] = VisualBeatShardResult(visual_beats=result.visual_beats)
         continuity_states[key] = result.continuity_states
         issues.extend(
-            _validate_shard_continuity_states(
+            validate_shard_continuity_states(
                 source_text=request.source_text,
                 structure=structure,
                 shard=shard,
@@ -159,16 +121,15 @@ async def run_chapter_analysis_pipeline(
             )
         )
 
-    report = ContinuityReport(
-        status=ContinuityReportStatus.NEEDS_REVIEW if issues else ContinuityReportStatus.PASS,
-        issues=issues,
-    )
     analysis = merge_shard_results(structure, shards, shard_results)
     return ChapterAnalysisPipelineResult(
         analysis=analysis,
         continuity_plan=structure.continuity_plan,
         continuity_states=continuity_states,
-        report=report,
+        report=ContinuityReport(
+            status=ContinuityReportStatus.NEEDS_REVIEW if issues else ContinuityReportStatus.PASS,
+            issues=issues,
+        ),
         billings=billings,
         final_response_id=final_response_id,
     )
@@ -192,68 +153,13 @@ async def _generate_structure(
             ChapterStructureWithContinuityResult,
         )
         billings.append(billing)
-        if result is not None:
-            try:
-                validate_plan_source(result.continuity_plan, request.source_text)
-            except ValueError as exc:
-                reason = str(exc)
-            else:
-                return result, billings, response_id
-        else:
+        if result is None:
             reason = "invalid structured chapter continuity output"
+            continue
+        try:
+            validate_plan_source(result.continuity_plan, request.source_text)
+        except ValueError as exc:
+            reason = str(exc)
+            continue
+        return result, billings, response_id
     raise ValueError(f"chapter structure rejected after bounded repair: {reason}")
-
-
-def _shard_error(
-    structure: ChapterStructureResult,
-    shard: VisualBeatShard,
-    result: VisualBeatShardWithContinuityResult | None,
-) -> str | None:
-    if result is None:
-        return "invalid structured shard output"
-    try:
-        validate_visual_beat_shard(
-            shard,
-            VisualBeatShardResult(visual_beats=result.visual_beats),
-            allowed_character_keys={
-                ref.character_key for ref in structure.scenes[shard.scene_index].characters
-            },
-        )
-    except ValueError as exc:
-        return str(exc)
-    if len(result.continuity_states) != len(result.visual_beats):
-        return "continuity state count does not match visual beat count"
-    return None
-
-
-def _validate_shard_continuity_states(
-    *,
-    source_text: str,
-    structure: ChapterStructureWithContinuityResult,
-    shard: VisualBeatShard,
-    result: VisualBeatShardWithContinuityResult,
-) -> list[ContinuityIssue]:
-    issues: list[ContinuityIssue] = []
-    known_characters = {character.key for character in structure.characters}
-    allowed_characters = {
-        ref.character_key for ref in structure.scenes[shard.scene_index].characters
-    }
-    for beat, state in zip(result.visual_beats, result.continuity_states, strict=True):
-        if beat.source_anchor not in shard.source_text:
-            issues.append(_blocking("SOURCE_ANCHOR_MISSING", beat.source_anchor))
-        for fact in state.visible_facts:
-            if fact.subject_key in known_characters and fact.subject_key not in allowed_characters:
-                issues.append(_blocking("CAST_SCOPE_VIOLATION", beat.source_anchor))
-            if fact.evidence_anchor is not None and fact.evidence_anchor not in source_text:
-                issues.append(_blocking("SOURCE_ANCHOR_MISSING", fact.evidence_anchor))
-    return issues
-
-
-def _blocking(code: str, anchor: str) -> ContinuityIssue:
-    return ContinuityIssue(
-        code=code,
-        severity=ContinuityIssueSeverity.BLOCKING,
-        evidenceAnchors=[anchor],
-        message=f"Deterministic continuity validation failed: {code}",
-        origin=ContinuityIssueOrigin.DETERMINISTIC,
-    )
