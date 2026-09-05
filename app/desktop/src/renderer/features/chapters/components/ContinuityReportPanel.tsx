@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { InlineNotice, StatusIndicator } from "../../workspace/components/WorkstationPrimitives";
 import {
@@ -6,14 +7,12 @@ import {
   useReviewContinuity,
 } from "../../generation/queries/continuity.queries";
 
-export function ContinuityReportPanel({
-  projectId,
-  chapterId,
-}: Readonly<{ projectId: string; chapterId: string | null }>) {
+export function ContinuityReportPanel({ chapterId }: Readonly<{ chapterId: string | null }>) {
+  const { projectId = "" } = useParams<{ projectId: string }>();
   const reportQuery = useChapterContinuity(projectId, chapterId);
   const review = useReviewContinuity(projectId, chapterId);
 
-  if (!chapterId) {
+  if (!chapterId || !projectId) {
     return (
       <section className="border-b border-border-subtle p-3 text-[10px] text-text-muted">
         Chọn chapter để xem continuity report.
