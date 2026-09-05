@@ -34,7 +34,8 @@ test("preview framing is authoritative and not driven by the viewer fit dropdown
 
 test("segment renderer uses exact frame output and high quality downscale", async () => {
   const renderer = await source("../src/main/rendering/segment-renderer.ts");
+  const cacheKey = await source("../src/main/rendering/segment-cache-key.ts");
   assert.match(renderer, /-frames:v/);
   assert.match(renderer, /flags=lanczos/);
-  assert.match(renderer, /rendererVersion:\s*manifest\.rendererVersion/);
+  assert.match(cacheKey, /rendererVersion:\s*manifest\.rendererVersion/);
 });
