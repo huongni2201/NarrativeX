@@ -113,6 +113,19 @@
          LIMIT 1
     </select>
 
+    <select id="findRegenerationPlanByFingerprint" resultMap="regenerationPlanRow">
+        SELECT id, project_id, chapter_id, continuity_plan_id, source_hash,
+               requested_beat_ids_json::text AS requested_beat_ids_json,
+               affected_beat_ids_json::text AS affected_beat_ids_json,
+               reusable_beat_ids_json::text AS reusable_beat_ids_json,
+               reason, estimated_cost, currency, expires_at, input_fingerprint, created_by
+          FROM regeneration_plans
+         WHERE project_id = #{projectId}
+           AND chapter_id = #{chapterId}
+           AND input_fingerprint = #{inputFingerprint}
+         LIMIT 1
+    </select>
+
     <select id="nextReportRevision" resultType="int">
         SELECT COALESCE(MAX(revision), 0) + 1
           FROM continuity_reports
