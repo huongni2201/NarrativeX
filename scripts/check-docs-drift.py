@@ -199,6 +199,7 @@ def main() -> int:
         "V10__chapter_continuity_guards.sql",
         "V11__chapter_continuity_indexes.sql",
         "V12__continuity_regeneration_plans.sql",
+        "V13__render_continuity_provenance.sql",
     }
     if migrations.exists():
         actual = {path.name for path in migrations.glob("V*.sql")}
