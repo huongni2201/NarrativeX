@@ -41,6 +41,16 @@
         <result property="createdBy" column="created_by" />
     </resultMap>
 
+    <resultMap id="mediaGenerationSettingsRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaGenerationSettingsRow">
+        <result property="aspectRatio" column="aspect_ratio" />
+        <result property="imageStyle" column="image_style" />
+        <result property="providerKey" column="provider_key" />
+        <result property="modelKey" column="model_key" />
+        <result property="pricingSnapshotJson" column="pricing_snapshot_json" />
+        <result property="pricingFingerprint" column="pricing_fingerprint" />
+    </resultMap>
+
     <select id="findCurrent" resultMap="currentContinuityRow">
         SELECT p.id AS plan_id,
                p.revision AS plan_revision,
@@ -125,6 +135,41 @@
            AND input_fingerprint = #{inputFingerprint}
          LIMIT 1
     </select>
+
+    <select id="findLatestMediaSettings" resultMap="mediaGenerationSettingsRow">
+        SELECT mp.image_aspect_ratio AS aspect_ratio,
+               CASE
+                   WHEN mbp.prompt_template_version LIKE '%cinematic_anime' THEN 'CINEMATIC_ANIME'
+                   WHEN mbp.prompt_template_version LIKE '%storybook_watercolor' THEN 'STORYBOOK_WATERCOLOR'
+                   ELSE 'CINEMATIC'
+               END AS image_style,
+               mp.image_provider_key AS provider_key,
+               mp.image_model_key AS model_key,
+               mp.pricing_snapshot_json::text AS pricing_snapshot_json,
+               mp.pricing_fingerprint
+          FROM media_plans mp
+          LEFT JOIN LATERAL (
+              SELECT prompt_template_version
+                FROM media_beat_plans
+               WHERE media_plan_id = mp.id
+               ORDER BY scene_index, beat_index
+               LIMIT 1
+          ) mbp ON TRUE
+         WHERE mp.chapter_id = #{chapterId}
+           AND mp.production_mode = 'IMAGE_MOTION'
+         ORDER BY mp.revision DESC
+         LIMIT 1
+    </select>
+
+    <update id="bindRegenerationJob">
+        UPDATE generation_jobs
+           SET regeneration_plan_id = #{regenerationPlanId},
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{generationJobId}
+           AND job_type = 'CHAPTER_GENERATE'
+           AND regeneration_plan_id IS NULL
+    </update>
 
     <select id="nextReportRevision" resultType="int">
         SELECT COALESCE(MAX(revision), 0) + 1
