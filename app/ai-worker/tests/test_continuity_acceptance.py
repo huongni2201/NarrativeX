@@ -53,7 +53,7 @@ def test_deliberate_conflicts_are_reported_without_rewriting_source() -> None:
         source = str(case["source"])
         expected = ContinuityFact.model_validate(case["expected"])
         conflict = dict(case["conflict"])
-        candidate_payload = expected.model_dump(mode="json")
+        candidate_payload = expected.model_dump(mode="json", by_alias=True)
         candidate_payload["value"] = conflict["value"]
         if "subjectKey" in conflict:
             candidate_payload["subjectKey"] = conflict["subjectKey"]
