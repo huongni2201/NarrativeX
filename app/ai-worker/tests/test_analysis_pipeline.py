@@ -7,6 +7,7 @@ from narrativex_worker.analysis_pipeline import (
     VisualBeatShardWithContinuityResult,
     run_chapter_analysis_pipeline,
 )
+from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
 from narrativex_worker.providers.ports import (
     ProviderBilling,
     ProviderPricingSnapshot,
@@ -35,9 +36,13 @@ def _billing() -> ProviderBilling:
 class FakeStructuredAdapter:
     def __init__(self) -> None:
         self.prompts: list[str] = []
+        self.identities: list[AnalysisStepIdentity | None] = []
 
-    async def generate(self, prompt: str, model):  # type: ignore[no-untyped-def]
+    async def generate(  # type: ignore[no-untyped-def]
+        self, prompt: str, model, *, identity: AnalysisStepIdentity | None = None
+    ):
         self.prompts.append(prompt)
+        self.identities.append(identity)
         if model is ChapterStructureWithContinuityResult:
             payload = {
                 "characters": [{"key": "lan", "name": "Lan"}],
@@ -169,3 +174,7 @@ async def test_pipeline_builds_continuity_before_parallel_shards_and_returns_pas
     assert result.analysis.scenes[0].visual_beats[0].source_anchor == source
     assert "CONTINUITY_CONTEXT=" in adapter.prompts[1]
     assert "READ_ONLY_CONTEXT" in adapter.prompts[1]
+    assert adapter.identities[0] is not None
+    assert adapter.identities[0].step_key == "structure"
+    assert adapter.identities[1] is not None
+    assert adapter.identities[1].step_key == "shard:0:0"
