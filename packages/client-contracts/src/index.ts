@@ -20,4 +20,28 @@ export type {
   VoiceReferenceScope,
 } from "./narration";
 export type { AutoEditBeatDecision, AutoEditPlan, AutoEditStyle, BeatMediaFitMode, BeatMediaType, DesktopTimeline, DesktopTimelineBeat, LocalRenderPreflight, LocalRenderPreflightAsset, LocalRenderPreflightAssetInput, LocalRenderPreflightBlockerCode, ProjectRenderBeatOverride, RenderFrameRate, RenderResolution, UpdateBeatMediaInput } from "./production";
-export type { AnalyzeChapterInput, CreateMediaJobInput, DesktopRenderJob, DesktopRenderJobStatus, GenerationJob, GenerationJobStatus, ImageGenerationProvider, MediaAspectRatio, MediaGenerationItem, MediaImageStyle, MediaJobCostEstimate, MediaJobDetails, MediaReviewInput, VisualGenerationMode } from "./generation";
+export type {
+  AnalyzeChapterInput,
+  ChapterContinuityIssue,
+  ChapterContinuityReport,
+  ContinuityIssueOrigin,
+  ContinuityIssueSeverity,
+  ContinuityReportStatus,
+  ContinuityReviewInput,
+  CreateMediaJobInput,
+  CreateRegenerationJobInput,
+  CreateRegenerationPlanInput,
+  DesktopRenderJob,
+  DesktopRenderJobStatus,
+  GenerationJob,
+  GenerationJobStatus,
+  ImageGenerationProvider,
+  MediaAspectRatio,
+  MediaGenerationItem,
+  MediaImageStyle,
+  MediaJobCostEstimate,
+  MediaJobDetails,
+  MediaReviewInput,
+  RegenerationPlan,
+  VisualGenerationMode,
+} from "./generation";
