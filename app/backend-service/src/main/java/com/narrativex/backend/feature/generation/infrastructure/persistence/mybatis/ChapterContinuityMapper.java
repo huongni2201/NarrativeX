@@ -45,6 +45,8 @@ public interface ChapterContinuityMapper extends NarrativeXMyBatisMapper {
       @Param("generationJobId") UUID generationJobId,
       @Param("regenerationPlanId") UUID regenerationPlanId);
 
+  UUID findRegenerationPlanIdForJob(@Param("generationJobId") UUID generationJobId);
+
   int nextReportRevision(@Param("continuityPlanId") UUID continuityPlanId);
 
   int insertHumanReport(
