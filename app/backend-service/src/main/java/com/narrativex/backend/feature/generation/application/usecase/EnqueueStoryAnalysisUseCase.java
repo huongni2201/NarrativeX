@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -16,6 +17,7 @@ import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,25 +51,20 @@ public class EnqueueStoryAnalysisUseCase {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
 
+    String derivedFamily = derivedIdempotencyFamily(command, chapter.rowVersion(), chapter.sourceHash());
+    String clientKey = command.idempotencyKey();
     String baseIdempotencyKey =
-        "chapter-analysis:"
-            + command.projectId()
-            + ":"
-            + command.chapterId()
-            + ":"
-            + chapter.rowVersion()
-            + ":"
-            + chapter.sourceHash()
-            + ":"
-            + command.visualGenerationMode()
-            + ":"
-            + (command.imageProvider() == null ? "NONE" : command.imageProvider());
+        clientKey == null ? derivedFamily : "chapter-analysis:command:" + clientKey;
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
     String idempotencyKey = baseIdempotencyKey;
     if (baseJob.isPresent()) {
       GenerationJob existing = baseJob.get();
+      if (clientKey != null) {
+        requireSameCommand(existing, command, chapter.rowVersion(), chapter.sourceHash());
+        return existing;
+      }
       if (!canRetry(existing.getStatus())) {
         return existing;
       }
@@ -78,7 +75,7 @@ public class EnqueueStoryAnalysisUseCase {
       }
       idempotencyKey = baseIdempotencyKey + ":retry:" + UuidV7.random();
       log.info(
-          "Retrying chapter analysis after terminal job id={} with new idempotencyKey='{}'",
+          "Retrying legacy chapter analysis after terminal job id={} with new idempotencyKey='{}'",
           latest.orElse(existing).getId(),
           idempotencyKey);
     }
@@ -130,6 +127,40 @@ public class EnqueueStoryAnalysisUseCase {
         command.visualGenerationMode(),
         command.imageProvider());
     return job;
+  }
+
+  private static String derivedIdempotencyFamily(
+      EnqueueStoryAnalysisCommand command, long rowVersion, String sourceHash) {
+    return "chapter-analysis:"
+        + command.projectId()
+        + ":"
+        + command.chapterId()
+        + ":"
+        + rowVersion
+        + ":"
+        + sourceHash
+        + ":"
+        + command.visualGenerationMode()
+        + ":"
+        + (command.imageProvider() == null ? "NONE" : command.imageProvider());
+  }
+
+  private static void requireSameCommand(
+      GenerationJob existing,
+      EnqueueStoryAnalysisCommand command,
+      long chapterRowVersion,
+      String sourceHash) {
+    boolean same =
+        existing.getProjectId().equals(command.projectId())
+            && Objects.equals(existing.getChapterId(), command.chapterId())
+            && Objects.equals(existing.getChapterRowVersion(), chapterRowVersion)
+            && Objects.equals(existing.getSourceHash(), sourceHash)
+            && Objects.equals(
+                existing.getAnalysisVisualGenerationMode(), command.visualGenerationMode())
+            && Objects.equals(existing.getAnalysisImageProvider(), command.imageProvider());
+    if (!same) {
+      throw new ResourceConflictException("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_INPUT");
+    }
   }
 
   private static boolean canRetry(JobStatus status) {
