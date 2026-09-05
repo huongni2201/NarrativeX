@@ -87,6 +87,28 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
   }
 
   @Override
+  public Optional<MediaGenerationSettings> findLatestMediaSettings(UUID chapterId) {
+    var row = mapper.findLatestMediaSettings(chapterId);
+    return row == null
+        ? Optional.empty()
+        : Optional.of(
+            new MediaGenerationSettings(
+                row.getAspectRatio(),
+                row.getImageStyle(),
+                row.getProviderKey(),
+                row.getModelKey(),
+                row.getPricingSnapshotJson(),
+                row.getPricingFingerprint()));
+  }
+
+  @Override
+  public void bindRegenerationJob(UUID generationJobId, UUID regenerationPlanId) {
+    if (mapper.bindRegenerationJob(generationJobId, regenerationPlanId) != 1) {
+      throw new IllegalStateException("Regeneration plan could not be bound to generation job");
+    }
+  }
+
+  @Override
   public int nextReportRevision(UUID continuityPlanId) {
     return mapper.nextReportRevision(continuityPlanId);
   }
