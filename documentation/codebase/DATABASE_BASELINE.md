@@ -20,8 +20,9 @@ PostgreSQL is the authoritative business/control-state store. The backend owns F
 | `V10__chapter_continuity_guards.sql` | continuity/checkpoint immutability and terminal-state guards |
 | `V11__chapter_continuity_indexes.sql` | continuity/checkpoint access paths and idempotent checkpoint identity |
 | `V12__continuity_regeneration_plans.sql` | immutable selective-regeneration plans, expiry/fingerprint scope and generation-job lineage |
+| `V13__render_continuity_provenance.sql` | continuity plan/report provenance pinned into immutable project-render chapter snapshots |
 
-A clean database applies **V1 → V12**. V9–V12 are cohesive continuity slices rather than temporary compatibility patches: they keep the already-large earlier baseline files from absorbing another cross-cutting subsystem while NarrativeX remains pre-production.
+A clean database applies **V1 → V13**. V9–V13 are cohesive continuity/render slices rather than temporary compatibility patches: they keep the already-large earlier baseline files from absorbing another cross-cutting subsystem while NarrativeX remains pre-production.
 
 ## Current storage decisions
 
@@ -45,6 +46,8 @@ project_render_input_snapshots
 project_render_input_chapters
 project_render_input_beats
 ```
+
+Each render chapter snapshot may pin the immutable `continuity_plan_id` and its latest `continuity_report_revision` for the same chapter/source hash at admission time. This provenance is audit metadata; render-cache identity is derived from effective encoded inputs rather than continuity/job/revision identity.
 
 The former server-side Chapter-render admission tables `render_input_snapshots` and `render_input_snapshot_beats` are removed. There is no `execution_target` cloud/local discriminator; `assigned_local_device_id` is required and defines the executor.
 
@@ -79,13 +82,13 @@ Until first production deployment:
 - recreate disposable local/test databases after baseline changes;
 - keep sample/application data out of Flyway.
 
-V9–V12 are the canonical continuity baseline slices and are not transitional migrations. At first production deployment, freeze the accepted baseline. After that, all schema changes are append-only.
+V9–V13 are the canonical continuity/render baseline slices and are not transitional migrations. At first production deployment, freeze the accepted baseline. After that, all schema changes are append-only.
 
 ## Verification
 
 A supported empty PostgreSQL instance must:
 
-1. apply V1 through V12 successfully;
+1. apply V1 through V13 successfully;
 2. expose no pending migration;
 3. contain no removed server Chapter-render snapshot tables;
 4. contain no remote final-video artifact fields;
@@ -93,4 +96,5 @@ A supported empty PostgreSQL instance must:
 6. preserve IMAGE/VIDEO analysis preference constraints;
 7. allow project render assignment only through a paired local device snapshot;
 8. enforce continuity scope/immutability, analysis checkpoint identity/lease fencing and immutable regeneration-plan lineage;
-9. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.
+9. preserve render continuity provenance without using logical continuity/job/revision IDs as effective segment-cache dependencies;
+10. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.
