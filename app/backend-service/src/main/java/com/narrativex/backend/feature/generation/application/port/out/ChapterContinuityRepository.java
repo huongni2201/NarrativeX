@@ -16,6 +16,9 @@ public interface ChapterContinuityRepository {
 
   Optional<RegenerationPlan> findRegenerationPlan(UUID projectId, UUID chapterId, UUID planId);
 
+  Optional<RegenerationPlan> findRegenerationPlanByFingerprint(
+      UUID projectId, UUID chapterId, String inputFingerprint);
+
   int nextReportRevision(UUID continuityPlanId);
 
   void appendHumanReport(
