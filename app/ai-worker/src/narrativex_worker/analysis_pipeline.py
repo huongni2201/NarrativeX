@@ -16,6 +16,7 @@ from narrativex_worker.chapter_analysis_sharding import (
 )
 from narrativex_worker.continuity.context import build_shard_continuity_contexts
 from narrativex_worker.continuity.pipeline_contracts import (
+    AnalysisStepIdentity,
     ChapterAnalysisPipelineResult,
     ChapterStructureWithContinuityResult,
     StructuredAnalysisAdapter,
@@ -71,16 +72,30 @@ async def run_chapter_analysis_pipeline(
         reason: str | None = None
         billings: list[ProviderBilling] = []
         shard_response_id = response_id
+        context = contexts[(shard.scene_index, shard.shard_index)]
         for attempt in range(repair_attempts + 1):
             result, billing, shard_response_id = await adapter.generate(
                 build_visual_beat_shard_prompt(
                     request,
                     structure,
                     shard,
-                    continuity_context=contexts[(shard.scene_index, shard.shard_index)],
+                    continuity_context=context,
                     repair_reason=reason if attempt > 0 else None,
                 ),
                 VisualBeatShardWithContinuityResult,
+                identity=AnalysisStepIdentity(
+                    step_key=(
+                        f"shard:{shard.scene_index}:{shard.shard_index}"
+                        if attempt == 0
+                        else f"repair:{shard.scene_index}:{shard.shard_index}:{attempt}"
+                    ),
+                    owned_source_range={
+                        "start": shard.source_start,
+                        "end": shard.source_end,
+                        "source": shard.source_text,
+                    },
+                    continuity_inputs=context.model_dump(mode="json", by_alias=True),
+                ),
             )
             billings.append(billing)
             reason = shard_validation_error(structure, shard, result)
@@ -151,6 +166,14 @@ async def _generate_structure(
                 repair_reason=reason if attempt > 0 else None,
             ),
             ChapterStructureWithContinuityResult,
+            identity=AnalysisStepIdentity(
+                step_key="structure" if attempt == 0 else f"structure-repair:{attempt}",
+                owned_source_range={
+                    "start": 0,
+                    "end": len(request.source_text),
+                    "source": request.source_text,
+                },
+            ),
         )
         billings.append(billing)
         if result is None:
