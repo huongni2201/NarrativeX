@@ -3,19 +3,14 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
-import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
-import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
+import com.narrativex.backend.feature.generation.application.service.MediaPlanSceneResolver;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
-import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
-import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,16 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
-  private static final String GENERATE_NEW = "GENERATE_NEW";
-  private static final String PROMPT_CONTRACT = "structured-visual-prompt";
-
   private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final MediaPlanRepository mediaPlanRepository;
-  private final MotionStrategyResolver motionStrategyResolver;
-  private final VisualPromptContextRepository visualPromptContextRepository;
-  private final VisualPromptComposer visualPromptComposer;
+  private final MediaPlanSceneResolver sceneResolver;
 
   @Transactional
   public MediaPlan execute(CreateMediaPlanCommand command) {
@@ -50,18 +40,17 @@ public class CreateMediaPlanUseCase {
       throw new GenerationAdmissionDeniedException(
           "SOURCE_STALE", "The storyboard source is stale; refresh the chapter before generating.");
     }
-    var scenes = resolveScenes(command, planningSource);
+
+    var scenes = sceneResolver.resolve(command, planningSource);
     if (scenes.isEmpty() || scenes.stream().allMatch(scene -> scene.beats().isEmpty())) {
       throw new GenerationAdmissionDeniedException(
           "STORYBOARD_NOT_READY",
-          "The current storyboard has no visual beats ready for generation.");
+          "The selected generation scope has no visual beats ready for generation.");
     }
     if (command.productionMode().name().equals("IMAGE_MOTION")
-        && planningSource.scenes().stream()
-            .flatMap(scene -> scene.beats().stream())
-            .anyMatch(beat -> !"APPROVED".equals(beat.reviewStatus()))) {
+        && !sceneResolver.allSelectedBeatsApproved(command, planningSource)) {
       throw new GenerationAdmissionDeniedException(
-          "STORYBOARD_NOT_READY", "Every visual beat must be approved before image generation.");
+          "STORYBOARD_NOT_READY", "Every selected visual beat must be approved before image generation.");
     }
 
     var workload = calculateWorkload(scenes);
@@ -97,76 +86,6 @@ public class CreateMediaPlanUseCase {
         command.chapterId(),
         command.projectId());
     return savedPlan;
-  }
-
-  private List<MediaScenePlan> resolveScenes(
-      CreateMediaPlanCommand command, MediaPlanningSource planningSource) {
-    List<MediaScenePlan> resolved = new ArrayList<>();
-    for (var scene : planningSource.scenes()) {
-      List<MediaBeatPlan> beats = new ArrayList<>();
-      for (var beat : scene.beats()) {
-        var context =
-            visualPromptContextRepository.findForBeat(command.projectId(), beat.visualBeatId());
-        String aspectRatio =
-            beat.aspectRatioOverride() == null
-                ? command.imageAspectRatio()
-                : beat.aspectRatioOverride();
-        var composed =
-            visualPromptComposer.compose(
-                command.imageStyle(),
-                beat.visualIntent(),
-                beat.visualDirectionJson(),
-                aspectRatio,
-                context);
-        String cameraMovement =
-            beat.cameraMovement() == null || beat.cameraMovement().isBlank()
-                ? "NONE"
-                : beat.cameraMovement();
-        beats.add(
-            new MediaBeatPlan(
-                beat.visualBeatId(),
-                beat.orderIndex(),
-                beat.visualIntent(),
-                beat.motionIntent().name(),
-                motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
-                GENERATE_NEW,
-                PROMPT_CONTRACT + "-" + command.imageStyle().name().toLowerCase(),
-                composed.prompt(),
-                composed.negativePrompt(),
-                beat.audioStartMs(),
-                beat.audioEndMs(),
-                beat.audioStartMs() != null && beat.audioEndMs() != null
-                    ? beat.audioEndMs() - beat.audioStartMs()
-                    : null,
-                cameraMovement,
-                renderSettingsJson(command, beat, aspectRatio),
-                composed.characterSnapshotJson(),
-                null,
-                null));
-      }
-      resolved.add(
-          new MediaScenePlan(
-              scene.sceneId(),
-              scene.orderIndex(),
-              scene.narration(),
-              scene.durationSeconds(),
-              beats));
-    }
-    return List.copyOf(resolved);
-  }
-
-  private static String renderSettingsJson(
-      CreateMediaPlanCommand command, MediaPlanningSource.BeatSnapshot beat, String aspectRatio) {
-    String direction = beat.visualDirectionJson();
-    return "{\"aspectRatio\":\""
-        + aspectRatio
-        + "\",\"visualStyle\":\""
-        + command.imageStyle().name()
-        + "\",\"cameraAngle\":\""
-        + beat.cameraAngle()
-        + "\",\"visualDirection\":"
-        + (direction == null ? "null" : direction)
-        + "}";
   }
 
   private static MediaWorkload calculateWorkload(List<MediaScenePlan> scenes) {
