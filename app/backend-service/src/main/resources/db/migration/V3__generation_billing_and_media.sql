@@ -336,3 +336,36 @@ CREATE TABLE media_validation_jobs (
         (status <> 'RUNNING' AND worker_id IS NULL AND lease_token IS NULL AND lease_until IS NULL)
     )
 );
+
+-- Durable structure/shard/repair/audit subcall checkpoints. A completed result is replayable
+-- across worker-stage attempts by generation-job + semantic step identity.
+CREATE TABLE analysis_checkpoints (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    generation_job_id UUID NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    stage_attempt_id UUID NOT NULL REFERENCES stage_attempts(id) ON DELETE CASCADE,
+    step_key VARCHAR(160) NOT NULL,
+    input_fingerprint VARCHAR(64) NOT NULL,
+    claim_owner VARCHAR(128) NOT NULL,
+    lease_version BIGINT NOT NULL DEFAULT 1,
+    status VARCHAR(16) NOT NULL,
+    result_json JSONB,
+    result_hash VARCHAR(64),
+    provider_operation_id UUID REFERENCES provider_operations(id),
+    CONSTRAINT uq_analysis_checkpoint_identity
+        UNIQUE (generation_job_id, step_key, input_fingerprint),
+    CONSTRAINT ck_analysis_checkpoint_fingerprint
+        CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_analysis_checkpoint_result_hash
+        CHECK (result_hash IS NULL OR result_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_analysis_checkpoint_status
+        CHECK (status IN ('RESERVED', 'RUNNING', 'COMPLETED', 'FAILED', 'UNKNOWN')),
+    CONSTRAINT ck_analysis_checkpoint_lease_version CHECK (lease_version > 0),
+    CONSTRAINT ck_analysis_checkpoint_terminal_result CHECK (
+        (status = 'COMPLETED' AND result_json IS NOT NULL AND result_hash IS NOT NULL AND completed_at IS NOT NULL)
+        OR status <> 'COMPLETED'
+    )
+);
