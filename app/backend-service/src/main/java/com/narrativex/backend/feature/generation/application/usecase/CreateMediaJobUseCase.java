@@ -78,17 +78,6 @@ public class CreateMediaJobUseCase {
     if (existing.isPresent()) {
       GenerationJob existingJob = existing.get();
       validateReplayScope(existingJob, command);
-      var persistedFingerprint = generationJobRepository.findRequestFingerprint(existingJob.getId());
-      if (persistedFingerprint.isPresent()) {
-        if (!requestFingerprint.equals(persistedFingerprint.get())) {
-          throw idempotencyConflict();
-        }
-        return existingJob;
-      }
-
-      // Backward-compatible validation for jobs created before request_fingerprint existed.
-      // We only accept and backfill when every child item proves the same request. An empty
-      // legacy job cannot prove equivalence, so it must conflict rather than replay unsafely.
       var existingItems = mediaGenerationItemRepository.findByJobOwned(userId, existingJob.getId());
       if (existingItems.isEmpty()
           || existingItems.stream()
@@ -99,7 +88,6 @@ public class CreateMediaJobUseCase {
                           .equals(item.getRequestFingerprint()))) {
         throw idempotencyConflict();
       }
-      generationJobRepository.setRequestFingerprint(existingJob.getId(), requestFingerprint);
       return existingJob;
     }
 
@@ -161,7 +149,6 @@ public class CreateMediaJobUseCase {
                 project.getSourceLanguage(),
                 idempotencyKey,
                 userId));
-    generationJobRepository.setRequestFingerprint(job.getId(), requestFingerprint);
     chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
 
     OperationPlan operationPlan =
