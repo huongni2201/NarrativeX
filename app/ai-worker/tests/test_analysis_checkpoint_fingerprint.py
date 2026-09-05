@@ -1,4 +1,4 @@
-from narrativex_worker.repository.analysis_checkpoints import analysis_step_fingerprint
+from narrativex_worker.repository.analysis_fingerprint import analysis_step_fingerprint
 
 
 def test_analysis_step_fingerprint_is_canonical_across_object_key_order() -> None:
