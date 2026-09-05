@@ -23,6 +23,8 @@ public interface ChapterContinuityRepository {
 
   void bindRegenerationJob(UUID generationJobId, UUID regenerationPlanId);
 
+  Optional<UUID> findRegenerationPlanIdForJob(UUID generationJobId);
+
   int nextReportRevision(UUID continuityPlanId);
 
   void appendHumanReport(
