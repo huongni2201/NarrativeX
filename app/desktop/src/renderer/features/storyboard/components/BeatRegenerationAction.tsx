@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ export function BeatRegenerationAction({
   const createPlan = useCreateRegenerationPlan(projectId, chapterId);
   const createJob = useCreateRegenerationJob(projectId, chapterId);
   const pendingSubmissionRef = useRef<PendingSubmission | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const blocking =
     continuity.data?.issues.some((issue) => issue.severity === "BLOCKING") ?? false;
@@ -39,42 +40,49 @@ export function BeatRegenerationAction({
   async function regenerate() {
     const report = continuity.data;
     if (!report || blocking) return;
+    setSubmissionError(null);
 
-    const plan = await createPlan.mutateAsync({
-      expectedPlanId: report.planId,
-      beatIds: [visualBeatId],
-      reason: "User requested selective Visual Beat regeneration",
-    });
-    const accepted = window.confirm(
-      `Regenerate ${plan.affectedBeatIds.length} Visual Beat với chi phí ước tính ${plan.estimatedCost} ${plan.currency}?\n\n${plan.reusableBeatIds.length} beat không bị ảnh hưởng sẽ được giữ lại.`,
-    );
-    if (!accepted) return;
+    try {
+      const plan = await createPlan.mutateAsync({
+        expectedPlanId: report.planId,
+        beatIds: [visualBeatId],
+        reason: "User requested selective Visual Beat regeneration",
+      });
+      const accepted = window.confirm(
+        `Regenerate ${plan.affectedBeatIds.length} Visual Beat với chi phí ước tính ${plan.estimatedCost} ${plan.currency}?\n\n${plan.reusableBeatIds.length} beat không bị ảnh hưởng sẽ được giữ lại.`,
+      );
+      if (!accepted) return;
 
-    const pending = pendingSubmissionRef.current;
-    const idempotencyKey =
-      pending?.regenerationPlanId === plan.regenerationPlanId
-        ? pending.idempotencyKey
-        : crypto.randomUUID();
-    pendingSubmissionRef.current = {
-      regenerationPlanId: plan.regenerationPlanId,
-      idempotencyKey,
-    };
-
-    await createJob.mutateAsync({
-      request: {
+      const previousSubmission = pendingSubmissionRef.current;
+      const idempotencyKey =
+        previousSubmission?.regenerationPlanId === plan.regenerationPlanId
+          ? previousSubmission.idempotencyKey
+          : crypto.randomUUID();
+      pendingSubmissionRef.current = {
         regenerationPlanId: plan.regenerationPlanId,
-        maxAuthorizedCost: Number(plan.estimatedCost),
-      },
-      idempotencyKey,
-    });
-    pendingSubmissionRef.current = null;
+        idempotencyKey,
+      };
+
+      await createJob.mutateAsync({
+        request: {
+          regenerationPlanId: plan.regenerationPlanId,
+          maxAuthorizedCost: Number(plan.estimatedCost),
+        },
+        idempotencyKey,
+      });
+      pendingSubmissionRef.current = null;
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : "Selective regeneration failed.");
+    }
   }
 
   const title = blocking
     ? "Continuity đang có blocking conflict; sửa conflict trước khi regenerate."
-    : continuity.isError
-      ? "Không tải được continuity plan hiện tại."
-      : "Lập selective regeneration plan cho beat này và các beat downstream bị ảnh hưởng.";
+    : submissionError
+      ? submissionError
+      : continuity.isError
+        ? "Không tải được continuity plan hiện tại."
+        : "Lập selective regeneration plan cho beat này và các beat downstream bị ảnh hưởng.";
 
   return (
     <Button
