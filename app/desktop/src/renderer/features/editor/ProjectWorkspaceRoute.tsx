@@ -4,6 +4,7 @@ import { AssetsScreen } from "../assets/screens/AssetsScreen";
 import { ChaptersScreen } from "../chapters/screens/ChaptersScreen";
 import { CharactersScreen } from "../characters/screens/CharactersScreen";
 import { ImagesScreen } from "../generation/screens/ImagesScreen";
+import { useRenderController } from "../production/useRenderController";
 import { RenderScreen } from "../production/screens/RenderScreen";
 import { useProjectSessionStore } from "../projects/store/project-session.store";
 import { SettingsScreen } from "../settings/screens/SettingsScreen";
@@ -20,6 +21,12 @@ export function ProjectWorkspaceRoute() {
   const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
   const screen = screenFromWorkspacePath(location.pathname);
   const { workspace } = useProjectWorkspace(projectId ?? null, screen);
+  const projectName = workspace.projects.find((project) => project.id === projectId)?.name;
+  const renderController = useRenderController({
+    projectId: projectId ?? "",
+    timeline: workspace.timeline,
+    projectName,
+  });
 
   useEffect(() => {
     if (!projectId) return;
@@ -31,7 +38,7 @@ export function ProjectWorkspaceRoute() {
 
   return (
     <WorkspaceShell projectId={projectId} screen={screen} workspace={workspace}>
-      {screen === "editor" && <EditorScreen workspace={workspace} />}
+      {screen === "editor" && <EditorScreen workspace={workspace} renderController={renderController} />}
       {screen === "chapters" && (
         <ChaptersScreen
           projectId={projectId}
@@ -80,7 +87,7 @@ export function ProjectWorkspaceRoute() {
         />
       )}
       {screen === "render" && (
-        <RenderScreen projectId={projectId} timeline={workspace.timeline} />
+        <RenderScreen timeline={workspace.timeline} controller={renderController} />
       )}
       {screen === "settings" && <SettingsScreen workspace={workspace} />}
     </WorkspaceShell>
