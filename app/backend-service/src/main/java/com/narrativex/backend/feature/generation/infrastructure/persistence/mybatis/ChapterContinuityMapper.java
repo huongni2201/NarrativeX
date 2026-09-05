@@ -39,6 +39,12 @@ public interface ChapterContinuityMapper extends NarrativeXMyBatisMapper {
       @Param("chapterId") UUID chapterId,
       @Param("inputFingerprint") String inputFingerprint);
 
+  MediaGenerationSettingsRow findLatestMediaSettings(@Param("chapterId") UUID chapterId);
+
+  int bindRegenerationJob(
+      @Param("generationJobId") UUID generationJobId,
+      @Param("regenerationPlanId") UUID regenerationPlanId);
+
   int nextReportRevision(@Param("continuityPlanId") UUID continuityPlanId);
 
   int insertHumanReport(
