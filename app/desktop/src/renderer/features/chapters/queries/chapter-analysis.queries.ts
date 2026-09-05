@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AnalyzeChapterInput } from "@narrativex/client-contracts";
 import { isTerminalGenerationJobStatus } from "../../generation/generation-status.ts";
@@ -27,12 +27,32 @@ type ChapterAnalysisJob = {
   errorCode: string | null;
 };
 
+type PendingAnalysisCommand = {
+  fingerprint: string;
+  idempotencyKey: string;
+};
+
+function analysisCommandFingerprint(
+  projectId: string,
+  chapterId: string,
+  preferences: AnalyzeChapterInput,
+) {
+  return JSON.stringify({
+    projectId,
+    chapterId,
+    visualGenerationMode: preferences.visualGenerationMode,
+    imageProvider:
+      preferences.visualGenerationMode === "IMAGE" ? preferences.imageProvider ?? "GEMINI_WEB" : null,
+  });
+}
+
 export function useBulkChapterAnalysis(projectId: string) {
   const queryClient = useQueryClient();
   const analyzeMutation = useAnalyzeChapter();
 
   async function analyzeAll(chapterIds: string[], preferences: AnalyzeChapterInput) {
     let admitted = 0;
+    const commandId = crypto.randomUUID();
     for (
       let offset = 0;
       offset < chapterIds.length;
@@ -41,7 +61,12 @@ export function useBulkChapterAnalysis(projectId: string) {
       const chunk = chapterIds.slice(offset, offset + BULK_ANALYSIS_ADMISSION_CONCURRENCY);
       const results = await Promise.allSettled(
         chunk.map((chapterId) =>
-          analyzeMutation.mutateAsync({ projectId, chapterId, request: preferences }),
+          analyzeMutation.mutateAsync({
+            projectId,
+            chapterId,
+            request: preferences,
+            idempotencyKey: `${commandId}:${chapterId}`,
+          }),
         ),
       );
       admitted += results.filter((result) => result.status === "fulfilled").length;
@@ -69,10 +94,12 @@ export function useChapterAnalysis(
   const analyzeMutation = useAnalyzeChapter();
   const [trackedJob, setTrackedJob] = useState<TrackedAnalysisJob | null>(null);
   const [lastJob, setLastJob] = useState<ChapterAnalysisJob | null>(null);
+  const pendingCommandRef = useRef<PendingAnalysisCommand | null>(null);
 
   useEffect(() => {
     setTrackedJob((current) => (current?.chapterId === chapterId ? current : null));
     setLastJob(null);
+    pendingCommandRef.current = null;
   }, [chapterId, projectId]);
 
   useEffect(() => {
@@ -118,11 +145,19 @@ export function useChapterAnalysis(
   async function analyze(preferences: AnalyzeChapterInput) {
     if (!chapterId) throw new Error("Chưa chọn chapter để phân tích.");
     setLastJob(null);
+    const fingerprint = analysisCommandFingerprint(projectId, chapterId, preferences);
+    const pending = pendingCommandRef.current;
+    const idempotencyKey =
+      pending?.fingerprint === fingerprint ? pending.idempotencyKey : crypto.randomUUID();
+    pendingCommandRef.current = { fingerprint, idempotencyKey };
+
     const generationJob = await analyzeMutation.mutateAsync({
       projectId,
       chapterId,
       request: preferences,
+      idempotencyKey,
     });
+    pendingCommandRef.current = null;
     setTrackedJob({ jobId: generationJob.jobId, chapterId });
     await queryClient.invalidateQueries({
       queryKey: chapterAnalysisQueryKeys.workspace(projectId, chapterId),
