@@ -64,6 +64,16 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
+  public Optional<String> findRequestFingerprint(UUID id) {
+    return Optional.ofNullable(mapper.findRequestFingerprint(id));
+  }
+
+  @Override
+  public void setRequestFingerprint(UUID id, String requestFingerprint) {
+    if (mapper.setRequestFingerprint(id, requestFingerprint) != 1) throw missing(id);
+  }
+
+  @Override
   public void acquireIdempotencyLock(String idempotencyKey, String ownerId) {
     mapper.acquireIdempotencyLock(idempotencyKey, ownerId);
   }
