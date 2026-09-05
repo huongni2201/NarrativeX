@@ -20,6 +20,7 @@ import com.narrativex.backend.feature.generation.application.port.out.QuotaReser
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
+import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
@@ -27,6 +28,10 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -200,6 +205,46 @@ class CreateMediaJobUseCaseTest {
   }
 
   @Test
+  void replaysExistingMediaJobWhenTypeScopeAndRequestFingerprintMatch() {
+    UUID existingInternalJobId = UUID.randomUUID();
+    UUID mediaPlanId = UUID.randomUUID();
+    UUID visualBeatId = UUID.randomUUID();
+    CreateMediaJobCommand command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "valid-replay-key",
+            "IMAGE_MOTION",
+            "16:9",
+            new BigDecimal("0.25"));
+    String requestFingerprint =
+        sha256(
+            PROJECT_ID
+                + ":"
+                + CHAPTER_ID
+                + ":IMAGE_MOTION:16:9:"
+                + ImageStyle.CINEMATIC
+                + ":API:0.25");
+    String itemFingerprint = sha256(requestFingerprint + ":" + mediaPlanId + ":" + visualBeatId);
+
+    when(currentUserId.get()).thenReturn("owner-1");
+    when(generationJobRepository.findByIdempotencyKey("valid-replay-key", "owner-1"))
+        .thenReturn(Optional.of(existingJob));
+    when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
+    when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
+    when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
+    when(existingJob.getId()).thenReturn(existingInternalJobId);
+    when(mediaGenerationItemRepository.findByJobOwned("owner-1", existingInternalJobId))
+        .thenReturn(List.of(existingItem));
+    when(existingItem.getMediaPlanId()).thenReturn(mediaPlanId);
+    when(existingItem.getVisualBeatId()).thenReturn(visualBeatId);
+    when(existingItem.getRequestFingerprint()).thenReturn(itemFingerprint);
+
+    assertThat(useCase.execute(command)).isSameAs(existingJob);
+    verifyNoInteractions(projectAccess, chapterSourceAccess, generationOutboxRepository);
+  }
+
+  @Test
   void rejectsDifferentSubmissionWhileChapterMediaJobIsActiveBeforePaidAdmission() {
     when(currentUserId.get()).thenReturn("owner-1");
     when(generationJobRepository.findByIdempotencyKey("intent-2", "owner-1"))
@@ -235,5 +280,16 @@ class CreateMediaJobUseCaseTest {
         stageAttemptRepository,
         userQuotaAccess,
         imageGenerationCatalog);
+  }
+
+  private static String sha256(String value) {
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException(exception);
+    }
   }
 }
