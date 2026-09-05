@@ -4,7 +4,6 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const SESSION_CONNECT_TIMEOUT_MS = 30_000;
 const CAPTURE_TIMEOUT_MS = 5 * 60_000;
-const MIN_IMAGE_BYTES = 24 * 1024;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
@@ -235,7 +234,7 @@ export class GeminiWebNetworkCapture {
         );
         if (candidate) {
           const bytes = await readResponseBody(cdp, candidate.requestId);
-          if (bytes && bytes.length >= MIN_IMAGE_BYTES && bytes.length <= MAX_IMAGE_BYTES) {
+          if (bytes && bytes.length > 0 && bytes.length <= MAX_IMAGE_BYTES) {
             const extension = imageExtensionForMimeType(candidate.mimeType) ?? imageExtensionForUrl(candidate.url);
             if (extension) {
               const sourcePath = join(
@@ -330,7 +329,6 @@ export function selectBestNetworkCandidate(
 
   const eligible = candidates.filter((candidate) => {
     if (!candidate.finishedAt || candidate.seenAt < startedAt) return false;
-    if (candidate.encodedDataLength > 0 && candidate.encodedDataLength < MIN_IMAGE_BYTES) return false;
     return imageExtensionForMimeType(candidate.mimeType) !== null;
   });
   if (!eligible.length) return null;

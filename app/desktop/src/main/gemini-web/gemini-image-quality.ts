@@ -10,8 +10,12 @@ export type GeminiImageMetadata = {
   format: "PNG" | "JPEG" | "WEBP";
 };
 
-const DEFAULT_MIN_LONG_EDGE = 2560;
-const DEFAULT_MIN_SHORT_EDGE = 1440;
+const RECOMMENDED_MIN_LONG_EDGE = 2560;
+const RECOMMENDED_MIN_SHORT_EDGE = 1440;
+
+export type GeminiImageValidationResult = {
+  warnings: string[];
+};
 
 export async function inspectGeminiImage(path: string): Promise<GeminiImageMetadata> {
   const bytes = await readFile(path);
@@ -34,15 +38,21 @@ export function validateGeneratedGeminiImage(
     minimumShortEdge?: number;
     expectedAspectRatio?: number;
   } = {},
-): void {
-  const minimumLongEdge = options.minimumLongEdge ?? DEFAULT_MIN_LONG_EDGE;
-  const minimumShortEdge = options.minimumShortEdge ?? DEFAULT_MIN_SHORT_EDGE;
+): GeminiImageValidationResult {
+  if (!Number.isFinite(metadata.width) || !Number.isFinite(metadata.height)) {
+    throw new Error("Gemini image dimensions are invalid.");
+  }
+  if (metadata.width <= 0 || metadata.height <= 0) {
+    throw new Error("Gemini image dimensions must be greater than zero.");
+  }
+
+  const minimumLongEdge = options.minimumLongEdge ?? RECOMMENDED_MIN_LONG_EDGE;
+  const minimumShortEdge = options.minimumShortEdge ?? RECOMMENDED_MIN_SHORT_EDGE;
   const longEdge = Math.max(metadata.width, metadata.height);
   const shortEdge = Math.min(metadata.width, metadata.height);
+  const warnings: string[] = [];
   if (longEdge < minimumLongEdge || shortEdge < minimumShortEdge) {
-    throw new Error(
-      `Gemini image resolution ${metadata.width}x${metadata.height} is below the required 2K envelope (${minimumLongEdge}x${minimumShortEdge} across long/short edges).`,
-    );
+    warnings.push(`LOW_RESOLUTION:${metadata.width}x${metadata.height}`);
   }
   if (options.expectedAspectRatio) {
     const relativeError =
@@ -51,6 +61,7 @@ export function validateGeneratedGeminiImage(
       throw new Error("Gemini image aspect ratio does not match the requested frame closely enough.");
     }
   }
+  return { warnings };
 }
 
 export function validateCleanedVariant(
@@ -89,6 +100,25 @@ function readDimensions(
       return {
         width: 1 + bytes.readUIntLE(24, 3),
         height: 1 + bytes.readUIntLE(27, 3),
+        format: "WEBP",
+      };
+    }
+    if (
+      chunk === "VP8 " &&
+      bytes.length >= 30 &&
+      bytes.subarray(23, 26).equals(Buffer.from([0x9d, 0x01, 0x2a]))
+    ) {
+      return {
+        width: bytes.readUInt16LE(26) & 0x3fff,
+        height: bytes.readUInt16LE(28) & 0x3fff,
+        format: "WEBP",
+      };
+    }
+    if (chunk === "VP8L" && bytes.length >= 25 && bytes[20] === 0x2f) {
+      const header = bytes.readUInt32LE(21);
+      return {
+        width: 1 + (header & 0x3fff),
+        height: 1 + ((header >>> 14) & 0x3fff),
         format: "WEBP",
       };
     }

@@ -43,6 +43,26 @@ test("Gemini network capture prefers the response that matches the fresh DOM ima
   assert.equal(selected?.requestId, "generated");
 });
 
+test("Gemini network capture accepts a small response when it matches the fresh DOM image", () => {
+  const startedAt = Date.now() - 1_000;
+  const selected = selectBestNetworkCandidate(
+    [
+      {
+        requestId: "small-generated",
+        url: "https://lh3.googleusercontent.com/generated.png?token=small",
+        mimeType: "image/png",
+        encodedDataLength: 8 * 1024,
+        seenAt: Date.now() - 500,
+        finishedAt: Date.now() - 100,
+      },
+    ],
+    [{ src: "https://lh3.googleusercontent.com/generated.png?token=small", area: 1024 * 1024 }],
+    startedAt,
+  );
+
+  assert.equal(selected?.requestId, "small-generated");
+});
+
 test("Gemini network capture rejects unrelated network images without a fresh DOM correlation", () => {
   const startedAt = Date.now() - 1_000;
   const selected = selectBestNetworkCandidate(

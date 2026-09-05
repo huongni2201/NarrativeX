@@ -28,7 +28,6 @@ const GEMINI_IMAGE_PRESET = "Điện ảnh";
 const NETWORK_CAPTURE_GRACE_MS = 8_000;
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 const REFERENCE_UPLOAD_TIMEOUT_MS = 30_000;
-const MIN_CAPTURE_BYTES = 24 * 1024;
 const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
 const GEMINI_CHROME_BACKGROUND_FLAGS = [
   "--disable-background-timer-throttling",
@@ -274,7 +273,7 @@ class NetworkImageTracker {
       );
       if (selected) {
         const bytes = await readNetworkBody(this.cdp, selected.requestId);
-        if (bytes && bytes.length >= MIN_CAPTURE_BYTES && bytes.length <= MAX_CAPTURE_BYTES) {
+        if (bytes && bytes.length > 0 && bytes.length <= MAX_CAPTURE_BYTES) {
           return { bytes, candidate: selected };
         }
         this.candidates.delete(selected.requestId);
@@ -1500,7 +1499,7 @@ export class GeminiWebAutomation {
     downloadDirectory: string,
   ): Promise<string | null> {
     const extension = imageExtensionForMimeType(mimeType) ?? extensionForUrl(url);
-    if (!extension || bytes.length < MIN_CAPTURE_BYTES || bytes.length > MAX_CAPTURE_BYTES) return null;
+    if (!extension || bytes.length === 0 || bytes.length > MAX_CAPTURE_BYTES) return null;
     const sourcePath = join(
       downloadDirectory,
       `gemini-network-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}${extension}`,
@@ -1559,7 +1558,7 @@ export class GeminiWebAutomation {
           const response = await fetch(source, { credentials: "include" });
           if (!response.ok) return false;
           const blob = await response.blob();
-          if (blob.size < ${MIN_CAPTURE_BYTES}) return false;
+          if (blob.size === 0 || blob.size > ${MAX_CAPTURE_BYTES}) return false;
           const mime = blob.type || "image/png";
           const extension = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png";
           const objectUrl = URL.createObjectURL(blob);
@@ -1623,7 +1622,7 @@ export class GeminiWebAutomation {
 
     const fallbackPath = join(downloadDirectory, `gemini-image-fallback-${Date.now()}.png`);
     const bytes = Buffer.from(screenshot.data, "base64");
-    if (bytes.length < MIN_CAPTURE_BYTES) return null;
+    if (bytes.length === 0 || bytes.length > MAX_CAPTURE_BYTES) return null;
     await writeFile(fallbackPath, bytes);
     return fallbackPath;
   }
@@ -1646,7 +1645,7 @@ export class GeminiWebAutomation {
         const extension = extname(candidate).toLowerCase();
         if (!IMAGE_EXTENSIONS.has(extension) || candidate.endsWith(".crdownload")) continue;
         const file = await stat(candidate);
-        if (!file.isFile() || file.size < MIN_CAPTURE_BYTES) continue;
+        if (!file.isFile() || file.size === 0 || file.size > MAX_CAPTURE_BYTES) continue;
         if (candidate === stablePath && file.size === stableSize) return candidate;
         stablePath = candidate;
         stableSize = file.size;
