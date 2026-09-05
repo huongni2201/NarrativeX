@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from dataclasses import dataclass, field
+from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -22,9 +22,22 @@ from narrativex_worker.schema import ChapterAnalysisResult
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
+@dataclass(frozen=True)
+class AnalysisStepIdentity:
+    """Stable logical identity used by durable subcall checkpoints."""
+
+    step_key: str
+    owned_source_range: dict[str, Any]
+    continuity_inputs: dict[str, Any] = field(default_factory=dict)
+
+
 class StructuredAnalysisAdapter(Protocol):
     async def generate(
-        self, prompt: str, model: type[ModelT]
+        self,
+        prompt: str,
+        model: type[ModelT],
+        *,
+        identity: AnalysisStepIdentity | None = None,
     ) -> tuple[ModelT | None, ProviderBilling, str]: ...
 
 
