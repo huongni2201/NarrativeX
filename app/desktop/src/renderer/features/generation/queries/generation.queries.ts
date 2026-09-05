@@ -127,22 +127,33 @@ export function useGenerationJob(jobId: string | null) {
               exact: true,
             });
           } catch {
-            // Ignore malformed events. The watchdog GET remains authoritative.
+            void queryClient.invalidateQueries({
+              queryKey: generationQueryKeys.generationJob(jobId),
+            });
           }
+        },
+        onError: () => {
+          // Electron main reconnects the authenticated stream automatically.
         },
       },
     );
-  }, [jobId, query.data, queryClient]);
+  }, [jobId, query.data?.status, queryClient]);
 
   return query;
 }
 
 export function useReviewMediaItem() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (input: { itemId: string; request: MediaReviewInput }) =>
-      generationApi.review(input.itemId, input.request),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: generationQueryKeys.all }),
+    mutationFn: (input: { itemId: string; review: MediaReviewInput; jobId?: string }) =>
+      generationApi.review(input.itemId, input.review),
+    onSuccess: (_value, input) => {
+      if (input.jobId) {
+        void queryClient.invalidateQueries({
+          queryKey: generationQueryKeys.mediaJob(input.jobId),
+        });
+      }
+    },
   });
 }
