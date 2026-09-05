@@ -116,7 +116,7 @@ class CreateMediaJobUseCaseTest {
     when(generationJobRepository.findByIdempotencyKey("shared-media-key", "owner-1"))
         .thenReturn(Optional.of(existingJob));
     when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
-    when(existingJob.getProjectId()).thenReturn(UUID.randomUUID());
+    when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
     when(existingJob.getChapterId()).thenReturn(UUID.randomUUID());
 
     CreateMediaJobCommand command =
@@ -124,6 +124,35 @@ class CreateMediaJobUseCaseTest {
             PROJECT_ID,
             CHAPTER_ID,
             "shared-media-key",
+            "IMAGE_MOTION",
+            "16:9",
+            new BigDecimal("0.25"));
+
+    assertThatThrownBy(() -> useCase.execute(command))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("Idempotency-Key");
+
+    verifyNoInteractions(mediaGenerationItemRepository, projectAccess, chapterSourceAccess);
+  }
+
+  @Test
+  void rejectsExistingMediaJobWhenRequestFingerprintChanged() {
+    UUID existingInternalJobId = UUID.randomUUID();
+    when(currentUserId.get()).thenReturn("owner-1");
+    when(generationJobRepository.findByIdempotencyKey("same-scope-key", "owner-1"))
+        .thenReturn(Optional.of(existingJob));
+    when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
+    when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
+    when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
+    when(existingJob.getId()).thenReturn(existingInternalJobId);
+    when(generationJobRepository.findRequestFingerprint(existingInternalJobId))
+        .thenReturn(Optional.of("f".repeat(64)));
+
+    CreateMediaJobCommand command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "same-scope-key",
             "IMAGE_MOTION",
             "16:9",
             new BigDecimal("0.25"));
