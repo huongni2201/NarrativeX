@@ -41,6 +41,8 @@ import {
   useReviewMediaItem,
 } from "../queries/generation.queries";
 
+type SubmissionIntent = { signature: string; idempotencyKey: string };
+
 export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ projectId: string; chapters: DesktopChapterDetails[]; timeline: DesktopTimeline | null }>) {
   const analyze = useAnalyzeChapter();
   const estimate = useEstimateMediaJob();
@@ -53,7 +55,8 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<MediaJobCostEstimate | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
+  const analysisIntentRef = useRef<SubmissionIntent | null>(null);
+  const mediaIntentRef = useRef<SubmissionIntent | null>(null);
 
   const currentMediaJob = useCurrentMediaJob(projectId, chapterId || null);
   const effectiveMediaJobId = mediaJobId ?? currentMediaJob.data?.jobId ?? null;
@@ -70,12 +73,14 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
     setMediaJobId(null);
     setCostEstimate(null);
     setNotice(null);
+    analysisIntentRef.current = null;
     mediaIntentRef.current = null;
   }, [chapterId]);
 
   useEffect(() => {
     setCostEstimate(null);
     setMediaJobId(null);
+    analysisIntentRef.current = null;
     mediaIntentRef.current = null;
   }, [imageProvider]);
 
@@ -98,8 +103,18 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   async function runAnalysis() {
     if (!chapterId || analysisBusy) return;
     setNotice(null);
+    const signature = [projectId, chapterId, "IMAGE", imageProvider].join(":");
+    if (analysisIntentRef.current?.signature !== signature) {
+      analysisIntentRef.current = { signature, idempotencyKey: crypto.randomUUID() };
+    }
     try {
-      const job = await analyze.mutateAsync({ projectId, chapterId, request: { visualGenerationMode: "IMAGE", imageProvider } });
+      const job = await analyze.mutateAsync({
+        projectId,
+        chapterId,
+        request: { visualGenerationMode: "IMAGE", imageProvider },
+        idempotencyKey: analysisIntentRef.current.idempotencyKey,
+      });
+      analysisIntentRef.current = null;
       setAnalysisJobId(job.jobId);
       setNotice(`Analysis ${job.jobId.slice(0, 8)} đã được queue cho ${formatProvider(imageProvider)}.`);
     } catch (error) {
