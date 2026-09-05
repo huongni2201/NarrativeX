@@ -20,6 +20,7 @@ import com.narrativex.backend.feature.generation.application.port.out.QuotaReser
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
+import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
@@ -54,6 +55,7 @@ class CreateMediaJobUseCaseTest {
   @Mock private UserQuotaAccess userQuotaAccess;
   @Mock private ImageGenerationCatalog imageGenerationCatalog;
   @Mock private GenerationJob activeJob;
+  @Mock private GenerationJob existingJob;
 
   @InjectMocks private CreateMediaJobUseCase useCase;
 
@@ -83,6 +85,54 @@ class CreateMediaJobUseCaseTest {
     assertThatThrownBy(() -> CreateMediaJobUseCase.requireIdempotencyKey("k".repeat(513)))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .hasMessageContaining("512");
+  }
+
+  @Test
+  void rejectsExistingIdempotencyKeyFromDifferentOperation() {
+    when(currentUserId.get()).thenReturn("owner-1");
+    when(generationJobRepository.findByIdempotencyKey("shared-key", "owner-1"))
+        .thenReturn(Optional.of(existingJob));
+    when(existingJob.getType()).thenReturn(JobType.RENDER_PROJECT);
+
+    CreateMediaJobCommand command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "shared-key",
+            "IMAGE_MOTION",
+            "16:9",
+            new BigDecimal("0.25"));
+
+    assertThatThrownBy(() -> useCase.execute(command))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("Idempotency-Key");
+
+    verifyNoInteractions(mediaGenerationItemRepository, projectAccess, chapterSourceAccess);
+  }
+
+  @Test
+  void rejectsExistingMediaJobFromDifferentProjectOrChapter() {
+    when(currentUserId.get()).thenReturn("owner-1");
+    when(generationJobRepository.findByIdempotencyKey("shared-media-key", "owner-1"))
+        .thenReturn(Optional.of(existingJob));
+    when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
+    when(existingJob.getProjectId()).thenReturn(UUID.randomUUID());
+    when(existingJob.getChapterId()).thenReturn(UUID.randomUUID());
+
+    CreateMediaJobCommand command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "shared-media-key",
+            "IMAGE_MOTION",
+            "16:9",
+            new BigDecimal("0.25"));
+
+    assertThatThrownBy(() -> useCase.execute(command))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("Idempotency-Key");
+
+    verifyNoInteractions(mediaGenerationItemRepository, projectAccess, chapterSourceAccess);
   }
 
   @Test
