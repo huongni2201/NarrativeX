@@ -29,7 +29,14 @@ export function useAnalyzeChapter() {
       projectId: string;
       chapterId: string;
       request: AnalyzeChapterInput;
-    }) => generationApi.analyze(input.projectId, input.chapterId, input.request),
+      idempotencyKey: string;
+    }) =>
+      generationApi.analyze(
+        input.projectId,
+        input.chapterId,
+        input.request,
+        input.idempotencyKey,
+      ),
   });
 }
 
@@ -120,33 +127,22 @@ export function useGenerationJob(jobId: string | null) {
               exact: true,
             });
           } catch {
-            void queryClient.invalidateQueries({
-              queryKey: generationQueryKeys.generationJob(jobId),
-            });
+            // Ignore malformed events. The watchdog GET remains authoritative.
           }
-        },
-        onError: () => {
-          // Electron main reconnects the authenticated stream automatically.
         },
       },
     );
-  }, [jobId, query.data?.status, queryClient]);
+  }, [jobId, query.data, queryClient]);
 
   return query;
 }
 
 export function useReviewMediaItem() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: (input: { itemId: string; review: MediaReviewInput; jobId?: string }) =>
-      generationApi.review(input.itemId, input.review),
-    onSuccess: (_value, input) => {
-      if (input.jobId) {
-        void queryClient.invalidateQueries({
-          queryKey: generationQueryKeys.mediaJob(input.jobId),
-        });
-      }
-    },
+    mutationFn: (input: { itemId: string; request: MediaReviewInput }) =>
+      generationApi.review(input.itemId, input.request),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: generationQueryKeys.all }),
   });
 }
