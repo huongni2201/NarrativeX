@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.generation.application.port.out.MediaPlanR
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.application.service.DefaultMotionExecutionPolicy;
+import com.narrativex.backend.feature.generation.application.service.MediaPlanSceneResolver;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
@@ -39,15 +40,18 @@ class CreateMediaPlanNoReuseTest {
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
     var visualPromptContextRepository = mock(VisualPromptContextRepository.class);
+    var sceneResolver =
+        new MediaPlanSceneResolver(
+            new MotionStrategyResolver(new DefaultMotionExecutionPolicy()),
+            visualPromptContextRepository,
+            new VisualPromptComposer(new ObjectMapper()));
     var useCase =
         new CreateMediaPlanUseCase(
             currentUserId,
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
-            new MotionStrategyResolver(new DefaultMotionExecutionPolicy()),
-            visualPromptContextRepository,
-            new VisualPromptComposer(new ObjectMapper()));
+            sceneResolver);
 
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
