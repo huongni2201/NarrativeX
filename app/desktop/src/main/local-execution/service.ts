@@ -43,6 +43,9 @@ export interface PreparedProjectRender extends ClaimedProjectRender {
 
 export class LocalExecutionService extends EventEmitter {
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private heartbeatInFlight = false;
+  private heartbeatRetryAttempt = 0;
+  private sessionEpoch = 0;
   private identity: DeviceIdentity | null = null;
   private sessionUserId: string | null = null;
   private state: LocalExecutionConnectionState = "UNPAIRED";
@@ -90,6 +93,7 @@ export class LocalExecutionService extends EventEmitter {
 
   async setUser(userId: string | null): Promise<LocalExecutionStatus> {
     const normalized = userId?.trim() || null;
+    if (normalized !== this.sessionUserId) this.sessionEpoch += 1;
     if (!normalized) {
       this.sessionUserId = null;
       this.stopHeartbeat();
@@ -127,7 +131,10 @@ export class LocalExecutionService extends EventEmitter {
       return this.status();
     }
 
-    if (this.heartbeatTimer && (this.state === "ONLINE" || this.state === "CONNECTING")) {
+    if (
+      (this.heartbeatTimer || this.heartbeatInFlight) &&
+      (this.state === "ONLINE" || this.state === "CONNECTING")
+    ) {
       return this.status();
     }
     await this.startHeartbeat();
@@ -148,6 +155,7 @@ export class LocalExecutionService extends EventEmitter {
       if (paired.userId !== sessionUserId) {
         throw new Error("Pairing code belongs to a different NarrativeX user.");
       }
+      this.sessionEpoch += 1;
       this.identity = {
         deviceId: paired.deviceId,
         userId: paired.userId,
@@ -164,6 +172,7 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   async unpair(): Promise<LocalExecutionStatus> {
+    this.sessionEpoch += 1;
     this.stopHeartbeat();
     this.stopRenderPolling();
     this.abortActiveRender(
@@ -220,8 +229,13 @@ export class LocalExecutionService extends EventEmitter {
       );
     }
 
+    const claimEpoch = this.sessionEpoch;
     const claimed = await this.backendClient.claimProjectRender(identity.deviceToken);
     if (!claimed) return null;
+    if (!this.claimSessionIsCurrent(identity, claimEpoch)) {
+      await this.persistCancellation(identity, claimed);
+      return null;
+    }
 
     const controller = new AbortController();
     this.activeRender = { jobId: claimed.jobId, controller };
@@ -336,6 +350,7 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   stop(): void {
+    this.sessionEpoch += 1;
     this.sessionUserId = null;
     this.stopHeartbeat();
     this.stopRenderPolling();
@@ -345,6 +360,15 @@ export class LocalExecutionService extends EventEmitter {
         "Desktop execution stopped while rendering.",
         true,
       ),
+    );
+  }
+
+  private claimSessionIsCurrent(identity: DeviceIdentity, claimEpoch: number): boolean {
+    return (
+      this.sessionEpoch === claimEpoch &&
+      this.identity?.deviceId === identity.deviceId &&
+      this.sessionUserId === identity.userId &&
+      this.state === "ONLINE"
     );
   }
 
@@ -451,13 +475,25 @@ export class LocalExecutionService extends EventEmitter {
 
   private async startHeartbeat(): Promise<void> {
     this.stopHeartbeat();
+    this.heartbeatRetryAttempt = 0;
     await this.sendHeartbeat();
-    if (this.state !== "ONLINE") return;
-    this.heartbeatTimer = setInterval(
-      () => void this.sendHeartbeat(),
-      this.config.heartbeatIntervalMs,
-    );
-    this.startRenderPolling();
+  }
+
+  private scheduleHeartbeat(delayMs: number): void {
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+    this.heartbeatTimer = setTimeout(() => {
+      this.heartbeatTimer = null;
+      void this.sendHeartbeat();
+    }, Math.max(1, delayMs));
+  }
+
+  private scheduleHeartbeatRetry(): void {
+    const baseDelay = Math.max(1, Math.min(this.config.heartbeatIntervalMs, 1_000));
+    const exponent = Math.min(this.heartbeatRetryAttempt, 6);
+    const cappedDelay = Math.min(30_000, baseDelay * 2 ** exponent);
+    const jitter = 0.8 + Math.random() * 0.4;
+    this.heartbeatRetryAttempt += 1;
+    this.scheduleHeartbeat(Math.round(cappedDelay * jitter));
   }
 
   private startRenderPolling(): void {
@@ -487,6 +523,7 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   private async sendHeartbeat(): Promise<void> {
+    if (this.heartbeatInFlight) return;
     const identity = this.identity;
     if (!identity) {
       this.setState("UNPAIRED", null);
@@ -497,15 +534,20 @@ export class LocalExecutionService extends EventEmitter {
       return;
     }
 
+    this.heartbeatInFlight = true;
     this.setState(this.state === "ONLINE" ? "ONLINE" : "CONNECTING", null);
     try {
       await this.backendClient.heartbeat(identity.deviceToken);
       if (
-        this.identity?.deviceId === identity.deviceId &&
-        this.sessionUserId === identity.userId
+        this.identity?.deviceId !== identity.deviceId ||
+        this.sessionUserId !== identity.userId
       ) {
-        this.setState("ONLINE", null);
+        return;
       }
+      this.heartbeatRetryAttempt = 0;
+      this.setState("ONLINE", null);
+      this.scheduleHeartbeat(this.config.heartbeatIntervalMs);
+      this.startRenderPolling();
     } catch (error) {
       if (
         this.identity?.deviceId !== identity.deviceId ||
@@ -516,18 +558,24 @@ export class LocalExecutionService extends EventEmitter {
       if (isDeviceAuthenticationFailure(error)) {
         this.stopHeartbeat();
         this.stopRenderPolling();
+        this.sessionEpoch += 1;
         this.identity = null;
         await this.identityStore.clear().catch(() => undefined);
         this.setState("UNPAIRED", null);
         return;
       }
+      this.stopRenderPolling();
       this.setState("OFFLINE", errorMessage(error));
+      this.scheduleHeartbeatRetry();
+    } finally {
+      this.heartbeatInFlight = false;
     }
   }
 
   private stopHeartbeat(): void {
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
     this.heartbeatTimer = null;
+    this.heartbeatRetryAttempt = 0;
   }
 
   private abortActiveRender(reason: RenderExecutionError): void {
