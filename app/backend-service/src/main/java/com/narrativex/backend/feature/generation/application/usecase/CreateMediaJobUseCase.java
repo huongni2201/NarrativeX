@@ -16,6 +16,7 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
+import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
@@ -75,19 +76,19 @@ public class CreateMediaJobUseCase {
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
-      var existingItems =
-          mediaGenerationItemRepository.findByJobOwned(userId, existing.get().getId());
-      if (!existingItems.isEmpty()
-          && existingItems.stream()
+      GenerationJob existingJob = existing.get();
+      validateReplayScope(existingJob, command);
+      var existingItems = mediaGenerationItemRepository.findByJobOwned(userId, existingJob.getId());
+      if (existingItems.isEmpty()
+          || existingItems.stream()
               .anyMatch(
                   item ->
                       !itemFingerprint(
                               requestFingerprint, item.getMediaPlanId(), item.getVisualBeatId())
                           .equals(item.getRequestFingerprint()))) {
-        throw new GenerationAdmissionDeniedException(
-            "IDEMPOTENCY_CONFLICT", "The Idempotency-Key is already bound to a different request.");
+        throw idempotencyConflict();
       }
-      return existing.get();
+      return existingJob;
     }
 
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
@@ -199,6 +200,19 @@ public class CreateMediaJobUseCase {
           "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 512 characters.");
     }
     return normalized;
+  }
+
+  private static void validateReplayScope(GenerationJob existingJob, CreateMediaJobCommand command) {
+    if (existingJob.getType() != JobType.CHAPTER_GENERATE
+        || !command.projectId().equals(existingJob.getProjectId())
+        || !command.chapterId().equals(existingJob.getChapterId())) {
+      throw idempotencyConflict();
+    }
+  }
+
+  private static GenerationAdmissionDeniedException idempotencyConflict() {
+    return new GenerationAdmissionDeniedException(
+        "IDEMPOTENCY_CONFLICT", "The Idempotency-Key is already bound to a different request.");
   }
 
   private static String normalizeVisualMode(String value) {

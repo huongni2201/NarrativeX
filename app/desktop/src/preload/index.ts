@@ -116,6 +116,7 @@ const bridge: NarrativeXDesktopBridge = {
     recoveryStatus: () => ipcRenderer.invoke("desktop:render:recovery-status"),
     cancel: (jobId: string) => ipcRenderer.invoke("desktop:render:cancel", jobId),
     chooseDestination: () => ipcRenderer.invoke("desktop:render:choose-destination"),
+    bindDestination: (input) => ipcRenderer.invoke("desktop:render:bind-destination", input),
     deliverArtifact: (input) => ipcRenderer.invoke("desktop:render:deliver-artifact", input),
   },
   system: {

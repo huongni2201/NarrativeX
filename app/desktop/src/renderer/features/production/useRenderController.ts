@@ -13,6 +13,9 @@ import { createAutoEditPlan } from "./auto-edit-planner";
 import { buildRenderPreflightInput } from "./render-preflight";
 import { getRenderReadinessBlockers } from "./render-readiness";
 
+type SelectedDestination = { token: string; directory: string };
+export type RenderController = ReturnType<typeof useRenderController>;
+
 export function useRenderController({
   projectId,
   timeline,
@@ -32,6 +35,7 @@ export function useRenderController({
   const [busy, setBusy] = useState(false);
   const [destinationDirectory, setDestinationDirectory] = useState<string | null>(null);
   const [destinationToken, setDestinationToken] = useState<string | null>(null);
+  const [destinationBoundJobId, setDestinationBoundJobId] = useState<string | null>(null);
   const [finalPath, setFinalPath] = useState<string | null>(null);
   const deliveringJobRef = useRef<string | null>(null);
 
@@ -53,45 +57,103 @@ export function useRenderController({
   useEffect(() => {
     if (
       liveJob?.status !== "COMPLETED" ||
-      !destinationToken ||
+      destinationBoundJobId !== liveJob.jobId ||
+      finalPath ||
       deliveringJobRef.current === liveJob.jobId
     ) {
       return;
     }
-    deliveringJobRef.current = liveJob.jobId;
-    const token = destinationToken;
-    void window.narrativex.render
-      .deliverArtifact({ token, projectId, jobId: liveJob.jobId, projectName })
-      .then(({ path }) => {
-        setDestinationToken(null);
-        setDestinationDirectory(null);
-        setFinalPath(path);
-        setNotice(`Render hoàn tất: ${path}`);
-      })
-      .catch((error: unknown) => {
-        deliveringJobRef.current = null;
-        setNotice(toMessage(error));
-      });
-  }, [destinationToken, liveJob, projectId, projectName]);
+    void deliverCompletedJob(liveJob.jobId);
+  }, [destinationBoundJobId, finalPath, liveJob, projectId, projectName]);
 
-  async function chooseDestination() {
+  async function deliverCompletedJob(jobId: string) {
+    if (deliveringJobRef.current === jobId) return;
+    deliveringJobRef.current = jobId;
+    try {
+      const { path } = await window.narrativex.render.deliverArtifact({
+        projectId,
+        jobId,
+        projectName,
+      });
+      setDestinationToken(null);
+      setDestinationDirectory(null);
+      setFinalPath(path);
+      setNotice(`Render hoàn tất: ${path}`);
+    } catch (error: unknown) {
+      deliveringJobRef.current = null;
+      setNotice(toMessage(error));
+    }
+  }
+
+  async function chooseDestination(): Promise<SelectedDestination | null> {
     const destination = await window.narrativex.render.chooseDestination();
     if (!destination) {
       setNotice("Đã hủy chọn thư mục.");
-      return;
+      return null;
     }
     setDestinationDirectory(destination.directory);
     setDestinationToken(destination.token);
     setFinalPath(null);
     setNotice(`Video final sẽ được lưu vào ${destination.directory}.`);
+    return destination;
   }
 
-  async function startRender() {
+  async function bindDestination(jobId: string, destination: SelectedDestination) {
+    const bound = await window.narrativex.render.bindDestination({
+      token: destination.token,
+      projectId,
+      jobId,
+    });
+    setDestinationDirectory(bound.directory);
+    setDestinationToken(null);
+    setDestinationBoundJobId(jobId);
+  }
+
+  async function chooseDestinationAndStartRender() {
+    const destination = await chooseDestination();
+    if (!destination) return;
+    await startRender(destination);
+  }
+
+  async function startRender(destination?: SelectedDestination) {
+    if (liveJob?.status === "COMPLETED" && destinationBoundJobId === liveJob.jobId && !finalPath) {
+      await deliverCompletedJob(liveJob.jobId);
+      return;
+    }
+    if (liveJob && destinationBoundJobId === liveJob.jobId && liveJob.status !== "COMPLETED") {
+      setNotice(`Render ${liveJob.jobId} đang ở trạng thái ${liveJob.status}.`);
+      return;
+    }
+
+    const selectedDestination =
+      destination ??
+      (destinationDirectory && destinationToken
+        ? { directory: destinationDirectory, token: destinationToken }
+        : null);
+
+    if (job && destinationBoundJobId !== job.jobId && !finalPath) {
+      if (!selectedDestination) {
+        setNotice("Render đã được queue nhưng chưa có thư mục xuất. Hãy chọn lại thư mục lưu video.");
+        return;
+      }
+      setBusy(true);
+      try {
+        await bindDestination(job.jobId, selectedDestination);
+        setNotice(`Đã gắn thư mục xuất cho render ${job.jobId}.`);
+        if (liveJob?.status === "COMPLETED") await deliverCompletedJob(job.jobId);
+      } catch (error) {
+        setNotice(toMessage(error));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (!timeline || !autoEditPlan || !canRender) {
       setNotice(readinessBlockers[0] ?? "Timeline chưa ready for render.");
       return;
     }
-    if (!destinationDirectory || !destinationToken) {
+    if (!selectedDestination) {
       setNotice("Hãy chọn thư mục lưu video trước khi render.");
       return;
     }
@@ -117,10 +179,20 @@ export function useRenderController({
         subtitlesEnabled,
       );
       deliveringJobRef.current = null;
+      setDestinationBoundJobId(null);
       setJob(nextJob);
-      setNotice(
-        `Render ${resolutionLabel(resolution)} · ${frameRate} FPS đã được queue. File final sẽ lưu vào ${destinationDirectory}.`,
-      );
+      try {
+        await bindDestination(nextJob.jobId, selectedDestination);
+        setNotice(
+          `Render ${resolutionLabel(resolution)} · ${frameRate} FPS đã được queue. File final sẽ lưu vào ${selectedDestination.directory}.`,
+        );
+      } catch (error) {
+        setDestinationDirectory(selectedDestination.directory);
+        setDestinationToken(selectedDestination.token);
+        setNotice(
+          `Render đã được queue nhưng chưa gắn được thư mục xuất. ${toMessage(error)}`,
+        );
+      }
     } catch (error) {
       setNotice(toMessage(error));
     } finally {
@@ -147,6 +219,7 @@ export function useRenderController({
     canRender,
     autoEditPlan,
     chooseDestination,
+    chooseDestinationAndStartRender,
     startRender,
   };
 }

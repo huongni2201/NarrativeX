@@ -6,7 +6,7 @@ import type {
 import { Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RenderDialog } from "../production/components/RenderDialog";
-import { useRenderController } from "../production/useRenderController";
+import type { RenderController } from "../production/useRenderController";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 import { EditorExplorerPanel } from "./components/EditorExplorerPanel";
 import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
@@ -33,17 +33,13 @@ export interface MediaMutationNotice {
 
 export function EditorScreen({
   workspace,
+  renderController,
 }: Readonly<{
   workspace: DesktopWorkspaceState;
+  renderController: RenderController;
 }>) {
   const timeline = workspace.timeline;
   const projectId = timeline?.projectId ?? null;
-  const projectName = workspace.projects.find((project) => project.id === projectId)?.name;
-  const renderController = useRenderController({
-    projectId: projectId ?? "",
-    timeline,
-    projectName,
-  });
   const [renderOpen, setRenderOpen] = useState(false);
   const beats = timeline?.beats ?? [];
   const chapters = timeline?.chapters ?? [];

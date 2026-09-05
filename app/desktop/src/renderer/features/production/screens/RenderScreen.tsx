@@ -18,10 +18,9 @@ import {
   StatusIndicator,
   WorkspacePane,
 } from "../../workspace/components/WorkstationPrimitives";
-import { useRenderController } from "../useRenderController";
+import type { RenderController } from "../useRenderController";
 
-export function RenderScreen({ projectId, timeline }: Readonly<{ projectId: string; timeline: DesktopTimeline | null }>) {
-  const controller = useRenderController({ projectId, timeline });
+export function RenderScreen({ timeline, controller }: Readonly<{ timeline: DesktopTimeline | null; controller: RenderController }>) {
   const fitSummary = controller.autoEditPlan
     ? controller.autoEditPlan.decisions.reduce<Record<string, number>>((summary, decision) => {
         summary[decision.fitMode] = (summary[decision.fitMode] ?? 0) + 1;
@@ -80,7 +79,7 @@ export function RenderScreen({ projectId, timeline }: Readonly<{ projectId: stri
             ) : null}
           </div>
           <div className="shrink-0 border-t border-border-subtle p-3">
-            <Button className="w-full" onClick={() => void controller.startRender()} disabled={controller.busy || !controller.canRender}>
+            <Button className="w-full" onClick={() => void controller.chooseDestinationAndStartRender()} disabled={controller.busy || !controller.canRender}>
               <FolderOpen size={13} /> {controller.busy ? "Preparing…" : "Choose folder & render"}
             </Button>
           </div>

@@ -321,8 +321,12 @@ export interface NarrativeXDesktopBridge {
     recoveryStatus(): Promise<RenderRecoveryStatus>;
     cancel(jobId: string): Promise<boolean>;
     chooseDestination(): Promise<RenderDestinationSelection | null>;
-    deliverArtifact(input: {
+    bindDestination(input: {
       token: string;
+      projectId: string;
+      jobId: string;
+    }): Promise<{ directory: string }>;
+    deliverArtifact(input: {
       projectId: string;
       jobId: string;
       projectName?: string;
