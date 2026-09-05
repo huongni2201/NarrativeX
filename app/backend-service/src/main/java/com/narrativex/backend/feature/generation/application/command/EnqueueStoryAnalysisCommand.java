@@ -4,10 +4,19 @@ import java.util.UUID;
 
 /** Requests durable analysis for one Chapter within an owned Project. */
 public record EnqueueStoryAnalysisCommand(
-    UUID projectId, UUID chapterId, String visualGenerationMode, String imageProvider) {
+    UUID projectId,
+    UUID chapterId,
+    String visualGenerationMode,
+    String imageProvider,
+    String idempotencyKey) {
 
   public EnqueueStoryAnalysisCommand(UUID projectId, UUID chapterId) {
-    this(projectId, chapterId, "IMAGE", "API");
+    this(projectId, chapterId, "IMAGE", "API", null);
+  }
+
+  public EnqueueStoryAnalysisCommand(
+      UUID projectId, UUID chapterId, String visualGenerationMode, String imageProvider) {
+    this(projectId, chapterId, visualGenerationMode, imageProvider, null);
   }
 
   public EnqueueStoryAnalysisCommand {
@@ -23,6 +32,12 @@ public record EnqueueStoryAnalysisCommand(
       }
     } else {
       imageProvider = null;
+    }
+    if (idempotencyKey != null) {
+      idempotencyKey = idempotencyKey.trim();
+      if (idempotencyKey.isEmpty() || idempotencyKey.length() > 200) {
+        throw new IllegalArgumentException("idempotencyKey must contain 1-200 characters");
+      }
     }
   }
 }
