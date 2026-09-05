@@ -19,6 +19,10 @@ public interface ChapterContinuityRepository {
   Optional<RegenerationPlan> findRegenerationPlanByFingerprint(
       UUID projectId, UUID chapterId, String inputFingerprint);
 
+  Optional<MediaGenerationSettings> findLatestMediaSettings(UUID chapterId);
+
+  void bindRegenerationJob(UUID generationJobId, UUID regenerationPlanId);
+
   int nextReportRevision(UUID continuityPlanId);
 
   void appendHumanReport(
@@ -42,6 +46,14 @@ public interface ChapterContinuityRepository {
       int sceneOrderIndex,
       int beatOrderIndex,
       String semanticHash) {}
+
+  record MediaGenerationSettings(
+      String aspectRatio,
+      String imageStyle,
+      String providerKey,
+      String modelKey,
+      String pricingSnapshotJson,
+      String pricingFingerprint) {}
 
   record RegenerationPlan(
       UUID id,
