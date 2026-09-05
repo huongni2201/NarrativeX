@@ -22,8 +22,6 @@ type Metrics = Readonly<{
 }>;
 
 type Props = Readonly<{
-  projectId: string;
-  chapterId: string | null;
   projectName: string;
   selected: boolean;
   selectedWorkspace: DesktopChapterWorkspace | undefined;
@@ -33,8 +31,6 @@ type Props = Readonly<{
 }>;
 
 export function ChapterWorkspaceContext({
-  projectId,
-  chapterId,
   projectName,
   selected,
   selectedWorkspace,
@@ -54,7 +50,7 @@ export function ChapterWorkspaceContext({
     <WorkspacePane className="flex flex-col bg-surface-panel">
       <PaneHeader title="Context" meta={projectName} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ContinuityReportPanel projectId={projectId} chapterId={chapterId} />
+        <ContinuityReportPanel chapterId={selectedWorkspace?.chapter.id ?? null} />
 
         <InspectorSection title="Project">
           <PropertyRow label="Project" value={<span className="block truncate">{projectName}</span>} />
