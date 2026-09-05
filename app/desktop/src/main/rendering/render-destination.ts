@@ -1,5 +1,6 @@
-import { copyFile, stat } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { copyFile, rename, rm, stat } from "node:fs/promises";
+import { basename, extname, join } from "node:path";
 
 const INVALID_FILENAME = /[<>:"/\\|?*\u0000-\u001f]/gu;
 
@@ -39,8 +40,17 @@ export async function deliverRenderArtifact(input: {
     input.destinationDirectory,
     filename,
   );
-  await copyFile(input.sourcePath, destinationPath);
-  return destinationPath;
+  const temporaryPath = join(
+    input.destinationDirectory,
+    `.${basename(destinationPath)}.${randomUUID()}.partial`,
+  );
+  try {
+    await copyFile(input.sourcePath, temporaryPath);
+    await rename(temporaryPath, destinationPath);
+    return destinationPath;
+  } finally {
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
+  }
 }
 
 function sanitizeFilenameStem(value: string | null | undefined): string {
