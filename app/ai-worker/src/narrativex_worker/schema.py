@@ -214,6 +214,12 @@ class ChapterAnalysisResult(BaseModel):
     characters: list[CharacterAnalysis] = Field(default_factory=list)
     locations: list[LocationAnalysis] = Field(default_factory=list)
     scenes: list[SceneAnalysis] = Field(min_length=1)
+    # Strict continuity models validate these payloads before they enter this durable envelope.
+    # Keeping the envelope provider-neutral avoids a schema/continuity import cycle while letting
+    # provider-operation replay and repository completion retain the immutable plan/report/state.
+    continuity_plan: dict[str, object] | None = None
+    continuity_states: list[list[dict[str, object]]] | None = None
+    continuity_report: dict[str, object] | None = None
 
     @model_validator(mode="after")
     def validate_scene_references(self) -> Self:
@@ -260,6 +266,18 @@ class ChapterAnalysisResult(BaseModel):
                             "character_key "
                             f"{character_key!r} that is not present in the scene"
                         )
+        if self.continuity_states is not None:
+            if self.continuity_plan is None or self.continuity_report is None:
+                raise ValueError("continuity states require continuity plan and report")
+            if len(self.continuity_states) != len(self.scenes):
+                raise ValueError("continuity state scene count must match storyboard scene count")
+            for scene_index, (scene, states) in enumerate(
+                zip(self.scenes, self.continuity_states, strict=True)
+            ):
+                if len(states) != len(scene.visual_beats):
+                    raise ValueError(
+                        f"scene {scene_index} continuity state count must match visual beat count"
+                    )
         return self
 
 
