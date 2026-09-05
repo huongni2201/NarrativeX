@@ -5,6 +5,7 @@ from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 
+from narrativex_worker.materialization.continuity import materialize_continuity
 from narrativex_worker.schema import ChapterAnalysisResult
 from narrativex_worker.visual_alignment import resolve_visual_beat_ranges
 from narrativex_worker.visual_density import planning_duration_ms, validate_visual_beat_density
@@ -64,6 +65,8 @@ async def materialize_storyboard(
         target_revision_id,
     )
 
+    scene_ids: dict[int, UUID] = {}
+    beat_ids: dict[tuple[UUID, int], UUID] = {}
     if result.scenes:
         location_ids = [
             project_locations[scene.location_key] if scene.location_key is not None else None
@@ -128,7 +131,6 @@ async def materialize_storyboard(
             for scene_index, scene in enumerate(result.scenes)
             for beat_index, beat in enumerate(scene.visual_beats)
         ]
-        beat_ids: dict[tuple[UUID, int], UUID] = {}
         if beat_rows:
             inserted_beats = await connection.fetch(
                 """
@@ -197,6 +199,17 @@ async def materialize_storyboard(
                 """,
                 beat_character_rows,
             )
+
+    await materialize_continuity(
+        connection,
+        project_id=claimed.request.project_id,
+        chapter_id=claimed.request.chapter_id,
+        story_version_id=claimed.request.story_version_id,
+        source_hash=claimed.request.source_hash,
+        result=result,
+        scene_ids=scene_ids,
+        beat_ids=beat_ids,
+    )
 
     chapter_update = await connection.execute(
         """
