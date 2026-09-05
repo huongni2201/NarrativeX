@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,6 +47,7 @@ public class ProjectGenerationController {
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
       @PathVariable UUID projectId,
       @PathVariable UUID chapterId,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody(required = false) AnalyzeChapterRequest request) {
     AnalyzeChapterRequest effective =
         request == null ? new AnalyzeChapterRequest(null, null) : request;
@@ -61,13 +63,14 @@ public class ProjectGenerationController {
                 projectId,
                 chapterId,
                 effective.effectiveVisualGenerationMode(),
-                effective.effectiveImageProvider()));
+                effective.effectiveImageProvider(),
+                idempotencyKey));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Story analysis job accepted", JobResponse.from(job)));
   }
 
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(UUID projectId, UUID chapterId) {
-    return analyzeChapter(projectId, chapterId, null);
+    return analyzeChapter(projectId, chapterId, null, null);
   }
 
   @GetMapping("/{projectId}/chapters/{chapterId}/visual-beats/{visualBeatId}/gemini-context")
