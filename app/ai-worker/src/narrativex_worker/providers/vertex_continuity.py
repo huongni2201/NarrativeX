@@ -80,10 +80,37 @@ class ContinuityVertexGeminiProvider(VertexGeminiProvider):
                 len(pipeline.report.issues),
             )
 
+        states_by_scene: list[list[dict[str, object]]] = []
+        for scene_index in range(len(pipeline.analysis.scenes)):
+            scene_states: list[dict[str, object]] = []
+            shard_keys = sorted(
+                key for key in pipeline.continuity_states if key[0] == scene_index
+            )
+            for key in shard_keys:
+                scene_states.extend(
+                    state.model_dump(mode="json", by_alias=True)
+                    for state in pipeline.continuity_states[key]
+                )
+            states_by_scene.append(scene_states)
+
+        durable_result = pipeline.analysis.model_copy(
+            update={
+                "continuity_plan": pipeline.continuity_plan.model_dump(
+                    mode="json", by_alias=True
+                ),
+                "continuity_states": states_by_scene,
+                "continuity_report": pipeline.report.model_dump(mode="json", by_alias=True),
+            }
+        )
+        # Revalidate the durable envelope so a cardinality mistake cannot be persisted/replayed.
+        durable_result = type(pipeline.analysis).model_validate(
+            durable_result.model_dump(mode="json")
+        )
+
         return ProviderOperation(
             provider_key="vertex",
             operation_id=pipeline.final_response_id,
             status=ProviderOperationStatus.COMPLETED,
-            result=pipeline.analysis,
+            result=durable_result,
             billing=self._merge_billings(pipeline.billings),
         )
