@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterContinuityMapper">
+
+    <resultMap id="currentContinuityRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.CurrentContinuityRow">
+        <id property="planId" column="plan_id" />
+        <result property="planRevision" column="plan_revision" />
+        <result property="sourceHash" column="source_hash" />
+        <result property="reportStatus" column="report_status" />
+        <result property="reportRevision" column="report_revision" />
+        <result property="issuesJson" column="issues_json" />
+    </resultMap>
+
+    <resultMap id="beatLineageRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ContinuityBeatLineageRow">
+        <id property="visualBeatId" column="visual_beat_id" />
+        <result property="sceneId" column="scene_id" />
+        <result property="sceneOrderIndex" column="scene_order_index" />
+        <result property="beatOrderIndex" column="beat_order_index" />
+        <result property="semanticHash" column="semantic_hash" />
+    </resultMap>
+
+    <resultMap id="regenerationPlanRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.RegenerationPlanRow">
+        <id property="id" column="id" />
+        <result property="projectId" column="project_id" />
+        <result property="chapterId" column="chapter_id" />
+        <result property="continuityPlanId" column="continuity_plan_id" />
+        <result property="sourceHash" column="source_hash" />
+        <result property="requestedBeatIdsJson" column="requested_beat_ids_json" />
+        <result property="affectedBeatIdsJson" column="affected_beat_ids_json" />
+        <result property="reusableBeatIdsJson" column="reusable_beat_ids_json" />
+        <result property="reason" column="reason" />
+        <result property="estimatedCost" column="estimated_cost" />
+        <result property="currency" column="currency" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="inputFingerprint" column="input_fingerprint" />
+        <result property="createdBy" column="created_by" />
+    </resultMap>
+
+    <resultMap id="mediaGenerationSettingsRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaGenerationSettingsRow">
+        <result property="aspectRatio" column="aspect_ratio" />
+        <result property="imageStyle" column="image_style" />
+        <result property="providerKey" column="provider_key" />
+        <result property="modelKey" column="model_key" />
+        <result property="pricingSnapshotJson" column="pricing_snapshot_json" />
+        <result property="pricingFingerprint" column="pricing_fingerprint" />
+    </resultMap>
+
+    <select id="findCurrent" resultMap="currentContinuityRow">
+        SELECT p.id AS plan_id,
+               p.revision AS plan_revision,
+               p.source_hash,
+               report.status AS report_status,
+               report.revision AS report_revision,
+               report.issues_json::text AS issues_json
+          FROM chapter_continuity_plans p
+          JOIN chapters ch
+            ON ch.id = p.chapter_id
+           AND ch.story_version_id = p.story_version_id
+          JOIN story_versions sv
+            ON sv.id = p.story_version_id
+           AND sv.project_id = p.project_id
+          JOIN LATERAL (
+              SELECT cr.status, cr.revision, cr.issues_json
+                FROM continuity_reports cr
+               WHERE cr.plan_id = p.id
+               ORDER BY cr.revision DESC
+               LIMIT 1
+          ) report ON TRUE
+         WHERE p.project_id = #{projectId}
+           AND p.chapter_id = #{chapterId}
+           AND ch.deleted_at IS NULL
+           AND ch.current_storyboard_revision_id = p.storyboard_revision_id
+         ORDER BY p.revision DESC
+         LIMIT 1
+    </select>
+
+    <select id="findBeatLineage" resultMap="beatLineageRow">
+        SELECT state.visual_beat_id,
+               state.scene_id,
+               scene.order_index AS scene_order_index,
+               beat.order_index AS beat_order_index,
+               state.semantic_hash
+          FROM visual_beat_continuity_states state
+          JOIN scenes scene
+            ON scene.id = state.scene_id
+           AND scene.chapter_id = state.chapter_id
+          JOIN visual_beats beat
+            ON beat.id = state.visual_beat_id
+           AND beat.scene_id = state.scene_id
+         WHERE state.plan_id = #{planId}
+         ORDER BY scene.order_index, beat.order_index, beat.id
+    </select>
+
+    <insert id="insertRegenerationPlan">
+        INSERT INTO regeneration_plans
+          (id, project_id, chapter_id, continuity_plan_id, source_hash,
+           requested_beat_ids_json, affected_beat_ids_json, reusable_beat_ids_json,
+           reason, estimated_cost, currency, expires_at, input_fingerprint, created_by)
+        VALUES
+          (#{id}, #{projectId}, #{chapterId}, #{continuityPlanId}, #{sourceHash},
+           #{requestedBeatIdsJson}::jsonb, #{affectedBeatIdsJson}::jsonb,
+           #{reusableBeatIdsJson}::jsonb, #{reason}, #{estimatedCost}, #{currency},
+           #{expiresAt}, #{inputFingerprint}, #{createdBy})
+        ON CONFLICT (project_id, chapter_id, input_fingerprint) DO NOTHING
+    </insert>
+
+    <select id="findRegenerationPlan" resultMap="regenerationPlanRow">
+        SELECT id, project_id, chapter_id, continuity_plan_id, source_hash,
+               requested_beat_ids_json::text AS requested_beat_ids_json,
+               affected_beat_ids_json::text AS affected_beat_ids_json,
+               reusable_beat_ids_json::text AS reusable_beat_ids_json,
+               reason, estimated_cost, currency, expires_at, input_fingerprint, created_by
+          FROM regeneration_plans
+         WHERE project_id = #{projectId}
+           AND chapter_id = #{chapterId}
+           AND id = #{planId}
+         LIMIT 1
+    </select>
+
+    <select id="findRegenerationPlanByFingerprint" resultMap="regenerationPlanRow">
+        SELECT id, project_id, chapter_id, continuity_plan_id, source_hash,
+               requested_beat_ids_json::text AS requested_beat_ids_json,
+               affected_beat_ids_json::text AS affected_beat_ids_json,
+               reusable_beat_ids_json::text AS reusable_beat_ids_json,
+               reason, estimated_cost, currency, expires_at, input_fingerprint, created_by
+          FROM regeneration_plans
+         WHERE project_id = #{projectId}
+           AND chapter_id = #{chapterId}
+           AND input_fingerprint = #{inputFingerprint}
+         LIMIT 1
+    </select>
+
+    <select id="findLatestMediaSettings" resultMap="mediaGenerationSettingsRow">
+        SELECT mp.image_aspect_ratio AS aspect_ratio,
+               CASE
+                   WHEN mbp.prompt_template_version LIKE '%cinematic_anime' THEN 'CINEMATIC_ANIME'
+                   WHEN mbp.prompt_template_version LIKE '%storybook_watercolor' THEN 'STORYBOOK_WATERCOLOR'
+                   ELSE 'CINEMATIC'
+               END AS image_style,
+               mp.image_provider_key AS provider_key,
+               mp.image_model_key AS model_key,
+               mp.pricing_snapshot_json::text AS pricing_snapshot_json,
+               mp.pricing_fingerprint
+          FROM media_plans mp
+          LEFT JOIN LATERAL (
+              SELECT prompt_template_version
+                FROM media_beat_plans
+               WHERE media_plan_id = mp.id
+               ORDER BY scene_index, beat_index
+               LIMIT 1
+          ) mbp ON TRUE
+         WHERE mp.chapter_id = #{chapterId}
+           AND mp.production_mode = 'IMAGE_MOTION'
+         ORDER BY mp.revision DESC
+         LIMIT 1
+    </select>
+
+    <update id="bindRegenerationJob">
+        UPDATE generation_jobs
+           SET regeneration_plan_id = #{regenerationPlanId},
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{generationJobId}
+           AND job_type = 'CHAPTER_GENERATE'
+           AND regeneration_plan_id IS NULL
+    </update>
+
+    <select id="findRegenerationPlanIdForJob" resultType="java.util.UUID">
+        SELECT regeneration_plan_id
+          FROM generation_jobs
+         WHERE id = #{generationJobId}
+           AND job_type = 'CHAPTER_GENERATE'
+         LIMIT 1
+    </select>
+
+    <select id="nextReportRevision" resultType="int">
+        SELECT COALESCE(MAX(revision), 0) + 1
+          FROM continuity_reports
+         WHERE plan_id = #{continuityPlanId}
+    </select>
+
+    <insert id="insertHumanReport">
+        INSERT INTO continuity_reports
+          (plan_id, revision, status, issues_json, origin, reviewed_by, reviewed_at)
+        VALUES
+          (#{continuityPlanId}, #{revision}, #{status}, #{issuesJson}::jsonb,
+           'HUMAN', #{reviewedBy}, CURRENT_TIMESTAMP)
+    </insert>
+</mapper>

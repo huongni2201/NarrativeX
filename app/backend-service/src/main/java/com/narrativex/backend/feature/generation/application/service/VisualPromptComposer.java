@@ -29,9 +29,11 @@ public final class VisualPromptComposer {
   static final int MAX_REFERENCE_IMAGES = 3;
 
   private final ObjectMapper objectMapper;
+  private final ContinuityPromptSection continuityPromptSection;
 
   public VisualPromptComposer(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
+    this.continuityPromptSection = new ContinuityPromptSection(objectMapper);
   }
 
   /** Compatibility overload for beats created before structured direction was persisted. */
@@ -75,6 +77,7 @@ public final class VisualPromptComposer {
     appendShot(prompt, direction);
     appendCharacterLocks(prompt, safeContext.characters());
     appendCurrentState(prompt, safeContext.characters());
+    prompt.append(continuityPromptSection.render(safeContext.continuity()));
     appendEnvironment(prompt, safeContext.location(), direction);
     appendLightAndColor(prompt, direction);
     appendReferenceMap(prompt, selectedReferences);

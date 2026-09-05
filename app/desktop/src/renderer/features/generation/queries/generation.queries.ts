@@ -29,7 +29,14 @@ export function useAnalyzeChapter() {
       projectId: string;
       chapterId: string;
       request: AnalyzeChapterInput;
-    }) => generationApi.analyze(input.projectId, input.chapterId, input.request),
+      idempotencyKey: string;
+    }) =>
+      generationApi.analyze(
+        input.projectId,
+        input.chapterId,
+        input.request,
+        input.idempotencyKey,
+      ),
   });
 }
 

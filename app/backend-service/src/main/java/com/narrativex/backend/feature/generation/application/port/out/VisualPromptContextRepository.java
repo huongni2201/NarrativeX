@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.generation.application.port.out;
 import java.util.List;
 import java.util.UUID;
 
-/** Read-only generation projection used to snapshot character and location continuity. */
+/** Read-only generation projection used to snapshot character, location and beat continuity. */
 public interface VisualPromptContextRepository {
   VisualPromptContext findForScene(UUID projectId, UUID sceneId);
 
@@ -13,15 +13,29 @@ public interface VisualPromptContextRepository {
    */
   VisualPromptContext findForBeat(UUID projectId, UUID visualBeatId);
 
-  record VisualPromptContext(LocationCanon location, List<CharacterCanon> characters) {
+  record VisualPromptContext(
+      LocationCanon location, List<CharacterCanon> characters, BeatContinuity continuity) {
     public VisualPromptContext {
       characters = characters == null ? List.of() : List.copyOf(characters);
     }
 
+    public VisualPromptContext(LocationCanon location, List<CharacterCanon> characters) {
+      this(location, characters, null);
+    }
+
     public static VisualPromptContext empty() {
-      return new VisualPromptContext(null, List.of());
+      return new VisualPromptContext(null, List.of(), null);
     }
   }
+
+  record BeatContinuity(
+      UUID planId,
+      String timelineKey,
+      String entryFactsJson,
+      String visibleFactsJson,
+      String exitFactsJson,
+      String eventKeysJson,
+      String semanticHash) {}
 
   record LocationCanon(UUID locationId, String name, String description, String visualPrompt) {}
 

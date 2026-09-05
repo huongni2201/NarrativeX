@@ -67,6 +67,9 @@ This directory records decisions that affect more than one feature or change a p
 23. **[ADR-0023: Source-anchored visual timing derived from narration alignment](./ADR-0023-source-anchored-visual-timing.md)**  
    VisualBeat source anchors resolve to deterministic UTF-16 text ranges; backend production-timeline reads map those ranges through narration alignment to the audio clock; provisional timing is review-only.
 
+24. **[ADR-0024: Chapter continuity, selective regeneration and effective render reuse](./ADR-0024-chapter-continuity-selective-regeneration-and-render-reuse.md)**  
+   Immutable continuity/checkpoint state, backend-authoritative selective regeneration and segment-cache identity based on effective encoded inputs rather than logical workflow identity.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.
@@ -76,6 +79,7 @@ This directory records decisions that affect more than one feature or change a p
 - ADR-0021 defines the Gemini Web Desktop execution boundary; it does not replace the backend-authorized Vertex/API generation path.
 - ADR-0022 supersedes ADR-0003/older docs wherever they describe R2 as generated project image/narration transport or allow project-media R2 fallback. It also defines `PROJECT` versus `ACCOUNT` voice-reference storage.
 - ADR-0023 supersedes older duration-weighted or audio-column-only visual timing descriptions. It does not remove compatibility fields still consumed by current code.
+- ADR-0024 extends ADR-0014 for continuity-aware regeneration/render reuse and extends ADR-0020 for durable analysis checkpoints. It does not move provider credentials or local render execution into the renderer.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs; historical text remains rationale/history and is not an AS-IS contract.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 

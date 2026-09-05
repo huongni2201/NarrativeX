@@ -43,13 +43,14 @@ export const generationApi = {
   analyze: (
     projectId: string,
     chapterId: string,
-    input?: AnalyzeChapterInput,
+    input: AnalyzeChapterInput | undefined,
+    idempotencyKey: string,
   ) =>
     apiRequest<GenerationJob>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
       {
         method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(input ?? getAnalyzeChapterPreferences()),
       },
     ),

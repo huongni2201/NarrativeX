@@ -95,7 +95,7 @@ test("storyboard review filter uses the themed select primitive", () => {
   assert.doesNotMatch(storyboard, /<select[\s>]/);
 });
 
-test("chapter analysis carries an idempotency key", () => {
+test("chapter analysis preserves one idempotency key across transport retries", () => {
   const generation = source(
     "app",
     "desktop",
@@ -106,10 +106,26 @@ test("chapter analysis carries an idempotency key", () => {
     "api",
     "generation.api.ts",
   );
-  assert.match(
-    generation,
-    /analysis-jobs[\s\S]*?"Idempotency-Key": crypto\.randomUUID\(\)/,
+  const chapterAnalysis = source(
+    "app",
+    "desktop",
+    "src",
+    "renderer",
+    "features",
+    "chapters",
+    "queries",
+    "chapter-analysis.queries.ts",
   );
+
+  assert.match(generation, /analysis-jobs[\s\S]*?"Idempotency-Key": idempotencyKey/);
+  assert.doesNotMatch(generation, /analysis-jobs[\s\S]*?crypto\.randomUUID\(\)/);
+  assert.match(chapterAnalysis, /type PendingAnalysisCommand/);
+  assert.match(
+    chapterAnalysis,
+    /pending\?\.fingerprint === fingerprint\s*\? pending\.idempotencyKey\s*:\s*crypto\.randomUUID\(\)/,
+  );
+  assert.match(chapterAnalysis, /pendingCommandRef\.current = \{ fingerprint, idempotencyKey \}/);
+  assert.match(chapterAnalysis, /pendingCommandRef\.current = null;\s*setTrackedJob/);
 });
 
 test("compose only uses strict file mounts for files that still exist at runtime", () => {

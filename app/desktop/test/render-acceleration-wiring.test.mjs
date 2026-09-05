@@ -33,9 +33,11 @@ test("project renderer keeps final mux on the encoded video and narration", () =
 
 test("segment renderer uses a bounded worker pool and encoder-aware cache", () => {
   const renderer = source("src/main/rendering/segment-renderer.ts");
+  const cacheKey = source("src/main/rendering/segment-cache-key.ts");
   assert.match(renderer, /Promise\.all\(Array\.from\(\{ length: concurrency \}, \(\) => worker\(\)\)\)/);
   assert.match(renderer, /segmentCacheKey\(manifest, beat, videoEncoder\)/);
-  assert.match(renderer, /rendererVersion:\s*manifest\.rendererVersion/);
+  assert.match(cacheKey, /rendererVersion:\s*manifest\.rendererVersion/);
+  assert.match(cacheKey, /videoEncoder/);
   assert.match(renderer, /failureController\.abort/);
 });
 

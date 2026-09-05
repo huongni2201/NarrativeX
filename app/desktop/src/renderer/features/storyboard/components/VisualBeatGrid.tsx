@@ -6,6 +6,7 @@ import { InlineNotice, StatusIndicator } from "../../workspace/components/Workst
 import type { StoryboardVisualBeat, VisualBeatReviewStatus } from "../api/storyboard.api";
 import type { GeminiQueueStatus } from "../model/gemini-queue";
 import { useStoryboardImagePreview } from "../queries/storyboard-media.queries";
+import { BeatRegenerationAction } from "./BeatRegenerationAction";
 
 export function VisualBeatGrid({
   projectId,
@@ -172,6 +173,13 @@ function VisualBeatCard({
           <Button variant="outline" size="icon" disabled={mediaBusy || generationLocked} onClick={onImport} title="Import generated image" aria-label={`Import image for ${beat.title}`}>
             <ImagePlus size={12} />
           </Button>
+          {timelineBeat ? (
+            <BeatRegenerationAction
+              projectId={projectId}
+              chapterId={timelineBeat.chapterId}
+              visualBeatId={beat.id}
+            />
+          ) : null}
           {approved ? (
             <Button variant="ghost" size="icon" disabled={updating} onClick={() => onReview("NEEDS_REVIEW")} title="Mark as needs review" aria-label={`Mark ${beat.title} as needs review`}>
               <RotateCcw size={12} />

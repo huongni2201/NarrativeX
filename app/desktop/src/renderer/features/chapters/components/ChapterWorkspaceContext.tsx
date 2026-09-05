@@ -9,6 +9,7 @@ import {
   StatusIndicator,
   WorkspacePane,
 } from "../../workspace/components/WorkstationPrimitives";
+import { ContinuityReportPanel } from "./ContinuityReportPanel";
 import { pipelineStatusLabel } from "../model/chapter-ui";
 
 type Metrics = Readonly<{
@@ -49,6 +50,8 @@ export function ChapterWorkspaceContext({
     <WorkspacePane className="flex flex-col bg-surface-panel">
       <PaneHeader title="Context" meta={projectName} />
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <ContinuityReportPanel chapterId={selectedWorkspace?.chapter.id ?? null} />
+
         <InspectorSection title="Project">
           <PropertyRow label="Project" value={<span className="block truncate">{projectName}</span>} />
           <PropertyRow label="Chapters" value={metrics.chapters} />

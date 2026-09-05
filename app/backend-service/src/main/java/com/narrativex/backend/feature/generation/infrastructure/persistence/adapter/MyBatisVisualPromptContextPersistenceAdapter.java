@@ -1,11 +1,14 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.BeatContinuity;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterReference;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow;
@@ -20,13 +23,15 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromptContextRepository {
   private final VisualPromptContextMapper mapper;
+  private final VisualPromptContinuityMapper continuityMapper;
 
   @Override
   public VisualPromptContext findForScene(UUID projectId, UUID sceneId) {
     return toContext(
         mapper.findLocation(projectId, sceneId),
         mapper.findCharacters(projectId, sceneId),
-        mapper.findCharacterReferences(projectId, sceneId));
+        mapper.findCharacterReferences(projectId, sceneId),
+        null);
   }
 
   @Override
@@ -34,13 +39,15 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
     return toContext(
         mapper.findLocationForBeat(projectId, visualBeatId),
         mapper.findCharactersForBeat(projectId, visualBeatId),
-        mapper.findCharacterReferencesForBeat(projectId, visualBeatId));
+        mapper.findCharacterReferencesForBeat(projectId, visualBeatId),
+        continuityMapper.findForBeat(projectId, visualBeatId));
   }
 
   private static VisualPromptContext toContext(
       VisualPromptLocationRow locationRow,
       List<VisualPromptCharacterRow> characterRows,
-      List<VisualPromptReferenceRow> referenceRows) {
+      List<VisualPromptReferenceRow> referenceRows,
+      VisualPromptContinuityRow continuityRow) {
     LocationCanon location =
         locationRow == null || locationRow.getLocationId() == null
             ? null
@@ -86,6 +93,17 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                             row.getAssignmentId(), java.util.List.of())))
             .toList();
 
-    return new VisualPromptContext(location, characters);
+    BeatContinuity continuity =
+        continuityRow == null || continuityRow.getPlanId() == null
+            ? null
+            : new BeatContinuity(
+                continuityRow.getPlanId(),
+                continuityRow.getTimelineKey(),
+                continuityRow.getEntryFactsJson(),
+                continuityRow.getVisibleFactsJson(),
+                continuityRow.getExitFactsJson(),
+                continuityRow.getEventKeysJson(),
+                continuityRow.getSemanticHash());
+    return new VisualPromptContext(location, characters, continuity);
   }
 }

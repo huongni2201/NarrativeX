@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityMapper">
+
+    <resultMap id="visualPromptContinuityRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityRow">
+        <id property="planId" column="plan_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="timelineKey" column="timeline_key" />
+        <result property="entryFactsJson" column="entry_facts_json" />
+        <result property="visibleFactsJson" column="visible_facts_json" />
+        <result property="exitFactsJson" column="exit_facts_json" />
+        <result property="eventKeysJson" column="event_keys_json" />
+        <result property="semanticHash" column="semantic_hash" />
+    </resultMap>
+
+    <select id="findForBeat" resultMap="visualPromptContinuityRow">
+        SELECT vbcs.plan_id,
+               scs.timeline_key,
+               vbcs.entry_facts_json::text AS entry_facts_json,
+               vbcs.visible_facts_json::text AS visible_facts_json,
+               vbcs.exit_facts_json::text AS exit_facts_json,
+               vbcs.event_keys_json::text AS event_keys_json,
+               vbcs.semantic_hash
+          FROM visual_beat_continuity_states vbcs
+          JOIN chapter_continuity_plans ccp ON ccp.id = vbcs.plan_id
+          JOIN scene_continuity_states scs
+            ON scs.plan_id = vbcs.plan_id
+           AND scs.scene_id = vbcs.scene_id
+          JOIN chapters ch ON ch.id = vbcs.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
+         WHERE vbcs.visual_beat_id = #{visualBeatId}
+           AND vbcs.project_id = #{projectId}
+           AND ccp.project_id = #{projectId}
+           AND sv.project_id = #{projectId}
+           AND ch.deleted_at IS NULL
+         ORDER BY ccp.revision DESC
+         LIMIT 1
+    </select>
+</mapper>

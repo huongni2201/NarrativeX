@@ -1,17 +1,15 @@
-import { createHash } from "node:crypto";
 import { copyFile, mkdir, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { imageMotionPreset } from "../../shared/image-motion.ts";
-import { SUBTITLE_STYLE_VERSION } from "../../shared/subtitle-style.ts";
 import { buildVideoEncodeArgs, type VideoEncoder } from "../../shared/video-encoding.ts";
 import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
 import { runProcess, type ProcessResult } from "./process-runner.ts";
 import { RenderExecutionError } from "./render-errors.ts";
- import {
-   escapeSubtitleFilterPath,
-   subtitleSlicesForBeat,
-   writeBeatSubtitleTrack,
- } from "./subtitle-ass.ts";
+import { segmentCacheKey } from "./segment-cache-key.ts";
+import { renderWorkingDimensions } from "./render-working-dimensions.ts";
+import { escapeSubtitleFilterPath, writeBeatSubtitleTrack } from "./subtitle-ass.ts";
+
+export { renderWorkingDimensions } from "./render-working-dimensions.ts";
 
 export interface SegmentRenderOptions {
   videoEncoder?: VideoEncoder;
@@ -238,35 +236,6 @@ export function buildBeatRenderArgs(
   }
 }
 
-export function renderWorkingDimensions(
-  width: number,
-  height: number,
-  moving: boolean,
-  cameraMovement = "NONE",
-  fps: 30 | 60 = 30,
-): { width: number; height: number } {
-  if (!moving) return { width: even(width), height: even(height) };
-  const movement = cameraMovement.trim().toUpperCase();
-  const factor =
-    fps === 60 && (movement === "PAN" || movement === "TILT")
-      ? 2
-      : movement === "PAN" || movement === "TILT"
-        ? 1.5
-        : 1.25;
-  let workingWidth = even(width * factor);
-  let workingHeight = even(height * factor);
-  const longEdge = Math.max(workingWidth, workingHeight);
-  if (longEdge > 5120) {
-    const ratio = 5120 / longEdge;
-    workingWidth = even(workingWidth * ratio);
-    workingHeight = even(workingHeight * ratio);
-  }
-  return {
-    width: Math.max(even(width), workingWidth),
-    height: Math.max(even(height), workingHeight),
-  };
-}
-
 function imageMotionFilter(manifest: LocalRenderManifest, beat: LocalRenderBeat): string {
   const moving = beat.cameraMovement?.trim().toUpperCase() !== "NONE";
   const working = renderWorkingDimensions(
@@ -378,63 +347,6 @@ function colorMetadataArgs(manifest: LocalRenderManifest): string[] {
     "-color_range",
     "tv",
   ];
-}
-
-function segmentCacheKey(
-  manifest: LocalRenderManifest,
-  beat: LocalRenderBeat,
-  videoEncoder: VideoEncoder,
-): string {
-  const moving = beat.mediaType === "IMAGE" && beat.cameraMovement?.trim().toUpperCase() !== "NONE";
-  const working = renderWorkingDimensions(
-    manifest.width,
-    manifest.height,
-    moving,
-    beat.cameraMovement,
-    manifest.fps,
-  );
-  const subtitles = subtitleSlicesForBeat(manifest.subtitles, beat, manifest.fps);
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        rendererVersion: manifest.rendererVersion,
-        renderProfileSchemaVersion: manifest.renderProfileSchemaVersion,
-        compositionPolicyVersion: manifest.compositionPolicyVersion,
-        adapter: "zoompan-rgb-adaptive-supersample-lanczos-ass-v1",
-        subtitleStyleVersion: SUBTITLE_STYLE_VERSION,
-        subtitles,
-        width: manifest.width,
-        height: manifest.height,
-        working,
-        fps: manifest.fps,
-        videoEncoder,
-        videoQuality: manifest.videoQuality,
-        colorMode: manifest.colorMode,
-        beat: {
-          visualBeatId: beat.visualBeatId,
-          mediaAssetId: beat.mediaAssetId,
-          mediaType: beat.mediaType,
-          checksum: beat.checksum,
-          durationMs: beat.durationMs,
-          sourceDurationMs: beat.sourceDurationMs,
-          fitMode: beat.fitMode,
-          framing: beat.framing,
-          trimStartMs: beat.trimStartMs,
-          cameraMovement: beat.cameraMovement,
-          motionEasing: beat.motionEasing,
-          startFrame: beat.startFrame,
-          endFrame: beat.endFrame,
-          frameCount: beat.frameCount,
-          transitionInMs: beat.transitionInMs,
-          transitionOutMs: beat.transitionOutMs,
-        },
-      }),
-    )
-    .digest("hex");
-}
-
-function even(value: number): number {
-  return Math.max(2, Math.round(value / 2) * 2);
 }
 
 async function validCachedSegment(path: string): Promise<boolean> {
