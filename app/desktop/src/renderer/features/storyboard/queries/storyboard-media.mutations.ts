@@ -66,6 +66,7 @@ export interface PersistStoryboardImageInput {
   hasProductionTimelineBeat: boolean;
   selection: StoryboardImageSelection;
   source: StoryboardImageSource;
+  attachToBeat?: boolean;
 }
 
 export async function persistStoryboardImage(
@@ -102,21 +103,23 @@ export async function persistStoryboardImage(
     });
   }
 
-  await deps.attachBeatPreview(
-    input.projectId,
-    input.chapterId,
-    input.sceneId,
-    input.beatId,
-    input.beatRowVersion,
-    asset.id,
-  );
+  if (input.attachToBeat !== false) {
+    await deps.attachBeatPreview(
+      input.projectId,
+      input.chapterId,
+      input.sceneId,
+      input.beatId,
+      input.beatRowVersion,
+      asset.id,
+    );
 
-  if (input.hasProductionTimelineBeat) {
-    await deps.updateBeatMedia(input.projectId, input.beatId, {
-      mediaAssetId: asset.id,
-      fitMode: "TRIM",
-      trimStartMs: 0,
-    });
+    if (input.hasProductionTimelineBeat) {
+      await deps.updateBeatMedia(input.projectId, input.beatId, {
+        mediaAssetId: asset.id,
+        fitMode: "TRIM",
+        trimStartMs: 0,
+      });
+    }
   }
 
   return asset.id;
@@ -225,6 +228,14 @@ export async function generateGeminiStoryboardImage(
     throw new Error("GEMINI_OUTPUT_PROVENANCE_MISMATCH: generated output is not bound to the expected attempt snapshot.");
   }
 
+  const postGenerationBatch = await deps.getPreparedBatch(
+    input.projectId,
+    input.chapterId,
+    currentBatch.batchId,
+  );
+  const staleAfterGeneration =
+    postGenerationBatch.stale ||
+    postGenerationBatch.requestFingerprint !== currentBatch.requestFingerprint;
   const assetId = await deps.persistImage({
     projectId: input.projectId,
     chapterId: input.chapterId,
@@ -234,7 +245,13 @@ export async function generateGeminiStoryboardImage(
     hasProductionTimelineBeat: input.hasProductionTimelineBeat,
     selection,
     source: "GEMINI_WEB",
+    attachToBeat: !staleAfterGeneration,
   });
+  if (staleAfterGeneration) {
+    throw new Error(
+      `STALE_GENERATION_INPUT_OUTPUT_RETAINED: generated asset ${assetId} was kept for review but not attached to the changed storyboard revision.`,
+    );
+  }
 
   return {
     assetId,
