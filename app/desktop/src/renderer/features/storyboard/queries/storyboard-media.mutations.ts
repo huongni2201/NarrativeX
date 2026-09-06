@@ -131,7 +131,10 @@ export interface GenerateGeminiStoryboardImageDeps {
     chapterId: string,
     batchId: string,
   ): Promise<StoryboardGenerationBatch>;
-  materializeRemoteAsset(input: { projectId: string; assetId: string }): Promise<{ checksumSha256: string }>;
+  materializeRemoteAsset(input: {
+    projectId: string;
+    assetId: string;
+  }): Promise<{ checksumSha256: string }>;
   generateImage(input: {
     lane: "STORYBOARD";
     prompt: string;
@@ -173,10 +176,23 @@ export async function generateGeminiStoryboardImage(
     input.batch.batchId,
   );
   if (currentBatch.stale) {
-    throw new Error("STALE_GENERATION_INPUT: prepared Gemini batch no longer matches the current storyboard/source revision.");
+    throw new Error(
+      "STALE_GENERATION_INPUT: prepared Gemini batch no longer matches current generation inputs.",
+    );
+  }
+  if (currentBatch.hasBlockingIssues) {
+    const codes = currentBatch.issues
+      .filter((issue) => issue.severity === "BLOCKING")
+      .map((issue) => issue.code)
+      .join(", ");
+    throw new Error(
+      `GENERATION_INPUT_BLOCKED: prepared Gemini batch contains blocking issues${codes ? ` (${codes})` : ""}.`,
+    );
   }
   if (currentBatch.requestFingerprint !== input.batch.requestFingerprint) {
-    throw new Error("STALE_GENERATION_INPUT: prepared Gemini batch fingerprint changed unexpectedly.");
+    throw new Error(
+      "STALE_GENERATION_INPUT: prepared Gemini batch fingerprint changed unexpectedly.",
+    );
   }
   const authoritativeSnapshot = currentBatch.beats.find(
     (beat) => beat.snapshotId === input.snapshot.snapshotId,
@@ -186,7 +202,9 @@ export async function generateGeminiStoryboardImage(
     authoritativeSnapshot.visualBeatId !== input.snapshot.visualBeatId ||
     authoritativeSnapshot.inputFingerprint !== input.snapshot.inputFingerprint
   ) {
-    throw new Error("STALE_GENERATION_INPUT: Visual Beat snapshot is not part of the prepared batch.");
+    throw new Error(
+      "STALE_GENERATION_INPUT: Visual Beat snapshot is not part of the prepared batch.",
+    );
   }
   if (!authoritativeSnapshot.prompt.trim()) {
     throw new Error("Backend chưa trả Gemini prompt cho Visual Beat snapshot này.");
@@ -194,7 +212,9 @@ export async function generateGeminiStoryboardImage(
 
   for (const reference of authoritativeSnapshot.references) {
     if (!reference.sha256) {
-      throw new Error(`REFERENCE_INTEGRITY_FAILED: ${reference.refLabel} is missing a checksum.`);
+      throw new Error(
+        `REFERENCE_INTEGRITY_FAILED: ${reference.refLabel} is missing a checksum.`,
+      );
     }
     await input.referenceMaterializer.materialize(
       {
@@ -225,7 +245,9 @@ export async function generateGeminiStoryboardImage(
     selection.generationAttemptId !== input.attemptId ||
     selection.generationInputFingerprint !== authoritativeSnapshot.inputFingerprint
   ) {
-    throw new Error("GEMINI_OUTPUT_PROVENANCE_MISMATCH: generated output is not bound to the expected attempt snapshot.");
+    throw new Error(
+      "GEMINI_OUTPUT_PROVENANCE_MISMATCH: generated output is not bound to the expected attempt snapshot.",
+    );
   }
 
   const postGenerationBatch = await deps.getPreparedBatch(
@@ -235,6 +257,7 @@ export async function generateGeminiStoryboardImage(
   );
   const staleAfterGeneration =
     postGenerationBatch.stale ||
+    postGenerationBatch.hasBlockingIssues ||
     postGenerationBatch.requestFingerprint !== currentBatch.requestFingerprint;
   const assetId = await deps.persistImage({
     projectId: input.projectId,
@@ -249,7 +272,7 @@ export async function generateGeminiStoryboardImage(
   });
   if (staleAfterGeneration) {
     throw new Error(
-      `STALE_GENERATION_INPUT_OUTPUT_RETAINED: generated asset ${assetId} was kept for review but not attached to the changed storyboard revision.`,
+      `STALE_GENERATION_INPUT_OUTPUT_RETAINED: generated asset ${assetId} was kept for review but not attached to changed/blocked generation inputs.`,
     );
   }
 
