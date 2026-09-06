@@ -1,5 +1,7 @@
 # Sharded Chapter Analysis Design
 
+> **Status: superseded for production orchestration.** The deterministic sharding, source-coverage, density, and bounded-repair ideas below remain historical design context, but the provider topology and recovery boundary were replaced by the continuity-first architecture in `documentation/plans/2026-09-05-chapter-continuity-and-render-pipeline.md`. Production Chapter analysis now runs through `ContinuityVertexGeminiProvider` and `run_chapter_analysis_pipeline`; do not reintroduce the retired `VertexGeminiProvider.submit()` orchestration described below.
+
 ## Problem
 
 The current Vertex chapter-analysis adapter sends one synchronous `generateContent` request that asks Gemini to return chapter structure plus all visual beats. With the current density policy (target 7.5 seconds, hard maximum 10 seconds), long chapters can require dozens of beats in one structured JSON response. This increases response latency and makes `httpx.ReadTimeout` likely. Because synchronous `generateContent` does not return a durable provider operation id before the response arrives, a timeout is an ambiguous paid-provider outcome and NarrativeX correctly refuses a blind retry.
