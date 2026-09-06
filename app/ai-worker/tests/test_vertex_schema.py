@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from narrativex_worker.continuity.pipeline_contracts import ChapterStructureWithContinuityResult
 from narrativex_worker.providers.vertex_schema import response_json_schema, safe_error_diagnostic
 
 
@@ -25,16 +26,57 @@ def _walk(value: object):
             yield from _walk(item)
 
 
-def test_response_schema_removes_keywords_vertex_does_not_support() -> None:
+def test_response_schema_keeps_only_provider_shape_constraints() -> None:
     schema = response_json_schema(_StructuredResult)
 
-    forbidden = {"default", "pattern", "minLength", "maxLength", "exclusiveMinimum", "const"}
+    provider_unnecessary = {
+        "default",
+        "pattern",
+        "minLength",
+        "maxLength",
+        "exclusiveMinimum",
+        "minimum",
+        "maximum",
+        "minItems",
+        "maxItems",
+        "format",
+        "title",
+        "description",
+        "const",
+    }
     for node in _walk(schema):
-        assert forbidden.isdisjoint(node)
+        assert provider_unnecessary.isdisjoint(node)
 
+    assert schema["type"] == "object"
+    assert set(schema["required"]) == {"kind", "nested"}
     assert schema["properties"]["kind"]["enum"] == ["scene"]
     assert "$defs" in schema
     assert schema["properties"]["nested"] == {"$ref": "#/$defs/_Nested"}
+
+
+def test_real_continuity_structure_schema_drops_uuid_and_complexity_constraints() -> None:
+    schema = response_json_schema(ChapterStructureWithContinuityResult)
+
+    provider_unnecessary = {
+        "default",
+        "pattern",
+        "minLength",
+        "maxLength",
+        "minimum",
+        "maximum",
+        "minItems",
+        "maxItems",
+        "format",
+        "title",
+        "description",
+    }
+    for node in _walk(schema):
+        assert provider_unnecessary.isdisjoint(node)
+
+    assert schema["type"] == "object"
+    assert "continuityPlan" in schema["properties"]
+    assert "scenes" in schema["properties"]
+    assert "$defs" in schema
 
 
 def test_safe_error_diagnostic_never_returns_provider_description() -> None:
