@@ -42,9 +42,11 @@ public class GetChapterStoryboardUseCase {
 
     var scenes = storyboardRepository.findScenesByChapterId(chapterId);
     List<UUID> sceneIds = scenes.stream().map(scene -> scene.getId()).toList();
+    List<VisualBeat> visualBeats = storyboardRepository.findVisualBeatsBySceneIds(sceneIds);
     Map<UUID, List<VisualBeat>> beatsByScene =
-        storyboardRepository.findVisualBeatsBySceneIds(sceneIds).stream()
-            .collect(Collectors.groupingBy(VisualBeat::getSceneId));
+        visualBeats.stream().collect(Collectors.groupingBy(VisualBeat::getSceneId));
+    Map<UUID, String> promptsByBeat = visualBeatPromptProvider.promptsFor(projectId, visualBeats);
+
     List<ChapterStoryboardResponse.SceneItem> sceneItems =
         scenes.stream()
             .map(
@@ -67,7 +69,7 @@ public class GetChapterStoryboardUseCase {
                           .map(
                               beat ->
                                   VisualBeatResponse.from(
-                                      beat, visualBeatPromptProvider.promptFor(projectId, beat)))
+                                      beat, promptsByBeat.get(beat.getId())))
                           .toList());
                 })
             .toList();
