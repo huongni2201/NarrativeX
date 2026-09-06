@@ -15,16 +15,11 @@ from pydantic import BaseModel, ValidationError
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.ports import (
-    LlmProvider,
     ProviderBilling,
-    ProviderCapabilities,
-    ProviderEstimate,
-    ProviderOperation,
     ProviderPricingSnapshot,
     ProviderSubmissionUnknownError,
     ProviderTokenUsage,
 )
-from narrativex_worker.schema import ChapterAnalysisRequest
 
 
 class VertexProviderError(RuntimeError):
@@ -38,8 +33,8 @@ class VertexSubmissionUnknownError(VertexProviderError, ProviderSubmissionUnknow
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class VertexGeminiProvider(LlmProvider):
-    """Shared Vertex transport; Chapter orchestration lives in the continuity provider."""
+class VertexGeminiTransport:
+    """Shared Vertex auth, HTTP, structured-output and billing transport primitives."""
 
     _MILLION = Decimal("1000000")
     _FLASH_25_INPUT = Decimal("0.15")
@@ -66,21 +61,6 @@ class VertexGeminiProvider(LlmProvider):
             settings.vertex_analysis_shard_concurrency
         )
 
-    def get_capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
-
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
-        del request
-        return ProviderEstimate(min_cost=0.0, max_cost=0.0)
-
-    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
-        """Fail closed if legacy direct Chapter orchestration is called accidentally."""
-        del request
-        raise VertexProviderError(
-            "Direct VertexGeminiProvider.submit() is retired; "
-            "use ContinuityVertexGeminiProvider for Chapter analysis"
-        )
-
     @staticmethod
     def _safe_validation_reason(exception: ValidationError) -> str:
         """Return Pydantic field paths and error types without serializing rejected input."""
@@ -95,14 +75,8 @@ class VertexGeminiProvider(LlmProvider):
     def _safe_exception_reason(exception: BaseException) -> str:
         """Return a diagnostic label without serializing model input or story content."""
         if isinstance(exception, ValidationError):
-            return VertexGeminiProvider._safe_validation_reason(exception)
+            return VertexGeminiTransport._safe_validation_reason(exception)
         return type(exception).__name__
-
-    async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
-        return operation
-
-    async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
-        return operation
 
     def _http_timeout(self) -> httpx.Timeout:
         return httpx.Timeout(
