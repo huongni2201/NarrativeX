@@ -11,10 +11,6 @@ from narrativex_worker.schema import (
 )
 
 
-class ProviderSubmissionRejectedError(RuntimeError):
-    """The provider boundary was not crossed; the operation can fail definitively."""
-
-
 class ProviderSubmissionUnknownError(RuntimeError):
     """The provider may have accepted work; never convert this into a blind retry."""
 
