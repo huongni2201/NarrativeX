@@ -3,7 +3,11 @@ import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
 import { Check, Clapperboard, Copy, ExternalLink, ImagePlus, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineNotice, StatusIndicator } from "../../workspace/components/WorkstationPrimitives";
-import type { StoryboardVisualBeat, VisualBeatReviewStatus } from "../api/storyboard.api";
+import {
+  parseStoryboardVisualDirection,
+  type StoryboardVisualBeat,
+  type VisualBeatReviewStatus,
+} from "../api/storyboard.api";
 import type { GeminiQueueStatus } from "../model/gemini-queue";
 import { useStoryboardImagePreview } from "../queries/storyboard-media.queries";
 import { BeatRegenerationAction } from "./BeatRegenerationAction";
@@ -114,6 +118,10 @@ function VisualBeatCard({
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
   const prompt = beat.prompt ?? "Backend prompt unavailable.";
+  const direction = parseStoryboardVisualDirection(beat.visualDirectionJson);
+  const directionSummary = direction
+    ? `${formatEnum(direction.shot_size)} · ${formatEnum(direction.camera_angle)}`
+    : "Direction pending";
   const borderClass = queueRunning
     ? "border-primary ring-1 ring-primary/35"
     : queueCurrent
@@ -140,7 +148,7 @@ function VisualBeatCard({
             <h3 className="truncate text-[12px] font-semibold text-foreground">{beat.title}</h3>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-text-dim">
               <span>{timelineBeat ? `${formatMs(timelineBeat.startMs)}–${formatMs(timelineBeat.endMs)}` : "No timing"}</span>
-              <span>{formatEnum(beat.cameraMovement)}</span>
+              <span>{directionSummary}</span>
               <span>{formatEnum(beat.motionMode)}</span>
             </div>
           </div>
@@ -202,10 +210,14 @@ function VisualBeatCard({
           </div>
           <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">{prompt}</p>
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border-subtle pt-2 text-[9px] text-text-muted">
-            <Meta label="Camera" value={formatEnum(beat.cameraMovement)} />
-            <Meta label="Angle" value={formatEnum(beat.cameraAngle)} />
+            <Meta label="Shot" value={formatEnum(direction?.shot_size)} />
+            <Meta label="Angle" value={formatEnum(direction?.camera_angle)} />
+            <Meta label="Lens" value={direction ? `${direction.lens_mm} mm` : "—"} />
+            <Meta label="Camera" value={formatMovement(direction?.camera_movement, direction?.movement_direction)} />
+            <Meta label="Action" value={formatEnum(direction?.action_phase)} />
             <Meta label="Motion" value={formatEnum(beat.motionMode)} />
             <Meta label="Timing" value={timelineBeat ? `${formatMs(timelineBeat.startMs)} – ${formatMs(timelineBeat.endMs)}` : "—"} />
+            <Meta label="Palette" value={direction?.palette ?? "—"} />
           </div>
         </details>
       </div>
@@ -247,6 +259,11 @@ function EmptyState({ title, detail }: Readonly<{ title: string; detail: string 
       </div>
     </div>
   );
+}
+
+function formatMovement(movement: string | null | undefined, direction: string | null | undefined) {
+  const formattedMovement = formatEnum(movement);
+  return direction ? `${formattedMovement} ${formatEnum(direction)}` : formattedMovement;
 }
 
 function formatEnum(value: string | null | undefined) {
