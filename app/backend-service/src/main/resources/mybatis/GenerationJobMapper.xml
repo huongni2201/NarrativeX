@@ -34,6 +34,17 @@
         <result property="analysisImageProvider" column="analysis_image_provider" />
     </resultMap>
 
+    <resultMap id="analysisProgressRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.AnalysisProgressRow">
+        <result property="phase" column="phase" />
+        <result property="completedShards" column="completed_shards" />
+        <result property="totalShards" column="total_shards" />
+        <result property="reusedShards" column="reused_shards" />
+        <result property="repairCount" column="repair_count" />
+        <result property="continuityReportId" column="continuity_report_id"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="pipelineVersion" column="pipeline_version" />
+    </resultMap>
+
     <sql id="columns">
         id, row_version, created_at, updated_at, job_id, project_id, job_type, status,
         resource_class, progress, current_step, error_code, requested_by_user_id,
@@ -120,6 +131,73 @@
         SELECT <include refid="qualifiedColumns" />
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
+         WHERE j.job_id = #{jobId}
+           AND p.owner_id = #{ownerId}
+           AND p.archived_at IS NULL
+    </select>
+
+    <select id="findAnalysisProgressByJobIdAndOwner" resultMap="analysisProgressRow">
+        SELECT
+            CASE
+                WHEN j.job_type &lt;&gt; 'CHAPTER_ANALYZE' THEN NULL
+                WHEN j.status = 'COMPLETED' THEN 'MATERIALIZATION'
+                WHEN NOT COALESCE(stats.structure_complete, FALSE) THEN 'STRUCTURE'
+                WHEN COALESCE(stats.total_shards, 0) = 0 THEN 'BOUNDARIES'
+                WHEN COALESCE(stats.completed_shards, 0) &lt; COALESCE(stats.total_shards, 0)
+                    THEN 'SHARDS'
+                ELSE 'VALIDATION'
+            END AS phase,
+            COALESCE(stats.completed_shards, 0) AS completed_shards,
+            COALESCE(stats.total_shards, 0) AS total_shards,
+            LEAST(
+                COALESCE(stats.reused_shards, 0),
+                COALESCE(stats.completed_shards, 0)
+            ) AS reused_shards,
+            COALESCE(stats.repair_count, 0) AS repair_count,
+            report.continuity_report_id,
+            CASE WHEN j.job_type = 'CHAPTER_ANALYZE' THEN 'continuity-v1' ELSE NULL END
+                AS pipeline_version
+          FROM generation_jobs j
+          JOIN projects p ON p.id = j.project_id
+          LEFT JOIN LATERAL (
+              SELECT
+                  COUNT(DISTINCT (
+                      split_part(ac.step_key, ':', 2) || ':' || split_part(ac.step_key, ':', 3)
+                  )) FILTER (
+                      WHERE ac.step_key LIKE 'shard:%' OR ac.step_key LIKE 'repair:%'
+                  )::INTEGER AS total_shards,
+                  COUNT(DISTINCT (
+                      split_part(ac.step_key, ':', 2) || ':' || split_part(ac.step_key, ':', 3)
+                  )) FILTER (
+                      WHERE (ac.step_key LIKE 'shard:%' OR ac.step_key LIKE 'repair:%')
+                        AND ac.status = 'COMPLETED'
+                  )::INTEGER AS completed_shards,
+                  COUNT(DISTINCT (
+                      split_part(ac.step_key, ':', 2) || ':' || split_part(ac.step_key, ':', 3)
+                  )) FILTER (
+                      WHERE (ac.step_key LIKE 'shard:%' OR ac.step_key LIKE 'repair:%')
+                        AND ac.status = 'COMPLETED'
+                        AND ac.lease_version &gt; 1
+                  )::INTEGER AS reused_shards,
+                  COUNT(*) FILTER (WHERE ac.step_key LIKE 'repair:%')::INTEGER AS repair_count,
+                  BOOL_OR(
+                      ac.status = 'COMPLETED'
+                      AND (ac.step_key = 'structure' OR ac.step_key LIKE 'structure-repair:%')
+                  ) AS structure_complete
+                FROM analysis_checkpoints ac
+               WHERE ac.generation_job_id = j.id
+          ) stats ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT cr.id AS continuity_report_id
+                FROM chapter_continuity_plans ccp
+                JOIN continuity_reports cr ON cr.plan_id = ccp.id
+               WHERE ccp.chapter_id = j.chapter_id
+                 AND ccp.story_version_id = j.story_version_id
+                 AND ccp.storyboard_revision_id = j.storyboard_revision_id
+                 AND ccp.source_hash = j.source_hash
+               ORDER BY ccp.revision DESC, cr.revision DESC
+               LIMIT 1
+          ) report ON TRUE
          WHERE j.job_id = #{jobId}
            AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
