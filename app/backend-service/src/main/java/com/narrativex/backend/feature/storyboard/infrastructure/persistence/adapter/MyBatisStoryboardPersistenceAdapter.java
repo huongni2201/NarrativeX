@@ -6,8 +6,6 @@ import com.narrativex.backend.feature.storyboard.application.port.out.Storyboard
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraAngle;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
@@ -83,8 +81,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
     row.setVisualDirectionJson(value.getVisualDirectionJson());
     row.setReviewStatus(value.getReviewStatus().name());
     row.setMotionMode(value.getMotionMode().name());
-    row.setCameraMovement(value.getCameraMovement().name());
-    row.setCameraAngle(value.getCameraAngle().name());
     row.setAspectRatioOverride(
         value.getAspectRatioOverride() == null ? null : value.getAspectRatioOverride().name());
     row.setPreviewMediaAssetId(value.getPreviewMediaAssetId());
@@ -127,10 +123,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
             row.getVisualIntent(),
             row.getVisualDirectionJson(),
             MotionMode.valueOf(row.getMotionMode()),
-            CameraMovement.valueOf(row.getCameraMovement()),
-            row.getCameraAngle() == null
-                ? CameraAngle.MEDIUM
-                : CameraAngle.valueOf(row.getCameraAngle()),
             row.getAspectRatioOverride() == null
                 ? null
                 : AspectRatio.valueOf(row.getAspectRatioOverride()),
