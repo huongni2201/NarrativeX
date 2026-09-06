@@ -14,7 +14,7 @@ from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers.disabled import DisabledProvider
 from narrativex_worker.providers.fake_analysis import FakeAnalysisProvider
 from narrativex_worker.providers.ports import ProviderOperation
-from narrativex_worker.providers.vertex import VertexGeminiProvider
+from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
@@ -46,7 +46,7 @@ class NarrativeXWorker:
         )
         self.billing_repository = ProviderBillingRepository(self.settings.database_url)
         provider = (
-            VertexGeminiProvider(self.settings)
+            ContinuityVertexGeminiProvider(self.settings)
             if self.settings.provider_mode == "vertex"
             else FakeAnalysisProvider()
             if self.settings.provider_mode == "fake"
