@@ -5,8 +5,10 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.in.VisualBeatPromptContext;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository.CurrentContinuity;
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository;
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.BeatSnapshot;
+import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.ChapterScope;
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.GenerationBatch;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer.ReferenceBinding;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
@@ -19,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,11 +71,7 @@ public class PrepareStoryboardGenerationBatchUseCase {
           "STALE_GENERATION_INPUT: current storyboard revision no longer matches the requested revision");
     }
 
-    var continuity =
-        chapterContinuityRepository
-            .findCurrent(projectId, chapterId)
-            .filter(current -> current.sourceHash().equals(scope.sourceHash()))
-            .orElse(null);
+    CurrentContinuity continuity = currentContinuity(projectId, chapterId, scope);
     List<GenerationIssue> issues = new ArrayList<>();
     if (continuity == null) {
       issues.add(
@@ -103,91 +102,24 @@ public class PrepareStoryboardGenerationBatchUseCase {
                   "Visual Beat is missing continuity state from the current Chapter plan."));
           continue;
         }
-        var composed = prepared.composedPrompt();
-        List<Map<String, Object>> references = serializeReferences(composed.referenceBindings());
-        boolean badChecksum =
-            composed.referenceBindings().stream()
-                .anyMatch(binding -> binding.sha256() == null || !binding.sha256().matches("^[0-9a-f]{64}$"));
-        if (badChecksum) {
-          issues.add(
-              new GenerationIssue(
-                  "REFERENCE_INTEGRITY_FAILED",
-                  "BLOCKING",
-                  beatId,
-                  "One or more required reference assets do not have a valid SHA-256 checksum."));
-          continue;
-        }
-        String referencesJson = writeJson(references);
-        String finalPrompt = VisualPromptText.finalPrompt(composed);
-        String beatFingerprint =
-            sha256(
-                scope.sourceHash()
-                    + "|"
-                    + scope.storyboardRevisionId()
-                    + "|"
-                    + nullSafe(prepared.continuityPlanId())
-                    + "|"
-                    + nullSafe(prepared.continuitySemanticHash())
-                    + "|"
-                    + STYLE_POLICY_VERSION
-                    + "|"
-                    + PROVIDER_POLICY_VERSION
-                    + "|"
-                    + beatId
-                    + "|"
-                    + prepared.beatRowVersion()
-                    + "|"
-                    + finalPrompt
-                    + "|"
-                    + composed.characterSnapshotJson()
-                    + "|"
-                    + referencesJson);
-        beatSnapshots.add(
-            new BeatSnapshot(
-                UuidV7.random(),
-                beatId,
-                prepared.sceneId(),
-                prepared.beatRowVersion(),
-                finalPrompt,
-                composed.negativePrompt(),
-                composed.characterSnapshotJson(),
-                referencesJson,
-                prepared.continuitySemanticHash(),
-                beatFingerprint));
+        beatSnapshots.add(toBeatSnapshot(scope, prepared, UuidV7.random()));
       } catch (ResourceConflictException conflict) {
-        String message = conflict.getMessage() == null ? "Generation input conflict" : conflict.getMessage();
-        String code = message.startsWith("REFERENCE_BUDGET_EXCEEDED")
-            ? "REFERENCE_BUDGET_EXCEEDED"
-            : "CONTINUITY_CONFLICT";
-        issues.add(new GenerationIssue(code, "BLOCKING", beatId, message));
+        String message =
+            conflict.getMessage() == null ? "Generation input conflict" : conflict.getMessage();
+        issues.add(new GenerationIssue(conflictCode(message), "BLOCKING", beatId, message));
       }
     }
 
-    String requestFingerprint =
-        sha256(
-            scope.sourceHash()
-                + "|"
-                + scope.storyboardRevisionId()
-                + "|"
-                + (continuity == null ? "" : continuity.planId())
-                + "|"
-                + (continuity == null ? "" : continuity.planRevision())
-                + "|"
-                + (continuity == null ? "" : continuity.reportRevision())
-                + "|"
-                + STYLE_POLICY_VERSION
-                + "|"
-                + PROVIDER_POLICY_VERSION
-                + "|"
-                + beatSnapshots.stream().map(BeatSnapshot::inputFingerprint).reduce("", (a, b) -> a + "|" + b));
-
-    var existing = snapshotRepository.findByIdempotencyKey(projectId, chapterId, idempotencyKey.trim());
+    String requestFingerprint = requestFingerprint(scope, continuity, beatSnapshots);
+    var existing =
+        snapshotRepository.findByIdempotencyKey(projectId, chapterId, idempotencyKey.trim());
     if (existing.isPresent()) {
       if (!existing.get().requestFingerprint().equals(requestFingerprint)) {
         throw new ResourceConflictException(
             "Idempotency-Key was already used with different storyboard generation inputs");
       }
-      return new PreparedBatch(existing.get(), parseIssues(existing.get().issuesJson()), isStale(existing.get()));
+      return new PreparedBatch(
+          existing.get(), parseIssues(existing.get().issuesJson()), isStale(existing.get()));
     }
 
     var batch =
@@ -235,14 +167,143 @@ public class PrepareStoryboardGenerationBatchUseCase {
     return new PreparedBatch(batch, parseIssues(batch.issuesJson()), isStale(batch));
   }
 
+  /**
+   * Staleness is content based, not only revision-id based. Recompose current inputs exclusively to
+   * compare fingerprints; callers still submit the immutable prompt/reference payload stored in the
+   * batch. This catches canon, appearance, wardrobe and reference changes that do not necessarily
+   * advance the chapter source hash or storyboard revision.
+   */
   private boolean isStale(GenerationBatch batch) {
-    return snapshotRepository
-        .findCurrentScope(batch.projectId(), batch.chapterId())
-        .map(
-            current ->
-                !current.storyboardRevisionId().equals(batch.storyboardRevisionId())
-                    || !current.sourceHash().equals(batch.sourceHash()))
-        .orElse(true);
+    if (!STYLE_POLICY_VERSION.equals(batch.stylePolicyVersion())
+        || !PROVIDER_POLICY_VERSION.equals(batch.providerPolicyVersion())) {
+      return true;
+    }
+
+    var currentScope = snapshotRepository.findCurrentScope(batch.projectId(), batch.chapterId());
+    if (currentScope.isEmpty()) return true;
+    ChapterScope scope = currentScope.get();
+    if (!scope.storyboardRevisionId().equals(batch.storyboardRevisionId())
+        || !scope.sourceHash().equals(batch.sourceHash())) {
+      return true;
+    }
+
+    CurrentContinuity continuity = currentContinuity(batch.projectId(), batch.chapterId(), scope);
+    if (!matchesContinuity(batch, continuity)) return true;
+
+    for (BeatSnapshot stored : batch.beats()) {
+      try {
+        var prepared =
+            visualBeatPromptContext.prepare(
+                batch.projectId(), batch.chapterId(), stored.visualBeatId());
+        BeatSnapshot current = toBeatSnapshot(scope, prepared, stored.id());
+        if (!stored.inputFingerprint().equals(current.inputFingerprint())) return true;
+      } catch (RuntimeException changedOrInvalid) {
+        // Missing beats, changed reference budgets/checksums, continuity conflicts and other
+        // admission failures all mean this immutable batch must no longer be submitted.
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private CurrentContinuity currentContinuity(
+      UUID projectId, UUID chapterId, ChapterScope scope) {
+    return chapterContinuityRepository
+        .findCurrent(projectId, chapterId)
+        .filter(current -> current.sourceHash().equals(scope.sourceHash()))
+        .orElse(null);
+  }
+
+  private static boolean matchesContinuity(
+      GenerationBatch batch, CurrentContinuity continuity) {
+    return Objects.equals(batch.continuityPlanId(), continuity == null ? null : continuity.planId())
+        && Objects.equals(
+            batch.continuityPlanRevision(), continuity == null ? null : continuity.planRevision())
+        && Objects.equals(
+            batch.continuityReportRevision(), continuity == null ? null : continuity.reportRevision());
+  }
+
+  private BeatSnapshot toBeatSnapshot(
+      ChapterScope scope,
+      VisualBeatPromptContext.PreparedVisualBeatPrompt prepared,
+      UUID snapshotId) {
+    var composed = prepared.composedPrompt();
+    boolean badChecksum =
+        composed.referenceBindings().stream()
+            .anyMatch(
+                binding ->
+                    binding.sha256() == null
+                        || !binding.sha256().matches("^[0-9a-f]{64}$"));
+    if (badChecksum) {
+      throw new ResourceConflictException(
+          "REFERENCE_INTEGRITY_FAILED: One or more required reference assets do not have a valid SHA-256 checksum.");
+    }
+
+    String referencesJson = writeJson(serializeReferences(composed.referenceBindings()));
+    String finalPrompt = VisualPromptText.finalPrompt(composed);
+    String beatFingerprint =
+        sha256(
+            scope.sourceHash()
+                + "|"
+                + scope.storyboardRevisionId()
+                + "|"
+                + nullSafe(prepared.continuityPlanId())
+                + "|"
+                + nullSafe(prepared.continuitySemanticHash())
+                + "|"
+                + STYLE_POLICY_VERSION
+                + "|"
+                + PROVIDER_POLICY_VERSION
+                + "|"
+                + prepared.visualBeatId()
+                + "|"
+                + prepared.beatRowVersion()
+                + "|"
+                + finalPrompt
+                + "|"
+                + composed.characterSnapshotJson()
+                + "|"
+                + referencesJson);
+    return new BeatSnapshot(
+        snapshotId,
+        prepared.visualBeatId(),
+        prepared.sceneId(),
+        prepared.beatRowVersion(),
+        finalPrompt,
+        composed.negativePrompt(),
+        composed.characterSnapshotJson(),
+        referencesJson,
+        prepared.continuitySemanticHash(),
+        beatFingerprint);
+  }
+
+  private static String requestFingerprint(
+      ChapterScope scope, CurrentContinuity continuity, List<BeatSnapshot> beatSnapshots) {
+    return sha256(
+        scope.sourceHash()
+            + "|"
+            + scope.storyboardRevisionId()
+            + "|"
+            + (continuity == null ? "" : continuity.planId())
+            + "|"
+            + (continuity == null ? "" : continuity.planRevision())
+            + "|"
+            + (continuity == null ? "" : continuity.reportRevision())
+            + "|"
+            + STYLE_POLICY_VERSION
+            + "|"
+            + PROVIDER_POLICY_VERSION
+            + "|"
+            + beatSnapshots.stream()
+                .map(BeatSnapshot::inputFingerprint)
+                .reduce("", (left, right) -> left + "|" + right));
+  }
+
+  private static String conflictCode(String message) {
+    if (message.startsWith("REFERENCE_BUDGET_EXCEEDED")) return "REFERENCE_BUDGET_EXCEEDED";
+    if (message.startsWith("REFERENCE_INTEGRITY_FAILED")) return "REFERENCE_INTEGRITY_FAILED";
+    if (message.startsWith("STALE_GENERATION_INPUT")) return "STALE_GENERATION_INPUT";
+    return "CONTINUITY_CONFLICT";
   }
 
   private static List<UUID> normalizeBeatIds(List<UUID> requestedBeatIds) {
@@ -283,7 +344,9 @@ public class PrepareStoryboardGenerationBatchUseCase {
     try {
       return objectMapper.readValue(
           json,
-          objectMapper.getTypeFactory().constructCollectionType(List.class, GenerationIssue.class));
+          objectMapper
+              .getTypeFactory()
+              .constructCollectionType(List.class, GenerationIssue.class));
     } catch (Exception exception) {
       throw new IllegalStateException("Stored storyboard generation issues are invalid", exception);
     }
@@ -299,7 +362,8 @@ public class PrepareStoryboardGenerationBatchUseCase {
 
   private static String sha256(String value) {
     try {
-      byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
       StringBuilder result = new StringBuilder(64);
       for (byte item : digest) result.append(String.format("%02x", item));
       return result.toString();
