@@ -129,9 +129,10 @@ def test_vertex_diagnostic_does_not_include_exception_message() -> None:
 async def test_completed_checkpoint_replays_without_resubmitting_vertex() -> None:
     checkpoints = _CheckpointStub(AnalysisCheckpointStatus.COMPLETED)
     transport = _transport()
-    transport._bounded_generate_structured = AsyncMock(  # type: ignore[method-assign]
+    transport_call = AsyncMock(
         side_effect=AssertionError("Vertex transport must not be called for durable replay")
     )
+    transport._bounded_generate_structured = transport_call  # type: ignore[method-assign]
     execution = ChapterAnalysisExecutionContext(
         stage_attempt_id=checkpoints.stage_attempt_id,
         claim_owner="worker",
@@ -159,16 +160,17 @@ async def test_completed_checkpoint_replays_without_resubmitting_vertex() -> Non
     assert billing.actual_cost == 0
     assert adapter.reused_subcalls == 1
     assert checkpoints.begin_calls == 0
-    transport._bounded_generate_structured.assert_not_awaited()
+    transport_call.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_unknown_checkpoint_refuses_blind_vertex_resubmission() -> None:
     checkpoints = _CheckpointStub(AnalysisCheckpointStatus.UNKNOWN)
     transport = _transport()
-    transport._bounded_generate_structured = AsyncMock(  # type: ignore[method-assign]
+    transport_call = AsyncMock(
         side_effect=AssertionError("Vertex transport must not be called for UNKNOWN checkpoint")
     )
+    transport._bounded_generate_structured = transport_call  # type: ignore[method-assign]
     execution = ChapterAnalysisExecutionContext(
         stage_attempt_id=checkpoints.stage_attempt_id,
         claim_owner="worker",
@@ -193,4 +195,4 @@ async def test_unknown_checkpoint_refuses_blind_vertex_resubmission() -> None:
         )
 
     assert checkpoints.begin_calls == 0
-    transport._bounded_generate_structured.assert_not_awaited()
+    transport_call.assert_not_awaited()
