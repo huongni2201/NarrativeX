@@ -12,9 +12,12 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -41,6 +44,47 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
         mapper.findCharactersForBeat(projectId, visualBeatId),
         mapper.findCharacterReferencesForBeat(projectId, visualBeatId),
         continuityMapper.findForBeat(projectId, visualBeatId));
+  }
+
+  @Override
+  public Map<UUID, VisualPromptContext> findForBeats(
+      UUID projectId, List<UUID> visualBeatIds) {
+    if (visualBeatIds.isEmpty()) {
+      return Map.of();
+    }
+
+    Map<UUID, VisualPromptLocationRow> locationsByBeat =
+        mapper.findLocationsForBeats(projectId, visualBeatIds).stream()
+            .collect(
+                Collectors.toMap(
+                    VisualPromptLocationRow::getVisualBeatId,
+                    Function.identity(),
+                    (left, right) -> left));
+    Map<UUID, List<VisualPromptCharacterRow>> charactersByBeat =
+        mapper.findCharactersForBeats(projectId, visualBeatIds).stream()
+            .collect(Collectors.groupingBy(VisualPromptCharacterRow::getVisualBeatId));
+    Map<UUID, List<VisualPromptReferenceRow>> referencesByBeat =
+        mapper.findCharacterReferencesForBeats(projectId, visualBeatIds).stream()
+            .collect(Collectors.groupingBy(VisualPromptReferenceRow::getVisualBeatId));
+    Map<UUID, VisualPromptContinuityRow> continuityByBeat =
+        continuityMapper.findForBeats(projectId, visualBeatIds).stream()
+            .collect(
+                Collectors.toMap(
+                    VisualPromptContinuityRow::getVisualBeatId,
+                    Function.identity(),
+                    (left, right) -> left));
+
+    Map<UUID, VisualPromptContext> contexts = new LinkedHashMap<>();
+    for (UUID visualBeatId : visualBeatIds) {
+      contexts.put(
+          visualBeatId,
+          toContext(
+              locationsByBeat.get(visualBeatId),
+              charactersByBeat.getOrDefault(visualBeatId, List.of()),
+              referencesByBeat.getOrDefault(visualBeatId, List.of()),
+              continuityByBeat.get(visualBeatId)));
+    }
+    return Collections.unmodifiableMap(contexts);
   }
 
   private static VisualPromptContext toContext(
@@ -89,8 +133,7 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                         row.getInjury(),
                         row.getWardrobeContext(),
                         row.getBeatRole(),
-                        referencesByAssignment.getOrDefault(
-                            row.getAssignmentId(), java.util.List.of())))
+                        referencesByAssignment.getOrDefault(row.getAssignmentId(), List.of())))
             .toList();
 
     BeatContinuity continuity =
