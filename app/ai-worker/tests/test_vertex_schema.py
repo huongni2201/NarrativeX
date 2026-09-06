@@ -16,14 +16,19 @@ class _StructuredResult(BaseModel):
     count: int = Field(default=1, ge=0, le=5)
 
 
-def _walk(value: object):
+def _walk_schema_nodes(value: object):
+    """Yield actual schema nodes without treating property/$defs name maps as schemas."""
     if isinstance(value, dict):
         yield value
-        for item in value.values():
-            yield from _walk(item)
+        for key, item in value.items():
+            if key in {"properties", "$defs"} and isinstance(item, dict):
+                for child_schema in item.values():
+                    yield from _walk_schema_nodes(child_schema)
+            else:
+                yield from _walk_schema_nodes(item)
     elif isinstance(value, list):
         for item in value:
-            yield from _walk(item)
+            yield from _walk_schema_nodes(item)
 
 
 def test_response_schema_keeps_only_provider_shape_constraints() -> None:
@@ -44,7 +49,7 @@ def test_response_schema_keeps_only_provider_shape_constraints() -> None:
         "description",
         "const",
     }
-    for node in _walk(schema):
+    for node in _walk_schema_nodes(schema):
         assert provider_unnecessary.isdisjoint(node)
 
     assert schema["type"] == "object"
@@ -70,13 +75,23 @@ def test_real_continuity_structure_schema_drops_uuid_and_complexity_constraints(
         "title",
         "description",
     }
-    for node in _walk(schema):
+    for node in _walk_schema_nodes(schema):
         assert provider_unnecessary.isdisjoint(node)
 
     assert schema["type"] == "object"
     assert "continuityPlan" in schema["properties"]
     assert "scenes" in schema["properties"]
     assert "$defs" in schema
+
+
+def test_business_field_named_description_is_not_treated_as_schema_metadata() -> None:
+    schema = response_json_schema(ChapterStructureWithContinuityResult)
+
+    assert "description" in repr(schema["properties"])
+    for node in _walk_schema_nodes(schema):
+        assert "description" not in {
+            key for key in node if key not in {"properties", "$defs"}
+        }
 
 
 def test_safe_error_diagnostic_never_returns_provider_description() -> None:
