@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.api.response;
 
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.value.AnalysisProgress;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -16,7 +17,14 @@ public record JobResponse(
     String errorCode,
     UUID mediaPlanId,
     Integer mediaPlanRevision,
-    Estimate estimate) {
+    Estimate estimate,
+    String phase,
+    Integer completedShards,
+    Integer totalShards,
+    Integer reusedShards,
+    Integer repairCount,
+    UUID continuityReportId,
+    String pipelineVersion) {
   public JobResponse(
       UUID jobId,
       String type,
@@ -39,14 +47,31 @@ public record JobResponse(
         errorCode,
         null,
         null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null);
   }
 
   public static JobResponse from(GenerationJob job) {
-    return from(job, null);
+    return from(job, null, null);
   }
 
   public static JobResponse from(GenerationJob job, Estimate estimate) {
+    return from(job, estimate, null);
+  }
+
+  public static JobResponse fromWithAnalysisProgress(
+      GenerationJob job, AnalysisProgress analysisProgress) {
+    return from(job, null, analysisProgress);
+  }
+
+  public static JobResponse from(
+      GenerationJob job, Estimate estimate, AnalysisProgress analysisProgress) {
     JobTarget target = targetFor(job);
     return new JobResponse(
         job.getJobId(),
@@ -60,7 +85,14 @@ public record JobResponse(
         job.getErrorCode(),
         job.getMediaPlanId(),
         job.getMediaPlanRevision(),
-        estimate);
+        estimate,
+        analysisProgress == null ? null : analysisProgress.phase(),
+        analysisProgress == null ? null : analysisProgress.completedShards(),
+        analysisProgress == null ? null : analysisProgress.totalShards(),
+        analysisProgress == null ? null : analysisProgress.reusedShards(),
+        analysisProgress == null ? null : analysisProgress.repairCount(),
+        analysisProgress == null ? null : analysisProgress.continuityReportId(),
+        analysisProgress == null ? null : analysisProgress.pipelineVersion());
   }
 
   private static JobTarget targetFor(GenerationJob job) {
