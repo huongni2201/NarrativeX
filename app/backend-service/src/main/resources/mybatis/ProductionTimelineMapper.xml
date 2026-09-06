@@ -189,7 +189,7 @@
              vb.id AS visual_beat_id,
              vb.title,
              vb.visual_intent,
-             COALESCE(vb.camera_movement, 'NONE') AS camera_movement,
+             COALESCE(vb.visual_direction_json::jsonb ->> 'camera_movement', 'NONE') AS camera_movement,
              vb.text_start,
              vb.text_end,
              vb.audio_start_ms,
