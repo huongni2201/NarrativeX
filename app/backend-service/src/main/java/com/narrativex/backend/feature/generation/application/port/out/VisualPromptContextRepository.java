@@ -1,6 +1,8 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Read-only generation projection used to snapshot character, location and beat continuity. */
@@ -12,6 +14,20 @@ public interface VisualPromptContextRepository {
    * beat-character rows may fall back to the parent scene cast in the persistence adapter.
    */
   VisualPromptContext findForBeat(UUID projectId, UUID visualBeatId);
+
+  /**
+   * Resolve contexts for a storyboard scope in bounded batch queries. Implementations should
+   * override this method; the default preserves compatibility for test doubles and non-MyBatis
+   * adapters.
+   */
+  default Map<UUID, VisualPromptContext> findForBeats(
+      UUID projectId, List<UUID> visualBeatIds) {
+    Map<UUID, VisualPromptContext> contexts = new LinkedHashMap<>();
+    for (UUID visualBeatId : visualBeatIds) {
+      contexts.put(visualBeatId, findForBeat(projectId, visualBeatId));
+    }
+    return Map.copyOf(contexts);
+  }
 
   record VisualPromptContext(
       LocationCanon location, List<CharacterCanon> characters, BeatContinuity continuity) {
