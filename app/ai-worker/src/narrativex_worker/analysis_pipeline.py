@@ -22,17 +22,16 @@ from narrativex_worker.continuity.pipeline_contracts import (
     StructuredAnalysisAdapter,
     VisualBeatShardWithContinuityResult,
 )
-from narrativex_worker.continuity.pipeline_validation import (
-    shard_validation_error,
-    validate_shard_continuity_states,
-)
+from narrativex_worker.continuity.pipeline_validation import shard_validation_error
 from narrativex_worker.continuity.planner import validate_plan_source
 from narrativex_worker.continuity.schema import (
     BeatContinuityState,
     ContinuityIssue,
+    ContinuityIssueSeverity,
     ContinuityReport,
     ContinuityReportStatus,
 )
+from narrativex_worker.continuity.validator import validate_shard_result
 from narrativex_worker.providers.ports import ProviderBilling
 from narrativex_worker.schema import ChapterAnalysisRequest
 
@@ -68,11 +67,20 @@ async def run_chapter_analysis_pipeline(
 
     async def generate_shard(
         shard: VisualBeatShard,
-    ) -> tuple[VisualBeatShard, VisualBeatShardWithContinuityResult, list[ProviderBilling], str]:
+    ) -> tuple[
+        VisualBeatShard,
+        VisualBeatShardWithContinuityResult,
+        list[ProviderBilling],
+        str,
+        list[ContinuityIssue],
+    ]:
         reason: str | None = None
         billings: list[ProviderBilling] = []
         shard_response_id = response_id
         context = contexts[(shard.scene_index, shard.shard_index)]
+        last_valid_result: VisualBeatShardWithContinuityResult | None = None
+        last_issues: list[ContinuityIssue] = []
+
         for attempt in range(repair_attempts + 1):
             result, billing, shard_response_id = await adapter.generate(
                 build_visual_beat_shard_prompt(
@@ -99,8 +107,32 @@ async def run_chapter_analysis_pipeline(
             )
             billings.append(billing)
             reason = shard_validation_error(structure, shard, result)
-            if reason is None and result is not None:
-                return shard, result, billings, shard_response_id
+            if reason is not None or result is None:
+                continue
+
+            last_valid_result = result
+            last_issues = validate_shard_result(
+                source_text=request.source_text,
+                structure=structure,
+                plan=structure.continuity_plan,
+                shard=shard,
+                context=context,
+                result=result,
+            )
+            blocking = [
+                issue
+                for issue in last_issues
+                if issue.severity is ContinuityIssueSeverity.BLOCKING
+            ]
+            if not blocking:
+                return shard, result, billings, shard_response_id, last_issues
+            reason = "deterministic continuity conflicts: " + ",".join(
+                sorted({issue.code for issue in blocking})
+            )
+
+        if last_valid_result is not None:
+            # A structurally valid result remains reviewable after bounded repair is exhausted.
+            return shard, last_valid_result, billings, shard_response_id, last_issues
         raise ValueError(
             f"continuity shard scene={shard.scene_index} shard={shard.shard_index} "
             f"rejected after bounded repair: {reason or 'invalid structured output'}"
@@ -121,20 +153,13 @@ async def run_chapter_analysis_pipeline(
     billings = list(structure_billings)
     final_response_id = response_id
     issues: list[ContinuityIssue] = []
-    for shard, result, shard_billings, shard_response_id in generated:
+    for shard, result, shard_billings, shard_response_id, shard_issues in generated:
         key = (shard.scene_index, shard.shard_index)
         billings.extend(shard_billings)
         final_response_id = shard_response_id
         shard_results[key] = VisualBeatShardResult(visual_beats=result.visual_beats)
         continuity_states[key] = result.continuity_states
-        issues.extend(
-            validate_shard_continuity_states(
-                source_text=request.source_text,
-                structure=structure,
-                shard=shard,
-                result=result,
-            )
-        )
+        issues.extend(shard_issues)
 
     analysis = merge_shard_results(structure, shards, shard_results)
     return ChapterAnalysisPipelineResult(
