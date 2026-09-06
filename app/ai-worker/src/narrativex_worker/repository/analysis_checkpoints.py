@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
 
+from narrativex_worker.providers.ports import ProviderBilling
 from narrativex_worker.repository.analysis_fingerprint import result_fingerprint
 
 
@@ -69,11 +70,15 @@ class AnalysisCheckpointRepository:
                         lease_version = analysis_checkpoints.lease_version + 1,
                         status = CASE
                             WHEN analysis_checkpoints.status = 'COMPLETED' THEN 'COMPLETED'
+                            WHEN analysis_checkpoints.status = 'UNKNOWN' THEN 'UNKNOWN'
+                            WHEN analysis_checkpoints.status = 'RUNNING'
+                                 AND analysis_checkpoints.provider_operation_id IS NOT NULL
+                                THEN 'UNKNOWN'
                             ELSE 'RESERVED'
                         END,
                         updated_at = CURRENT_TIMESTAMP,
                         row_version = analysis_checkpoints.row_version + 1
-                    WHERE analysis_checkpoints.status = 'COMPLETED'
+                    WHERE analysis_checkpoints.status IN ('COMPLETED', 'UNKNOWN')
                        OR EXISTS (
                             SELECT 1
                               FROM stage_attempts current_sa
@@ -92,6 +97,207 @@ class AnalysisCheckpointRepository:
                     raise RuntimeError("analysis checkpoint claim lost the outer stage lease")
                 return _checkpoint(row)
 
+    async def begin_provider_call(
+        self,
+        checkpoint: AnalysisCheckpoint,
+        *,
+        provider_key: str,
+    ) -> AnalysisCheckpoint:
+        """Persist the UNKNOWN external-call fence and linked provider operation atomically."""
+        if checkpoint.status is AnalysisCheckpointStatus.COMPLETED:
+            return checkpoint
+        if checkpoint.status is AnalysisCheckpointStatus.UNKNOWN:
+            raise RuntimeError("analysis checkpoint outcome is UNKNOWN; refusing blind resubmission")
+
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                provider_operation_id = await connection.fetchval(
+                    """
+                    INSERT INTO provider_operations
+                        (stage_attempt_id, provider_key, status, request_fingerprint)
+                    VALUES ($1, $2, 'UNKNOWN', $3)
+                    RETURNING id
+                    """,
+                    checkpoint.stage_attempt_id,
+                    provider_key,
+                    checkpoint.input_fingerprint,
+                )
+                row = await connection.fetchrow(
+                    """
+                    UPDATE analysis_checkpoints ac
+                       SET status = 'UNKNOWN',
+                           provider_operation_id = $4,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE ac.id = $1
+                       AND ac.lease_version = $2
+                       AND ac.claim_owner = $3
+                       AND ac.status IN ('RESERVED', 'RUNNING', 'FAILED')
+                       AND EXISTS (
+                            SELECT 1
+                              FROM stage_attempts sa
+                             WHERE sa.id = ac.stage_attempt_id
+                               AND sa.worker_id = $3
+                               AND sa.status = 'RUNNING'
+                       )
+                    RETURNING ac.*
+                    """,
+                    checkpoint.id,
+                    checkpoint.lease_version,
+                    checkpoint.claim_owner,
+                    provider_operation_id,
+                )
+                if row is None:
+                    raise RuntimeError("analysis checkpoint provider fence lost the outer stage lease")
+                return _checkpoint(row)
+
+    async def complete_provider_call(
+        self,
+        checkpoint: AnalysisCheckpoint,
+        *,
+        result: dict[str, Any],
+        provider_response_id: str,
+        billing: ProviderBilling,
+    ) -> AnalysisCheckpoint:
+        """Atomically persist subcall result, billing evidence, and checkpoint completion."""
+        if checkpoint.provider_operation_id is None:
+            raise RuntimeError("analysis checkpoint has no linked provider operation")
+        result_text, result_hash = result_fingerprint(result)
+        usage_text = json.dumps(asdict(billing.usage), ensure_ascii=False)
+        pricing_text = json.dumps(asdict(billing.pricing), ensure_ascii=False, default=str)
+
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                operation_updated = await connection.fetchval(
+                    """
+                    UPDATE provider_operations
+                       SET provider_operation_id = $2,
+                           status = 'COMPLETED',
+                           result_fingerprint = $3,
+                           normalized_result_json = $4::jsonb,
+                           actual_cost = $5,
+                           billing_currency = $6,
+                           usage_json = $7::jsonb,
+                           pricing_snapshot_json = $8::jsonb,
+                           completed_at = CURRENT_TIMESTAMP,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1
+                       AND status = 'UNKNOWN'
+                    RETURNING id
+                    """,
+                    checkpoint.provider_operation_id,
+                    provider_response_id,
+                    result_hash,
+                    result_text,
+                    billing.actual_cost,
+                    billing.currency,
+                    usage_text,
+                    pricing_text,
+                )
+                if operation_updated is None:
+                    raise RuntimeError("analysis subcall provider operation lost its UNKNOWN fence")
+
+                row = await connection.fetchrow(
+                    """
+                    UPDATE analysis_checkpoints ac
+                       SET status = 'COMPLETED',
+                           result_json = $4::jsonb,
+                           result_hash = $5,
+                           completed_at = CURRENT_TIMESTAMP,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE ac.id = $1
+                       AND ac.lease_version = $2
+                       AND ac.claim_owner = $3
+                       AND ac.status = 'UNKNOWN'
+                       AND EXISTS (
+                            SELECT 1
+                              FROM stage_attempts sa
+                             WHERE sa.id = ac.stage_attempt_id
+                               AND sa.worker_id = $3
+                               AND sa.status = 'RUNNING'
+                       )
+                    RETURNING ac.*
+                    """,
+                    checkpoint.id,
+                    checkpoint.lease_version,
+                    checkpoint.claim_owner,
+                    result_text,
+                    result_hash,
+                )
+                if row is None:
+                    raise RuntimeError("analysis checkpoint completion lost its lease fence")
+                return _checkpoint(row)
+
+    async def fail_provider_call(
+        self,
+        checkpoint: AnalysisCheckpoint,
+        *,
+        provider_response_id: str,
+        billing: ProviderBilling,
+    ) -> AnalysisCheckpoint:
+        """Persist a conclusive provider/validation failure and its billable usage."""
+        if checkpoint.provider_operation_id is None:
+            raise RuntimeError("analysis checkpoint has no linked provider operation")
+        usage_text = json.dumps(asdict(billing.usage), ensure_ascii=False)
+        pricing_text = json.dumps(asdict(billing.pricing), ensure_ascii=False, default=str)
+
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                operation_updated = await connection.fetchval(
+                    """
+                    UPDATE provider_operations
+                       SET provider_operation_id = $2,
+                           status = 'FAILED',
+                           actual_cost = $3,
+                           billing_currency = $4,
+                           usage_json = $5::jsonb,
+                           pricing_snapshot_json = $6::jsonb,
+                           completed_at = CURRENT_TIMESTAMP,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1
+                       AND status = 'UNKNOWN'
+                    RETURNING id
+                    """,
+                    checkpoint.provider_operation_id,
+                    provider_response_id,
+                    billing.actual_cost,
+                    billing.currency,
+                    usage_text,
+                    pricing_text,
+                )
+                if operation_updated is None:
+                    raise RuntimeError("analysis subcall provider operation lost its UNKNOWN fence")
+
+                row = await connection.fetchrow(
+                    """
+                    UPDATE analysis_checkpoints ac
+                       SET status = 'FAILED',
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE ac.id = $1
+                       AND ac.lease_version = $2
+                       AND ac.claim_owner = $3
+                       AND ac.status = 'UNKNOWN'
+                       AND EXISTS (
+                            SELECT 1
+                              FROM stage_attempts sa
+                             WHERE sa.id = ac.stage_attempt_id
+                               AND sa.worker_id = $3
+                               AND sa.status = 'RUNNING'
+                       )
+                    RETURNING ac.*
+                    """,
+                    checkpoint.id,
+                    checkpoint.lease_version,
+                    checkpoint.claim_owner,
+                )
+                if row is None:
+                    raise RuntimeError("analysis checkpoint failure lost its lease fence")
+                return _checkpoint(row)
+
     async def mark_running(self, checkpoint: AnalysisCheckpoint) -> AnalysisCheckpoint:
         return await self._transition(checkpoint, AnalysisCheckpointStatus.RUNNING)
 
@@ -108,6 +314,7 @@ class AnalysisCheckpointRepository:
         result: dict[str, Any],
         provider_operation_id: uuid.UUID | None,
     ) -> AnalysisCheckpoint:
+        """Complete deterministic/non-provider checkpoints retained for compatibility."""
         result_text, result_hash = result_fingerprint(result)
         row = await self._pool.fetchrow(
             """
