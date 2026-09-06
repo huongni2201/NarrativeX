@@ -57,7 +57,7 @@ public class GenerationJobEventStreamService {
         });
     emitter.onError(ignored -> remove(jobId, subscription));
 
-    sendSnapshot(jobId, subscription, job);
+    sendSnapshot(jobId, subscription, job, snapshotFor(jobId, ownerId, job));
     return emitter;
   }
 
@@ -84,6 +84,7 @@ public class GenerationJobEventStreamService {
     }
 
     GenerationJob job = current.get();
+    JobResponse snapshot = snapshotFor(jobId, ownerId, job);
     for (Subscription subscription : jobSubscriptions) {
       if (!ownerId.equals(subscription.ownerId())) {
         remove(jobId, subscription);
@@ -91,9 +92,8 @@ public class GenerationJobEventStreamService {
         continue;
       }
 
-      JobResponse snapshot = JobResponse.from(job);
       if (!snapshot.equals(subscription.lastSnapshot())) {
-        sendSnapshot(jobId, subscription, job);
+        sendSnapshot(jobId, subscription, job, snapshot);
       } else if (Duration.between(subscription.lastSentAt(), Instant.now())
               .compareTo(HEARTBEAT_INTERVAL)
           >= 0) {
@@ -102,15 +102,21 @@ public class GenerationJobEventStreamService {
     }
   }
 
-  private void sendSnapshot(UUID jobId, Subscription subscription, GenerationJob job) {
-    JobResponse snapshot = JobResponse.from(job);
+  private JobResponse snapshotFor(UUID jobId, String ownerId, GenerationJob job) {
+    var analysisProgress =
+        generationJobRepository.findAnalysisProgressByJobIdAndOwner(jobId, ownerId).orElse(null);
+    return JobResponse.fromWithAnalysisProgress(job, analysisProgress);
+  }
+
+  private void sendSnapshot(
+      UUID jobId, Subscription subscription, GenerationJob job, JobResponse snapshot) {
     try {
       subscription
           .emitter()
           .send(
               SseEmitter.event()
                   .name("snapshot")
-                  .id(eventId(job))
+                  .id(eventId(job, snapshot))
                   .reconnectTime(1_500L)
                   .data(snapshot));
       subscription.markSent(snapshot);
@@ -147,14 +153,30 @@ public class GenerationJobEventStreamService {
     if (jobSubscriptions.isEmpty()) subscriptions.remove(jobId, jobSubscriptions);
   }
 
-  private static String eventId(GenerationJob job) {
+  private static String eventId(GenerationJob job, JobResponse snapshot) {
     return job.getStatus().name()
         + ':'
         + job.getProgress()
         + ':'
         + (job.getCurrentStep() == null ? "" : job.getCurrentStep())
         + ':'
-        + job.getRowVersion();
+        + job.getRowVersion()
+        + ':'
+        + value(snapshot.phase())
+        + ':'
+        + value(snapshot.completedShards())
+        + ':'
+        + value(snapshot.totalShards())
+        + ':'
+        + value(snapshot.reusedShards())
+        + ':'
+        + value(snapshot.repairCount())
+        + ':'
+        + value(snapshot.continuityReportId());
+  }
+
+  private static String value(Object value) {
+    return value == null ? "" : value.toString();
   }
 
   private static final class Subscription {
