@@ -135,7 +135,11 @@ class ContinuityVertexGeminiProvider(VertexGeminiTransport):
     """Production Vertex provider using continuity-first chapter orchestration."""
 
     def get_capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
+        return ProviderCapabilities(
+            provider_key="vertex",
+            supports_story_analysis=True,
+            supports_durable_subcall_resume=True,
+        )
 
     async def submit(
         self,
