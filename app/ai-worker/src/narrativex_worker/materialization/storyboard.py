@@ -9,10 +9,6 @@ from narrativex_worker.materialization.continuity import materialize_continuity
 from narrativex_worker.schema import ChapterAnalysisResult
 from narrativex_worker.visual_alignment import resolve_visual_beat_ranges
 from narrativex_worker.visual_density import planning_duration_ms, validate_visual_beat_density
-from narrativex_worker.visual_prompt.legacy_projection import (
-    legacy_camera_angle,
-    legacy_camera_movement,
-)
 
 if TYPE_CHECKING:
     from narrativex_worker.repository import ClaimedChapterAnalysisJob
@@ -124,8 +120,6 @@ async def materialize_storyboard(
                 beat_index,
                 beat.title,
                 beat.visual_intent,
-                legacy_camera_movement(beat.visual_direction),
-                legacy_camera_angle(beat.visual_direction),
                 beat.visual_direction.model_dump_json(),
             )
             for scene_index, scene in enumerate(result.scenes)
@@ -136,15 +130,12 @@ async def materialize_storyboard(
                 """
                 INSERT INTO visual_beats
                   (scene_id, order_index, title, visual_intent, motion_mode,
-                   camera_movement, camera_angle, visual_direction_json, review_status)
+                   visual_direction_json, review_status)
                 SELECT source.scene_id, source.order_index, source.title, source.visual_intent,
-                       'STILL', source.camera_movement, source.camera_angle,
-                       source.visual_direction_json, 'NEEDS_REVIEW'
-                  FROM UNNEST(
-                       $1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[],
-                       $7::text[])
+                       'STILL', source.visual_direction_json, 'NEEDS_REVIEW'
+                  FROM UNNEST($1::uuid[], $2::int[], $3::text[], $4::text[], $5::text[])
                        AS source(scene_id, order_index, title, visual_intent,
-                                 camera_movement, camera_angle, visual_direction_json)
+                                 visual_direction_json)
                  ORDER BY source.scene_id, source.order_index
                 RETURNING id, scene_id, order_index
                 """,
@@ -153,8 +144,6 @@ async def materialize_storyboard(
                 [row[2] for row in beat_rows],
                 [row[3] for row in beat_rows],
                 [row[4] for row in beat_rows],
-                [row[5] for row in beat_rows],
-                [row[6] for row in beat_rows],
             )
             beat_ids = {
                 (row["scene_id"], row["order_index"]): row["id"] for row in inserted_beats
