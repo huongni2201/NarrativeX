@@ -17,10 +17,7 @@ class DeprecatedRuntimeCleanupTest {
   void finalArtifactBaselineDoesNotRetainRemoteFinalVideoFields() throws IOException {
     String v4 = read("V4__narration_notifications_and_artifacts.sql");
     String v7 = read("V7__indexes.sql");
-    String finalArtifacts =
-        v4.substring(
-            v4.indexOf("CREATE TABLE final_artifacts"),
-            v4.indexOf("CREATE TABLE short_clip_requests"));
+    String finalArtifacts = tableDefinition(v4, "final_artifacts");
 
     assertThat(finalArtifacts)
         .doesNotContain("storage_provider")
@@ -66,6 +63,15 @@ class DeprecatedRuntimeCleanupTest {
 
     assertThat(request.effectiveVisualGenerationMode()).isEqualTo("VIDEO");
     assertThat(request.effectiveImageProvider()).isNull();
+  }
+
+  private static String tableDefinition(String migration, String tableName) {
+    String startMarker = "CREATE TABLE " + tableName;
+    int start = migration.indexOf(startMarker);
+    if (start < 0) throw new IllegalArgumentException("Missing table " + tableName);
+    int end = migration.indexOf("\n);", start);
+    if (end < 0) throw new IllegalArgumentException("Unterminated table " + tableName);
+    return migration.substring(start, end + 3);
   }
 
   private static String read(String name) throws IOException {
