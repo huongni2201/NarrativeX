@@ -3,6 +3,8 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.value.AnalysisProgress;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.AnalysisProgressRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow;
 import java.util.Optional;
@@ -51,6 +53,13 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
+  public Optional<AnalysisProgress> findAnalysisProgressByJobIdAndOwner(
+      UUID jobId, String ownerId) {
+    return Optional.ofNullable(mapper.findAnalysisProgressByJobIdAndOwner(jobId, ownerId))
+        .map(MyBatisGenerationJobPersistenceAdapter::toAnalysisProgress);
+  }
+
+  @Override
   public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId) {
     return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey, ownerId))
         .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
@@ -73,6 +82,17 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
     if (inserted == null)
       throw new IllegalStateException("Inserted generation job " + id + " disappeared");
     return toDomain(inserted);
+  }
+
+  private static AnalysisProgress toAnalysisProgress(AnalysisProgressRow row) {
+    return new AnalysisProgress(
+        row.getPhase(),
+        row.getCompletedShards(),
+        row.getTotalShards(),
+        row.getReusedShards(),
+        row.getRepairCount(),
+        row.getContinuityReportId(),
+        row.getPipelineVersion());
   }
 
   private static GenerationJobRow toRow(GenerationJob job) {

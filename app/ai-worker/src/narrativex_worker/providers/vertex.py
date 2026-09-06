@@ -1,4 +1,4 @@
-"""Vertex AI Gemini adapter for structured Chapter analysis."""
+"""Shared Vertex AI Gemini transport and billing primitives."""
 
 import asyncio
 import json
@@ -13,30 +13,14 @@ from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import BaseModel, ValidationError
 
-from narrativex_worker.chapter_analysis_prompts import (
-    build_chapter_structure_prompt,
-    build_visual_beat_shard_prompt,
-)
-from narrativex_worker.chapter_analysis_sharding import (
-    ChapterStructureResult,
-    VisualBeatShard,
-    VisualBeatShardResult,
-    merge_shard_results,
-    plan_visual_beat_shards,
-    validate_visual_beat_shard,
-)
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.ports import (
-    LlmProvider,
     ProviderBilling,
-    ProviderCapabilities,
-    ProviderEstimate,
-    ProviderOperation,
     ProviderPricingSnapshot,
     ProviderSubmissionUnknownError,
     ProviderTokenUsage,
 )
-from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
+from narrativex_worker.providers.vertex_schema import response_json_schema, safe_error_diagnostic
 
 
 class VertexProviderError(RuntimeError):
@@ -50,7 +34,9 @@ class VertexSubmissionUnknownError(VertexProviderError, ProviderSubmissionUnknow
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class VertexGeminiProvider(LlmProvider):
+class VertexGeminiTransport:
+    """Shared Vertex auth, HTTP, structured-output and billing transport primitives."""
+
     _MILLION = Decimal("1000000")
     _FLASH_25_INPUT = Decimal("0.15")
     _FLASH_25_CACHED_INPUT = Decimal("0.0375")
@@ -76,211 +62,6 @@ class VertexGeminiProvider(LlmProvider):
             settings.vertex_analysis_shard_concurrency
         )
 
-    def get_capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
-
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
-        del request
-        return ProviderEstimate(min_cost=0.0, max_cost=0.0)
-
-    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
-        try:
-            token = await self._access_token()
-        except VertexProviderError as exception:
-            self.logger.error("Vertex access token acquisition failed: %s", exception)
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=None,
-                status=ProviderOperationStatus.FAILED,
-            )
-
-        limits = httpx.Limits(
-            max_connections=self.settings.vertex_analysis_shard_concurrency,
-            max_keepalive_connections=self.settings.vertex_analysis_shard_concurrency,
-        )
-        async with httpx.AsyncClient(timeout=self._http_timeout(), limits=limits) as client:
-            structure, structure_billing, response_id = await self._bounded_generate_structured(
-                client,
-                token,
-                build_chapter_structure_prompt(request),
-                ChapterStructureResult,
-            )
-            structure_billings = [structure_billing]
-            for repair_attempt in range(1, self.settings.vertex_analysis_repair_attempts + 1):
-                if structure is not None:
-                    break
-                self.logger.warning(
-                    "Vertex chapter structure validation failed responseId=%s repairAttempt=%s",
-                    response_id,
-                    repair_attempt,
-                )
-                structure, repair_billing, repair_response_id = (
-                    await self._bounded_generate_structured(
-                        client,
-                        token,
-                        build_chapter_structure_prompt(
-                            request,
-                            repair_reason="invalid structured chapter structure output",
-                        ),
-                        ChapterStructureResult,
-                    )
-                )
-                structure_billings.append(repair_billing)
-                response_id = repair_response_id
-
-            if structure is None:
-                self.logger.error(
-                    "Vertex chapter structure rejected after repair responseId=%s",
-                    response_id,
-                )
-                return ProviderOperation(
-                    provider_key="vertex",
-                    operation_id=response_id,
-                    status=ProviderOperationStatus.FAILED,
-                    billing=self._merge_billings(structure_billings),
-                )
-
-            try:
-                shards = plan_visual_beat_shards(
-                    request.source_text,
-                    structure,
-                    target_beats=self.settings.vertex_analysis_shard_target_beats,
-                    max_beats=self.settings.vertex_analysis_shard_max_beats,
-                )
-            except ValueError as exception:
-                self.logger.error(
-                    "Vertex chapter shard planning failed responseId=%s reason=%s",
-                    response_id,
-                    self._safe_exception_reason(exception),
-                )
-                return ProviderOperation(
-                    provider_key="vertex",
-                    operation_id=response_id,
-                    status=ProviderOperationStatus.FAILED,
-                    billing=self._merge_billings(structure_billings),
-                )
-
-            async def generate(
-                shard: VisualBeatShard,
-            ) -> tuple[VisualBeatShard, VisualBeatShardResult | None, list[ProviderBilling], str]:
-                result, billing, shard_response_id = await self._bounded_generate_structured(
-                    client,
-                    token,
-                    build_visual_beat_shard_prompt(request, structure, shard),
-                    VisualBeatShardResult,
-                )
-                billings = [billing]
-                reason = self._shard_validation_error(structure, shard, result)
-
-                for repair_attempt in range(1, self.settings.vertex_analysis_repair_attempts + 1):
-                    if reason is None:
-                        break
-                    self.logger.warning(
-                        "Vertex shard validation failed scene=%s shard=%s reason=%s "
-                        "repairAttempt=%s",
-                        shard.scene_index,
-                        shard.shard_index,
-                        reason,
-                        repair_attempt,
-                    )
-                    repaired, repair_billing, repair_response_id = (
-                        await self._bounded_generate_structured(
-                            client,
-                            token,
-                            build_visual_beat_shard_prompt(
-                                request,
-                                structure,
-                                shard,
-                                repair_reason=reason,
-                            ),
-                            VisualBeatShardResult,
-                        )
-                    )
-                    billings.append(repair_billing)
-                    shard_response_id = repair_response_id
-                    result = repaired
-                    reason = self._shard_validation_error(structure, shard, result)
-
-                if reason is not None:
-                    self.logger.error(
-                        "Vertex shard rejected after repair scene=%s shard=%s reason=%s "
-                        "responseId=%s",
-                        shard.scene_index,
-                        shard.shard_index,
-                        reason,
-                        shard_response_id,
-                    )
-                    return shard, None, billings, shard_response_id
-                return shard, result, billings, shard_response_id
-
-            tasks = [asyncio.create_task(generate(shard)) for shard in shards]
-            try:
-                generated = await asyncio.gather(*tasks)
-            except BaseException:
-                for task in tasks:
-                    if not task.done():
-                        task.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
-                raise
-
-        results: dict[tuple[int, int], VisualBeatShardResult] = {}
-        all_billings = list(structure_billings)
-        final_response_id = response_id
-        for shard, result, billings, shard_response_id in generated:
-            all_billings.extend(billings)
-            final_response_id = shard_response_id
-            if result is None:
-                return ProviderOperation(
-                    provider_key="vertex",
-                    operation_id=final_response_id,
-                    status=ProviderOperationStatus.FAILED,
-                    billing=self._merge_billings(all_billings),
-                )
-            results[(shard.scene_index, shard.shard_index)] = result
-
-        try:
-            merged = merge_shard_results(structure, shards, results)
-        except ValueError as exception:
-            self.logger.error(
-                "Vertex chapter merge failed responseId=%s reason=%s",
-                final_response_id,
-                self._safe_exception_reason(exception),
-            )
-            return ProviderOperation(
-                provider_key="vertex",
-                operation_id=final_response_id,
-                status=ProviderOperationStatus.FAILED,
-                billing=self._merge_billings(all_billings),
-            )
-
-        return ProviderOperation(
-            provider_key="vertex",
-            operation_id=final_response_id,
-            status=ProviderOperationStatus.COMPLETED,
-            result=merged,
-            billing=self._merge_billings(all_billings),
-        )
-
-    @staticmethod
-    def _shard_validation_error(
-        structure: ChapterStructureResult,
-        shard: VisualBeatShard,
-        result: VisualBeatShardResult | None,
-    ) -> str | None:
-        if result is None:
-            return "invalid structured shard output"
-        scene = structure.scenes[shard.scene_index]
-        allowed_character_keys = {ref.character_key for ref in scene.characters}
-        try:
-            validate_visual_beat_shard(
-                shard,
-                result,
-                allowed_character_keys=allowed_character_keys,
-            )
-        except ValueError as exception:
-            return str(exception)
-        return None
-
     @staticmethod
     def _safe_validation_reason(exception: ValidationError) -> str:
         """Return Pydantic field paths and error types without serializing rejected input."""
@@ -295,14 +76,8 @@ class VertexGeminiProvider(LlmProvider):
     def _safe_exception_reason(exception: BaseException) -> str:
         """Return a diagnostic label without serializing model input or story content."""
         if isinstance(exception, ValidationError):
-            return VertexGeminiProvider._safe_validation_reason(exception)
+            return VertexGeminiTransport._safe_validation_reason(exception)
         return type(exception).__name__
-
-    async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
-        return operation
-
-    async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
-        return operation
 
     def _http_timeout(self) -> httpx.Timeout:
         return httpx.Timeout(
@@ -339,7 +114,7 @@ class VertexGeminiProvider(LlmProvider):
             "generationConfig": {
                 "temperature": 0.2,
                 "responseMimeType": "application/json",
-                "responseJsonSchema": model.model_json_schema(),
+                "responseJsonSchema": response_json_schema(model),
             },
         }
         try:
@@ -360,11 +135,15 @@ class VertexGeminiProvider(LlmProvider):
                 f"Vertex returned HTTP {response.status_code}; execution outcome is unknown"
             )
         if response.is_error:
+            provider_status, field_paths = safe_error_diagnostic(raw)
             self.logger.error(
-                "Vertex structured request failed httpStatus=%s responseId=%s model=%s",
+                "Vertex structured request failed httpStatus=%s responseId=%s model=%s "
+                "providerStatus=%s fieldPaths=%s",
                 response.status_code,
                 response_id,
                 model.__name__,
+                provider_status,
+                ",".join(field_paths) if field_paths else None,
             )
             return None, self._zero_billing(), response_id
 
@@ -480,6 +259,24 @@ class VertexGeminiProvider(LlmProvider):
                 input_usd_per_million=self._FLASH_25_INPUT,
                 cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
                 output_usd_per_million=self._FLASH_25_OUTPUT,
+            ),
+        )
+
+    def _orchestration_billing(self) -> ProviderBilling:
+        """Zero-cost envelope billing when durable subcalls own the actual usage evidence."""
+        billing = self._zero_billing()
+        return ProviderBilling(
+            actual_cost=billing.actual_cost,
+            currency=billing.currency,
+            usage=billing.usage,
+            pricing=ProviderPricingSnapshot(
+                catalog_version=billing.pricing.catalog_version,
+                model_key=billing.pricing.model_key,
+                location=billing.pricing.location,
+                pricing_mode="ORCHESTRATION_ENVELOPE",
+                input_usd_per_million=billing.pricing.input_usd_per_million,
+                cached_input_usd_per_million=billing.pricing.cached_input_usd_per_million,
+                output_usd_per_million=billing.pricing.output_usd_per_million,
             ),
         )
 

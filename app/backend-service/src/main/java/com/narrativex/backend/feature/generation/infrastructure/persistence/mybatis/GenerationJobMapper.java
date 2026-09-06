@@ -16,6 +16,9 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
   GenerationJobRow findByJobIdAndOwner(
       @Param("jobId") UUID jobId, @Param("ownerId") String ownerId);
 
+  AnalysisProgressRow findAnalysisProgressByJobIdAndOwner(
+      @Param("jobId") UUID jobId, @Param("ownerId") String ownerId);
+
   GenerationJobRow findByIdempotencyKey(
       @Param("idempotencyKey") String idempotencyKey, @Param("ownerId") String ownerId);
 

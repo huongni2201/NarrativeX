@@ -2,9 +2,8 @@
 
 import logging
 
+from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.providers.ports import LlmProvider, ProviderOperation
-from narrativex_worker.providers.vertex import VertexGeminiProvider
-from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
 logger = logging.getLogger("narrativex.worker.service")
@@ -12,23 +11,22 @@ logger = logging.getLogger("narrativex.worker.service")
 
 class WorkerService:
     def __init__(self, provider: LlmProvider) -> None:
-        # Keep the outer durable worker/provider-operation contract unchanged while cutting the
-        # production Vertex path over to continuity-first orchestration. Fake/disabled providers
-        # remain untouched for deterministic tests and local profiles.
-        self.provider: LlmProvider = (
-            ContinuityVertexGeminiProvider(provider.settings)
-            if isinstance(provider, VertexGeminiProvider)
-            and not isinstance(provider, ContinuityVertexGeminiProvider)
-            else provider
-        )
+        self.provider = provider
 
-    async def submit_chapter_analysis(self, request: ChapterAnalysisRequest) -> ProviderOperation:
+    async def submit_chapter_analysis(
+        self,
+        request: ChapterAnalysisRequest,
+        *,
+        execution: ChapterAnalysisExecutionContext | None = None,
+    ) -> ProviderOperation:
         logger.info(
             "Submitting chapter analysis: storyVersionId=%s, chapterId=%s",
             request.story_version_id,
             request.chapter_id,
         )
-        return await self.provider.submit(request)
+        if execution is None:
+            return await self.provider.submit(request)
+        return await self.provider.submit(request, execution=execution)
 
     async def reconcile_chapter_analysis(self, operation: ProviderOperation) -> ProviderOperation:
         logger.info(

@@ -4,15 +4,12 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
     ProviderOperationStatus,
 )
-
-
-class ProviderSubmissionRejectedError(RuntimeError):
-    """The provider boundary was not crossed; the operation can fail definitively."""
 
 
 class ProviderSubmissionUnknownError(RuntimeError):
@@ -25,13 +22,7 @@ class ProviderCapabilities:
     supports_story_analysis: bool
     supports_image_generation: bool = False
     supports_operation_reconciliation: bool = False
-
-
-@dataclass(frozen=True)
-class ProviderEstimate:
-    min_cost: float
-    max_cost: float
-    currency: str = "USD"
+    supports_durable_subcall_resume: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,9 +69,12 @@ class LlmProvider(Protocol):
 
     def get_capabilities(self) -> ProviderCapabilities: ...
 
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate: ...
-
-    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation: ...
+    async def submit(
+        self,
+        request: ChapterAnalysisRequest,
+        *,
+        execution: ChapterAnalysisExecutionContext | None = None,
+    ) -> ProviderOperation: ...
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation: ...
 

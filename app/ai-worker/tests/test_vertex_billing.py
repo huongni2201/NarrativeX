@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch
 import pytest
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.providers.vertex import VertexGeminiProvider, VertexProviderError
+from narrativex_worker.providers.vertex import VertexGeminiTransport, VertexProviderError
 
 
-def provider() -> VertexGeminiProvider:
+def transport() -> VertexGeminiTransport:
     settings = WorkerSettings(
         provider_mode="vertex",
         vertex_project_id="billing-test-project",
@@ -21,11 +21,11 @@ def provider() -> VertexGeminiProvider:
         "narrativex_worker.providers.vertex.google.auth.default",
         return_value=(credentials, None),
     ):
-        return VertexGeminiProvider(settings)
+        return VertexGeminiTransport(settings)
 
 
 def test_standard_usage_is_reconciled_from_prompt_cache_tool_and_output_tokens() -> None:
-    billing = provider()._billing(
+    billing = transport()._billing(
         {
             "usageMetadata": {
                 "promptTokenCount": 1000,
@@ -46,7 +46,7 @@ def test_standard_usage_is_reconciled_from_prompt_cache_tool_and_output_tokens()
 
 
 def test_thinking_usage_prices_response_and_reasoning_at_thinking_rate() -> None:
-    billing = provider()._billing(
+    billing = transport()._billing(
         {
             "usageMetadata": {
                 "promptTokenCount": 1000,
@@ -63,7 +63,7 @@ def test_thinking_usage_prices_response_and_reasoning_at_thinking_rate() -> None
 
 
 def test_non_billable_response_has_zero_cost_evidence() -> None:
-    billing = provider()._zero_billing()
+    billing = transport()._zero_billing()
 
     assert billing.actual_cost == Decimal("0.000000000")
     assert billing.pricing.pricing_mode == "NOT_CHARGED_NON_200"
@@ -77,4 +77,4 @@ def test_unsupported_vertex_model_fails_closed_instead_of_guessing_price() -> No
     )
 
     with pytest.raises(VertexProviderError, match="unsupported model"):
-        VertexGeminiProvider(settings)
+        VertexGeminiTransport(settings)

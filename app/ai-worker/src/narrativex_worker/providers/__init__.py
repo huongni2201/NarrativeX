@@ -21,9 +21,11 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "ImageProviderOperation": ("narrativex_worker.providers.image", "ImageProviderOperation"),
     "LlmProvider": ("narrativex_worker.providers.ports", "LlmProvider"),
     "ProviderCapabilities": ("narrativex_worker.providers.ports", "ProviderCapabilities"),
-    "ProviderEstimate": ("narrativex_worker.providers.ports", "ProviderEstimate"),
     "ProviderOperation": ("narrativex_worker.providers.ports", "ProviderOperation"),
-    "VertexGeminiProvider": ("narrativex_worker.providers.vertex", "VertexGeminiProvider"),
+    "ContinuityVertexGeminiProvider": (
+        "narrativex_worker.providers.vertex_continuity",
+        "ContinuityVertexGeminiProvider",
+    ),
     "VertexProviderError": ("narrativex_worker.providers.vertex", "VertexProviderError"),
     "VertexImageProvider": ("narrativex_worker.providers.vertex_image", "VertexImageProvider"),
     "VertexImageProviderError": (

@@ -9,12 +9,16 @@ import uuid
 from dataclasses import replace
 from typing import Any
 
+from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.billing_repository import ProviderBillingRepository
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers.disabled import DisabledProvider
 from narrativex_worker.providers.fake_analysis import FakeAnalysisProvider
-from narrativex_worker.providers.ports import ProviderOperation
-from narrativex_worker.providers.vertex import VertexGeminiProvider
+from narrativex_worker.providers.ports import (
+    ProviderOperation,
+    ProviderSubmissionUnknownError,
+)
+from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
@@ -46,7 +50,7 @@ class NarrativeXWorker:
         )
         self.billing_repository = ProviderBillingRepository(self.settings.database_url)
         provider = (
-            VertexGeminiProvider(self.settings)
+            ContinuityVertexGeminiProvider(self.settings)
             if self.settings.provider_mode == "vertex"
             else FakeAnalysisProvider()
             if self.settings.provider_mode == "fake"
@@ -184,18 +188,6 @@ class NarrativeXWorker:
             await self._execute_claimed(claimed)
 
     async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
-        if not hasattr(self.service, "provider"):
-            operation = await self.service.submit_chapter_analysis(claimed.request)
-            if (
-                operation.status is not ProviderOperationStatus.COMPLETED
-                or operation.result is None
-            ):
-                raise RuntimeError(
-                    f"Chapter analysis provider returned non-terminal status {operation.status}"
-                )
-            await self.repository.complete(claimed, self.worker_id, operation.result)
-            return
-
         provider_key = self.service.provider.get_capabilities().provider_key
         durable = await self.repository.reserve_provider_operation(
             claimed,
@@ -211,28 +203,85 @@ class NarrativeXWorker:
     async def _submit_reserved_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, durable: DurableProviderOperation
     ) -> None:
-        # UNKNOWN is intentionally persisted before the external call. If the process dies after
-        # this fence, recovery must assume the provider may have accepted the request.
-        reconcile_delay = max(
-            float(self.settings.lease_seconds),
-            self.settings.vertex_timeout_seconds
-            if self.settings.provider_mode == "vertex"
-            else float(self.settings.lease_seconds),
+        capabilities = self.service.provider.get_capabilities()
+        if capabilities.supports_durable_subcall_resume:
+            # The outer row is a local orchestration envelope. Real paid calls are fenced by the
+            # subcall checkpoint repository, so marking this coordinator RUNNING remains resumable.
+            active = await self.repository.mark_provider_orchestration_running(durable)
+            execution = self._analysis_execution_context(claimed)
+        else:
+            # Legacy/direct providers still need the external-call UNKNOWN fence before submit.
+            reconcile_delay = max(
+                float(self.settings.lease_seconds),
+                self.settings.vertex_timeout_seconds
+                if self.settings.provider_mode == "vertex"
+                else float(self.settings.lease_seconds),
+            )
+            active = await self.repository.mark_provider_operation_submission_unknown(
+                durable, reconcile_delay
+            )
+            execution = None
+
+        await self._run_provider_submission(
+            claimed,
+            active,
+            execution=execution,
+            has_durable_subcalls=capabilities.supports_durable_subcall_resume,
         )
-        fenced = await self.repository.mark_provider_operation_submission_unknown(
-            durable, reconcile_delay
+
+    def _analysis_execution_context(
+        self, claimed: ClaimedChapterAnalysisJob
+    ) -> ChapterAnalysisExecutionContext:
+        return ChapterAnalysisExecutionContext(
+            stage_attempt_id=claimed.stage_attempt_id,
+            claim_owner=self.repository.current_claim_owner(self.worker_id),
+            checkpoints=self.repository.analysis_checkpoints(),
         )
+
+    async def _run_provider_submission(
+        self,
+        claimed: ClaimedChapterAnalysisJob,
+        durable: DurableProviderOperation,
+        *,
+        execution: ChapterAnalysisExecutionContext | None,
+        has_durable_subcalls: bool,
+    ) -> None:
         try:
-            operation = await self.service.submit_chapter_analysis(claimed.request)
+            operation = await self.service.submit_chapter_analysis(
+                claimed.request,
+                execution=execution,
+            )
+        except ProviderSubmissionUnknownError as exception:
+            error = f"Provider submission outcome is unknown: {type(exception).__name__}"
+            if has_durable_subcalls:
+                try:
+                    unknown = await self.repository.mark_provider_operation_status(
+                        durable, ProviderOperationStatus.UNKNOWN
+                    )
+                    await self.repository.suspend_provider_reconciliation(unknown, error)
+                except ProviderOperationStateConflictError:
+                    await self._resolve_provider_operation_conflict(claimed, durable)
+                raise ProviderOperationUnreconcilableError(
+                    f"{error}; durable subcall checkpoint is UNKNOWN, refusing blind retry"
+                ) from exception
+            with contextlib.suppress(ProviderOperationStateConflictError):
+                await self.repository.suspend_provider_reconciliation(durable, error)
+            raise ProviderOperationUnreconcilableError(
+                f"{error}; no durable provider operation id was returned, refusing blind retry"
+            ) from exception
         except Exception as exception:
+            if has_durable_subcalls:
+                # No blanket UNKNOWN promotion here: every external call has its own durable fence.
+                # A coordinator/process restart can safely replay completed checkpoints.
+                raise
             error = f"Provider submission outcome is unknown: {type(exception).__name__}"
             with contextlib.suppress(ProviderOperationStateConflictError):
-                await self.repository.suspend_provider_reconciliation(fenced, error)
+                await self.repository.suspend_provider_reconciliation(durable, error)
             raise ProviderOperationUnreconcilableError(
                 f"{error}; no durable provider operation id was returned, refusing blind retry"
             ) from exception
 
-        await self._finish_provider_operation(claimed, fenced, operation)
+        await self._finish_provider_operation(claimed, durable, operation)
 
     async def _recover_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, durable: DurableProviderOperation
@@ -251,12 +300,11 @@ class NarrativeXWorker:
         if durable.status is ProviderOperationStatus.FAILED:
             raise RuntimeError("Chapter analysis provider previously failed")
 
+        capabilities = self.service.provider.get_capabilities()
         if durable.status is ProviderOperationStatus.RESERVED:
-            # RESERVED is the only state that proves the external-call fence was never crossed.
             await self._submit_reserved_provider_operation(claimed, durable)
             return
 
-        capabilities = self.service.provider.get_capabilities()
         if durable.provider_key != capabilities.provider_key:
             error = (
                 f"Configured provider {capabilities.provider_key} cannot reconcile "
@@ -264,6 +312,25 @@ class NarrativeXWorker:
             )
             await self.repository.suspend_provider_reconciliation(durable, error)
             raise ProviderOperationUnreconcilableError(error)
+
+        if (
+            durable.status is ProviderOperationStatus.RUNNING
+            and durable.provider_operation_id is None
+            and capabilities.supports_durable_subcall_resume
+        ):
+            self.logger.info(
+                "Resuming checkpointed Chapter analysis orchestration operation=%s job=%s",
+                durable.id,
+                claimed.job_id,
+            )
+            await self._run_provider_submission(
+                claimed,
+                durable,
+                execution=self._analysis_execution_context(claimed),
+                has_durable_subcalls=True,
+            )
+            return
+
         if durable.provider_operation_id is None:
             error = (
                 f"Provider operation {durable.id} is {durable.status.value} without a durable "
@@ -425,8 +492,6 @@ class NarrativeXWorker:
         )
 
     async def _reconcile_provider_operations(self) -> None:
-        if not hasattr(self.service, "provider"):
-            return
         operations = await self.repository.list_provider_operations(
             (
                 ProviderOperationStatus.UNKNOWN,

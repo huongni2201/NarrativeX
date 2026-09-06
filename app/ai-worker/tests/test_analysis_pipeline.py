@@ -1,3 +1,4 @@
+import hashlib
 from decimal import Decimal
 
 import pytest
@@ -33,10 +34,24 @@ def _billing() -> ProviderBilling:
     )
 
 
+def _request(source: str) -> ChapterAnalysisRequest:
+    return ChapterAnalysisRequest(
+        project_id="00000000-0000-4000-8000-000000000001",
+        story_version_id="00000000-0000-4000-8000-000000000002",
+        chapter_id="00000000-0000-4000-8000-000000000003",
+        chapter_row_version=0,
+        source_hash=hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        source_text=source,
+        source_language="vi-VN",
+    )
+
+
 class FakeStructuredAdapter:
-    def __init__(self) -> None:
+    def __init__(self, *, conflicting_shard_attempts: int = 0) -> None:
         self.prompts: list[str] = []
         self.identities: list[AnalysisStepIdentity | None] = []
+        self.conflicting_shard_attempts = conflicting_shard_attempts
+        self.shard_calls = 0
 
     async def generate(  # type: ignore[no-untyped-def]
         self, prompt: str, model, *, identity: AnalysisStepIdentity | None = None
@@ -92,6 +107,10 @@ class FakeStructuredAdapter:
             return model.model_validate(payload), _billing(), "structure-1"
 
         assert model is VisualBeatShardWithContinuityResult
+        self.shard_calls += 1
+        visible_value = (
+            "hand" if self.shard_calls <= self.conflicting_shard_attempts else "table"
+        )
         return (
             model.model_validate(
                 {
@@ -127,7 +146,7 @@ class FakeStructuredAdapter:
                                 {
                                     "subjectKey": "sword",
                                     "predicate": "prop_position",
-                                    "value": "table",
+                                    "value": visible_value,
                                     "provenance": "SOURCE",
                                     "evidenceAnchor": "Lan đặt kiếm lên bàn.",
                                     "canonVersionId": None,
@@ -140,25 +159,15 @@ class FakeStructuredAdapter:
                 }
             ),
             _billing(),
-            "shard-1",
+            f"shard-{self.shard_calls}",
         )
 
 
 @pytest.mark.asyncio
 async def test_pipeline_builds_continuity_before_parallel_shards_and_returns_pass_report() -> None:
     source = "Lan đặt kiếm lên bàn."
-    import hashlib
-
     adapter = FakeStructuredAdapter()
-    request = ChapterAnalysisRequest(
-        project_id="00000000-0000-4000-8000-000000000001",
-        story_version_id="00000000-0000-4000-8000-000000000002",
-        chapter_id="00000000-0000-4000-8000-000000000003",
-        chapter_row_version=0,
-        source_hash=hashlib.sha256(source.encode("utf-8")).hexdigest(),
-        source_text=source,
-        source_language="vi-VN",
-    )
+    request = _request(source)
 
     result = await run_chapter_analysis_pipeline(
         request=request,
@@ -178,3 +187,42 @@ async def test_pipeline_builds_continuity_before_parallel_shards_and_returns_pas
     assert adapter.identities[0].step_key == "structure"
     assert adapter.identities[1] is not None
     assert adapter.identities[1].step_key == "shard:0:0"
+
+
+@pytest.mark.asyncio
+async def test_blocking_continuity_conflict_triggers_bounded_repair_and_can_recover() -> None:
+    adapter = FakeStructuredAdapter(conflicting_shard_attempts=1)
+
+    result = await run_chapter_analysis_pipeline(
+        request=_request("Lan đặt kiếm lên bàn."),
+        adapter=adapter,
+        target_beats=1,
+        max_beats=2,
+        repair_attempts=1,
+        planning_duration_ms=5_000,
+    )
+
+    assert result.report.status.value == "PASS"
+    assert adapter.shard_calls == 2
+    assert adapter.identities[2] is not None
+    assert adapter.identities[2].step_key == "repair:0:0:1"
+    assert "UNSUPPORTED_STATE_CHANGE" in adapter.prompts[2]
+
+
+@pytest.mark.asyncio
+async def test_exhausted_continuity_repair_preserves_reviewable_result() -> None:
+    adapter = FakeStructuredAdapter(conflicting_shard_attempts=99)
+
+    result = await run_chapter_analysis_pipeline(
+        request=_request("Lan đặt kiếm lên bàn."),
+        adapter=adapter,
+        target_beats=1,
+        max_beats=2,
+        repair_attempts=1,
+        planning_duration_ms=5_000,
+    )
+
+    assert result.report.status.value == "NEEDS_REVIEW"
+    assert adapter.shard_calls == 2
+    assert {issue.code for issue in result.report.issues} == {"UNSUPPORTED_STATE_CHANGE"}
+    assert result.analysis.scenes[0].visual_beats[0].source_anchor == "Lan đặt kiếm lên bàn."
