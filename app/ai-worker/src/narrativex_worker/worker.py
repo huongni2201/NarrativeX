@@ -9,6 +9,7 @@ import uuid
 from dataclasses import replace
 from typing import Any
 
+from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.billing_repository import ProviderBillingRepository
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers.disabled import DisabledProvider
@@ -210,8 +211,16 @@ class NarrativeXWorker:
         fenced = await self.repository.mark_provider_operation_submission_unknown(
             durable, reconcile_delay
         )
+        execution = ChapterAnalysisExecutionContext(
+            stage_attempt_id=claimed.stage_attempt_id,
+            claim_owner=self.repository.current_claim_owner(self.worker_id),
+            checkpoints=self.repository.analysis_checkpoints(),
+        )
         try:
-            operation = await self.service.submit_chapter_analysis(claimed.request)
+            operation = await self.service.submit_chapter_analysis(
+                claimed.request,
+                execution=execution,
+            )
         except Exception as exception:
             error = f"Provider submission outcome is unknown: {type(exception).__name__}"
             with contextlib.suppress(ProviderOperationStateConflictError):
