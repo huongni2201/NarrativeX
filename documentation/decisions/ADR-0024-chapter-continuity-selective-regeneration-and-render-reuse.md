@@ -1,7 +1,8 @@
 # ADR-0024: Chapter continuity, selective regeneration and effective render reuse
 
 **Status:** Accepted  
-**Date:** 2026-09-05
+**Date:** 2026-09-05  
+**Amended:** 2026-09-07
 
 ## Context
 
@@ -37,6 +38,12 @@ Stable `Idempotency-Key` ownership belongs to the caller command. Transport retr
 
 Image generation compiles provider prompts from a pinned backend prompt-input snapshot containing source/canon/continuity state. Selective regeneration reuses the same compiler and generation pipeline with an affected-beat scope; it does not fork a second prompt format.
 
+For Desktop `GEMINI_WEB` Storyboard generation, this principle is implemented through additive `storyboard_generation_batches` and `storyboard_generation_beat_snapshots` metadata. A prepare operation pins one batch scope under a repeatable-read transaction: source hash, storyboard revision, continuity plan/report revision, style/provider policy versions, exact submitted prompt, character snapshot, ordered reference metadata/checksums and per-beat input fingerprint.
+
+The prepared snapshot is immutable. Renderer queue state may cache batch/snapshot IDs and execution progress, but a live `GET .../gemini-context` response is not allowed to redefine pending work after prepare. Before dispatch and again before attach, the backend recomputes the current candidate only to compare fingerprints; the stored snapshot remains the submitted input. Canon/appearance/reference/beat/continuity changes therefore make pending work stale even when the chapter source hash itself did not change.
+
+Prepare idempotency covers the requested beat scope as well as accepted beat fingerprints. Reusing one key with a different requested scope is a conflict even when both scopes are blocked before snapshot materialization.
+
 ### 5. Render provenance and effective cache identity
 
 Project render input snapshots pin continuity provenance for each chapter when available: continuity plan ID and report revision for the same chapter/source hash.
@@ -49,6 +56,8 @@ Logical VisualBeat/media IDs and absolute timeline position do not invalidate a 
 
 Provider credentials remain outside the renderer. Backend/worker authority for provider work and Desktop main-process authority for local filesystem/FFmpeg execution remain unchanged. Generated project media and final project render bytes stay local according to ADR-0012/ADR-0022.
 
+Gemini Web remains a browser-product integration rather than a fake backend provider ledger. PostgreSQL stores authoritative prepared input provenance; a device-local attempt journal exists only to reconcile browser external-side-effect ambiguity. `UNKNOWN` attempts are not blindly resubmitted, and stale late outputs can be retained locally for review without attaching to a newer revision.
+
 ## Consequences
 
 Positive consequences:
@@ -57,14 +66,18 @@ Positive consequences:
 - duplicate analysis work can resume from semantic checkpoints;
 - selective regeneration is bounded and auditable instead of replacing the whole storyboard;
 - retries are safer because idempotency is stable across transport uncertainty;
+- parallel Gemini Storyboard slots consume one immutable revision rather than resolving live prompts independently;
+- reference bytes are checksum-bound to the exact prepared snapshot;
 - render cache misses track actual output dependencies rather than workflow identity churn;
 - final render snapshots preserve which continuity state was accepted at render admission.
 
 Costs/trade-offs:
 
 - continuity and checkpoint state add schema/query complexity;
+- prepared Gemini snapshots add additive persistence and stale-check work on dispatch/attach;
 - deterministic scope expansion can intentionally regenerate more than one requested beat when downstream state depends on it;
 - regeneration plans can expire or become stale and require replanning;
+- conservative browser attempt reconciliation can require user review when external submission outcome cannot be proven;
 - cache-key changes require regression coverage because omitting a real pixel dependency risks stale output reuse;
 - semantic provider-quality and cost improvements still require measured production-like evaluation; deterministic tests alone cannot prove them.
 
@@ -72,6 +85,9 @@ Costs/trade-offs:
 
 - **Mutable continuity rows/reports:** rejected because retries and review history would become non-auditable.
 - **Client-computed regeneration scope:** rejected because ownership, cost and stale-state authority belong to the backend.
+- **Live per-slot prompt resolution for Gemini Generate All:** rejected because parallel slots could consume mixed canon/source/reference revisions.
+- **Persist exact prompt/reference business state only in local queue storage:** rejected because Desktop local state is not backend business authority.
+- **Blind retry after browser timeout/restart:** rejected because a submitted external side effect may already exist.
 - **Regenerate every Visual Beat after any edit:** rejected because it wastes provider calls and removes useful unaffected media.
 - **Use job/revision/asset IDs in segment cache keys:** rejected because logical identity changes can create unnecessary cache misses.
 - **Introduce Redis/broker solely for checkpointing:** rejected because PostgreSQL already owns durable MVP execution state.
@@ -83,10 +99,12 @@ Acceptance requires:
 
 - deterministic continuity fixtures and validator/materialization tests;
 - checkpoint fingerprint/replay and UNKNOWN reconciliation tests;
+- prepared Gemini batch idempotency/stale/fingerprint tests;
+- checksum-aware reference materialization and output-provenance tests;
 - stale/idempotency/cost-authorization tests for regeneration admission;
 - Desktop review/regeneration retry tests;
 - render-cache invalidation tests proving identity-only changes reuse cache and effective pixel-input changes miss cache;
 - Flyway/MyBatis verification for immutable continuity/regeneration/render provenance state;
 - full repository CI without weakening existing lint, type, build or documentation-drift gates.
 
-Provider quality, latency and spend comparisons are evaluated separately with explicit measured data and are not inferred from unit/integration test success.
+Provider quality, latency and spend comparisons are evaluated separately with explicit measured data and are not inferred from unit/integration test success. Conditional visual-anchor work must remain deferred unless a real-image comparison after deterministic input/transport fixes demonstrates material residual drift.
