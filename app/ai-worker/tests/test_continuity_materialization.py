@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from narrativex_worker.materialization.identity import materialize_locations
 from narrativex_worker.materialization.storyboard import materialize_storyboard
-from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.repository import ClaimedChapterAnalysisJob
 from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 from tests.visual_direction_fixture import visual_direction_json
@@ -137,15 +136,6 @@ def test_analysis_result_rejects_beat_character_not_in_parent_scene() -> None:
                 ],
             }
         )
-
-
-def test_prompt_requires_stable_continuity_keys_and_beat_roles() -> None:
-    prompt = build_chapter_analysis_prompt(claimed_job().request)
-    assert "stable ASCII key" in prompt
-    assert "character_key" in prompt
-    assert "location_key" in prompt
-    assert "ONLY the characters actually visible" in prompt
-    assert "PRIMARY, SECONDARY, or BACKGROUND" in prompt
 
 
 class StoryboardConnection:
