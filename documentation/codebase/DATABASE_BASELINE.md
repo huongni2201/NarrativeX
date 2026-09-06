@@ -2,7 +2,7 @@
 
 ## Authority
 
-PostgreSQL is the authoritative business/control-state store. The backend owns Flyway and relational schema evolution. NarrativeX is still pre-production, so the repository maintains a clean baseline rather than compatibility migrations for disposable development data.
+PostgreSQL is the authoritative business/control-state store. The backend owns Flyway and relational schema evolution. NarrativeX is still pre-production, so the repository maintains a clean baseline while preserving ordered migration history already present in shared development environments.
 
 ## Canonical Flyway set
 
@@ -21,8 +21,10 @@ PostgreSQL is the authoritative business/control-state store. The backend owns F
 | `V11__chapter_continuity_indexes.sql` | continuity/checkpoint access paths and idempotent checkpoint identity |
 | `V12__continuity_regeneration_plans.sql` | immutable selective-regeneration plans, expiry/fingerprint scope and generation-job lineage |
 | `V13__render_continuity_provenance.sql` | continuity plan/report provenance pinned into immutable project-render chapter snapshots |
+| `V14__structured_visual_direction_only.sql` | backfill structured VisualBeat direction for legacy rows, then remove duplicate `camera_angle`/`camera_movement` storage |
+| `V15__remove_unowned_short_clip_requests.sql` | remove the unused short-clip request queue that has no runtime producer or consumer |
 
-A clean database applies **V1 → V13**. V9–V13 are cohesive continuity/render slices rather than temporary compatibility patches: they keep the already-large earlier baseline files from absorbing another cross-cutting subsystem while NarrativeX remains pre-production.
+A clean database applies **V1 → V15**. V9–V15 are cohesive subsystem/evolution slices rather than undocumented patch migrations. In particular, V14 preserves legacy camera intent before dropping duplicate columns; V15 removes schema whose execution path never shipped.
 
 ## Current storage decisions
 
@@ -51,6 +53,12 @@ Each render chapter snapshot may pin the immutable `continuity_plan_id` and its 
 
 The former server-side Chapter-render admission tables `render_input_snapshots` and `render_input_snapshot_beats` are removed. There is no `execution_target` cloud/local discriminator; `assigned_local_device_id` is required and defines the executor.
 
+## Storyboard direction schema
+
+`visual_beats.visual_direction_json` is the single persisted camera/composition representation. Worker materialization, backend prompt compilation, media planning and Desktop Storyboard UI consume that structured payload. V14 backfills rows that only had the previous lossy camera projection and then removes `visual_beats.camera_angle` and `visual_beats.camera_movement`.
+
+The production timeline may expose a derived `cameraMovement` value for render execution, but it is projected from `visual_direction_json`; it is not a second storyboard source of truth.
+
 ## Media preview identity
 
 `visual_beats.preview_media_asset_id` is the canonical generated/default preview identity and references `media_assets`. The former project-asset preview pointer is removed. This final state is represented directly in the current baseline; there is no preview-media compatibility patch migration.
@@ -75,20 +83,20 @@ Stage names such as `SHOT_IMAGE_GENERATE`, `SHOT_IMAGE_REGENERATE` and `RENDER_P
 Until first production deployment:
 
 - keep each table/constraint in a clear owning migration or cohesive baseline slice;
-- prefer a new sequential migration (`V9`, `V10`, `V11`, ...) when a subsystem addition would make an existing large migration materially harder to maintain or review;
+- prefer a new sequential migration when a subsystem addition or cleanup would make an existing large migration materially harder to maintain or review;
 - do not create fractional migration names such as `V6_1` for new subsystem work;
 - do not add temporary compatibility migrations whose only purpose is to bridge disposable development schemas;
-- remove columns/tables/indexes whose runtime producer/executor has been removed;
+- remove columns/tables/indexes whose runtime producer/executor has been removed, but preserve data during cut-over when an older representation is still populated;
 - recreate disposable local/test databases after baseline changes;
 - keep sample/application data out of Flyway.
 
-V9–V13 are the canonical continuity/render baseline slices and are not transitional migrations. At first production deployment, freeze the accepted baseline. After that, all schema changes are append-only.
+At first production deployment, freeze the accepted baseline. After that, all schema changes are append-only.
 
 ## Verification
 
 A supported empty PostgreSQL instance must:
 
-1. apply V1 through V13 successfully;
+1. apply V1 through V15 successfully;
 2. expose no pending migration;
 3. contain no removed server Chapter-render snapshot tables;
 4. contain no remote final-video artifact fields;
@@ -97,4 +105,5 @@ A supported empty PostgreSQL instance must:
 7. allow project render assignment only through a paired local device snapshot;
 8. enforce continuity scope/immutability, analysis checkpoint identity/lease fencing and immutable regeneration-plan lineage;
 9. preserve render continuity provenance without using logical continuity/job/revision IDs as effective segment-cache dependencies;
-10. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.
+10. contain `visual_direction_json` but no legacy VisualBeat camera columns and no `short_clip_requests` table;
+11. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.
