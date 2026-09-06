@@ -153,7 +153,7 @@ public class GenerationJobEventStreamService {
     if (jobSubscriptions.isEmpty()) subscriptions.remove(jobId, jobSubscriptions);
   }
 
-  private static String eventId(GenerationJob job, JobResponse snapshot) {
+  static String eventId(GenerationJob job, JobResponse snapshot) {
     return job.getStatus().name()
         + ':'
         + job.getProgress()
