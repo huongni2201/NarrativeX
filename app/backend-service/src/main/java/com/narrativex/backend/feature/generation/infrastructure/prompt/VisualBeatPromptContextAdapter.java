@@ -20,6 +20,11 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
 
   @Override
   public ComposedVisualPrompt get(UUID projectId, UUID chapterId, UUID visualBeatId) {
+    return prepare(projectId, chapterId, visualBeatId).composedPrompt();
+  }
+
+  @Override
+  public PreparedVisualBeatPrompt prepare(UUID projectId, UUID chapterId, UUID visualBeatId) {
     var storyboard = getChapterStoryboardUseCase.execute(projectId, chapterId).data();
     var beat =
         storyboard.scenes().stream()
@@ -33,11 +38,20 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
     String aspectRatio =
         beat.aspectRatioOverride() == null ? null : beat.aspectRatioOverride().name();
-    return visualPromptComposer.compose(
-        ImageStyle.CINEMATIC_ANIME,
-        beat.visualIntent(),
-        beat.visualDirectionJson(),
-        aspectRatio,
-        context);
+    var composed =
+        visualPromptComposer.compose(
+            ImageStyle.CINEMATIC_ANIME,
+            beat.visualIntent(),
+            beat.visualDirectionJson(),
+            aspectRatio,
+            context);
+    var continuity = context.continuity();
+    return new PreparedVisualBeatPrompt(
+        beat.id(),
+        beat.sceneId(),
+        beat.rowVersion(),
+        continuity == null ? null : continuity.planId(),
+        continuity == null ? null : continuity.semanticHash(),
+        composed);
   }
 }
