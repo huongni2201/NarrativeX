@@ -10,7 +10,6 @@ from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
 from narrativex_worker.providers.ports import (
     ProviderCapabilities,
-    ProviderEstimate,
     ProviderOperation,
 )
 from narrativex_worker.providers.vertex import VertexProviderError
@@ -420,10 +419,6 @@ class ProviderSpy:
             supports_story_analysis=True,
             supports_operation_reconciliation=self.supports_reconciliation,
         )
-
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
-        del request
-        return ProviderEstimate(0.0, 0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         del request
