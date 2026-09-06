@@ -17,7 +17,7 @@ from narrativex_worker.repository.implementation import (
 from narrativex_worker.repository.implementation import (
     WorkerRepository as WorkerRepositoryImplementation,
 )
-from narrativex_worker.schema import ChapterAnalysisResult
+from narrativex_worker.schema import ChapterAnalysisResult, ProviderOperationStatus
 from narrativex_worker.visual_density import (
     ChapterAnalysisPlanningRequest,
     bind_planning_duration,
@@ -119,6 +119,44 @@ class WorkerRepository(WorkerRepositoryImplementation):
             await super().fail(claimed, self._lease_owner(worker_id), error_code)
         finally:
             self._claim_owner.set(None)
+
+    async def mark_provider_orchestration_running(
+        self, operation: DurableProviderOperation
+    ) -> DurableProviderOperation:
+        """Mark a local coordinator active without pretending an external call crossed a fence.
+
+        Continuity-first Vertex persists an UNKNOWN fence per real structure/shard/repair call.
+        The outer provider row is only the durable aggregate envelope, so a coordinator crash while
+        this row is RUNNING is safe to resume from the subcall checkpoints.
+        """
+        if operation.status is not ProviderOperationStatus.RESERVED:
+            raise ProviderOperationInvalidTransitionError(
+                f"Provider orchestration {operation.id} must start from RESERVED, "
+                f"not {operation.status.value}"
+            )
+        pool = self._require_pool()
+        row = await pool.fetchrow(
+            """
+            UPDATE provider_operations
+               SET status = 'RUNNING',
+                   provider_operation_id = NULL,
+                   next_reconcile_at = NULL,
+                   last_reconcile_error = NULL,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status = 'RESERVED'
+               AND row_version = $2
+            RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                      status, row_version, request_fingerprint, result_fingerprint,
+                      normalized_result_json
+            """,
+            operation.id,
+            operation.row_version,
+        )
+        if row is None:
+            raise ProviderOperationStateConflictError(operation.id, operation.row_version)
+        return self._provider_operation(row)
 
     async def release_stage_for_provider_replay(
         self, operation: DurableProviderOperation
