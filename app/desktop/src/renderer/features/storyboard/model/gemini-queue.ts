@@ -1,13 +1,36 @@
+import type { StoryboardGenerationBatch } from "@narrativex/client-contracts";
+
 export type GeminiQueueStatus = "RUNNING" | "PAUSED" | "COMPLETED";
 export type GeminiQueueGenerationErrorAction = "SKIP_BEAT" | "PAUSE_QUEUE";
+export type GeminiQueueAttemptStage =
+  | "PREPARED"
+  | "SUBMITTING"
+  | "UNKNOWN"
+  | "COMPLETED"
+  | "FAILED";
+
+export interface GeminiQueueAttempt {
+  attemptId: string;
+  snapshotId: string;
+  inputFingerprint: string;
+  stage: GeminiQueueAttemptStage;
+}
 
 export interface GeminiQueueState {
+  schemaVersion: 2;
   chapterId: string;
+  batchId: string | null;
+  batchFingerprint: string | null;
+  storyboardRevisionId: string | null;
+  sourceHash: string | null;
   beatIds: string[];
+  snapshotIdsByBeat: Record<string, string>;
   completedBeatIds: string[];
   skippedBeatIds: string[];
+  attemptsByBeat: Record<string, GeminiQueueAttempt>;
   currentIndex: number;
   status: GeminiQueueStatus;
+  legacyNeedsPrepare: boolean;
 }
 
 type GeminiQueueBeat = {
@@ -18,19 +41,53 @@ type GeminiQueueBeat = {
 
 export function createGeminiQueue(
   chapterId: string,
-  beats: readonly GeminiQueueBeat[],
+  batch: StoryboardGenerationBatch,
 ): GeminiQueueState | null {
-  const beatIds = beats
-    .filter((beat) => !beat.previewMediaAssetId)
-    .map((beat) => beat.id);
+  const beatIds = batch.beats.map((beat) => beat.visualBeatId);
   if (!beatIds.length) return null;
   return {
+    schemaVersion: 2,
     chapterId,
+    batchId: batch.batchId,
+    batchFingerprint: batch.requestFingerprint,
+    storyboardRevisionId: batch.storyboardRevisionId,
+    sourceHash: batch.sourceHash,
     beatIds,
+    snapshotIdsByBeat: Object.fromEntries(
+      batch.beats.map((beat) => [beat.visualBeatId, beat.snapshotId]),
+    ),
     completedBeatIds: [],
     skippedBeatIds: [],
+    attemptsByBeat: {},
     currentIndex: 0,
     status: "RUNNING",
+    legacyNeedsPrepare: false,
+  };
+}
+
+export function migrateLegacyGeminiQueue(input: {
+  chapterId: string;
+  beatIds: string[];
+  completedBeatIds: string[];
+  skippedBeatIds: string[];
+  currentIndex: number;
+  status: GeminiQueueStatus;
+}): GeminiQueueState {
+  return {
+    schemaVersion: 2,
+    chapterId: input.chapterId,
+    batchId: null,
+    batchFingerprint: null,
+    storyboardRevisionId: null,
+    sourceHash: null,
+    beatIds: uniqueIds(input.beatIds),
+    snapshotIdsByBeat: {},
+    completedBeatIds: uniqueIds(input.completedBeatIds),
+    skippedBeatIds: uniqueIds(input.skippedBeatIds),
+    attemptsByBeat: {},
+    currentIndex: input.currentIndex,
+    status: input.status === "COMPLETED" ? "COMPLETED" : "PAUSED",
+    legacyNeedsPrepare: input.status !== "COMPLETED",
   };
 }
 
@@ -84,7 +141,15 @@ function withProgress(
 }
 
 export function restoreQueueForSession(state: GeminiQueueState): GeminiQueueState {
-  return state.status === "RUNNING" ? { ...state, status: "PAUSED" } : state;
+  const attemptsByBeat = Object.fromEntries(
+    Object.entries(state.attemptsByBeat).map(([beatId, attempt]) => [
+      beatId,
+      attempt.stage === "SUBMITTING" ? { ...attempt, stage: "UNKNOWN" as const } : attempt,
+    ]),
+  );
+  return state.status === "RUNNING" || attemptsByBeat !== state.attemptsByBeat
+    ? { ...state, attemptsByBeat, status: state.status === "COMPLETED" ? "COMPLETED" : "PAUSED" }
+    : state;
 }
 
 export function reconcileQueue(
@@ -97,11 +162,19 @@ export function reconcileQueue(
 
   const completedBeatIds = state.completedBeatIds.filter((beatId) => validBeatIds.has(beatId));
   const skippedBeatIds = state.skippedBeatIds.filter((beatId) => validBeatIds.has(beatId));
+  const snapshotIdsByBeat = Object.fromEntries(
+    Object.entries(state.snapshotIdsByBeat).filter(([beatId]) => validBeatIds.has(beatId)),
+  );
+  const attemptsByBeat = Object.fromEntries(
+    Object.entries(state.attemptsByBeat).filter(([beatId]) => validBeatIds.has(beatId)),
+  );
   const reconciled: GeminiQueueState = {
     ...state,
     beatIds,
     completedBeatIds,
     skippedBeatIds,
+    snapshotIdsByBeat,
+    attemptsByBeat,
   };
   const currentIndex = nextPendingIndex(reconciled);
 
@@ -112,16 +185,58 @@ export function reconcileQueue(
   };
 }
 
+export function beginQueueAttempt(
+  state: GeminiQueueState,
+  beatId: string,
+  attempt: GeminiQueueAttempt,
+): GeminiQueueState {
+  const existing = state.attemptsByBeat[beatId];
+  if (existing && existing.stage !== "FAILED") {
+    throw new Error(`Gemini beat ${beatId} already has an unresolved or completed attempt.`);
+  }
+  return {
+    ...state,
+    attemptsByBeat: {
+      ...state.attemptsByBeat,
+      [beatId]: attempt,
+    },
+  };
+}
+
+export function markQueueAttemptStage(
+  state: GeminiQueueState,
+  beatId: string,
+  stage: GeminiQueueAttemptStage,
+): GeminiQueueState {
+  const attempt = state.attemptsByBeat[beatId];
+  if (!attempt) return state;
+  return {
+    ...state,
+    attemptsByBeat: {
+      ...state.attemptsByBeat,
+      [beatId]: { ...attempt, stage },
+    },
+  };
+}
+
 export function markQueueBeatCompleted(
   state: GeminiQueueState,
   beatId: string,
 ): GeminiQueueState {
-  return withProgress(state, [...state.completedBeatIds, beatId], state.skippedBeatIds);
+  const withAttempt = markQueueAttemptStage(state, beatId, "COMPLETED");
+  return withProgress(withAttempt, [...withAttempt.completedBeatIds, beatId], withAttempt.skippedBeatIds);
 }
 
 export function markQueueBeatSkipped(
   state: GeminiQueueState,
   beatId: string,
 ): GeminiQueueState {
-  return withProgress(state, state.completedBeatIds, [...state.skippedBeatIds, beatId]);
+  const withAttempt = markQueueAttemptStage(state, beatId, "FAILED");
+  return withProgress(withAttempt, withAttempt.completedBeatIds, [...withAttempt.skippedBeatIds, beatId]);
+}
+
+export function unresolvedAttemptBeatIds(state: GeminiQueueState): string[] {
+  return Object.entries(state.attemptsByBeat)
+    .filter(([, attempt]) => attempt.stage === "SUBMITTING" || attempt.stage === "UNKNOWN")
+    .map(([beatId]) => beatId);
 }
