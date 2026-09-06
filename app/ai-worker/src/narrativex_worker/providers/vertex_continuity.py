@@ -6,6 +6,7 @@ import httpx
 from pydantic import BaseModel
 
 from narrativex_worker.analysis_pipeline import run_chapter_analysis_pipeline
+from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
 from narrativex_worker.providers.ports import ProviderBilling, ProviderOperation
 from narrativex_worker.providers.vertex import VertexGeminiProvider, VertexProviderError
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
@@ -22,7 +23,16 @@ class _VertexStructuredAdapter:
         self._client = client
         self._access_token = access_token
 
-    async def generate(self, prompt: str, model: type[BaseModel]):
+    async def generate(
+        self,
+        prompt: str,
+        model: type[BaseModel],
+        *,
+        identity: AnalysisStepIdentity | None = None,
+    ):
+        # The Vertex transport does not consume the durable step identity yet, but this adapter
+        # must accept it to satisfy StructuredAnalysisAdapter and the continuity pipeline contract.
+        _ = identity
         return await self._provider._bounded_generate_structured(  # noqa: SLF001
             self._client,
             self._access_token,
