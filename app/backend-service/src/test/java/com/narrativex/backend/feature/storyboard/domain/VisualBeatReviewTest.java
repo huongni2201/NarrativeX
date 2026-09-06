@@ -39,13 +39,15 @@ class VisualBeatReviewTest {
   }
 
   @Test
-  void previewMediaAssetCanBeAttached() {
+  void attachingPreviewMediaResetsReviewToNeedsReview() {
     UUID sceneId = UuidV7.random();
     UUID assetId = UuidV7.random();
     VisualBeat beat = new VisualBeat(sceneId, 0, "Đội quân xuất phát", "Wide cinematic shot");
+    beat.changeReviewStatus(VisualBeatReviewStatus.APPROVED);
 
     beat.attachPreviewMediaAsset(assetId);
 
     assertEquals(assetId, beat.getPreviewMediaAssetId());
+    assertEquals(VisualBeatReviewStatus.NEEDS_REVIEW, beat.getReviewStatus());
   }
 }
