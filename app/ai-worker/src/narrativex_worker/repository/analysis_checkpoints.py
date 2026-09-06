@@ -58,7 +58,7 @@ class AnalysisCheckpointRepository:
                     INSERT INTO analysis_checkpoints
                         (generation_job_id, stage_attempt_id, step_key, input_fingerprint,
                          claim_owner, lease_version, status)
-                    SELECT sa.generation_job_id, sa.id, $2, $3, $4, 1, 'RESERVED'
+                    SELECT sa.generation_job_id, sa.id, $2, $3, $4::varchar, 1, 'RESERVED'
                       FROM stage_attempts sa
                      WHERE sa.id = $1
                        AND sa.worker_id = $4
@@ -107,7 +107,9 @@ class AnalysisCheckpointRepository:
         if checkpoint.status is AnalysisCheckpointStatus.COMPLETED:
             return checkpoint
         if checkpoint.status is AnalysisCheckpointStatus.UNKNOWN:
-            raise RuntimeError("analysis checkpoint outcome is UNKNOWN; refusing blind resubmission")
+            raise RuntimeError(
+                "analysis checkpoint outcome is UNKNOWN; refusing blind resubmission"
+            )
 
         async with self._pool.acquire() as connection:
             async with connection.transaction():
@@ -148,7 +150,9 @@ class AnalysisCheckpointRepository:
                     provider_operation_id,
                 )
                 if row is None:
-                    raise RuntimeError("analysis checkpoint provider fence lost the outer stage lease")
+                    raise RuntimeError(
+                        "analysis checkpoint provider fence lost the outer stage lease"
+                    )
                 return _checkpoint(row)
 
     async def complete_provider_call(

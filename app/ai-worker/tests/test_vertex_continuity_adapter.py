@@ -1,13 +1,16 @@
 import inspect
+import json
 import uuid
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
 from pydantic import BaseModel
 
 from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
+from narrativex_worker.continuity.schema import BeatContinuityState
 from narrativex_worker.providers.vertex import (
     VertexGeminiTransport,
     VertexSubmissionUnknownError,
@@ -63,6 +66,67 @@ def _request() -> ChapterAnalysisRequest:
 
 class _TinyResult(BaseModel):
     value: str
+
+
+class _ContinuityResult(BaseModel):
+    continuityStates: list[BeatContinuityState]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("changes", "code"),
+    [
+        ({"provenance": "UNKNOWN"}, "continuity_unknown_value"),
+        ({"provenance": "UNKNOWN", "value": None}, "continuity_unknown_evidence"),
+        ({"evidenceAnchor": None}, "continuity_source_evidence_required"),
+        ({"value": None}, "continuity_source_evidence_required"),
+        (
+            {"canonVersionId": "00000000-0000-4000-8000-000000000001"},
+            "continuity_source_canon_forbidden",
+        ),
+        ({"provenance": "APPROVED_CANON"}, "continuity_canon_required"),
+    ],
+)
+async def test_vertex_rejects_invalid_facts_with_private_rule_diagnostics(
+    changes: dict[str, object],
+    code: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fact = {
+        "subjectKey": "lan",
+        "predicate": "location",
+        "value": "SECRET_STORY_FRAGMENT",
+        "provenance": "SOURCE",
+        "evidenceAnchor": "SECRET_EVIDENCE",
+        "canonVersionId": None,
+    }
+    fact.update(changes)
+    payload = {"continuityStates": [{"beatKey": "beat_1", "entryFacts": [fact]}]}
+    client = Mock()
+    client.post = AsyncMock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "responseId": "invalid-fact-response",
+                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+                "candidates": [{"content": {"parts": [{"text": json.dumps(payload)}]}}],
+            },
+        )
+    )
+
+    result, billing, response_id = await _transport()._generate_structured(
+        client,
+        "token",
+        "prompt",
+        _ContinuityResult,
+    )
+
+    assert result is None
+    assert billing.usage.candidate_tokens == 5
+    assert response_id == "invalid-fact-response"
+    assert f"continuityStates.0.entryFacts.0:{code}" in caplog.text
+    assert "SECRET_STORY_FRAGMENT" not in caplog.text
+    assert "SECRET_EVIDENCE" not in caplog.text
 
 
 class _CheckpointStub:

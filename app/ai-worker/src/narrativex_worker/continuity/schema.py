@@ -7,6 +7,7 @@ from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic_core import PydanticCustomError
 
 from narrativex_worker.schema import ENTITY_KEY_PATTERN
 
@@ -52,24 +53,40 @@ class ContinuityFact(_ContinuityModel):
     predicate: ContinuityPredicate
     value: str | int | bool | None = Field(default=None)
     provenance: ContinuityProvenance
-    evidence_anchor: str | None = Field(default=None, alias="evidenceAnchor", min_length=1, max_length=2000)
+    evidence_anchor: str | None = Field(
+        default=None, alias="evidenceAnchor", min_length=1, max_length=2000
+    )
     canon_version_id: UUID | None = Field(default=None, alias="canonVersionId")
 
     @model_validator(mode="after")
     def validate_provenance(self) -> Self:
         if self.provenance is ContinuityProvenance.UNKNOWN:
             if self.value is not None:
-                raise ValueError("UNKNOWN continuity facts must have value=null")
+                raise PydanticCustomError(
+                    "continuity_unknown_value", "UNKNOWN continuity facts must have value=null"
+                )
             if self.evidence_anchor is not None or self.canon_version_id is not None:
-                raise ValueError("UNKNOWN continuity facts cannot claim source/canon evidence")
+                raise PydanticCustomError(
+                    "continuity_unknown_evidence",
+                    "UNKNOWN continuity facts cannot claim source/canon evidence",
+                )
         elif self.provenance is ContinuityProvenance.SOURCE:
             if self.value is None or self.evidence_anchor is None:
-                raise ValueError("SOURCE continuity facts require value and evidenceAnchor")
+                raise PydanticCustomError(
+                    "continuity_source_evidence_required",
+                    "SOURCE continuity facts require value and evidenceAnchor",
+                )
             if self.canon_version_id is not None:
-                raise ValueError("SOURCE continuity facts cannot claim canonVersionId")
+                raise PydanticCustomError(
+                    "continuity_source_canon_forbidden",
+                    "SOURCE continuity facts cannot claim canonVersionId",
+                )
         elif self.provenance is ContinuityProvenance.APPROVED_CANON:
             if self.value is None or self.canon_version_id is None:
-                raise ValueError("APPROVED_CANON facts require value and canonVersionId")
+                raise PydanticCustomError(
+                    "continuity_canon_required",
+                    "APPROVED_CANON facts require value and canonVersionId",
+                )
         return self
 
 
@@ -83,8 +100,12 @@ class ContinuityEvent(_ContinuityModel):
 class SceneContinuityState(_ContinuityModel):
     scene_key: str = Field(alias="sceneKey", pattern=ENTITY_KEY_PATTERN)
     timeline_key: str = Field(alias="timelineKey", pattern=ENTITY_KEY_PATTERN)
-    entry_facts: list[ContinuityFact] = Field(default_factory=list, alias="entryFacts", max_length=200)
-    exit_facts: list[ContinuityFact] = Field(default_factory=list, alias="exitFacts", max_length=200)
+    entry_facts: list[ContinuityFact] = Field(
+        default_factory=list, alias="entryFacts", max_length=200
+    )
+    exit_facts: list[ContinuityFact] = Field(
+        default_factory=list, alias="exitFacts", max_length=200
+    )
     event_keys: list[str] = Field(default_factory=list, alias="eventKeys", max_length=200)
 
 
@@ -93,7 +114,9 @@ class ChapterContinuityPlan(_ContinuityModel):
     source_hash: str = Field(alias="sourceHash", pattern=r"^[0-9a-f]{64}$")
     summary: str = Field(default="", max_length=8000)
     events: list[ContinuityEvent] = Field(default_factory=list, max_length=500)
-    scene_states: list[SceneContinuityState] = Field(alias="sceneStates", min_length=1, max_length=500)
+    scene_states: list[SceneContinuityState] = Field(
+        alias="sceneStates", min_length=1, max_length=500
+    )
     visual_style_constraints: list[str] = Field(
         default_factory=list, alias="visualStyleConstraints", max_length=100
     )
@@ -110,7 +133,9 @@ class ChapterContinuityPlan(_ContinuityModel):
         for scene in self.scene_states:
             unknown = set(scene.event_keys) - known_events
             if unknown:
-                raise ValueError(f"scene continuity references unknown event keys: {sorted(unknown)!r}")
+                raise ValueError(
+                    f"scene continuity references unknown event keys: {sorted(unknown)!r}"
+                )
         return self
 
 
@@ -118,7 +143,9 @@ class ShardContinuityContext(_ContinuityModel):
     plan_id: UUID | None = Field(default=None, alias="planId")
     scene_key: str = Field(alias="sceneKey", pattern=ENTITY_KEY_PATTERN)
     timeline_key: str = Field(alias="timelineKey", pattern=ENTITY_KEY_PATTERN)
-    entry_facts: list[ContinuityFact] = Field(default_factory=list, alias="entryFacts", max_length=200)
+    entry_facts: list[ContinuityFact] = Field(
+        default_factory=list, alias="entryFacts", max_length=200
+    )
     expected_exit_facts: list[ContinuityFact] = Field(
         default_factory=list, alias="expectedExitFacts", max_length=200
     )
@@ -130,9 +157,15 @@ class ShardContinuityContext(_ContinuityModel):
 
 class BeatContinuityState(_ContinuityModel):
     beat_key: str = Field(alias="beatKey", pattern=ENTITY_KEY_PATTERN)
-    entry_facts: list[ContinuityFact] = Field(default_factory=list, alias="entryFacts", max_length=200)
-    visible_facts: list[ContinuityFact] = Field(default_factory=list, alias="visibleFacts", max_length=200)
-    exit_facts: list[ContinuityFact] = Field(default_factory=list, alias="exitFacts", max_length=200)
+    entry_facts: list[ContinuityFact] = Field(
+        default_factory=list, alias="entryFacts", max_length=200
+    )
+    visible_facts: list[ContinuityFact] = Field(
+        default_factory=list, alias="visibleFacts", max_length=200
+    )
+    exit_facts: list[ContinuityFact] = Field(
+        default_factory=list, alias="exitFacts", max_length=200
+    )
     event_keys: list[str] = Field(default_factory=list, alias="eventKeys", max_length=100)
 
 
@@ -140,7 +173,9 @@ class ContinuityIssue(_ContinuityModel):
     code: str = Field(pattern=r"^[A-Z0-9_]{3,64}$")
     severity: ContinuityIssueSeverity
     scope_keys: list[str] = Field(default_factory=list, alias="scopeKeys", max_length=100)
-    evidence_anchors: list[str] = Field(default_factory=list, alias="evidenceAnchors", max_length=100)
+    evidence_anchors: list[str] = Field(
+        default_factory=list, alias="evidenceAnchors", max_length=100
+    )
     message: str = Field(min_length=1, max_length=2000)
     origin: ContinuityIssueOrigin
 

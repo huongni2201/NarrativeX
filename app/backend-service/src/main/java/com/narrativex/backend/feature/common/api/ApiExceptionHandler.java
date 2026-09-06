@@ -22,6 +22,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -205,6 +206,16 @@ public class ApiExceptionHandler {
       AuthenticationException exception, HttpServletRequest request) {
     return error(
         HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "Authentication is required.", request);
+  }
+
+  @ExceptionHandler(AsyncRequestNotUsableException.class)
+  void handleDisconnectedClient(
+      AsyncRequestNotUsableException exception, HttpServletRequest request) {
+    log.debug(
+        "Client disconnected while streaming response correlationId={} method={} path={}",
+        CorrelationIdFilter.correlationId(request),
+        request.getMethod(),
+        request.getRequestURI());
   }
 
   @ExceptionHandler(Exception.class)

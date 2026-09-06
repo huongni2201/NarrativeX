@@ -29,6 +29,16 @@ Backend admission
 
 ## Provider-operation fence
 
+Chapter structure, visual-beat shard and bounded repair prompts each include the continuity
+fact provenance contract. Shard output includes one ordered `continuityStates` entry per beat.
+`SOURCE` facts require a value and verbatim evidence with no canon ID; `UNKNOWN` facts carry
+null value/evidence/canon ID; `APPROVED_CANON` requires a value and supplied canon version ID.
+Pydantic remains authoritative: invalid facts are rejected, never silently downgraded or repaired
+by inventing evidence. Validation logs expose field paths and stable `continuity_*` rule codes,
+without rejected story values. Prompt identity `continuity-v2` separates these requests from
+older checkpoint fingerprints. A failed analysis may leave no materialized continuity plan;
+the corresponding continuity GET then returns 404.
+
 External provider work persists request identity before submission. Ambiguous outcomes remain `UNKNOWN` and reconcile before resubmission. Lease loss prevents stale owners from creating new durable side effects or finalizing success.
 
 ## Image generation

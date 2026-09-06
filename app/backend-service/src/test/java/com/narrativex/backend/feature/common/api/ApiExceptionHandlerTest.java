@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.common.api;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -18,6 +19,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 class ApiExceptionHandlerTest {
   static class RequestPayload {
@@ -108,6 +110,14 @@ class ApiExceptionHandlerTest {
     assertEquals("INTERNAL_ERROR", error.code());
     assertFalse(error.message().contains("SQL"));
     assertNotNull(error.timestamp());
+  }
+
+  @Test
+  void disconnectedClientDoesNotProduceAnotherResponse() {
+    assertDoesNotThrow(
+        () ->
+            handler.handleDisconnectedClient(
+                new AsyncRequestNotUsableException("ServletOutputStream failed to write"), request));
   }
 
   @Test

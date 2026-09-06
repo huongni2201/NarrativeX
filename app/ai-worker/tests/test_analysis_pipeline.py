@@ -103,14 +103,14 @@ class FakeStructuredAdapter:
                     "visualStyleConstraints": [],
                 },
             }
-            payload["continuityPlan"]["sourceHash"] = prompt.split("SOURCE_HASH=", 1)[1].split("\n", 1)[0]
+            payload["continuityPlan"]["sourceHash"] = prompt.split("SOURCE_HASH=", 1)[1].split(
+                "\n", 1
+            )[0]
             return model.model_validate(payload), _billing(), "structure-1"
 
         assert model is VisualBeatShardWithContinuityResult
         self.shard_calls += 1
-        visible_value = (
-            "hand" if self.shard_calls <= self.conflicting_shard_attempts else "table"
-        )
+        visible_value = "hand" if self.shard_calls <= self.conflicting_shard_attempts else "table"
         return (
             model.model_validate(
                 {
@@ -178,6 +178,15 @@ async def test_pipeline_builds_continuity_before_parallel_shards_and_returns_pas
         planning_duration_ms=5_000,
     )
 
+    # Every provider call is independent: shard and repair prompts must carry the
+    # fact contract themselves instead of relying on the structure call's context.
+    for prompt in adapter.prompts:
+        assert "SOURCE requires value!=null, evidenceAnchor!=null, canonVersionId=null" in prompt
+        assert "UNKNOWN requires value=null, evidenceAnchor=null, canonVersionId=null" in prompt
+        assert "APPROVED_CANON requires value!=null and canonVersionId!=null" in prompt
+    assert "continuityStates:[{beatKey,entryFacts:" in adapter.prompts[1]
+    assert "exactly one continuity state per visual beat, in the same order" in adapter.prompts[1]
+
     assert result.report.status.value == "PASS"
     assert result.continuity_plan.source_hash == request.source_hash
     assert result.analysis.scenes[0].visual_beats[0].source_anchor == source
@@ -207,6 +216,16 @@ async def test_blocking_continuity_conflict_triggers_bounded_repair_and_can_reco
     assert adapter.identities[2] is not None
     assert adapter.identities[2].step_key == "repair:0:0:1"
     assert "UNSUPPORTED_STATE_CHANGE" in adapter.prompts[2]
+    assert (
+        "SOURCE requires value!=null, evidenceAnchor!=null, canonVersionId=null"
+        in (adapter.prompts[2])
+    )
+    assert "continuityStates:[{beatKey,entryFacts:" in adapter.prompts[2]
+    assert all(
+        identity.prompt_version == "continuity-v2"
+        for identity in adapter.identities
+        if identity is not None
+    )
 
 
 @pytest.mark.asyncio
