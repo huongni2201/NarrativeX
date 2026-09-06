@@ -136,3 +136,84 @@ def test_shard_context_filters_unrelated_character_facts_and_bounds_neighbor_sou
     assert "Ngày trước" in first.neighbor_source
     assert "Đèn tắt." in second.neighbor_source
     assert all(fact.subject_key != "other" for fact in second.entry_facts + second.expected_exit_facts)
+
+
+def test_later_shard_entry_includes_event_applied_in_earlier_shard() -> None:
+    source = "An bước vào. Đèn tắt. An ngồi xuống."
+    plan = ChapterContinuityPlan.model_validate(
+        {
+            "schemaVersion": 1,
+            "sourceHash": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "events": [
+                {
+                    "key": "lights_off",
+                    "sourceAnchor": "Đèn tắt.",
+                    "timelineKey": "present",
+                    "changes": [
+                        {
+                            "subjectKey": "room",
+                            "predicate": "lighting",
+                            "value": "dark",
+                            "provenance": "SOURCE",
+                            "evidenceAnchor": "Đèn tắt.",
+                        }
+                    ],
+                }
+            ],
+            "sceneStates": [
+                {
+                    "sceneKey": "room_scene",
+                    "timelineKey": "present",
+                    "entryFacts": [],
+                    "exitFacts": [],
+                    "eventKeys": ["lights_off"],
+                }
+            ],
+        }
+    )
+    structure = ChapterStructureResult(
+        characters=[CharacterAnalysis(key="an", name="An")],
+        scenes=[
+            SceneStructure(
+                title="Room",
+                source_start_anchor="An bước vào.",
+                source_end_anchor="An ngồi xuống.",
+                characters=[SceneCharacterRef(character_key="an")],
+            )
+        ],
+    )
+    split = source.index("An ngồi xuống.")
+    shards = [
+        VisualBeatShard(
+            scene_index=0,
+            shard_index=0,
+            source_start=0,
+            source_end=split,
+            source_text=source[:split],
+            minimum_beats=1,
+            target_beats=1,
+            maximum_beats=1,
+        ),
+        VisualBeatShard(
+            scene_index=0,
+            shard_index=1,
+            source_start=split,
+            source_end=len(source),
+            source_text=source[split:],
+            minimum_beats=1,
+            target_beats=1,
+            maximum_beats=1,
+        ),
+    ]
+
+    contexts = build_shard_continuity_contexts(
+        source_text=source,
+        structure=structure,
+        plan=plan,
+        shards=shards,
+    )
+
+    first_exit = {(fact.subject_key, fact.predicate.value, fact.value) for fact in contexts[(0, 0)].expected_exit_facts}
+    second_entry = {(fact.subject_key, fact.predicate.value, fact.value) for fact in contexts[(0, 1)].entry_facts}
+    assert ("room", "lighting", "dark") in first_exit
+    assert ("room", "lighting", "dark") in second_entry
