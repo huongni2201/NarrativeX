@@ -11,6 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VisualPromptLocationRow {
+  private UUID visualBeatId;
   private UUID locationId;
   private String name;
   private String description;
