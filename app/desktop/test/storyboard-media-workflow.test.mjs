@@ -5,16 +5,97 @@ import {
   generateGeminiStoryboardImage,
   persistStoryboardImage,
 } from "../src/renderer/features/storyboard/queries/storyboard-media.mutations.ts";
+import { GeminiReferenceMaterializer } from "../src/renderer/features/storyboard/model/gemini-reference-materializer.ts";
 import { runBackgroundRefresh } from "../src/renderer/features/storyboard/model/storyboard-media-refresh.ts";
+
+const SHA_A = "a".repeat(64);
+const SHA_B = "b".repeat(64);
+const INPUT_FP = "c".repeat(64);
+const BATCH_FP = "d".repeat(64);
 
 const imageSelection = {
   selectionToken: "selection-1",
   originalFilename: "generated.png",
   contentType: "image/png",
   sizeBytes: 1234,
-  checksumSha256: "abc123",
+  checksumSha256: SHA_A,
   kind: "IMAGE",
 };
+
+function snapshot(overrides = {}) {
+  return {
+    snapshotId: "snapshot-1",
+    visualBeatId: "beat-1",
+    sceneId: "scene-1",
+    beatRowVersion: 4,
+    prompt: "BACKEND FINAL PROMPT",
+    negativePrompt: "",
+    characterSnapshotJson: "{}",
+    references: [
+      {
+        refLabel: "REF_01",
+        assetId: "asset-a",
+        characterId: "char-1",
+        canonicalName: "Alice",
+        beatRole: "PRIMARY",
+        referenceRole: "IDENTITY",
+        priority: 1,
+        contentType: "image/png",
+        sha256: SHA_A,
+      },
+      {
+        refLabel: "REF_02",
+        assetId: "asset-b",
+        characterId: "char-2",
+        canonicalName: "Bob",
+        beatRole: "SECONDARY",
+        referenceRole: "PROFILE",
+        priority: 2,
+        contentType: "image/png",
+        sha256: SHA_B,
+      },
+    ],
+    continuitySemanticHash: "semantic-1",
+    inputFingerprint: INPUT_FP,
+    ...overrides,
+  };
+}
+
+function batch(overrides = {}) {
+  const beat = snapshot();
+  return {
+    batchId: "batch-1",
+    chapterId: "chapter-1",
+    storyboardRevisionId: "revision-1",
+    sourceHash: "e".repeat(64),
+    continuityPlanId: "plan-1",
+    continuityPlanRevision: 1,
+    continuityReportRevision: 1,
+    stylePolicyVersion: "storyboard-manhwa-v2",
+    providerPolicyVersion: "gemini-web-3.1-pro-cinematic-v1",
+    requestFingerprint: BATCH_FP,
+    status: "PREPARED",
+    stale: false,
+    hasBlockingIssues: false,
+    issues: [],
+    beats: [beat],
+    ...overrides,
+  };
+}
+
+function generationInput(overrides = {}) {
+  const prepared = batch();
+  return {
+    projectId: "project-1",
+    chapterId: "chapter-1",
+    batch: prepared,
+    snapshot: prepared.beats[0],
+    attemptId: "attempt-1",
+    hasProductionTimelineBeat: false,
+    referenceMaterializer: new GeminiReferenceMaterializer(),
+    ...overrides,
+  };
+}
 
 test("persistStoryboardImage keeps register -> trusted commit -> beat selection ordering", async () => {
   const calls = [];
@@ -47,34 +128,32 @@ test("persistStoryboardImage keeps register -> trusted commit -> beat selection 
     "attach-preview",
     "attach",
   ]);
-  assert.deepEqual(calls[0][1], {
+});
+
+test("persistStoryboardImage can retain a late output without attaching it", async () => {
+  const calls = [];
+  const deps = {
+    registerLocal: async () => ({ id: "asset-retained" }),
+    commitGeminiImage: async () => calls.push("commit"),
+    commitSelectedAsset: async () => undefined,
+    attachBeatPreview: async () => calls.push("attach-preview"),
+    updateBeatMedia: async () => calls.push("attach-timeline"),
+  };
+
+  const assetId = await persistStoryboardImage(deps, {
     projectId: "project-1",
-    type: "IMAGE",
-    originalFilename: "generated.png",
-    contentType: "image/png",
-    sizeBytes: 1234,
-    checksumSha256: "abc123",
-    durationMs: null,
+    chapterId: "chapter-1",
+    sceneId: "scene-1",
+    beatId: "beat-1",
+    beatRowVersion: 2,
+    hasProductionTimelineBeat: true,
+    selection: imageSelection,
+    source: "GEMINI_WEB",
+    attachToBeat: false,
   });
-  assert.deepEqual(calls[1][1], {
-    lane: "STORYBOARD",
-    projectId: "project-1",
-    assetId: "asset-1",
-    selectionToken: "selection-1",
-  });
-  assert.deepEqual(calls[2].slice(1), [
-    "project-1",
-    "chapter-1",
-    "scene-1",
-    "beat-1",
-    2,
-    "asset-1",
-  ]);
-  assert.deepEqual(calls[3].slice(1), [
-    "project-1",
-    "beat-1",
-    { mediaAssetId: "asset-1", fitMode: "TRIM", trimStartMs: 0 },
-  ]);
+
+  assert.equal(assetId, "asset-retained");
+  assert.deepEqual(calls, ["commit"]);
 });
 
 test("Storyboard cache refresh is handled in the background", () => {
@@ -92,7 +171,9 @@ test("a rejected cache refresh cannot reject the caller", async () => {
   console.warn = (...args) => warnings.push(args);
   try {
     runBackgroundRefresh(
-      async () => { throw new Error("offline"); },
+      async () => {
+        throw new Error("offline");
+      },
       (error) => warnings.push(["refresh", { error }]),
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -134,81 +215,26 @@ test("manual image persistence uses ProjectStorage commit instead of Gemini comm
   ]);
 });
 
-test("storyboard image persists its preview when the beat has no production timeline entry", async () => {
+test("Gemini workflow sends immutable backend prompt and ordered references unchanged", async () => {
   const calls = [];
+  const prepared = batch();
+  let batchReads = 0;
   const deps = {
-    registerLocal: async () => ({ id: "asset-preview" }),
-    commitGeminiImage: async () => calls.push("commit-gemini"),
-    commitSelectedAsset: async () => calls.push("commit-manual"),
-    attachBeatPreview: async (...args) => calls.push(["attach-preview", ...args]),
-    updateBeatMedia: async () => {
-      throw new Error("production timeline must not be required for a storyboard preview");
+    getPreparedBatch: async () => {
+      batchReads += 1;
+      return prepared;
     },
-  };
-
-  const assetId = await persistStoryboardImage(deps, {
-    projectId: "project-1",
-    chapterId: "chapter-1",
-    sceneId: "scene-1",
-    beatId: "beat-without-timing",
-    beatRowVersion: 3,
-    hasProductionTimelineBeat: false,
-    selection: imageSelection,
-    source: "GEMINI_WEB",
-  });
-
-  assert.equal(assetId, "asset-preview");
-  assert.deepEqual(calls, [
-    "commit-gemini",
-    [
-      "attach-preview",
-      "project-1",
-      "chapter-1",
-      "scene-1",
-      "beat-without-timing",
-      3,
-      "asset-preview",
-    ],
-  ]);
-});
-
-test("Gemini workflow sends backend final prompt unchanged and preserves REF mapping", async () => {
-  const calls = [];
-  const materialized = new Set(["asset-existing"]);
-  const context = {
-    visualBeatId: "beat-1",
-    prompt: "BACKEND FINAL PROMPT",
-    references: [
-      {
-        refLabel: "REF_01",
-        assetId: "asset-existing",
-        characterId: "char-1",
-        canonicalName: "Alice",
-        beatRole: "PRIMARY",
-        referenceRole: null,
-        priority: 1,
-        contentType: "image/png",
-        sha256: "one",
-      },
-      {
-        refLabel: "REF_02",
-        assetId: "asset-new",
-        characterId: "char-2",
-        canonicalName: "Bob",
-        beatRole: "SECONDARY",
-        referenceRole: null,
-        priority: 2,
-        contentType: "image/png",
-        sha256: "two",
-      },
-    ],
-  };
-  const deps = {
-    getGeminiContext: async () => context,
-    materializeRemoteAsset: async (input) => calls.push(["materialize", input]),
+    materializeRemoteAsset: async (input) => {
+      calls.push(["materialize", input]);
+      return { checksumSha256: input.assetId === "asset-a" ? SHA_A : SHA_B };
+    },
     generateImage: async (input) => {
       calls.push(["generate", input]);
-      return imageSelection;
+      return {
+        ...imageSelection,
+        generationAttemptId: "attempt-1",
+        generationInputFingerprint: INPUT_FP,
+      };
     },
     persistImage: async (input) => {
       calls.push(["persist", input]);
@@ -216,57 +242,160 @@ test("Gemini workflow sends backend final prompt unchanged and preserves REF map
     },
   };
 
-  const result = await generateGeminiStoryboardImage(deps, {
-    projectId: "project-1",
-    chapterId: "chapter-1",
-    beat: { id: "beat-1", sceneId: "scene-1", rowVersion: 4 },
-    hasProductionTimelineBeat: false,
-    materializedReferenceIds: materialized,
-  });
+  const result = await generateGeminiStoryboardImage(deps, generationInput());
 
+  assert.equal(batchReads, 2);
   assert.equal(result.assetId, "asset-generated");
   assert.equal(result.referenceCount, 2);
-  assert.equal(materialized.has("asset-new"), true);
-  assert.deepEqual(calls.map(([name]) => name), ["materialize", "generate", "persist"]);
-  assert.equal(calls[1][1].prompt, "BACKEND FINAL PROMPT");
-  assert.deepEqual(calls[1][1].references, [
-    {
-      refLabel: "REF_01",
-      assetId: "asset-existing",
-      characterId: "char-1",
-      canonicalName: "Alice",
-      beatRole: "PRIMARY",
-    },
-    {
-      refLabel: "REF_02",
-      assetId: "asset-new",
-      characterId: "char-2",
-      canonicalName: "Bob",
-      beatRole: "SECONDARY",
-    },
+  assert.deepEqual(calls.map(([name]) => name), [
+    "materialize",
+    "materialize",
+    "generate",
+    "persist",
   ]);
+  const generated = calls[2][1];
+  assert.equal(generated.prompt, "BACKEND FINAL PROMPT");
+  assert.deepEqual(generated.references, prepared.beats[0].references);
+  assert.deepEqual(generated.provenance, {
+    attemptId: "attempt-1",
+    batchId: "batch-1",
+    snapshotId: "snapshot-1",
+    batchFingerprint: BATCH_FP,
+    inputFingerprint: INPUT_FP,
+    stylePolicyVersion: "storyboard-manhwa-v2",
+    providerPolicyVersion: "gemini-web-3.1-pro-cinematic-v1",
+  });
+  assert.equal(calls[3][1].attachToBeat, true);
 });
 
-test("Gemini workflow rejects an empty backend prompt", async () => {
+test("reference materialization checksum mismatch fails before Gemini submit", async () => {
+  let submitted = false;
   await assert.rejects(
     () =>
       generateGeminiStoryboardImage(
         {
-          getGeminiContext: async () => ({ prompt: "   ", references: [] }),
-          materializeRemoteAsset: async () => undefined,
-          generateImage: async () => imageSelection,
+          getPreparedBatch: async () => batch(),
+          materializeRemoteAsset: async () => ({ checksumSha256: "f".repeat(64) }),
+          generateImage: async () => {
+            submitted = true;
+            return imageSelection;
+          },
           persistImage: async () => "asset-generated",
         },
-        {
-          projectId: "project-1",
-          chapterId: "chapter-1",
-          beat: { id: "beat-1", sceneId: "scene-1", rowVersion: 0 },
-          hasProductionTimelineBeat: false,
-          materializedReferenceIds: new Set(),
-        },
+        generationInput(),
       ),
-    /Backend chưa trả Gemini prompt/i,
+    /REFERENCE_INTEGRITY_FAILED/,
   );
+  assert.equal(submitted, false);
+});
+
+test("blocking prepared batches never dispatch", async () => {
+  let submitted = false;
+  const blocked = batch({
+    hasBlockingIssues: true,
+    issues: [
+      {
+        code: "REFERENCE_BUDGET_EXCEEDED",
+        severity: "BLOCKING",
+        visualBeatId: "beat-1",
+        message: "too many refs",
+      },
+    ],
+  });
+  await assert.rejects(
+    () =>
+      generateGeminiStoryboardImage(
+        {
+          getPreparedBatch: async () => blocked,
+          materializeRemoteAsset: async () => ({ checksumSha256: SHA_A }),
+          generateImage: async () => {
+            submitted = true;
+            return imageSelection;
+          },
+          persistImage: async () => "asset-generated",
+        },
+        generationInput({ batch: blocked, snapshot: blocked.beats[0] }),
+      ),
+    /GENERATION_INPUT_BLOCKED.*REFERENCE_BUDGET_EXCEEDED/,
+  );
+  assert.equal(submitted, false);
+});
+
+test("stale prepared batches never dispatch", async () => {
+  let submitted = false;
+  const stale = batch({ stale: true });
+  await assert.rejects(
+    () =>
+      generateGeminiStoryboardImage(
+        {
+          getPreparedBatch: async () => stale,
+          materializeRemoteAsset: async () => ({ checksumSha256: SHA_A }),
+          generateImage: async () => {
+            submitted = true;
+            return imageSelection;
+          },
+          persistImage: async () => "asset-generated",
+        },
+        generationInput({ batch: stale, snapshot: stale.beats[0] }),
+      ),
+    /STALE_GENERATION_INPUT/,
+  );
+  assert.equal(submitted, false);
+});
+
+test("late output after source/canon change is retained but not attached", async () => {
+  const initial = batch();
+  const stale = batch({ stale: true });
+  let readCount = 0;
+  let persistedInput = null;
+  const deps = {
+    getPreparedBatch: async () => (++readCount === 1 ? initial : stale),
+    materializeRemoteAsset: async (input) => ({
+      checksumSha256: input.assetId === "asset-a" ? SHA_A : SHA_B,
+    }),
+    generateImage: async () => ({
+      ...imageSelection,
+      generationAttemptId: "attempt-1",
+      generationInputFingerprint: INPUT_FP,
+    }),
+    persistImage: async (input) => {
+      persistedInput = input;
+      return "asset-late";
+    },
+  };
+
+  await assert.rejects(
+    () => generateGeminiStoryboardImage(deps, generationInput()),
+    /STALE_GENERATION_INPUT_OUTPUT_RETAINED.*asset-late/,
+  );
+  assert.equal(persistedInput.attachToBeat, false);
+});
+
+test("Gemini output provenance mismatch is rejected before persistence", async () => {
+  let persisted = false;
+  await assert.rejects(
+    () =>
+      generateGeminiStoryboardImage(
+        {
+          getPreparedBatch: async () => batch(),
+          materializeRemoteAsset: async (input) => ({
+            checksumSha256: input.assetId === "asset-a" ? SHA_A : SHA_B,
+          }),
+          generateImage: async () => ({
+            ...imageSelection,
+            generationAttemptId: "another-attempt",
+            generationInputFingerprint: INPUT_FP,
+          }),
+          persistImage: async () => {
+            persisted = true;
+            return "asset-generated";
+          },
+        },
+        generationInput(),
+      ),
+    /GEMINI_OUTPUT_PROVENANCE_MISMATCH/,
+  );
+  assert.equal(persisted, false);
 });
 
 test("media workflow rejects non-image selections before registration", async () => {
