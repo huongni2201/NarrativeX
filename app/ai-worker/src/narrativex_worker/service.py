@@ -24,6 +24,8 @@ class WorkerService:
             request.story_version_id,
             request.chapter_id,
         )
+        if execution is None:
+            return await self.provider.submit(request)
         return await self.provider.submit(request, execution=execution)
 
     async def reconcile_chapter_analysis(self, operation: ProviderOperation) -> ProviderOperation:
