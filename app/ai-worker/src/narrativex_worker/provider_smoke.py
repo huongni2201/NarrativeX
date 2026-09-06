@@ -1,4 +1,4 @@
-"""Opt-in smoke check for the real Vertex Gemini analysis provider."""
+"""Opt-in smoke check for the real continuity-first Vertex Gemini analysis provider."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import os
 from uuid import uuid4
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.providers.vertex import VertexGeminiProvider
+from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
 
@@ -29,7 +29,7 @@ async def run_smoke() -> None:
         vertex_model=os.getenv("VERTEX_MODEL", "gemini-2.5-flash"),
         vertex_timeout_seconds=60.0,
     )
-    provider = VertexGeminiProvider(settings)
+    provider = ContinuityVertexGeminiProvider(settings)
     source_text = "Một nhân vật bước vào căn phòng và nhìn ra cửa sổ."
     operation = await provider.submit(
         ChapterAnalysisRequest(
