@@ -46,7 +46,7 @@ class VieneuTtsProvider:
 
         if client is None:
             try:
-                from vieneu import Vieneu  # type: ignore[import-not-found]
+                from vieneu import Vieneu  # type: ignore[import-untyped]
             except ImportError as exception:
                 raise RuntimeError(
                     "TTS_PROVIDER_MODE=vieneu requires the vieneu package. "
