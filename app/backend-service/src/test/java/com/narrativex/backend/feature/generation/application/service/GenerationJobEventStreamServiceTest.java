@@ -1,17 +1,20 @@
 package com.narrativex.backend.feature.generation.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
+import com.narrativex.backend.feature.generation.domain.value.AnalysisProgress;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -48,6 +51,8 @@ class GenerationJobEventStreamServiceTest {
     when(currentUserId.get()).thenReturn(OWNER_ID);
     when(generationJobRepository.findByJobIdAndOwner(jobId, OWNER_ID))
         .thenReturn(Optional.of(running), Optional.of(completed));
+    when(generationJobRepository.findAnalysisProgressByJobIdAndOwner(jobId, OWNER_ID))
+        .thenReturn(Optional.empty());
 
     service.subscribe(jobId);
     assertEquals(1, service.activeSubscriptionCount());
@@ -55,6 +60,22 @@ class GenerationJobEventStreamServiceTest {
     service.publishChanges();
 
     assertEquals(0, service.activeSubscriptionCount());
+  }
+
+  @Test
+  void eventIdentityChangesWhenOnlyDurableAnalysisProgressChanges() {
+    UUID jobId = UuidV7.random();
+    GenerationJob running = job(jobId, UuidV7.random(), JobStatus.RUNNING, 25, 0L);
+    JobResponse first =
+        JobResponse.fromWithAnalysisProgress(
+            running, new AnalysisProgress("SHARDS", 1, 3, 0, 0, null, "continuity-v1"));
+    JobResponse second =
+        JobResponse.fromWithAnalysisProgress(
+            running, new AnalysisProgress("SHARDS", 2, 3, 1, 1, null, "continuity-v1"));
+
+    assertNotEquals(
+        GenerationJobEventStreamService.eventId(running, first),
+        GenerationJobEventStreamService.eventId(running, second));
   }
 
   private static GenerationJob job(
