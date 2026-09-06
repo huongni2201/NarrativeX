@@ -16,19 +16,29 @@ def source_hash(source_text: str) -> str:
     return hashlib.sha256(source_text.encode("utf-8")).hexdigest()
 
 
-def validate_plan_source(plan: ChapterContinuityPlan, source_text: str) -> None:
-    if plan.source_hash != source_hash(source_text):
-        raise ValueError("CONTINUITY_INPUT_STALE")
-
+def event_source_positions(
+    plan: ChapterContinuityPlan,
+    source_text: str,
+) -> dict[str, int]:
+    """Resolve event anchors in declared order so repeated excerpts cannot jump backwards."""
+    positions: dict[str, int] = {}
     cursor = 0
     for event in plan.events:
         position = source_text.find(event.source_anchor, cursor)
         if position < 0:
             raise ValueError(f"continuity event {event.key!r} anchor missing or out of source order")
+        positions[event.key] = position
         cursor = position + len(event.source_anchor)
         for fact in event.changes:
             if fact.evidence_anchor is not None and fact.evidence_anchor not in source_text:
                 raise ValueError(f"continuity event {event.key!r} contains missing evidence anchor")
+    return positions
+
+
+def validate_plan_source(plan: ChapterContinuityPlan, source_text: str) -> None:
+    if plan.source_hash != source_hash(source_text):
+        raise ValueError("CONTINUITY_INPUT_STALE")
+    event_source_positions(plan, source_text)
 
 
 def fold_scene_states(
