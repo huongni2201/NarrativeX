@@ -77,6 +77,16 @@ def test_structure_prompt_preserves_untrusted_boundary_and_source_language() -> 
     assert "Use SOURCE_LANGUAGE for every user-facing text field" in prompt
 
 
+def test_structure_prompt_requires_stable_entity_and_continuity_keys() -> None:
+    prompt = build_chapter_structure_prompt(_request("prefix"))
+
+    assert "Assign stable ASCII character/location/event/scene keys" in prompt
+    assert "reference only declared keys" in prompt
+    assert "character_key" in prompt
+    assert "location_key" in prompt
+    assert "continuityPlan" in prompt
+
+
 def test_shard_prompt_contains_only_shard_source_not_full_chapter() -> None:
     request = _request("prefix SECRET_FULL_CHAPTER suffix")
     prompt = build_visual_beat_shard_prompt(request, _structure(), _shard())
@@ -85,6 +95,18 @@ def test_shard_prompt_contains_only_shard_source_not_full_chapter() -> None:
     assert "SECRET_FULL_CHAPTER" not in prompt
     assert "MIN_VISUAL_BEATS=1" in prompt
     assert "Every beat requires source_anchor" in prompt
+
+
+def test_shard_prompt_restricts_visible_character_roles() -> None:
+    prompt = build_visual_beat_shard_prompt(
+        _request("prefix"),
+        _structure(),
+        _shard(),
+    )
+
+    assert "reference only characters listed in SCENE_CONTEXT" in prompt
+    assert "PRIMARY, SECONDARY, or BACKGROUND roles" in prompt
+    assert "characters:[{character_key,role}]" in prompt
 
 
 def test_image_shard_prompt_uses_provider_safe_non_graphic_language() -> None:
