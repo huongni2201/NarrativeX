@@ -1,3 +1,7 @@
+import type {
+  StoryboardGenerationBatch,
+  StoryboardGenerationBeatSnapshot,
+} from "@narrativex/client-contracts";
 import {
   useMutation,
   useQueryClient,
@@ -10,6 +14,7 @@ import {
   storyboardApi,
   type StoryboardVisualBeat,
 } from "../api/storyboard.api";
+import { GeminiReferenceMaterializer } from "../model/gemini-reference-materializer";
 import {
   generateGeminiStoryboardImage,
   persistStoryboardImage,
@@ -78,7 +83,7 @@ function createPersistDeps(): PersistStoryboardImageDeps {
 
 export function useStoryboardMediaMutations(projectId: string, chapterId: string | null) {
   const queryClient = useQueryClient();
-  const materializedReferenceIdsRef = useRef(new Set<string>());
+  const referenceMaterializerRef = useRef(new GeminiReferenceMaterializer());
   const persistDeps = createPersistDeps();
 
   const importImage = useMutation({
@@ -113,27 +118,25 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
 
   const generateGeminiImage = useMutation({
     mutationFn: async ({
-      beat,
+      batch,
+      snapshot,
+      attemptId,
       onReferencesResolved,
       hasProductionTimelineBeat,
     }: {
-      beat: Pick<StoryboardVisualBeat, "id" | "sceneId" | "rowVersion">;
+      batch: StoryboardGenerationBatch;
+      snapshot: StoryboardGenerationBeatSnapshot;
+      attemptId: string;
       onReferencesResolved?: (referenceCount: number) => void;
       hasProductionTimelineBeat: boolean;
     }) => {
-      if (!chapterId) throw new Error("Chưa chọn chapter để resolve character reference.");
+      if (!chapterId) throw new Error("Chưa chọn chapter để generate Gemini.");
+      onReferencesResolved?.(snapshot.references.length);
 
       return generateGeminiStoryboardImage(
         {
-          getGeminiContext: async (targetProjectId, targetChapterId, beatId) => {
-            const context = await storyboardApi.geminiContext(
-              targetProjectId,
-              targetChapterId,
-              beatId,
-            );
-            onReferencesResolved?.(context.references.length);
-            return context;
-          },
+          getPreparedBatch: (targetProjectId, targetChapterId, batchId) =>
+            storyboardApi.getGeminiGenerationBatch(targetProjectId, targetChapterId, batchId),
           materializeRemoteAsset: (input) =>
             window.narrativex.localStorage.materializeRemoteAsset(input),
           generateImage: (input) => window.narrativex.geminiWeb.generateImage(input),
@@ -142,9 +145,11 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
         {
           projectId,
           chapterId,
-          beat,
+          batch,
+          snapshot,
+          attemptId,
           hasProductionTimelineBeat,
-          materializedReferenceIds: materializedReferenceIdsRef.current,
+          referenceMaterializer: referenceMaterializerRef.current,
         },
       );
     },
