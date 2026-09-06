@@ -20,6 +20,7 @@ from narrativex_worker.providers.ports import (
     ProviderSubmissionUnknownError,
     ProviderTokenUsage,
 )
+from narrativex_worker.providers.vertex_schema import response_json_schema, safe_error_diagnostic
 
 
 class VertexProviderError(RuntimeError):
@@ -113,7 +114,7 @@ class VertexGeminiTransport:
             "generationConfig": {
                 "temperature": 0.2,
                 "responseMimeType": "application/json",
-                "responseJsonSchema": model.model_json_schema(),
+                "responseJsonSchema": response_json_schema(model),
             },
         }
         try:
@@ -134,11 +135,15 @@ class VertexGeminiTransport:
                 f"Vertex returned HTTP {response.status_code}; execution outcome is unknown"
             )
         if response.is_error:
+            provider_status, field_paths = safe_error_diagnostic(raw)
             self.logger.error(
-                "Vertex structured request failed httpStatus=%s responseId=%s model=%s",
+                "Vertex structured request failed httpStatus=%s responseId=%s model=%s "
+                "providerStatus=%s fieldPaths=%s",
                 response.status_code,
                 response_id,
                 model.__name__,
+                provider_status,
+                ",".join(field_paths) if field_paths else None,
             )
             return None, self._zero_billing(), response_id
 
@@ -254,6 +259,24 @@ class VertexGeminiTransport:
                 input_usd_per_million=self._FLASH_25_INPUT,
                 cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
                 output_usd_per_million=self._FLASH_25_OUTPUT,
+            ),
+        )
+
+    def _orchestration_billing(self) -> ProviderBilling:
+        """Zero-cost envelope billing when durable subcalls own the actual usage evidence."""
+        billing = self._zero_billing()
+        return ProviderBilling(
+            actual_cost=billing.actual_cost,
+            currency=billing.currency,
+            usage=billing.usage,
+            pricing=ProviderPricingSnapshot(
+                catalog_version=billing.pricing.catalog_version,
+                model_key=billing.pricing.model_key,
+                location=billing.pricing.location,
+                pricing_mode="ORCHESTRATION_ENVELOPE",
+                input_usd_per_million=billing.pricing.input_usd_per_million,
+                cached_input_usd_per_million=billing.pricing.cached_input_usd_per_million,
+                output_usd_per_million=billing.pricing.output_usd_per_million,
             ),
         )
 
