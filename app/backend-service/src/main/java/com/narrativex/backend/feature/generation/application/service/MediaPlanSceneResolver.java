@@ -7,10 +7,12 @@ import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 /** Compiles immutable scene/beat media snapshots without owning admission or persistence. */
 @Component
@@ -22,6 +24,7 @@ public final class MediaPlanSceneResolver {
   private final MotionStrategyResolver motionStrategyResolver;
   private final VisualPromptContextRepository visualPromptContextRepository;
   private final VisualPromptComposer visualPromptComposer;
+  private final ObjectMapper objectMapper;
 
   public List<MediaScenePlan> resolve(
       CreateMediaPlanCommand command, MediaPlanningSource planningSource) {
@@ -47,10 +50,7 @@ public final class MediaPlanSceneResolver {
                 beat.visualDirectionJson(),
                 aspectRatio,
                 context);
-        String cameraMovement =
-            beat.cameraMovement() == null || beat.cameraMovement().isBlank()
-                ? "NONE"
-                : beat.cameraMovement();
+        String cameraMovement = cameraMovementFor(beat.visualDirectionJson());
         beats.add(
             new MediaBeatPlan(
                 beat.visualBeatId(),
@@ -96,6 +96,19 @@ public final class MediaPlanSceneResolver {
         .allMatch(beat -> "APPROVED".equals(beat.reviewStatus()));
   }
 
+  private String cameraMovementFor(String visualDirectionJson) {
+    if (visualDirectionJson == null || visualDirectionJson.isBlank()) return "NONE";
+    try {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> direction = objectMapper.readValue(visualDirectionJson, Map.class);
+      Object value = direction.get("camera_movement");
+      return value instanceof String movement && !movement.isBlank() ? movement : "NONE";
+    } catch (Exception exception) {
+      throw new IllegalArgumentException(
+          "visualDirectionJson must be valid structured direction JSON", exception);
+    }
+  }
+
   private static String renderSettingsJson(
       CreateMediaPlanCommand command, MediaPlanningSource.BeatSnapshot beat, String aspectRatio) {
     String direction = beat.visualDirectionJson();
@@ -103,8 +116,6 @@ public final class MediaPlanSceneResolver {
         + aspectRatio
         + "\",\"visualStyle\":\""
         + command.imageStyle().name()
-        + "\",\"cameraAngle\":\""
-        + beat.cameraAngle()
         + "\",\"visualDirection\":"
         + (direction == null ? "null" : direction)
         + "}";
