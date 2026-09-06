@@ -139,7 +139,6 @@
     <select id="findAnalysisProgressByJobIdAndOwner" resultMap="analysisProgressRow">
         SELECT
             CASE
-                WHEN j.job_type &lt;&gt; 'CHAPTER_ANALYZE' THEN NULL
                 WHEN j.status = 'COMPLETED' THEN 'MATERIALIZATION'
                 WHEN NOT COALESCE(stats.structure_complete, FALSE) THEN 'STRUCTURE'
                 WHEN COALESCE(stats.total_shards, 0) = 0 THEN 'BOUNDARIES'
@@ -155,8 +154,7 @@
             ) AS reused_shards,
             COALESCE(stats.repair_count, 0) AS repair_count,
             report.continuity_report_id,
-            CASE WHEN j.job_type = 'CHAPTER_ANALYZE' THEN 'continuity-v1' ELSE NULL END
-                AS pipeline_version
+            'continuity-v1' AS pipeline_version
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
           LEFT JOIN LATERAL (
@@ -199,6 +197,7 @@
                LIMIT 1
           ) report ON TRUE
          WHERE j.job_id = #{jobId}
+           AND j.job_type = 'CHAPTER_ANALYZE'
            AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
     </select>
