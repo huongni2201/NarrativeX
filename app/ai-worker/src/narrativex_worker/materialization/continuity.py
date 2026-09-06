@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
@@ -89,25 +90,28 @@ async def materialize_continuity(
     if existing is not None:
         if existing["result_hash"] != result_hash:
             raise RuntimeError("continuity revision already exists with a different result")
-        return existing["id"]
+        return cast(UUID, existing["id"])
 
-    plan_id = await connection.fetchval(
-        """
-        INSERT INTO chapter_continuity_plans
-          (project_id, story_version_id, chapter_id, storyboard_revision_id, revision,
-           source_hash, schema_version, prompt_version, model_config_json, plan_json, result_hash)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'continuity-v1', '{}'::jsonb, $8::jsonb, $9)
-        RETURNING id
-        """,
-        project_id,
-        story_version_id,
-        chapter_id,
-        target["storyboard_revision_id"],
-        revision,
-        source_hash,
-        plan.schema_version,
-        json.dumps(plan.model_dump(mode="json", by_alias=True), ensure_ascii=False),
-        result_hash,
+    plan_id = cast(
+        UUID | None,
+        await connection.fetchval(
+            """
+            INSERT INTO chapter_continuity_plans
+              (project_id, story_version_id, chapter_id, storyboard_revision_id, revision,
+               source_hash, schema_version, prompt_version, model_config_json, plan_json, result_hash)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'continuity-v1', '{}'::jsonb, $8::jsonb, $9)
+            RETURNING id
+            """,
+            project_id,
+            story_version_id,
+            chapter_id,
+            target["storyboard_revision_id"],
+            revision,
+            source_hash,
+            plan.schema_version,
+            json.dumps(plan.model_dump(mode="json", by_alias=True), ensure_ascii=False),
+            result_hash,
+        ),
     )
     if plan_id is None:
         raise RuntimeError("failed to persist chapter continuity plan")
