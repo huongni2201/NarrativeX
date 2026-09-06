@@ -125,6 +125,8 @@ CHECKPOINT_PATTERNS = {
     ),
 }
 
+MIGRATION_NAME = re.compile(r"\b(V(\d+)__[A-Za-z0-9_]+\.sql)\b")
+
 
 def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
     match = pattern.search(path.read_text(encoding="utf-8"))
@@ -139,6 +141,57 @@ def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bo
         for label, pattern in DESKTOP_ONLY_FORBIDDEN.items()
         if pattern.search(text)
     ]
+
+
+def documented_migrations(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    return {match.group(1) for match in MIGRATION_NAME.finditer(path.read_text(encoding="utf-8"))}
+
+
+def migration_inventory_errors(migrations: Path) -> list[str]:
+    if not migrations.exists():
+        return [f"missing Flyway migration directory: {migrations.relative_to(ROOT)}"]
+
+    actual = {path.name for path in migrations.glob("V*.sql")}
+    version_by_name = {
+        match.group(1): int(match.group(2))
+        for name in actual
+        if (match := MIGRATION_NAME.fullmatch(name)) is not None
+    }
+    malformed = sorted(actual - version_by_name.keys())
+    errors: list[str] = []
+    if malformed:
+        errors.append("malformed Flyway migration name(s): " + ", ".join(malformed))
+
+    if version_by_name:
+        versions = set(version_by_name.values())
+        highest = max(versions)
+        missing_versions = sorted(set(range(1, highest + 1)) - versions)
+        if missing_versions:
+            errors.append(
+                "Flyway migration versions are not contiguous: missing "
+                + ", ".join(f"V{version}" for version in missing_versions)
+            )
+
+    for doc in (
+        ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
+        ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
+    ):
+        documented = documented_migrations(doc)
+        missing_from_doc = sorted(actual - documented)
+        stale_in_doc = sorted(documented - actual)
+        relative = doc.relative_to(ROOT)
+        if missing_from_doc:
+            errors.append(
+                f"{relative}: missing Flyway inventory entries: " + ", ".join(missing_from_doc)
+            )
+        if stale_in_doc:
+            errors.append(
+                f"{relative}: lists nonexistent Flyway migrations: " + ", ".join(stale_in_doc)
+            )
+
+    return errors
 
 
 def main() -> int:
@@ -186,32 +239,7 @@ def main() -> int:
         )
 
     migrations = ROOT / "app" / "backend-service" / "src" / "main" / "resources" / "db" / "migration"
-    expected_migrations = {
-        "V1__identity_and_access.sql",
-        "V2__project_story_and_planning.sql",
-        "V3__generation_billing_and_media.sql",
-        "V4__narration_notifications_and_artifacts.sql",
-        "V5__catalog_generation_and_render_snapshots.sql",
-        "V6__database_logic_and_triggers.sql",
-        "V7__indexes.sql",
-        "V8__seed_catalog.sql",
-        "V9__chapter_continuity_and_analysis_checkpoints.sql",
-        "V10__chapter_continuity_guards.sql",
-        "V11__chapter_continuity_indexes.sql",
-        "V12__continuity_regeneration_plans.sql",
-        "V13__render_continuity_provenance.sql",
-    }
-    if migrations.exists():
-        actual = {path.name for path in migrations.glob("V*.sql")}
-        missing_migrations = sorted(expected_migrations - actual)
-        if missing_migrations:
-            errors.append("missing current Flyway migration(s): " + ", ".join(missing_migrations))
-        unexpected_migrations = sorted(actual - expected_migrations)
-        if unexpected_migrations:
-            errors.append(
-                "unexpected Flyway migration(s) outside current pre-release baseline: "
-                + ", ".join(unexpected_migrations)
-            )
+    errors.extend(migration_inventory_errors(migrations))
 
     navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
     for retired_name in (
