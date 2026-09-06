@@ -40,8 +40,6 @@ public record MediaPlanningSource(
       String visualIntent,
       MotionIntent motionIntent,
       String reviewStatus,
-      String cameraMovement,
-      String cameraAngle,
       String aspectRatioOverride,
       Long audioStartMs,
       Long audioEndMs,
@@ -54,60 +52,9 @@ public record MediaPlanningSource(
           visualIntent,
           motionIntent,
           "APPROVED",
-          "NONE",
-          "MEDIUM",
           null,
           null,
           null,
-          null);
-    }
-
-    public BeatSnapshot(
-        UUID visualBeatId,
-        int orderIndex,
-        String visualIntent,
-        MotionIntent motionIntent,
-        String reviewStatus,
-        String cameraMovement,
-        String aspectRatioOverride,
-        Long audioStartMs,
-        Long audioEndMs) {
-      this(
-          visualBeatId,
-          orderIndex,
-          visualIntent,
-          motionIntent,
-          reviewStatus,
-          cameraMovement,
-          "MEDIUM",
-          aspectRatioOverride,
-          audioStartMs,
-          audioEndMs,
-          null);
-    }
-
-    public BeatSnapshot(
-        UUID visualBeatId,
-        int orderIndex,
-        String visualIntent,
-        MotionIntent motionIntent,
-        String reviewStatus,
-        String cameraMovement,
-        String cameraAngle,
-        String aspectRatioOverride,
-        Long audioStartMs,
-        Long audioEndMs) {
-      this(
-          visualBeatId,
-          orderIndex,
-          visualIntent,
-          motionIntent,
-          reviewStatus,
-          cameraMovement,
-          cameraAngle,
-          aspectRatioOverride,
-          audioStartMs,
-          audioEndMs,
           null);
     }
 
@@ -117,7 +64,6 @@ public record MediaPlanningSource(
       if (visualIntent == null || visualIntent.isBlank())
         throw new IllegalArgumentException("visualIntent must not be blank");
       Objects.requireNonNull(motionIntent, "motionIntent");
-      cameraAngle = cameraAngle == null || cameraAngle.isBlank() ? "MEDIUM" : cameraAngle;
       visualDirectionJson =
           visualDirectionJson == null || visualDirectionJson.isBlank()
               ? null
