@@ -136,7 +136,13 @@
               SELECT cv.id
                 FROM character_versions cv
                WHERE cv.character_id = c.id
-                 AND cv.status = 'LOCKED'
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
                ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
                         cv.version_number DESC,
                         cv.id DESC
@@ -275,7 +281,13 @@
               SELECT cv.id
                 FROM character_versions cv
                WHERE cv.character_id = c.id
-                 AND cv.status = 'LOCKED'
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
                ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
                         cv.version_number DESC,
                         cv.id DESC
