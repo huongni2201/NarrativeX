@@ -148,6 +148,8 @@ export interface LocalAssetSelection {
   kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
   /** ffprobe-derived duration for audio/video. Undefined when not applicable or ffprobe is unavailable. */
   durationMs?: number;
+  generationAttemptId?: string;
+  generationInputFingerprint?: string;
 }
 
 export interface GeminiWebReferenceInput {
@@ -156,6 +158,43 @@ export interface GeminiWebReferenceInput {
   characterId: string;
   canonicalName: string;
   beatRole?: string | null;
+  referenceRole?: string | null;
+  priority?: number;
+  contentType?: string | null;
+  sha256?: string | null;
+}
+
+export interface GeminiWebGenerationProvenance {
+  attemptId: string;
+  batchId: string;
+  snapshotId: string;
+  batchFingerprint: string;
+  inputFingerprint: string;
+  stylePolicyVersion: string;
+  providerPolicyVersion: string;
+}
+
+export type GeminiWebAttemptStage =
+  | "PREPARED"
+  | "SUBMITTING"
+  | "COMPLETED"
+  | "FAILED"
+  | "UNKNOWN";
+
+export interface GeminiWebAttemptRecord {
+  attemptId: string;
+  lane: GeminiWebLaneType;
+  projectId: string | null;
+  batchId: string | null;
+  snapshotId: string | null;
+  batchFingerprint: string | null;
+  inputFingerprint: string | null;
+  stylePolicyVersion: string | null;
+  providerPolicyVersion: string | null;
+  stage: GeminiWebAttemptStage;
+  outputChecksumSha256: string | null;
+  errorCode: string | null;
+  updatedAt: string;
 }
 
 export interface GeminiWebGenerateImageInput {
@@ -163,6 +202,7 @@ export interface GeminiWebGenerateImageInput {
   prompt: string;
   projectId?: string;
   references?: GeminiWebReferenceInput[];
+  provenance?: GeminiWebGenerationProvenance;
 }
 
 export interface VoiceReferenceUploadResult {
@@ -300,6 +340,7 @@ export interface NarrativeXDesktopBridge {
       remove(browserId: string): Promise<GeminiBrowserView[]>;
     };
     generateImage(input: GeminiWebGenerateImageInput): Promise<LocalAssetSelection>;
+    attemptStatus(input: { attemptId: string }): Promise<GeminiWebAttemptRecord | null>;
     commitImage(input: {
       lane: GeminiWebLaneType;
       projectId: string;
