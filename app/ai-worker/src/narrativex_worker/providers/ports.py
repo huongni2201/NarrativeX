@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
@@ -67,7 +68,12 @@ class LlmProvider(Protocol):
 
     def get_capabilities(self) -> ProviderCapabilities: ...
 
-    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation: ...
+    async def submit(
+        self,
+        request: ChapterAnalysisRequest,
+        *,
+        execution: ChapterAnalysisExecutionContext | None = None,
+    ) -> ProviderOperation: ...
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation: ...
 
