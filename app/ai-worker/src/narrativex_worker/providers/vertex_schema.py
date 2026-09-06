@@ -6,25 +6,21 @@ from typing import Any
 
 from pydantic import BaseModel
 
-# Vertex responseJsonSchema accepts JSON Schema with a documented subset of keywords. Local
-# Pydantic validation remains authoritative for constraints that are intentionally removed here.
-_VERTEX_JSON_SCHEMA_KEYS = frozenset(
+# Vertex accepts more JSON Schema keywords than we intentionally send here. The production
+# continuity schema is large, and Vertex documents schema complexity itself as a source of
+# InvalidArgument/400 responses. Keep only shape-defining keywords at the provider boundary;
+# Pydantic remains authoritative after JSON parsing for UUID formats, string patterns/lengths,
+# numeric bounds, array cardinality, defaults, and every model validator.
+_VERTEX_RESPONSE_SHAPE_KEYS = frozenset(
     {
         "$id",
         "$defs",
         "$ref",
         "$anchor",
         "type",
-        "format",
-        "title",
-        "description",
         "enum",
         "items",
         "prefixItems",
-        "minItems",
-        "maxItems",
-        "minimum",
-        "maximum",
         "anyOf",
         "oneOf",
         "properties",
@@ -36,7 +32,7 @@ _VERTEX_JSON_SCHEMA_KEYS = frozenset(
 
 
 def response_json_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """Project a Pydantic schema onto Vertex's supported responseJsonSchema subset."""
+    """Project a Pydantic schema onto a lean Vertex responseJsonSchema shape contract."""
     normalized = _normalize_schema_node(model.model_json_schema())
     if not isinstance(normalized, dict):
         raise TypeError("root response schema must be an object")
@@ -80,12 +76,12 @@ def _normalize_schema_node(value: object) -> object:
     result: dict[str, Any] = {}
     for key, item in value.items():
         if key == "const":
-            # Pydantic can emit const for literals, while Vertex's documented subset does not.
-            # Preserve primitive string/number literals as a one-value enum when possible.
+            # Pydantic can emit const for literals. Preserve primitive literals as an enum because
+            # enum is shape-defining and supported by Vertex.
             if isinstance(item, (str, int, float)) and not isinstance(item, bool):
                 result.setdefault("enum", [item])
             continue
-        if key not in _VERTEX_JSON_SCHEMA_KEYS:
+        if key not in _VERTEX_RESPONSE_SHAPE_KEYS:
             continue
         if key in {"properties", "$defs"} and isinstance(item, dict):
             result[key] = {
