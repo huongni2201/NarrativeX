@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type {
+  DesktopTimelineBeat,
+  StoryboardGenerationBeatSnapshot,
+} from "@narrativex/client-contracts";
 import { Check, Clapperboard, Copy, ExternalLink, ImagePlus, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineNotice, StatusIndicator } from "../../workspace/components/WorkstationPrimitives";
@@ -21,6 +24,7 @@ export function VisualBeatGrid({
   copiedPromptBeatId,
   currentQueueBeatId,
   queueStatus,
+  submittedSnapshots,
   onReview,
   onGenerate,
   onCopyPrompt,
@@ -38,6 +42,7 @@ export function VisualBeatGrid({
   copiedPromptBeatId: string | null;
   currentQueueBeatId: string | null;
   queueStatus: GeminiQueueStatus | null;
+  submittedSnapshots: readonly StoryboardGenerationBeatSnapshot[];
   onReview: (beat: StoryboardVisualBeat, status: VisualBeatReviewStatus) => void;
   onGenerate: (beat: StoryboardVisualBeat) => void;
   onCopyPrompt: (beat: StoryboardVisualBeat) => void;
@@ -53,6 +58,7 @@ export function VisualBeatGrid({
     return <EmptyState title="Không có Visual Beat phù hợp" detail="Đổi bộ lọc review để xem các Visual Beat còn lại." />;
   }
 
+  const snapshotByBeat = new Map(submittedSnapshots.map((snapshot) => [snapshot.visualBeatId, snapshot]));
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5">
       {beats.map((beat) => {
@@ -62,6 +68,7 @@ export function VisualBeatGrid({
             key={beat.id}
             projectId={projectId}
             beat={beat}
+            submittedSnapshot={snapshotByBeat.get(beat.id) ?? null}
             timelineBeat={timelineBeats.get(beat.id) ?? null}
             updating={updating}
             mediaBusy={queueRunning || mediaBusyBeatId === beat.id}
@@ -84,6 +91,7 @@ export function VisualBeatGrid({
 function VisualBeatCard({
   projectId,
   beat,
+  submittedSnapshot,
   timelineBeat,
   updating,
   mediaBusy,
@@ -99,6 +107,7 @@ function VisualBeatCard({
 }: Readonly<{
   projectId: string;
   beat: StoryboardVisualBeat;
+  submittedSnapshot: StoryboardGenerationBeatSnapshot | null;
   timelineBeat: DesktopTimelineBeat | null;
   updating: boolean;
   mediaBusy: boolean;
@@ -113,7 +122,7 @@ function VisualBeatCard({
   onImport: () => void;
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
-  const prompt = beat.prompt ?? "Backend prompt unavailable.";
+  const draftPrompt = beat.prompt ?? "Current draft prompt unavailable.";
   const borderClass = queueRunning
     ? "border-primary ring-1 ring-primary/35"
     : queueCurrent
@@ -129,7 +138,7 @@ function VisualBeatCard({
             Beat {beat.orderIndex + 1}
           </span>
           <span className={`rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] font-semibold backdrop-blur-sm ${approved ? "text-success" : "text-warning"}`}>
-            {approved ? "Approved" : "Review"}
+            {approved ? "Approved" : "Needs review"}
           </span>
         </div>
       </div>
@@ -165,7 +174,7 @@ function VisualBeatCard({
               <Check size={12} /> Approve
             </Button>
           ) : (
-            <Button size="sm" disabled={mediaBusy || generationLocked || !beat.prompt} onClick={onGenerate} className="min-w-0 flex-1">
+            <Button size="sm" disabled={mediaBusy || generationLocked} onClick={onGenerate} className="min-w-0 flex-1">
               {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
               {mediaBusy ? "Generating…" : "Generate"}
             </Button>
@@ -185,7 +194,7 @@ function VisualBeatCard({
               <RotateCcw size={12} />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" disabled={mediaBusy || generationLocked || !beat.prompt} onClick={onGenerate} title="Generate with Gemini" aria-label={`Generate image for ${beat.title}`}>
+            <Button variant="ghost" size="icon" disabled={mediaBusy || generationLocked} onClick={onGenerate} title="Generate with Gemini" aria-label={`Generate image for ${beat.title}`}>
               {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
             </Button>
           )}
@@ -194,13 +203,31 @@ function VisualBeatCard({
         <details className="mt-2 border-t border-border-subtle pt-2 text-[10px]">
           <summary className="cursor-pointer select-none text-text-muted hover:text-text-secondary">Prompt & details</summary>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[9px] uppercase tracking-[0.08em] text-text-dim">Prompt</span>
+            <span className="text-[9px] uppercase tracking-[0.08em] text-text-dim">
+              {submittedSnapshot ? "Submitted snapshot" : "Current draft"}
+            </span>
             <button type="button" onClick={onCopyPrompt} className={`inline-flex items-center gap-1 text-[10px] font-medium ${promptCopied ? "text-success" : "text-primary-hover"}`}>
               {promptCopied ? <Check size={11} /> : <Copy size={11} />}
-              {promptCopied ? "Copied" : "Copy"}
+              {promptCopied ? "Copied" : submittedSnapshot ? "Copy submitted" : "Copy draft"}
             </button>
           </div>
-          <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">{prompt}</p>
+          {submittedSnapshot ? (
+            <>
+              <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">{submittedSnapshot.prompt}</p>
+              <div className="mt-2 grid gap-1 border-t border-border-subtle pt-2 text-[9px] text-text-muted">
+                <Meta label="Snapshot" value={submittedSnapshot.snapshotId.slice(0, 12)} />
+                <Meta label="Fingerprint" value={submittedSnapshot.inputFingerprint.slice(0, 16)} />
+                <Meta label="Continuity" value={submittedSnapshot.continuitySemanticHash?.slice(0, 16) ?? "legacy/missing"} />
+                <Meta label="References" value={submittedSnapshot.references.length ? submittedSnapshot.references.map((reference) => `${reference.refLabel}:${reference.canonicalName}/${reference.referenceRole ?? "IDENTITY"}@${reference.sha256.slice(0, 8)}`).join(" · ") : "none"} />
+              </div>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[9px] text-text-dim">Current draft (may differ)</summary>
+                <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap leading-4 text-text-muted">{draftPrompt}</p>
+              </details>
+            </>
+          ) : (
+            <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">{draftPrompt}</p>
+          )}
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border-subtle pt-2 text-[9px] text-text-muted">
             <Meta label="Camera" value={formatEnum(beat.cameraMovement)} />
             <Meta label="Angle" value={formatEnum(beat.cameraAngle)} />
@@ -234,7 +261,7 @@ function BeatImagePreview({ projectId, beat, timelineBeat }: Readonly<{ projectI
 }
 
 function Meta({ label, value }: Readonly<{ label: string; value: string }>) {
-  return <div className="flex min-w-0 justify-between gap-2"><span className="text-text-dim">{label}</span><span className="truncate text-text-secondary">{value}</span></div>;
+  return <div className="flex min-w-0 justify-between gap-2"><span className="text-text-dim">{label}</span><span className="truncate text-text-secondary" title={value}>{value}</span></div>;
 }
 
 function EmptyState({ title, detail }: Readonly<{ title: string; detail: string }>) {
