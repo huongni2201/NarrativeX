@@ -95,9 +95,7 @@ export function skipQueueBeatIfMediaReady(
   state: GeminiQueueState,
   beat: GeminiQueueBeat,
 ): GeminiQueueState {
-  return beat.previewMediaAssetId
-    ? markQueueBeatSkipped(state, beat.id)
-    : state;
+  return beat.previewMediaAssetId ? markQueueBeatSkipped(state, beat.id) : state;
 }
 
 export function classifyGeminiQueueGenerationError(
@@ -147,9 +145,9 @@ export function restoreQueueForSession(state: GeminiQueueState): GeminiQueueStat
       attempt.stage === "SUBMITTING" ? { ...attempt, stage: "UNKNOWN" as const } : attempt,
     ]),
   );
-  return state.status === "RUNNING" || attemptsByBeat !== state.attemptsByBeat
-    ? { ...state, attemptsByBeat, status: state.status === "COMPLETED" ? "COMPLETED" : "PAUSED" }
-    : state;
+  return state.status === "COMPLETED"
+    ? { ...state, attemptsByBeat }
+    : { ...state, attemptsByBeat, status: "PAUSED" };
 }
 
 export function reconcileQueue(
@@ -194,11 +192,13 @@ export function beginQueueAttempt(
   if (existing && existing.stage !== "FAILED") {
     throw new Error(`Gemini beat ${beatId} already has an unresolved or completed attempt.`);
   }
+  // Persist conservatively before crossing the IPC boundary. If the renderer crashes in the tiny
+  // gap before main journals the attempt, restore turns this into UNKNOWN instead of blind-resubmit.
   return {
     ...state,
     attemptsByBeat: {
       ...state.attemptsByBeat,
-      [beatId]: attempt,
+      [beatId]: { ...attempt, stage: "SUBMITTING" },
     },
   };
 }
@@ -224,7 +224,11 @@ export function markQueueBeatCompleted(
   beatId: string,
 ): GeminiQueueState {
   const withAttempt = markQueueAttemptStage(state, beatId, "COMPLETED");
-  return withProgress(withAttempt, [...withAttempt.completedBeatIds, beatId], withAttempt.skippedBeatIds);
+  return withProgress(
+    withAttempt,
+    [...withAttempt.completedBeatIds, beatId],
+    withAttempt.skippedBeatIds,
+  );
 }
 
 export function markQueueBeatSkipped(
@@ -232,7 +236,11 @@ export function markQueueBeatSkipped(
   beatId: string,
 ): GeminiQueueState {
   const withAttempt = markQueueAttemptStage(state, beatId, "FAILED");
-  return withProgress(withAttempt, withAttempt.completedBeatIds, [...withAttempt.skippedBeatIds, beatId]);
+  return withProgress(
+    withAttempt,
+    withAttempt.completedBeatIds,
+    [...withAttempt.skippedBeatIds, beatId],
+  );
 }
 
 export function unresolvedAttemptBeatIds(state: GeminiQueueState): string[] {
