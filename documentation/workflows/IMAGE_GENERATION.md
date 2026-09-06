@@ -1,4 +1,4 @@
-# Image Generation Workflow — V1.11
+# Image Generation Workflow — V1.12
 
 Image generation produces immutable image MediaAssets for VisualBeats. NarrativeX is image-first, but image generation is separate from final FFmpeg motion/rendering and from optional I2V.
 
@@ -11,9 +11,10 @@ Current Desktop foundation:
 ```text
 select Chapter(s)
   -> ensure required analysis/storyboard state
-  -> estimate authorized generation work
-  -> enqueue
-  -> observe job progress (SSE/poll fallback where applicable)
+  -> prepare immutable generation inputs
+  -> validate blocking issues/staleness
+  -> dispatch authorized provider/browser work
+  -> observe/reconcile progress
   -> review generated results
   -> materialize accepted/required result locally
   -> use/select result in production timeline
@@ -47,6 +48,8 @@ Rules:
 
 The worker owns provider mechanics; backend policy/admission remains authoritative.
 
+Gemini Web is intentionally different: it is a user-owned browser-product integration rather than a fake paid-provider ledger. Its immutable generation input is still backend-authoritative, while browser attempt reconciliation is device-local as defined by ADR-0021.
+
 ## Validation and lineage
 
 Before an image is accepted as a durable result, validate at least:
@@ -58,15 +61,15 @@ Before an image is accepted as a durable result, validate at least:
 - checksum/content hash;
 - stable MediaAsset metadata and insert-only lineage.
 
-Review/rejection/regeneration must not overwrite historical generated assets. Regeneration is a new explicit attempt.
+Review/rejection/regeneration must not overwrite historical generated assets. Regeneration is a new explicit attempt. Attaching a newly generated Storyboard preview resets the Visual Beat to `NEEDS_REVIEW`; generated and approved are separate states.
 
 ## Visual style and continuity
 
 Image style, source identity, storyboard/beat context, Character/Location continuity and relevant reference assets belong to the immutable generation snapshot/prompt context. Clients select allow-listed product options; they must not become the authority for server-owned policy/prompt suffixes.
 
-The backend owns the final Gemini Web prompt text for both Visual Beats and generated Character identity references. Both use the same allow-listed `CINEMATIC_ANIME` visual-style profile and negative prompt, while each task keeps its own composition instructions. Visual Beat reads expose the final text as `beat.prompt`; project-character detail reads expose it as `version.prompt`. The stored `visualIntent`/`visualPrompt` fields remain canonical source descriptions and are not replaced by the derived provider prompt.
+The backend owns the final Gemini Web prompt text for both Visual Beats and generated Character identity references. Both use the same allow-listed `CINEMATIC_ANIME` visual-style profile and negative prompt, while each task keeps its own composition instructions. The stored `visualIntent`/`visualPrompt` fields remain canonical source descriptions and are not replaced by the derived provider prompt.
 
-The Desktop renderer must submit the backend-returned final prompt verbatim. It must not rebuild, append, or maintain a parallel style prompt. This keeps Generate, Generate All, and Character identity generation visually consistent and gives one backend source of truth for style-policy changes.
+A live Storyboard `beat.prompt` is current-draft display data. It is not allowed to redefine a pending Gemini job after prepare. The Desktop renderer submits the prompt stored in the prepared backend beat snapshot verbatim and does not rebuild, append or maintain a parallel style prompt.
 
 ### Prompt Architecture V2
 
@@ -74,23 +77,25 @@ The still-image prompt is compiled from durable canonical state plus beat-local 
 
 ```text
 ImageStyle
-   + CharacterVersion.visualPrompt       (permanent identity)
-   + CharacterAppearance                 (current timeline state)
-   + ProjectLocation.visualPrompt        (reusable location canon)
-   + VisualBeat.visualIntent             (beat-local scene delta)
+   + pinned CharacterVersion.visualPrompt       (permanent identity)
+   + timeline-scoped CharacterAppearance        (temporary state when available)
+   + pinned beat continuity                     (authoritative visible state)
+   + ProjectLocation.visualPrompt                (reusable location canon)
+   + VisualBeat.visualIntent                     (beat-local scene delta)
    + camera/aspect ratio
    + deterministic reference bindings
         -> backend VisualPromptComposer
-        -> final provider prompt
+        -> exact final provider prompt
 ```
 
 Prompt precedence is explicit:
 
-1. attached reference images are authoritative evidence for visible facial identity and established visible traits;
-2. Character identity canon defines permanent traits not clear in the references;
-3. current appearance defines temporary wardrobe, hairstyle state, age state, injury and other timeline-specific changes;
-4. Visual Beat scene direction controls current action, pose, expression, composition, environment state and lighting;
-5. ImageStyle controls rendering language only and must never redesign identity.
+1. pinned continuity is authoritative for this beat when it conflicts with generic canon/current-state data;
+2. attached identity references preserve facial identity/permanent traits but do not override beat-specific wardrobe, injury, hairstyle, pose, crop, expression, background or lighting;
+3. Character identity canon defines permanent traits not clear in references;
+4. timeline-scoped current appearance supplies temporary wardrobe, hairstyle, age state and injury when the current continuity timeline has a matching appearance record; legacy chapters without continuity use only the same chapter's `chapter:<chapterId>` appearance rather than the latest appearance from another chapter;
+5. Visual Beat scene direction controls current action, pose, expression, composition, environment state and lighting;
+6. ImageStyle controls rendering language only and must never redesign identity.
 
 `visualIntent` is therefore a scene delta, not a second complete character prompt. It must refer to established characters by name and must not restate or redesign permanent face geometry, body proportions, skin tone, hair color or stable hair silhouette. Character narrative `bible` text remains useful for story continuity but is not injected into the character identity-reference image prompt, because motivations/backstory can cause unsupported visual inference.
 
@@ -100,7 +105,7 @@ The character identity-reference task uses the same `CINEMATIC_ANIME` rendering 
 
 ### Beat-scoped character reference flow
 
-Character identity is established before storyboard image generation. Chapter analysis now records only the characters actually visible in each Visual Beat and assigns each participant a `PRIMARY`, `SECONDARY`, or `BACKGROUND` role. These rows are materialized into `visual_beat_characters`; old/manual beats without explicit rows fall back to the parent Scene cast for compatibility.
+Character identity is established before storyboard image generation. Chapter analysis records only the characters actually visible in each Visual Beat and assigns each participant a `PRIMARY`, `SECONDARY`, or `BACKGROUND` role. These rows are materialized into `visual_beat_characters`; old/manual beats without explicit rows fall back to the parent Scene cast for compatibility.
 
 For one Gemini Web Visual Beat, continuity resolution is:
 
@@ -108,21 +113,68 @@ For one Gemini Web Visual Beat, continuity resolution is:
 Visual Beat
   -> resolve explicit beat participants
   -> resolve pinned CharacterVersion, otherwise latest LOCKED CharacterVersion
-  -> resolve current CharacterAppearance / OutfitVersion state
-  -> select reference assets deterministically
+  -> resolve current timeline appearance / pinned continuity state
+  -> select reference assets from the same pinned CharacterVersion
        1. one highest-priority identity anchor per visible character
        2. additional references by semantic role then priority
        3. hard cap: 3 attachments per generated frame
+  -> if required reference budget exceeds 3, block before submit
   -> assign attachment order REF_01, REF_02, REF_03
+  -> pin labels/roles/content type/SHA-256 in backend snapshot
   -> materialize those immutable MediaAssets into local ProjectStorage
+  -> re-hash local bytes in Electron main before upload
   -> attach the files to Gemini in exactly REF order
-  -> append the backend-derived REF-to-character map to the scene prompt
-  -> submit generation
+  -> submit the prepared backend prompt unchanged
 ```
 
-The prompt names every attachment explicitly, for example `REF_01 = Lan [PRIMARY]`, and instructs the model never to merge or swap identities. Reference images are identity evidence rather than composition templates: their background, crop, pose, facial expression and lighting should not be copied unless the current scene explicitly asks for them. A beat with no visible established character sends no character reference and does not acquire a fabricated character canon.
+The prompt names every attachment explicitly, for example `REF_01 = Lan [PRIMARY]`, and instructs the model never to merge or swap identities. Reference images are identity evidence rather than composition templates: their background, crop, pose, facial expression, lighting and reference outfit should not be copied when current pinned state specifies something else. A beat with no visible established character sends no character reference and does not acquire a fabricated character canon.
 
 Reference upload happens before the generation DOM/network baseline is captured. This is important: uploaded reference previews must never be mistaken for the newly generated image.
+
+### Immutable Gemini Web Storyboard batches
+
+One-beat Generate and Generate All share the same prepare contract:
+
+```text
+POST .../gemini-generation-batches:prepare
+  Idempotency-Key
+  beatIds[]
+  optional expectedStoryboardRevisionId
+      -> REPEATABLE_READ
+      -> authorize project/chapter ownership
+      -> pin source/storyboard/continuity/style/provider revisions
+      -> compile each exact final prompt
+      -> pin character snapshot + ordered refs/checksums
+      -> persist request + beat fingerprints
+      -> return warnings/blocking issues
+```
+
+`storyboard_generation_batches` and `storyboard_generation_beat_snapshots` are additive PostgreSQL metadata. They do not replace the existing continuity plan or provider-operation model. The batch references the current continuity authority and only records the exact input used by Desktop browser dispatch.
+
+Prepare idempotency is scoped to the normalized requested beat list as well as accepted beat fingerprints. Reusing one key with a different requested scope is rejected even if both requests fail admission before any beat snapshot can be accepted.
+
+Before each browser dispatch and again before attaching the output, Desktop reads the same batch. Backend stale evaluation compares current source/storyboard/continuity/policy and recomputes the current beat candidate only to compare its fingerprint. Canon text, appearance/wardrobe, reference asset/checksum/order, beat row version or continuity semantic changes therefore make pending work stale. The stored immutable prompt remains the historical submitted input.
+
+Blocking issues never cross the browser boundary. Warnings remain visible for review. Refreshing Storyboard UI does not silently create a new snapshot revision.
+
+### Gemini Web attempts, pause and resume
+
+The renderer queue is execution progress only. It persists batch/snapshot identity and attempt state, not provider prompts as business authority.
+
+```text
+prepared beat
+  -> local attempt reserved as SUBMITTING
+  -> main validates provenance/reference bytes
+  -> main attempt journal PREPARED/SUBMITTING
+  -> Chrome submit/capture
+  -> COMPLETED + output checksum
+  -> backend stale check
+  -> attach, or retain stale output without attaching
+```
+
+Ambiguous browser outcomes become `UNKNOWN`. Restart converts unresolved local `SUBMITTING` state to `UNKNOWN`; resume asks Electron main's attempt journal before creating a new attempt. `UNKNOWN`, `SUBMITTING`, and main-side `COMPLETED` results that have not safely attached are not blindly resubmitted.
+
+Pause stops admission of new work. Already-running tabs may finish, but every late output still passes stale/provenance checks. A legacy queue format is migrated paused and only its pending beats are prepared again; already generated/approved assets are not deleted or regenerated automatically.
 
 ### Gemini Web output capture
 
@@ -160,15 +212,15 @@ The current Desktop creator flow materializes generated images needed by the pro
 
 ```text
 validated generated image identity
-  -> worker persists generated bytes in shared project-local media storage
-  -> backend issues a short-lived capability URL for that local file
-  -> Electron main verifies expected size/checksum
+  -> worker/browser staging owns generated bytes temporarily
+  -> backend stable asset registration where applicable
+  -> Electron main validates expected size/checksum
   -> commit under project assets/images
   -> project.manifest.json records relative path + integrity
   -> production timeline/render resolves mediaAssetId locally
 ```
 
-Absolute local paths never become backend domain identity. PostgreSQL records the logical storage key and `PROJECT_LOCAL` storage mode for worker-generated images.
+Absolute local paths never become backend domain identity. PostgreSQL records logical media identity/provenance while ProjectStorage owns durable local bytes.
 
 ## Beat media selection
 
@@ -186,9 +238,13 @@ Backend download URLs for worker-generated images are short-lived capability URL
 
 Do not carry forward browser-era R2 CORS instructions as the Desktop import architecture. Desktop native project imports use Electron main + backend stable asset registration + ProjectStorage. Voice-reference upload is the only retained direct R2 upload workflow.
 
+## Conditional visual anchors
+
+Do not introduce extra anchor-image generation merely because deterministic consistency work exists. Visual anchors remain conditional. First run a real-image comparison after timeline/state resolution, immutable snapshots, checksum-bound reference transport and attempt isolation are verified. Open anchor work only if meaningful residual identity/style drift remains and a controlled comparison shows the additional anchor lifecycle improves quality without violating reference budget, cast isolation or review cost.
+
 ## Remaining work
 
 - richer approval/reuse/reframe/edit lineage and affected-scope regeneration;
 - stronger adaptive Scene/VisualBeat planning before generation;
-- production hardening for large batch/retry/provider failure cases;
-- complete cost/actual-usage reconciliation.
+- real-image Gemini consistency benchmark and Desktop runtime screenshot evidence for the prepared-batch flow;
+- production hardening driven by measured browser/provider failure data rather than blind retry heuristics.
