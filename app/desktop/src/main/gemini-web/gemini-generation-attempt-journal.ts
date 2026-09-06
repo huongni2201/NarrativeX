@@ -25,7 +25,7 @@ export interface GeminiGenerationAttemptRecord {
   updatedAt: string;
 }
 
-const MAX_ATTEMPTS = 2_000;
+const MAX_TERMINAL_ATTEMPTS = 2_000;
 
 type JournalDocument = { schemaVersion: 1; attempts: GeminiGenerationAttemptRecord[] };
 
@@ -43,16 +43,25 @@ export class GeminiGenerationAttemptJournal {
     return document.attempts.find((attempt) => attempt.attemptId === attemptId) ?? null;
   }
 
-  async begin(record: Omit<GeminiGenerationAttemptRecord, "stage" | "outputChecksumSha256" | "errorCode" | "updatedAt">) {
+  async begin(
+    record: Omit<
+      GeminiGenerationAttemptRecord,
+      "stage" | "outputChecksumSha256" | "errorCode" | "updatedAt"
+    >,
+  ) {
     return this.mutate((document) => {
-      const existing = document.attempts.find((attempt) => attempt.attemptId === record.attemptId);
+      const existing = document.attempts.find(
+        (attempt) => attempt.attemptId === record.attemptId,
+      );
       if (existing) {
         if (
           existing.inputFingerprint !== record.inputFingerprint ||
           existing.snapshotId !== record.snapshotId ||
           existing.batchId !== record.batchId
         ) {
-          throw new Error("GEMINI_ATTEMPT_ID_CONFLICT: attemptId is already bound to different generation inputs.");
+          throw new Error(
+            "GEMINI_ATTEMPT_ID_CONFLICT: attemptId is already bound to different generation inputs.",
+          );
         }
         return existing;
       }
@@ -64,9 +73,7 @@ export class GeminiGenerationAttemptJournal {
         updatedAt: new Date().toISOString(),
       };
       document.attempts.push(next);
-      if (document.attempts.length > MAX_ATTEMPTS) {
-        document.attempts.splice(0, document.attempts.length - MAX_ATTEMPTS);
-      }
+      document.attempts = compactAttempts(document.attempts);
       return next;
     });
   }
@@ -77,7 +84,9 @@ export class GeminiGenerationAttemptJournal {
     details: { outputChecksumSha256?: string | null; errorCode?: string | null } = {},
   ) {
     return this.mutate((document) => {
-      const attempt = document.attempts.find((candidate) => candidate.attemptId === attemptId);
+      const attempt = document.attempts.find(
+        (candidate) => candidate.attemptId === attemptId,
+      );
       if (!attempt) throw new Error("Gemini generation attempt is not journaled.");
       attempt.stage = stage;
       if (details.outputChecksumSha256 !== undefined) {
@@ -85,6 +94,7 @@ export class GeminiGenerationAttemptJournal {
       }
       if (details.errorCode !== undefined) attempt.errorCode = details.errorCode;
       attempt.updatedAt = new Date().toISOString();
+      document.attempts = compactAttempts(document.attempts);
       return attempt;
     });
   }
@@ -108,13 +118,32 @@ export class GeminiGenerationAttemptJournal {
     try {
       const parsed = JSON.parse(await readFile(this.filePath, "utf8")) as Partial<JournalDocument>;
       if (parsed.schemaVersion === 1 && Array.isArray(parsed.attempts)) {
-        return { schemaVersion: 1, attempts: parsed.attempts as GeminiGenerationAttemptRecord[] };
+        return {
+          schemaVersion: 1,
+          attempts: compactAttempts(parsed.attempts as GeminiGenerationAttemptRecord[]),
+        };
       }
     } catch {
       // Missing or invalid local execution journal starts empty; backend snapshots remain authoritative.
     }
     return { schemaVersion: 1, attempts: [] };
   }
+}
+
+function compactAttempts(
+  attempts: readonly GeminiGenerationAttemptRecord[],
+): GeminiGenerationAttemptRecord[] {
+  const unresolved = attempts.filter(
+    (attempt) =>
+      attempt.stage === "PREPARED" ||
+      attempt.stage === "SUBMITTING" ||
+      attempt.stage === "UNKNOWN",
+  );
+  const terminal = attempts.filter(
+    (attempt) => attempt.stage === "COMPLETED" || attempt.stage === "FAILED",
+  );
+  // Never prune an unresolved external side effect. Bound only terminal history.
+  return [...unresolved, ...terminal.slice(-MAX_TERMINAL_ATTEMPTS)];
 }
 
 export function geminiAttemptErrorCode(error: unknown): string | null {
