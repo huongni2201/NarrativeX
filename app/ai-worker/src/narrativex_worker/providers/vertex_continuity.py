@@ -1,39 +1,47 @@
-"""Continuity-first Vertex orchestration built on the existing Vertex transport primitives."""
+"""Continuity-first Vertex orchestration built on shared Vertex transport primitives."""
 
 from __future__ import annotations
+
+from typing import TypeVar
 
 import httpx
 from pydantic import BaseModel
 
 from narrativex_worker.analysis_pipeline import run_chapter_analysis_pipeline
 from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
-from narrativex_worker.providers.ports import ProviderBilling, ProviderOperation
-from narrativex_worker.providers.vertex import VertexGeminiProvider, VertexProviderError
+from narrativex_worker.providers.ports import (
+    ProviderBilling,
+    ProviderCapabilities,
+    ProviderEstimate,
+    ProviderOperation,
+)
+from narrativex_worker.providers.vertex import VertexGeminiTransport, VertexProviderError
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class _VertexStructuredAdapter:
     def __init__(
         self,
-        provider: VertexGeminiProvider,
+        transport: VertexGeminiTransport,
         client: httpx.AsyncClient,
         access_token: str,
     ) -> None:
-        self._provider = provider
+        self._transport = transport
         self._client = client
         self._access_token = access_token
 
     async def generate(
         self,
         prompt: str,
-        model: type[BaseModel],
+        model: type[ModelT],
         *,
         identity: AnalysisStepIdentity | None = None,
-    ):
-        # The Vertex transport does not consume the durable step identity yet, but this adapter
-        # must accept it to satisfy StructuredAnalysisAdapter and the continuity pipeline contract.
+    ) -> tuple[ModelT | None, ProviderBilling, str]:
+        # Durable checkpoint consumption is wired separately from the transport call.
         _ = identity
-        return await self._provider._bounded_generate_structured(  # noqa: SLF001
+        return await self._transport._bounded_generate_structured(  # noqa: SLF001
             self._client,
             self._access_token,
             prompt,
@@ -41,8 +49,15 @@ class _VertexStructuredAdapter:
         )
 
 
-class ContinuityVertexGeminiProvider(VertexGeminiProvider):
-    """Production chapter-analysis adapter using continuity-first orchestration."""
+class ContinuityVertexGeminiProvider(VertexGeminiTransport):
+    """Production Vertex provider using continuity-first chapter orchestration."""
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
+
+    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
+        del request
+        return ProviderEstimate(min_cost=0.0, max_cost=0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         try:
@@ -124,3 +139,9 @@ class ContinuityVertexGeminiProvider(VertexGeminiProvider):
             result=durable_result,
             billing=self._merge_billings(pipeline.billings),
         )
+
+    async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
+        return operation
+
+    async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
+        return operation
