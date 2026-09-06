@@ -22,6 +22,7 @@ class ProviderCapabilities:
     supports_story_analysis: bool
     supports_image_generation: bool = False
     supports_operation_reconciliation: bool = False
+    supports_durable_subcall_resume: bool = False
 
 
 @dataclass(frozen=True)
