@@ -1,10 +1,6 @@
 """Deterministic analysis provider for the full-stack E2E profile."""
 
-from narrativex_worker.providers.ports import (
-    ProviderCapabilities,
-    ProviderEstimate,
-    ProviderOperation,
-)
+from narrativex_worker.providers.ports import ProviderCapabilities, ProviderOperation
 from narrativex_worker.schema import (
     ActionPhase,
     CameraAngle,
@@ -26,10 +22,6 @@ class FakeAnalysisProvider:
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(provider_key=self.provider_key, supports_story_analysis=True)
-
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
-        del request
-        return ProviderEstimate(min_cost=0, max_cost=0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         anchor = request.source_text[: min(120, len(request.source_text))]
