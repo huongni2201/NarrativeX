@@ -184,18 +184,6 @@ class NarrativeXWorker:
             await self._execute_claimed(claimed)
 
     async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
-        if not hasattr(self.service, "provider"):
-            operation = await self.service.submit_chapter_analysis(claimed.request)
-            if (
-                operation.status is not ProviderOperationStatus.COMPLETED
-                or operation.result is None
-            ):
-                raise RuntimeError(
-                    f"Chapter analysis provider returned non-terminal status {operation.status}"
-                )
-            await self.repository.complete(claimed, self.worker_id, operation.result)
-            return
-
         provider_key = self.service.provider.get_capabilities().provider_key
         durable = await self.repository.reserve_provider_operation(
             claimed,
@@ -425,8 +413,6 @@ class NarrativeXWorker:
         )
 
     async def _reconcile_provider_operations(self) -> None:
-        if not hasattr(self.service, "provider"):
-            return
         operations = await self.repository.list_provider_operations(
             (
                 ProviderOperationStatus.UNKNOWN,
