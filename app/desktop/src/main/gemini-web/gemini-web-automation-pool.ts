@@ -43,10 +43,6 @@ export interface GeminiPoolReferenceFile {
   sha256?: string | null;
 }
 
-export interface GeminiPoolGenerationObserver {
-  onBeforeSubmit?(): void | Promise<void>;
-}
-
 export interface GeminiPoolGenerationResult {
   sourcePath: string;
   captureMethod: "NETWORK" | "DOWNLOAD";
@@ -57,7 +53,6 @@ export interface GeminiPoolAutomation {
     lane: GeminiWebLane,
     prompt: string,
     references?: readonly GeminiPoolReferenceFile[],
-    observer?: GeminiPoolGenerationObserver,
   ): Promise<GeminiPoolGenerationResult>;
   stop(): Promise<void>;
 }
@@ -99,7 +94,6 @@ export class GeminiWebAutomationPool {
     lane: GeminiWebLane,
     prompt: string,
     references: readonly GeminiPoolReferenceFile[] = [],
-    observer?: GeminiPoolGenerationObserver,
   ): Promise<GeminiPoolGenerationResult> {
     const counts = await this.getTabCounts();
     const configuredCapacity = Math.max(
@@ -115,7 +109,7 @@ export class GeminiWebAutomationPool {
       if (!lease.slot.primary) {
         await this.seedSecondarySession(lease.slot.rootDirectory);
       }
-      const result = await lease.slot.automation.generateImage(lane, prompt, references, observer);
+      const result = await lease.slot.automation.generateImage(lane, prompt, references);
       state.policy.recordSuccess(configuredCapacity);
       return result;
     } catch (error) {
