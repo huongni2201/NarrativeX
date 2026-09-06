@@ -26,11 +26,12 @@ public class GenerationJobController {
 
   @GetMapping("/{jobId}")
   public ResponseEntity<ApiResponse<JobResponse>> get(@PathVariable UUID jobId) {
+    var details =
+        getGenerationJobUseCase.executeWithProgress(new GetGenerationJobQuery(jobId, null));
     return ResponseEntity.ok(
         ApiResponse.success(
             "Generation job retrieved successfully",
-            JobResponse.from(
-                getGenerationJobUseCase.execute(new GetGenerationJobQuery(jobId, null)))));
+            JobResponse.fromWithAnalysisProgress(details.job(), details.analysisProgress())));
   }
 
   @GetMapping(path = "/{jobId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
