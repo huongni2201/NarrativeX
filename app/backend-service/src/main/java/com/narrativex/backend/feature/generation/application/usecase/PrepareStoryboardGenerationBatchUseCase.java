@@ -110,7 +110,7 @@ public class PrepareStoryboardGenerationBatchUseCase {
       }
     }
 
-    String requestFingerprint = requestFingerprint(scope, continuity, beatSnapshots);
+    String requestFingerprint = requestFingerprint(scope, continuity, beatIds, beatSnapshots);
     var existing =
         snapshotRepository.findByIdempotencyKey(projectId, chapterId, idempotencyKey.trim());
     if (existing.isPresent()) {
@@ -158,7 +158,6 @@ public class PrepareStoryboardGenerationBatchUseCase {
 
   @Transactional(readOnly = true)
   public PreparedBatch get(UUID projectId, UUID chapterId, UUID batchId) {
-    // This call performs the same owned-story authorization used by storyboard reads.
     getChapterStoryboardUseCase.execute(projectId, chapterId);
     var batch =
         snapshotRepository
@@ -168,10 +167,9 @@ public class PrepareStoryboardGenerationBatchUseCase {
   }
 
   /**
-   * Staleness is content based, not only revision-id based. Recompose current inputs exclusively to
-   * compare fingerprints; callers still submit the immutable prompt/reference payload stored in the
-   * batch. This catches canon, appearance, wardrobe and reference changes that do not necessarily
-   * advance the chapter source hash or storyboard revision.
+   * Recompose current inputs exclusively to compare fingerprints; callers still submit the
+   * immutable prompt/reference payload stored in the batch. This catches canon, appearance,
+   * wardrobe and reference changes that do not necessarily advance chapter source/storyboard IDs.
    */
   private boolean isStale(GenerationBatch batch) {
     if (!STYLE_POLICY_VERSION.equals(batch.stylePolicyVersion())
@@ -198,8 +196,6 @@ public class PrepareStoryboardGenerationBatchUseCase {
         BeatSnapshot current = toBeatSnapshot(scope, prepared, stored.id());
         if (!stored.inputFingerprint().equals(current.inputFingerprint())) return true;
       } catch (RuntimeException changedOrInvalid) {
-        // Missing beats, changed reference budgets/checksums, continuity conflicts and other
-        // admission failures all mean this immutable batch must no longer be submitted.
         return true;
       }
     }
@@ -278,7 +274,18 @@ public class PrepareStoryboardGenerationBatchUseCase {
   }
 
   private static String requestFingerprint(
-      ChapterScope scope, CurrentContinuity continuity, List<BeatSnapshot> beatSnapshots) {
+      ChapterScope scope,
+      CurrentContinuity continuity,
+      List<UUID> requestedBeatIds,
+      List<BeatSnapshot> beatSnapshots) {
+    String requestedScope =
+        requestedBeatIds.stream()
+            .map(UUID::toString)
+            .reduce("", (left, right) -> left + "|" + right);
+    String acceptedInputs =
+        beatSnapshots.stream()
+            .map(BeatSnapshot::inputFingerprint)
+            .reduce("", (left, right) -> left + "|" + right);
     return sha256(
         scope.sourceHash()
             + "|"
@@ -293,10 +300,10 @@ public class PrepareStoryboardGenerationBatchUseCase {
             + STYLE_POLICY_VERSION
             + "|"
             + PROVIDER_POLICY_VERSION
-            + "|"
-            + beatSnapshots.stream()
-                .map(BeatSnapshot::inputFingerprint)
-                .reduce("", (left, right) -> left + "|" + right));
+            + "|requested:"
+            + requestedScope
+            + "|accepted:"
+            + acceptedInputs);
   }
 
   private static String conflictCode(String message) {
