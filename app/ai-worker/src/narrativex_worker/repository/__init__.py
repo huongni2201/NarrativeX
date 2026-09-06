@@ -4,6 +4,7 @@ import uuid
 from contextvars import ContextVar
 from dataclasses import replace
 
+from narrativex_worker.repository.analysis_checkpoints import AnalysisCheckpointRepository
 from narrativex_worker.repository.implementation import (
     ALLOWED_PROVIDER_TRANSITIONS,
     ClaimedChapterAnalysisJob,
@@ -160,6 +161,14 @@ class WorkerRepository(WorkerRepositoryImplementation):
                 )
                 return True
 
+    def analysis_checkpoints(self) -> AnalysisCheckpointRepository:
+        """Return a checkpoint facade backed by this worker's shared connection pool."""
+        return AnalysisCheckpointRepository(self._require_pool())
+
+    def current_claim_owner(self, worker_id: str) -> str:
+        """Resolve the task-local lease identity written to the current StageAttempt."""
+        return self._lease_owner(worker_id)
+
     def _lease_owner(self, worker_id: str) -> str:
         return self._claim_owner.get() or worker_id
 
@@ -171,6 +180,7 @@ class WorkerRepository(WorkerRepositoryImplementation):
 
 __all__ = [
     "ALLOWED_PROVIDER_TRANSITIONS",
+    "AnalysisCheckpointRepository",
     "ClaimedChapterAnalysisJob",
     "DurableProviderOperation",
     "ProviderOperationInvalidTransitionError",
