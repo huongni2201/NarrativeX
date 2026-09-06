@@ -12,7 +12,6 @@ from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
 from narrativex_worker.providers.ports import (
     ProviderBilling,
     ProviderCapabilities,
-    ProviderEstimate,
     ProviderOperation,
 )
 from narrativex_worker.providers.vertex import VertexGeminiTransport, VertexProviderError
@@ -54,10 +53,6 @@ class ContinuityVertexGeminiProvider(VertexGeminiTransport):
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
-
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
-        del request
-        return ProviderEstimate(min_cost=0.0, max_cost=0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         try:
