@@ -2,6 +2,7 @@
 
 import logging
 
+from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.providers.ports import LlmProvider, ProviderOperation
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
@@ -12,13 +13,18 @@ class WorkerService:
     def __init__(self, provider: LlmProvider) -> None:
         self.provider = provider
 
-    async def submit_chapter_analysis(self, request: ChapterAnalysisRequest) -> ProviderOperation:
+    async def submit_chapter_analysis(
+        self,
+        request: ChapterAnalysisRequest,
+        *,
+        execution: ChapterAnalysisExecutionContext | None = None,
+    ) -> ProviderOperation:
         logger.info(
             "Submitting chapter analysis: storyVersionId=%s, chapterId=%s",
             request.story_version_id,
             request.chapter_id,
         )
-        return await self.provider.submit(request)
+        return await self.provider.submit(request, execution=execution)
 
     async def reconcile_chapter_analysis(self, operation: ProviderOperation) -> ProviderOperation:
         logger.info(
