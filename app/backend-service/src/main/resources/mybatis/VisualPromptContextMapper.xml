@@ -95,6 +95,19 @@
                LIMIT 1
           ) canon ON TRUE
           LEFT JOIN LATERAL (
+              SELECT scs.timeline_key
+                FROM chapter_continuity_plans ccp
+                JOIN scene_continuity_states scs
+                  ON scs.plan_id = ccp.id
+                 AND scs.scene_id = s.id
+               WHERE ccp.project_id = #{projectId}
+                 AND ccp.chapter_id = ch.id
+                 AND ccp.storyboard_revision_id = s.storyboard_revision_id
+                 AND ccp.source_hash = ch.source_hash
+               ORDER BY ccp.revision DESC
+               LIMIT 1
+          ) continuity_scope ON TRUE
+          LEFT JOIN LATERAL (
               SELECT ca.appearance_prompt,
                      ca.age_state,
                      ca.hairstyle,
@@ -103,6 +116,13 @@
                 FROM character_appearances ca
                WHERE ca.character_id = c.id
                  AND (ca.project_id = pc.project_id OR ca.project_id IS NULL)
+                 AND (
+                     (continuity_scope.timeline_key IS NOT NULL
+                      AND ca.timeline_key = continuity_scope.timeline_key)
+                     OR
+                     (continuity_scope.timeline_key IS NULL
+                      AND ca.timeline_key = CONCAT('chapter:', ch.id::text))
+                 )
                ORDER BY CASE WHEN ca.project_id = pc.project_id THEN 0 ELSE 1 END,
                         ca.updated_at DESC,
                         ca.id DESC
@@ -222,6 +242,19 @@
                LIMIT 1
           ) canon ON TRUE
           LEFT JOIN LATERAL (
+              SELECT scs.timeline_key
+                FROM chapter_continuity_plans ccp
+                JOIN scene_continuity_states scs
+                  ON scs.plan_id = ccp.id
+                 AND scs.scene_id = s.id
+               WHERE ccp.project_id = #{projectId}
+                 AND ccp.chapter_id = ch.id
+                 AND ccp.storyboard_revision_id = s.storyboard_revision_id
+                 AND ccp.source_hash = ch.source_hash
+               ORDER BY ccp.revision DESC
+               LIMIT 1
+          ) continuity_scope ON TRUE
+          LEFT JOIN LATERAL (
               SELECT ca.appearance_prompt,
                      ca.age_state,
                      ca.hairstyle,
@@ -230,6 +263,13 @@
                 FROM character_appearances ca
                WHERE ca.character_id = c.id
                  AND (ca.project_id = pc.project_id OR ca.project_id IS NULL)
+                 AND (
+                     (continuity_scope.timeline_key IS NOT NULL
+                      AND ca.timeline_key = continuity_scope.timeline_key)
+                     OR
+                     (continuity_scope.timeline_key IS NULL
+                      AND ca.timeline_key = CONCAT('chapter:', ch.id::text))
+                 )
                ORDER BY CASE WHEN ca.project_id = pc.project_id THEN 0 ELSE 1 END,
                         ca.updated_at DESC,
                         ca.id DESC
