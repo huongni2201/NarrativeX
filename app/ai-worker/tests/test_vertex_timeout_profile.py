@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.providers.vertex import VertexGeminiProvider
+from narrativex_worker.providers.vertex import VertexGeminiTransport
 
 
 def test_vertex_timeout_uses_short_connect_write_pool_and_configurable_read() -> None:
@@ -16,9 +16,9 @@ def test_vertex_timeout_uses_short_connect_write_pool_and_configurable_read() ->
         "narrativex_worker.providers.vertex.google.auth.default",
         return_value=(credentials, None),
     ):
-        provider = VertexGeminiProvider(settings)
+        transport = VertexGeminiTransport(settings)
 
-    timeout = provider._http_timeout()
+    timeout = transport._http_timeout()
 
     assert timeout.connect == 10.0
     assert timeout.write == 30.0
