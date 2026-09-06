@@ -28,13 +28,6 @@ class ProviderCapabilities:
 
 
 @dataclass(frozen=True)
-class ProviderEstimate:
-    min_cost: float
-    max_cost: float
-    currency: str = "USD"
-
-
-@dataclass(frozen=True)
 class ProviderTokenUsage:
     prompt_tokens: int
     candidate_tokens: int
@@ -77,8 +70,6 @@ class LlmProvider(Protocol):
     """Port used by orchestration; no vendor SDK leaks into worker schemas."""
 
     def get_capabilities(self) -> ProviderCapabilities: ...
-
-    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate: ...
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation: ...
 
