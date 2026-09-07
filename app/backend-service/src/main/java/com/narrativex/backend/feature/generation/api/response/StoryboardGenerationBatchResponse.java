@@ -67,7 +67,7 @@ public record StoryboardGenerationBatchResponse(
           beat.characterSnapshotJson(),
           beat.continuitySemanticHash(),
           beat.inputFingerprint(),
-          references(beat.referencesJson(), objectMapper));
+          parseReferences(beat.referencesJson(), objectMapper));
     }
   }
 
@@ -82,7 +82,7 @@ public record StoryboardGenerationBatchResponse(
       String contentType,
       String sha256) {}
 
-  private static List<Reference> references(String json, ObjectMapper objectMapper) {
+  private static List<Reference> parseReferences(String json, ObjectMapper objectMapper) {
     try {
       Object decoded = objectMapper.readValue(json, Object.class);
       if (!(decoded instanceof List<?> values)) return List.of();
