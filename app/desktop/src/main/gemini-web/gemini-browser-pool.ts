@@ -193,7 +193,6 @@ export class GeminiBrowserPool {
       this.roundRobinCursor.clear();
       await Promise.allSettled(previousHosts.map((host) => host.stop()));
       this.activeUserId = preferences.userId;
-      await this.storage.migrateLegacyBrowserOne(preferences.userId);
     }
     this.syncHosts(preferences);
     return preferences;
