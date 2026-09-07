@@ -23,8 +23,6 @@ import com.narrativex.backend.feature.generation.application.usecase.PrepareStor
 import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardResponse;
 import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraAngle;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
@@ -168,8 +166,6 @@ class PrepareStoryboardGenerationBatchUseCaseTest {
         null,
         null,
         MotionMode.STILL,
-        CameraMovement.NONE,
-        CameraAngle.MEDIUM,
         VisualBeatReviewStatus.NEEDS_REVIEW,
         null,
         null,
