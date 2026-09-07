@@ -19,10 +19,10 @@ export interface GeminiQueueAttempt {
 export interface GeminiQueueState {
   schemaVersion: 2;
   chapterId: string;
-  batchId: string | null;
-  batchFingerprint: string | null;
-  storyboardRevisionId: string | null;
-  sourceHash: string | null;
+  batchId: string;
+  batchFingerprint: string;
+  storyboardRevisionId: string;
+  sourceHash: string;
   beatIds: string[];
   snapshotIdsByBeat: Record<string, string>;
   completedBeatIds: string[];
@@ -30,7 +30,6 @@ export interface GeminiQueueState {
   attemptsByBeat: Record<string, GeminiQueueAttempt>;
   currentIndex: number;
   status: GeminiQueueStatus;
-  legacyNeedsPrepare: boolean;
 }
 
 type GeminiQueueBeat = {
@@ -61,33 +60,6 @@ export function createGeminiQueue(
     attemptsByBeat: {},
     currentIndex: 0,
     status: "RUNNING",
-    legacyNeedsPrepare: false,
-  };
-}
-
-export function migrateLegacyGeminiQueue(input: {
-  chapterId: string;
-  beatIds: string[];
-  completedBeatIds: string[];
-  skippedBeatIds: string[];
-  currentIndex: number;
-  status: GeminiQueueStatus;
-}): GeminiQueueState {
-  return {
-    schemaVersion: 2,
-    chapterId: input.chapterId,
-    batchId: null,
-    batchFingerprint: null,
-    storyboardRevisionId: null,
-    sourceHash: null,
-    beatIds: uniqueIds(input.beatIds),
-    snapshotIdsByBeat: {},
-    completedBeatIds: uniqueIds(input.completedBeatIds),
-    skippedBeatIds: uniqueIds(input.skippedBeatIds),
-    attemptsByBeat: {},
-    currentIndex: input.currentIndex,
-    status: input.status === "COMPLETED" ? "COMPLETED" : "PAUSED",
-    legacyNeedsPrepare: input.status !== "COMPLETED",
   };
 }
 
@@ -192,8 +164,6 @@ export function beginQueueAttempt(
   if (existing && existing.stage !== "FAILED") {
     throw new Error(`Gemini beat ${beatId} already has an unresolved or completed attempt.`);
   }
-  // Persist conservatively before crossing the IPC boundary. If the renderer crashes in the tiny
-  // gap before main journals the attempt, restore turns this into UNKNOWN instead of blind-resubmit.
   return {
     ...state,
     attemptsByBeat: {
