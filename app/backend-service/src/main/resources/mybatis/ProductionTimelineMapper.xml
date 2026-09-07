@@ -192,15 +192,6 @@
              COALESCE(vb.visual_direction_json::jsonb ->> 'camera_movement', 'NONE') AS camera_movement,
              vb.text_start,
              vb.text_end,
-             vb.audio_start_ms,
-             vb.audio_end_ms,
-             CASE
-               WHEN vb.audio_start_ms IS NOT NULL
-                AND vb.audio_end_ms IS NOT NULL
-                AND vb.audio_end_ms > vb.audio_start_ms
-               THEN vb.audio_end_ms - vb.audio_start_ms
-               ELSE NULL
-             END AS audio_duration_ms,
              vb.preview_media_asset_id
         FROM chapters c
         JOIN current_story cs ON cs.id = c.story_version_id
@@ -223,9 +214,9 @@
            'GENERATE_NEW' AS asset_strategy,
            cb.text_start,
            cb.text_end,
-           cb.audio_start_ms,
-           cb.audio_end_ms,
-           cb.audio_duration_ms,
+           NULL::bigint AS audio_start_ms,
+           NULL::bigint AS audio_end_ms,
+           NULL::bigint AS audio_duration_ms,
            COALESCE(chosen.media_asset_id, preview.media_asset_id) AS media_asset_id,
            COALESCE(chosen.media_type, preview.media_type) AS media_type,
            COALESCE(chosen.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
