@@ -164,6 +164,23 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
     if malformed:
         errors.append("malformed Flyway migration name(s): " + ", ".join(malformed))
 
+    names_by_version: dict[int, list[str]] = {}
+    for name, version in version_by_name.items():
+        names_by_version.setdefault(version, []).append(name)
+    duplicate_versions = {
+        version: sorted(names)
+        for version, names in names_by_version.items()
+        if len(names) > 1
+    }
+    if duplicate_versions:
+        errors.append(
+            "duplicate Flyway migration version(s): "
+            + "; ".join(
+                f"V{version}=" + ", ".join(names)
+                for version, names in sorted(duplicate_versions.items())
+            )
+        )
+
     if version_by_name:
         versions = set(version_by_name.values())
         highest = max(versions)
