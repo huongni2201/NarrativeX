@@ -13,7 +13,8 @@ test("storyboard prompt copy uses the protected Desktop clipboard bridge", () =>
   const preload = readFileSync(resolve(desktopRoot, "src/preload/index.ts"), "utf8");
   const bootstrap = readFileSync(resolve(desktopRoot, "src/main/bootstrap-core.ts"), "utf8");
 
-  assert.match(screen, /window\.narrativex\.system\.copyText\(beat\.prompt\)/);
+  assert.match(screen, /const text = submitted \?\? beat\.prompt/);
+  assert.match(screen, /window\.narrativex\.system\.copyText\(text\)/);
   assert.doesNotMatch(screen, /compileGeminiPrompt/);
   assert.doesNotMatch(screen, /IMAGE TASK:/);
   assert.doesNotMatch(screen, /navigator\.clipboard/);
