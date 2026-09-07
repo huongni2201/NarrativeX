@@ -26,6 +26,9 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern CREATE_TABLE =
       Pattern.compile(
           "(?im)^\\s*CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern DROP_TABLE =
+      Pattern.compile(
+          "(?im)^\\s*DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern CREATE_TABLE_BLOCK =
       Pattern.compile(
           "(?is)CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\s*\\((.*?)\\n\\);");
@@ -36,6 +39,8 @@ class MyBatisSchemaReferenceContractTest {
       Pattern.compile("(?is)ALTER\\s+TABLE\\s+([a-z_][a-z0-9_]*)\\s+(.*?);");
   private static final Pattern ADD_COLUMN =
       Pattern.compile("(?i)ADD\\s+COLUMN(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern DROP_COLUMN =
+      Pattern.compile("(?i)DROP\\s+COLUMN(?:\\s+IF\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern TABLE_REFERENCE =
       Pattern.compile(
           "(?i)\\b(?:FROM|JOIN|UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+([a-z_][a-z0-9_]*)\\b");
@@ -169,6 +174,14 @@ class MyBatisSchemaReferenceContractTest {
         () -> "MyBatis references columns missing from Flyway schema: " + violations);
   }
 
+  @Test
+  void finalSchemaModelAppliesCameraAndShortClipRemovals() throws IOException {
+    Map<String, Set<String>> columns = schemaColumns();
+    assertFalse(columns.containsKey("short_clip_requests"));
+    assertFalse(columns.get("visual_beats").contains("camera_movement"));
+    assertFalse(columns.get("visual_beats").contains("camera_angle"));
+  }
+
   private static String mapperSql(Path mapper) throws IOException {
     String withoutXml = XML_TAG.matcher(Files.readString(mapper)).replaceAll(" ");
     return MYBATIS_PARAMETER.matcher(withoutXml).replaceAll(" ? ");
@@ -177,10 +190,14 @@ class MyBatisSchemaReferenceContractTest {
   private static Set<String> schemaTables() throws IOException {
     Set<String> tables = new HashSet<>();
     for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
-      Matcher matcher =
-          CREATE_TABLE.matcher(Files.readString(FlywayMigrationContract.migration(name)));
-      while (matcher.find()) {
-        tables.add(matcher.group(1).toLowerCase(Locale.ROOT));
+      String migration = Files.readString(FlywayMigrationContract.migration(name));
+      Matcher created = CREATE_TABLE.matcher(migration);
+      while (created.find()) {
+        tables.add(created.group(1).toLowerCase(Locale.ROOT));
+      }
+      Matcher dropped = DROP_TABLE.matcher(migration);
+      while (dropped.find()) {
+        tables.remove(dropped.group(1).toLowerCase(Locale.ROOT));
       }
     }
     return tables;
@@ -191,6 +208,7 @@ class MyBatisSchemaReferenceContractTest {
 
     for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
       String migration = Files.readString(FlywayMigrationContract.migration(name));
+
       Matcher tableMatcher = CREATE_TABLE_BLOCK.matcher(migration);
       while (tableMatcher.find()) {
         String table = tableMatcher.group(1).toLowerCase(Locale.ROOT);
@@ -201,10 +219,7 @@ class MyBatisSchemaReferenceContractTest {
         }
         tables.put(table, columns);
       }
-    }
 
-    for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
-      String migration = Files.readString(FlywayMigrationContract.migration(name));
       Matcher alter = ALTER_TABLE_BLOCK.matcher(migration);
       while (alter.find()) {
         Set<String> columns = tables.get(alter.group(1).toLowerCase(Locale.ROOT));
@@ -213,6 +228,15 @@ class MyBatisSchemaReferenceContractTest {
         while (added.find()) {
           columns.add(added.group(1).toLowerCase(Locale.ROOT));
         }
+        Matcher dropped = DROP_COLUMN.matcher(alter.group(2));
+        while (dropped.find()) {
+          columns.remove(dropped.group(1).toLowerCase(Locale.ROOT));
+        }
+      }
+
+      Matcher droppedTable = DROP_TABLE.matcher(migration);
+      while (droppedTable.find()) {
+        tables.remove(droppedTable.group(1).toLowerCase(Locale.ROOT));
       }
     }
     return tables;
