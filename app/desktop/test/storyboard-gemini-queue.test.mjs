@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { GeminiQueueRunController } from "../src/renderer/features/storyboard/model/gemini-queue-run-controller.ts";
 import {
   beginQueueAttempt,
   createGeminiQueue,
@@ -189,7 +190,22 @@ test("completing and skipping beats advance independently and finish the queue",
   assert.equal(finished.status, "COMPLETED");
 });
 
-test("queue persistence is scoped by project/chapter and malformed payloads are ignored", () => {
+test("parallel queue commits always reduce from the latest state", async () => {
+  const published = [];
+  const controller = new GeminiQueueRunController(queue(), (state) => published.push(state));
+
+  await Promise.all([
+    Promise.resolve().then(() => controller.update((state) => markQueueBeatCompleted(state, "beat-1"))),
+    Promise.resolve().then(() => controller.update((state) => markQueueBeatSkipped(state, "beat-2"))),
+  ]);
+
+  assert.deepEqual(controller.current().completedBeatIds, ["beat-1"]);
+  assert.deepEqual(controller.current().skippedBeatIds, ["beat-2"]);
+  assert.equal(controller.current().currentIndex, 2);
+  assert.equal(published.length, 2);
+});
+
+test("queue persistence is scoped by project/chapter and malformed or obsolete payloads are ignored", () => {
   const storage = memoryStorage();
   const state = queue({ status: "PAUSED" });
   const key = geminiQueueStorageKey("project-1", "chapter-1");
@@ -200,45 +216,32 @@ test("queue persistence is scoped by project/chapter and malformed payloads are 
   storage.setItem(key, "{bad-json");
   assert.equal(loadGeminiQueue("project-1", "chapter-1", storage), null);
 
-  saveGeminiQueue("project-1", "chapter-1", null, storage);
-  assert.equal(storage.getItem(key), null);
-});
-
-test("legacy queue migration pauses pending work without deleting completed/skipped history", () => {
-  const storage = memoryStorage();
-  const key = geminiQueueStorageKey("project-1", "chapter-1");
   storage.setItem(
     key,
     JSON.stringify({
       chapterId: "chapter-1",
-      beatIds: ["beat-1", "beat-2", "beat-3"],
-      completedBeatIds: ["beat-1"],
-      skippedBeatIds: ["beat-2"],
-      currentIndex: 2,
+      beatIds: ["beat-1"],
+      completedBeatIds: [],
+      skippedBeatIds: [],
+      currentIndex: 0,
       status: "RUNNING",
     }),
   );
+  assert.equal(loadGeminiQueue("project-1", "chapter-1", storage), null);
 
-  const migrated = loadGeminiQueue("project-1", "chapter-1", storage);
-  assert.ok(migrated);
-  assert.equal(migrated.schemaVersion, 2);
-  assert.equal(migrated.status, "PAUSED");
-  assert.equal(migrated.legacyNeedsPrepare, true);
-  assert.deepEqual(migrated.completedBeatIds, ["beat-1"]);
-  assert.deepEqual(migrated.skippedBeatIds, ["beat-2"]);
+  saveGeminiQueue("project-1", "chapter-1", null, storage);
+  assert.equal(storage.getItem(key), null);
 });
 
-test("Storyboard queue transitions publish to local storage from the runner", () => {
+test("Storyboard queue runner uses atomic reducer commits", () => {
   const source = readFileSync(
     "src/renderer/features/storyboard/screens/StoryboardScreen.tsx",
     "utf8",
   );
-  assert.match(source, /function publishGeminiQueue/);
-  assert.match(source, /publishGeminiQueue\(queue\)/);
-  assert.match(
-    source,
-    /generationResult === "GENERATED"[\s\S]*markQueueBeatCompleted[\s\S]*publishGeminiQueue/,
-  );
+  assert.match(source, /new GeminiQueueRunController/);
+  assert.match(source, /controller\.update\(\(state\) => markQueueBeatCompleted/);
+  assert.match(source, /controller\.update\(\(state\) => markQueueBeatSkipped/);
+  assert.doesNotMatch(source, /queue\.legacyNeedsPrepare/);
 });
 
 test("Storyboard Generate Gemini All prepares only beats missing preview media", () => {
@@ -251,5 +254,5 @@ test("Storyboard Generate Gemini All prepares only beats missing preview media",
     /beatsPendingGeminiGeneration[\s\S]*allChapterBeats\.filter\(\(beat\) => !beat\.previewMediaAssetId\)/,
   );
   assert.match(source, /prepareGeminiBatch\(beatIds\)/);
-  assert.match(source, /skipQueueBeatIfMediaReady\(queue, beat\)/);
+  assert.match(source, /skipQueueBeatIfMediaReady\(currentBeforeMediaCheck, beat\)/);
 });
