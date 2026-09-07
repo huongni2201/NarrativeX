@@ -128,7 +128,7 @@ function sanitizePreferences(value: unknown): StoredPreferences {
     profiles?: unknown;
   };
   if (
-    (input.schemaVersion !== 1 && input.schemaVersion !== 2) ||
+    input.schemaVersion !== 2 ||
     !input.profiles ||
     typeof input.profiles !== "object"
   ) {
