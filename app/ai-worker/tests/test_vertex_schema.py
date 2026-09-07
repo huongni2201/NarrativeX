@@ -31,6 +31,20 @@ def _walk_schema_nodes(value: object):
             yield from _walk_schema_nodes(item)
 
 
+def _property_names(value: object) -> set[str]:
+    names: set[str] = set()
+    if isinstance(value, dict):
+        properties = value.get("properties")
+        if isinstance(properties, dict):
+            names.update(str(name) for name in properties)
+        for item in value.values():
+            names.update(_property_names(item))
+    elif isinstance(value, list):
+        for item in value:
+            names.update(_property_names(item))
+    return names
+
+
 def test_response_schema_keeps_only_provider_shape_constraints() -> None:
     schema = response_json_schema(_StructuredResult)
 
@@ -87,7 +101,7 @@ def test_real_continuity_structure_schema_drops_uuid_and_complexity_constraints(
 def test_business_field_named_description_is_not_treated_as_schema_metadata() -> None:
     schema = response_json_schema(ChapterStructureWithContinuityResult)
 
-    assert "description" in repr(schema["properties"])
+    assert "description" in _property_names(schema)
     for node in _walk_schema_nodes(schema):
         assert "description" not in {
             key for key in node if key not in {"properties", "$defs"}
