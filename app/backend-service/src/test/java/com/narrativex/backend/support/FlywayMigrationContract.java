@@ -28,9 +28,7 @@ public final class FlywayMigrationContract {
           "V11__chapter_continuity_indexes.sql",
           "V12__continuity_regeneration_plans.sql",
           "V13__render_continuity_provenance.sql",
-          "V14__storyboard_generation_snapshots.sql",
-          "V15__structured_visual_direction_only.sql",
-          "V16__remove_unowned_short_clip_requests.sql");
+          "V14__storyboard_generation_snapshots.sql");
 
   private FlywayMigrationContract() {}
 
