@@ -205,6 +205,7 @@ public final class VisualBeat extends DomainEntity {
 
   public void attachPreviewMediaAsset(UUID previewMediaAssetId) {
     this.previewMediaAssetId = Objects.requireNonNull(previewMediaAssetId, "previewMediaAssetId");
+    this.reviewStatus = VisualBeatReviewStatus.NEEDS_REVIEW;
   }
 
   private static String requiredText(String value, String field, int maxLength) {

@@ -36,6 +36,8 @@
            AND ccp.project_id = #{projectId}
            AND sv.project_id = #{projectId}
            AND ch.deleted_at IS NULL
+           AND ch.current_storyboard_revision_id = ccp.storyboard_revision_id
+           AND ch.source_hash = ccp.source_hash
          ORDER BY ccp.revision DESC
          LIMIT 1
     </select>

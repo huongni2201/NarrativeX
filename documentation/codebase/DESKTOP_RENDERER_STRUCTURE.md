@@ -105,6 +105,42 @@ The goal is not an arbitrary line-count limit. The goal is one reason to change 
 
 Business authorization, entitlement, cost policy and durable lifecycle rules remain authoritative on the backend. Renderer model helpers only present or derive already-authorized state.
 
+## Storyboard Gemini execution boundary
+
+Storyboard Gemini Web generation uses the normal feature layers but has an additional authority split that must remain explicit:
+
+```text
+storyboard/api
+  -> prepare/read immutable backend generation batch
+
+storyboard/model
+  -> queue transition helpers
+  -> checksum-aware reference materialization dedupe
+
+storyboard/store
+  -> local execution-progress cache only
+
+storyboard/queries
+  -> verify prepared batch + materialize refs + invoke typed preload + persist output
+
+StoryboardScreen
+  -> prepare one/batch scope
+  -> coordinate bounded parallel work
+  -> pause/resume/reconcile attempts
+
+preload/main
+  -> validate provenance and reference checksums
+  -> own Chrome/CDP and attempt journal
+```
+
+The renderer must not persist prompt/reference payloads as a competing source of truth. A queue stores `batchId`, batch fingerprint, per-beat `snapshotId` and attempt identity. Before dispatch, the renderer re-reads the same prepared backend batch only to verify stale/fingerprint state; it never replaces the snapshot prompt with a live `beat.prompt` or `gemini-context` read.
+
+Attempt transitions are deliberately conservative. Once a beat is reserved for external dispatch, local queue state is persisted as `SUBMITTING`; restart restores ambiguous work as `UNKNOWN`. Resume asks Electron main's local attempt journal before creating another attempt. `UNKNOWN`, `SUBMITTING`, or a main-side `COMPLETED` result that has not been safely attached pauses the queue rather than blindly resubmitting.
+
+Reference materialization is keyed by project, stable asset ID and expected SHA-256 so concurrent slots can share one materialization operation only when they expect the same bytes. Electron main hashes the resolved local file again immediately before browser upload. Renderer success cannot weaken main-process integrity validation.
+
+A late generated output whose prepared batch became stale is allowed to become a local asset for review, but it must not attach to the current Visual Beat/timeline. Attaching a new generated preview resets beat review status to `NEEDS_REVIEW`; generation completion and creator approval are separate states.
+
 ## Shared utilities
 
 Do not move a helper into `lib/` merely because it is small. A helper belongs in `lib/` when unrelated features have the same semantic need and the helper has no feature knowledge.
@@ -136,6 +172,7 @@ This keeps `lib/` and `components/ui/` from becoming catch-all folders.
 - Zustand is for client state that must survive component boundaries and is not server-authoritative; do not mirror React Query data into Zustand without a concrete need.
 - Avoid storing derived state when it can be calculated from source state with a pure selector or `useMemo`.
 - Long-running jobs need an explicit busy/processing state and duplicate-submit protection in UI in addition to backend idempotency.
+- A local queue may cache execution progress, but immutable generation inputs and stale authority remain server-owned.
 
 ## Electron boundary
 
@@ -144,7 +181,8 @@ Renderer refactoring must preserve the existing Electron security boundary:
 - no unrestricted Node.js, filesystem or process access in renderer code;
 - native actions go through the narrow typed preload bridge;
 - Electron main owns native filesystem, protected credentials, system-browser/deep-link behavior and FFmpeg execution;
-- renderer state must not expose or persist absolute local project paths.
+- renderer state must not expose or persist absolute local project paths;
+- browser generation requests crossing preload must carry only typed, validated provenance and stable asset identities, never arbitrary filesystem paths.
 
 ## Verification
 
@@ -161,3 +199,5 @@ npm run build
 Before merge, run the repository local gate documented in `CONTRIBUTING.md`.
 
 UI changes additionally require runtime verification: launch the Electron/Vite environment, exercise affected flows, inspect console/network failures and visually verify loading/error/empty/overflow states. Source review and build success alone are not sufficient to claim UI verification.
+
+For Gemini Storyboard changes, runtime verification additionally needs one one-beat generation and one bounded-parallel batch with submitted provenance visible in Prompt & details. Edit canon/source while a batch is active and confirm pending work becomes stale while a late output is retained without attaching. A real-image consistency comparison is a quality gate separate from deterministic code correctness.

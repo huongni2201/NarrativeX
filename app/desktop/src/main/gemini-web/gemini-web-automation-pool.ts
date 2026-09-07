@@ -37,6 +37,10 @@ export interface GeminiPoolReferenceFile {
   canonicalName: string;
   characterId: string;
   beatRole?: string | null;
+  referenceRole?: string | null;
+  priority?: number;
+  contentType?: string | null;
+  sha256?: string | null;
 }
 
 export interface GeminiPoolGenerationResult {
