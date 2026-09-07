@@ -34,7 +34,7 @@ test("Storyboard queue continues after a rejected beat instead of stopping the w
   assert.match(source, /classifyGeminiQueueGenerationError/);
   assert.match(
     source,
-    /generationResult === "SKIP_BEAT"[\s\S]*markQueueBeatSkipped\(queue, beatId\)[\s\S]*publishGeminiQueue\(queue\)/,
+    /generationResult === "SKIP_BEAT"[\s\S]*controller\.update\(\(state\) => markQueueBeatSkipped\(state, beatId\)\)[\s\S]*return/,
   );
   assert.match(
     source,
