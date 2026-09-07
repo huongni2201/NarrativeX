@@ -38,7 +38,7 @@ test("Storyboard queue continues after a rejected beat instead of stopping the w
   );
   assert.match(
     source,
-    /generationResult === "PAUSE_QUEUE"[\s\S]*acceptNewWork = false/,
+    /generationResult === "SKIP_BEAT"[\s\S]*return;[\s\S]*acceptNewWork = false/,
   );
 });
 
