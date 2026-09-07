@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.controller.ProjectGenerationController;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
+import com.narrativex.backend.feature.generation.application.port.in.VisualBeatPromptContext;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
@@ -27,6 +28,7 @@ class ProjectGenerationControllerContractTest {
     GenerateBatchNarrationUseCase batchNarrationUseCase = mock(GenerateBatchNarrationUseCase.class);
     GetVoicePreviewResultUseCase voicePreviewResultUseCase =
         mock(GetVoicePreviewResultUseCase.class);
+    VisualBeatPromptContext visualBeatPromptContext = mock(VisualBeatPromptContext.class);
     PrepareStoryboardGenerationBatchUseCase prepareUseCase =
         mock(PrepareStoryboardGenerationBatchUseCase.class);
     ObjectMapper objectMapper = mock(ObjectMapper.class);
@@ -53,7 +55,7 @@ class ProjectGenerationControllerContractTest {
             narrationUseCase,
             batchNarrationUseCase,
             voicePreviewResultUseCase,
-            (requestedProjectId, requestedChapterId, visualBeatId) -> null,
+            visualBeatPromptContext,
             prepareUseCase,
             objectMapper);
 
