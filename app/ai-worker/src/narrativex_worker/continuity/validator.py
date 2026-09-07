@@ -11,9 +11,9 @@ from narrativex_worker.continuity.schema import (
     ContinuityIssue,
     ContinuityIssueOrigin,
     ContinuityIssueSeverity,
+    ContinuityProvenance,
     ContinuityReport,
     ContinuityReportStatus,
-    ContinuityProvenance,
     ShardContinuityContext,
 )
 
@@ -64,7 +64,10 @@ def validate_candidate_fact(
                 evidence=expected.evidence_anchor,
             )
         )
-    elif candidate.subject_key in known_character_keys and candidate.subject_key not in allowed_character_keys:
+    elif (
+        candidate.subject_key in known_character_keys
+        and candidate.subject_key not in allowed_character_keys
+    ):
         issues.append(
             _issue(
                 "CAST_SCOPE_VIOLATION",
