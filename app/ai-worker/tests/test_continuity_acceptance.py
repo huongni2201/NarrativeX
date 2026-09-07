@@ -5,7 +5,6 @@ from pathlib import Path
 from narrativex_worker.continuity.schema import ContinuityFact
 from narrativex_worker.continuity.validator import validate_candidate_fact
 
-
 _FIXTURE = Path(__file__).parent / "fixtures" / "continuity" / "chapters.json"
 
 
