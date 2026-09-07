@@ -5,7 +5,9 @@ import com.narrativex.backend.feature.generation.api.request.AnalyzeChapterReque
 import com.narrativex.backend.feature.generation.api.request.GenerateBatchNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateChapterNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateVoicePreviewRequest;
+import com.narrativex.backend.feature.generation.api.request.PrepareStoryboardGenerationBatchRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
+import com.narrativex.backend.feature.generation.api.response.StoryboardGenerationBatchResponse;
 import com.narrativex.backend.feature.generation.api.response.VisualBeatGeminiContextResponse;
 import com.narrativex.backend.feature.generation.api.response.VoicePreviewResultResponse;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
@@ -16,6 +18,7 @@ import com.narrativex.backend.feature.generation.application.usecase.EnqueueStor
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetVoicePreviewResultUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.PrepareStoryboardGenerationBatchUseCase;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @RestController
@@ -42,6 +46,8 @@ public class ProjectGenerationController {
   private final GenerateBatchNarrationUseCase generateBatchNarrationUseCase;
   private final GetVoicePreviewResultUseCase getVoicePreviewResultUseCase;
   private final VisualBeatPromptContext visualBeatPromptContext;
+  private final PrepareStoryboardGenerationBatchUseCase prepareStoryboardGenerationBatchUseCase;
+  private final ObjectMapper objectMapper;
 
   @PostMapping("/{projectId}/chapters/{chapterId}/analysis-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
@@ -81,6 +87,37 @@ public class ProjectGenerationController {
         ApiResponse.success(
             "Gemini Visual Beat prompt context retrieved",
             VisualBeatGeminiContextResponse.from(visualBeatId, composedPrompt)));
+  }
+
+  @PostMapping("/{projectId}/chapters/{chapterId}/gemini-generation-batches:prepare")
+  public ResponseEntity<ApiResponse<StoryboardGenerationBatchResponse>> prepareStoryboardGenerationBatch(
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @RequestHeader("Idempotency-Key") String idempotencyKey,
+      @Valid @RequestBody PrepareStoryboardGenerationBatchRequest request) {
+    var prepared =
+        prepareStoryboardGenerationBatchUseCase.execute(
+            projectId,
+            chapterId,
+            request.beatIds(),
+            request.expectedStoryboardRevisionId(),
+            idempotencyKey);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Storyboard generation batch prepared",
+            StoryboardGenerationBatchResponse.from(prepared, objectMapper)));
+  }
+
+  @GetMapping("/{projectId}/chapters/{chapterId}/gemini-generation-batches/{batchId}")
+  public ResponseEntity<ApiResponse<StoryboardGenerationBatchResponse>> getStoryboardGenerationBatch(
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @PathVariable UUID batchId) {
+    var prepared = prepareStoryboardGenerationBatchUseCase.get(projectId, chapterId, batchId);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Storyboard generation batch retrieved",
+            StoryboardGenerationBatchResponse.from(prepared, objectMapper)));
   }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/narration-jobs")

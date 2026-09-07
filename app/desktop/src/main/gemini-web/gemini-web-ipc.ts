@@ -8,6 +8,10 @@ import { GeminiBrowserHost } from "./gemini-browser-host";
 import { GeminiBrowserPool } from "./gemini-browser-pool";
 import { registerGeminiBrowserIpc } from "./gemini-browser-ipc";
 import {
+  GeminiGenerationAttemptJournal,
+  geminiAttemptErrorCode,
+} from "./gemini-generation-attempt-journal";
+import {
   cleanupGeminiTempFile,
   createGeminiWatermarkRemovedCopy,
 } from "./gemini-image-postprocessor";
@@ -22,13 +26,25 @@ import {
 } from "../security/renderer-security";
 import { SelectionTokenStore } from "../security/selection-token-store";
 
-const pendingGeminiSelections = new SelectionTokenStore<{ sourcePath: string; lane: GeminiWebLane }>();
 const MAX_REFERENCE_IMAGES = 3;
 const MAX_WATERMARK_BATCH = 1_000;
 const OPAQUE_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const STORYBOARD_STYLE_POLICY_VERSION = "storyboard-manhwa-v2";
+const STORYBOARD_PROVIDER_POLICY_VERSION = "gemini-web-3.1-pro-cinematic-v1";
+
+type StagedGeminiSelection = {
+  sourcePath: string;
+  lane: GeminiWebLane;
+  attemptId: string | null;
+  inputFingerprint: string | null;
+};
+
+const pendingGeminiSelections = new SelectionTokenStore<StagedGeminiSelection>();
 
 export function registerGeminiWebIpc(policy: RendererTrustPolicy, projectStorage: ProjectStorage): void {
   const automationRoot = join(dirname(projectStorage.rootDirectory()), "gemini-web");
+  const attempts = new GeminiGenerationAttemptJournal(automationRoot);
   const browsers = new GeminiBrowserPool(
     automationRoot,
     desktopPreferencesStore(),
@@ -44,8 +60,62 @@ export function registerGeminiWebIpc(policy: RendererTrustPolicy, projectStorage
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
       const references = await resolveReferenceFiles(projectStorage, input);
-      const result = await browsers.generateImage(input.lane, input.prompt, references);
-      return stageGeneratedImage(event.sender.id, result.sourcePath, input.lane);
+      const provenance = input.provenance ?? null;
+
+      if (provenance) {
+        const attempt = await attempts.begin({
+          attemptId: provenance.attemptId,
+          lane: input.lane,
+          projectId: input.projectId ?? null,
+          batchId: provenance.batchId,
+          snapshotId: provenance.snapshotId,
+          batchFingerprint: provenance.batchFingerprint,
+          inputFingerprint: provenance.inputFingerprint,
+          stylePolicyVersion: provenance.stylePolicyVersion,
+          providerPolicyVersion: provenance.providerPolicyVersion,
+        });
+        if (attempt.stage !== "PREPARED") {
+          const code = attempt.stage === "UNKNOWN"
+            ? "GEMINI_ATTEMPT_UNKNOWN"
+            : "GEMINI_ATTEMPT_ALREADY_DISPATCHED";
+          throw new Error(`${code}: generation attempt ${provenance.attemptId} must be reconciled instead of resubmitted.`);
+        }
+        await attempts.update(provenance.attemptId, "SUBMITTING");
+      }
+
+      try {
+        const result = await browsers.generateImage(input.lane, input.prompt, references);
+        const selection = await stageGeneratedImage(
+          event.sender.id,
+          result.sourcePath,
+          input.lane,
+          provenance?.attemptId ?? null,
+          provenance?.inputFingerprint ?? null,
+        );
+        if (provenance) {
+          await attempts.update(provenance.attemptId, "COMPLETED", {
+            outputChecksumSha256: selection.checksumSha256,
+            errorCode: null,
+          });
+        }
+        return selection;
+      } catch (error) {
+        if (provenance) {
+          const errorCode = geminiAttemptErrorCode(error);
+          const stage = isDefinitiveGeminiFailure(errorCode, error) ? "FAILED" : "UNKNOWN";
+          await attempts.update(provenance.attemptId, stage, { errorCode }).catch(() => undefined);
+        }
+        throw error;
+      }
+    },
+  );
+
+  registerTrustedIpcHandlerWithEvent(
+    "desktop:gemini-web:attempt-status",
+    policy,
+    async (_event, input) => {
+      if (!isAttemptStatusInput(input)) throw new Error("Invalid Gemini generation attempt lookup.");
+      return attempts.get(input.attemptId);
     },
   );
 
@@ -139,23 +209,45 @@ async function resolveReferenceFiles(
   const seenAssets = new Set<string>();
   const seenLabels = new Set<string>();
   for (const reference of input.references) {
-    if (seenAssets.has(reference.assetId)) continue;
-    if (seenLabels.has(reference.refLabel)) throw new Error("Gemini reference labels must be unique.");
+    if (seenAssets.has(reference.assetId)) {
+      throw new Error("REFERENCE_BINDING_DUPLICATE: Gemini reference assets must be unique.");
+    }
+    if (seenLabels.has(reference.refLabel)) {
+      throw new Error("REFERENCE_BINDING_DUPLICATE: Gemini reference labels must be unique.");
+    }
     seenAssets.add(reference.assetId);
     seenLabels.add(reference.refLabel);
     const sourcePath = await projectStorage.resolveAsset(input.projectId, reference.assetId);
+    if (reference.sha256) {
+      const actualChecksum = await checksumFile(sourcePath);
+      if (actualChecksum !== reference.sha256) {
+        throw new Error(
+          `REFERENCE_INTEGRITY_FAILED: ${reference.refLabel} checksum does not match the prepared snapshot.`,
+        );
+      }
+    }
     resolved.push({
       path: sourcePath,
       refLabel: reference.refLabel,
       canonicalName: reference.canonicalName,
       characterId: reference.characterId,
       beatRole: reference.beatRole,
+      referenceRole: reference.referenceRole,
+      priority: reference.priority,
+      contentType: reference.contentType,
+      sha256: reference.sha256,
     });
   }
   return resolved;
 }
 
-async function stageGeneratedImage(senderId: number, sourcePath: string, lane: GeminiWebLane) {
+async function stageGeneratedImage(
+  senderId: number,
+  sourcePath: string,
+  lane: GeminiWebLane,
+  attemptId: string | null,
+  inputFingerprint: string | null,
+) {
   const file = await stat(sourcePath);
   if (!file.isFile() || file.size <= 0) throw new Error("Gemini Web downloaded an empty or invalid image file.");
   if (kindForPath(sourcePath) !== "IMAGE") throw new Error("Gemini Web download is not a supported image file.");
@@ -165,7 +257,7 @@ async function stageGeneratedImage(senderId: number, sourcePath: string, lane: G
   const selectionToken = pendingGeminiSelections.create(
     senderId,
     "gemini-image-import",
-    { sourcePath, lane },
+    { sourcePath, lane, attemptId, inputFingerprint },
   );
   return {
     selectionToken,
@@ -176,6 +268,8 @@ async function stageGeneratedImage(senderId: number, sourcePath: string, lane: G
     width: metadata.width,
     height: metadata.height,
     kind: "IMAGE" as const,
+    ...(attemptId ? { generationAttemptId: attemptId } : {}),
+    ...(inputFingerprint ? { generationInputFingerprint: inputFingerprint } : {}),
   };
 }
 
@@ -185,6 +279,20 @@ type GeminiReferenceInput = {
   characterId: string;
   canonicalName: string;
   beatRole?: string | null;
+  referenceRole?: string | null;
+  priority?: number;
+  contentType?: string | null;
+  sha256?: string | null;
+};
+
+type GeminiGenerationProvenance = {
+  attemptId: string;
+  batchId: string;
+  snapshotId: string;
+  batchFingerprint: string;
+  inputFingerprint: string;
+  stylePolicyVersion: string;
+  providerPolicyVersion: string;
 };
 
 type GeminiGenerateInput = {
@@ -192,6 +300,7 @@ type GeminiGenerateInput = {
   prompt: string;
   projectId?: string;
   references?: GeminiReferenceInput[];
+  provenance?: GeminiGenerationProvenance;
 };
 
 type GeminiWatermarkBatchInput = { projectId: string; assetIds: string[] };
@@ -202,10 +311,26 @@ function isGenerateInput(value: unknown): value is GeminiGenerateInput {
   if (!isGeminiWebLane(input.lane)) return false;
   if (typeof input.prompt !== "string" || !input.prompt.trim()) return false;
   if (input.projectId !== undefined && typeof input.projectId !== "string") return false;
+  if (input.lane === "STORYBOARD" && !isGenerationProvenance(input.provenance)) return false;
+  if (input.provenance !== undefined && !isGenerationProvenance(input.provenance)) return false;
   if (input.references === undefined) return true;
   if (!Array.isArray(input.references) || input.references.length > MAX_REFERENCE_IMAGES) return false;
   if (input.references.length > 0 && typeof input.projectId !== "string") return false;
   return input.references.every(isReferenceInput);
+}
+
+function isGenerationProvenance(value: unknown): value is GeminiGenerationProvenance {
+  if (!value || typeof value !== "object") return false;
+  const provenance = value as Record<string, unknown>;
+  return (
+    typeof provenance.attemptId === "string" && OPAQUE_ID_PATTERN.test(provenance.attemptId) &&
+    typeof provenance.batchId === "string" && OPAQUE_ID_PATTERN.test(provenance.batchId) &&
+    typeof provenance.snapshotId === "string" && OPAQUE_ID_PATTERN.test(provenance.snapshotId) &&
+    typeof provenance.batchFingerprint === "string" && SHA256_PATTERN.test(provenance.batchFingerprint) &&
+    typeof provenance.inputFingerprint === "string" && SHA256_PATTERN.test(provenance.inputFingerprint) &&
+    provenance.stylePolicyVersion === STORYBOARD_STYLE_POLICY_VERSION &&
+    provenance.providerPolicyVersion === STORYBOARD_PROVIDER_POLICY_VERSION
+  );
 }
 
 function isReferenceInput(value: unknown): value is GeminiReferenceInput {
@@ -221,8 +346,18 @@ function isReferenceInput(value: unknown): value is GeminiReferenceInput {
     typeof reference.canonicalName === "string" &&
     reference.canonicalName.trim().length > 0 &&
     reference.canonicalName.length <= 200 &&
-    (reference.beatRole === undefined || reference.beatRole === null || ["PRIMARY", "SECONDARY", "BACKGROUND"].includes(String(reference.beatRole)))
+    (reference.beatRole === undefined || reference.beatRole === null || ["PRIMARY", "SECONDARY", "BACKGROUND"].includes(String(reference.beatRole))) &&
+    (reference.referenceRole === undefined || reference.referenceRole === null || typeof reference.referenceRole === "string") &&
+    (reference.priority === undefined || (Number.isInteger(reference.priority) && Number(reference.priority) >= 0)) &&
+    (reference.contentType === undefined || reference.contentType === null || typeof reference.contentType === "string") &&
+    (reference.sha256 === undefined || reference.sha256 === null || (typeof reference.sha256 === "string" && SHA256_PATTERN.test(reference.sha256)))
   );
+}
+
+function isAttemptStatusInput(value: unknown): value is { attemptId: string } {
+  if (!value || typeof value !== "object") return false;
+  const input = value as Record<string, unknown>;
+  return typeof input.attemptId === "string" && OPAQUE_ID_PATTERN.test(input.attemptId);
 }
 
 function isCommitInput(value: unknown): value is { lane: GeminiWebLane; projectId: string; assetId: string; selectionToken: string } {
@@ -235,6 +370,17 @@ function isWatermarkBatchInput(value: unknown): value is GeminiWatermarkBatchInp
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
   return typeof input.projectId === "string" && input.projectId.length > 0 && Array.isArray(input.assetIds) && input.assetIds.length <= MAX_WATERMARK_BATCH && input.assetIds.every((assetId) => typeof assetId === "string" && OPAQUE_ID_PATTERN.test(assetId));
+}
+
+function isDefinitiveGeminiFailure(errorCode: string | null, error: unknown): boolean {
+  if (errorCode === "GEMINI_GENERATION_REJECTED") return true;
+  if (errorCode === "GEMINI_AUTH_REQUIRED") return true;
+  if (errorCode === "GEMINI_BUSY") return true;
+  if (errorCode === "GEMINI_REFERENCE_LIMIT") return true;
+  if (errorCode === "GEMINI_PROMPT_EMPTY") return true;
+  if (errorCode?.includes("MODEL") || errorCode?.includes("PRESET")) return true;
+  const text = error instanceof Error ? error.message : String(error ?? "");
+  return /signed in|login|reference|preset|model|invalid request/i.test(text);
 }
 
 function kindForPath(sourcePath: string): "IMAGE" | "OTHER" {

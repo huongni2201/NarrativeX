@@ -140,3 +140,58 @@ export interface MediaReviewInput {
   decision: "APPROVED" | "REJECTED";
   rowVersion: number;
 }
+
+export type StoryboardGenerationIssueSeverity = "BLOCKING" | "WARNING";
+
+export interface StoryboardGenerationIssue {
+  code: string;
+  severity: StoryboardGenerationIssueSeverity;
+  visualBeatId: string | null;
+  message: string;
+}
+
+export interface StoryboardGenerationReference {
+  refLabel: string;
+  assetId: string;
+  characterId: string;
+  canonicalName: string;
+  beatRole: string | null;
+  referenceRole: string | null;
+  priority: number;
+  contentType: string | null;
+  sha256: string;
+}
+
+export interface StoryboardGenerationBeatSnapshot {
+  snapshotId: string;
+  visualBeatId: string;
+  sceneId: string;
+  beatRowVersion: number;
+  prompt: string;
+  negativePrompt: string;
+  characterSnapshotJson: string;
+  continuitySemanticHash: string | null;
+  inputFingerprint: string;
+  references: StoryboardGenerationReference[];
+}
+
+export interface StoryboardGenerationBatch {
+  batchId: string;
+  storyboardRevisionId: string;
+  sourceHash: string;
+  continuityPlanId: string | null;
+  continuityPlanRevision: number | null;
+  continuityReportRevision: number | null;
+  stylePolicyVersion: string;
+  providerPolicyVersion: string;
+  requestFingerprint: string;
+  stale: boolean;
+  hasBlockingIssues: boolean;
+  issues: StoryboardGenerationIssue[];
+  beats: StoryboardGenerationBeatSnapshot[];
+}
+
+export interface PrepareStoryboardGenerationBatchInput {
+  beatIds: string[];
+  expectedStoryboardRevisionId?: string | null;
+}

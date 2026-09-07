@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DesktopChapterDetails, DesktopTimeline } from "@narrativex/client-contracts";
+import type {
+  DesktopChapterDetails,
+  DesktopTimeline,
+  StoryboardGenerationBatch,
+  StoryboardGenerationBeatSnapshot,
+} from "@narrativex/client-contracts";
 import { CheckCheck, Clapperboard, Loader2, Plus, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +18,22 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { runBoundedParallel } from "../../../shared/bounded-parallel";
 import { InlineNotice, WorkspaceToolbar } from "../../workspace/components/WorkstationPrimitives";
-import type { StoryboardVisualBeat } from "../api/storyboard.api";
+import { storyboardApi, type StoryboardVisualBeat } from "../api/storyboard.api";
 import { GeminiQueueBanner } from "../components/GeminiQueueBanner";
 import { StoryboardHeader } from "../components/StoryboardHeader";
 import { StoryboardNavigator } from "../components/StoryboardNavigator";
 import { VisualBeatGrid } from "../components/VisualBeatGrid";
 import {
+  beginQueueAttempt,
   classifyGeminiQueueGenerationError,
   createGeminiQueue,
+  markQueueAttemptStage,
   markQueueBeatCompleted,
   markQueueBeatSkipped,
   reconcileQueue,
   restoreQueueForSession,
   skipQueueBeatIfMediaReady,
+  unresolvedAttemptBeatIds,
   type GeminiQueueGenerationErrorAction,
   type GeminiQueueState,
 } from "../model/gemini-queue";
@@ -67,6 +75,7 @@ export function StoryboardScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
   const [geminiQueue, setGeminiQueue] = useState<GeminiQueueState | null>(null);
+  const [preparedBatch, setPreparedBatch] = useState<StoryboardGenerationBatch | null>(null);
   const geminiRunTokenRef = useRef(0);
 
   function publishGeminiQueue(
@@ -90,11 +99,13 @@ export function StoryboardScreen({
   useEffect(() => {
     if (!selectedChapterId) {
       setGeminiQueue(null);
+      setPreparedBatch(null);
       return;
     }
     const restored = loadGeminiQueue(projectId, selectedChapterId);
     const nextQueue = restored ? restoreQueueForSession(restored) : null;
     publishGeminiQueue(nextQueue, selectedChapterId);
+    setPreparedBatch(null);
   }, [projectId, selectedChapterId]);
 
   const storyboardQuery = useStoryboardQuery(projectId, selectedChapterId);
@@ -168,18 +179,46 @@ export function StoryboardScreen({
     setMediaBusyBeatId(activeGeminiBeatIdsRef.current.values().next().value ?? null);
   }
 
+  async function prepareGeminiBatch(beatIds: string[]): Promise<StoryboardGenerationBatch | null> {
+    if (!selectedChapterId || !beatIds.length) return null;
+    setNotice(`Gemini · Đang chuẩn bị snapshot bất biến cho ${beatIds.length} Visual Beat…`);
+    try {
+      const batch = await storyboardApi.prepareGeminiGenerationBatch(
+        projectId,
+        selectedChapterId,
+        { beatIds },
+        crypto.randomUUID(),
+      );
+      setPreparedBatch(batch);
+      if (batch.stale) {
+        setNotice("Gemini prepare trả về snapshot stale. Hãy refresh Storyboard và prepare lại.");
+        return null;
+      }
+      if (batch.hasBlockingIssues) {
+        setNotice(formatPreparationIssues(batch));
+        return null;
+      }
+      if (batch.issues.length) {
+        setNotice(`Gemini prepare hoàn tất với warning: ${batch.issues.map((issue) => issue.message).join(" · ")}`);
+      }
+      return batch;
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể chuẩn bị Gemini generation snapshot."));
+      return null;
+    }
+  }
+
   async function generateGeminiImage(
     beat: StoryboardVisualBeat,
+    batch: StoryboardGenerationBatch,
+    snapshot: StoryboardGenerationBeatSnapshot,
+    attemptId: string,
     queueMode = false,
   ): Promise<GeminiImageGenerationResult> {
     if (!queueMode && mediaBusyBeatId) return "PAUSE_QUEUE";
     if (activeGeminiBeatIdsRef.current.has(beat.id)) return "PAUSE_QUEUE";
-    if (!beat.prompt) {
-      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
-      return "PAUSE_QUEUE";
-    }
     if (!selectedChapterId) {
-      setNotice("Chưa chọn chapter để resolve character reference.");
+      setNotice("Chưa chọn chapter để generate Gemini.");
       return "PAUSE_QUEUE";
     }
 
@@ -188,33 +227,35 @@ export function StoryboardScreen({
     setPendingImportBeatId(null);
     setNotice(
       queueMode
-        ? `Gemini All · Đang chuẩn bị character reference cho “${beat.title}”…`
-        : `Đang chuẩn bị character reference cho “${beat.title}”…`,
+        ? `Gemini All · Đang materialize ${snapshot.references.length} reference cho “${beat.title}”…`
+        : `Đang materialize ${snapshot.references.length} reference cho “${beat.title}”…`,
     );
 
     try {
       const result = await mediaMutations.generateGeminiImage.mutateAsync({
-        beat,
+        batch,
+        snapshot,
+        attemptId,
         hasProductionTimelineBeat: timelineBeats.has(beat.id),
         onReferencesResolved: (referenceCount) => {
           setNotice(
             queueMode
-              ? `Gemini All · Đang gửi ${referenceCount} reference và generate “${beat.title}”…`
-              : `Đang gửi ${referenceCount} character reference lên Gemini và generate “${beat.title}”…`,
+              ? `Gemini All · Đang gửi ${referenceCount} reference và exact snapshot prompt cho “${beat.title}”…`
+              : `Đang gửi ${referenceCount} reference và exact snapshot prompt cho “${beat.title}”…`,
           );
         },
       });
       setNotice(
         queueMode
-          ? `Gemini All · Đã gắn ảnh cho “${beat.title}” với ${result.referenceCount} character reference.`
-          : `Gemini đã generate và gắn ảnh vào “${beat.title}” với ${result.referenceCount} character reference.`,
+          ? `Gemini All · Đã gắn ảnh cho “${beat.title}” từ snapshot ${result.snapshotId.slice(0, 8)}.`
+          : `Gemini đã generate và gắn ảnh vào “${beat.title}” từ immutable snapshot.`,
       );
       return "GENERATED";
     } catch (error) {
       const action = classifyGeminiQueueGenerationError(error);
       setNotice(
         action === "SKIP_BEAT" && queueMode
-          ? `Gemini All · Gemini từ chối “${beat.title}”; bỏ qua beat này và tiếp tục các beat còn lại.`
+          ? `Gemini All · Provider từ chối “${beat.title}”; beat được đánh dấu skipped, prompt không bị tự sửa để né filter.`
           : errorMessage(error, "Không thể tự động generate ảnh bằng Gemini Web."),
       );
       return action;
@@ -229,7 +270,10 @@ export function StoryboardScreen({
       setNotice("Gemini All đang chạy. Hãy dừng batch trước khi generate riêng một Visual Beat.");
       return;
     }
-    await generateGeminiImage(beat, false);
+    const batch = await prepareGeminiBatch([beat.id]);
+    const snapshot = batch?.beats.find((candidate) => candidate.visualBeatId === beat.id);
+    if (!batch || !snapshot) return;
+    await generateGeminiImage(beat, batch, snapshot, crypto.randomUUID(), false);
   }
 
   async function storyboardConcurrency(): Promise<number> {
@@ -240,8 +284,85 @@ export function StoryboardScreen({
     }
   }
 
+  async function loadPreparedQueueBatch(queue: GeminiQueueState): Promise<StoryboardGenerationBatch | null> {
+    if (!selectedChapterId || queue.legacyNeedsPrepare || !queue.batchId || !queue.batchFingerprint) {
+      return null;
+    }
+    try {
+      const batch = await storyboardApi.getGeminiGenerationBatch(projectId, selectedChapterId, queue.batchId);
+      setPreparedBatch(batch);
+      if (batch.stale || batch.requestFingerprint !== queue.batchFingerprint) {
+        setNotice("Gemini All đã stale vì source/storyboard revision thay đổi. Pending beats phải prepare lại.");
+        return null;
+      }
+      return batch;
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể đọc prepared Gemini batch."));
+      return null;
+    }
+  }
+
+  async function reconcileAttemptBeforeDispatch(
+    queue: GeminiQueueState,
+    beatId: string,
+  ): Promise<{ queue: GeminiQueueState; canDispatch: boolean }> {
+    const attempt = queue.attemptsByBeat[beatId];
+    if (!attempt || attempt.stage === "FAILED") return { queue, canDispatch: true };
+    if (attempt.stage === "COMPLETED") {
+      const beat = beatById.get(beatId);
+      if (beat?.previewMediaAssetId) {
+        return { queue: markQueueBeatCompleted(queue, beatId), canDispatch: false };
+      }
+      setNotice(
+        `Attempt ${attempt.attemptId} đã completed nhưng output chưa được attach trong UI hiện tại. Không tự resubmit; hãy review/skip beat.`,
+      );
+      return { queue: markQueueAttemptStage(queue, beatId, "UNKNOWN"), canDispatch: false };
+    }
+
+    const status = await window.narrativex.geminiWeb.attemptStatus({ attemptId: attempt.attemptId });
+    if (!status) {
+      return { queue, canDispatch: attempt.stage === "PREPARED" };
+    }
+    if (status.stage === "PREPARED") return { queue, canDispatch: true };
+    if (status.stage === "FAILED") {
+      return { queue: markQueueAttemptStage(queue, beatId, "FAILED"), canDispatch: true };
+    }
+    if (status.stage === "COMPLETED") {
+      const beat = beatById.get(beatId);
+      if (beat?.previewMediaAssetId) {
+        return { queue: markQueueBeatCompleted(queue, beatId), canDispatch: false };
+      }
+      setNotice(
+        `Gemini attempt ${attempt.attemptId} đã tạo output (checksum ${status.outputChecksumSha256?.slice(0, 12) ?? "unknown"}) nhưng chưa có attach evidence. Queue pause để tránh duplicate submit.`,
+      );
+      return { queue: markQueueAttemptStage(queue, beatId, "UNKNOWN"), canDispatch: false };
+    }
+    setNotice(
+      `Gemini attempt ${attempt.attemptId} đang ở trạng thái ${status.stage}. Queue pause để reconcile thay vì blind-resubmit.`,
+    );
+    return { queue: markQueueAttemptStage(queue, beatId, "UNKNOWN"), canDispatch: false };
+  }
+
   async function runGeminiQueue(initialQueue: GeminiQueueState, runToken: number) {
     let queue: GeminiQueueState = { ...initialQueue, status: "RUNNING" };
+    const batch = await loadPreparedQueueBatch(queue);
+    if (!batch) {
+      publishGeminiQueue({ ...queue, status: "PAUSED" });
+      return;
+    }
+    const unresolved = unresolvedAttemptBeatIds(queue);
+    if (unresolved.length) {
+      for (const beatId of unresolved) {
+        const reconciled = await reconcileAttemptBeforeDispatch(queue, beatId);
+        queue = reconciled.queue;
+        publishGeminiQueue(queue);
+        if (!reconciled.canDispatch && !queue.completedBeatIds.includes(beatId)) {
+          publishGeminiQueue({ ...queue, status: "PAUSED" });
+          return;
+        }
+      }
+    }
+
     const processed = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
     const pendingBeatIds = queue.beatIds.filter((beatId) => !processed.has(beatId));
     let acceptNewWork = true;
@@ -268,7 +389,43 @@ export function StoryboardScreen({
           return;
         }
 
-        const generationResult = await generateGeminiImage(beat, true);
+        const snapshotId = queue.snapshotIdsByBeat[beatId];
+        const snapshot = batch.beats.find(
+          (candidate) => candidate.visualBeatId === beatId && candidate.snapshotId === snapshotId,
+        );
+        if (!snapshot) {
+          acceptNewWork = false;
+          setNotice(`Gemini batch thiếu immutable snapshot cho “${beat.title}”. Hãy prepare lại.`);
+          return;
+        }
+
+        let reconciliation = await reconcileAttemptBeforeDispatch(queue, beatId);
+        queue = reconciliation.queue;
+        publishGeminiQueue(queue);
+        if (!reconciliation.canDispatch) {
+          if (!queue.completedBeatIds.includes(beatId)) acceptNewWork = false;
+          return;
+        }
+
+        let attempt = queue.attemptsByBeat[beatId];
+        if (!attempt || attempt.stage === "FAILED") {
+          attempt = {
+            attemptId: crypto.randomUUID(),
+            snapshotId: snapshot.snapshotId,
+            inputFingerprint: snapshot.inputFingerprint,
+            stage: "PREPARED",
+          };
+          queue = beginQueueAttempt(queue, beatId, attempt);
+          publishGeminiQueue(queue);
+        }
+
+        const generationResult = await generateGeminiImage(
+          beat,
+          batch,
+          snapshot,
+          attempt.attemptId,
+          true,
+        );
         if (runToken !== geminiRunTokenRef.current) return;
         if (generationResult === "GENERATED") {
           processed.add(beatId);
@@ -276,15 +433,25 @@ export function StoryboardScreen({
           publishGeminiQueue(queue);
           return;
         }
+
+        const attemptStatus = await window.narrativex.geminiWeb.attemptStatus({
+          attemptId: attempt.attemptId,
+        });
+        if (attemptStatus?.stage === "UNKNOWN" || attemptStatus?.stage === "SUBMITTING" || attemptStatus?.stage === "COMPLETED") {
+          queue = markQueueAttemptStage(queue, beatId, "UNKNOWN");
+          publishGeminiQueue(queue);
+          acceptNewWork = false;
+          return;
+        }
+        queue = markQueueAttemptStage(queue, beatId, "FAILED");
+        publishGeminiQueue(queue);
         if (generationResult === "SKIP_BEAT") {
           processed.add(beatId);
           queue = markQueueBeatSkipped(queue, beatId);
           publishGeminiQueue(queue);
           return;
         }
-        if (generationResult === "PAUSE_QUEUE") {
-          acceptNewWork = false;
-        }
+        acceptNewWork = false;
       },
       () => runToken === geminiRunTokenRef.current && acceptNewWork,
     );
@@ -301,13 +468,16 @@ export function StoryboardScreen({
     };
     publishGeminiQueue(completedQueue);
     setNotice(
-      `Gemini All hoàn tất: ${completedQueue.completedBeatIds.length} generated, ${completedQueue.skippedBeatIds.length} skipped.`,
+      `Gemini All hoàn tất: ${completedQueue.completedBeatIds.length} generated, ${completedQueue.skippedBeatIds.length} skipped. Generated vẫn cần review/approve.`,
     );
   }
 
   async function startGeminiAll() {
     if (!selectedChapterId) return;
-    const queue = createGeminiQueue(selectedChapterId, allChapterBeats);
+    const beatIds = beatsPendingGeminiGeneration.map((beat) => beat.id);
+    const batch = await prepareGeminiBatch(beatIds);
+    if (!batch) return;
+    const queue = createGeminiQueue(selectedChapterId, batch);
     if (!queue) return;
     publishGeminiQueue(queue);
     const runToken = ++geminiRunTokenRef.current;
@@ -315,9 +485,20 @@ export function StoryboardScreen({
   }
 
   async function resumeGeminiAll() {
-    if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
+    if (!geminiQueue || geminiQueue.status === "COMPLETED" || !selectedChapterId) return;
+    let queue = geminiQueue;
+    if (queue.legacyNeedsPrepare || !queue.batchId) {
+      const handled = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
+      const pendingIds = queue.beatIds.filter((beatId) => !handled.has(beatId));
+      const batch = await prepareGeminiBatch(pendingIds);
+      if (!batch) return;
+      const migrated = createGeminiQueue(selectedChapterId, batch);
+      if (!migrated) return;
+      queue = migrated;
+      setNotice("Queue format cũ đã được pause và prepare lại phần pending bằng immutable snapshots.");
+    }
     const runToken = ++geminiRunTokenRef.current;
-    const resumed: GeminiQueueState = { ...geminiQueue, status: "RUNNING" };
+    const resumed: GeminiQueueState = { ...queue, status: "RUNNING" };
     publishGeminiQueue(resumed);
     await runGeminiQueue(resumed, runToken);
   }
@@ -342,18 +523,24 @@ export function StoryboardScreen({
     geminiRunTokenRef.current += 1;
     publishGeminiQueue(geminiQueue ? { ...geminiQueue, status: "PAUSED" } : null);
     setPendingImportBeatId(null);
-    setNotice("Đã dừng Gemini All. Các tab đang generate sẽ hoàn tất nhưng không nhận Visual Beat mới.");
+    setNotice("Đã pause Gemini All. In-flight attempts được phép hoàn tất; resume sẽ reconcile journal trước khi gửi request mới.");
   }
 
   async function copyPrompt(beat: StoryboardVisualBeat) {
-    if (!beat.prompt) {
-      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
+    const submitted = preparedBatch?.beats.find((snapshot) => snapshot.visualBeatId === beat.id)?.prompt;
+    const text = submitted ?? beat.prompt;
+    if (!text) {
+      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy prepare hoặc refresh Storyboard rồi thử lại.");
       return;
     }
     try {
-      await window.narrativex.system.copyText(beat.prompt);
+      await window.narrativex.system.copyText(text);
       setCopiedPromptBeatId(beat.id);
-      setNotice(`Đã copy prompt của “${beat.title}”.`);
+      setNotice(
+        submitted
+          ? `Đã copy exact submitted snapshot prompt của “${beat.title}”.`
+          : `Đã copy current draft prompt của “${beat.title}”.`,
+      );
     } catch (error) {
       setCopiedPromptBeatId(null);
       setNotice(errorMessage(error, "Không thể copy prompt."));
@@ -390,6 +577,7 @@ export function StoryboardScreen({
     setCreatingBeat(false);
     setPendingImportBeatId(null);
     setCopiedPromptBeatId(null);
+    setPreparedBatch(null);
     setNotice(null);
   }
 
@@ -480,6 +668,7 @@ export function StoryboardScreen({
                 currentBeat={currentQueueBeat}
                 processedCount={queueProcessedCount}
                 busy={activeGeminiBeatIds.size > 0}
+                preparedBatch={preparedBatch}
                 onResume={() => void resumeGeminiAll()}
                 onSkip={() => void skipCurrentGeminiBeat()}
                 onStop={stopGeminiAll}
@@ -569,6 +758,7 @@ export function StoryboardScreen({
                 copiedPromptBeatId={copiedPromptBeatId}
                 currentQueueBeatId={currentQueueBeatId}
                 queueStatus={geminiQueue?.status ?? null}
+                submittedSnapshots={preparedBatch?.beats ?? []}
                 onReview={(beat, status) => updateReview.mutate({ beat, status })}
                 onGenerate={(beat) => void generateWithGemini(beat)}
                 onCopyPrompt={(beat) => void copyPrompt(beat)}
@@ -580,6 +770,12 @@ export function StoryboardScreen({
       )}
     </div>
   );
+}
+
+function formatPreparationIssues(batch: StoryboardGenerationBatch): string {
+  const blocking = batch.issues.filter((issue) => issue.severity === "BLOCKING");
+  if (!blocking.length) return "Gemini prepare có issue cần review.";
+  return `Gemini chưa dispatch: ${blocking.map((issue) => `${issue.code}${issue.visualBeatId ? ` (${issue.visualBeatId.slice(0, 8)})` : ""}: ${issue.message}`).join(" · ")}`;
 }
 
 function EmptyState({ title, detail }: Readonly<{ title: string; detail: string }>) {

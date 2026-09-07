@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StoryboardGenerationSnapshotMapper">
+
+    <resultMap id="scopeRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StoryboardGenerationScopeRow">
+        <result property="storyboardRevisionId" column="storyboard_revision_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="sourceHash" column="source_hash" />
+    </resultMap>
+
+    <resultMap id="batchRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StoryboardGenerationBatchRow">
+        <id property="id" column="id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="projectId" column="project_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="chapterId" column="chapter_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="storyboardRevisionId" column="storyboard_revision_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="sourceHash" column="source_hash" />
+        <result property="continuityPlanId" column="continuity_plan_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="continuityPlanRevision" column="continuity_plan_revision" />
+        <result property="continuityReportRevision" column="continuity_report_revision" />
+        <result property="stylePolicyVersion" column="style_policy_version" />
+        <result property="providerPolicyVersion" column="provider_policy_version" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="requestFingerprint" column="request_fingerprint" />
+        <result property="issuesJson" column="issues_json" />
+        <result property="status" column="status" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="beatSnapshotRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StoryboardGenerationBeatSnapshotRow">
+        <id property="id" column="id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="batchId" column="batch_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="visualBeatId" column="visual_beat_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="sceneId" column="scene_id" javaType="java.util.UUID"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="beatRowVersion" column="beat_row_version" />
+        <result property="prompt" column="prompt" />
+        <result property="negativePrompt" column="negative_prompt" />
+        <result property="characterSnapshotJson" column="character_snapshot_json" />
+        <result property="referencesJson" column="references_json" />
+        <result property="continuitySemanticHash" column="continuity_semantic_hash" />
+        <result property="inputFingerprint" column="input_fingerprint" />
+    </resultMap>
+
+    <sql id="batchColumns">
+        id, project_id, chapter_id, storyboard_revision_id, source_hash,
+        continuity_plan_id, continuity_plan_revision, continuity_report_revision,
+        style_policy_version, provider_policy_version, idempotency_key,
+        request_fingerprint, issues_json::text AS issues_json, status, created_at
+    </sql>
+
+    <select id="findCurrentScope" resultMap="scopeRow">
+        SELECT ch.current_storyboard_revision_id AS storyboard_revision_id,
+               ch.source_hash
+          FROM chapters ch
+          JOIN story_versions sv ON sv.id = ch.story_version_id
+         WHERE ch.id = #{chapterId}
+           AND sv.project_id = #{projectId}
+           AND ch.deleted_at IS NULL
+           AND ch.current_storyboard_revision_id IS NOT NULL
+         LIMIT 1
+    </select>
+
+    <select id="findBatchByIdempotencyKey" resultMap="batchRow">
+        SELECT <include refid="batchColumns" />
+          FROM storyboard_generation_batches
+         WHERE project_id = #{projectId}
+           AND chapter_id = #{chapterId}
+           AND idempotency_key = #{idempotencyKey}
+         LIMIT 1
+    </select>
+
+    <select id="findBatchById" resultMap="batchRow">
+        SELECT <include refid="batchColumns" />
+          FROM storyboard_generation_batches
+         WHERE project_id = #{projectId}
+           AND chapter_id = #{chapterId}
+           AND id = #{batchId}
+         LIMIT 1
+    </select>
+
+    <select id="findBeatSnapshots" resultMap="beatSnapshotRow">
+        SELECT id, batch_id, visual_beat_id, scene_id, beat_row_version,
+               prompt, negative_prompt, character_snapshot_json::text AS character_snapshot_json,
+               references_json::text AS references_json, continuity_semantic_hash,
+               input_fingerprint
+          FROM storyboard_generation_beat_snapshots
+         WHERE batch_id = #{batchId}
+         ORDER BY created_at, visual_beat_id
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO storyboard_generation_batches
+          (id, project_id, chapter_id, storyboard_revision_id, source_hash,
+           continuity_plan_id, continuity_plan_revision, continuity_report_revision,
+           style_policy_version, provider_policy_version, idempotency_key,
+           request_fingerprint, issues_json, status, created_at)
+        VALUES
+          (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{storyboardRevisionId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{sourceHash},
+           #{continuityPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{continuityPlanRevision}, #{continuityReportRevision},
+           #{stylePolicyVersion}, #{providerPolicyVersion}, #{idempotencyKey},
+           #{requestFingerprint}, #{issuesJson}::jsonb, #{status}, #{createdAt})
+    </insert>
+
+    <insert id="insertBeatSnapshot">
+        INSERT INTO storyboard_generation_beat_snapshots
+          (id, batch_id, visual_beat_id, scene_id, beat_row_version,
+           prompt, negative_prompt, character_snapshot_json, references_json,
+           continuity_semantic_hash, input_fingerprint)
+        VALUES
+          (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{batchId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{sceneId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+           #{beatRowVersion}, #{prompt}, #{negativePrompt},
+           #{characterSnapshotJson}::jsonb, #{referencesJson}::jsonb,
+           #{continuitySemanticHash}, #{inputFingerprint})
+    </insert>
+</mapper>

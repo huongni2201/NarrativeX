@@ -175,8 +175,8 @@ public final class VisualPromptComposer {
   }
 
   private static String currentState(CharacterCanon character) {
-    if (hasText(character.appearancePrompt())) return character.appearancePrompt().trim();
     List<String> values = new ArrayList<>();
+    add(values, "appearance", character.appearancePrompt());
     add(values, "age", character.ageState());
     add(values, "hairstyle", character.hairstyle());
     add(values, "injury", character.injury());
@@ -222,7 +222,7 @@ public final class VisualPromptComposer {
       }
     }
     prompt.append(
-        "\nReferences are authoritative identity evidence only. Preserve facial geometry, age, proportions, hair silhouette, skin tone and permanent traits; do not copy reference pose, crop, background, expression or lighting unless STORY MOMENT explicitly requires it.");
+        "\nReferences are authoritative identity evidence only. Preserve facial geometry, age, proportions, hair silhouette, skin tone and permanent traits; do not copy reference pose, crop, background, expression, lighting or outfit when CURRENT STATE or PINNED CONTINUITY specifies a different beat state.");
   }
 
   private static String styleLanguage(ImageStyle style) {
