@@ -21,7 +21,11 @@ def _direction(shot_size: str = "WIDE", *, action_phase: str = "AFTER") -> dict[
     }
 
 
-def _chapter(beats: list[dict[str, object]], *, location_key: str | None = "room") -> ChapterAnalysisResult:
+def _chapter(
+    beats: list[dict[str, object]],
+    *,
+    location_key: str | None = "room",
+) -> ChapterAnalysisResult:
     return ChapterAnalysisResult.model_validate(
         {
             "locations": ([{"key": "room", "name": "Room"}] if location_key else []),
@@ -38,7 +42,12 @@ def _chapter(beats: list[dict[str, object]], *, location_key: str | None = "room
     )
 
 
-def _beat(index: int, shot_size: str = "WIDE", *, title: str | None = None) -> dict[str, object]:
+def _beat(
+    index: int,
+    shot_size: str = "WIDE",
+    *,
+    title: str | None = None,
+) -> dict[str, object]:
     return {
         "title": title or f"Beat {index}",
         "visual_intent": f"Visible moment {index}",
