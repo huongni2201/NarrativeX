@@ -14,31 +14,18 @@ async function exists(path) {
   }
 }
 
-test("legacy Browser 1 data migrates once and preserves login files", async () => {
-  const legacyRoot = await mkdtemp(join(tmpdir(), "nx-gemini-storage-"));
-  await mkdir(join(legacyRoot, "chrome-profile", "Default"), { recursive: true });
-  await writeFile(join(legacyRoot, "chrome-profile", "Default", "Cookies"), "cookie-data", "utf8");
-  await writeFile(join(legacyRoot, "session.json"), JSON.stringify({ port: 9222 }), "utf8");
-  const storage = new GeminiBrowserStorage(legacyRoot);
+test("browser roots are scoped by current user and browser id", async () => {
+  const storageRoot = await mkdtemp(join(tmpdir(), "nx-gemini-storage-"));
+  const storage = new GeminiBrowserStorage(storageRoot);
 
-  await storage.migrateLegacyBrowserOne("user-a");
-  const browserRoot = storage.browserRoot("user-a", "browser-1");
-  assert.equal(
-    await readFile(join(browserRoot, "chrome-profile", "Default", "Cookies"), "utf8"),
-    "cookie-data",
-  );
-  assert.equal(await exists(join(legacyRoot, "chrome-profile")), false);
-
-  await storage.migrateLegacyBrowserOne("user-a");
-  assert.equal(
-    await readFile(join(browserRoot, "chrome-profile", "Default", "Cookies"), "utf8"),
-    "cookie-data",
-  );
+  assert.notEqual(storage.browserRoot("user-a", "browser-1"), storage.browserRoot("user-a", "browser-2"));
+  assert.notEqual(storage.browserRoot("user-a", "browser-1"), storage.browserRoot("user-b", "browser-1"));
+  assert.throws(() => storage.browserRoot("user-a", "../escape"), /Invalid Gemini browser id/);
 });
 
 test("reset login removes only selected browser session data", async () => {
-  const legacyRoot = await mkdtemp(join(tmpdir(), "nx-gemini-reset-"));
-  const storage = new GeminiBrowserStorage(legacyRoot);
+  const storageRoot = await mkdtemp(join(tmpdir(), "nx-gemini-reset-"));
+  const storage = new GeminiBrowserStorage(storageRoot);
   const first = storage.browserRoot("user-a", "browser-1");
   const second = storage.browserRoot("user-a", "browser-2");
   await mkdir(join(first, "chrome-profile"), { recursive: true });
@@ -55,8 +42,8 @@ test("reset login removes only selected browser session data", async () => {
 });
 
 test("remove browser data never deletes sibling browser roots", async () => {
-  const legacyRoot = await mkdtemp(join(tmpdir(), "nx-gemini-remove-"));
-  const storage = new GeminiBrowserStorage(legacyRoot);
+  const storageRoot = await mkdtemp(join(tmpdir(), "nx-gemini-remove-"));
+  const storage = new GeminiBrowserStorage(storageRoot);
   const first = storage.browserRoot("user-a", "browser-1");
   const second = storage.browserRoot("user-a", "browser-2");
   await mkdir(first, { recursive: true });
