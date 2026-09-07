@@ -66,7 +66,7 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - owner-scoped generation SSE snapshots and voice-preview jobs;
 - persisted production beat media selections;
 - production timeline aggregation using narration as the master clock;
-- `NarrationTextClockMapper` derives VisualBeat audio ranges from source text ranges plus narration alignment when exact persisted timing is unavailable;
+- `NarrationTextClockMapper` derives VisualBeat audio ranges from source text ranges plus narration alignment;
 - exact aligned timing remains required for final render readiness;
 - local device capability/heartbeat/revocation/render assignment;
 - render completion and FinalArtifact metadata without final-video byte storage/proxying.
@@ -81,7 +81,8 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - PROJECT voice-reference resolution through `project.manifest.json` with size/SHA-256 validation;
 - ACCOUNT voice-reference download through the authorized R2 voice path;
 - no production Python visual text-to-audio mapper and no legacy duration-weighted visual timing module;
-- storyboard generation persists `visual_direction_json` as the single structured camera/composition representation; legacy `camera_angle`/`camera_movement` storage is removed by V15.
+- storyboard generation persists `visual_direction_json` as the single structured camera/composition representation;
+- production provider configuration uses the canonical `AI_PROVIDER_MODE`, `IMAGE_PROVIDER_MODE`, and `TTS_PROVIDER_MODE` environment names.
 
 Workers execute backend-authorized plans. They do not translate chapter content, execute final project renders, own Desktop paths or user authorization policy.
 
@@ -110,7 +111,11 @@ source_anchor
   -> production beat clock
 ```
 
-Complete existing persisted `audio_start_ms/audio_end_ms` may remain compatibility input. If exact timing cannot be established, the Editor may receive provisional timing but `readyForRender` remains false.
+`visual_beats` does not persist duplicate `audio_start_ms/audio_end_ms`. If exact timing cannot be established from the current narration alignment, the Editor may receive provisional timing but `readyForRender` remains false. Audio offsets remain valid in narration alignment spans and immutable derived planning/render snapshots where they are execution data rather than storyboard source state.
+
+## Storyboard direction contract
+
+`visual_beats.visual_direction_json` is the sole persisted camera/composition representation. Semantic `cameraMovement` values exposed by backend contracts or render code are derived from that JSON. The current schema never creates standalone VisualBeat `camera_angle` or `camera_movement` columns.
 
 ## Flyway baseline
 
@@ -129,11 +134,13 @@ V11__chapter_continuity_indexes.sql
 V12__continuity_regeneration_plans.sql
 V13__render_continuity_provenance.sql
 V14__storyboard_generation_snapshots.sql
-V15__structured_visual_direction_only.sql
-V16__remove_unowned_short_clip_requests.sql
 ```
 
-A clean database applies **V1 → V16**. V9+ migrations are active append-only baseline slices, not temporary patches. V14 adds immutable Storyboard generation snapshots, V15 completes the structured camera-direction cut-over with a compatibility backfill and JSON validation before dropping duplicate camera columns, and V16 removes the unowned short-clip request queue only when it is empty. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
+A clean database applies **V1 → V14**. Because NarrativeX is still pre-production, the baseline contains only the current schema: V2 directly owns structured VisualBeat direction and omits duplicate storyboard audio/camera fields; V3 adds only canonical `preview_media_asset_id` after `media_assets` exists; V4/V7 never create the unowned short-clip queue or its indexes. Compatibility-only V15/V16 cleanup migrations are therefore unnecessary and removed. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
+
+## Production mode contract
+
+The executable backend/worker/database production mode is currently `IMAGE_MOTION`. Generic VIDEO analysis/editor intent and `IMAGE_TO_VIDEO` vocabulary remain separate concepts and do not make `HYBRID_LOCAL_I2V` an implemented production mode.
 
 ## Current gaps
 
