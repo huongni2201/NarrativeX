@@ -176,8 +176,8 @@ def validate_shard_result(
             applied.add(event.key)
 
         for event_key in state.event_keys:
-            event = events.get(event_key)
-            if event is None:
+            referenced_event = events.get(event_key)
+            if referenced_event is None:
                 issues.append(
                     _issue(
                         "UNKNOWN_CONTINUITY_EVENT",
@@ -187,7 +187,7 @@ def validate_shard_result(
                     )
                 )
                 continue
-            if event.timeline_key != context.timeline_key:
+            if referenced_event.timeline_key != context.timeline_key:
                 issues.append(
                     _issue(
                         "TIMELINE_STATE_LEAK",
@@ -196,7 +196,7 @@ def validate_shard_result(
                         scope=state.beat_key,
                     )
                 )
-            elif event_positions[event.key] > global_position:
+            elif event_positions[referenced_event.key] > global_position:
                 issues.append(
                     _issue(
                         "EVENT_APPLIED_TOO_EARLY",

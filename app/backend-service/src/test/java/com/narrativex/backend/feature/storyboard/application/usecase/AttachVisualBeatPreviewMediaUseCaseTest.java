@@ -16,8 +16,6 @@ import com.narrativex.backend.feature.storyboard.application.port.out.Storyboard
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraAngle;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
@@ -64,8 +62,6 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
             "Intent",
             null,
             MotionMode.STILL,
-            CameraMovement.NONE,
-            CameraAngle.MEDIUM,
             null,
             VisualBeatReviewStatus.NEEDS_REVIEW);
     when(currentUserId.get()).thenReturn("owner");

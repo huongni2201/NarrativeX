@@ -218,20 +218,10 @@ public class GenerateChapterNarrationUseCase {
   private VoiceCatalogAccess.VoiceCapabilities resolveVoiceCapabilities(String voiceId) {
     return voiceCatalogAccess
         .findVoice(voiceId)
-        .orElseGet(
-            () -> {
-              boolean legacyVieNeu = voiceId.startsWith("vieneu-");
-              log.warn(
-                  "Voice id={} is missing from catalog; using legacy provider fallback", voiceId);
-              return new VoiceCatalogAccess.VoiceCapabilities(
-                  voiceId,
-                  legacyVieNeu ? "VIENEU" : "UNKNOWN",
-                  true,
-                  legacyVieNeu,
-                  legacyVieNeu,
-                  48000,
-                  legacyVieNeu ? "LOCAL_RETRYABLE" : "EXTERNAL_DURABLE");
-            });
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    "Selected narration voice is unavailable or disabled: " + voiceId));
   }
 
   private void validateSpeakingRate(

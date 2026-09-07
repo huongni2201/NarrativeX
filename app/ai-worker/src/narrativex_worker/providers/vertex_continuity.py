@@ -88,11 +88,17 @@ class _VertexStructuredAdapter:
         if checkpoint.status is AnalysisCheckpointStatus.COMPLETED:
             payload = checkpoint.result_json or {}
             result_payload = payload.get("result")
-            response_id = payload.get("responseId")
-            if not isinstance(result_payload, dict) or not isinstance(response_id, str):
+            checkpoint_response_id = payload.get("responseId")
+            if not isinstance(result_payload, dict) or not isinstance(
+                checkpoint_response_id, str
+            ):
                 raise RuntimeError("completed analysis checkpoint has an invalid durable result")
             self.reused_subcalls += 1
-            return model.model_validate(result_payload), self._transport._zero_billing(), response_id  # noqa: SLF001
+            return (
+                model.model_validate(result_payload),
+                self._transport._zero_billing(),  # noqa: SLF001
+                checkpoint_response_id,
+            )
         if checkpoint.status is AnalysisCheckpointStatus.UNKNOWN:
             raise VertexSubmissionUnknownError(
                 f"Analysis subcall {identity.step_key} has UNKNOWN provider outcome; "

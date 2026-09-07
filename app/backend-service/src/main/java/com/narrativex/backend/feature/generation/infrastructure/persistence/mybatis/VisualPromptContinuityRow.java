@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class VisualPromptContinuityRow {
+  private UUID visualBeatId;
   private UUID planId;
   private String timelineKey;
   private String entryFactsJson;

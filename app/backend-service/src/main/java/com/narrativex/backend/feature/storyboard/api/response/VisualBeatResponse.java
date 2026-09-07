@@ -2,8 +2,6 @@ package com.narrativex.backend.feature.storyboard.api.response;
 
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraAngle;
-import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.UUID;
@@ -17,8 +15,6 @@ public record VisualBeatResponse(
     String visualDirectionJson,
     String prompt,
     MotionMode motionMode,
-    CameraMovement cameraMovement,
-    CameraAngle cameraAngle,
     VisualBeatReviewStatus reviewStatus,
     AspectRatio aspectRatioOverride,
     UUID previewMediaAssetId,
@@ -33,8 +29,6 @@ public record VisualBeatResponse(
         beat.getVisualDirectionJson(),
         null,
         beat.getMotionMode(),
-        beat.getCameraMovement(),
-        beat.getCameraAngle(),
         beat.getReviewStatus(),
         beat.getAspectRatioOverride(),
         beat.getPreviewMediaAssetId(),
@@ -51,8 +45,6 @@ public record VisualBeatResponse(
         beat.getVisualDirectionJson(),
         prompt,
         beat.getMotionMode(),
-        beat.getCameraMovement(),
-        beat.getCameraAngle(),
         beat.getReviewStatus(),
         beat.getAspectRatioOverride(),
         beat.getPreviewMediaAssetId(),

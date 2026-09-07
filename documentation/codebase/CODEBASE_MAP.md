@@ -80,7 +80,8 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - deterministic VisualBeat source-anchor → UTF-16 text-range resolution;
 - PROJECT voice-reference resolution through `project.manifest.json` with size/SHA-256 validation;
 - ACCOUNT voice-reference download through the authorized R2 voice path;
-- no production Python visual text-to-audio mapper and no legacy duration-weighted visual timing module.
+- no production Python visual text-to-audio mapper and no legacy duration-weighted visual timing module;
+- storyboard generation persists `visual_direction_json` as the single structured camera/composition representation; legacy `camera_angle`/`camera_movement` storage is removed by V15.
 
 Workers execute backend-authorized plans. They do not translate chapter content, execute final project renders, own Desktop paths or user authorization policy.
 
@@ -122,9 +123,17 @@ V5__catalog_generation_and_render_snapshots.sql
 V6__database_logic_and_triggers.sql
 V7__indexes.sql
 V8__seed_catalog.sql
+V9__chapter_continuity_and_analysis_checkpoints.sql
+V10__chapter_continuity_guards.sql
+V11__chapter_continuity_indexes.sql
+V12__continuity_regeneration_plans.sql
+V13__render_continuity_provenance.sql
+V14__storyboard_generation_snapshots.sql
+V15__structured_visual_direction_only.sql
+V16__remove_unowned_short_clip_requests.sql
 ```
 
-This is the clean pre-production baseline. There is no active V9 patch migration. Applied migrations become immutable at the first production deployment; subsequent evolution is append-only.
+A clean database applies **V1 → V16**. V9+ migrations are active append-only baseline slices, not temporary patches. V14 adds immutable Storyboard generation snapshots, V15 completes the structured camera-direction cut-over with a compatibility backfill and JSON validation before dropping duplicate camera columns, and V16 removes the unowned short-clip request queue only when it is empty. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
 
 ## Current gaps
 

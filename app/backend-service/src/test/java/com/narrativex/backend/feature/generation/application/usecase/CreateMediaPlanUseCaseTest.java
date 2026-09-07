@@ -44,11 +44,13 @@ class CreateMediaPlanUseCaseTest {
     var mediaPlanRepository = mock(MediaPlanRepository.class);
     var visualPromptContextRepository = mock(VisualPromptContextRepository.class);
     var resolver = new MotionStrategyResolver(new DefaultMotionExecutionPolicy());
+    var objectMapper = new ObjectMapper();
     var sceneResolver =
         new MediaPlanSceneResolver(
             resolver,
             visualPromptContextRepository,
-            new VisualPromptComposer(new ObjectMapper()));
+            new VisualPromptComposer(objectMapper),
+            objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
             currentUserId,
@@ -143,11 +145,13 @@ class CreateMediaPlanUseCaseTest {
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
     var visualPromptContextRepository = mock(VisualPromptContextRepository.class);
+    var objectMapper = new ObjectMapper();
     var sceneResolver =
         new MediaPlanSceneResolver(
             new MotionStrategyResolver(new DefaultMotionExecutionPolicy()),
             visualPromptContextRepository,
-            new VisualPromptComposer(new ObjectMapper()));
+            new VisualPromptComposer(objectMapper),
+            objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
             currentUserId,

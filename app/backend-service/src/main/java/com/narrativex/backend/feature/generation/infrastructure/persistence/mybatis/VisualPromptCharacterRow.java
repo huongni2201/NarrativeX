@@ -11,6 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VisualPromptCharacterRow {
+  private UUID visualBeatId;
   private UUID assignmentId;
   private UUID characterId;
   private String canonicalName;

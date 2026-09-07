@@ -58,8 +58,6 @@ public class MediaPlanningSourceService implements MediaPlanningSourceAccess {
                                         beat.getVisualIntent(),
                                         MotionIntent.valueOf(beat.getMotionMode().name()),
                                         beat.getReviewStatus().name(),
-                                        beat.getCameraMovement().name(),
-                                        beat.getCameraAngle().name(),
                                         beat.getAspectRatioOverride() == null
                                             ? null
                                             : beat.getAspectRatioOverride().getCode(),
