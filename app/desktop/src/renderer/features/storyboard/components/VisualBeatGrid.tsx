@@ -3,9 +3,20 @@ import type {
   DesktopTimelineBeat,
   StoryboardGenerationBeatSnapshot,
 } from "@narrativex/client-contracts";
-import { Check, Clapperboard, Copy, ExternalLink, ImagePlus, Loader2, RotateCcw } from "lucide-react";
+import {
+  Check,
+  Clapperboard,
+  Copy,
+  ExternalLink,
+  ImagePlus,
+  Loader2,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { InlineNotice, StatusIndicator } from "../../workspace/components/WorkstationPrimitives";
+import {
+  InlineNotice,
+  StatusIndicator,
+} from "../../workspace/components/WorkstationPrimitives";
 import {
   parseStoryboardVisualDirection,
   type StoryboardVisualBeat,
@@ -53,16 +64,33 @@ export function VisualBeatGrid({
   onImport: (beat: StoryboardVisualBeat) => void;
 }>) {
   if (!hasSelectedScene) {
-    return <EmptyState title="Chọn scene để xem Visual Beat" detail="Chọn một scene trong navigator để bắt đầu review media." />;
+    return (
+      <EmptyState
+        title="Chọn scene để xem Visual Beat"
+        detail="Chọn một scene trong navigator để bắt đầu review media."
+      />
+    );
   }
   if (!selectedSceneBeatCount) {
-    return <EmptyState title="Scene chưa có Visual Beat" detail="Thêm Visual Beat mới từ thanh công cụ phía trên." />;
+    return (
+      <EmptyState
+        title="Scene chưa có Visual Beat"
+        detail="Thêm Visual Beat mới từ thanh công cụ phía trên."
+      />
+    );
   }
   if (!beats.length) {
-    return <EmptyState title="Không có Visual Beat phù hợp" detail="Đổi bộ lọc review để xem các Visual Beat còn lại." />;
+    return (
+      <EmptyState
+        title="Không có Visual Beat phù hợp"
+        detail="Đổi bộ lọc review để xem các Visual Beat còn lại."
+      />
+    );
   }
 
-  const snapshotByBeat = new Map(submittedSnapshots.map((snapshot) => [snapshot.visualBeatId, snapshot]));
+  const snapshotByBeat = new Map(
+    submittedSnapshots.map((snapshot) => [snapshot.visualBeatId, snapshot]),
+  );
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5">
       {beats.map((beat) => {
@@ -79,7 +107,9 @@ export function VisualBeatGrid({
             pendingImport={pendingImportBeatId === beat.id}
             promptCopied={copiedPromptBeatId === beat.id}
             queueRunning={queueRunning}
-            queueCurrent={currentQueueBeatId === beat.id && queueStatus !== "COMPLETED"}
+            queueCurrent={
+              currentQueueBeatId === beat.id && queueStatus !== "COMPLETED"
+            }
             generationLocked={queueStatus === "RUNNING" && !queueRunning}
             onReview={(status) => onReview(beat, status)}
             onGenerate={() => onGenerate(beat)}
@@ -138,14 +168,22 @@ function VisualBeatCard({
       : "border-border-subtle hover:border-border";
 
   return (
-    <article className={`group min-w-0 overflow-hidden border bg-surface-panel transition-colors ${borderClass}`}>
+    <article
+      className={`group min-w-0 overflow-hidden border bg-surface-panel transition-colors ${borderClass}`}
+    >
       <div className="relative bg-surface-dark">
-        <BeatImagePreview projectId={projectId} beat={beat} timelineBeat={timelineBeat} />
+        <BeatImagePreview
+          projectId={projectId}
+          beat={beat}
+          timelineBeat={timelineBeat}
+        />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
           <span className="rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-text-secondary backdrop-blur-sm">
             Beat {beat.orderIndex + 1}
           </span>
-          <span className={`rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] font-semibold backdrop-blur-sm ${approved ? "text-success" : "text-warning"}`}>
+          <span
+            className={`rounded-sm bg-background/85 px-1.5 py-0.5 text-[9px] font-semibold backdrop-blur-sm ${approved ? "text-success" : "text-warning"}`}
+          >
             {approved ? "Approved" : "Needs review"}
           </span>
         </div>
@@ -154,21 +192,37 @@ function VisualBeatCard({
       <div className="p-2.5">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="truncate text-[12px] font-semibold text-foreground">{beat.title}</h3>
+            <h3 className="truncate text-[12px] font-semibold text-foreground">
+              {beat.title}
+            </h3>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-text-dim">
-              <span>{timelineBeat ? `${formatMs(timelineBeat.startMs)}–${formatMs(timelineBeat.endMs)}` : "No timing"}</span>
+              <span>
+                {timelineBeat
+                  ? `${formatMs(timelineBeat.startMs)}–${formatMs(timelineBeat.endMs)}`
+                  : "No timing"}
+              </span>
               <span>{directionSummary}</span>
               <span>{formatEnum(beat.motionMode)}</span>
             </div>
           </div>
           {queueRunning ? (
-            <StatusIndicator label="Generating" tone="accent" className="shrink-0" />
+            <StatusIndicator
+              label="Generating"
+              tone="accent"
+              className="shrink-0"
+            />
           ) : queueCurrent ? (
-            <StatusIndicator label="Current" tone="accent" className="shrink-0" />
+            <StatusIndicator
+              label="Current"
+              tone="accent"
+              className="shrink-0"
+            />
           ) : null}
         </div>
 
-        <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-text-muted">{beat.visualIntent}</p>
+        <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-text-muted">
+          {beat.visualIntent}
+        </p>
 
         {pendingImport ? (
           <InlineNotice tone="info" className="mt-2">
@@ -178,16 +232,37 @@ function VisualBeatCard({
 
         <div className="mt-2.5 flex items-center gap-1.5 border-t border-border-subtle pt-2">
           {!approved ? (
-            <Button size="sm" disabled={updating} onClick={() => onReview("APPROVED")} className="min-w-0 flex-1">
+            <Button
+              size="sm"
+              disabled={updating}
+              onClick={() => onReview("APPROVED")}
+              className="min-w-0 flex-1"
+            >
               <Check size={12} /> Approve
             </Button>
           ) : (
-            <Button size="sm" disabled={mediaBusy || generationLocked} onClick={onGenerate} className="min-w-0 flex-1">
-              {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+            <Button
+              size="sm"
+              disabled={mediaBusy || generationLocked}
+              onClick={onGenerate}
+              className="min-w-0 flex-1"
+            >
+              {mediaBusy ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <ExternalLink size={12} />
+              )}
               {mediaBusy ? "Generating…" : "Generate"}
             </Button>
           )}
-          <Button variant="outline" size="icon" disabled={mediaBusy || generationLocked} onClick={onImport} title="Import generated image" aria-label={`Import image for ${beat.title}`}>
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={mediaBusy || generationLocked}
+            onClick={onImport}
+            title="Import generated image"
+            aria-label={`Import image for ${beat.title}`}
+          >
             <ImagePlus size={12} />
           </Button>
           {timelineBeat ? (
@@ -198,52 +273,128 @@ function VisualBeatCard({
             />
           ) : null}
           {approved ? (
-            <Button variant="ghost" size="icon" disabled={updating} onClick={() => onReview("NEEDS_REVIEW")} title="Mark as needs review" aria-label={`Mark ${beat.title} as needs review`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={updating}
+              onClick={() => onReview("NEEDS_REVIEW")}
+              title="Mark as needs review"
+              aria-label={`Mark ${beat.title} as needs review`}
+            >
               <RotateCcw size={12} />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" disabled={mediaBusy || generationLocked} onClick={onGenerate} title="Generate with Gemini" aria-label={`Generate image for ${beat.title}`}>
-              {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={mediaBusy || generationLocked}
+              onClick={onGenerate}
+              title="Generate with Gemini"
+              aria-label={`Generate image for ${beat.title}`}
+            >
+              {mediaBusy ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <ExternalLink size={12} />
+              )}
             </Button>
           )}
         </div>
 
         <details className="mt-2 border-t border-border-subtle pt-2 text-[10px]">
-          <summary className="cursor-pointer select-none text-text-muted hover:text-text-secondary">Prompt & details</summary>
+          <summary className="cursor-pointer select-none text-text-muted hover:text-text-secondary">
+            Prompt & details
+          </summary>
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-[9px] uppercase tracking-[0.08em] text-text-dim">
               {submittedSnapshot ? "Submitted snapshot" : "Current draft"}
             </span>
-            <button type="button" onClick={onCopyPrompt} className={`inline-flex items-center gap-1 text-[10px] font-medium ${promptCopied ? "text-success" : "text-primary-hover"}`}>
+            <button
+              type="button"
+              onClick={onCopyPrompt}
+              className={`inline-flex items-center gap-1 text-[10px] font-medium ${promptCopied ? "text-success" : "text-primary-hover"}`}
+            >
               {promptCopied ? <Check size={11} /> : <Copy size={11} />}
-              {promptCopied ? "Copied" : submittedSnapshot ? "Copy submitted" : "Copy draft"}
+              {promptCopied
+                ? "Copied"
+                : submittedSnapshot
+                  ? "Copy submitted"
+                  : "Copy draft"}
             </button>
           </div>
           {submittedSnapshot ? (
             <>
-              <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">{submittedSnapshot.prompt}</p>
+              <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">
+                {submittedSnapshot.prompt}
+              </p>
               <div className="mt-2 grid gap-1 border-t border-border-subtle pt-2 text-[9px] text-text-muted">
-                <Meta label="Snapshot" value={submittedSnapshot.snapshotId.slice(0, 12)} />
-                <Meta label="Fingerprint" value={submittedSnapshot.inputFingerprint.slice(0, 16)} />
-                <Meta label="Continuity" value={submittedSnapshot.continuitySemanticHash?.slice(0, 16) ?? "legacy/missing"} />
-                <Meta label="References" value={submittedSnapshot.references.length ? submittedSnapshot.references.map((reference) => `${reference.refLabel}:${reference.canonicalName}/${reference.referenceRole ?? "IDENTITY"}@${reference.sha256.slice(0, 8)}`).join(" · ") : "none"} />
+                <Meta
+                  label="Snapshot"
+                  value={submittedSnapshot.snapshotId.slice(0, 12)}
+                />
+                <Meta
+                  label="Fingerprint"
+                  value={submittedSnapshot.inputFingerprint.slice(0, 16)}
+                />
+                <Meta
+                  label="Continuity"
+                  value={
+                    submittedSnapshot.continuitySemanticHash?.slice(0, 16) ??
+                    "legacy/missing"
+                  }
+                />
+                <Meta
+                  label="References"
+                  value={
+                    submittedSnapshot.references.length
+                      ? submittedSnapshot.references
+                          .map(
+                            (reference) =>
+                              `${reference.refLabel}:${reference.canonicalName}/${reference.referenceRole ?? "IDENTITY"}@${reference.sha256.slice(0, 8)}`,
+                          )
+                          .join(" · ")
+                      : "none"
+                  }
+                />
               </div>
               <details className="mt-2">
-                <summary className="cursor-pointer text-[9px] text-text-dim">Current draft (may differ)</summary>
-                <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap leading-4 text-text-muted">{draftPrompt}</p>
+                <summary className="cursor-pointer text-[9px] text-text-dim">
+                  Current draft (may differ)
+                </summary>
+                <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap leading-4 text-text-muted">
+                  {draftPrompt}
+                </p>
               </details>
             </>
           ) : (
-            <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">{draftPrompt}</p>
+            <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap leading-4 text-text-secondary">
+              {draftPrompt}
+            </p>
           )}
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border-subtle pt-2 text-[9px] text-text-muted">
             <Meta label="Shot" value={formatEnum(direction?.shot_size)} />
             <Meta label="Angle" value={formatEnum(direction?.camera_angle)} />
-            <Meta label="Lens" value={direction ? `${direction.lens_mm} mm` : "—"} />
-            <Meta label="Camera" value={formatMovement(direction?.camera_movement, direction?.movement_direction)} />
+            <Meta
+              label="Lens"
+              value={direction ? `${direction.lens_mm} mm` : "—"}
+            />
+            <Meta
+              label="Camera"
+              value={formatMovement(
+                direction?.camera_movement,
+                direction?.movement_direction,
+              )}
+            />
             <Meta label="Action" value={formatEnum(direction?.action_phase)} />
             <Meta label="Motion" value={formatEnum(beat.motionMode)} />
-            <Meta label="Timing" value={timelineBeat ? `${formatMs(timelineBeat.startMs)} – ${formatMs(timelineBeat.endMs)}` : "—"} />
+            <Meta
+              label="Timing"
+              value={
+                timelineBeat
+                  ? `${formatMs(timelineBeat.startMs)} – ${formatMs(timelineBeat.endMs)}`
+                  : "—"
+              }
+            />
             <Meta label="Palette" value={direction?.palette ?? "—"} />
           </div>
         </details>
@@ -252,31 +403,79 @@ function VisualBeatCard({
   );
 }
 
-function BeatImagePreview({ projectId, beat, timelineBeat }: Readonly<{ projectId: string; beat: StoryboardVisualBeat; timelineBeat: DesktopTimelineBeat | null }>) {
+function BeatImagePreview({
+  projectId,
+  beat,
+  timelineBeat,
+}: Readonly<{
+  projectId: string;
+  beat: StoryboardVisualBeat;
+  timelineBeat: DesktopTimelineBeat | null;
+}>) {
   const [failed, setFailed] = useState(false);
-  const timelineImageAssetId = timelineBeat?.mediaType === "IMAGE" ? timelineBeat.mediaAssetId : null;
+  const timelineImageAssetId =
+    timelineBeat?.mediaType === "IMAGE" ? timelineBeat.mediaAssetId : null;
   const previewAssetId = beat.previewMediaAssetId ?? timelineImageAssetId;
-  const preview = useStoryboardImagePreview({ projectId, assetId: previewAssetId, enabled: Boolean(previewAssetId) });
+  const preview = useStoryboardImagePreview({
+    projectId,
+    assetId: previewAssetId,
+    enabled: Boolean(previewAssetId),
+  });
 
   useEffect(() => setFailed(false), [previewAssetId]);
 
   if (!previewAssetId) {
-    return <div className="grid aspect-video w-full place-items-center text-center text-[10px] text-text-muted"><div><ImagePlus className="mx-auto mb-1.5" size={20} />No image</div></div>;
+    return (
+      <div className="grid aspect-video w-full place-items-center text-center text-[10px] text-text-muted">
+        <div>
+          <ImagePlus className="mx-auto mb-1.5" size={20} />
+          No image
+        </div>
+      </div>
+    );
   }
   if (preview.isLoading) {
-    return <div className="grid aspect-video w-full place-items-center text-text-muted"><Loader2 size={17} className="animate-spin" /></div>;
+    return (
+      <div className="grid aspect-video w-full place-items-center text-text-muted">
+        <Loader2 size={17} className="animate-spin" />
+      </div>
+    );
   }
   if (!preview.data?.url || preview.isError || failed) {
-    return <div className="grid aspect-video w-full place-items-center px-3 text-center text-[10px] text-text-muted">Preview unavailable</div>;
+    return (
+      <div className="grid aspect-video w-full place-items-center px-3 text-center text-[10px] text-text-muted">
+        Preview unavailable
+      </div>
+    );
   }
-  return <img src={preview.data.url} alt={`Visual beat ${beat.id}`} className="aspect-video w-full object-cover" onError={() => setFailed(true)} />;
+  return (
+    <img
+      src={preview.data.url}
+      alt={`Visual beat ${beat.id}`}
+      className="aspect-video w-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
-function Meta({ label, value }: Readonly<{ label: string; value: string }>) {
-  return <div className="flex min-w-0 justify-between gap-2"><span className="text-text-dim">{label}</span><span className="truncate text-text-secondary" title={value}>{value}</span></div>;
+function Meta({
+  label,
+  value,
+}: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="flex min-w-0 justify-between gap-2">
+      <span className="text-text-dim">{label}</span>
+      <span className="truncate text-text-secondary" title={value}>
+        {value}
+      </span>
+    </div>
+  );
 }
 
-function EmptyState({ title, detail }: Readonly<{ title: string; detail: string }>) {
+function EmptyState({
+  title,
+  detail,
+}: Readonly<{ title: string; detail: string }>) {
   return (
     <div className="grid min-h-48 place-items-center border-y border-dashed border-border-subtle">
       <div className="max-w-sm px-6 text-center">
@@ -288,14 +487,23 @@ function EmptyState({ title, detail }: Readonly<{ title: string; detail: string 
   );
 }
 
-function formatMovement(movement: string | null | undefined, direction: string | null | undefined) {
+function formatMovement(
+  movement: string | null | undefined,
+  direction: string | null | undefined,
+) {
   const formattedMovement = formatEnum(movement);
-  return direction ? `${formattedMovement} ${formatEnum(direction)}` : formattedMovement;
+  return direction
+    ? `${formattedMovement} ${formatEnum(direction)}`
+    : formattedMovement;
 }
 
 function formatEnum(value: string | null | undefined) {
   if (!value) return "—";
-  return value.toLocaleLowerCase().split("_").map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1)).join(" ");
+  return value
+    .toLocaleLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatMs(value: number) {
