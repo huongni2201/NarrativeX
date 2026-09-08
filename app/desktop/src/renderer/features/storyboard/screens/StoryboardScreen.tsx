@@ -23,6 +23,7 @@ import { GeminiQueueBanner } from "../components/GeminiQueueBanner";
 import { StoryboardHeader } from "../components/StoryboardHeader";
 import { StoryboardNavigator } from "../components/StoryboardNavigator";
 import { VisualBeatGrid } from "../components/VisualBeatGrid";
+import { GeminiQueueRunController } from "../model/gemini-queue-run-controller";
 import {
   beginQueueAttempt,
   classifyGeminiQueueGenerationError,
@@ -285,9 +286,7 @@ export function StoryboardScreen({
   }
 
   async function loadPreparedQueueBatch(queue: GeminiQueueState): Promise<StoryboardGenerationBatch | null> {
-    if (!selectedChapterId || queue.legacyNeedsPrepare || !queue.batchId || !queue.batchFingerprint) {
-      return null;
-    }
+    if (!selectedChapterId) return null;
     try {
       const batch = await storyboardApi.getGeminiGenerationBatch(projectId, selectedChapterId, queue.batchId);
       setPreparedBatch(batch);
@@ -303,68 +302,77 @@ export function StoryboardScreen({
   }
 
   async function reconcileAttemptBeforeDispatch(
-    queue: GeminiQueueState,
+    controller: GeminiQueueRunController,
     beatId: string,
-  ): Promise<{ queue: GeminiQueueState; canDispatch: boolean }> {
-    const attempt = queue.attemptsByBeat[beatId];
-    if (!attempt || attempt.stage === "FAILED") return { queue, canDispatch: true };
+  ): Promise<boolean> {
+    const attempt = controller.current().attemptsByBeat[beatId];
+    if (!attempt || attempt.stage === "FAILED") return true;
     if (attempt.stage === "COMPLETED") {
       const beat = beatById.get(beatId);
       if (beat?.previewMediaAssetId) {
-        return { queue: markQueueBeatCompleted(queue, beatId), canDispatch: false };
+        controller.update((state) => markQueueBeatCompleted(state, beatId));
+        return false;
       }
       setNotice(
         `Attempt ${attempt.attemptId} đã completed nhưng output chưa được attach trong UI hiện tại. Không tự resubmit; hãy review/skip beat.`,
       );
-      return { queue: markQueueAttemptStage(queue, beatId, "UNKNOWN"), canDispatch: false };
+      controller.update((state) => markQueueAttemptStage(state, beatId, "UNKNOWN"));
+      return false;
     }
 
     const status = await window.narrativex.geminiWeb.attemptStatus({ attemptId: attempt.attemptId });
-    if (!status) {
-      return { queue, canDispatch: attempt.stage === "PREPARED" };
-    }
-    if (status.stage === "PREPARED") return { queue, canDispatch: true };
+    if (!status) return attempt.stage === "PREPARED";
+    if (status.stage === "PREPARED") return true;
     if (status.stage === "FAILED") {
-      return { queue: markQueueAttemptStage(queue, beatId, "FAILED"), canDispatch: true };
+      controller.update((state) => markQueueAttemptStage(state, beatId, "FAILED"));
+      return true;
     }
     if (status.stage === "COMPLETED") {
       const beat = beatById.get(beatId);
       if (beat?.previewMediaAssetId) {
-        return { queue: markQueueBeatCompleted(queue, beatId), canDispatch: false };
+        controller.update((state) => markQueueBeatCompleted(state, beatId));
+        return false;
       }
       setNotice(
         `Gemini attempt ${attempt.attemptId} đã tạo output (checksum ${status.outputChecksumSha256?.slice(0, 12) ?? "unknown"}) nhưng chưa có attach evidence. Queue pause để tránh duplicate submit.`,
       );
-      return { queue: markQueueAttemptStage(queue, beatId, "UNKNOWN"), canDispatch: false };
+      controller.update((state) => markQueueAttemptStage(state, beatId, "UNKNOWN"));
+      return false;
     }
     setNotice(
       `Gemini attempt ${attempt.attemptId} đang ở trạng thái ${status.stage}. Queue pause để reconcile thay vì blind-resubmit.`,
     );
-    return { queue: markQueueAttemptStage(queue, beatId, "UNKNOWN"), canDispatch: false };
+    controller.update((state) => markQueueAttemptStage(state, beatId, "UNKNOWN"));
+    return false;
   }
 
   async function runGeminiQueue(initialQueue: GeminiQueueState, runToken: number) {
-    let queue: GeminiQueueState = { ...initialQueue, status: "RUNNING" };
-    const batch = await loadPreparedQueueBatch(queue);
+    const controller = new GeminiQueueRunController(
+      { ...initialQueue, status: "RUNNING" },
+      (state) => publishGeminiQueue(state),
+    );
+    const batch = await loadPreparedQueueBatch(controller.current());
     if (!batch) {
-      publishGeminiQueue({ ...queue, status: "PAUSED" });
+      controller.update((state) => ({ ...state, status: "PAUSED" }));
       return;
     }
-    const unresolved = unresolvedAttemptBeatIds(queue);
+    const unresolved = unresolvedAttemptBeatIds(controller.current());
     if (unresolved.length) {
       for (const beatId of unresolved) {
-        const reconciled = await reconcileAttemptBeforeDispatch(queue, beatId);
-        queue = reconciled.queue;
-        publishGeminiQueue(queue);
-        if (!reconciled.canDispatch && !queue.completedBeatIds.includes(beatId)) {
-          publishGeminiQueue({ ...queue, status: "PAUSED" });
+        const canDispatch = await reconcileAttemptBeforeDispatch(controller, beatId);
+        const current = controller.current();
+        if (!canDispatch && !current.completedBeatIds.includes(beatId)) {
+          controller.update((state) => ({ ...state, status: "PAUSED" }));
           return;
         }
       }
     }
 
-    const processed = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
-    const pendingBeatIds = queue.beatIds.filter((beatId) => !processed.has(beatId));
+    const processed = new Set([
+      ...controller.current().completedBeatIds,
+      ...controller.current().skippedBeatIds,
+    ]);
+    const pendingBeatIds = controller.current().beatIds.filter((beatId) => !processed.has(beatId));
     let acceptNewWork = true;
     const concurrency = await storyboardConcurrency();
 
@@ -376,20 +384,19 @@ export function StoryboardScreen({
         const beat = beatById.get(beatId);
         if (!beat) {
           processed.add(beatId);
-          queue = markQueueBeatSkipped(queue, beatId);
-          publishGeminiQueue(queue);
+          controller.update((state) => markQueueBeatSkipped(state, beatId));
           return;
         }
 
-        const queueAfterMediaCheck = skipQueueBeatIfMediaReady(queue, beat);
-        if (queueAfterMediaCheck !== queue) {
+        const currentBeforeMediaCheck = controller.current();
+        const queueAfterMediaCheck = skipQueueBeatIfMediaReady(currentBeforeMediaCheck, beat);
+        if (queueAfterMediaCheck !== currentBeforeMediaCheck) {
           processed.add(beatId);
-          queue = queueAfterMediaCheck;
-          publishGeminiQueue(queue);
+          controller.replace(queueAfterMediaCheck);
           return;
         }
 
-        const snapshotId = queue.snapshotIdsByBeat[beatId];
+        const snapshotId = controller.current().snapshotIdsByBeat[beatId];
         const snapshot = batch.beats.find(
           (candidate) => candidate.visualBeatId === beatId && candidate.snapshotId === snapshotId,
         );
@@ -399,24 +406,22 @@ export function StoryboardScreen({
           return;
         }
 
-        let reconciliation = await reconcileAttemptBeforeDispatch(queue, beatId);
-        queue = reconciliation.queue;
-        publishGeminiQueue(queue);
-        if (!reconciliation.canDispatch) {
-          if (!queue.completedBeatIds.includes(beatId)) acceptNewWork = false;
+        const canDispatch = await reconcileAttemptBeforeDispatch(controller, beatId);
+        if (!canDispatch) {
+          if (!controller.current().completedBeatIds.includes(beatId)) acceptNewWork = false;
           return;
         }
 
-        let attempt = queue.attemptsByBeat[beatId];
+        let attempt = controller.current().attemptsByBeat[beatId];
         if (!attempt || attempt.stage === "FAILED") {
-          attempt = {
+          const nextAttempt = {
             attemptId: crypto.randomUUID(),
             snapshotId: snapshot.snapshotId,
             inputFingerprint: snapshot.inputFingerprint,
-            stage: "PREPARED",
+            stage: "PREPARED" as const,
           };
-          queue = beginQueueAttempt(queue, beatId, attempt);
-          publishGeminiQueue(queue);
+          controller.update((state) => beginQueueAttempt(state, beatId, nextAttempt));
+          attempt = controller.current().attemptsByBeat[beatId];
         }
 
         const generationResult = await generateGeminiImage(
@@ -429,26 +434,26 @@ export function StoryboardScreen({
         if (runToken !== geminiRunTokenRef.current) return;
         if (generationResult === "GENERATED") {
           processed.add(beatId);
-          queue = markQueueBeatCompleted(queue, beatId);
-          publishGeminiQueue(queue);
+          controller.update((state) => markQueueBeatCompleted(state, beatId));
           return;
         }
 
         const attemptStatus = await window.narrativex.geminiWeb.attemptStatus({
           attemptId: attempt.attemptId,
         });
-        if (attemptStatus?.stage === "UNKNOWN" || attemptStatus?.stage === "SUBMITTING" || attemptStatus?.stage === "COMPLETED") {
-          queue = markQueueAttemptStage(queue, beatId, "UNKNOWN");
-          publishGeminiQueue(queue);
+        if (
+          attemptStatus?.stage === "UNKNOWN" ||
+          attemptStatus?.stage === "SUBMITTING" ||
+          attemptStatus?.stage === "COMPLETED"
+        ) {
+          controller.update((state) => markQueueAttemptStage(state, beatId, "UNKNOWN"));
           acceptNewWork = false;
           return;
         }
-        queue = markQueueAttemptStage(queue, beatId, "FAILED");
-        publishGeminiQueue(queue);
+        controller.update((state) => markQueueAttemptStage(state, beatId, "FAILED"));
         if (generationResult === "SKIP_BEAT") {
           processed.add(beatId);
-          queue = markQueueBeatSkipped(queue, beatId);
-          publishGeminiQueue(queue);
+          controller.update((state) => markQueueBeatSkipped(state, beatId));
           return;
         }
         acceptNewWork = false;
@@ -458,15 +463,14 @@ export function StoryboardScreen({
 
     if (runToken !== geminiRunTokenRef.current) return;
     if (!acceptNewWork) {
-      publishGeminiQueue({ ...queue, status: "PAUSED" });
+      controller.update((state) => ({ ...state, status: "PAUSED" }));
       return;
     }
-    const completedQueue: GeminiQueueState = {
-      ...queue,
-      currentIndex: queue.beatIds.length,
+    const completedQueue = controller.update((state) => ({
+      ...state,
+      currentIndex: state.beatIds.length,
       status: "COMPLETED",
-    };
-    publishGeminiQueue(completedQueue);
+    }));
     setNotice(
       `Gemini All hoàn tất: ${completedQueue.completedBeatIds.length} generated, ${completedQueue.skippedBeatIds.length} skipped. Generated vẫn cần review/approve.`,
     );
@@ -486,19 +490,8 @@ export function StoryboardScreen({
 
   async function resumeGeminiAll() {
     if (!geminiQueue || geminiQueue.status === "COMPLETED" || !selectedChapterId) return;
-    let queue = geminiQueue;
-    if (queue.legacyNeedsPrepare || !queue.batchId) {
-      const handled = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
-      const pendingIds = queue.beatIds.filter((beatId) => !handled.has(beatId));
-      const batch = await prepareGeminiBatch(pendingIds);
-      if (!batch) return;
-      const migrated = createGeminiQueue(selectedChapterId, batch);
-      if (!migrated) return;
-      queue = migrated;
-      setNotice("Queue format cũ đã được pause và prepare lại phần pending bằng immutable snapshots.");
-    }
     const runToken = ++geminiRunTokenRef.current;
-    const resumed: GeminiQueueState = { ...queue, status: "RUNNING" };
+    const resumed: GeminiQueueState = { ...geminiQueue, status: "RUNNING" };
     publishGeminiQueue(resumed);
     await runGeminiQueue(resumed, runToken);
   }

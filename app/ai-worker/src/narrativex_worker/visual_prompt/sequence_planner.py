@@ -13,7 +13,6 @@ from narrativex_worker.schema import (
     VisualDirection,
 )
 
-
 _REPETITION_FALLBACK: dict[ShotSize, ShotSize] = {
     ShotSize.ESTABLISHING: ShotSize.MEDIUM,
     ShotSize.WIDE: ShotSize.MEDIUM_CLOSE_UP,
@@ -40,12 +39,18 @@ def plan_chapter_shots(result: ChapterAnalysisResult) -> ChapterAnalysisResult:
     previous_location: str | None = None
     for scene in result.scenes:
         planned: list[VisualBeatAnalysis] = []
-        location_changed = scene.location_key is not None and scene.location_key != previous_location
+        location_changed = (
+            scene.location_key is not None and scene.location_key != previous_location
+        )
 
         for index, beat in enumerate(scene.visual_beats):
             direction = beat.visual_direction
 
-            if index == 0 and location_changed and direction.shot_size != ShotSize.ESTABLISHING:
+            if (
+                index == 0
+                and location_changed
+                and direction.shot_size != ShotSize.ESTABLISHING
+            ):
                 direction = _with_shot(direction, ShotSize.ESTABLISHING)
             elif (
                 direction.action_phase == ActionPhase.REACTION
@@ -57,7 +62,10 @@ def plan_chapter_shots(result: ChapterAnalysisResult) -> ChapterAnalysisResult:
                 previous = planned[-1].visual_direction.shot_size
                 before_previous = planned[-2].visual_direction.shot_size
                 if direction.shot_size == previous == before_previous:
-                    direction = _with_shot(direction, _REPETITION_FALLBACK[direction.shot_size])
+                    direction = _with_shot(
+                        direction,
+                        _REPETITION_FALLBACK[direction.shot_size],
+                    )
 
             planned.append(beat.model_copy(update={"visual_direction": direction}))
 

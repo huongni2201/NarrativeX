@@ -71,7 +71,7 @@ class WorkerSettings(BaseSettings):
 
     provider_mode: Literal["disabled", "fake", "vertex"] = Field(
         default="disabled",
-        validation_alias=AliasChoices("AI_PROVIDER_MODE", "PROVIDER_MODE"),
+        validation_alias=AliasChoices("AI_PROVIDER_MODE"),
         description="Story-analysis provider adapter mode; disabled is safe by default",
     )
     vertex_project_id: str | None = None
@@ -103,7 +103,7 @@ class WorkerSettings(BaseSettings):
 
     tts_provider_mode: Literal["disabled", "fake", "vieneu"] = Field(
         default="disabled",
-        validation_alias=AliasChoices("TTS_PROVIDER_MODE", "NARRATION_PROVIDER_MODE"),
+        validation_alias=AliasChoices("TTS_PROVIDER_MODE"),
     )
     tts_pricing_catalog_version: str = "vieneu-local-2026-08-23"
     narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"

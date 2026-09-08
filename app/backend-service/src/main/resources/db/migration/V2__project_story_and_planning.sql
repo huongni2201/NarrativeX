@@ -301,29 +301,17 @@ CREATE TABLE visual_beats (
     visual_direction_json TEXT,
     review_status VARCHAR(24) NOT NULL DEFAULT 'NEEDS_REVIEW',
     motion_mode VARCHAR(24) NOT NULL DEFAULT 'STILL',
-    camera_movement VARCHAR(32) NOT NULL DEFAULT 'NONE',
     aspect_ratio_override VARCHAR(16),
     text_start INTEGER,
     text_end INTEGER,
-    audio_start_ms BIGINT,
-    audio_end_ms BIGINT,
-    camera_angle VARCHAR(40),
-    preview_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL,
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT ck_visual_beats_review_status CHECK (review_status IN ('NEEDS_REVIEW', 'APPROVED')),
     CONSTRAINT ck_visual_beats_motion_mode CHECK (motion_mode IN ('STILL', 'BASIC_MOTION', 'AI_VIDEO')),
-    CONSTRAINT ck_visual_beats_camera_movement CHECK (
-        camera_movement IN ('NONE', 'PAN', 'TILT', 'PUSH_IN', 'PULL_OUT', 'TRACK', 'ZOOM_IN', 'ZOOM_OUT', 'PARALLAX')
-    ),
     CONSTRAINT ck_visual_beats_text_start_nonnegative CHECK (text_start IS NULL OR text_start >= 0),
     CONSTRAINT ck_visual_beats_text_range CHECK (text_end IS NULL OR (text_start IS NOT NULL AND text_end >= text_start)),
-    CONSTRAINT ck_visual_beats_audio_start_nonnegative CHECK (audio_start_ms IS NULL OR audio_start_ms >= 0),
-    CONSTRAINT ck_visual_beats_audio_range CHECK (audio_end_ms IS NULL OR (audio_start_ms IS NOT NULL AND audio_end_ms >= audio_start_ms)),
-    CONSTRAINT ck_visual_beats_camera_angle CHECK (
-        camera_angle IS NULL OR camera_angle IN (
-            'WIDE', 'MEDIUM', 'CLOSE_UP', 'EXTREME_CLOSE_UP', 'LOW_ANGLE',
-            'HIGH_ANGLE', 'OVER_THE_SHOULDER', 'POV'
-        )
+    CONSTRAINT ck_visual_beats_visual_direction_json_object CHECK (
+        visual_direction_json IS NULL
+        OR jsonb_typeof(visual_direction_json::jsonb) = 'object'
     )
 );
 
@@ -345,7 +333,7 @@ CREATE TABLE media_plans (
     chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
     chapter_row_version BIGINT NOT NULL CHECK (chapter_row_version >= 0),
     source_hash VARCHAR(64) NOT NULL,
-    production_mode VARCHAR(32) NOT NULL CHECK (production_mode IN ('IMAGE_MOTION', 'HYBRID_LOCAL_I2V')),
+    production_mode VARCHAR(32) NOT NULL CHECK (production_mode = 'IMAGE_MOTION'),
     revision INTEGER NOT NULL CHECK (revision > 0),
     narration_characters BIGINT NOT NULL CHECK (narration_characters >= 0),
     image_generate_count INTEGER NOT NULL CHECK (image_generate_count >= 0),

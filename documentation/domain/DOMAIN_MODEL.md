@@ -46,11 +46,11 @@ NarrationStrategy
 `ProductionMode` is product policy; `MotionStrategy` is the authorized execution decision. The backend resolves/persists the exact immutable MediaPlan revision and the worker executes it.
 
 ```text
-ProductionMode: IMAGE_MOTION | HYBRID_LOCAL_I2V
+ProductionMode: IMAGE_MOTION
 MotionStrategy: BASIC_IMAGE_MOTION | IMAGE_TO_VIDEO
 ```
 
-`IMAGE_MOTION` can never authorize `IMAGE_TO_VIDEO`.
+The current executable production policy is `IMAGE_MOTION`, which cannot authorize `IMAGE_TO_VIDEO`. `IMAGE_TO_VIDEO` remains provider-neutral motion vocabulary for deferred/browser workflows; it does not imply that a second production mode is currently implemented.
 
 ## Snapshot / immutability rules
 

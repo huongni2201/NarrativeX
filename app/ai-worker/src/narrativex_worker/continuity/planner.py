@@ -26,12 +26,16 @@ def event_source_positions(
     for event in plan.events:
         position = source_text.find(event.source_anchor, cursor)
         if position < 0:
-            raise ValueError(f"continuity event {event.key!r} anchor missing or out of source order")
+            raise ValueError(
+                f"continuity event {event.key!r} anchor missing or out of source order"
+            )
         positions[event.key] = position
         cursor = position + len(event.source_anchor)
         for fact in event.changes:
             if fact.evidence_anchor is not None and fact.evidence_anchor not in source_text:
-                raise ValueError(f"continuity event {event.key!r} contains missing evidence anchor")
+                raise ValueError(
+                    f"continuity event {event.key!r} contains missing evidence anchor"
+                )
     return positions
 
 
@@ -61,7 +65,8 @@ def fold_scene_states(
             event = events[event_key]
             if event.timeline_key != scene.timeline_key:
                 raise ValueError(
-                    f"scene {scene.scene_key!r} cannot consume event from timeline {event.timeline_key!r}"
+                    f"scene {scene.scene_key!r} cannot consume event from timeline "
+                    f"{event.timeline_key!r}"
                 )
             for fact in event.changes:
                 timeline_state[(fact.subject_key, fact.predicate.value)] = fact

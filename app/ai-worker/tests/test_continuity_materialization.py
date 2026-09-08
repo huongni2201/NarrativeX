@@ -1,5 +1,6 @@
 """Regression tests for Chapter analysis continuity materialization."""
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -266,10 +267,11 @@ async def test_storyboard_materializer_persists_scene_beat_character_and_locatio
     assert connection.beat_insert_args[1] == [0]
     assert connection.beat_insert_args[2] == ["Threshold"]
     assert connection.beat_insert_args[3] == ["The hero crosses a dusty threshold."]
-    assert connection.beat_insert_args[4] == ["NONE"]
-    assert connection.beat_insert_args[5] == ["MEDIUM"]
-    assert len(connection.beat_insert_args[6]) == 1
-    assert '"shot_size":"MEDIUM"' in connection.beat_insert_args[6][0]
+    assert len(connection.beat_insert_args) == 5
+    assert len(connection.beat_insert_args[4]) == 1
+    direction = json.loads(connection.beat_insert_args[4][0])
+    assert direction["shot_size"] == "MEDIUM"
+    assert direction["camera_movement"] == "NONE"
 
     beat_character_call = next(
         call

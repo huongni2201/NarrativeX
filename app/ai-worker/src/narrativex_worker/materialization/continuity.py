@@ -98,7 +98,8 @@ async def materialize_continuity(
             """
             INSERT INTO chapter_continuity_plans
               (project_id, story_version_id, chapter_id, storyboard_revision_id, revision,
-               source_hash, schema_version, prompt_version, model_config_json, plan_json, result_hash)
+               source_hash, schema_version, prompt_version, model_config_json,
+               plan_json, result_hash)
             VALUES ($1, $2, $3, $4, $5, $6, $7, 'continuity-v1', '{}'::jsonb, $8::jsonb, $9)
             RETURNING id
             """,

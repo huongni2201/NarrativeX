@@ -135,7 +135,10 @@ def test_shard_context_filters_unrelated_character_facts_and_bounds_neighbor_sou
     assert second.allowed_character_keys == ["an"]
     assert "Ngày trước" in first.neighbor_source
     assert "Đèn tắt." in second.neighbor_source
-    assert all(fact.subject_key != "other" for fact in second.entry_facts + second.expected_exit_facts)
+    assert all(
+        fact.subject_key != "other"
+        for fact in second.entry_facts + second.expected_exit_facts
+    )
 
 
 def test_later_shard_entry_includes_event_applied_in_earlier_shard() -> None:
@@ -213,7 +216,13 @@ def test_later_shard_entry_includes_event_applied_in_earlier_shard() -> None:
         shards=shards,
     )
 
-    first_exit = {(fact.subject_key, fact.predicate.value, fact.value) for fact in contexts[(0, 0)].expected_exit_facts}
-    second_entry = {(fact.subject_key, fact.predicate.value, fact.value) for fact in contexts[(0, 1)].entry_facts}
+    first_exit = {
+        (fact.subject_key, fact.predicate.value, fact.value)
+        for fact in contexts[(0, 0)].expected_exit_facts
+    }
+    second_entry = {
+        (fact.subject_key, fact.predicate.value, fact.value)
+        for fact in contexts[(0, 1)].entry_facts
+    }
     assert ("room", "lighting", "dark") in first_exit
     assert ("room", "lighting", "dark") in second_entry

@@ -1,7 +1,6 @@
-import {
-  migrateLegacyGeminiQueue,
-  type GeminiQueueAttempt,
-  type GeminiQueueState,
+import type {
+  GeminiQueueAttempt,
+  GeminiQueueState,
 } from "../model/gemini-queue.ts";
 
 export interface GeminiQueueStorage {
@@ -62,10 +61,10 @@ function isGeminiQueueState(value: unknown): value is GeminiQueueState {
   return (
     candidate.schemaVersion === 2 &&
     typeof candidate.chapterId === "string" &&
-    (candidate.batchId === null || typeof candidate.batchId === "string") &&
-    (candidate.batchFingerprint === null || typeof candidate.batchFingerprint === "string") &&
-    (candidate.storyboardRevisionId === null || typeof candidate.storyboardRevisionId === "string") &&
-    (candidate.sourceHash === null || typeof candidate.sourceHash === "string") &&
+    typeof candidate.batchId === "string" &&
+    typeof candidate.batchFingerprint === "string" &&
+    typeof candidate.storyboardRevisionId === "string" &&
+    typeof candidate.sourceHash === "string" &&
     isStringArray(candidate.beatIds) &&
     isStringRecord(candidate.snapshotIdsByBeat) &&
     isStringArray(candidate.completedBeatIds) &&
@@ -74,34 +73,8 @@ function isGeminiQueueState(value: unknown): value is GeminiQueueState {
     typeof candidate.currentIndex === "number" &&
     Number.isInteger(candidate.currentIndex) &&
     candidate.currentIndex >= 0 &&
-    isQueueStatus(candidate.status) &&
-    typeof candidate.legacyNeedsPrepare === "boolean"
+    isQueueStatus(candidate.status)
   );
-}
-
-function migrateLegacy(value: unknown, chapterId: string): GeminiQueueState | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Record<string, unknown>;
-  if (
-    typeof candidate.chapterId !== "string" ||
-    candidate.chapterId !== chapterId ||
-    !isStringArray(candidate.beatIds) ||
-    !isStringArray(candidate.completedBeatIds) ||
-    !isStringArray(candidate.skippedBeatIds) ||
-    typeof candidate.currentIndex !== "number" ||
-    !Number.isInteger(candidate.currentIndex) ||
-    !isQueueStatus(candidate.status)
-  ) {
-    return null;
-  }
-  return migrateLegacyGeminiQueue({
-    chapterId,
-    beatIds: candidate.beatIds,
-    completedBeatIds: candidate.completedBeatIds,
-    skippedBeatIds: candidate.skippedBeatIds,
-    currentIndex: candidate.currentIndex,
-    status: candidate.status as GeminiQueueState["status"],
-  });
 }
 
 export function geminiQueueStorageKey(projectId: string, chapterId: string) {
@@ -119,8 +92,7 @@ export function loadGeminiQueue(
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (isGeminiQueueState(parsed) && parsed.chapterId === chapterId) return parsed;
-    return migrateLegacy(parsed, chapterId);
+    return isGeminiQueueState(parsed) && parsed.chapterId === chapterId ? parsed : null;
   } catch {
     return null;
   }

@@ -30,15 +30,15 @@ def test_analysis_step_fingerprint_is_canonical_across_object_key_order() -> Non
 
 
 def test_analysis_step_fingerprint_does_not_normalize_owned_source_or_array_order() -> None:
-    base = dict(
-        tenant_scope="project:p1",
-        chapter_source_hash="b" * 64,
-        step_kind="STRUCTURE",
-        continuity_inputs={},
-        model_config={},
-        prompt_version="continuity-v1",
-        schema_version=1,
-    )
+    base = {
+        "tenant_scope": "project:p1",
+        "chapter_source_hash": "b" * 64,
+        "step_kind": "STRUCTURE",
+        "continuity_inputs": {},
+        "model_config": {},
+        "prompt_version": "continuity-v1",
+        "schema_version": 1,
+    }
 
     assert analysis_step_fingerprint(
         **base,

@@ -22,7 +22,10 @@ def _scope_facts(
     return [
         fact
         for fact in facts
-        if fact.subject_key not in known_character_keys or fact.subject_key in allowed_character_keys
+        if (
+            fact.subject_key not in known_character_keys
+            or fact.subject_key in allowed_character_keys
+        )
     ]
 
 

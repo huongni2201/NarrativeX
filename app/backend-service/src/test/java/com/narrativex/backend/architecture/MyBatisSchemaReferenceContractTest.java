@@ -175,11 +175,16 @@ class MyBatisSchemaReferenceContractTest {
   }
 
   @Test
-  void finalSchemaModelAppliesCameraAndShortClipRemovals() throws IOException {
+  void finalSchemaContainsOnlyCurrentVisualBeatAndOwnedQueueState() throws IOException {
     Map<String, Set<String>> columns = schemaColumns();
     assertFalse(columns.containsKey("short_clip_requests"));
     assertFalse(columns.get("visual_beats").contains("camera_movement"));
     assertFalse(columns.get("visual_beats").contains("camera_angle"));
+    assertFalse(columns.get("visual_beats").contains("audio_start_ms"));
+    assertFalse(columns.get("visual_beats").contains("audio_end_ms"));
+    assertFalse(columns.get("visual_beats").contains("preview_asset_id"));
+    assertTrue(columns.get("visual_beats").contains("visual_direction_json"));
+    assertTrue(columns.get("visual_beats").contains("preview_media_asset_id"));
   }
 
   private static String mapperSql(Path mapper) throws IOException {

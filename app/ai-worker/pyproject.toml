@@ -64,6 +64,9 @@ src = ["src", "tests"]
 select = ["E", "W", "F", "I", "B", "UP", "C4"]
 ignore = []
 
+[tool.ruff.lint.isort]
+known-first-party = ["narrativex_worker", "tests"]
+
 [tool.ruff.lint.per-file-ignores]
 "src/narrativex_worker/materialization/identity.py" = ["I001"]
 "src/narrativex_worker/narration/repository/implementation.py" = ["E501"]

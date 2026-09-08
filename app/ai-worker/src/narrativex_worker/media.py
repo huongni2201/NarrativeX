@@ -11,7 +11,6 @@ class ProductionMode(StrEnum):
     """Transport vocabulary for the production policy already authorized by the backend."""
 
     IMAGE_MOTION = "IMAGE_MOTION"
-    HYBRID_LOCAL_I2V = "HYBRID_LOCAL_I2V"
 
 
 class MotionComplexity(StrEnum):

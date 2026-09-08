@@ -84,8 +84,9 @@ class ProductionTimelineLocalFirstIntegrationTest {
             });
     assertThat(beats).hasSize(2);
     assertThat(beats.get(0).getMediaAssetId()).isEqualTo(PREVIEW_A);
-    assertThat(beats.get(0).getAudioStartMs()).isZero();
-    assertThat(beats.get(0).getAudioEndMs()).isEqualTo(4_000L);
+    assertThat(beats.get(0).getCameraMovement()).isEqualTo("PAN");
+    assertThat(beats.get(0).getAudioStartMs()).isNull();
+    assertThat(beats.get(0).getAudioEndMs()).isNull();
     assertThat(beats.get(0).isMediaSelectionActive()).isFalse();
     assertThat(beats.get(1).getMediaAssetId()).isEqualTo(PREVIEW_B);
   }
@@ -155,12 +156,12 @@ class ProductionTimelineLocalFirstIntegrationTest {
 
   private void seedVisualBeats() {
     jdbcTemplate.update(
-        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, text_start, text_end, audio_start_ms, audio_end_ms, preview_media_asset_id) VALUES (?, ?, 0, 'Beat A', 'A', 'APPROVED', 'BASIC_MOTION', 'PAN', 0, 10, 0, 4000, ?) ON CONFLICT (id) DO UPDATE SET preview_media_asset_id = EXCLUDED.preview_media_asset_id",
+        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode, text_start, text_end, preview_media_asset_id) VALUES (?, ?, 0, 'Beat A', 'A', '{\"camera_movement\":\"PAN\"}', 'APPROVED', 'BASIC_MOTION', 0, 10, ?) ON CONFLICT (id) DO UPDATE SET preview_media_asset_id = EXCLUDED.preview_media_asset_id",
         BEAT_A,
         SCENE_ID,
         PREVIEW_A);
     jdbcTemplate.update(
-        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, text_start, text_end, audio_start_ms, audio_end_ms, preview_media_asset_id) VALUES (?, ?, 1, 'Beat B', 'B', 'APPROVED', 'BASIC_MOTION', 'NONE', 10, 20, 4000, 10000, ?) ON CONFLICT (id) DO UPDATE SET preview_media_asset_id = EXCLUDED.preview_media_asset_id",
+        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode, text_start, text_end, preview_media_asset_id) VALUES (?, ?, 1, 'Beat B', 'B', '{\"camera_movement\":\"NONE\"}', 'APPROVED', 'BASIC_MOTION', 10, 20, ?) ON CONFLICT (id) DO UPDATE SET preview_media_asset_id = EXCLUDED.preview_media_asset_id",
         BEAT_B,
         SCENE_ID,
         PREVIEW_B);

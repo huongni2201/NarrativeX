@@ -52,7 +52,7 @@ class ImageReconciliationMixin(ImageRepositoryMixin):
         return str(result) == "UPDATE 1"
 
     async def resolve_reused_items(self, stage_attempt_id: uuid.UUID) -> int:
-        """Bind reusable beats to their generated anchor without crossing a paid provider boundary."""
+        """Bind reusable beats to generated anchors without a paid provider boundary."""
         pool = self._require_pool()
         resolved = 0
         async with pool.acquire() as connection:

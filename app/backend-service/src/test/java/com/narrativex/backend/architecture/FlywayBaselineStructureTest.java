@@ -45,6 +45,13 @@ class FlywayBaselineStructureTest {
     assertTrue(v2.contains("CREATE TABLE scenes"));
     assertTrue(v2.contains("CREATE TABLE media_plans"));
     assertTrue(v2.contains("reuse_source_visual_beat_id UUID"));
+    assertTrue(v2.contains("ck_visual_beats_visual_direction_json_object"));
+    assertTrue(v2.contains("CHECK (production_mode = 'IMAGE_MOTION')"));
+    assertFalse(v2.contains("preview_asset_id"));
+    assertFalse(v2.contains("camera_angle"));
+    assertFalse(v2.contains("camera_movement VARCHAR"));
+    assertFalse(v2.contains("audio_start_ms BIGINT"));
+    assertFalse(v2.contains("HYBRID_LOCAL_I2V"));
 
     assertTrue(v3.contains("CREATE TABLE generation_jobs"));
     assertTrue(v3.contains("idempotency_key VARCHAR(512)"));
@@ -53,7 +60,7 @@ class FlywayBaselineStructureTest {
     assertTrue(v3.contains("ck_generation_jobs_analysis_preferences_consistent"));
     assertTrue(v3.contains("CREATE TABLE plan_entitlements"));
     assertTrue(v3.contains("CREATE TABLE production_beat_media_selections"));
-    assertTrue(v3.contains("DROP COLUMN preview_asset_id"));
+    assertFalse(v3.contains("DROP COLUMN preview_asset_id"));
     assertTrue(v3.contains("ADD COLUMN preview_media_asset_id UUID"));
     assertTrue(v3.contains("REFERENCES media_assets(id) ON DELETE SET NULL"));
     assertFalse(v3.contains("STORY_ANALYZE"));
@@ -65,6 +72,7 @@ class FlywayBaselineStructureTest {
     assertFalse(v4.contains("\n    voice_reference_asset_id UUID REFERENCES media_assets(id),"));
     assertTrue(v4.contains("CREATE TABLE notifications"));
     assertTrue(v4.contains("CREATE TABLE final_artifacts"));
+    assertFalse(v4.contains("CREATE TABLE short_clip_requests"));
 
     assertTrue(v5.contains("CREATE TABLE voice_catalog"));
     assertTrue(v5.contains("CREATE TABLE project_render_input_snapshots"));
@@ -90,6 +98,8 @@ class FlywayBaselineStructureTest {
     assertTrue(v7.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
     assertTrue(v7.contains("CREATE INDEX idx_production_beat_media_selection_asset"));
     assertTrue(v7.contains("CREATE INDEX idx_generation_jobs_chapter_workspace_lookup"));
+    assertFalse(v7.contains("idx_visual_beats_audio_range"));
+    assertFalse(v7.contains("short_clip_requests"));
 
     assertTrue(v8.contains("'VIENEU'"));
     assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
@@ -116,7 +126,7 @@ class FlywayBaselineStructureTest {
   }
 
   @Test
-  void renderSnapshotChaptersAllowMissingLegacyMediaPlan() throws IOException {
+  void renderSnapshotChaptersAllowMissingMediaPlan() throws IOException {
     String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
     String chapters =
         v5.substring(

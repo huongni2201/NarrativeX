@@ -82,9 +82,6 @@ CREATE INDEX idx_scene_characters_project_character
     ON scene_characters (project_character_id);
 CREATE INDEX idx_visual_beats_scene_review_order
     ON visual_beats (scene_id, review_status, order_index, id);
-CREATE INDEX idx_visual_beats_audio_range
-    ON visual_beats (scene_id, audio_start_ms, audio_end_ms, order_index)
-    WHERE audio_start_ms IS NOT NULL;
 CREATE INDEX idx_visual_beats_preview_media_asset
     ON visual_beats (preview_media_asset_id)
     WHERE preview_media_asset_id IS NOT NULL;
@@ -205,11 +202,6 @@ CREATE INDEX idx_final_artifacts_project_created
 CREATE INDEX idx_final_artifacts_chapter_created
     ON final_artifacts (chapter_id, created_at DESC, id DESC)
     WHERE chapter_id IS NOT NULL;
-CREATE INDEX idx_short_clip_requests_claimable
-    ON short_clip_requests (status, created_at, id)
-    WHERE status IN ('QUEUED', 'RUNNING');
-CREATE INDEX idx_short_clip_requests_source
-    ON short_clip_requests (source_final_artifact_id, created_at DESC);
 
 -- Catalogs and upload lifecycle
 CREATE INDEX idx_style_presets_active_category_name

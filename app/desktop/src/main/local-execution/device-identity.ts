@@ -3,9 +3,9 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 interface StoredIdentity {
-  deviceId?: string;
-  userId?: string;
-  encryptedDeviceToken?: string;
+  deviceId: string;
+  userId: string;
+  encryptedDeviceToken: string;
 }
 
 export interface DeviceIdentity {
@@ -14,25 +14,32 @@ export interface DeviceIdentity {
   deviceToken: string;
 }
 
+function isStoredIdentity(value: unknown): value is StoredIdentity {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.deviceId === "string" &&
+    candidate.deviceId.trim().length > 0 &&
+    typeof candidate.userId === "string" &&
+    candidate.userId.trim().length > 0 &&
+    typeof candidate.encryptedDeviceToken === "string" &&
+    candidate.encryptedDeviceToken.trim().length > 0
+  );
+}
+
 export class DeviceIdentityStore {
   private readonly filePath = path.join(app.getPath("userData"), "device-identity.json");
 
   async load(): Promise<DeviceIdentity | null> {
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
-      const stored = JSON.parse(raw) as StoredIdentity;
-      if (!stored.deviceId || !stored.encryptedDeviceToken) return null;
-      if (!stored.userId) {
-        // Legacy identities were not bound to a NarrativeX user. Never activate one across
-        // Google sessions because the device token can claim work for its original owner.
-        await this.clear();
-        return null;
-      }
+      const parsed: unknown = JSON.parse(raw);
+      if (!isStoredIdentity(parsed)) return null;
       if (!safeStorage.isEncryptionAvailable()) return null;
       const deviceToken = safeStorage.decryptString(
-        Buffer.from(stored.encryptedDeviceToken, "base64"),
+        Buffer.from(parsed.encryptedDeviceToken, "base64"),
       );
-      return { deviceId: stored.deviceId, userId: stored.userId, deviceToken };
+      return { deviceId: parsed.deviceId, userId: parsed.userId, deviceToken };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw error;

@@ -30,7 +30,6 @@ export function GeminiQueueBanner({
   const completed = queue.status === "COMPLETED";
   const running = queue.status === "RUNNING";
   const unresolved = unresolvedAttemptBeatIds(queue).length;
-  const needsPrepare = queue.legacyNeedsPrepare || !queue.batchId;
   const blocked = Boolean(preparedBatch?.hasBlockingIssues || preparedBatch?.stale || unresolved);
 
   return (
@@ -39,7 +38,7 @@ export function GeminiQueueBanner({
         <div className="flex min-w-0 items-center gap-2.5">
           {running ? (
             <Loader2 size={13} className="shrink-0 animate-spin text-primary" />
-          ) : blocked || needsPrepare ? (
+          ) : blocked ? (
             <AlertTriangle size={13} className="shrink-0 text-warning" />
           ) : (
             <WandSparkles size={13} className="shrink-0 text-primary" />
@@ -51,26 +50,22 @@ export function GeminiQueueBanner({
               <span className={`font-medium ${completed ? "text-success" : running ? "text-primary-hover" : "text-warning"}`}>
                 {completed ? "Completed" : running ? "Running" : "Paused"}
               </span>
-              {queue.batchId ? (
-                <span className="font-mono text-text-dim" title={queue.batchId}>
-                  batch {queue.batchId.slice(0, 8)} · {queue.batchFingerprint?.slice(0, 10)}
-                </span>
-              ) : null}
+              <span className="font-mono text-text-dim" title={queue.batchId}>
+                batch {queue.batchId.slice(0, 8)} · {queue.batchFingerprint.slice(0, 10)}
+              </span>
             </div>
             <div className="max-w-[760px] truncate text-[10px] text-text-muted">
               {completed
                 ? `${queue.completedBeatIds.length} generated · ${queue.skippedBeatIds.length} skipped · outputs still require review`
-                : needsPrepare
-                  ? "Legacy pending queue: prepare immutable snapshots before resume."
-                  : unresolved
-                    ? `${unresolved} attempt(s) require reconciliation; automatic resubmit is disabled.`
-                    : preparedBatch?.stale
-                      ? "Prepared batch is stale; pending beats must be prepared again."
-                      : currentBeat?.title ?? "Visual Beat"}
+                : unresolved
+                  ? `${unresolved} attempt(s) require reconciliation; automatic resubmit is disabled.`
+                  : preparedBatch?.stale
+                    ? "Prepared batch is stale; pending beats must be prepared again."
+                    : currentBeat?.title ?? "Visual Beat"}
             </div>
             {preparedBatch ? (
               <div className="max-w-[760px] truncate text-[9px] text-text-dim">
-                source {preparedBatch.sourceHash.slice(0, 10)} · storyboard {preparedBatch.storyboardRevisionId.slice(0, 8)} · continuity {preparedBatch.continuityPlanRevision ?? "legacy"}/{preparedBatch.continuityReportRevision ?? "-"} · style {preparedBatch.stylePolicyVersion}
+                source {preparedBatch.sourceHash.slice(0, 10)} · storyboard {preparedBatch.storyboardRevisionId.slice(0, 8)} · continuity {preparedBatch.continuityPlanRevision ?? "-"}/{preparedBatch.continuityReportRevision ?? "-"} · style {preparedBatch.stylePolicyVersion}
               </div>
             ) : null}
           </div>
@@ -83,7 +78,7 @@ export function GeminiQueueBanner({
           ) : (
             <>
               <Button size="sm" disabled={!currentBeat || busy || Boolean(unresolved)} onClick={onResume}>
-                <WandSparkles size={12} /> {needsPrepare ? "Prepare pending" : "Resume"}
+                <WandSparkles size={12} /> Resume
               </Button>
               <Button variant="outline" size="sm" disabled={!currentBeat || busy} onClick={onSkip}>Skip</Button>
               <Button variant="ghost" size="sm" onClick={onStop} className="text-danger hover:text-danger">Stop</Button>

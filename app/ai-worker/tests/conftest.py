@@ -12,9 +12,7 @@ def isolate_settings_environment(
     monkeypatch.chdir(tmp_path)
     for key in (
         "AI_PROVIDER_MODE",
-        "PROVIDER_MODE",
         "TTS_PROVIDER_MODE",
-        "NARRATION_PROVIDER_MODE",
         "GOOGLE_TTS_PROJECT_ID",
         "PROJECT_MEDIA_LOCAL_DIR",
         "R2_ACCOUNT_ID",

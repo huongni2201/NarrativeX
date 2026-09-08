@@ -120,7 +120,7 @@ class StoryboardApiIntegrationTest {
         CHAPTER_1,
         REVISION_1);
     jdbcTemplate.update(
-        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, text_start, text_end, audio_start_ms, audio_end_ms) VALUES (?, ?, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'BASIC_MOTION', 'PAN', 0, 46, 0, 42000) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode, text_start, text_end) VALUES (?, ?, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', '{\"shot_size\":\"MEDIUM\",\"camera_angle\":\"EYE_LEVEL\",\"lens_mm\":50,\"focus_target\":\"lanterns\",\"action_phase\":\"AFTER\",\"subject_placement\":\"centered street composition\",\"foreground\":null,\"background\":\"quiet stone streets\",\"motivated_light\":\"warm lantern light\",\"palette\":\"warm amber and stone\",\"camera_movement\":\"PAN\",\"movement_direction\":\"RIGHT\",\"movement_intensity\":\"SUBTLE\",\"crop_safe_area\":\"modest crop room\"}', 'APPROVED', 'BASIC_MOTION', 0, 46) ON CONFLICT (id) DO NOTHING",
         BEAT_1,
         SCENE_1);
     jdbcTemplate.update(
