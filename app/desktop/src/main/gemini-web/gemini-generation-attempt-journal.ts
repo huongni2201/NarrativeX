@@ -47,24 +47,21 @@ export class GeminiGenerationAttemptJournal {
     return document.attempts.find((attempt) => attempt.attemptId === attemptId) ?? null;
   }
 
-  async begin(record: AttemptInput) {
-    return this.mutate((document) => this.findOrCreate(document, record));
-  }
-
   /**
-   * Durably binds an attempt to immutable inputs and claims its one allowed external submission
-   * in the same serialized mutation. Callers must dispatch only when claimed is true.
+   * Bind an attempt to immutable inputs and claim its one allowed external submission in one
+   * serialized mutation. For compatibility with the IPC caller, the successful claimant receives
+   * the PREPARED snapshot while the durable journal is already SUBMITTING. Every concurrent or
+   * replaying caller observes SUBMITTING (or a later stage) and must not dispatch.
    */
-  async prepareAndClaimSubmission(
-    record: AttemptInput,
-  ): Promise<{ attempt: GeminiGenerationAttemptRecord; claimed: boolean }> {
+  async begin(record: AttemptInput) {
     return this.mutate((document) => {
       const attempt = this.findOrCreate(document, record);
-      if (attempt.stage !== "PREPARED") return { attempt, claimed: false };
+      if (attempt.stage !== "PREPARED") return attempt;
+      const claimedView = { ...attempt };
       attempt.stage = "SUBMITTING";
       attempt.updatedAt = new Date().toISOString();
       document.attempts = compactAttempts(document.attempts);
-      return { attempt, claimed: true };
+      return claimedView;
     });
   }
 
