@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -25,15 +24,12 @@ public class MediaPlanRow {
   private int imageEditCount;
   private int basicMotionSeconds;
   private int plannedI2vSeconds;
-  private BigDecimal estimatedCost;
   private Instant createdAt;
   private UUID storyboardRevisionId;
   private String workflowVersion;
   private String imageAspectRatio;
   private String imageProviderKey;
   private String imageModelKey;
-  private String pricingSnapshotJson;
-  private String pricingFingerprint;
   private UUID narrationSetId;
   private UUID narrationAlignmentRunId;
 }
