@@ -141,8 +141,6 @@ class VertexImageProvider(ImageGenerationProvider):
                 "trafficType": traffic_type or "UNKNOWN",
                 "executionMode": "online",
             },
-            _usage(raw),
-            None,
         )
         return ImageProviderOperation(
             "vertex",
@@ -325,24 +323,6 @@ def _traffic_type(raw: dict[str, object]) -> str | None:
     if not isinstance(metadata, dict):
         return None
     return _string(metadata.get("trafficType"))
-
-
-def _usage(raw: dict[str, object]) -> dict[str, int | str]:
-    metadata = raw.get("usageMetadata")
-    if not isinstance(metadata, dict):
-        return {}
-    usage: dict[str, int | str] = {}
-    for key in (
-        "promptTokenCount",
-        "candidatesTokenCount",
-        "totalTokenCount",
-        "thoughtsTokenCount",
-        "trafficType",
-    ):
-        value = metadata.get(key)
-        if isinstance(value, int | str):
-            usage[key] = value
-    return usage
 
 
 def _string(value: object) -> str | None:

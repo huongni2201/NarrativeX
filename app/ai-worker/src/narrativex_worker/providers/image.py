@@ -6,7 +6,6 @@ Vendor SDK response objects are deliberately not allowed across this module boun
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import Protocol
 
 from narrativex_worker.schema import (
@@ -62,8 +61,6 @@ class ImageGenerationResult:
     moderation: ModerationDecision
     result_fingerprint: str
     provider_metadata: dict[str, str] = field(default_factory=dict)
-    usage: dict[str, int | str] = field(default_factory=dict)
-    actual_cost: Decimal | None = None
 
 
 @dataclass(frozen=True)

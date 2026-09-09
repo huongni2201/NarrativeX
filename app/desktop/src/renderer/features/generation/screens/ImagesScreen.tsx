@@ -6,7 +6,6 @@ import type {
   ImageGenerationProvider,
   MediaAspectRatio,
   MediaImageStyle,
-  MediaJobCostEstimate,
 } from "@narrativex/client-contracts";
 import { Check, Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ import {
   useAnalyzeChapter,
   useCreateMediaJob,
   useCurrentMediaJob,
-  useEstimateMediaJob,
   useGenerationJob,
   useMediaJob,
   useReviewMediaItem,
@@ -45,7 +43,6 @@ type SubmissionIntent = { signature: string; idempotencyKey: string };
 
 export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ projectId: string; chapters: DesktopChapterDetails[]; timeline: DesktopTimeline | null }>) {
   const analyze = useAnalyzeChapter();
-  const estimate = useEstimateMediaJob();
   const createJob = useCreateMediaJob();
   const review = useReviewMediaItem();
   const [chapterId, setChapterId] = useState("");
@@ -53,7 +50,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   const [imageProvider, setImageProvider] = useState<ImageGenerationProvider>("API");
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
-  const [costEstimate, setCostEstimate] = useState<MediaJobCostEstimate | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const analysisIntentRef = useRef<SubmissionIntent | null>(null);
   const mediaIntentRef = useRef<SubmissionIntent | null>(null);
@@ -71,21 +67,18 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   useEffect(() => {
     setAnalysisJobId(null);
     setMediaJobId(null);
-    setCostEstimate(null);
     setNotice(null);
     analysisIntentRef.current = null;
     mediaIntentRef.current = null;
   }, [chapterId]);
 
   useEffect(() => {
-    setCostEstimate(null);
     setMediaJobId(null);
     analysisIntentRef.current = null;
     mediaIntentRef.current = null;
   }, [imageProvider]);
 
   useEffect(() => {
-    setCostEstimate(null);
     mediaIntentRef.current = null;
   }, [imageStyle, timeline?.aspectRatio]);
 
@@ -122,23 +115,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
     }
   }
 
-  async function estimateCost(): Promise<MediaJobCostEstimate | null> {
-    if (!chapterId) return null;
-    setNotice(null);
-    if (imageProvider === "GEMINI_WEB") {
-      setNotice("Gemini Web là flow manual theo từng Visual Beat nên không tạo API cost estimate. Hãy dùng Storyboard để generate/import ảnh.");
-      return null;
-    }
-    try {
-      const result = await estimate.mutateAsync({ projectId, chapterId });
-      setCostEstimate(result);
-      setNotice(`Ước tính ${result.estimatedCost} ${result.currency} cho ${result.visualBeatCount} visual beat.`);
-      return result;
-    } catch (error) {
-      setNotice(toMessage(error));
-      return null;
-    }
-  }
 
   async function generateImages() {
     if (imageProvider === "GEMINI_WEB") {
@@ -148,15 +124,8 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
     if (!chapterId || mediaBusy || mediaSubmissionBlocked || analysisBusy || !beats.length) return;
     setNotice(null);
     try {
-      const latestEstimate = await estimateCost();
-      if (!latestEstimate) return;
-      const maxAuthorizedCost = Number(latestEstimate.estimatedCost);
-      if (!Number.isFinite(maxAuthorizedCost) || maxAuthorizedCost <= 0) {
-        setNotice("Không có chi phí image generation hợp lệ để authorize.");
-        return;
-      }
       const aspectRatio = asAspectRatio(timeline?.aspectRatio);
-      const signature = [projectId, chapterId, imageStyle, imageProvider, aspectRatio, latestEstimate.estimatedCost].join(":");
+      const signature = [projectId, chapterId, imageStyle, imageProvider, aspectRatio].join(":");
       if (mediaIntentRef.current?.signature !== signature) mediaIntentRef.current = { signature, idempotencyKey: crypto.randomUUID() };
       const job = await createJob.mutateAsync({
         projectId,
@@ -165,14 +134,13 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
         request: {
           productionMode: "IMAGE_MOTION",
           aspectRatio,
-          maxAuthorizedCost,
           imageStyle,
           visualGenerationMode: "IMAGE",
           imageProvider,
         },
       });
       setMediaJobId(job.jobId);
-      setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới bằng profile chất lượng cao mặc định. Cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`);
+      setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue; mỗi visual beat sẽ tạo một ảnh mới bằng profile chất lượng cao mặc định.`);
     } catch (error) {
       setNotice(toMessage(error));
     }
@@ -221,12 +189,11 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
               <SelectContent><SelectItem value="CINEMATIC">Cinematic</SelectItem><SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem></SelectContent>
             </Select>
             <Button variant="outline" size="sm" onClick={() => void runAnalysis()} disabled={!chapterId || analysisBusy || mediaBusy}>{analysisBusy ? "Analyzing…" : "Analyze"}</Button>
-            <Button variant="ghost" size="sm" onClick={() => void estimateCost()} disabled={!chapterId || imageProvider === "GEMINI_WEB" || estimate.isPending || mediaBusy}>{estimate.isPending ? "Estimating…" : "Estimate"}</Button>
           </div>
           <Button
             size="sm"
             onClick={() => void generateImages()}
-            disabled={!chapterId || !beats.length || analysisBusy || (imageProvider === "API" && (mediaBusy || mediaSubmissionBlocked || estimate.isPending))}
+            disabled={!chapterId || !beats.length || analysisBusy || (imageProvider === "API" && (mediaBusy || mediaSubmissionBlocked))}
           >
             <Sparkles size={13} /> {generateLabel}
           </Button>
@@ -240,7 +207,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
               { label: "profile", value: imageProvider === "API" ? "Premium" : "Gemini Web" },
               { label: "analysis", value: analysisJob.data?.status ?? "idle" },
               { label: "generation", value: mediaGenerationJob.data?.status ?? "idle" },
-              { label: "estimate", value: costEstimate ? `${costEstimate.estimatedCost} ${costEstimate.currency}` : "—" },
             ]}
           />
         </div>

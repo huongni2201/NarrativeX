@@ -9,11 +9,9 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
-import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -48,7 +46,6 @@ public class CreateMediaJobUseCase {
   private final ChapterMediaHeadRepository chapterMediaHeadRepository;
   private final MediaGenerationItemRepository mediaGenerationItemRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
-  private final OperationPlanRepository operationPlanRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
@@ -109,11 +106,6 @@ public class CreateMediaJobUseCase {
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
     var imageProfile = imageGenerationCatalog.resolve();
-    BigDecimal expectedCost = imageProfile.estimateCost(beatCount);
-    if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The requested authorization cap is below the server estimate.");
-    }
     var quota =
         userQuotaAccess
             .findCurrentQuota(userId)
@@ -127,16 +119,16 @@ public class CreateMediaJobUseCase {
                 command.projectId(),
                 command.chapterId(),
                 ProductionMode.IMAGE_MOTION,
-                expectedCost,
+                BigDecimal.ZERO,
                 command.aspectRatio(),
                 imageProfile.providerKey(),
                 imageProfile.model(),
-                imageProfile.pricingSnapshot(),
-                imageProfile.pricingFingerprint(),
+                null,
+                null,
                 command.imageStyle()));
     var reservation =
         quotaReservation
-            .reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
+            .reserve(userId, BigDecimal.ZERO, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
@@ -154,16 +146,6 @@ public class CreateMediaJobUseCase {
                 userId));
     chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
 
-    OperationPlan operationPlan =
-        operationPlanRepository.save(
-            OperationPlan.create(
-                command.projectId(),
-                STAGE_NAME,
-                expectedCost.multiply(new BigDecimal("0.8")),
-                expectedCost.multiply(new BigDecimal("1.2")),
-                command.maxAuthorizedCost()));
-    quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
-    operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     for (var scene : plan.scenes()) {
       for (var beat : scene.beats()) {
@@ -180,13 +162,12 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created shot-image media job id={} planId={} beats={} provider={} model={} estimatedCost={} projectId={} chapterId={}",
+        "Created shot-image media job id={} planId={} beats={} provider={} model={} projectId={} chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
         imageProfile.providerKey(),
         imageProfile.model(),
-        expectedCost,
         command.projectId(),
         command.chapterId());
     return job;
@@ -244,9 +225,7 @@ public class CreateMediaJobUseCase {
             + ":"
             + command.imageStyle()
             + ":"
-            + imageProvider
-            + ":"
-            + command.maxAuthorizedCost().toPlainString());
+            + imageProvider);
   }
 
   private static String itemFingerprint(

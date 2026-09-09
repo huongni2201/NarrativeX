@@ -9,11 +9,9 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
-import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
@@ -48,7 +46,6 @@ public class CreateRegenerationJobUseCase {
   private final ChapterMediaHeadRepository chapterMediaHeadRepository;
   private final MediaGenerationItemRepository mediaGenerationItemRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
-  private final OperationPlanRepository operationPlanRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
@@ -59,7 +56,6 @@ public class CreateRegenerationJobUseCase {
       UUID projectId,
       UUID chapterId,
       UUID regenerationPlanId,
-      BigDecimal maxAuthorizedCost,
       String idempotencyHeader) {
     String userId = currentUserId.get();
     String idempotencyKey = CreateMediaJobUseCase.requireIdempotencyKey(idempotencyHeader);
@@ -99,10 +95,6 @@ public class CreateRegenerationJobUseCase {
       throw stalePlan(
           "Continuity or source inputs changed after the regeneration plan was created.");
     }
-    if (regenerationPlan.estimatedCost().compareTo(maxAuthorizedCost) > 0) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The requested authorization cap is below the regeneration estimate.");
-    }
 
     var settings =
         continuityRepository
@@ -138,7 +130,7 @@ public class CreateRegenerationJobUseCase {
                         "ENTITLEMENT_DENIED", "No active plan is available."));
     var reservation =
         quotaReservation
-            .reserve(userId, maxAuthorizedCost, quota.maxConcurrentExpensiveJobs())
+            .reserve(userId, BigDecimal.ZERO, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
@@ -150,12 +142,12 @@ public class CreateRegenerationJobUseCase {
                 projectId,
                 chapterId,
                 ProductionMode.IMAGE_MOTION,
-                regenerationPlan.estimatedCost(),
+                BigDecimal.ZERO,
                 settings.aspectRatio(),
                 imageProfile.providerKey(),
                 imageProfile.model(),
-                imageProfile.pricingSnapshot(),
-                imageProfile.pricingFingerprint(),
+                null,
+                null,
                 ImageStyle.from(settings.imageStyle()),
                 Set.copyOf(regenerationPlan.affectedBeatIds())));
 
@@ -172,16 +164,6 @@ public class CreateRegenerationJobUseCase {
     continuityRepository.bindRegenerationJob(job.getId(), regenerationPlan.id());
     chapterMediaHeadRepository.setCurrent(chapterId, job.getId());
 
-    OperationPlan operationPlan =
-        operationPlanRepository.save(
-            OperationPlan.create(
-                projectId,
-                STAGE_NAME,
-                regenerationPlan.estimatedCost().multiply(new BigDecimal("0.8")),
-                regenerationPlan.estimatedCost().multiply(new BigDecimal("1.2")),
-                maxAuthorizedCost));
-    quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
-    operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     for (var scene : mediaPlan.scenes()) {
       for (var beat : scene.beats()) {

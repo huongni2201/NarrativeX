@@ -40,12 +40,6 @@ export function useAnalyzeChapter() {
   });
 }
 
-export function useEstimateMediaJob() {
-  return useMutation({
-    mutationFn: (input: { projectId: string; chapterId: string }) =>
-      generationApi.estimate(input.projectId, input.chapterId),
-  });
-}
 
 export function useCreateMediaJob() {
   const queryClient = useQueryClient();
