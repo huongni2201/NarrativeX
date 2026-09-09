@@ -40,15 +40,12 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
             plan.workload().imageEditCount(),
             plan.workload().basicMotionSeconds(),
             plan.workload().plannedI2vSeconds(),
-            plan.estimatedCost(),
             plan.createdAt(),
             plan.storyboardRevisionId(),
             plan.workflowVersion(),
             plan.imageAspectRatio(),
             plan.imageProviderKey(),
             plan.imageModelKey(),
-            plan.pricingSnapshotJson(),
-            plan.pricingFingerprint(),
             plan.narrationSetId(),
             plan.narrationAlignmentRunId()));
     for (int sceneIndex = 0; sceneIndex < plan.scenes().size(); sceneIndex++) {
