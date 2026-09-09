@@ -8,6 +8,4 @@ public class MediaGenerationSettingsRow {
   private String imageStyle;
   private String providerKey;
   private String modelKey;
-  private String pricingSnapshotJson;
-  private String pricingFingerprint;
 }
