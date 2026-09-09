@@ -28,6 +28,10 @@ export interface GeminiGenerationAttemptRecord {
 const MAX_TERMINAL_ATTEMPTS = 2_000;
 
 type JournalDocument = { schemaVersion: 1; attempts: GeminiGenerationAttemptRecord[] };
+type AttemptInput = Omit<
+  GeminiGenerationAttemptRecord,
+  "stage" | "outputChecksumSha256" | "errorCode" | "updatedAt"
+>;
 
 export class GeminiGenerationAttemptJournal {
   private readonly filePath: string;
@@ -43,38 +47,24 @@ export class GeminiGenerationAttemptJournal {
     return document.attempts.find((attempt) => attempt.attemptId === attemptId) ?? null;
   }
 
-  async begin(
-    record: Omit<
-      GeminiGenerationAttemptRecord,
-      "stage" | "outputChecksumSha256" | "errorCode" | "updatedAt"
-    >,
-  ) {
+  async begin(record: AttemptInput) {
+    return this.mutate((document) => this.findOrCreate(document, record));
+  }
+
+  /**
+   * Durably binds an attempt to immutable inputs and claims its one allowed external submission
+   * in the same serialized mutation. Callers must dispatch only when claimed is true.
+   */
+  async prepareAndClaimSubmission(
+    record: AttemptInput,
+  ): Promise<{ attempt: GeminiGenerationAttemptRecord; claimed: boolean }> {
     return this.mutate((document) => {
-      const existing = document.attempts.find(
-        (attempt) => attempt.attemptId === record.attemptId,
-      );
-      if (existing) {
-        if (
-          existing.inputFingerprint !== record.inputFingerprint ||
-          existing.snapshotId !== record.snapshotId ||
-          existing.batchId !== record.batchId
-        ) {
-          throw new Error(
-            "GEMINI_ATTEMPT_ID_CONFLICT: attemptId is already bound to different generation inputs.",
-          );
-        }
-        return existing;
-      }
-      const next: GeminiGenerationAttemptRecord = {
-        ...record,
-        stage: "PREPARED",
-        outputChecksumSha256: null,
-        errorCode: null,
-        updatedAt: new Date().toISOString(),
-      };
-      document.attempts.push(next);
+      const attempt = this.findOrCreate(document, record);
+      if (attempt.stage !== "PREPARED") return { attempt, claimed: false };
+      attempt.stage = "SUBMITTING";
+      attempt.updatedAt = new Date().toISOString();
       document.attempts = compactAttempts(document.attempts);
-      return next;
+      return { attempt, claimed: true };
     });
   }
 
@@ -97,6 +87,34 @@ export class GeminiGenerationAttemptJournal {
       document.attempts = compactAttempts(document.attempts);
       return attempt;
     });
+  }
+
+  private findOrCreate(document: JournalDocument, record: AttemptInput) {
+    const existing = document.attempts.find(
+      (attempt) => attempt.attemptId === record.attemptId,
+    );
+    if (existing) {
+      if (
+        existing.inputFingerprint !== record.inputFingerprint ||
+        existing.snapshotId !== record.snapshotId ||
+        existing.batchId !== record.batchId
+      ) {
+        throw new Error(
+          "GEMINI_ATTEMPT_ID_CONFLICT: attemptId is already bound to different generation inputs.",
+        );
+      }
+      return existing;
+    }
+    const next: GeminiGenerationAttemptRecord = {
+      ...record,
+      stage: "PREPARED",
+      outputChecksumSha256: null,
+      errorCode: null,
+      updatedAt: new Date().toISOString(),
+    };
+    document.attempts.push(next);
+    document.attempts = compactAttempts(document.attempts);
+    return next;
   }
 
   private async mutate<T>(mutator: (document: JournalDocument) => T): Promise<T> {
