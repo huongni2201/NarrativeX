@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
@@ -21,7 +20,6 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -47,7 +45,6 @@ public class CreateRegenerationJobUseCase {
   private final MediaGenerationItemRepository mediaGenerationItemRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final StageAttemptRepository stageAttemptRepository;
-  private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
   private final ImageGenerationCatalog imageGenerationCatalog;
 
@@ -128,13 +125,12 @@ public class CreateRegenerationJobUseCase {
                 () ->
                     new GenerationAdmissionDeniedException(
                         "ENTITLEMENT_DENIED", "No active plan is available."));
-    var reservation =
-        quotaReservation
-            .reserve(userId, BigDecimal.ZERO, quota.maxConcurrentExpensiveJobs())
-            .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "COST_LIMIT", "Media generation quota is exhausted."));
+    generationJobRepository.acquireImageCapacityLock(userId);
+    if (generationJobRepository.countActiveImageJobs(userId)
+        >= quota.maxConcurrentExpensiveJobs()) {
+      throw new GenerationAdmissionDeniedException(
+          "CAPACITY_EXHAUSTED", "Image generation capacity is exhausted.");
+    }
 
     var mediaPlan =
         createMediaPlanUseCase.execute(
@@ -142,12 +138,9 @@ public class CreateRegenerationJobUseCase {
                 projectId,
                 chapterId,
                 ProductionMode.IMAGE_MOTION,
-                BigDecimal.ZERO,
                 settings.aspectRatio(),
                 imageProfile.providerKey(),
                 imageProfile.model(),
-                null,
-                null,
                 ImageStyle.from(settings.imageStyle()),
                 Set.copyOf(regenerationPlan.affectedBeatIds())));
 
