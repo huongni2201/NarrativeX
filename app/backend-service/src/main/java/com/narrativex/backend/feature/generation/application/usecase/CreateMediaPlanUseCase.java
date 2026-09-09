@@ -66,14 +66,11 @@ public class CreateMediaPlanUseCase {
                 revision,
                 scenes,
                 workload,
-                command.estimatedCost(),
                 java.time.Instant.now(),
                 planningSource.storyboardRevisionId(),
                 command.imageAspectRatio(),
                 command.imageProviderKey(),
                 command.imageModelKey(),
-                command.pricingSnapshotJson(),
-                command.pricingFingerprint(),
                 planningSource.narrationSetId(),
                 planningSource.narrationAlignmentRunId()));
 
