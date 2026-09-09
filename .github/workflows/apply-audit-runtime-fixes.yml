@@ -1,0 +1,39 @@
+name: Apply audit runtime fixes
+
+on:
+  push:
+    branches:
+      - fix/audit-runtime-races-and-remove-image-billing
+    paths:
+      - scripts/apply-audit-runtime-fixes.py
+      - .github/workflows/apply-audit-runtime-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/audit-runtime-races-and-remove-image-billing
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply surgical patches
+        run: python scripts/apply-audit-runtime-fixes.py
+      - name: Validate patch shape
+        run: |
+          python -m compileall -q app/ai-worker/src/narrativex_worker/narration/storage.py
+          grep -q 'executeWithPreCreateMutation' app/backend-service/src/main/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCase.java
+          grep -q 'override.fitMode()' app/backend-service/src/main/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCase.java
+          grep -q 'Fall through to the backend handoff' app/desktop/src/main/local-storage/remote-asset-materializer.ts
+      - name: Remove temporary patcher and commit
+        run: |
+          git rm scripts/apply-audit-runtime-fixes.py .github/workflows/apply-audit-runtime-fixes.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/backend-service/src/main/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCase.java app/ai-worker/src/narrativex_worker/narration/storage.py app/desktop/src/main/local-storage/remote-asset-materializer.ts
+          git commit -m 'fix: close render, lock and local-media recovery races'
+          git push origin HEAD:fix/audit-runtime-races-and-remove-image-billing
