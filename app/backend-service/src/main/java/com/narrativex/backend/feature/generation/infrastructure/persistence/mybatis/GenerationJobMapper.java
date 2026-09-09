@@ -41,7 +41,7 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
          AND job_type = 'CHAPTER_GENERATE'
          AND production_mode = 'IMAGE_MOTION'
          AND resource_class = 'PROVIDER_BATCH'
-         AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT')
+         AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
       """)
   int countActiveImageJobs(@Param("ownerId") String ownerId);
 }
