@@ -157,13 +157,13 @@ class MediaValidationWorkerRunner:
                 ),
                 timeout=self.settings.media_download_timeout_seconds,
             )
+            declared_content_type = (job.declared_content_type or "").strip()
             validated = await asyncio.to_thread(
-                lambda: validate_media_file(
-                    object_path,
-                    "AUDIO",
-                    job.declared_content_type,
-                    probe_timeout_seconds=self.settings.media_probe_timeout_seconds,
-                )
+                validate_media_file,
+                object_path,
+                "AUDIO",
+                declared_content_type,
+                probe_timeout_seconds=self.settings.media_probe_timeout_seconds,
             )
             await self.repository.complete(
                 job,
