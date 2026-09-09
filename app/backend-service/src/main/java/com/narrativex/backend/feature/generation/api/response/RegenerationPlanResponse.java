@@ -10,8 +10,6 @@ public record RegenerationPlanResponse(
     UUID continuityPlanId,
     List<UUID> affectedBeatIds,
     List<UUID> reusableBeatIds,
-    String estimatedCost,
-    String currency,
     Instant expiresAt,
     String inputFingerprint) {
   public static RegenerationPlanResponse from(RegenerationPlanView plan) {
@@ -20,8 +18,6 @@ public record RegenerationPlanResponse(
         plan.continuityPlanId(),
         plan.affectedBeatIds(),
         plan.reusableBeatIds(),
-        plan.estimatedCost().toPlainString(),
-        plan.currency(),
         plan.expiresAt(),
         plan.inputFingerprint());
   }
