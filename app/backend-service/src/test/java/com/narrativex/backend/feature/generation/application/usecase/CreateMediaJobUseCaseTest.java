@@ -15,8 +15,6 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
-import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
@@ -55,9 +53,7 @@ class CreateMediaJobUseCaseTest {
   @Mock private ChapterMediaHeadRepository chapterMediaHeadRepository;
   @Mock private MediaGenerationItemRepository mediaGenerationItemRepository;
   @Mock private GenerationOutboxRepository generationOutboxRepository;
-  @Mock private OperationPlanRepository operationPlanRepository;
   @Mock private StageAttemptRepository stageAttemptRepository;
-  @Mock private QuotaReservation quotaReservation;
   @Mock private UserQuotaAccess userQuotaAccess;
   @Mock private ImageGenerationCatalog imageGenerationCatalog;
   @Mock private GenerationJob activeJob;
@@ -261,9 +257,7 @@ class CreateMediaJobUseCaseTest {
     verifyNoInteractions(
         mediaPlanningSourceAccess,
         createMediaPlanUseCase,
-        quotaReservation,
         generationOutboxRepository,
-        operationPlanRepository,
         stageAttemptRepository,
         userQuotaAccess,
         imageGenerationCatalog);
