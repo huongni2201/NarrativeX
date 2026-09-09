@@ -136,9 +136,10 @@ V13__render_continuity_provenance.sql
 V14__storyboard_generation_snapshots.sql
 V15__export_quota_reservations.sql
 V16__render_profile_watermark_policy.sql
+V17__remove_image_billing_metadata.sql
 ```
 
-A clean database applies **V1 → V16**. Because NarrativeX is still pre-production, the baseline contains only the current schema: V2 directly owns structured VisualBeat direction and omits duplicate storyboard audio/camera fields; V3 adds only canonical `preview_media_asset_id` after `media_assets` exists; V4/V7 never create the unowned short-clip queue or its indexes. V15 owns durable monthly export reservations and settlement; V16 owns the compatible render-profile watermark policy. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
+A clean database applies **V1 → V17**. Because NarrativeX is still pre-production, the baseline contains only the current schema: V2 directly owns structured VisualBeat direction and omits duplicate storyboard audio/camera fields; V3 adds only canonical `preview_media_asset_id` after `media_assets` exists; V4/V7 never create the unowned short-clip queue or its indexes. V15 owns durable monthly export reservations and settlement; V16 owns the compatible render-profile watermark policy; V17 removes image-generation cost/pricing metadata from media and regeneration plans while leaving generic narration/provider billing intact. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
 
 ## Production mode contract
 
@@ -152,7 +153,7 @@ production packaging / signing / auto-update
   -> richer abrupt-process render recovery UX
   -> richer timeline/review/regeneration workflows
   -> adaptive narration-driven VisualScenePlanner
-  -> complete billing/actual-usage reconciliation
+  -> complete billing/actual-usage reconciliation for billable non-image operations
 ```
 
 Completed Desktop/backend/persistence/storage/timing migration plans are historical evidence; remaining work is tracked in `documentation/product/ROADMAP.md`.
