@@ -22,8 +22,10 @@ PostgreSQL is the authoritative business/control-state store. The backend owns F
 | `V12__continuity_regeneration_plans.sql` | immutable selective-regeneration plans, expiry/fingerprint scope and generation-job lineage |
 | `V13__render_continuity_provenance.sql` | continuity plan/report provenance pinned into immutable project-render chapter snapshots |
 | `V14__storyboard_generation_snapshots.sql` | immutable Storyboard/Gemini generation batches, beat snapshots, references and attempt evidence |
+| `V15__export_quota_reservations.sql` | durable long-form export reservations and exactly-once monthly settlement |
+| `V16__render_profile_watermark_policy.sql` | render-profile v3 watermark policy while retaining explicit v2 legacy snapshots |
 
-A clean database applies **V1 → V14**. Compatibility-only migrations are not retained before first production deployment. The current baseline therefore never creates the retired standalone VisualBeat camera/audio columns, the old `preview_asset_id`, or the unowned `short_clip_requests` queue.
+A clean database applies **V1 → V16**. Compatibility-only migrations are not retained before first production deployment. The current baseline therefore never creates the retired standalone VisualBeat camera/audio columns, the old `preview_asset_id`, or the unowned `short_clip_requests` queue.
 
 ## Current storage decisions
 
@@ -108,7 +110,7 @@ At first production deployment, freeze the accepted baseline. After that, all sc
 
 A supported empty PostgreSQL instance must:
 
-1. apply V1 through V14 successfully;
+1. apply V1 through V16 successfully;
 2. expose no pending migration;
 3. contain no removed server Chapter-render snapshot tables;
 4. contain no remote final-video artifact fields;

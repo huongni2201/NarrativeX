@@ -22,7 +22,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
       String format,
       UUID assignedLocalDeviceId,
       int fps,
-      boolean subtitlesEnabled) {
+      boolean subtitlesEnabled,
+      boolean watermarkRequired) {
     if (!timeline.readyForRender()) {
       throw new IllegalArgumentException(
           "Project render snapshot requires a render-ready timeline");
@@ -33,7 +34,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
     if (fps != 30 && fps != 60) {
       throw new IllegalArgumentException("Project render fps must be 30 or 60");
     }
-    String renderProfileJson = ProjectRenderProfileFactory.create(fps, subtitlesEnabled);
+    String renderProfileJson =
+        ProjectRenderProfileFactory.create(fps, subtitlesEnabled, watermarkRequired);
     if (mapper.insertHeader(
             generationJobId,
             timeline,

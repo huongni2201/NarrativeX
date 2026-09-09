@@ -117,7 +117,8 @@ class ApiExceptionHandlerTest {
     assertDoesNotThrow(
         () ->
             handler.handleDisconnectedClient(
-                new AsyncRequestNotUsableException("ServletOutputStream failed to write"), request));
+                new AsyncRequestNotUsableException("ServletOutputStream failed to write"),
+                request));
   }
 
   @Test

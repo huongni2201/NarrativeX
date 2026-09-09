@@ -28,11 +28,7 @@ public interface ChapterContinuityRepository {
   int nextReportRevision(UUID continuityPlanId);
 
   void appendHumanReport(
-      UUID continuityPlanId,
-      int revision,
-      String status,
-      String issuesJson,
-      String reviewedBy);
+      UUID continuityPlanId, int revision, String status, String issuesJson, String reviewedBy);
 
   record CurrentContinuity(
       UUID planId,

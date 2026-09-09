@@ -57,16 +57,44 @@ def test_standard_headers_do_not_request_flex() -> None:
 
 
 def test_prediction_reads_gemini_inline_data() -> None:
-    encoded, mime_type = _prediction({"candidates": [{"content": {"parts": [{"text": "Here is the image."}, {"inlineData": {"mimeType": "image/png", "data": "YWJj"}}]}, "finishReason": "STOP"}]})
+    encoded, mime_type = _prediction(
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Here is the image."},
+                            {"inlineData": {"mimeType": "image/png", "data": "YWJj"}},
+                        ]
+                    },
+                    "finishReason": "STOP",
+                }
+            ]
+        }
+    )
     assert encoded == "YWJj"
     assert mime_type == "image/png"
 
 
 def test_moderation_blocks_provider_safety_finish_reason() -> None:
-    assert _moderation({"candidates": [{"finishReason": "IMAGE_SAFETY"}]}) is ModerationDecision.BLOCK
+    assert (
+        _moderation({"candidates": [{"finishReason": "IMAGE_SAFETY"}]}) is ModerationDecision.BLOCK
+    )
 
 
 def test_usage_keeps_vertex_token_counts_and_traffic_type() -> None:
-    raw = {"usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 1290, "totalTokenCount": 1300, "trafficType": "ON_DEMAND_FLEX"}}
+    raw = {
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 1290,
+            "totalTokenCount": 1300,
+            "trafficType": "ON_DEMAND_FLEX",
+        }
+    }
     assert _traffic_type(raw) == "ON_DEMAND_FLEX"
-    assert _usage(raw) == {"promptTokenCount": 10, "candidatesTokenCount": 1290, "totalTokenCount": 1300, "trafficType": "ON_DEMAND_FLEX"}
+    assert _usage(raw) == {
+        "promptTokenCount": 10,
+        "candidatesTokenCount": 1290,
+        "totalTokenCount": 1300,
+        "trafficType": "ON_DEMAND_FLEX",
+    }

@@ -47,7 +47,6 @@ class WorkerSettings(BaseSettings):
         validation_alias=AliasChoices("BUILD_SHA", "NARRATIVEX_BUILD_SHA"),
         description="Immutable application/image revision reported in startup diagnostics",
     )
-    backend_url: str = Field(default="http://localhost:8080", description="Backend service URL")
     health_check_port: int = Field(default=8001, description="Worker health port")
     database_url: str = Field(
         default="postgresql://narrativex:narrativex@localhost:5432/narrativex",

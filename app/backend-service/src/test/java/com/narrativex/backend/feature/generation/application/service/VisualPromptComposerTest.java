@@ -87,20 +87,19 @@ class VisualPromptComposerTest {
 
     var result =
         composer.compose(
-            ImageStyle.CINEMATIC_ANIME,
-            "Lan reads the warning",
-            DIRECTION,
-            "RATIO_16_9",
-            context);
+            ImageStyle.CINEMATIC_ANIME, "Lan reads the warning", DIRECTION, "RATIO_16_9", context);
 
     assertThat(result.prompt())
-        .contains("CHARACTER LOCKS\n- Lan [PRIMARY]: oval face, dark eyes, shoulder-length black hair")
-        .contains("CURRENT STATE\n- Lan: beige cardigan and white blouse")
+        .contains(
+            "CHARACTER LOCKS\n- Lan [PRIMARY]: oval face, dark eyes, shoulder-length black hair")
+        .contains(
+            "CURRENT STATE\n- Lan: appearance: beige cardigan and white blouse; age: mid twenties; hairstyle: straight shoulder-length black hair; wardrobe: beige cardigan")
         .contains("ENVIRONMENT\nKitchen — warm practical kitchen with dark walnut cabinets")
         .contains("REFERENCE MAP\n- REF_01 = Lan [PRIMARY]")
         .doesNotContain("STORYBOARD CHARACTER QUALITY RULES")
         .doesNotContain("CONSISTENCY PRECEDENCE:");
-    assertThat(count(result.prompt(), "oval face, dark eyes, shoulder-length black hair")).isEqualTo(1);
+    assertThat(count(result.prompt(), "oval face, dark eyes, shoulder-length black hair"))
+        .isEqualTo(1);
     assertThat(result.characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
         .contains("\"versionNumber\":4")
@@ -124,7 +123,9 @@ class VisualPromptComposerTest {
 
   @Test
   void legacyBeatWithoutStructuredDirectionGetsSafeDeterministicDefault() {
-    var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", VisualPromptContext.empty());
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC, "Empty hallway at dawn", VisualPromptContext.empty());
 
     assertThat(result.prompt())
         .contains("Shot size: MEDIUM")
@@ -143,7 +144,11 @@ class VisualPromptComposerTest {
         new VisualPromptContext(
             null,
             List.of(
-                canon(UuidV7.random(), "Lan", "PRIMARY", List.of(lanExpression, lanProfile, lanIdentity)),
+                canon(
+                    UuidV7.random(),
+                    "Lan",
+                    "PRIMARY",
+                    List.of(lanExpression, lanProfile, lanIdentity)),
                 canon(UuidV7.random(), "Minh", "SECONDARY", List.of(minhIdentity))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan and Minh speak", context);

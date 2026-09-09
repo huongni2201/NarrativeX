@@ -19,6 +19,32 @@ public class MyBatisQuotaReservation implements QuotaReservation {
   @Transactional
   public Optional<Reservation> reserve(
       String userId, BigDecimal estimatedCost, int maxConcurrentExpensiveJobs) {
+    return reserve(userId, estimatedCost, maxConcurrentExpensiveJobs, null, "CREDIT", 0);
+  }
+
+  @Override
+  @Transactional
+  public Optional<Reservation> reserveLongformExport(
+      String userId,
+      BigDecimal estimatedCost,
+      int maxConcurrentExpensiveJobs,
+      Integer maxLongformExportsMonth) {
+    return reserve(
+        userId,
+        estimatedCost,
+        maxConcurrentExpensiveJobs,
+        maxLongformExportsMonth,
+        "LONGFORM_EXPORT",
+        1);
+  }
+
+  private Optional<Reservation> reserve(
+      String userId,
+      BigDecimal estimatedCost,
+      int maxConcurrentExpensiveJobs,
+      Integer maxLongformExportsMonth,
+      String quotaKind,
+      int units) {
     if (estimatedCost == null || estimatedCost.signum() < 0) {
       throw new IllegalArgumentException("estimatedCost must be non-negative");
     }
@@ -28,7 +54,13 @@ public class MyBatisQuotaReservation implements QuotaReservation {
     }
     String periodKey = mapper.currentPeriodKey();
     mapper.ensureUsageWindow(userId, periodKey);
+    int longformExportsUsed = mapper.findLongformExportsUsedForUpdate(userId, periodKey);
     if (mapper.countActiveReservations(userId) >= maxConcurrentExpensiveJobs) {
+      return Optional.empty();
+    }
+    if (maxLongformExportsMonth != null
+        && longformExportsUsed + mapper.findReservedLongformExports(userId, periodKey) + units
+            > maxLongformExportsMonth) {
       return Optional.empty();
     }
     if (activePlan.getMonthlyCredits() != null) {
@@ -43,11 +75,13 @@ public class MyBatisQuotaReservation implements QuotaReservation {
       }
     }
     Long reservationId =
-        mapper.insertReservation(new QuotaReservationRow(userId, periodKey, estimatedCost));
+        mapper.insertReservation(
+            new QuotaReservationRow(userId, periodKey, estimatedCost, quotaKind, units));
     if (reservationId == null) {
       throw new IllegalStateException("Quota reservation insert returned no id");
     }
-    return Optional.of(new Reservation(reservationId, userId, periodKey, estimatedCost));
+    return Optional.of(
+        new Reservation(reservationId, userId, periodKey, estimatedCost, quotaKind, units));
   }
 
   @Override

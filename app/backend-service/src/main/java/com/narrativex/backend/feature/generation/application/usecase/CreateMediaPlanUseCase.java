@@ -50,7 +50,8 @@ public class CreateMediaPlanUseCase {
     if (command.productionMode().name().equals("IMAGE_MOTION")
         && !sceneResolver.allSelectedBeatsApproved(command, planningSource)) {
       throw new GenerationAdmissionDeniedException(
-          "STORYBOARD_NOT_READY", "Every selected visual beat must be approved before image generation.");
+          "STORYBOARD_NOT_READY",
+          "Every selected visual beat must be approved before image generation.");
     }
 
     var workload = calculateWorkload(scenes);

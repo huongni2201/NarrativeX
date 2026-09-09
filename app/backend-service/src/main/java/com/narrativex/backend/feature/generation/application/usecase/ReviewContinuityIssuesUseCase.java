@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
+import com.narrativex.backend.feature.generation.application.query.ContinuityView;
 import com.narrativex.backend.feature.generation.application.service.ContinuityIssueCodec;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.util.LinkedHashSet;
@@ -22,12 +23,8 @@ public class ReviewContinuityIssuesUseCase {
   private final ContinuityIssueCodec issueCodec;
 
   @Transactional
-  public ChapterContinuityRepository.CurrentContinuity execute(
-      UUID projectId,
-      UUID chapterId,
-      UUID planId,
-      int reportRevision,
-      List<String> issueIds) {
+  public ContinuityView execute(
+      UUID projectId, UUID chapterId, UUID planId, int reportRevision, List<String> issueIds) {
     String userId = currentUserId.get();
     chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, userId);
     var current =
@@ -40,7 +37,10 @@ public class ReviewContinuityIssuesUseCase {
 
     Set<String> selectedIds = new LinkedHashSet<>(issueIds);
     var issues = issueCodec.decode(current.issuesJson());
-    Set<String> knownIds = issues.stream().map(ContinuityIssueCodec.Issue::id).collect(java.util.stream.Collectors.toSet());
+    Set<String> knownIds =
+        issues.stream()
+            .map(ContinuityIssueCodec.Issue::id)
+            .collect(java.util.stream.Collectors.toSet());
     if (selectedIds.isEmpty() || !knownIds.containsAll(selectedIds)) {
       throw new ResourceConflictException("CONTINUITY_INPUT_STALE");
     }
@@ -56,7 +56,7 @@ public class ReviewContinuityIssuesUseCase {
     continuityRepository.appendHumanReport(
         planId, nextRevision, status, issueCodec.encodeRaw(remaining), userId);
 
-    return new ChapterContinuityRepository.CurrentContinuity(
+    return new ContinuityView(
         current.planId(),
         current.planRevision(),
         current.sourceHash(),

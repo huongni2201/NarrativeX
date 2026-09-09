@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.generation.api.response;
 
-import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository.RegenerationPlan;
+import com.narrativex.backend.feature.generation.application.query.RegenerationPlanView;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -14,7 +14,7 @@ public record RegenerationPlanResponse(
     String currency,
     Instant expiresAt,
     String inputFingerprint) {
-  public static RegenerationPlanResponse from(RegenerationPlan plan) {
+  public static RegenerationPlanResponse from(RegenerationPlanView plan) {
     return new RegenerationPlanResponse(
         plan.id(),
         plan.continuityPlanId(),

@@ -43,11 +43,14 @@ public final class VisualPromptComposer {
   }
 
   /**
-   * Compatibility overload retained for callers that only have an aspect-independent beat.
-   * The third argument is structured visual-direction JSON, never a legacy camera-angle prompt.
+   * Compatibility overload retained for callers that only have an aspect-independent beat. The
+   * third argument is structured visual-direction JSON, never a legacy camera-angle prompt.
    */
   public ComposedVisualPrompt compose(
-      ImageStyle style, String visualIntent, String visualDirectionJson, VisualPromptContext context) {
+      ImageStyle style,
+      String visualIntent,
+      String visualDirectionJson,
+      VisualPromptContext context) {
     return compose(style, visualIntent, visualDirectionJson, null, context);
   }
 
@@ -128,26 +131,41 @@ public final class VisualPromptComposer {
         .append("TASK\nCreate exactly one coherent ")
         .append(ratio)
         .append(" narrative storyboard frame.\n")
-        .append("Full bleed only. No text, captions, speech bubbles, UI, borders, panels, signatures, logos or watermarks.");
+        .append(
+            "Full bleed only. No text, captions, speech bubbles, UI, borders, panels, signatures, logos or watermarks.");
   }
 
   private static void appendShot(StringBuilder prompt, Direction direction) {
     prompt
         .append("\n\nSHOT")
-        .append("\nShot size: ").append(direction.shotSize())
-        .append("\nCamera angle: ").append(direction.cameraAngle())
-        .append("\nLens and perspective: ").append(direction.lensMm()).append("mm equivalent")
-        .append("\nFocus target: ").append(direction.focusTarget())
-        .append("\nSubject placement: ").append(direction.subjectPlacement());
-    if (direction.foreground() != null) prompt.append("\nForeground: ").append(direction.foreground());
+        .append("\nShot size: ")
+        .append(direction.shotSize())
+        .append("\nCamera angle: ")
+        .append(direction.cameraAngle())
+        .append("\nLens and perspective: ")
+        .append(direction.lensMm())
+        .append("mm equivalent")
+        .append("\nFocus target: ")
+        .append(direction.focusTarget())
+        .append("\nSubject placement: ")
+        .append(direction.subjectPlacement());
+    if (direction.foreground() != null)
+      prompt.append("\nForeground: ").append(direction.foreground());
     prompt
-        .append("\nBackground: ").append(direction.background())
-        .append("\nAction phase: ").append(direction.actionPhase())
-        .append("\nCamera movement: ").append(direction.cameraMovement());
-    if (direction.movementDirection() != null) prompt.append(' ').append(direction.movementDirection());
+        .append("\nBackground: ")
+        .append(direction.background())
+        .append("\nAction phase: ")
+        .append(direction.actionPhase())
+        .append("\nCamera movement: ")
+        .append(direction.cameraMovement());
+    if (direction.movementDirection() != null)
+      prompt.append(' ').append(direction.movementDirection());
     prompt
-        .append(" (").append(direction.movementIntensity().toLowerCase(Locale.ROOT)).append(')')
-        .append("\nMotion-safe area: ").append(direction.cropSafeArea());
+        .append(" (")
+        .append(direction.movementIntensity().toLowerCase(Locale.ROOT))
+        .append(')')
+        .append("\nMotion-safe area: ")
+        .append(direction.cropSafeArea());
   }
 
   private static void appendCharacterLocks(StringBuilder prompt, List<CharacterCanon> characters) {
@@ -155,8 +173,10 @@ public final class VisualPromptComposer {
     prompt.append("\n\nCHARACTER LOCKS");
     for (CharacterCanon character : characters) {
       prompt.append("\n- ").append(nonBlank(character.canonicalName(), "established character"));
-      if (hasText(character.beatRole())) prompt.append(" [").append(character.beatRole()).append(']');
-      if (hasText(character.visualPrompt())) prompt.append(": ").append(character.visualPrompt().trim());
+      if (hasText(character.beatRole()))
+        prompt.append(" [").append(character.beatRole()).append(']');
+      if (hasText(character.visualPrompt()))
+        prompt.append(": ").append(character.visualPrompt().trim());
     }
   }
 
@@ -190,7 +210,9 @@ public final class VisualPromptComposer {
     if (location != null) {
       prompt.append("\n").append(nonBlank(location.name(), "established location"));
       String canon =
-          hasText(location.visualPrompt()) ? location.visualPrompt().trim() : trim(location.description());
+          hasText(location.visualPrompt())
+              ? location.visualPrompt().trim()
+              : trim(location.description());
       if (canon != null) prompt.append(" — ").append(canon);
     }
     prompt.append("\nBeat state: ").append(direction.background());
@@ -199,12 +221,13 @@ public final class VisualPromptComposer {
   private static void appendLightAndColor(StringBuilder prompt, Direction direction) {
     prompt
         .append("\n\nLIGHT AND COLOR")
-        .append("\nMotivated light source: ").append(direction.motivatedLight())
-        .append("\nScene palette: ").append(direction.palette());
+        .append("\nMotivated light source: ")
+        .append(direction.motivatedLight())
+        .append("\nScene palette: ")
+        .append(direction.palette());
   }
 
-  private static void appendReferenceMap(
-      StringBuilder prompt, List<SelectedReference> references) {
+  private static void appendReferenceMap(StringBuilder prompt, List<SelectedReference> references) {
     if (references.isEmpty()) return;
     prompt.append("\n\nREFERENCE MAP");
     for (int index = 0; index < references.size(); index++) {
@@ -314,30 +337,33 @@ public final class VisualPromptComposer {
   private String characterSnapshotJson(
       List<CharacterCanon> characters, Set<UUID> selectedReferenceIds) {
     List<CharacterSnapshot> snapshots =
-        (characters == null ? List.<CharacterCanon>of() : characters).stream()
-            .map(
-                character ->
-                    new CharacterSnapshot(
-                        character.assignmentId(),
-                        character.characterId(),
-                        character.canonicalName(),
-                        character.versionNumber(),
-                        character.visualPrompt(),
-                        character.appearancePrompt(),
-                        character.ageState(),
-                        character.hairstyle(),
-                        character.injury(),
-                        character.wardrobeContext(),
-                        character.beatRole(),
-                        sortedReferences(character).stream()
-                            .filter(reference -> selectedReferenceIds.contains(reference.assetId()))
-                            .map(ReferenceSnapshot::from)
-                            .toList()))
-            .toList();
+        (characters == null ? List.<CharacterCanon>of() : characters)
+            .stream()
+                .map(
+                    character ->
+                        new CharacterSnapshot(
+                            character.assignmentId(),
+                            character.characterId(),
+                            character.canonicalName(),
+                            character.versionNumber(),
+                            character.visualPrompt(),
+                            character.appearancePrompt(),
+                            character.ageState(),
+                            character.hairstyle(),
+                            character.injury(),
+                            character.wardrobeContext(),
+                            character.beatRole(),
+                            sortedReferences(character).stream()
+                                .filter(
+                                    reference -> selectedReferenceIds.contains(reference.assetId()))
+                                .map(ReferenceSnapshot::from)
+                                .toList()))
+                .toList();
     try {
       return objectMapper.writeValueAsString(new CharacterSnapshotEnvelope(snapshots));
     } catch (Exception exception) {
-      throw new IllegalStateException("Could not serialize character generation snapshot", exception);
+      throw new IllegalStateException(
+          "Could not serialize character generation snapshot", exception);
     }
   }
 

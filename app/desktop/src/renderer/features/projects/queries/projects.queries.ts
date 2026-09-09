@@ -62,12 +62,35 @@ export function useToggleProjectFavorite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { projectId: string; starred: boolean }) =>
-      input.starred
-        ? projectsApi.removeFavorite(input.projectId)
-        : projectsApi.addFavorite(input.projectId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: projectQueryKeys.all }),
+    mutationFn: async (input: { projectId: string; desiredStarred: boolean }) => {
+      if (input.desiredStarred) await projectsApi.addFavorite(input.projectId);
+      else await projectsApi.removeFavorite(input.projectId);
+
+      try {
+        const authoritative = await projectsApi.get(input.projectId);
+        await window.narrativex.localProjects.setFavorite(
+          input.projectId,
+          Boolean(authoritative.isStarred),
+        );
+        return authoritative;
+      } catch (error) {
+        throw new Error(
+          "Favorite was updated on the server but could not be synchronized locally.",
+          { cause: error },
+        );
+      }
+    },
+    onSuccess: (project) => {
+      queryClient.setQueryData<DesktopProject>(projectQueryKeys.detail(project.id), project);
+      queryClient.setQueryData<ProjectsPage>(projectQueryKeys.list(), (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          content: current.content.map((item) => (item.id === project.id ? project : item)),
+        };
+      });
+      return queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    },
   });
 }
 

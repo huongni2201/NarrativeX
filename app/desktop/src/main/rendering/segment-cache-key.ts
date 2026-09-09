@@ -5,7 +5,7 @@ import type { LocalRenderBeat, LocalRenderManifest } from "./render-manifest";
 import { renderWorkingDimensions } from "./render-working-dimensions.ts";
 import { subtitleSlicesForBeat } from "./subtitle-ass.ts";
 
-const SEGMENT_ADAPTER_VERSION = "zoompan-rgb-adaptive-supersample-lanczos-ass-v1";
+const SEGMENT_ADAPTER_VERSION = "zoompan-rgb-adaptive-supersample-lanczos-ass-watermark-v2";
 
 /**
  * Fingerprint only inputs that can affect encoded pixels for one segment.
@@ -42,6 +42,7 @@ export function segmentCacheKey(
         videoEncoder,
         videoQuality: manifest.videoQuality,
         colorMode: manifest.colorMode,
+        watermark: manifest.watermark,
         media: {
           mediaType: beat.mediaType,
           checksum: beat.checksum,

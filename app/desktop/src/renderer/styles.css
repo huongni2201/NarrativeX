@@ -71,7 +71,6 @@
 
   /* Voice workspace */
   --voice-bg: var(--background);
-  --voice-card: var(--surface);
   --voice-card-hover: var(--surface-3);
   --voice-teal: var(--cyan);
   --voice-accent: var(--primary-hover);

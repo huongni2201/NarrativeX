@@ -14,6 +14,14 @@ A new PostgreSQL database is built by applying these responsibility-separated mi
 6. `V6__database_logic_and_triggers.sql` — database functions, immutability guards, quota settlement and generation notification/event triggers.
 7. `V7__indexes.sql` — query/access-path, claim, covering and partial-unique indexes.
 8. `V8__seed_catalog.sql` — deterministic system/catalog seed data only.
+9. `V9__chapter_continuity_and_analysis_checkpoints.sql` — continuity plans and durable analysis checkpoints.
+10. `V10__chapter_continuity_guards.sql` — continuity and checkpoint invariants.
+11. `V11__chapter_continuity_indexes.sql` — continuity access paths and idempotent checkpoint identity.
+12. `V12__continuity_regeneration_plans.sql` — selective regeneration plans and job lineage.
+13. `V13__render_continuity_provenance.sql` — immutable render continuity provenance.
+14. `V14__storyboard_generation_snapshots.sql` — immutable storyboard generation batches and attempt evidence.
+15. `V15__export_quota_reservations.sql` — durable long-form export reservations and exactly-once settlement.
+16. `V16__render_profile_watermark_policy.sql` — compatible immutable watermark policy for render-profile v3.
 
 VieNeu voices are seeded with `supportsSpeakingRate=true`; narration requests persist a positive `speaking_rate` value.
 

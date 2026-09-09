@@ -180,7 +180,7 @@ export function ProjectsScreen() {
                     onClick={() =>
                       toggleFavorite.mutate({
                         projectId: project.id,
-                        starred: Boolean(project.isStarred),
+                        desiredStarred: !project.isStarred,
                       })
                     }
                   >

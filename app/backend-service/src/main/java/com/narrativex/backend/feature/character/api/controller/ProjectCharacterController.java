@@ -84,8 +84,7 @@ public class ProjectCharacterController {
   }
 
   @DeleteMapping("/{characterId}")
-  public ResponseEntity<Void> delete(
-      @PathVariable UUID projectId, @PathVariable UUID characterId) {
+  public ResponseEntity<Void> delete(@PathVariable UUID projectId, @PathVariable UUID characterId) {
     deleteProjectCharacterUseCase.execute(projectId, characterId);
     return ResponseEntity.noContent().build();
   }

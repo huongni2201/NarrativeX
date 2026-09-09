@@ -3,13 +3,14 @@ import { V2_VIDEO_QUALITY, type VideoQualityProfile } from "../../shared/video-e
 export type RenderColorMode = "SDR_BT709_LIMITED";
 
 export interface ParsedRenderProfile {
-  schemaVersion: 2;
+  schemaVersion: 3;
   rendererVersion: "project-image-motion-v3-composition";
   compositionPolicyVersion: 1;
   fps: 30 | 60;
   subtitleMode: "burn_in" | "none";
   video: VideoQualityProfile;
   colorMode: RenderColorMode;
+  watermark: { readonly mode: "required" | "none"; readonly policyVersion: 1 };
 }
 
 const X264_PRESETS = new Set<VideoQualityProfile["x264Preset"]>([
@@ -31,14 +32,14 @@ export function parseRenderProfile(renderProfileJson: string): ParsedRenderProfi
   if (!isRecord(raw)) {
     throw new Error("Invalid render profile JSON.");
   }
-  if (raw.schemaVersion !== 2) {
+  if (raw.schemaVersion !== 3) {
     throw new Error(`Unsupported render profile schema: ${String(raw.schemaVersion)}.`);
   }
 
   const video = isRecord(raw.video) ? raw.video : {};
   const color = isRecord(raw.color) ? raw.color : {};
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     rendererVersion: "project-image-motion-v3-composition",
     compositionPolicyVersion: 1,
     fps: supportedFps(raw.fps),
@@ -55,7 +56,22 @@ export function parseRenderProfile(renderProfileJson: string): ParsedRenderProfi
       pixelFormat: video.pixelFormat === "yuv420p" ? "yuv420p" : V2_VIDEO_QUALITY.pixelFormat,
     },
     colorMode: color.mode === "SDR_BT709_LIMITED" ? "SDR_BT709_LIMITED" : "SDR_BT709_LIMITED",
+    watermark: watermarkPolicy(raw),
   };
+}
+
+function watermarkPolicy(
+  raw: Record<string, unknown>,
+): { readonly mode: "required" | "none"; readonly policyVersion: 1 } {
+  const watermark = isRecord(raw.watermark) ? raw.watermark : null;
+  if (
+    !watermark ||
+    (watermark.mode !== "required" && watermark.mode !== "none") ||
+    watermark.policyVersion !== 1
+  ) {
+    throw new Error("Invalid render watermark policy.");
+  }
+  return { mode: watermark.mode, policyVersion: 1 };
 }
 
 function supportedFps(value: unknown): 30 | 60 {

@@ -24,6 +24,12 @@ public interface QuotaMapper extends NarrativeXMyBatisMapper {
   BigDecimal findCreditsReserved(
       @Param("userId") String userId, @Param("periodKey") String periodKey);
 
+  int findLongformExportsUsedForUpdate(
+      @Param("userId") String userId, @Param("periodKey") String periodKey);
+
+  int findReservedLongformExports(
+      @Param("userId") String userId, @Param("periodKey") String periodKey);
+
   Long insertReservation(QuotaReservationRow row);
 
   int bindToGenerationJob(

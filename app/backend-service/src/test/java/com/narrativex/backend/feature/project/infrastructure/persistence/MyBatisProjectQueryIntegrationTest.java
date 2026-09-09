@@ -80,12 +80,10 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     String ownerId = "dash-owner-" + UUID.randomUUID();
     Project p1 =
         projectRepository.save(
-            Project.create(
-                "P1", ownerId, "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
+            Project.create("P1", ownerId, "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
     Project p2 =
         projectRepository.save(
-            Project.create(
-                "P2", ownerId, "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
+            Project.create("P2", ownerId, "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
 
     jdbcTemplate.update(
         "UPDATE projects SET status = 'ACTIVE' WHERE id IN (?, ?)", p1.getId(), p2.getId());

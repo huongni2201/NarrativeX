@@ -7,9 +7,9 @@ import com.narrativex.backend.feature.generation.application.port.out.VisualProm
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityRow;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow;
 import java.util.Collections;
@@ -47,8 +47,7 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
   }
 
   @Override
-  public Map<UUID, VisualPromptContext> findForBeats(
-      UUID projectId, List<UUID> visualBeatIds) {
+  public Map<UUID, VisualPromptContext> findForBeats(UUID projectId, List<UUID> visualBeatIds) {
     if (visualBeatIds.isEmpty()) {
       return Map.of();
     }

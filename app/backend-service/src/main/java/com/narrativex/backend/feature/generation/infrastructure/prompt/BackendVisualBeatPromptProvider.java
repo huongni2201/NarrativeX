@@ -41,8 +41,7 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
       prompts.put(
           visualBeat.getId(),
           composePrompt(
-              visualBeat,
-              contexts.getOrDefault(visualBeat.getId(), VisualPromptContext.empty())));
+              visualBeat, contexts.getOrDefault(visualBeat.getId(), VisualPromptContext.empty())));
     }
     return Map.copyOf(prompts);
   }
@@ -61,6 +60,9 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
             visualBeat.getVisualDirectionJson(),
             aspectRatio,
             context);
-    return VisualPromptSafety.sanitizeSceneDirection(VisualPromptText.finalPrompt(composedPrompt));
+    // The story-owned input is sanitized before composition. Sanitizing the completed
+    // structured prompt would collapse section separators and make this adapter emit
+    // different bytes from the canonical Gemini prompt path.
+    return VisualPromptText.finalPrompt(composedPrompt);
   }
 }

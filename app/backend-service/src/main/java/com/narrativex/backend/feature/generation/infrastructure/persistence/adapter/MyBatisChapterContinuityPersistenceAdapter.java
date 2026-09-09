@@ -68,7 +68,8 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
     if (inserted == 1) return plan;
     return findRegenerationPlanByFingerprint(
             plan.projectId(), plan.chapterId(), plan.inputFingerprint())
-        .orElseThrow(() -> new IllegalStateException("Regeneration plan replay could not be loaded"));
+        .orElseThrow(
+            () -> new IllegalStateException("Regeneration plan replay could not be loaded"));
   }
 
   @Override
@@ -120,11 +121,7 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
 
   @Override
   public void appendHumanReport(
-      UUID continuityPlanId,
-      int revision,
-      String status,
-      String issuesJson,
-      String reviewedBy) {
+      UUID continuityPlanId, int revision, String status, String issuesJson, String reviewedBy) {
     if (mapper.insertHumanReport(continuityPlanId, revision, status, issuesJson, reviewedBy) != 1) {
       throw new IllegalStateException("Continuity report revision was not persisted");
     }

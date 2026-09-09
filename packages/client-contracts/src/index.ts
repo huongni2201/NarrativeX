@@ -43,5 +43,9 @@ export type {
   MediaJobDetails,
   MediaReviewInput,
   RegenerationPlan,
+  PrepareStoryboardGenerationBatchInput,
+  StoryboardGenerationBatch,
+  StoryboardGenerationBeatSnapshot,
+  StoryboardGenerationReference,
   VisualGenerationMode,
 } from "./generation";

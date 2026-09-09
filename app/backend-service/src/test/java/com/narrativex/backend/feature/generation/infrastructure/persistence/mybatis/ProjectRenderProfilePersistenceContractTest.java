@@ -12,7 +12,8 @@ class ProjectRenderProfilePersistenceContractTest {
   @Test
   void snapshotHeaderPersistsRenderProfileAtomically() throws Exception {
     String mapper =
-        Files.readString(Path.of("src/main/resources/mybatis/ProjectRenderInputSnapshotMapper.xml"));
+        Files.readString(
+            Path.of("src/main/resources/mybatis/ProjectRenderInputSnapshotMapper.xml"));
 
     assertTrue(mapper.contains("render_profile_json"));
     assertTrue(mapper.contains("renderProfileJson"));
@@ -21,18 +22,13 @@ class ProjectRenderProfilePersistenceContractTest {
   }
 
   @Test
-  void preReleaseBaselineDefinesRenderProfileV2() throws Exception {
+  void migrationDefinesCompatibleV2AndV3ProfileBoundary() throws Exception {
     String sql =
         Files.readString(
-            Path.of(
-                "src/main/resources/db/migration/V5__catalog_generation_and_render_snapshots.sql"));
+            Path.of("src/main/resources/db/migration/V16__render_profile_watermark_policy.sql"));
 
-    assertTrue(sql.contains("\"schemaVersion\": 2"));
-    assertTrue(sql.contains("\"rendererVersion\": \"project-image-motion-v3-composition\""));
-    assertTrue(sql.contains("\"compositionPolicyVersion\": 1"));
-    assertTrue(
-        sql.matches(
-            "(?s).*ck_project_render_profile_version.*schemaVersion.*=\\s*2.*"),
-        "The pre-release baseline must admit only the current render-profile schema");
+    assertTrue(sql.contains("IN (2, 3)"));
+    assertTrue(sql.contains("ck_project_render_profile_v3_watermark"));
+    assertTrue(sql.contains("policyVersion"));
   }
 }

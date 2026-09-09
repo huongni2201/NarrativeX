@@ -104,12 +104,7 @@ class CreateMediaJobUseCaseTest {
 
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
-            PROJECT_ID,
-            CHAPTER_ID,
-            "shared-key",
-            "IMAGE_MOTION",
-            "16:9",
-            new BigDecimal("0.25"));
+            PROJECT_ID, CHAPTER_ID, "shared-key", "IMAGE_MOTION", "16:9", new BigDecimal("0.25"));
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -254,16 +249,9 @@ class CreateMediaJobUseCaseTest {
     when(generationJobRepository.findByIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1"))
         .thenReturn(Optional.of(activeJob));
     when(activeJob.getStatus()).thenReturn(JobStatus.RUNNING);
-    when(activeJob.getId()).thenReturn(ACTIVE_INTERNAL_JOB_ID);
-
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
-            PROJECT_ID,
-            CHAPTER_ID,
-            "intent-2",
-            "IMAGE_MOTION",
-            "16:9",
-            new BigDecimal("0.25"));
+            PROJECT_ID, CHAPTER_ID, "intent-2", "IMAGE_MOTION", "16:9", new BigDecimal("0.25"));
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -286,8 +274,7 @@ class CreateMediaJobUseCaseTest {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(value.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException(exception);
     }

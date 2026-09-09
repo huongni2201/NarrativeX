@@ -275,12 +275,16 @@ async def test_submit_batch_persistence_failure_stays_recoverable_instead_of_fai
     await runner._submit_batch(_job(), (_item(),))
     assert repository.mark_submitted_calls == [ProviderOperationStatus.RUNNING]
     assert repository.fail_provider_operation_calls == []
-    assert repository.mark_unknown_calls == ["PROVIDER_SUBMISSION_PERSISTENCE_UNKNOWN:DB UNAVAILABLE"]
+    assert repository.mark_unknown_calls == [
+        "PROVIDER_SUBMISSION_PERSISTENCE_UNKNOWN:DB UNAVAILABLE"
+    ]
 
 
 @pytest.mark.asyncio
 async def test_submit_batch_lease_loss_after_provider_return_does_not_terminalize() -> None:
-    repository = _PersistenceFailureRepository(_operation(), ImageGenerationLeaseLostError("reclaimed"))
+    repository = _PersistenceFailureRepository(
+        _operation(), ImageGenerationLeaseLostError("reclaimed")
+    )
     runner = _runner(repository, _Provider(_running_operation()))
     await runner._submit_batch(_job(), (_item(),))
     assert repository.mark_submitted_calls == [ProviderOperationStatus.RUNNING]

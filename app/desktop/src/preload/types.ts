@@ -81,7 +81,6 @@ export interface LocalProjectStorageStatus {
 
 export interface LocalProjectCatalogEntry {
   project: DesktopProject;
-  workspacePath: string;
   ownerId: string | null;
   registeredAt: string;
   lastOpenedAt: string;
@@ -307,6 +306,7 @@ export interface NarrativeXDesktopBridge {
     lastOpened(): Promise<LocalProjectCatalogEntry | null>;
     upsert(project: DesktopProject, metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry>;
     touch(projectId: string): Promise<LocalProjectCatalogEntry>;
+    setFavorite(projectId: string, isStarred: boolean): Promise<LocalProjectCatalogEntry>;
     markArchived(projectId: string): Promise<void>;
   };
   localStorage: {

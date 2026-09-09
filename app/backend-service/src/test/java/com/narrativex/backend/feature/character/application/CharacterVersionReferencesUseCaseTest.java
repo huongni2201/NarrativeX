@@ -43,7 +43,7 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void rejectsReferenceMutationAfterCharacterVersionIsLocked() {
-    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
+    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
     var useCase = setUseCase();
 
@@ -62,7 +62,7 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void rejectsNonReadyOrNonImageAssets() {
-    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
+    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
     when(mediaAssetAccess.findOwnedSummary("owner", IDENTITY_ASSET))
         .thenReturn(Optional.of(asset(IDENTITY_ASSET, "VIDEO", "READY", "video/mp4")));
@@ -83,7 +83,7 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void requiresHighestPriorityReferenceToBeIdentityAndPersistsSortedReferences() {
-    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
+    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
     when(mediaAssetAccess.findOwnedSummary("owner", IDENTITY_ASSET))
         .thenReturn(Optional.of(asset(IDENTITY_ASSET, "IMAGE", "READY", "image/png")));

@@ -68,8 +68,7 @@ public class GetChapterStoryboardUseCase {
                       beats.stream()
                           .map(
                               beat ->
-                                  VisualBeatResponse.from(
-                                      beat, promptsByBeat.get(beat.getId())))
+                                  VisualBeatResponse.from(beat, promptsByBeat.get(beat.getId())))
                           .toList());
                 })
             .toList();

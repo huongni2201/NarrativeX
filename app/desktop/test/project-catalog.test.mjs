@@ -70,6 +70,26 @@ test("project catalog rebuilds registry from local per-project snapshots", async
   }
 });
 
+test("favorite patch survives restart without overwriting other project metadata", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-favorite-"));
+  try {
+    const catalog = new ProjectCatalog(new ProjectStorage(root));
+    await catalog.upsert({ ...project(projectId, "Favorite project"), isStarred: false });
+
+    await catalog.setFavorite(projectId, true);
+
+    const reopened = new ProjectCatalog(new ProjectStorage(root));
+    const entry = (await reopened.list())[0];
+    assert.equal(entry.project.isStarred, true);
+    assert.equal(entry.project.name, "Favorite project");
+
+    await reopened.setFavorite(projectId, false);
+    assert.equal((await reopened.list())[0].project.isStarred, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("markArchived hides a project without deleting its local snapshot", async () => {
   const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-archived-"));
   try {

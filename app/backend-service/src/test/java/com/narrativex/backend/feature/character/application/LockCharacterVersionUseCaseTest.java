@@ -38,7 +38,8 @@ class LockCharacterVersionUseCaseTest {
   @Test
   void rejectsLockWhenIdentityReferenceIsMissing() {
     var version = reviewVersion();
-    when(versionRepository.findOwnedById(VERSION_ID, "owner")).thenReturn(Optional.of(version));
+    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+        .thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(List.of());
     var useCase =
         new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
@@ -54,7 +55,8 @@ class LockCharacterVersionUseCaseTest {
   @Test
   void locksReviewedVersionWhenIdentityReferenceExists() {
     var version = reviewVersion();
-    when(versionRepository.findOwnedById(VERSION_ID, "owner")).thenReturn(Optional.of(version));
+    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+        .thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID))
         .thenReturn(List.of(new CharacterVersionReference(IDENTITY_ASSET_ID, "IDENTITY", 0)));
     when(versionRepository.save(version)).thenReturn(version);

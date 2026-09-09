@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseRenderProfile } from "../src/main/rendering/render-profile.ts";
 
-test("render profile v2 preserves the explicit composition and quality contract", () => {
+test("render profile v3 preserves the explicit composition, quality, and watermark contract", () => {
   const profile = parseRenderProfile(JSON.stringify({
-    schemaVersion: 2,
+    schemaVersion: 3,
     rendererVersion: "project-image-motion-v3-composition",
     compositionPolicyVersion: 1,
     fps: 60,
@@ -17,9 +17,10 @@ test("render profile v2 preserves the explicit composition and quality contract"
     },
     color: { mode: "SDR_BT709_LIMITED" },
     subtitles: { mode: "none" },
+    watermark: { mode: "required", policyVersion: 1 },
   }));
 
-  assert.equal(profile.schemaVersion, 2);
+  assert.equal(profile.schemaVersion, 3);
   assert.equal(profile.rendererVersion, "project-image-motion-v3-composition");
   assert.equal(profile.compositionPolicyVersion, 1);
   assert.equal(profile.fps, 60);
@@ -32,11 +33,12 @@ test("render profile v2 preserves the explicit composition and quality contract"
     pixelFormat: "yuv420p",
   });
   assert.equal(profile.colorMode, "SDR_BT709_LIMITED");
+  assert.deepEqual(profile.watermark, { mode: "required", policyVersion: 1 });
 });
 
-test("render profile v2 malformed quality fields fall back to current defaults", () => {
+test("render profile v3 malformed quality fields fall back to current defaults", () => {
   const profile = parseRenderProfile(JSON.stringify({
-    schemaVersion: 2,
+    schemaVersion: 3,
     fps: 15,
     video: {
       x264Preset: "ultrafast",
@@ -45,6 +47,7 @@ test("render profile v2 malformed quality fields fall back to current defaults",
       nvencCq: 100,
       pixelFormat: "yuv444p",
     },
+    watermark: { mode: "none", policyVersion: 1 },
   }));
 
   assert.equal(profile.fps, 30);
@@ -57,11 +60,15 @@ test("render profile v2 malformed quality fields fall back to current defaults",
   });
 });
 
-test("invalid or unsupported render profiles fail explicitly after the v2 cutover", () => {
+test("invalid, legacy, or policy-free render profiles fail explicitly after the v3 cutover", () => {
   assert.throws(() => parseRenderProfile("{}"), /Unsupported render profile schema/);
   assert.throws(() => parseRenderProfile("not-json"), /Invalid render profile JSON/);
   assert.throws(
-    () => parseRenderProfile('{"schemaVersion":3}'),
+    () => parseRenderProfile('{"schemaVersion":2}'),
     /Unsupported render profile schema/,
+  );
+  assert.throws(
+    () => parseRenderProfile('{"schemaVersion":3}'),
+    /Invalid render watermark policy/,
   );
 });

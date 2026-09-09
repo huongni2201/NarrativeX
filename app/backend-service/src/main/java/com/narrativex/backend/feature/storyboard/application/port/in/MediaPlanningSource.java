@@ -47,15 +47,7 @@ public record MediaPlanningSource(
     public BeatSnapshot(
         UUID visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
       this(
-          visualBeatId,
-          orderIndex,
-          visualIntent,
-          motionIntent,
-          "APPROVED",
-          null,
-          null,
-          null,
-          null);
+          visualBeatId, orderIndex, visualIntent, motionIntent, "APPROVED", null, null, null, null);
     }
 
     public BeatSnapshot {

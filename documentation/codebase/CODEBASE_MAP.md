@@ -134,9 +134,11 @@ V11__chapter_continuity_indexes.sql
 V12__continuity_regeneration_plans.sql
 V13__render_continuity_provenance.sql
 V14__storyboard_generation_snapshots.sql
+V15__export_quota_reservations.sql
+V16__render_profile_watermark_policy.sql
 ```
 
-A clean database applies **V1 → V14**. Because NarrativeX is still pre-production, the baseline contains only the current schema: V2 directly owns structured VisualBeat direction and omits duplicate storyboard audio/camera fields; V3 adds only canonical `preview_media_asset_id` after `media_assets` exists; V4/V7 never create the unowned short-clip queue or its indexes. Compatibility-only V15/V16 cleanup migrations are therefore unnecessary and removed. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
+A clean database applies **V1 → V16**. Because NarrativeX is still pre-production, the baseline contains only the current schema: V2 directly owns structured VisualBeat direction and omits duplicate storyboard audio/camera fields; V3 adds only canonical `preview_media_asset_id` after `media_assets` exists; V4/V7 never create the unowned short-clip queue or its indexes. V15 owns durable monthly export reservations and settlement; V16 owns the compatible render-profile watermark policy. Applied migrations become immutable at the first production deployment; subsequent evolution remains append-only.
 
 ## Production mode contract
 

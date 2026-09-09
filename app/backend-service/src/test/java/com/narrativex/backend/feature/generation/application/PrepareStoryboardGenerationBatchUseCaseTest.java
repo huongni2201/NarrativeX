@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.generation.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,7 +10,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
-import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.in.VisualBeatPromptContext;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
@@ -22,7 +20,7 @@ import com.narrativex.backend.feature.generation.application.service.VisualPromp
 import com.narrativex.backend.feature.generation.application.usecase.PrepareStoryboardGenerationBatchUseCase;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardResponse;
 import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
-import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
@@ -51,14 +49,15 @@ class PrepareStoryboardGenerationBatchUseCaseTest {
 
     assertEquals(first.batch().id(), second.batch().id());
     assertEquals(first.batch().requestFingerprint(), second.batch().requestFingerprint());
-    assertSame(fixture.stored.get(), second.batch());
+    assertEquals(fixture.stored.get().id(), second.batch().id());
   }
 
   @Test
   void sameIdempotencyKeyWithDifferentBlockedBeatScopeIsRejected() {
     Fixture fixture = fixture();
     when(fixture.promptContext.prepare(eq(projectId), eq(chapterId), any(UUID.class)))
-        .thenThrow(new ResourceConflictException("REFERENCE_BUDGET_EXCEEDED: required refs exceed 3"));
+        .thenThrow(
+            new ResourceConflictException("REFERENCE_BUDGET_EXCEEDED: required refs exceed 3"));
 
     var first = fixture.useCase.execute(projectId, chapterId, List.of(beatOne), null, "scope-key");
     assertTrue(first.hasBlockingIssues());
@@ -96,14 +95,15 @@ class PrepareStoryboardGenerationBatchUseCaseTest {
   }
 
   private Fixture fixture() {
-    GetChapterStoryboardUseCase storyboard = mock(GetChapterStoryboardUseCase.class);
+    StoryboardBeatAccess storyboard = mock(StoryboardBeatAccess.class);
     VisualBeatPromptContext promptContext = mock(VisualBeatPromptContext.class);
     ChapterContinuityRepository continuity = mock(ChapterContinuityRepository.class);
     StoryboardGenerationSnapshotRepository snapshots =
         mock(StoryboardGenerationSnapshotRepository.class);
     AtomicReference<GenerationBatch> stored = new AtomicReference<>();
 
-    when(storyboard.execute(projectId, chapterId)).thenReturn(ApiResponse.success(storyboard()));
+    when(storyboard.requireCurrentBeatIds(projectId, chapterId))
+        .thenReturn(java.util.Set.of(beatOne, beatTwo));
     when(snapshots.findCurrentScope(projectId, chapterId))
         .thenReturn(Optional.of(new ChapterScope(revisionId, sourceHash)));
     when(continuity.findCurrent(projectId, chapterId)).thenReturn(Optional.empty());
@@ -174,12 +174,7 @@ class PrepareStoryboardGenerationBatchUseCaseTest {
 
   private VisualBeatPromptContext.PreparedVisualBeatPrompt prepared(UUID beatId, String prompt) {
     return new VisualBeatPromptContext.PreparedVisualBeatPrompt(
-        beatId,
-        sceneId,
-        3L,
-        null,
-        null,
-        new ComposedVisualPrompt(prompt, "", "{}", List.of()));
+        beatId, sceneId, 3L, null, null, new ComposedVisualPrompt(prompt, "", "{}", List.of()));
   }
 
   private record Fixture(

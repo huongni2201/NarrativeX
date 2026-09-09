@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.generation.api.response;
 
-import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.BeatSnapshot;
+import com.narrativex.backend.feature.generation.application.query.StoryboardGenerationBatchView.BeatView;
 import com.narrativex.backend.feature.generation.application.usecase.PrepareStoryboardGenerationBatchUseCase.PreparedBatch;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +23,8 @@ public record StoryboardGenerationBatchResponse(
     List<Issue> issues,
     List<Beat> beats) {
 
-  public static StoryboardGenerationBatchResponse from(PreparedBatch prepared, ObjectMapper objectMapper) {
+  public static StoryboardGenerationBatchResponse from(
+      PreparedBatch prepared, ObjectMapper objectMapper) {
     var batch = prepared.batch();
     return new StoryboardGenerationBatchResponse(
         batch.id(),
@@ -38,7 +39,10 @@ public record StoryboardGenerationBatchResponse(
         prepared.stale(),
         prepared.hasBlockingIssues(),
         prepared.issues().stream()
-            .map(issue -> new Issue(issue.code(), issue.severity(), issue.visualBeatId(), issue.message()))
+            .map(
+                issue ->
+                    new Issue(
+                        issue.code(), issue.severity(), issue.visualBeatId(), issue.message()))
             .toList(),
         batch.beats().stream().map(beat -> Beat.from(beat, objectMapper)).toList());
   }
@@ -56,7 +60,7 @@ public record StoryboardGenerationBatchResponse(
       String continuitySemanticHash,
       String inputFingerprint,
       List<Reference> references) {
-    static Beat from(BeatSnapshot beat, ObjectMapper objectMapper) {
+    static Beat from(BeatView beat, ObjectMapper objectMapper) {
       return new Beat(
           beat.id(),
           beat.visualBeatId(),
@@ -103,7 +107,8 @@ public record StoryboardGenerationBatchResponse(
       }
       return List.copyOf(result);
     } catch (Exception exception) {
-      throw new IllegalStateException("Stored storyboard generation references are invalid", exception);
+      throw new IllegalStateException(
+          "Stored storyboard generation references are invalid", exception);
     }
   }
 

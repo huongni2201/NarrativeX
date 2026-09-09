@@ -9,5 +9,8 @@ public interface CharacterVersionRepository {
 
   Optional<CharacterVersion> findOwnedById(UUID characterVersionId, String ownerId);
 
+  /** Locks only the owned character-version row for reference/status serialization. */
+  Optional<CharacterVersion> findOwnedByIdForUpdate(UUID characterVersionId, String ownerId);
+
   CharacterVersion save(CharacterVersion characterVersion);
 }

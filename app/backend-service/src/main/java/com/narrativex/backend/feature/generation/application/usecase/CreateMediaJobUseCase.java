@@ -98,7 +98,8 @@ public class CreateMediaJobUseCase {
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(command.chapterId())
-            .flatMap(internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
+            .flatMap(
+                internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       throw new GenerationAdmissionDeniedException(
@@ -117,8 +118,9 @@ public class CreateMediaJobUseCase {
         userQuotaAccess
             .findCurrentQuota(userId)
             .orElseThrow(
-                () -> new GenerationAdmissionDeniedException(
-                    "ENTITLEMENT_DENIED", "No active plan is available."));
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "ENTITLEMENT_DENIED", "No active plan is available."));
     var plan =
         createMediaPlanUseCase.execute(
             new CreateMediaPlanCommand(
@@ -136,8 +138,9 @@ public class CreateMediaJobUseCase {
         quotaReservation
             .reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
-                () -> new GenerationAdmissionDeniedException(
-                    "COST_LIMIT", "Media generation quota is exhausted."));
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "COST_LIMIT", "Media generation quota is exhausted."));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -202,7 +205,8 @@ public class CreateMediaJobUseCase {
     return normalized;
   }
 
-  private static void validateReplayScope(GenerationJob existingJob, CreateMediaJobCommand command) {
+  private static void validateReplayScope(
+      GenerationJob existingJob, CreateMediaJobCommand command) {
     if (existingJob.getType() != JobType.CHAPTER_GENERATE
         || !command.projectId().equals(existingJob.getProjectId())
         || !command.chapterId().equals(existingJob.getChapterId())) {
@@ -231,12 +235,18 @@ public class CreateMediaJobUseCase {
   private static String fingerprint(CreateMediaJobCommand command, String imageProvider) {
     return sha256(
         command.projectId()
-            + ":" + command.chapterId()
-            + ":" + command.productionMode()
-            + ":" + command.aspectRatio()
-            + ":" + command.imageStyle()
-            + ":" + imageProvider
-            + ":" + command.maxAuthorizedCost().toPlainString());
+            + ":"
+            + command.chapterId()
+            + ":"
+            + command.productionMode()
+            + ":"
+            + command.aspectRatio()
+            + ":"
+            + command.imageStyle()
+            + ":"
+            + imageProvider
+            + ":"
+            + command.maxAuthorizedCost().toPlainString());
   }
 
   private static String itemFingerprint(

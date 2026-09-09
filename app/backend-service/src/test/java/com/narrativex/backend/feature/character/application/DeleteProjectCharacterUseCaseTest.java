@@ -47,12 +47,14 @@ class DeleteProjectCharacterUseCaseTest {
     when(projectCharacterRepository.findByProjectAndCharacterForUpdate(projectId, characterId))
         .thenReturn(Optional.empty());
 
-    assertThrows(ResourceNotFoundException.class, () -> newUseCase().execute(projectId, characterId));
+    assertThrows(
+        ResourceNotFoundException.class, () -> newUseCase().execute(projectId, characterId));
   }
 
   private DeleteProjectCharacterUseCase newUseCase() {
     CurrentUserId currentUserId = () -> "owner";
-    return new DeleteProjectCharacterUseCase(projectCharacterRepository, projectAccess, currentUserId);
+    return new DeleteProjectCharacterUseCase(
+        projectCharacterRepository, projectAccess, currentUserId);
   }
 
   private static ProjectCharacter activeAssignment(UUID projectId, UUID characterId) {

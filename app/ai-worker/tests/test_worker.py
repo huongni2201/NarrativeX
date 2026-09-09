@@ -57,7 +57,6 @@ def test_worker_settings_defaults() -> None:
     assert settings.worker_name == "narrativex-worker"
     assert settings.worker_env in ("development", "test")
     assert settings.log_level == "INFO"
-    assert settings.backend_url == "http://localhost:8080"
     assert settings.provider_mode == "disabled"
     assert settings.worker_concurrency == 4
 
@@ -146,13 +145,11 @@ def test_worker_custom_settings() -> None:
         worker_name="custom-worker",
         worker_env="test",
         log_level="DEBUG",
-        backend_url="http://backend:8080",
         worker_concurrency=7,
     )
     assert custom.worker_name == "custom-worker"
     assert custom.worker_env == "test"
     assert custom.log_level == "DEBUG"
-    assert custom.backend_url == "http://backend:8080"
     assert custom.worker_concurrency == 7
 
 

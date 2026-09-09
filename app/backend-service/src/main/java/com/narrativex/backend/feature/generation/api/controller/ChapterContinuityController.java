@@ -41,7 +41,8 @@ public class ChapterContinuityController {
     var continuity = getChapterContinuityUseCase.execute(projectId, chapterId);
     return ResponseEntity.ok(
         ApiResponse.success(
-            "Chapter continuity retrieved", ChapterContinuityResponse.from(continuity, issueCodec)));
+            "Chapter continuity retrieved",
+            ChapterContinuityResponse.from(continuity, issueCodec)));
   }
 
   @PostMapping("/regeneration-plans")
@@ -51,11 +52,7 @@ public class ChapterContinuityController {
       @Valid @RequestBody CreateRegenerationPlanRequest request) {
     var plan =
         createRegenerationPlanUseCase.execute(
-            projectId,
-            chapterId,
-            request.expectedPlanId(),
-            request.beatIds(),
-            request.reason());
+            projectId, chapterId, request.expectedPlanId(), request.beatIds(), request.reason());
     return ResponseEntity.ok(
         ApiResponse.success("Regeneration plan created", RegenerationPlanResponse.from(plan)));
   }
@@ -84,11 +81,7 @@ public class ChapterContinuityController {
       @Valid @RequestBody ContinuityReviewRequest request) {
     var continuity =
         reviewContinuityIssuesUseCase.execute(
-            projectId,
-            chapterId,
-            request.planId(),
-            request.reportRevision(),
-            request.issueIds());
+            projectId, chapterId, request.planId(), request.reportRevision(), request.issueIds());
     return ResponseEntity.ok(
         ApiResponse.success(
             "Continuity warnings acknowledged",

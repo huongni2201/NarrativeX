@@ -35,7 +35,7 @@ public class SetCharacterVersionReferencesUseCase {
     String ownerId = currentUserId.get();
     var version =
         versionRepository
-            .findOwnedById(versionId, ownerId)
+            .findOwnedByIdForUpdate(versionId, ownerId)
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     if (!version.getCharacterId().equals(characterId)) {
       throw new ResourceNotFoundException("Character version not found");

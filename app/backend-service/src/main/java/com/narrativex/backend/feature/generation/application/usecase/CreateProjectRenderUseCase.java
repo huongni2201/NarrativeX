@@ -64,6 +64,25 @@ public class CreateProjectRenderUseCase {
   public GenerationJob execute(CreateProjectRenderCommand command) {
     String userId = currentUserId.get();
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
+
+    // Request identity must not depend on mutable timeline state. Resolve a replay
+    // before checking device health, source readiness, entitlement or quota.
+    String requestFingerprint = requestFingerprint(command);
+    String idempotencyKey = idempotencyKey(command, requestFingerprint);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
+    if (existing.isPresent()) {
+      GenerationJob existingJob = existing.get();
+      if (existingJob.getType() != JobType.RENDER_PROJECT
+          || !command.projectId().equals(existingJob.getProjectId())
+          || !requestFingerprint.equals(existingJob.getSourceHash())) {
+        throw new GenerationAdmissionDeniedException(
+            "IDEMPOTENCY_CONFLICT",
+            "Idempotency-Key is already bound to a different project render request.");
+      }
+      return existingJob;
+    }
+
     validateLocalDevice(userId, command.localDeviceId());
 
     ProductionTimelineView sourceTimeline =
@@ -87,26 +106,14 @@ public class CreateProjectRenderUseCase {
           "ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
     }
 
-    String timelineFingerprint = timelineFingerprint(timeline);
-    String requestFingerprint = requestFingerprint(command, timelineFingerprint);
-    String idempotencyKey = idempotencyKey(command, requestFingerprint);
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) {
-      GenerationJob existingJob = existing.get();
-      if (existingJob.getType() != JobType.RENDER_PROJECT
-          || !requestFingerprint.equals(existingJob.getSourceHash())) {
-        throw new GenerationAdmissionDeniedException(
-            "IDEMPOTENCY_CONFLICT",
-            "Idempotency-Key is already bound to a different project render request.");
-      }
-      return existingJob;
-    }
-
     BigDecimal renderCost = BigDecimal.ZERO;
     var reservation =
         quotaReservation
-            .reserve(userId, renderCost, quota.maxConcurrentExpensiveJobs())
+            .reserveLongformExport(
+                userId,
+                renderCost,
+                quota.maxConcurrentExpensiveJobs(),
+                quota.maxLongformExportsMonth())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
@@ -143,7 +150,8 @@ public class CreateProjectRenderUseCase {
         command.format(),
         command.localDeviceId(),
         command.fps(),
-        command.subtitlesEnabled());
+        command.subtitlesEnabled(),
+        quota.watermarkRequired());
 
     OperationPlan plan =
         operationPlanRepository.save(
@@ -313,11 +321,20 @@ public class CreateProjectRenderUseCase {
         + format.toUpperCase(Locale.ROOT);
   }
 
-  static String requestFingerprint(CreateProjectRenderCommand command, String timelineFingerprint) {
+  static String requestFingerprint(CreateProjectRenderCommand command) {
+    String overrides =
+        command.beatOverrides().stream()
+            .sorted(java.util.Comparator.comparing(RenderBeatOverride::visualBeatId))
+            .map(
+                override ->
+                    override.visualBeatId()
+                        + ":"
+                        + override.durationMs()
+                        + ":"
+                        + override.cameraMovement())
+            .collect(Collectors.joining("|"));
     return sha256(
         command.projectId()
-            + ":"
-            + timelineFingerprint
             + ":"
             + command.resolution().toLowerCase(Locale.ROOT)
             + ":"
@@ -327,7 +344,9 @@ public class CreateProjectRenderUseCase {
             + ":"
             + command.fps()
             + ":"
-            + command.subtitlesEnabled());
+            + command.subtitlesEnabled()
+            + ":"
+            + overrides);
   }
 
   private static String idempotencyKey(

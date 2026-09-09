@@ -1,6 +1,11 @@
 import asyncio
 import hashlib
+import json
 import logging
+import os
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -185,6 +190,79 @@ class LocalMediaStorage:
             raise MediaAssetConflictError("local media key escapes the configured root")
         return path
 
+    @staticmethod
+    def _marker(path: Path) -> Path:
+        return path.with_name(path.name + ".nxmeta.json")
+
+    @staticmethod
+    def _lock(path: Path) -> Path:
+        return path.with_name(path.name + ".nxlock")
+
+    @contextmanager
+    def _writer_lock(self, path: Path) -> Iterator[None]:
+        lock_path = self._lock(path)
+        while True:
+            try:
+                descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                with os.fdopen(descriptor, "w", encoding="ascii") as lock:
+                    lock.write(str(os.getpid()))
+                    lock.flush()
+                    os.fsync(lock.fileno())
+                break
+            except FileExistsError:
+                try:
+                    owner = int(lock_path.read_text(encoding="ascii").strip())
+                    os.kill(owner, 0)
+                except ProcessLookupError:
+                    try:
+                        lock_path.unlink()
+                    except FileNotFoundError:
+                        pass
+                    continue
+                except (OSError, ValueError):
+                    # Permission errors do not prove that the owner is dead.
+                    raise MediaAssetConflictError(
+                        "local media object is locked by another writer"
+                    ) from None
+                raise MediaAssetConflictError(
+                    "local media object is locked by another writer"
+                ) from None
+        try:
+            yield
+        finally:
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+
+    @staticmethod
+    def _write_commit(path: Path, content: bytes, record: dict[str, object]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data_fd, data_name = tempfile.mkstemp(
+            prefix=path.name + ".", suffix=".tmp", dir=path.parent
+        )
+        marker = LocalMediaStorage._marker(path)
+        marker_fd, marker_name = tempfile.mkstemp(
+            prefix=marker.name + ".", suffix=".tmp", dir=path.parent
+        )
+        try:
+            with os.fdopen(data_fd, "wb") as staged:
+                staged.write(content)
+                staged.flush()
+                os.fsync(staged.fileno())
+            os.replace(data_name, path)
+            with os.fdopen(marker_fd, "w", encoding="utf-8") as staged_marker:
+                json.dump(record, staged_marker, separators=(",", ":"), sort_keys=True)
+                staged_marker.flush()
+                os.fsync(staged_marker.fileno())
+            os.replace(marker_name, marker)
+        finally:
+            for temporary in (data_name, marker_name):
+                try:
+                    os.unlink(temporary)
+                except FileNotFoundError:
+                    pass
+
     async def put_immutable(
         self,
         *,
@@ -198,31 +276,68 @@ class LocalMediaStorage:
         actual = hashlib.sha256(content).hexdigest()
         if actual != checksum:
             raise ValueError("content checksum does not match supplied checksum")
+        record = {
+            "schemaVersion": 1,
+            "checksum": checksum,
+            "sizeBytes": len(content),
+            "mimeType": mime_type,
+            "metadata": dict(metadata or {}),
+        }
         path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists():
+        with self._writer_lock(path):
             existing = await self.find(storage_key)
-            if existing is None or existing.checksum != checksum:
-                raise MediaAssetConflictError("local media key already contains different content")
-            return existing
-        await asyncio.to_thread(path.write_bytes, content)
-        return StoredMediaAsset(
-            storage_key, checksum, len(content), mime_type, dict(metadata or {})
-        )
+            if existing is not None:
+                if existing.checksum != checksum or existing.size_bytes != len(content):
+                    raise MediaAssetConflictError(
+                        "local media key already contains different content"
+                    )
+                if existing.mime_type != mime_type:
+                    raise MediaAssetConflictError(
+                        "local media key already has different immutable MIME metadata"
+                    )
+                return existing
+            if path.exists():
+                # The caller supplied durable checksum/size proof, so a byte-only
+                # legacy/crash artifact may be adopted only when both match.
+                if path.stat().st_size != len(content) or sha256_file(path) != checksum:
+                    raise MediaAssetConflictError("incomplete local media bytes conflict")
+                await asyncio.to_thread(
+                    self._write_commit, path, await asyncio.to_thread(path.read_bytes), record
+                )
+            else:
+                await asyncio.to_thread(self._write_commit, path, content, record)
+        committed = await self.find(storage_key)
+        if committed is None:
+            raise MediaAssetConflictError("local media commit marker was not published")
+        return committed
 
     async def find(self, storage_key: str) -> StoredMediaAsset | None:
         path = self._path(storage_key)
-        if not path.is_file():
+        marker = self._marker(path)
+        if not path.is_file() or not marker.is_file():
             return None
-        checksum = await asyncio.to_thread(sha256_file, path)
+        try:
+            record = json.loads(await asyncio.to_thread(marker.read_text, encoding="utf-8"))
+            if record.get("schemaVersion") != 1:
+                raise ValueError("unsupported marker schema")
+            checksum = str(record["checksum"]).lower()
+            size = int(record["sizeBytes"])
+            mime_type = str(record["mimeType"])
+            metadata = record.get("metadata", {})
+            if not isinstance(metadata, dict):
+                raise ValueError("invalid metadata")
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exception:
+            raise MediaAssetConflictError("local media completion marker is invalid") from exception
+        if path.stat().st_size != size or await asyncio.to_thread(sha256_file, path) != checksum:
+            raise MediaAssetConflictError("local media bytes do not match completion marker")
         return StoredMediaAsset(
-            storage_key,
-            checksum,
-            path.stat().st_size,
-            _mime_for_path(path),
-            {},
+            storage_key, checksum, size, mime_type, {str(k): str(v) for k, v in metadata.items()}
         )
 
     async def get_bytes(self, storage_key: str) -> bytes:
+        asset = await self.find(storage_key)
+        if asset is None:
+            raise FileNotFoundError(storage_key)
         return await asyncio.to_thread(self._path(storage_key).read_bytes)
 
     async def download_to_file(

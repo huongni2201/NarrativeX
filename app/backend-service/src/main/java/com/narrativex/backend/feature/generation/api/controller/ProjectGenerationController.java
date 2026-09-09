@@ -90,11 +90,12 @@ public class ProjectGenerationController {
   }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/gemini-generation-batches:prepare")
-  public ResponseEntity<ApiResponse<StoryboardGenerationBatchResponse>> prepareStoryboardGenerationBatch(
-      @PathVariable UUID projectId,
-      @PathVariable UUID chapterId,
-      @RequestHeader("Idempotency-Key") String idempotencyKey,
-      @Valid @RequestBody PrepareStoryboardGenerationBatchRequest request) {
+  public ResponseEntity<ApiResponse<StoryboardGenerationBatchResponse>>
+      prepareStoryboardGenerationBatch(
+          @PathVariable UUID projectId,
+          @PathVariable UUID chapterId,
+          @RequestHeader("Idempotency-Key") String idempotencyKey,
+          @Valid @RequestBody PrepareStoryboardGenerationBatchRequest request) {
     var prepared =
         prepareStoryboardGenerationBatchUseCase.execute(
             projectId,
@@ -109,10 +110,9 @@ public class ProjectGenerationController {
   }
 
   @GetMapping("/{projectId}/chapters/{chapterId}/gemini-generation-batches/{batchId}")
-  public ResponseEntity<ApiResponse<StoryboardGenerationBatchResponse>> getStoryboardGenerationBatch(
-      @PathVariable UUID projectId,
-      @PathVariable UUID chapterId,
-      @PathVariable UUID batchId) {
+  public ResponseEntity<ApiResponse<StoryboardGenerationBatchResponse>>
+      getStoryboardGenerationBatch(
+          @PathVariable UUID projectId, @PathVariable UUID chapterId, @PathVariable UUID batchId) {
     var prepared = prepareStoryboardGenerationBatchUseCase.get(projectId, chapterId, batchId);
     return ResponseEntity.ok(
         ApiResponse.success(

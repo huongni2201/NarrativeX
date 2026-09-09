@@ -11,7 +11,7 @@ export function renderWorkingDimensions(
   const movement = cameraMovement.trim().toUpperCase();
   const factor =
     fps === 60 && (movement === "PAN" || movement === "TILT")
-      ? 4
+      ? 5
       : movement === "PAN" || movement === "TILT"
         ? 1.5
         : 1.25;

@@ -63,26 +63,7 @@ public class CreateRegenerationJobUseCase {
       String idempotencyHeader) {
     String userId = currentUserId.get();
     String idempotencyKey = CreateMediaJobUseCase.requireIdempotencyKey(idempotencyHeader);
-    var chapter = chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, userId);
-    var regenerationPlan =
-        continuityRepository
-            .findRegenerationPlan(projectId, chapterId, regenerationPlanId)
-            .orElseThrow(() -> stalePlan("Regeneration plan was not found."));
-    var current =
-        continuityRepository
-            .findCurrent(projectId, chapterId)
-            .orElseThrow(() -> stalePlan("Continuity plan is no longer current."));
-    if (!current.planId().equals(regenerationPlan.continuityPlanId())
-        || !current.sourceHash().equals(chapter.sourceHash())
-        || !regenerationPlan.sourceHash().equals(chapter.sourceHash())
-        || !Instant.now().isBefore(regenerationPlan.expiresAt())) {
-      throw stalePlan("Continuity or source inputs changed after the regeneration plan was created.");
-    }
-    if (regenerationPlan.estimatedCost().compareTo(maxAuthorizedCost) > 0) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The requested authorization cap is below the regeneration estimate.");
-    }
-
+    var project = projectAccess.findOwnedProject(projectId, userId);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
@@ -102,6 +83,27 @@ public class CreateRegenerationJobUseCase {
       return job;
     }
 
+    var chapter = chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, userId);
+    var regenerationPlan =
+        continuityRepository
+            .findRegenerationPlan(projectId, chapterId, regenerationPlanId)
+            .orElseThrow(() -> stalePlan("Regeneration plan was not found."));
+    var current =
+        continuityRepository
+            .findCurrent(projectId, chapterId)
+            .orElseThrow(() -> stalePlan("Continuity plan is no longer current."));
+    if (!current.planId().equals(regenerationPlan.continuityPlanId())
+        || !current.sourceHash().equals(chapter.sourceHash())
+        || !regenerationPlan.sourceHash().equals(chapter.sourceHash())
+        || !Instant.now().isBefore(regenerationPlan.expiresAt())) {
+      throw stalePlan(
+          "Continuity or source inputs changed after the regeneration plan was created.");
+    }
+    if (regenerationPlan.estimatedCost().compareTo(maxAuthorizedCost) > 0) {
+      throw new GenerationAdmissionDeniedException(
+          "COST_LIMIT", "The requested authorization cap is below the regeneration estimate.");
+    }
+
     var settings =
         continuityRepository
             .findLatestMediaSettings(chapterId)
@@ -116,11 +118,11 @@ public class CreateRegenerationJobUseCase {
       throw stalePlan("The active image provider/model changed after the previous media plan.");
     }
 
-    var project = projectAccess.findOwnedProject(projectId, userId);
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(chapterId)
-            .flatMap(internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
+            .flatMap(
+                internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       throw new GenerationAdmissionDeniedException(
@@ -191,7 +193,8 @@ public class CreateRegenerationJobUseCase {
                 beat.visualBeatId(),
                 itemKey,
                 1,
-                itemFingerprint(regenerationPlan.inputFingerprint(), mediaPlan.id(), beat.visualBeatId())));
+                itemFingerprint(
+                    regenerationPlan.inputFingerprint(), mediaPlan.id(), beat.visualBeatId())));
       }
     }
     generationOutboxRepository.enqueue(job);
@@ -207,7 +210,8 @@ public class CreateRegenerationJobUseCase {
     try {
       String value = regenerationFingerprint + ":" + mediaPlanId + ":" + visualBeatId;
       return HexFormat.of()
-          .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }

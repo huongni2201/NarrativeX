@@ -28,6 +28,12 @@ public class MyBatisCharacterVersionPersistenceAdapter implements CharacterVersi
   }
 
   @Override
+  public Optional<CharacterVersion> findOwnedByIdForUpdate(UUID id, String ownerId) {
+    return Optional.ofNullable(mapper.findOwnedVersionForUpdate(id, ownerId))
+        .map(rowMapper::toDomain);
+  }
+
+  @Override
   public CharacterVersion save(CharacterVersion value) {
     CharacterVersionRow row = rowMapper.row(value, CharacterMyBatisRowMapper.InstantPair.now());
     if (value.getId() == null) {

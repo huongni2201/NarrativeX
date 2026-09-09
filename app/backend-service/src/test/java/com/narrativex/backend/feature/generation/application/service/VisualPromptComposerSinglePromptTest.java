@@ -106,7 +106,8 @@ class VisualPromptComposerSinglePromptTest {
          "palette":"warm neutral","camera_movement":"PUSH_IN",
          "movement_direction":null,"movement_intensity":"SUBTLE",
          "crop_safe_area":"10 percent crop room"}
-        """.formatted(shotSize, angle, lensMm);
+        """
+        .formatted(shotSize, angle, lensMm);
   }
 
   private static int occurrences(String text, String needle) {

@@ -102,6 +102,20 @@ export class ProjectCatalog {
     });
   }
 
+  async setFavorite(projectId: string, isStarred: boolean): Promise<LocalProjectCatalogEntry> {
+    return this.withWriteLock(async () => {
+      const catalog = await this.readCatalogWithRecovery();
+      const existing = catalog.projects[projectId];
+      if (!existing || existing.archived) {
+        throw new Error(`Local project ${projectId} is not registered.`);
+      }
+      existing.project = { ...existing.project, isStarred };
+      await this.persistEntry(projectId, existing);
+      await this.writeCatalog(catalog);
+      return this.toPublicEntry(existing);
+    });
+  }
+
   async markArchived(projectId: string): Promise<void> {
     return this.withWriteLock(async () => {
       const catalog = await this.readCatalogWithRecovery();

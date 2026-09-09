@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,21 +22,42 @@ class Step:
     optional: bool = False
 
 
-def command_exists(command: str, cwd: Path) -> bool:
-    if command.startswith("./"):
-        return (cwd / command[2:]).exists()
-    return shutil.which(command) is not None
+class StepStatus(Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    SKIP = "SKIP"
 
 
-def run(step: Step) -> tuple[bool, float, str]:
-    executable = step.command[0]
-    if not command_exists(executable, step.cwd):
-        return step.optional, 0.0, f"missing executable: {executable}"
+def resolve_executable(command: str, cwd: Path) -> str | None:
+    """Resolve a command exactly as it will be passed to subprocess.
+
+    Repository wrappers are resolved relative to the step working directory;
+    ordinary tools fall back to PATH. Returning an absolute path also avoids
+    Windows subprocess lookup treating a present mvnw.cmd as a PATH command.
+    """
+    candidate = Path(command)
+    if candidate.is_absolute():
+        return str(candidate.resolve()) if candidate.is_file() else None
+
+    local_candidate = cwd / candidate
+    if local_candidate.is_file():
+        return str(local_candidate.resolve())
+
+    return shutil.which(command)
+
+
+def run(step: Step) -> tuple[StepStatus, float, str]:
+    executable = resolve_executable(step.command[0], step.cwd)
+    if executable is None:
+        status = StepStatus.SKIP if step.optional else StepStatus.FAIL
+        return status, 0.0, f"missing executable: {step.command[0]}"
+    command = [executable, *step.command[1:]]
     started = time.monotonic()
-    print(f"\n==> {step.name}\n$ {' '.join(step.command)}", flush=True)
-    completed = subprocess.run(step.command, cwd=step.cwd, check=False)
+    print(f"\n==> {step.name}\n$ {' '.join(command)}", flush=True)
+    completed = subprocess.run(command, cwd=step.cwd, check=False)
     elapsed = time.monotonic() - started
-    return completed.returncode == 0, elapsed, f"exit {completed.returncode}"
+    status = StepStatus.PASS if completed.returncode == 0 else StepStatus.FAIL
+    return status, elapsed, f"exit {completed.returncode}"
 
 
 def main() -> int:
@@ -77,19 +99,19 @@ def main() -> int:
     if args.package_win:
         steps.append(Step("Windows package", desktop, [npm, "run", "package:win"]))
 
-    results: list[tuple[str, bool, float, str]] = []
+    results: list[tuple[str, StepStatus, float, str]] = []
     for step in steps:
-        ok, elapsed, detail = run(step)
-        results.append((step.name, ok, elapsed, detail))
-        if not ok:
+        status, elapsed, detail = run(step)
+        results.append((step.name, status, elapsed, detail))
+        if status is StepStatus.FAIL:
             break
 
     print("\nNarrativeX local quality gate")
     print("-" * 72)
-    for name, ok, elapsed, detail in results:
-        print(f"{'PASS' if ok else 'FAIL':4}  {elapsed:7.2f}s  {name} ({detail})")
+    for name, status, elapsed, detail in results:
+        print(f"{status.value:4}  {elapsed:7.2f}s  {name} ({detail})")
 
-    failed = [item for item in results if not item[1]]
+    failed = [item for item in results if item[1] is StepStatus.FAIL]
     if failed:
         print("\nGate failed. Fix the first failing stage before merging.")
         return 1

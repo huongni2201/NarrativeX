@@ -40,7 +40,9 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
                         "Visual Beat not found in the current Chapter storyboard"));
     var context = visualPromptContextRepository.findForBeat(projectId, visualBeatId);
     long requiredIdentityReferences =
-        context.characters().stream().filter(character -> !character.references().isEmpty()).count();
+        context.characters().stream()
+            .filter(character -> !character.references().isEmpty())
+            .count();
     if (requiredIdentityReferences > MAX_REFERENCE_IMAGES) {
       throw new ResourceConflictException(
           "REFERENCE_BUDGET_EXCEEDED: Visual Beat requires identity references for "

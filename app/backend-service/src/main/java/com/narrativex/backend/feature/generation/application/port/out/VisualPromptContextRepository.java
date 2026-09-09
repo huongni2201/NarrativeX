@@ -20,8 +20,7 @@ public interface VisualPromptContextRepository {
    * override this method; the default preserves compatibility for test doubles and non-MyBatis
    * adapters.
    */
-  default Map<UUID, VisualPromptContext> findForBeats(
-      UUID projectId, List<UUID> visualBeatIds) {
+  default Map<UUID, VisualPromptContext> findForBeats(UUID projectId, List<UUID> visualBeatIds) {
     Map<UUID, VisualPromptContext> contexts = new LinkedHashMap<>();
     for (UUID visualBeatId : visualBeatIds) {
       contexts.put(visualBeatId, findForBeat(projectId, visualBeatId));

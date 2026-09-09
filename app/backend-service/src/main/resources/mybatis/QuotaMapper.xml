@@ -119,9 +119,22 @@
          WHERE user_id = #{userId} AND period_key = #{periodKey} AND status = 'RESERVED'
     </select>
 
+    <select id="findLongformExportsUsedForUpdate" resultType="int">
+        SELECT longform_exports FROM usage_windows
+         WHERE user_id = #{userId} AND period_key = #{periodKey}
+         FOR UPDATE
+    </select>
+
+    <select id="findReservedLongformExports" resultType="int">
+        SELECT COALESCE(SUM(units), 0)::int FROM quota_reservations
+         WHERE user_id = #{userId} AND period_key = #{periodKey}
+           AND status = 'RESERVED' AND quota_kind = 'LONGFORM_EXPORT'
+    </select>
+
     <select id="insertReservation" parameterType="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaReservationRow" resultType="long" affectData="true">
-        INSERT INTO quota_reservations (user_id, period_key, estimated_cost, status)
-        VALUES (#{userId}, #{periodKey}, #{estimatedCost}, 'RESERVED')
+        INSERT INTO quota_reservations
+          (user_id, period_key, estimated_cost, quota_kind, units, status)
+        VALUES (#{userId}, #{periodKey}, #{estimatedCost}, #{quotaKind}, #{units}, 'RESERVED')
         RETURNING id
     </select>
 

@@ -48,9 +48,10 @@ class FlywayBaselineStructureTest {
     assertTrue(v2.contains("ck_visual_beats_visual_direction_json_object"));
     assertTrue(v2.contains("CHECK (production_mode = 'IMAGE_MOTION')"));
     assertFalse(v2.contains("preview_asset_id"));
-    assertFalse(v2.contains("camera_angle"));
-    assertFalse(v2.contains("camera_movement VARCHAR"));
-    assertFalse(v2.contains("audio_start_ms BIGINT"));
+    String visualBeats = table(v2, "visual_beats", "visual_beat_characters");
+    assertFalse(visualBeats.contains("camera_angle"));
+    assertFalse(visualBeats.contains("camera_movement VARCHAR"));
+    assertFalse(visualBeats.contains("audio_start_ms BIGINT"));
     assertFalse(v2.contains("HYBRID_LOCAL_I2V"));
 
     assertTrue(v3.contains("CREATE TABLE generation_jobs"));
@@ -142,5 +143,13 @@ class FlywayBaselineStructureTest {
 
   private static String read(String name) throws IOException {
     return Files.readString(FlywayMigrationContract.migration(name));
+  }
+
+  private static String table(String migration, String table, String nextTable) {
+    int start = migration.indexOf("CREATE TABLE " + table);
+    int end = migration.indexOf("CREATE TABLE " + nextTable, start);
+    assertTrue(start >= 0, "Missing table " + table);
+    assertTrue(end > start, "Missing table boundary " + nextTable);
+    return migration.substring(start, end);
   }
 }

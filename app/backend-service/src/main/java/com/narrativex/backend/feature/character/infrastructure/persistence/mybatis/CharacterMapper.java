@@ -38,6 +38,9 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
 
   CharacterVersionRow findOwnedVersion(@Param("id") UUID id, @Param("ownerId") String ownerId);
 
+  CharacterVersionRow findOwnedVersionForUpdate(
+      @Param("id") UUID id, @Param("ownerId") String ownerId);
+
   CharacterVersionRow findCharacterVersion(@Param("id") UUID id);
 
   UUID insertCharacterVersion(CharacterVersionRow row);

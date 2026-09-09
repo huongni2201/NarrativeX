@@ -10,9 +10,10 @@ import com.narrativex.backend.feature.generation.application.port.out.Storyboard
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.BeatSnapshot;
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.ChapterScope;
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.GenerationBatch;
+import com.narrativex.backend.feature.generation.application.query.StoryboardGenerationBatchView;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer.ReferenceBinding;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
-import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -36,7 +37,7 @@ public class PrepareStoryboardGenerationBatchUseCase {
   public static final String STYLE_POLICY_VERSION = "storyboard-manhwa-v2";
   public static final String PROVIDER_POLICY_VERSION = "gemini-web-3.1-pro-cinematic-v1";
 
-  private final GetChapterStoryboardUseCase getChapterStoryboardUseCase;
+  private final StoryboardBeatAccess storyboardBeatAccess;
   private final VisualBeatPromptContext visualBeatPromptContext;
   private final ChapterContinuityRepository chapterContinuityRepository;
   private final StoryboardGenerationSnapshotRepository snapshotRepository;
@@ -50,21 +51,21 @@ public class PrepareStoryboardGenerationBatchUseCase {
       UUID expectedStoryboardRevisionId,
       String idempotencyKey) {
     if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 128) {
-      throw new IllegalArgumentException("Idempotency-Key is required and must be at most 128 characters");
+      throw new IllegalArgumentException(
+          "Idempotency-Key is required and must be at most 128 characters");
     }
     List<UUID> beatIds = normalizeBeatIds(requestedBeatIds);
-    var storyboard = getChapterStoryboardUseCase.execute(projectId, chapterId).data();
-    var validBeatIds = new LinkedHashSet<UUID>();
-    storyboard.scenes().forEach(
-        scene -> scene.visualBeats().forEach(beat -> validBeatIds.add(beat.id())));
+    var validBeatIds = storyboardBeatAccess.requireCurrentBeatIds(projectId, chapterId);
     if (!validBeatIds.containsAll(beatIds)) {
-      throw new ResourceNotFoundException("One or more Visual Beats are not in the current Chapter storyboard");
+      throw new ResourceNotFoundException(
+          "One or more Visual Beats are not in the current Chapter storyboard");
     }
 
     var scope =
         snapshotRepository
             .findCurrentScope(projectId, chapterId)
-            .orElseThrow(() -> new ResourceConflictException("Chapter has no current storyboard revision"));
+            .orElseThrow(
+                () -> new ResourceConflictException("Chapter has no current storyboard revision"));
     if (expectedStoryboardRevisionId != null
         && !expectedStoryboardRevisionId.equals(scope.storyboardRevisionId())) {
       throw new ResourceConflictException(
@@ -119,7 +120,9 @@ public class PrepareStoryboardGenerationBatchUseCase {
             "Idempotency-Key was already used with different storyboard generation inputs");
       }
       return new PreparedBatch(
-          existing.get(), parseIssues(existing.get().issuesJson()), isStale(existing.get()));
+          StoryboardGenerationBatchView.from(existing.get()),
+          parseIssues(existing.get().issuesJson()),
+          isStale(existing.get()));
     }
 
     var batch =
@@ -142,7 +145,8 @@ public class PrepareStoryboardGenerationBatchUseCase {
             beatSnapshots);
     try {
       snapshotRepository.save(batch);
-      return new PreparedBatch(batch, List.copyOf(issues), false);
+      return new PreparedBatch(
+          StoryboardGenerationBatchView.from(batch), List.copyOf(issues), false);
     } catch (DataIntegrityViolationException race) {
       var winner =
           snapshotRepository
@@ -152,18 +156,23 @@ public class PrepareStoryboardGenerationBatchUseCase {
         throw new ResourceConflictException(
             "Idempotency-Key was concurrently used with different storyboard generation inputs");
       }
-      return new PreparedBatch(winner, parseIssues(winner.issuesJson()), isStale(winner));
+      return new PreparedBatch(
+          StoryboardGenerationBatchView.from(winner),
+          parseIssues(winner.issuesJson()),
+          isStale(winner));
     }
   }
 
   @Transactional(readOnly = true)
   public PreparedBatch get(UUID projectId, UUID chapterId, UUID batchId) {
-    getChapterStoryboardUseCase.execute(projectId, chapterId);
+    storyboardBeatAccess.requireCurrentBeatIds(projectId, chapterId);
     var batch =
         snapshotRepository
             .findById(projectId, chapterId, batchId)
-            .orElseThrow(() -> new ResourceNotFoundException("Storyboard generation batch not found"));
-    return new PreparedBatch(batch, parseIssues(batch.issuesJson()), isStale(batch));
+            .orElseThrow(
+                () -> new ResourceNotFoundException("Storyboard generation batch not found"));
+    return new PreparedBatch(
+        StoryboardGenerationBatchView.from(batch), parseIssues(batch.issuesJson()), isStale(batch));
   }
 
   /**
@@ -202,21 +211,20 @@ public class PrepareStoryboardGenerationBatchUseCase {
     return false;
   }
 
-  private CurrentContinuity currentContinuity(
-      UUID projectId, UUID chapterId, ChapterScope scope) {
+  private CurrentContinuity currentContinuity(UUID projectId, UUID chapterId, ChapterScope scope) {
     return chapterContinuityRepository
         .findCurrent(projectId, chapterId)
         .filter(current -> current.sourceHash().equals(scope.sourceHash()))
         .orElse(null);
   }
 
-  private static boolean matchesContinuity(
-      GenerationBatch batch, CurrentContinuity continuity) {
+  private static boolean matchesContinuity(GenerationBatch batch, CurrentContinuity continuity) {
     return Objects.equals(batch.continuityPlanId(), continuity == null ? null : continuity.planId())
         && Objects.equals(
             batch.continuityPlanRevision(), continuity == null ? null : continuity.planRevision())
         && Objects.equals(
-            batch.continuityReportRevision(), continuity == null ? null : continuity.reportRevision());
+            batch.continuityReportRevision(),
+            continuity == null ? null : continuity.reportRevision());
   }
 
   private BeatSnapshot toBeatSnapshot(
@@ -227,9 +235,7 @@ public class PrepareStoryboardGenerationBatchUseCase {
     boolean badChecksum =
         composed.referenceBindings().stream()
             .anyMatch(
-                binding ->
-                    binding.sha256() == null
-                        || !binding.sha256().matches("^[0-9a-f]{64}$"));
+                binding -> binding.sha256() == null || !binding.sha256().matches("^[0-9a-f]{64}$"));
     if (badChecksum) {
       throw new ResourceConflictException(
           "REFERENCE_INTEGRITY_FAILED: One or more required reference assets do not have a valid SHA-256 checksum.");
@@ -351,9 +357,7 @@ public class PrepareStoryboardGenerationBatchUseCase {
     try {
       return objectMapper.readValue(
           json,
-          objectMapper
-              .getTypeFactory()
-              .constructCollectionType(List.class, GenerationIssue.class));
+          objectMapper.getTypeFactory().constructCollectionType(List.class, GenerationIssue.class));
     } catch (Exception exception) {
       throw new IllegalStateException("Stored storyboard generation issues are invalid", exception);
     }
@@ -363,7 +367,8 @@ public class PrepareStoryboardGenerationBatchUseCase {
     try {
       return objectMapper.writeValueAsString(value);
     } catch (Exception exception) {
-      throw new IllegalStateException("Could not serialize storyboard generation snapshot", exception);
+      throw new IllegalStateException(
+          "Could not serialize storyboard generation snapshot", exception);
     }
   }
 
@@ -385,7 +390,8 @@ public class PrepareStoryboardGenerationBatchUseCase {
 
   public record GenerationIssue(String code, String severity, UUID visualBeatId, String message) {}
 
-  public record PreparedBatch(GenerationBatch batch, List<GenerationIssue> issues, boolean stale) {
+  public record PreparedBatch(
+      StoryboardGenerationBatchView batch, List<GenerationIssue> issues, boolean stale) {
     public boolean hasBlockingIssues() {
       return issues.stream().anyMatch(issue -> "BLOCKING".equals(issue.severity()));
     }

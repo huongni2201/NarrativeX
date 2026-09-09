@@ -19,7 +19,7 @@ export interface LocalRenderManifest {
   readonly jobId: string;
   readonly projectId: string;
   readonly renderFingerprint: string;
-  readonly renderProfileSchemaVersion: 2;
+  readonly renderProfileSchemaVersion: 3;
   readonly rendererVersion: "project-image-motion-v3-composition";
   readonly compositionPolicyVersion: 1;
   readonly width: number;
@@ -28,6 +28,10 @@ export interface LocalRenderManifest {
   readonly videoEncoder: VideoEncoder;
   readonly videoQuality: VideoQualityProfile;
   readonly colorMode: RenderColorMode;
+  readonly watermark: {
+    readonly mode: "required" | "none";
+    readonly policyVersion: 1;
+  };
   readonly beats: readonly LocalRenderBeat[];
   readonly audio: { readonly chapters: readonly LocalRenderAudio[] };
   readonly subtitles: readonly PlannedSubtitle[];
@@ -130,6 +134,7 @@ export function buildLocalRenderManifest(
     videoEncoder,
     videoQuality: profile.video,
     colorMode: profile.colorMode,
+    watermark: profile.watermark,
     beats: beats.map(({ localPath: _path, ...beat }) => beat),
     audio: {
       chapters: audio.chapters.map(({ localPath: _path, ...chapter }) => chapter),
@@ -153,6 +158,7 @@ export function buildLocalRenderManifest(
     videoEncoder,
     videoQuality: profile.video,
     colorMode: profile.colorMode,
+    watermark: profile.watermark,
     beats,
     audio,
     subtitles,

@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.generation.api.response;
 
-import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository.CurrentContinuity;
+import com.narrativex.backend.feature.generation.application.query.ContinuityView;
 import com.narrativex.backend.feature.generation.application.service.ContinuityIssueCodec;
 import java.util.List;
 import java.util.UUID;
@@ -14,7 +14,7 @@ public record ChapterContinuityResponse(
     List<IssueResponse> issues) {
 
   public static ChapterContinuityResponse from(
-      CurrentContinuity continuity, ContinuityIssueCodec codec) {
+      ContinuityView continuity, ContinuityIssueCodec codec) {
     return new ChapterContinuityResponse(
         continuity.planId(),
         continuity.planRevision(),

@@ -76,6 +76,7 @@ test("v3 moving still produces 60 decoded CFR frames with smooth monotonic subpi
       videoEncoder: "libx264",
       videoQuality: V2_VIDEO_QUALITY,
       colorMode: "SDR_BT709_LIMITED",
+      watermark: { mode: "none", policyVersion: 1 },
     };
     const beat = {
       visualBeatId: "fixture-beat",
@@ -143,6 +144,74 @@ test("v3 moving still produces 60 decoded CFR frames with smooth monotonic subpi
       uniqueSubpixelPositions >= 30,
       `expected subpixel progression across at least 30 distinct decoded positions, got ${uniqueSubpixelPositions}`,
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("required watermark changes encoded frame pixels while none leaves them clean", async (t) => {
+  if (!executableAvailable("ffmpeg")) {
+    t.skip("ffmpeg is required for the watermark integration fixture");
+    return;
+  }
+
+  const directory = await mkdtemp(join(tmpdir(), "narrativex-watermark-"));
+  try {
+    const input = join(directory, "dark.ppm");
+    const cleanOutput = join(directory, "clean.mp4");
+    const markedOutput = join(directory, "marked.mp4");
+    const width = 320;
+    const height = 180;
+    const pixels = Buffer.alloc(width * height * 3, 24);
+    await writeFile(input, Buffer.concat([Buffer.from(`P6\n${width} ${height}\n255\n`), pixels]));
+
+    const baseManifest = {
+      width,
+      height,
+      fps: 30,
+      videoEncoder: "libx264",
+      videoQuality: V2_VIDEO_QUALITY,
+      colorMode: "SDR_BT709_LIMITED",
+    };
+    const beat = {
+      visualBeatId: "watermark-fixture",
+      mediaType: "IMAGE",
+      localPath: input,
+      frameCount: 2,
+      cameraMovement: "NONE",
+      transitionInMs: 0,
+      transitionOutMs: 0,
+    };
+
+    run("ffmpeg", [
+      "-hide_banner", "-loglevel", "error",
+      ...buildBeatRenderArgs(
+        { ...baseManifest, watermark: { mode: "none", policyVersion: 1 } },
+        beat,
+        cleanOutput,
+      ),
+    ]);
+    run("ffmpeg", [
+      "-hide_banner", "-loglevel", "error",
+      ...buildBeatRenderArgs(
+        { ...baseManifest, watermark: { mode: "required", policyVersion: 1 } },
+        beat,
+        markedOutput,
+      ),
+    ]);
+
+    const decode = (path) => run("ffmpeg", [
+      "-hide_banner", "-loglevel", "error", "-i", path,
+      "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+    ], { encoding: null }).stdout;
+    const clean = decode(cleanOutput);
+    const marked = decode(markedOutput);
+    assert.equal(clean.length, marked.length);
+    let changedPixels = 0;
+    for (let index = 0; index < clean.length; index += 1) {
+      if (Math.abs(clean[index] - marked[index]) >= 8) changedPixels += 1;
+    }
+    assert.ok(changedPixels > 100, "watermark must materially alter the final encoded pixels");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -116,9 +116,12 @@ export function buildBeatRenderArgs(
     `fps=${manifest.fps}`;
 
   if (beat.mediaType === "IMAGE") {
-    const filter = withSubtitleFilter(
-      withTransitionFilters(imageMotionFilter(manifest, beat), beat, manifest.fps),
-      subtitlePath,
+    const filter = withWatermarkFilter(
+      withSubtitleFilter(
+        withTransitionFilters(imageMotionFilter(manifest, beat), beat, manifest.fps),
+        subtitlePath,
+      ),
+      manifest,
     );
     return [
       "-i",
@@ -161,7 +164,10 @@ export function buildBeatRenderArgs(
       }
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
-        withSubtitleFilter(withTransitionFilters(baseFilter, beat, manifest.fps), subtitlePath),
+        withWatermarkFilter(
+          withSubtitleFilter(withTransitionFilters(baseFilter, beat, manifest.fps), subtitlePath),
+          manifest,
+        ),
         beat.frameCount,
         manifest,
         output,
@@ -171,20 +177,26 @@ export function buildBeatRenderArgs(
     case "LOOP":
       return encodeVideoArgs(
         ["-stream_loop", "-1", ...inputSeek, "-i", beat.localPath],
-        withSubtitleFilter(withTransitionFilters(baseFilter, beat, manifest.fps), subtitlePath),
+        withWatermarkFilter(
+          withSubtitleFilter(withTransitionFilters(baseFilter, beat, manifest.fps), subtitlePath),
+          manifest,
+        ),
         beat.frameCount,
         manifest,
         output,
         videoEncoder,
       );
     case "FREEZE_END": {
-      const filter = withSubtitleFilter(
-        withTransitionFilters(
-          `${baseFilter},tpad=stop_mode=clone:stop_duration=${targetDurationSeconds.toFixed(6)}`,
-          beat,
-          manifest.fps,
+      const filter = withWatermarkFilter(
+        withSubtitleFilter(
+          withTransitionFilters(
+            `${baseFilter},tpad=stop_mode=clone:stop_duration=${targetDurationSeconds.toFixed(6)}`,
+            beat,
+            manifest.fps,
+          ),
+          subtitlePath,
         ),
-        subtitlePath,
+        manifest,
       );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
@@ -209,15 +221,18 @@ export function buildBeatRenderArgs(
           `Unable to calculate video speed for beat ${beat.visualBeatId}.`,
         );
       }
-      const filter = withSubtitleFilter(
-        withTransitionFilters(
-          `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
-            `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,` +
-            `setpts=${ptsFactor.toFixed(8)}*PTS,fps=${manifest.fps}`,
-          beat,
-          manifest.fps,
+      const filter = withWatermarkFilter(
+        withSubtitleFilter(
+          withTransitionFilters(
+            `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+              `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2,` +
+              `setpts=${ptsFactor.toFixed(8)}*PTS,fps=${manifest.fps}`,
+            beat,
+            manifest.fps,
+          ),
+          subtitlePath,
         ),
-        subtitlePath,
+        manifest,
       );
       return encodeVideoArgs(
         [...inputSeek, "-i", beat.localPath],
@@ -309,6 +324,22 @@ function withTransitionFilters(
 function withSubtitleFilter(videoFilter: string, subtitlePath: string | null): string {
   if (!subtitlePath) return videoFilter;
   return `${videoFilter},subtitles=filename='${escapeSubtitleFilterPath(subtitlePath)}'`;
+}
+
+function withWatermarkFilter(
+  videoFilter: string,
+  manifest: LocalRenderManifest,
+): string {
+  const colorTagged =
+    manifest.colorMode === "SDR_BT709_LIMITED"
+      ? `${videoFilter},setparams=range=limited:color_primaries=bt709:color_trc=bt709:colorspace=bt709`
+      : videoFilter;
+  if (manifest.watermark.mode === "none") return colorTagged;
+  return (
+    `${colorTagged},drawtext=text='NarrativeX':fontcolor=white@0.72:` +
+    "fontsize=h/28:box=1:boxcolor=black@0.35:boxborderw=h/100:" +
+    "x=w-tw-w/40:y=h-th-h/40"
+  );
 }
 
 function encodeVideoArgs(

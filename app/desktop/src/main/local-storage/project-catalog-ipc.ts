@@ -11,6 +11,7 @@ import {
 import { SelectionTokenStore } from "../security/selection-token-store";
 import {
   ProjectCatalog,
+  type LocalProjectCatalogEntry,
   type LocalProjectCatalogMetadata,
 } from "./project-catalog";
 import { ProjectStorage } from "./project-storage";
@@ -22,21 +23,28 @@ export function registerProjectCatalogIpc(
   trustPolicy: RendererTrustPolicy,
   catalog: ProjectCatalog,
 ): void {
-  registerTrustedIpcHandler("desktop:projects-local:list", trustPolicy, () => catalog.list());
-  registerTrustedIpcHandler("desktop:projects-local:last-opened", trustPolicy, () =>
-    catalog.lastOpened(),
+  registerTrustedIpcHandler("desktop:projects-local:list", trustPolicy, async () =>
+    (await catalog.list()).map(toRendererCatalogEntry),
   );
-  registerTrustedIpcHandler("desktop:projects-local:touch", trustPolicy, (projectId) => {
+  registerTrustedIpcHandler("desktop:projects-local:last-opened", trustPolicy, async () => {
+    const entry = await catalog.lastOpened();
+    return entry ? toRendererCatalogEntry(entry) : null;
+  });
+  registerTrustedIpcHandler("desktop:projects-local:touch", trustPolicy, async (projectId) => {
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
-    return catalog.touch(projectId);
+    return toRendererCatalogEntry(await catalog.touch(projectId));
+  });
+  registerTrustedIpcHandler("desktop:projects-local:set-favorite", trustPolicy, async (input) => {
+    if (!isFavoritePatch(input)) throw new Error("Invalid local favorite patch.");
+    return toRendererCatalogEntry(await catalog.setFavorite(input.projectId, input.isStarred));
   });
   registerTrustedIpcHandler("desktop:projects-local:mark-archived", trustPolicy, (projectId) => {
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
     return catalog.markArchived(projectId);
   });
-  registerTrustedIpcHandler("desktop:projects-local:upsert", trustPolicy, (input) => {
+  registerTrustedIpcHandler("desktop:projects-local:upsert", trustPolicy, async (input) => {
     if (!isCatalogUpsertInput(input)) throw new Error("Invalid local project catalog input.");
-    return catalog.upsert(input.project, input.metadata);
+    return toRendererCatalogEntry(await catalog.upsert(input.project, input.metadata));
   });
 
   registerTrustedIpcHandlerWithEvent(
@@ -116,6 +124,15 @@ export function registerProjectCatalogIpc(
   );
 }
 
+function toRendererCatalogEntry(entry: LocalProjectCatalogEntry) {
+  return {
+    project: entry.project,
+    ownerId: entry.ownerId,
+    registeredAt: entry.registeredAt,
+    lastOpenedAt: entry.lastOpenedAt,
+  };
+}
+
 function isCatalogUpsertInput(value: unknown): value is {
   project: DesktopProject;
   metadata?: LocalProjectCatalogMetadata;
@@ -123,6 +140,15 @@ function isCatalogUpsertInput(value: unknown): value is {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const input = value as Record<string, unknown>;
   return isProject(input.project) && isMetadata(input.metadata);
+}
+
+function isFavoritePatch(value: unknown): value is {
+  projectId: string;
+  isStarred: boolean;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const input = value as Record<string, unknown>;
+  return typeof input.projectId === "string" && typeof input.isStarred === "boolean";
 }
 
 function isRenderDestinationBindingInput(value: unknown): value is {

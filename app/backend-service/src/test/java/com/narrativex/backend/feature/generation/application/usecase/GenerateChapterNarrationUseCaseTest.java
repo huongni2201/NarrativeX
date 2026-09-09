@@ -59,7 +59,8 @@ class GenerateChapterNarrationUseCaseTest {
     OperationPlanRepository operationPlanRepository = mock(OperationPlanRepository.class);
     StageAttemptRepository stageAttemptRepository = mock(StageAttemptRepository.class);
     NarrationRequestRepository narrationRequestRepository = mock(NarrationRequestRepository.class);
-    NarrationOperationRepository narrationOperationRepository = mock(NarrationOperationRepository.class);
+    NarrationOperationRepository narrationOperationRepository =
+        mock(NarrationOperationRepository.class);
     NarrationAdmissionService admissionService = mock(NarrationAdmissionService.class);
     NarrationRequestFingerprint fingerprintService = mock(NarrationRequestFingerprint.class);
     QuotaReservation quotaReservation = mock(QuotaReservation.class);
@@ -97,11 +98,7 @@ class GenerateChapterNarrationUseCaseTest {
             () ->
                 useCase.execute(
                     new GenerateChapterNarrationCommand(
-                        projectId,
-                        chapterId,
-                        "vieneu-disabled",
-                        BigDecimal.ONE,
-                        null)))
+                        projectId, chapterId, "vieneu-disabled", BigDecimal.ONE, null)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("unavailable or disabled");
 

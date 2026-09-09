@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.application.port.out.ChapterCon
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository.BeatLineage;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository.RegenerationPlan;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
+import com.narrativex.backend.feature.generation.application.query.RegenerationPlanView;
 import com.narrativex.backend.feature.generation.application.service.ContinuityIssueCodec;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
@@ -39,7 +40,7 @@ public class CreateRegenerationPlanUseCase {
   private final ImageGenerationCatalog imageGenerationCatalog;
 
   @Transactional
-  public RegenerationPlan execute(
+  public RegenerationPlanView execute(
       UUID projectId,
       UUID chapterId,
       UUID expectedPlanId,
@@ -72,7 +73,8 @@ public class CreateRegenerationPlanUseCase {
     if (requested.isEmpty()) {
       throw new IllegalArgumentException("At least one visual beat is required for regeneration");
     }
-    Set<UUID> knownBeatIds = lineage.stream().map(BeatLineage::visualBeatId).collect(Collectors.toSet());
+    Set<UUID> knownBeatIds =
+        lineage.stream().map(BeatLineage::visualBeatId).collect(Collectors.toSet());
     if (!knownBeatIds.containsAll(requested)) {
       throw new ResourceConflictException("CONTINUITY_INPUT_STALE");
     }
@@ -100,24 +102,25 @@ public class CreateRegenerationPlanUseCase {
             imageProfile.model());
     var replay =
         continuityRepository.findRegenerationPlanByFingerprint(projectId, chapterId, fingerprint);
-    if (replay.isPresent()) return replay.get();
+    if (replay.isPresent()) return RegenerationPlanView.from(replay.get());
 
-    return continuityRepository.saveRegenerationPlan(
-        new RegenerationPlan(
-            UuidV7.random(),
-            projectId,
-            chapterId,
-            current.planId(),
-            current.sourceHash(),
-            List.copyOf(requested),
-            List.copyOf(affected),
-            reusable,
-            normalizedReason,
-            estimatedCost,
-            "USD",
-            Instant.now().plus(PLAN_TTL_MINUTES, ChronoUnit.MINUTES),
-            fingerprint,
-            userId));
+    return RegenerationPlanView.from(
+        continuityRepository.saveRegenerationPlan(
+            new RegenerationPlan(
+                UuidV7.random(),
+                projectId,
+                chapterId,
+                current.planId(),
+                current.sourceHash(),
+                List.copyOf(requested),
+                List.copyOf(affected),
+                reusable,
+                normalizedReason,
+                estimatedCost,
+                "USD",
+                Instant.now().plus(PLAN_TTL_MINUTES, ChronoUnit.MINUTES),
+                fingerprint,
+                userId)));
   }
 
   private static LinkedHashSet<UUID> resolveAffected(
@@ -126,9 +129,7 @@ public class CreateRegenerationPlanUseCase {
         lineage.stream()
             .collect(
                 Collectors.groupingBy(
-                    BeatLineage::sceneId,
-                    java.util.LinkedHashMap::new,
-                    Collectors.toList()));
+                    BeatLineage::sceneId, java.util.LinkedHashMap::new, Collectors.toList()));
     LinkedHashSet<UUID> affected = new LinkedHashSet<>();
     for (List<BeatLineage> sceneBeats : byScene.values()) {
       int firstAffectedOrder =
@@ -163,15 +164,22 @@ public class CreateRegenerationPlanUseCase {
     }
     String value =
         planId
-            + "|" + sourceHash
-            + "|requested=" + requested
-            + "|affected=" + dependencies
-            + "|reason=" + reason
-            + "|provider=" + providerKey
-            + "|model=" + modelKey;
+            + "|"
+            + sourceHash
+            + "|requested="
+            + requested
+            + "|affected="
+            + dependencies
+            + "|reason="
+            + reason
+            + "|provider="
+            + providerKey
+            + "|model="
+            + modelKey;
     try {
       return HexFormat.of()
-          .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }

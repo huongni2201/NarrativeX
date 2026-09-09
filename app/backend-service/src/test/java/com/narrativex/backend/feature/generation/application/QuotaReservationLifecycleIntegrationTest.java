@@ -184,6 +184,41 @@ class QuotaReservationLifecycleIntegrationTest {
     assertEquals(0, new BigDecimal("45.500000000").compareTo(creditsUsed()));
   }
 
+  @Test
+  void longformExportReservesLastUnitAndConfirmedFailureReleasesIt() {
+    seedEntitlement();
+    UUID projectId = insertProject();
+    var reservation =
+        quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).orElseThrow();
+    UUID jobId = insertJob(projectId, "longform-release");
+    quotaReservation.bindToGenerationJob(reservation.id(), jobId);
+
+    assertTrue(quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).isEmpty());
+
+    jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
+
+    assertTrue(quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).isPresent());
+    assertEquals(0, longformExportsUsed());
+  }
+
+  @Test
+  void completedLongformExportSettlesExactlyOnceIntoReservationPeriod() {
+    seedEntitlement();
+    UUID projectId = insertProject();
+    var reservation =
+        quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).orElseThrow();
+    UUID jobId = insertProjectRenderJob(projectId);
+    quotaReservation.bindToGenerationJob(reservation.id(), jobId);
+
+    jdbcTemplate.update(
+        "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?", jobId);
+    jdbcTemplate.update(
+        "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?", jobId);
+
+    assertEquals(1, longformExportsUsed());
+    assertTrue(quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).isEmpty());
+  }
+
   private void seedUltraEntitlement() {
     jdbcTemplate.update(
         """
@@ -217,6 +252,13 @@ class QuotaReservationLifecycleIntegrationTest {
                period_start = EXCLUDED.period_start,
                period_end = EXCLUDED.period_end
         """,
+        USER_ID);
+  }
+
+  private int longformExportsUsed() {
+    return jdbcTemplate.queryForObject(
+        "SELECT longform_exports FROM usage_windows WHERE user_id = ? AND period_key = to_char(CURRENT_DATE, 'YYYY-MM')",
+        Integer.class,
         USER_ID);
   }
 
@@ -279,6 +321,22 @@ class QuotaReservationLifecycleIntegrationTest {
           (job_id, project_id, job_type, status, resource_class, progress,
            requested_by_user_id, billed_to_user_id)
         VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?)
+        RETURNING id
+        """,
+        UUID.class,
+        com.narrativex.backend.feature.common.uuid.UuidV7.random(),
+        projectId,
+        USER_ID,
+        USER_ID);
+  }
+
+  private UUID insertProjectRenderJob(UUID projectId) {
+    return jdbcTemplate.queryForObject(
+        """
+        INSERT INTO generation_jobs
+          (job_id, project_id, job_type, status, resource_class, progress,
+           requested_by_user_id, billed_to_user_id)
+        VALUES (?, ?, 'RENDER_PROJECT', 'QUEUED', 'CPU_RENDER', 0, ?, ?)
         RETURNING id
         """,
         UUID.class,

@@ -57,7 +57,7 @@ class CreateProjectRenderUseCaseTest {
   }
 
   @Test
-  void projectRenderRequestFingerprintChangesWithResolutionTimelineAssignedDeviceAndSubtitles() {
+  void projectRenderRequestFingerprintChangesWithResolutionOverridesAssignedDeviceAndSubtitles() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -67,36 +67,33 @@ class CreateProjectRenderUseCaseTest {
     UUID otherDeviceId = UUID.randomUUID();
     ProductionTimelineView timeline =
         timeline(projectId, storyVersionId, chapterId, firstBeatId, secondBeatId);
-    String originalTimelineFingerprint = CreateProjectRenderUseCase.timelineFingerprint(timeline);
     String render720 =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, localDeviceId, true, List.of()),
-            originalTimelineFingerprint);
+                projectId, "720p", "mp4", null, localDeviceId, true, List.of()));
     String render1080 =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "1080p", "mp4", null, localDeviceId, true, List.of()),
-            originalTimelineFingerprint);
+                projectId, "1080p", "mp4", null, localDeviceId, true, List.of()));
     String renderOtherDevice =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, otherDeviceId, true, List.of()),
-            originalTimelineFingerprint);
+                projectId, "720p", "mp4", null, otherDeviceId, true, List.of()));
     String renderWithoutSubtitles =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, localDeviceId, false, List.of()),
-            originalTimelineFingerprint);
+                projectId, "720p", "mp4", null, localDeviceId, false, List.of()));
 
-    ProductionTimelineView edited =
-        CreateProjectRenderUseCase.applyBeatOverrides(
-            timeline, List.of(new RenderBeatOverride(firstBeatId, 10_000L, null)));
     String editedRender720 =
         CreateProjectRenderUseCase.requestFingerprint(
             new CreateProjectRenderCommand(
-                projectId, "720p", "mp4", null, localDeviceId, true, List.of()),
-            CreateProjectRenderUseCase.timelineFingerprint(edited));
+                projectId,
+                "720p",
+                "mp4",
+                null,
+                localDeviceId,
+                true,
+                List.of(new RenderBeatOverride(firstBeatId, 10_000L, null))));
 
     assertThat(render720)
         .hasSize(64)

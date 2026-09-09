@@ -61,9 +61,7 @@ public class SecurityConfig {
   };
 
   private static final String[] GUEST_WORKSPACE_DELETE_PATHS = {
-    "/api/v1/projects/*/chapters/*",
-    "/api/v1/projects/*/characters/*",
-    "/api/v1/assets/*"
+    "/api/v1/projects/*/chapters/*", "/api/v1/projects/*/characters/*", "/api/v1/assets/*"
   };
 
   private static final String API_PATH = "/api/v1/**";

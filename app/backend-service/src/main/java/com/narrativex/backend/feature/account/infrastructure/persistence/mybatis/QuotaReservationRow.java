@@ -10,4 +10,6 @@ public class QuotaReservationRow {
   private final String userId;
   private final String periodKey;
   private final BigDecimal estimatedCost;
+  private final String quotaKind;
+  private final int units;
 }

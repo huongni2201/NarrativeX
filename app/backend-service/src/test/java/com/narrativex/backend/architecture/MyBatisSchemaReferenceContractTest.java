@@ -27,8 +27,7 @@ class MyBatisSchemaReferenceContractTest {
       Pattern.compile(
           "(?im)^\\s*CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern DROP_TABLE =
-      Pattern.compile(
-          "(?im)^\\s*DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
+      Pattern.compile("(?im)^\\s*DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern CREATE_TABLE_BLOCK =
       Pattern.compile(
           "(?is)CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\s*\\((.*?)\\n\\);");

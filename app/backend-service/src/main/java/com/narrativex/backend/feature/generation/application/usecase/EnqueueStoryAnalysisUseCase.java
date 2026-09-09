@@ -51,7 +51,8 @@ public class EnqueueStoryAnalysisUseCase {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
 
-    String derivedFamily = derivedIdempotencyFamily(command, chapter.rowVersion(), chapter.sourceHash());
+    String derivedFamily =
+        derivedIdempotencyFamily(command, chapter.rowVersion(), chapter.sourceHash());
     String clientKey = command.idempotencyKey();
     String baseIdempotencyKey =
         clientKey == null ? derivedFamily : "chapter-analysis:command:" + clientKey;

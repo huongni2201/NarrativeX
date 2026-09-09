@@ -63,6 +63,8 @@ const bridge: NarrativeXDesktopBridge = {
     upsert: (project, metadata) =>
       ipcRenderer.invoke("desktop:projects-local:upsert", { project, metadata }),
     touch: (projectId: string) => ipcRenderer.invoke("desktop:projects-local:touch", projectId),
+    setFavorite: (projectId: string, isStarred: boolean) =>
+      ipcRenderer.invoke("desktop:projects-local:set-favorite", { projectId, isStarred }),
     markArchived: (projectId: string) =>
       ipcRenderer.invoke("desktop:projects-local:mark-archived", projectId),
   },

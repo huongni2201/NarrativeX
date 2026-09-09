@@ -125,8 +125,7 @@ class BackendVisualBeatPromptProviderTest {
     }
 
     @Override
-    public Map<UUID, VisualPromptContext> findForBeats(
-        UUID projectId, List<UUID> visualBeatIds) {
+    public Map<UUID, VisualPromptContext> findForBeats(UUID projectId, List<UUID> visualBeatIds) {
       batchCalls++;
       return visualBeatIds.stream()
           .collect(java.util.stream.Collectors.toMap(id -> id, ignored -> context));

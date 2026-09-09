@@ -25,7 +25,7 @@ public class LockCharacterVersionUseCase {
     String actorId = currentUserId.get();
     CharacterVersion version =
         versionRepository
-            .findOwnedById(command.characterVersionId(), actorId)
+            .findOwnedByIdForUpdate(command.characterVersionId(), actorId)
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     boolean hasIdentityReference =
         referenceRepository.findByVersionId(command.characterVersionId()).stream()

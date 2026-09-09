@@ -6,7 +6,7 @@ import { segmentCacheKey } from "../src/main/rendering/segment-cache-key.ts";
 function manifest(overrides = {}) {
   return {
     rendererVersion: "project-image-motion-v3-composition",
-    renderProfileSchemaVersion: 2,
+    renderProfileSchemaVersion: 3,
     compositionPolicyVersion: 1,
     width: 1920,
     height: 1080,
@@ -17,6 +17,7 @@ function manifest(overrides = {}) {
       pixelFormat: "yuv420p",
     },
     colorMode: "SDR_BT709_LIMITED",
+    watermark: { mode: "none", policyVersion: 1 },
     subtitles: [],
     ...overrides,
   };
@@ -75,4 +76,12 @@ test("segment cache invalidates when an effective render dependency changes", ()
   assert.notEqual(segmentCacheKey(manifest(), beat({ frameCount: 121, durationMs: 2017 }), "libx264"), base);
   assert.notEqual(segmentCacheKey(manifest({ width: 1280, height: 720 }), beat(), "libx264"), base);
   assert.notEqual(segmentCacheKey(manifest(), beat(), "h264_nvenc"), base);
+  assert.notEqual(
+    segmentCacheKey(
+      manifest({ watermark: { mode: "required", policyVersion: 1 } }),
+      beat(),
+      "libx264",
+    ),
+    base,
+  );
 });

@@ -58,13 +58,7 @@ public final class Project extends UuidAggregateRoot {
       String metadataLanguage,
       AspectRatio imageAspectRatio) {
     return create(
-        name,
-        null,
-        ownerId,
-        sourceLanguage,
-        narrationLanguage,
-        metadataLanguage,
-        imageAspectRatio);
+        name, null, ownerId, sourceLanguage, narrationLanguage, metadataLanguage, imageAspectRatio);
   }
 
   public static Project create(
@@ -195,17 +189,49 @@ public final class Project extends UuidAggregateRoot {
     if (status == ProjectStatus.DRAFT) status = ProjectStatus.ACTIVE;
   }
 
-  public String getName() { return name; }
-  public String getDescription() { return description; }
-  public String getCoverImageUrl() { return coverImageUrl; }
-  public String getOwnerId() { return ownerId; }
-  public ProjectStatus getStatus() { return status; }
-  public String getSourceLanguage() { return sourceLanguage; }
-  public String getProjectLanguage() { return sourceLanguage; }
-  public String getNarrationLanguage() { return narrationLanguage; }
-  public String getMetadataLanguage() { return metadataLanguage; }
-  public AspectRatio getImageAspectRatio() { return imageAspectRatio; }
-  public Instant getArchivedAt() { return archivedAt; }
+  public String getName() {
+    return name;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public String getCoverImageUrl() {
+    return coverImageUrl;
+  }
+
+  public String getOwnerId() {
+    return ownerId;
+  }
+
+  public ProjectStatus getStatus() {
+    return status;
+  }
+
+  public String getSourceLanguage() {
+    return sourceLanguage;
+  }
+
+  public String getProjectLanguage() {
+    return sourceLanguage;
+  }
+
+  public String getNarrationLanguage() {
+    return narrationLanguage;
+  }
+
+  public String getMetadataLanguage() {
+    return metadataLanguage;
+  }
+
+  public AspectRatio getImageAspectRatio() {
+    return imageAspectRatio;
+  }
+
+  public Instant getArchivedAt() {
+    return archivedAt;
+  }
 
   private static String required(String value, String field, int maxLength) {
     if (value == null || value.isBlank())

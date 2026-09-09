@@ -81,13 +81,19 @@ def test_batch_job_states_map_to_durable_provider_states() -> None:
 class _ErrorClient:
     async def get(self, *args: object, **kwargs: object) -> httpx.Response:
         del args, kwargs
-        return httpx.Response(404, json={"error": {"message": "batch not found"}}, request=httpx.Request("GET", "https://example.test"))
+        return httpx.Response(
+            404,
+            json={"error": {"message": "batch not found"}},
+            request=httpx.Request("GET", "https://example.test"),
+        )
 
 
 class _DownloadClient:
     async def get(self, *args: object, **kwargs: object) -> httpx.Response:
         del args, kwargs
-        return httpx.Response(200, content=b"generated-output", request=httpx.Request("GET", "https://example.test"))
+        return httpx.Response(
+            200, content=b"generated-output", request=httpx.Request("GET", "https://example.test")
+        )
 
 
 class _BatchOutputClient:
@@ -97,7 +103,11 @@ class _BatchOutputClient:
     async def get(self, endpoint: str, *args: object, **kwargs: object) -> httpx.Response:
         del args, kwargs
         if "/storage/v1/" in endpoint and "download/storage/v1" not in endpoint:
-            return httpx.Response(200, json={"items": [{"name": "output/results.jsonl"}]}, request=httpx.Request("GET", endpoint))
+            return httpx.Response(
+                200,
+                json={"items": [{"name": "output/results.jsonl"}]},
+                request=httpx.Request("GET", endpoint),
+            )
         return httpx.Response(200, content=self.content, request=httpx.Request("GET", endpoint))
 
 
@@ -118,14 +128,21 @@ class _ReconcileProvider(VertexBatchImageProvider):
 @pytest.mark.asyncio
 async def test_reconcile_http_4xx_is_provider_failed() -> None:
     provider = _ReconcileProvider()
-    operation = ImageBatchOperation(provider_key="vertex", operation_id="projects/p/locations/global/batchPredictionJobs/123", status=ProviderOperationStatus.RUNNING, items=_items())
+    operation = ImageBatchOperation(
+        provider_key="vertex",
+        operation_id="projects/p/locations/global/batchPredictionJobs/123",
+        status=ProviderOperationStatus.RUNNING,
+        items=_items(),
+    )
     resolved = await provider.reconcile_batch(operation)
     assert resolved.status is ProviderOperationStatus.FAILED
     assert resolved.error_code == "HTTP_404"
 
 
 @pytest.mark.asyncio
-async def test_download_gcs_object_logs_successful_download(caplog: pytest.LogCaptureFixture) -> None:
+async def test_download_gcs_object_logs_successful_download(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     provider = _ReconcileProvider()
     provider._client = _DownloadClient()
     caplog.set_level(logging.INFO, logger="narrativex.vertex-image-batch")
@@ -146,11 +163,28 @@ def _valid_test_image() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_batch_output_logs_materialized_generated_image(caplog: pytest.LogCaptureFixture) -> None:
+async def test_batch_output_logs_materialized_generated_image(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     image = _valid_test_image()
     encoded = base64.b64encode(image).decode("ascii")
     output = "\n".join(
-        json.dumps({"request": _request_body(item.request), "response": {"candidates": [{"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": encoded}}]}}]}})
+        json.dumps(
+            {
+                "request": _request_body(item.request),
+                "response": {
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [
+                                    {"inlineData": {"mimeType": "image/png", "data": encoded}}
+                                ]
+                            }
+                        }
+                    ]
+                },
+            }
+        )
         for item in _items()
     ).encode("utf-8")
     provider = _ReconcileProvider()
@@ -164,7 +198,10 @@ async def test_batch_output_logs_materialized_generated_image(caplog: pytest.Log
 
 
 def test_gcs_uri_parser_preserves_nested_prefix() -> None:
-    assert _split_gs_uri("gs://bucket-a/narrativex/image-batches/job/output") == ("bucket-a", "narrativex/image-batches/job/output")
+    assert _split_gs_uri("gs://bucket-a/narrativex/image-batches/job/output") == (
+        "bucket-a",
+        "narrativex/image-batches/job/output",
+    )
 
 
 def test_batch_correlation_rejects_missing_request_instead_of_using_position() -> None:
@@ -174,7 +211,9 @@ def test_batch_correlation_rejects_missing_request_instead_of_using_position() -
 
 def test_batch_correlation_rejects_unknown_request_instead_of_using_position() -> None:
     with pytest.raises(BatchItemCorrelationError, match="BATCH_ITEM_CORRELATION_FAILED"):
-        _materialize_batch_rows([{"request": _request_body(_request("c" * 64, "Unknown"))}], _items())
+        _materialize_batch_rows(
+            [{"request": _request_body(_request("c" * 64, "Unknown"))}], _items()
+        )
 
 
 def test_batch_output_correlates_using_request_not_position() -> None:
