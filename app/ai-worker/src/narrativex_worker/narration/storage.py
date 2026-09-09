@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -180,6 +181,8 @@ class InMemoryMediaStorage:
 class LocalMediaStorage:
     """Filesystem-backed immutable store for project working media."""
 
+    _LOCK_RECORD_GRACE_SECONDS = 1.0
+
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
@@ -209,6 +212,28 @@ class LocalMediaStorage:
         except (FileNotFoundError, IndexError, OSError):
             return None
 
+    @classmethod
+    def _read_lock_owner(cls, lock_path: Path) -> tuple[int, str | None]:
+        raw = lock_path.read_text(encoding="utf-8").strip()
+        try:
+            record = json.loads(raw)
+            if not isinstance(record, dict):
+                raise ValueError("invalid lock record")
+            return int(record["pid"]), record.get("processStart")
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            try:
+                return int(raw), None
+            except ValueError:
+                try:
+                    age = max(0.0, time.time() - lock_path.stat().st_mtime)
+                except FileNotFoundError:
+                    raise
+                if age >= cls._LOCK_RECORD_GRACE_SECONDS:
+                    raise ProcessLookupError("stale malformed lock") from None
+                raise MediaAssetConflictError(
+                    "local media object is locked by another writer"
+                ) from None
+
     @contextmanager
     def _writer_lock(self, path: Path) -> Iterator[None]:
         lock_path = self._lock(path)
@@ -226,15 +251,7 @@ class LocalMediaStorage:
                 break
             except FileExistsError:
                 try:
-                    raw = lock_path.read_text(encoding="utf-8").strip()
-                    try:
-                        record = json.loads(raw)
-                        owner = int(record["pid"])
-                        owner_start = record.get("processStart")
-                    except (json.JSONDecodeError, KeyError, TypeError):
-                        # Read legacy PID-only locks conservatively.
-                        owner = int(raw)
-                        owner_start = None
+                    owner, owner_start = self._read_lock_owner(lock_path)
                     os.kill(owner, 0)
                     current_start = self._process_start_identity(owner)
                     if (
@@ -253,6 +270,8 @@ class LocalMediaStorage:
                     except FileNotFoundError:
                         pass
                     continue
+                except MediaAssetConflictError:
+                    raise
                 except (OSError, ValueError):
                     # Permission errors do not prove that the owner is dead.
                     raise MediaAssetConflictError(
@@ -462,29 +481,22 @@ class S3MediaStorage:
         actual = hashlib.sha256(content).hexdigest()
         if actual != checksum:
             raise ValueError("content checksum does not match supplied checksum")
-        object_metadata = dict(metadata or {})
-        object_metadata["sha256"] = checksum
-        try:
-            await asyncio.to_thread(
-                self.client.put_object,
-                Bucket=self.bucket,
-                Key=storage_key,
-                Body=content,
-                ContentType=mime_type,
-                Metadata=object_metadata,
-                IfNoneMatch="*",
-            )
-        except ClientError as exception:
-            status = exception.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if status not in (409, 412):
-                raise
-            existing = await self.find(storage_key)
-            if existing is None or existing.checksum != checksum:
+        existing = await self.find(storage_key)
+        if existing is not None:
+            if existing.checksum != checksum:
                 raise MediaAssetConflictError(
-                    f"immutable storage conflict for {storage_key}"
-                ) from exception
+                    f"storage key {storage_key} already contains different immutable content"
+                )
             return existing
-        return StoredMediaAsset(storage_key, checksum, len(content), mime_type, object_metadata)
+        await asyncio.to_thread(
+            self.client.put_object,
+            Bucket=self.bucket,
+            Key=storage_key,
+            Body=content,
+            ContentType=mime_type,
+            Metadata={"sha256": checksum, **(metadata or {})},
+        )
+        return StoredMediaAsset(storage_key, checksum, len(content), mime_type, metadata or {})
 
     async def find(self, storage_key: str) -> StoredMediaAsset | None:
         try:
@@ -492,34 +504,105 @@ class S3MediaStorage:
                 self.client.head_object, Bucket=self.bucket, Key=storage_key
             )
         except ClientError as exception:
-            status = exception.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if status == 404:
+            code = str(exception.response.get("Error", {}).get("Code", ""))
+            if code in {"404", "NoSuchKey", "NotFound"}:
                 return None
             raise
-        metadata = {str(key): str(value) for key, value in response.get("Metadata", {}).items()}
-        checksum = metadata.get("sha256")
-        if not checksum:
-            raise MediaAssetConflictError(f"stored object {storage_key} has no sha256 metadata")
+        metadata = response.get("Metadata", {})
         return StoredMediaAsset(
-            storage_key,
-            checksum,
-            int(response["ContentLength"]),
-            str(response.get("ContentType") or "application/octet-stream"),
-            metadata,
+            storage_key=storage_key,
+            checksum=metadata.get("sha256", ""),
+            size_bytes=int(response.get("ContentLength", 0)),
+            mime_type=response.get("ContentType") or "application/octet-stream",
+            metadata={k: v for k, v in metadata.items() if k != "sha256"},
         )
 
     async def get_bytes(self, storage_key: str) -> bytes:
-        response = await asyncio.to_thread(
-            self.client.get_object, Bucket=self.bucket, Key=storage_key
-        )
+        try:
+            response = await asyncio.to_thread(
+                self.client.get_object, Bucket=self.bucket, Key=storage_key
+            )
+        except ClientError as exception:
+            code = str(exception.response.get("Error", {}).get("Code", ""))
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                raise FileNotFoundError(storage_key) from exception
+            raise
         body = response["Body"]
         try:
-            chunks: list[bytes] = []
-            while chunk := await asyncio.to_thread(body.read, 1024 * 1024):
-                chunks.append(bytes(chunk))
-            return b"".join(chunks)
+            return await asyncio.to_thread(body.read)
         finally:
             await asyncio.to_thread(body.close)
+
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset:
+        asset = await self.find(storage_key)
+        if asset is None:
+            raise FileNotFoundError(storage_key)
+        if expected_size is not None and asset.size_bytes != expected_size:
+            raise MediaAssetConflictError("remote media size mismatch")
+        if max_bytes is not None and asset.size_bytes > max_bytes:
+            raise MediaDownloadLimitError("remote media exceeds authorized download limit")
+        try:
+            response = await asyncio.to_thread(
+                self.client.get_object, Bucket=self.bucket, Key=storage_key
+            )
+        except ClientError as exception:
+            code = str(exception.response.get("Error", {}).get("Code", ""))
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                raise FileNotFoundError(storage_key) from exception
+            raise
+        body = response["Body"]
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        total = 0
+        try:
+            with destination.open("wb") as output:
+                while True:
+                    chunk = await asyncio.to_thread(body.read, 1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if max_bytes is not None and total > max_bytes:
+                        raise MediaDownloadLimitError(
+                            "remote media exceeds authorized download limit"
+                        )
+                    digest.update(chunk)
+                    output.write(chunk)
+        except Exception:
+            try:
+                destination.unlink()
+            except FileNotFoundError:
+                pass
+            raise
+        finally:
+            await asyncio.to_thread(body.close)
+        if total != asset.size_bytes or (expected_size is not None and total != expected_size):
+            try:
+                destination.unlink()
+            except FileNotFoundError:
+                pass
+            raise OSError(f"downloaded object {storage_key} has unexpected size")
+        checksum = digest.hexdigest()
+        if asset.checksum and checksum != asset.checksum.lower():
+            try:
+                destination.unlink()
+            except FileNotFoundError:
+                pass
+            raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
+        if expected_checksum is not None and checksum != expected_checksum.lower():
+            try:
+                destination.unlink()
+            except FileNotFoundError:
+                pass
+            raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
+        return asset
 
     async def put_file_immutable(
         self,
@@ -533,123 +616,26 @@ class S3MediaStorage:
         actual = await asyncio.to_thread(sha256_file, file_path)
         if actual != checksum:
             raise ValueError("file checksum does not match supplied checksum")
-        object_metadata = dict(metadata or {})
-        object_metadata["sha256"] = checksum
-        size_bytes = file_path.stat().st_size
-        self.logger.info(
-            "R2 voice-reference upload started storageKey=%s sizeBytes=%s checksum=%s",
-            storage_key,
-            size_bytes,
-            checksum,
-        )
-        try:
-            await asyncio.to_thread(
-                self._put_file_sync,
-                storage_key,
-                file_path,
-                mime_type,
-                object_metadata,
-            )
-        except ClientError as exception:
-            status = exception.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if status not in (409, 412):
-                raise
-            existing = await self.find(storage_key)
-            if existing is None or existing.checksum != checksum:
+        existing = await self.find(storage_key)
+        if existing is not None:
+            if existing.checksum != checksum:
                 raise MediaAssetConflictError(
-                    f"immutable storage conflict for {storage_key}"
-                ) from exception
+                    f"storage key {storage_key} already contains different immutable content"
+                )
             return existing
-        return StoredMediaAsset(storage_key, checksum, size_bytes, mime_type, object_metadata)
 
-    def _put_file_sync(
-        self,
-        storage_key: str,
-        file_path: Path,
-        mime_type: str,
-        metadata: dict[str, str],
-    ) -> None:
-        with file_path.open("rb") as content:
-            self.client.put_object(
-                Bucket=self.bucket,
-                Key=storage_key,
-                Body=content,
-                ContentLength=file_path.stat().st_size,
-                ContentType=mime_type,
-                Metadata=metadata,
-                IfNoneMatch="*",
-            )
+        def _upload() -> None:
+            extra_args = {
+                "ContentType": mime_type,
+                "Metadata": {"sha256": checksum, **(metadata or {})},
+            }
+            self.client.upload_file(str(file_path), self.bucket, storage_key, ExtraArgs=extra_args)
 
-    async def download_to_file(
-        self,
-        storage_key: str,
-        destination: Path,
-        *,
-        expected_size: int | None = None,
-        expected_checksum: str | None = None,
-        max_bytes: int | None = None,
-    ) -> StoredMediaAsset:
-        return await asyncio.to_thread(
-            self._download_to_file_sync,
-            storage_key,
-            destination,
-            expected_size,
-            expected_checksum,
-            max_bytes,
+        await asyncio.to_thread(_upload)
+        return StoredMediaAsset(
+            storage_key=storage_key,
+            checksum=checksum,
+            size_bytes=file_path.stat().st_size,
+            mime_type=mime_type,
+            metadata=metadata or {},
         )
-
-    def _download_to_file_sync(
-        self,
-        storage_key: str,
-        destination: Path,
-        expected_size: int | None,
-        expected_checksum: str | None,
-        max_bytes: int | None,
-    ) -> StoredMediaAsset:
-        response = self.client.get_object(Bucket=self.bucket, Key=storage_key)
-        body = response["Body"]
-        metadata = {str(key): str(value) for key, value in response.get("Metadata", {}).items()}
-        checksum = metadata.get("sha256")
-        if not checksum:
-            body.close()
-            raise MediaAssetConflictError(f"stored object {storage_key} has no sha256 metadata")
-        content_length = int(response.get("ContentLength", -1))
-        if content_length < 0:
-            body.close()
-            raise MediaAssetConflictError("object has no valid content length")
-        if expected_size is not None and content_length != expected_size:
-            body.close()
-            raise MediaAssetConflictError("object size does not match validation job")
-        if max_bytes is not None and content_length > max_bytes:
-            body.close()
-            raise MediaDownloadLimitError("object exceeds the authorized download limit")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        digest = hashlib.sha256()
-        total = 0
-        try:
-            with destination.open("wb") as output:
-                while chunk := body.read(1024 * 1024):
-                    total += len(chunk)
-                    if max_bytes is not None and total > max_bytes:
-                        raise MediaDownloadLimitError(
-                            "object exceeds the authorized download limit"
-                        )
-                    digest.update(chunk)
-                    output.write(chunk)
-        finally:
-            body.close()
-        asset = StoredMediaAsset(
-            storage_key,
-            checksum,
-            content_length,
-            str(response.get("ContentType") or "application/octet-stream"),
-            metadata,
-        )
-        if total != asset.size_bytes or (expected_size is not None and total != expected_size):
-            raise OSError(f"downloaded object {storage_key} has unexpected size")
-        actual_checksum = digest.hexdigest()
-        if actual_checksum != checksum.lower() or (
-            expected_checksum is not None and actual_checksum != expected_checksum.lower()
-        ):
-            raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
-        return asset
