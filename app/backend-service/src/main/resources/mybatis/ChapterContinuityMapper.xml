@@ -34,8 +34,6 @@
         <result property="affectedBeatIdsJson" column="affected_beat_ids_json" />
         <result property="reusableBeatIdsJson" column="reusable_beat_ids_json" />
         <result property="reason" column="reason" />
-        <result property="estimatedCost" column="estimated_cost" />
-        <result property="currency" column="currency" />
         <result property="expiresAt" column="expires_at" />
         <result property="inputFingerprint" column="input_fingerprint" />
         <result property="createdBy" column="created_by" />
@@ -47,8 +45,6 @@
         <result property="imageStyle" column="image_style" />
         <result property="providerKey" column="provider_key" />
         <result property="modelKey" column="model_key" />
-        <result property="pricingSnapshotJson" column="pricing_snapshot_json" />
-        <result property="pricingFingerprint" column="pricing_fingerprint" />
     </resultMap>
 
     <select id="findCurrent" resultMap="currentContinuityRow">
@@ -101,12 +97,11 @@
         INSERT INTO regeneration_plans
           (id, project_id, chapter_id, continuity_plan_id, source_hash,
            requested_beat_ids_json, affected_beat_ids_json, reusable_beat_ids_json,
-           reason, estimated_cost, currency, expires_at, input_fingerprint, created_by)
+           reason, expires_at, input_fingerprint, created_by)
         VALUES
           (#{id}, #{projectId}, #{chapterId}, #{continuityPlanId}, #{sourceHash},
            #{requestedBeatIdsJson}::jsonb, #{affectedBeatIdsJson}::jsonb,
-           #{reusableBeatIdsJson}::jsonb, #{reason}, #{estimatedCost}, #{currency},
-           #{expiresAt}, #{inputFingerprint}, #{createdBy})
+           #{reusableBeatIdsJson}::jsonb, #{reason}, #{expiresAt}, #{inputFingerprint}, #{createdBy})
         ON CONFLICT (project_id, chapter_id, input_fingerprint) DO NOTHING
     </insert>
 
@@ -115,7 +110,7 @@
                requested_beat_ids_json::text AS requested_beat_ids_json,
                affected_beat_ids_json::text AS affected_beat_ids_json,
                reusable_beat_ids_json::text AS reusable_beat_ids_json,
-               reason, estimated_cost, currency, expires_at, input_fingerprint, created_by
+               reason, expires_at, input_fingerprint, created_by
           FROM regeneration_plans
          WHERE project_id = #{projectId}
            AND chapter_id = #{chapterId}
@@ -128,7 +123,7 @@
                requested_beat_ids_json::text AS requested_beat_ids_json,
                affected_beat_ids_json::text AS affected_beat_ids_json,
                reusable_beat_ids_json::text AS reusable_beat_ids_json,
-               reason, estimated_cost, currency, expires_at, input_fingerprint, created_by
+               reason, expires_at, input_fingerprint, created_by
           FROM regeneration_plans
          WHERE project_id = #{projectId}
            AND chapter_id = #{chapterId}
@@ -144,9 +139,7 @@
                    ELSE 'CINEMATIC'
                END AS image_style,
                mp.image_provider_key AS provider_key,
-               mp.image_model_key AS model_key,
-               mp.pricing_snapshot_json::text AS pricing_snapshot_json,
-               mp.pricing_fingerprint
+               mp.image_model_key AS model_key
           FROM media_plans mp
           LEFT JOIN LATERAL (
               SELECT prompt_template_version
