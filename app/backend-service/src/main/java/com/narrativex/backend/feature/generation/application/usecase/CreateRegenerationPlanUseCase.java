@@ -11,7 +11,6 @@ import com.narrativex.backend.feature.generation.application.query.RegenerationP
 import com.narrativex.backend.feature.generation.application.service.ContinuityIssueCodec;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -87,7 +86,6 @@ public class CreateRegenerationPlanUseCase {
             .filter(id -> !affected.contains(id))
             .toList();
     var imageProfile = imageGenerationCatalog.resolve();
-    var estimatedCost = BigDecimal.ZERO;
     String normalizedReason = reason == null ? "" : reason.trim();
     if (normalizedReason.isEmpty()) throw new IllegalArgumentException("reason must not be blank");
 
@@ -117,8 +115,6 @@ public class CreateRegenerationPlanUseCase {
                 List.copyOf(affected),
                 reusable,
                 normalizedReason,
-                estimatedCost,
-                "USD",
                 Instant.now().plus(PLAN_TTL_MINUTES, ChronoUnit.MINUTES),
                 fingerprint,
                 userId)));
