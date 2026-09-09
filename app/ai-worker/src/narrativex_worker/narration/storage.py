@@ -198,21 +198,55 @@ class LocalMediaStorage:
     def _lock(path: Path) -> Path:
         return path.with_name(path.name + ".nxlock")
 
+    @staticmethod
+    def _process_start_identity(pid: int) -> str | None:
+        try:
+            # Linux /proc field 22 is the process start time in clock ticks. Parse after the
+            # parenthesized comm field so spaces in process names cannot shift the index.
+            stat_text = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
+            tail = stat_text.rsplit(")", 1)[1].split()
+            return tail[19]
+        except (FileNotFoundError, IndexError, OSError):
+            return None
+
     @contextmanager
     def _writer_lock(self, path: Path) -> Iterator[None]:
         lock_path = self._lock(path)
         while True:
             try:
                 descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                with os.fdopen(descriptor, "w", encoding="ascii") as lock:
-                    lock.write(str(os.getpid()))
+                record = {
+                    "pid": os.getpid(),
+                    "processStart": self._process_start_identity(os.getpid()),
+                }
+                with os.fdopen(descriptor, "w", encoding="utf-8") as lock:
+                    json.dump(record, lock, separators=(",", ":"), sort_keys=True)
                     lock.flush()
                     os.fsync(lock.fileno())
                 break
             except FileExistsError:
                 try:
-                    owner = int(lock_path.read_text(encoding="ascii").strip())
+                    raw = lock_path.read_text(encoding="utf-8").strip()
+                    try:
+                        record = json.loads(raw)
+                        owner = int(record["pid"])
+                        owner_start = record.get("processStart")
+                    except (json.JSONDecodeError, KeyError, TypeError):
+                        # Read legacy PID-only locks conservatively.
+                        owner = int(raw)
+                        owner_start = None
                     os.kill(owner, 0)
+                    current_start = self._process_start_identity(owner)
+                    if (
+                        owner_start is not None
+                        and current_start is not None
+                        and str(owner_start) != current_start
+                    ):
+                        try:
+                            lock_path.unlink()
+                        except FileNotFoundError:
+                            pass
+                        continue
                 except ProcessLookupError:
                     try:
                         lock_path.unlink()

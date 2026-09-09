@@ -40,17 +40,22 @@ export class RemoteAssetMaterializer {
     const manifest = await this.storage.ensureProject(input.projectId);
     const local = manifest.assets[input.assetId];
     if (local) {
-      await this.storage.resolveAsset(input.projectId, input.assetId, {
-        sizeBytes: local.sizeBytes,
-        checksumSha256: local.checksumSha256,
-      });
-      return {
-        assetId: local.assetId,
-        kind: local.kind,
-        relativePath: local.relativePath,
-        sizeBytes: local.sizeBytes,
-        checksumSha256: local.checksumSha256,
-      };
+      try {
+        await this.storage.resolveAsset(input.projectId, input.assetId, {
+          sizeBytes: local.sizeBytes,
+          checksumSha256: local.checksumSha256,
+        });
+        return {
+          assetId: local.assetId,
+          kind: local.kind,
+          relativePath: local.relativePath,
+          sizeBytes: local.sizeBytes,
+          checksumSha256: local.checksumSha256,
+        };
+      } catch {
+        // The manifest is a local cache index, not proof that bytes are still healthy.
+        // Fall through to the backend handoff; registerAsset will repair matching immutable data.
+      }
     }
 
     const asset = await this.getAsset(input.projectId, input.assetId);
@@ -100,17 +105,21 @@ export class RemoteAssetMaterializer {
     const manifest = await this.storage.ensureProject(input.projectId);
     const local = manifest.assets[input.assetId];
     if (local) {
-      await this.storage.resolveAsset(input.projectId, input.assetId, {
-        sizeBytes: input.sizeBytes,
-        checksumSha256: checksum,
-      });
-      return {
-        assetId: local.assetId,
-        kind: local.kind,
-        relativePath: local.relativePath,
-        sizeBytes: local.sizeBytes,
-        checksumSha256: local.checksumSha256,
-      };
+      try {
+        await this.storage.resolveAsset(input.projectId, input.assetId, {
+          sizeBytes: input.sizeBytes,
+          checksumSha256: checksum,
+        });
+        return {
+          assetId: local.assetId,
+          kind: local.kind,
+          relativePath: local.relativePath,
+          sizeBytes: local.sizeBytes,
+          checksumSha256: local.checksumSha256,
+        };
+      } catch {
+        // Repair a missing/corrupt narration preview from authoritative backend bytes below.
+      }
     }
 
     const response = await this.backendApi.request({

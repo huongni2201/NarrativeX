@@ -62,6 +62,12 @@ public class CreateProjectRenderUseCase {
 
   @Transactional
   public GenerationJob execute(CreateProjectRenderCommand command) {
+    return executeWithPreCreateMutation(command, () -> {});
+  }
+
+  @Transactional
+  public GenerationJob executeWithPreCreateMutation(
+      CreateProjectRenderCommand command, Runnable preCreateMutation) {
     String userId = currentUserId.get();
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
@@ -83,6 +89,7 @@ public class CreateProjectRenderUseCase {
       return existingJob;
     }
 
+    preCreateMutation.run();
     validateLocalDevice(userId, command.localDeviceId());
 
     ProductionTimelineView sourceTimeline =
@@ -331,7 +338,11 @@ public class CreateProjectRenderUseCase {
                         + ":"
                         + override.durationMs()
                         + ":"
-                        + override.cameraMovement())
+                        + override.cameraMovement()
+                        + ":"
+                        + override.fitMode()
+                        + ":"
+                        + override.trimStartMs())
             .collect(Collectors.joining("|"));
     return sha256(
         command.projectId()
