@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Data;
@@ -16,8 +15,6 @@ public class RegenerationPlanRow {
   private String affectedBeatIdsJson;
   private String reusableBeatIdsJson;
   private String reason;
-  private BigDecimal estimatedCost;
-  private String currency;
   private Instant expiresAt;
   private String inputFingerprint;
   private String createdBy;
