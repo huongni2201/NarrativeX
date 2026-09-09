@@ -157,7 +157,8 @@ class MediaValidationWorkerRunner:
                 ),
                 timeout=self.settings.media_download_timeout_seconds,
             )
-            validated = validate_media_file(
+            validated = await asyncio.to_thread(
+                validate_media_file,
                 object_path,
                 "AUDIO",
                 job.declared_content_type,
