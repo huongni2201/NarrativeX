@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,7 +48,7 @@ class MediaPlanTest {
             List.of(new MediaScenePlan(sceneId, 0, "Narration", 5, beats)));
 
     var plan =
-        MediaPlan.create(
+        MediaPlan.createExecutable(
             chapterId,
             4L,
             "abc123",
@@ -57,8 +56,13 @@ class MediaPlanTest {
             1,
             scenes,
             new MediaWorkload(9, 1, 0, 0, 5),
-            BigDecimal.ONE,
-            Instant.parse("2026-08-20T00:00:00Z"));
+            Instant.parse("2026-08-20T00:00:00Z"),
+            null,
+            "16:9",
+            "vertex",
+            "gemini-2.5-flash-image",
+            null,
+            null);
 
     scenes.clear();
     beats.clear();
