@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -46,12 +45,7 @@ public interface ChapterContinuityRepository {
       String semanticHash) {}
 
   record MediaGenerationSettings(
-      String aspectRatio,
-      String imageStyle,
-      String providerKey,
-      String modelKey,
-      String pricingSnapshotJson,
-      String pricingFingerprint) {}
+      String aspectRatio, String imageStyle, String providerKey, String modelKey) {}
 
   record RegenerationPlan(
       UUID id,
@@ -63,8 +57,6 @@ public interface ChapterContinuityRepository {
       List<UUID> affectedBeatIds,
       List<UUID> reusableBeatIds,
       String reason,
-      BigDecimal estimatedCost,
-      String currency,
       Instant expiresAt,
       String inputFingerprint,
       String createdBy) {

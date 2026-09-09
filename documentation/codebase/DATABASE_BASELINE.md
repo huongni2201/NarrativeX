@@ -24,8 +24,9 @@ PostgreSQL is the authoritative business/control-state store. The backend owns F
 | `V14__storyboard_generation_snapshots.sql` | immutable Storyboard/Gemini generation batches, beat snapshots, references and attempt evidence |
 | `V15__export_quota_reservations.sql` | durable long-form export reservations and exactly-once monthly settlement |
 | `V16__render_profile_watermark_policy.sql` | render-profile v3 watermark policy while retaining explicit v2 legacy snapshots |
+| `V17__remove_image_billing_metadata.sql` | removes image-generation cost/pricing metadata from media/regeneration plans while preserving generic billable-operation accounting |
 
-A clean database applies **V1 → V16**. Compatibility-only migrations are not retained before first production deployment. The current baseline therefore never creates the retired standalone VisualBeat camera/audio columns, the old `preview_asset_id`, or the unowned `short_clip_requests` queue.
+A clean database applies **V1 → V17**. Compatibility-only migrations are not retained before first production deployment. The current baseline therefore never exposes image-generation monetary metadata through active MediaPlan/regeneration contracts, and it never creates the retired standalone VisualBeat camera/audio columns, the old `preview_asset_id`, or the unowned `short_clip_requests` queue.
 
 ## Current storage decisions
 
@@ -110,7 +111,7 @@ At first production deployment, freeze the accepted baseline. After that, all sc
 
 A supported empty PostgreSQL instance must:
 
-1. apply V1 through V16 successfully;
+1. apply V1 through V17 successfully;
 2. expose no pending migration;
 3. contain no removed server Chapter-render snapshot tables;
 4. contain no remote final-video artifact fields;
@@ -121,4 +122,5 @@ A supported empty PostgreSQL instance must:
 9. preserve render continuity provenance without using logical continuity/job/revision IDs as effective segment-cache dependencies;
 10. contain `visual_direction_json` but no standalone VisualBeat camera/audio columns, no `preview_asset_id`, and no `short_clip_requests` table;
 11. constrain the current production mode to `IMAGE_MOTION`;
-12. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.
+12. contain no active image MediaPlan/regeneration cost, currency, pricing snapshot or pricing fingerprint columns after V17;
+13. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.

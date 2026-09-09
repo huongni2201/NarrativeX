@@ -6,7 +6,6 @@ from narrativex_worker.providers.vertex_image import (
     _request_body,
     _request_headers,
     _traffic_type,
-    _usage,
 )
 from narrativex_worker.schema import ImageAspectRatio, ModerationDecision
 
@@ -82,19 +81,6 @@ def test_moderation_blocks_provider_safety_finish_reason() -> None:
     )
 
 
-def test_usage_keeps_vertex_token_counts_and_traffic_type() -> None:
-    raw = {
-        "usageMetadata": {
-            "promptTokenCount": 10,
-            "candidatesTokenCount": 1290,
-            "totalTokenCount": 1300,
-            "trafficType": "ON_DEMAND_FLEX",
-        }
-    }
+def test_traffic_type_reads_vertex_execution_tier() -> None:
+    raw = {"usageMetadata": {"trafficType": "ON_DEMAND_FLEX"}}
     assert _traffic_type(raw) == "ON_DEMAND_FLEX"
-    assert _usage(raw) == {
-        "promptTokenCount": 10,
-        "candidatesTokenCount": 1290,
-        "totalTokenCount": 1300,
-        "trafficType": "ON_DEMAND_FLEX",
-    }

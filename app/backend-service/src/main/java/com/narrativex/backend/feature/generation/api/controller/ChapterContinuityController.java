@@ -65,11 +65,7 @@ public class ChapterContinuityController {
       @Valid @RequestBody CreateRegenerationJobRequest request) {
     var job =
         createRegenerationJobUseCase.execute(
-            projectId,
-            chapterId,
-            request.regenerationPlanId(),
-            request.maxAuthorizedCost(),
-            idempotencyKey);
+            projectId, chapterId, request.regenerationPlanId(), idempotencyKey);
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Regeneration job accepted", JobResponse.from(job)));
   }

@@ -36,11 +36,24 @@ test("attempt id is durably bound to one immutable snapshot", async () => {
 
     const same = await journal.begin(record("attempt-1"));
     assert.equal(same.snapshotId, "snapshot-1");
+    assert.equal(same.stage, "SUBMITTING");
 
     await assert.rejects(
       () => journal.begin(record("attempt-1", { snapshotId: "snapshot-2" })),
       /GEMINI_ATTEMPT_ID_CONFLICT/,
     );
+  });
+});
+
+test("only one concurrent caller claims a Gemini submission", async () => {
+  await withJournal(async (journal) => {
+    const [first, second] = await Promise.all([
+      journal.begin(record("attempt-1")),
+      journal.begin(record("attempt-1")),
+    ]);
+    const stages = [first.stage, second.stage].sort();
+    assert.deepEqual(stages, ["PREPARED", "SUBMITTING"]);
+    assert.equal((await journal.get("attempt-1"))?.stage, "SUBMITTING");
   });
 });
 

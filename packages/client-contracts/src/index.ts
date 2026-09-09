@@ -39,7 +39,6 @@ export type {
   MediaAspectRatio,
   MediaGenerationItem,
   MediaImageStyle,
-  MediaJobCostEstimate,
   MediaJobDetails,
   MediaReviewInput,
   RegenerationPlan,

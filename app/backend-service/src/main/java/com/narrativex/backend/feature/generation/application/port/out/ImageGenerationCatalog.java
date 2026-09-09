@@ -1,24 +1,8 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-
-/** Resolves the single backend-authoritative image provider/model/pricing configuration. */
+/** Server-owned execution profile for API image generation. Pricing is intentionally not modeled. */
 public interface ImageGenerationCatalog {
   ImageGenerationProfile resolve();
 
-  record ImageGenerationProfile(
-      String providerKey,
-      String model,
-      BigDecimal unitCostUsd,
-      String pricingSnapshot,
-      String pricingFingerprint) {
-
-    public BigDecimal estimateCost(int imageCount) {
-      if (imageCount < 0) {
-        throw new IllegalArgumentException("imageCount must not be negative");
-      }
-      return unitCostUsd.multiply(BigDecimal.valueOf(imageCount)).setScale(6, RoundingMode.HALF_UP);
-    }
-  }
+  record ImageGenerationProfile(String providerKey, String model) {}
 }

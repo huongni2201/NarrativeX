@@ -77,6 +77,16 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
     mapper.acquireIdempotencyLock(idempotencyKey, ownerId);
   }
 
+  @Override
+  public void acquireImageCapacityLock(String ownerId) {
+    mapper.acquireImageCapacityLock(ownerId);
+  }
+
+  @Override
+  public int countActiveImageJobs(String ownerId) {
+    return mapper.countActiveImageJobs(ownerId);
+  }
+
   private GenerationJob requireInserted(UUID id) {
     GenerationJobRow inserted = mapper.findById(id);
     if (inserted == null)

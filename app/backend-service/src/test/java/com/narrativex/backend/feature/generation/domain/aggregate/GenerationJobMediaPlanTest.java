@@ -6,7 +6,6 @@ import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -20,7 +19,7 @@ class GenerationJobMediaPlanTest {
     UUID storyVersionId = UuidV7.random();
     UUID chapterId = UuidV7.random();
     var plan =
-        MediaPlan.create(
+        MediaPlan.createExecutable(
             chapterId,
             8L,
             "source-hash",
@@ -28,8 +27,13 @@ class GenerationJobMediaPlanTest {
             4,
             List.of(),
             new MediaWorkload(0, 0, 0, 0, 0),
-            BigDecimal.ZERO,
-            Instant.parse("2026-08-20T00:00:00Z"));
+            Instant.parse("2026-08-20T00:00:00Z"),
+            null,
+            "16:9",
+            "vertex",
+            "gemini-2.5-flash-image",
+            null,
+            null);
 
     var job =
         GenerationJob.createChapterGeneration(

@@ -60,8 +60,6 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
             writeUuidList(plan.affectedBeatIds()),
             writeUuidList(plan.reusableBeatIds()),
             plan.reason(),
-            plan.estimatedCost(),
-            plan.currency(),
             plan.expiresAt(),
             plan.inputFingerprint(),
             plan.createdBy());
@@ -94,12 +92,7 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
         ? Optional.empty()
         : Optional.of(
             new MediaGenerationSettings(
-                row.getAspectRatio(),
-                row.getImageStyle(),
-                row.getProviderKey(),
-                row.getModelKey(),
-                row.getPricingSnapshotJson(),
-                row.getPricingFingerprint()));
+                row.getAspectRatio(), row.getImageStyle(), row.getProviderKey(), row.getModelKey()));
   }
 
   @Override
@@ -138,8 +131,6 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
         readUuidList(row.getAffectedBeatIdsJson()),
         readUuidList(row.getReusableBeatIdsJson()),
         row.getReason(),
-        row.getEstimatedCost(),
-        row.getCurrency(),
         row.getExpiresAt(),
         row.getInputFingerprint(),
         row.getCreatedBy());

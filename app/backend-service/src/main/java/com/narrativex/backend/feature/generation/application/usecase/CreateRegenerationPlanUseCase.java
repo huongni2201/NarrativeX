@@ -86,7 +86,6 @@ public class CreateRegenerationPlanUseCase {
             .filter(id -> !affected.contains(id))
             .toList();
     var imageProfile = imageGenerationCatalog.resolve();
-    var estimatedCost = imageProfile.estimateCost(affected.size());
     String normalizedReason = reason == null ? "" : reason.trim();
     if (normalizedReason.isEmpty()) throw new IllegalArgumentException("reason must not be blank");
 
@@ -116,8 +115,6 @@ public class CreateRegenerationPlanUseCase {
                 List.copyOf(affected),
                 reusable,
                 normalizedReason,
-                estimatedCost,
-                "USD",
                 Instant.now().plus(PLAN_TTL_MINUTES, ChronoUnit.MINUTES),
                 fingerprint,
                 userId)));

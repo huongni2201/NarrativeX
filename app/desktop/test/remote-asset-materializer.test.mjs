@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RemoteAssetMaterializer } from "../src/main/local-storage/remote-asset-materializer.ts";
@@ -51,6 +51,72 @@ test("project materialization reuses an already-local character reference withou
       checksumSha256: registered.checksumSha256,
     });
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("project materialization repairs a missing local file from backend bytes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-local-repair-"));
+  const source = join(root, "character.png");
+  const bytes = Buffer.from("character-reference-repair");
+  await writeFile(source, bytes);
+  const storage = new ProjectStorage(join(root, "projects"));
+  const registered = await storage.registerAsset(projectId, {
+    assetId: "asset-1",
+    kind: "IMAGE",
+    sourcePath: source,
+  });
+  const localPath = await storage.resolveAsset(projectId, "asset-1");
+  await unlink(localPath);
+
+  const server = createServer((_request, response) => {
+    response.writeHead(200, {
+      "Content-Type": "image/png",
+      "Content-Length": String(bytes.length),
+    });
+    response.end(bytes);
+  });
+  await new Promise((resolvePromise) => server.listen(0, "127.0.0.1", resolvePromise));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const downloadUrl = `http://127.0.0.1:${address.port}/image.png`;
+  const requestedPaths = [];
+  const materializer = new RemoteAssetMaterializer(storage, {
+    async request({ path }) {
+      requestedPaths.push(path);
+      if (path.includes("/download-url?")) {
+        return {
+          status: 200,
+          bodyText: JSON.stringify({ success: true, data: { url: downloadUrl, filename: "image.png" } }),
+        };
+      }
+      return {
+        status: 200,
+        bodyText: JSON.stringify({
+          success: true,
+          data: {
+            id: "asset-1",
+            type: "IMAGE",
+            contentType: "image/png",
+            sizeBytes: bytes.length,
+            sha256: registered.checksumSha256,
+            status: "READY",
+          },
+        }),
+      };
+    },
+  });
+
+  try {
+    const result = await materializer.materialize({ projectId, assetId: "asset-1" });
+    assert.deepEqual(requestedPaths, [
+      `/api/v1/assets/asset-1?projectId=${projectId}`,
+      `/api/v1/assets/asset-1/download-url?projectId=${projectId}`,
+    ]);
+    assert.equal(result.checksumSha256, registered.checksumSha256);
+    assert.deepEqual(await readFile(await storage.resolveAsset(projectId, "asset-1")), bytes);
+  } finally {
+    server.close();
     await rm(root, { recursive: true, force: true });
   }
 });

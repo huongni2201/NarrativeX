@@ -49,7 +49,7 @@ export function BeatRegenerationAction({
         reason: "User requested selective Visual Beat regeneration",
       });
       const accepted = window.confirm(
-        `Regenerate ${plan.affectedBeatIds.length} Visual Beat với chi phí ước tính ${plan.estimatedCost} ${plan.currency}?\n\n${plan.reusableBeatIds.length} beat không bị ảnh hưởng sẽ được giữ lại.`,
+        `Regenerate ${plan.affectedBeatIds.length} Visual Beat?\n\n${plan.reusableBeatIds.length} beat không bị ảnh hưởng sẽ được giữ lại.`,
       );
       if (!accepted) return;
 
@@ -66,7 +66,6 @@ export function BeatRegenerationAction({
       await createJob.mutateAsync({
         request: {
           regenerationPlanId: plan.regenerationPlanId,
-          maxAuthorizedCost: Number(plan.estimatedCost),
         },
         idempotencyKey,
       });

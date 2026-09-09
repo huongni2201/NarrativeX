@@ -2,7 +2,6 @@ import type {
   AnalyzeChapterInput,
   CreateMediaJobInput,
   GenerationJob,
-  MediaJobCostEstimate,
   MediaJobDetails,
   MediaReviewInput,
 } from "@narrativex/client-contracts";
@@ -55,11 +54,6 @@ export const generationApi = {
       },
     ),
 
-  estimate: (projectId: string, chapterId: string) =>
-    apiRequest<MediaJobCostEstimate>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/media-jobs/estimate`,
-      { method: "POST", body: JSON.stringify({}) },
-    ),
 
   createMediaJob: (
     projectId: string,

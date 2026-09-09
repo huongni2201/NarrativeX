@@ -7,8 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Applies Auto Edit media decisions and creates the immutable project render snapshot atomically.
- * If render admission, quota reservation or snapshot creation fails, media edits are rolled back.
+ * Applies validated Auto Edit media changes and creates the immutable render snapshot in one
+ * transaction. Idempotency/replay is resolved by CreateProjectRenderUseCase before this mutation is
+ * invoked, so a stale retry can never write old trim/fit values back into the live project.
  */
 @Service
 @RequiredArgsConstructor
@@ -18,8 +19,10 @@ public class CreateAutoEditedProjectRenderUseCase {
 
   @Transactional
   public GenerationJob execute(CreateProjectRenderCommand command) {
-    updateProductionBeatMediaUseCase.applyRenderOverrides(
-        command.projectId(), command.beatOverrides());
-    return createProjectRenderUseCase.execute(command);
+    return createProjectRenderUseCase.executeWithPreCreateMutation(
+        command,
+        () ->
+            updateProductionBeatMediaUseCase.applyRenderOverrides(
+                command.projectId(), command.beatOverrides()));
   }
 }

@@ -35,7 +35,6 @@ from narrativex_worker.providers.vertex_image import (
     _moderation,
     _prediction,
     _request_body,
-    _usage,
 )
 from narrativex_worker.schema import ProviderOperationStatus
 
@@ -565,8 +564,6 @@ def _materialize_batch_result(item: ImageBatchItem, raw: dict[str, object]) -> I
             "finishReason": _finish_reason(raw) or "UNKNOWN",
             "executionMode": "BATCH",
         },
-        _usage(raw),
-        None,
     )
     return ImageBatchItemResult(
         item.item_key,

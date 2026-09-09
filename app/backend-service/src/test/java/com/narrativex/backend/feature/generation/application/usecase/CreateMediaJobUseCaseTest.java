@@ -15,8 +15,6 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
-import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
@@ -27,7 +25,6 @@ import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmi
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -56,9 +53,7 @@ class CreateMediaJobUseCaseTest {
   @Mock private ChapterMediaHeadRepository chapterMediaHeadRepository;
   @Mock private MediaGenerationItemRepository mediaGenerationItemRepository;
   @Mock private GenerationOutboxRepository generationOutboxRepository;
-  @Mock private OperationPlanRepository operationPlanRepository;
   @Mock private StageAttemptRepository stageAttemptRepository;
-  @Mock private QuotaReservation quotaReservation;
   @Mock private UserQuotaAccess userQuotaAccess;
   @Mock private ImageGenerationCatalog imageGenerationCatalog;
   @Mock private GenerationJob activeJob;
@@ -104,7 +99,7 @@ class CreateMediaJobUseCaseTest {
 
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
-            PROJECT_ID, CHAPTER_ID, "shared-key", "IMAGE_MOTION", "16:9", new BigDecimal("0.25"));
+            PROJECT_ID, CHAPTER_ID, "shared-key", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -129,7 +124,7 @@ class CreateMediaJobUseCaseTest {
             "shared-media-key",
             "IMAGE_MOTION",
             "16:9",
-            new BigDecimal("0.25"));
+            ImageStyle.CINEMATIC);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -161,7 +156,7 @@ class CreateMediaJobUseCaseTest {
             "same-scope-key",
             "IMAGE_MOTION",
             "16:9",
-            new BigDecimal("0.25"));
+            ImageStyle.CINEMATIC);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -190,7 +185,7 @@ class CreateMediaJobUseCaseTest {
             "empty-media-key",
             "IMAGE_MOTION",
             "16:9",
-            new BigDecimal("0.25"));
+            ImageStyle.CINEMATIC);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -211,7 +206,7 @@ class CreateMediaJobUseCaseTest {
             "valid-replay-key",
             "IMAGE_MOTION",
             "16:9",
-            new BigDecimal("0.25"));
+            ImageStyle.CINEMATIC);
     String requestFingerprint =
         sha256(
             PROJECT_ID
@@ -219,7 +214,7 @@ class CreateMediaJobUseCaseTest {
                 + CHAPTER_ID
                 + ":IMAGE_MOTION:16:9:"
                 + ImageStyle.CINEMATIC
-                + ":API:0.25");
+                + ":API");
     String itemFingerprint = sha256(requestFingerprint + ":" + mediaPlanId + ":" + visualBeatId);
 
     when(currentUserId.get()).thenReturn("owner-1");
@@ -240,7 +235,7 @@ class CreateMediaJobUseCaseTest {
   }
 
   @Test
-  void rejectsDifferentSubmissionWhileChapterMediaJobIsActiveBeforePaidAdmission() {
+  void rejectsDifferentSubmissionWhileChapterMediaJobIsActiveBeforeAdmission() {
     when(currentUserId.get()).thenReturn("owner-1");
     when(generationJobRepository.findByIdempotencyKey("intent-2", "owner-1"))
         .thenReturn(Optional.empty());
@@ -251,7 +246,7 @@ class CreateMediaJobUseCaseTest {
     when(activeJob.getStatus()).thenReturn(JobStatus.RUNNING);
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
-            PROJECT_ID, CHAPTER_ID, "intent-2", "IMAGE_MOTION", "16:9", new BigDecimal("0.25"));
+            PROJECT_ID, CHAPTER_ID, "intent-2", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -262,9 +257,7 @@ class CreateMediaJobUseCaseTest {
     verifyNoInteractions(
         mediaPlanningSourceAccess,
         createMediaPlanUseCase,
-        quotaReservation,
         generationOutboxRepository,
-        operationPlanRepository,
         stageAttemptRepository,
         userQuotaAccess,
         imageGenerationCatalog);

@@ -19,4 +19,8 @@ public interface GenerationJobRepository {
   Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey, String ownerId);
 
   void acquireIdempotencyLock(String idempotencyKey, String ownerId);
+
+  void acquireImageCapacityLock(String ownerId);
+
+  int countActiveImageJobs(String ownerId);
 }

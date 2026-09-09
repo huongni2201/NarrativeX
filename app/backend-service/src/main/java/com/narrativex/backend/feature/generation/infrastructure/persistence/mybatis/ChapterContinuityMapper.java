@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +22,6 @@ public interface ChapterContinuityMapper extends NarrativeXMyBatisMapper {
       @Param("affectedBeatIdsJson") String affectedBeatIdsJson,
       @Param("reusableBeatIdsJson") String reusableBeatIdsJson,
       @Param("reason") String reason,
-      @Param("estimatedCost") BigDecimal estimatedCost,
-      @Param("currency") String currency,
       @Param("expiresAt") Instant expiresAt,
       @Param("inputFingerprint") String inputFingerprint,
       @Param("createdBy") String createdBy);

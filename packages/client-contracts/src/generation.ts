@@ -77,15 +77,12 @@ export interface RegenerationPlan {
   continuityPlanId: string;
   affectedBeatIds: string[];
   reusableBeatIds: string[];
-  estimatedCost: string;
-  currency: string;
   expiresAt: string;
   inputFingerprint: string;
 }
 
 export interface CreateRegenerationJobInput {
   regenerationPlanId: string;
-  maxAuthorizedCost: number;
 }
 
 export interface ContinuityReviewInput {
@@ -101,18 +98,11 @@ export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR" | "CINEMATIC_
 export interface CreateMediaJobInput {
   productionMode: "IMAGE_MOTION";
   aspectRatio: MediaAspectRatio;
-  maxAuthorizedCost: number;
   imageStyle?: MediaImageStyle;
   visualGenerationMode: VisualGenerationMode;
   imageProvider?: ImageGenerationProvider | null;
 }
 
-export interface MediaJobCostEstimate {
-  visualBeatCount: number;
-  unitEstimatedCost: string;
-  estimatedCost: string;
-  currency: string;
-}
 
 export interface MediaGenerationItem {
   id: string;
