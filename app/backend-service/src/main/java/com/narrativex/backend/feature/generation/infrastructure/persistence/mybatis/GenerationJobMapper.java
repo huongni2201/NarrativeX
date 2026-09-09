@@ -27,4 +27,8 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
 
   Integer acquireIdempotencyLock(
       @Param("idempotencyKey") String idempotencyKey, @Param("ownerId") String ownerId);
+
+  Integer acquireImageCapacityLock(@Param("ownerId") String ownerId);
+
+  int countActiveImageJobs(@Param("ownerId") String ownerId);
 }
