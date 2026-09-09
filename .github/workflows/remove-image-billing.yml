@@ -1,0 +1,39 @@
+name: Remove image billing
+
+on:
+  push:
+    branches:
+      - fix/audit-runtime-races-and-remove-image-billing
+    paths:
+      - scripts/remove-image-billing.py
+      - .github/workflows/remove-image-billing.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/audit-runtime-races-and-remove-image-billing
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Remove image billing paths
+        run: python scripts/remove-image-billing.py
+      - name: Validate removal shape
+        run: |
+          ! grep -R 'NARRATIVEX_IMAGE_UNIT_COST\|NARRATIVEX_IMAGE_PRICING_VERSION' docker-compose.yml .env.example app/backend-service/src/main/resources/application.yml
+          ! grep -R 'MediaJobCostEstimate\|useEstimateMediaJob' packages/client-contracts/src app/desktop/src/renderer/features/generation
+          ! grep -R 'actual_cost\|usage:' app/ai-worker/src/narrativex_worker/providers/image.py
+          ! grep -R '_usage(raw)' app/ai-worker/src/narrativex_worker/providers/vertex_image.py app/ai-worker/src/narrativex_worker/providers/vertex_image_batch.py
+      - name: Remove temporary patcher and commit
+        run: |
+          git rm scripts/remove-image-billing.py .github/workflows/remove-image-billing.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: remove image cost and usage tracking'
+          git push origin HEAD:fix/audit-runtime-races-and-remove-image-billing
