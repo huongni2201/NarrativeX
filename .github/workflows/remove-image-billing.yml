@@ -21,6 +21,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Fix temporary patcher for shared usage helper
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/remove-image-billing.py')
+          text = p.read_text()
+          old = "for p in ['app/ai-worker/src/narrativex_worker/providers/vertex_image.py','app/ai-worker/src/narrativex_worker/providers/vertex_image_batch.py']:\n    t=read(p)\n    t=t.replace('            _usage(raw),\\n            None,\\n','').replace('        _usage(raw),\\n        None,\\n','')\n    t,n=re.subn(r'\\n\\ndef _usage\\(raw: dict\\[str, object\\]\\) -> dict\\[str, int \\| str\\]:.*?(?=\\n\\ndef |\\Z)', '', t, count=1, flags=re.S)\n    if n!=1: raise RuntimeError(f'{p}: _usage helper not found')\n    write(p,t)"
+          new = "p='app/ai-worker/src/narrativex_worker/providers/vertex_image.py'\nt=read(p).replace('            _usage(raw),\\n            None,\\n','')\nt,n=re.subn(r'\\n\\ndef _usage\\(raw: dict\\[str, object\\]\\) -> dict\\[str, int \\| str\\]:.*?(?=\\n\\ndef |\\Z)', '', t, count=1, flags=re.S)\nif n!=1: raise RuntimeError(f'{p}: _usage helper not found')\nwrite(p,t)\np='app/ai-worker/src/narrativex_worker/providers/vertex_image_batch.py'\nt=read(p).replace('    _usage,\\n','').replace('        _usage(raw),\\n        None,\\n','')\nwrite(p,t)"
+          if old not in text:
+              raise SystemExit('temporary patch target not found')
+          p.write_text(text.replace(old, new))
+          PY
       - name: Remove image billing paths
         run: python scripts/remove-image-billing.py
       - name: Validate removal shape
