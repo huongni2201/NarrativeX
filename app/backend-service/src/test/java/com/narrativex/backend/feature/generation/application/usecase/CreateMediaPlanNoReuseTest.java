@@ -25,7 +25,6 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.MotionIntent;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.SceneSnapshot;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -103,12 +102,9 @@ class CreateMediaPlanNoReuseTest {
                 projectId,
                 chapterId,
                 ProductionMode.IMAGE_MOTION,
-                new BigDecimal("1.00"),
                 "16:9",
                 "vertex",
                 "gemini-2.5-flash-image",
-                null,
-                null,
                 ImageStyle.CINEMATIC));
 
     assertThat(plan.scenes().getFirst().beats())
