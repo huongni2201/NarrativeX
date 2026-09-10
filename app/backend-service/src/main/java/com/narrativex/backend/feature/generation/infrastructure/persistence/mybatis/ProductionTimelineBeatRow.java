@@ -24,9 +24,6 @@ public class ProductionTimelineBeatRow {
   private String assetStrategy;
   private Integer textStart;
   private Integer textEnd;
-  private Long audioStartMs;
-  private Long audioEndMs;
-  private Long audioDurationMs;
   private UUID mediaAssetId;
   private String mediaType;
   private Long sourceDurationMs;
