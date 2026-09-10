@@ -85,8 +85,8 @@ class ProductionTimelineLocalFirstIntegrationTest {
     assertThat(beats).hasSize(2);
     assertThat(beats.get(0).getMediaAssetId()).isEqualTo(PREVIEW_A);
     assertThat(beats.get(0).getCameraMovement()).isEqualTo("PAN");
-    assertThat(beats.get(0).getAudioStartMs()).isNull();
-    assertThat(beats.get(0).getAudioEndMs()).isNull();
+    assertThat(beats.get(0).getTextStart()).isZero();
+    assertThat(beats.get(0).getTextEnd()).isEqualTo(10);
     assertThat(beats.get(0).isMediaSelectionActive()).isFalse();
     assertThat(beats.get(1).getMediaAssetId()).isEqualTo(PREVIEW_B);
   }
