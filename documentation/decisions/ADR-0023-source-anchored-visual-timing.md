@@ -35,7 +35,7 @@ Narration owns authoritative encoded-audio duration and source/alignment spans. 
 
 The backend maps VisualBeat text ranges through narration alignment when constructing the production timeline. This is the authoritative runtime text-to-audio mapping location.
 
-Persisted `visual_beats.audio_start_ms/audio_end_ms` values remain compatibility inputs where complete and valid; they are not the sole timing authority for newly aligned beats.
+Persisted `visual_beats.audio_start_ms/audio_end_ms` are not Production Timeline inputs. Production timing is derived at runtime from deterministic VisualBeat text ranges and the current narration alignment. Any persisted timing fields that remain for separate compatibility/planning consumers must not flow into render admission.
 
 ### Review fallback versus render readiness
 
@@ -51,7 +51,7 @@ The removed duration-weighted visual timing module is not part of the production
 
 - Documentation must describe source anchors/text ranges as the durable semantic bridge from story text to the audio clock.
 - Current AI-generated storyboards cannot silently persist without deterministic source provenance.
-- `audio_start_ms/audio_end_ms` must not be documented as the only required VisualBeat source of truth.
+- `audio_start_ms/audio_end_ms` must not be consumed by the Production Timeline or render-admission path.
 - Python worker code should not duplicate backend text-to-audio mapping.
 - Render readiness remains fail-closed when exact aligned timing cannot be established.
 - Compatibility media-plan timing fields may remain until their consumers are migrated separately.
@@ -64,4 +64,4 @@ Current implementation evidence includes:
 - `materialization/storyboard.py`: complete-anchor admission gate for generated storyboards;
 - `NarrationTextClockMapper`: backend text-range to narration-clock mapping;
 - `GetProductionTimelineUseCase`: derive aligned beat timing on read and gate render readiness on exact timing;
-- narration precision and production-timeline tests covering alignment/tail-drift behavior.
+- narration precision and production-timeline tests covering alignment and fail-closed fallback behavior.
