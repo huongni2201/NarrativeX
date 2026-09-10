@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -180,6 +181,8 @@ class InMemoryMediaStorage:
 class LocalMediaStorage:
     """Filesystem-backed immutable store for project working media."""
 
+    _LOCK_RECORD_GRACE_SECONDS = 1.0
+
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
@@ -209,6 +212,30 @@ class LocalMediaStorage:
         except (FileNotFoundError, IndexError, OSError):
             return None
 
+    @classmethod
+    def _read_lock_owner(cls, lock_path: Path) -> tuple[int, str | None]:
+        raw = lock_path.read_text(encoding="utf-8").strip()
+        try:
+            record = json.loads(raw)
+            if not isinstance(record, dict):
+                raise ValueError("invalid lock record")
+            owner_start_raw = record.get("processStart")
+            owner_start = None if owner_start_raw is None else str(owner_start_raw)
+            return int(record["pid"]), owner_start
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            try:
+                return int(raw), None
+            except ValueError:
+                try:
+                    age = max(0.0, time.time() - lock_path.stat().st_mtime)
+                except FileNotFoundError:
+                    raise
+                if age >= cls._LOCK_RECORD_GRACE_SECONDS:
+                    raise ProcessLookupError("stale malformed lock") from None
+                raise MediaAssetConflictError(
+                    "local media object is locked by another writer"
+                ) from None
+
     @contextmanager
     def _writer_lock(self, path: Path) -> Iterator[None]:
         lock_path = self._lock(path)
@@ -226,21 +253,13 @@ class LocalMediaStorage:
                 break
             except FileExistsError:
                 try:
-                    raw = lock_path.read_text(encoding="utf-8").strip()
-                    try:
-                        record = json.loads(raw)
-                        owner = int(record["pid"])
-                        owner_start = record.get("processStart")
-                    except (json.JSONDecodeError, KeyError, TypeError):
-                        # Read legacy PID-only locks conservatively.
-                        owner = int(raw)
-                        owner_start = None
+                    owner, owner_start = self._read_lock_owner(lock_path)
                     os.kill(owner, 0)
                     current_start = self._process_start_identity(owner)
                     if (
                         owner_start is not None
                         and current_start is not None
-                        and str(owner_start) != current_start
+                        and owner_start != current_start
                     ):
                         try:
                             lock_path.unlink()
@@ -253,6 +272,8 @@ class LocalMediaStorage:
                     except FileNotFoundError:
                         pass
                     continue
+                except MediaAssetConflictError:
+                    raise
                 except (OSError, ValueError):
                     # Permission errors do not prove that the owner is dead.
                     raise MediaAssetConflictError(

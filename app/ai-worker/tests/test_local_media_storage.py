@@ -1,4 +1,7 @@
 import hashlib
+import json
+import os
+import time
 
 import pytest
 
@@ -72,3 +75,49 @@ async def test_corrupted_marker_is_not_treated_as_complete(tmp_path) -> None:
 
     with pytest.raises(MediaAssetConflictError, match="marker"):
         await storage.find("private/image")
+
+
+def test_recent_empty_writer_lock_is_not_stolen(tmp_path) -> None:
+    storage = LocalMediaStorage(tmp_path)
+    path = storage._path("private/image")
+    path.parent.mkdir(parents=True)
+    storage._lock(path).write_text("", encoding="utf-8")
+
+    with pytest.raises(MediaAssetConflictError, match="locked"):
+        with storage._writer_lock(path):
+            pass
+
+
+def test_stale_malformed_writer_lock_is_recovered(tmp_path) -> None:
+    storage = LocalMediaStorage(tmp_path)
+    path = storage._path("private/image")
+    path.parent.mkdir(parents=True)
+    lock_path = storage._lock(path)
+    lock_path.write_text("{broken", encoding="utf-8")
+    stale = time.time() - storage._LOCK_RECORD_GRACE_SECONDS - 1
+    os.utime(lock_path, (stale, stale))
+
+    with storage._writer_lock(path):
+        assert lock_path.exists()
+
+    assert not lock_path.exists()
+
+
+def test_live_writer_lock_remains_exclusive(tmp_path) -> None:
+    storage = LocalMediaStorage(tmp_path)
+    path = storage._path("private/image")
+    path.parent.mkdir(parents=True)
+    lock_path = storage._lock(path)
+    lock_path.write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "processStart": storage._process_start_identity(os.getpid()),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(MediaAssetConflictError, match="locked"):
+        with storage._writer_lock(path):
+            pass

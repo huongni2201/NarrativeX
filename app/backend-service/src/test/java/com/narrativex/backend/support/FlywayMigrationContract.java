@@ -30,7 +30,8 @@ public final class FlywayMigrationContract {
           "V13__render_continuity_provenance.sql",
           "V14__storyboard_generation_snapshots.sql",
           "V15__export_quota_reservations.sql",
-          "V16__render_profile_watermark_policy.sql");
+          "V16__render_profile_watermark_policy.sql",
+          "V17__remove_image_billing_metadata.sql");
 
   private FlywayMigrationContract() {}
 
