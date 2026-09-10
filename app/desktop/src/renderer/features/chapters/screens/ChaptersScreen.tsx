@@ -50,9 +50,6 @@ export function ChaptersScreen({
   voices,
   timeline,
   workspaceStatus,
-  projectsCount: _projectsCount,
-  assetsCount: _assetsCount,
-  charactersCount: _charactersCount,
 }: Readonly<{
   projectId: string;
   projectName: string;
@@ -61,9 +58,6 @@ export function ChaptersScreen({
   voices: DesktopVoice[];
   timeline: DesktopTimeline | null;
   workspaceStatus: WorkspaceStatus;
-  projectsCount: number;
-  assetsCount: number;
-  charactersCount: number;
 }>) {
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);

@@ -48,9 +48,6 @@ export function ProjectWorkspaceRoute() {
           voices={workspace.voices}
           timeline={workspace.timeline}
           workspaceStatus={workspace.status}
-          projectsCount={workspace.projects.length}
-          assetsCount={workspace.assets.length}
-          charactersCount={workspace.characters.length}
         />
       )}
       {screen === "storyboard" && (

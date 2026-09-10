@@ -1,4 +1,4 @@
-# Story-to-Video Workflow — V1.12
+# Story-to-Video Workflow — V1.13
 
 NarrativeX is Desktop-only at the editor boundary, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
 
@@ -55,7 +55,7 @@ VisualBeat source_anchor
   -> VisualBeat audio start/end/duration
 ```
 
-Complete existing persisted `visual_beats.audio_start_ms/audio_end_ms` may still be consumed as compatibility timing when valid. They are not the only production timing source of truth.
+Persisted `visual_beats.audio_start_ms/audio_end_ms` are not consumed by the Production Timeline. Runtime VisualBeat timing is derived from source text ranges plus the current narration alignment only.
 
 When exact aligned timing is unavailable, the Editor may still receive provisional fallback timing so the storyboard remains inspectable. Render remains blocked because provisional timing is not exact narration alignment.
 

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class GetProductionTimelineAlignedTimingTest {
   @Test
-  void usesExactAlignedSpansInsteadOfRescalingFromStaleDurationWeights() {
+  void usesNarrationAlignmentInsteadOfTextWeightFallback() {
     CurrentUserId currentUserId = mock(CurrentUserId.class);
     ProjectAccess projectAccess = mock(ProjectAccess.class);
     ProductionTimelineSourceRepository sourceRepository =
@@ -26,7 +26,14 @@ class GetProductionTimelineAlignedTimingTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-    UUID planId = UUID.randomUUID();
+    String spans =
+        """
+        [
+          {"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":2000},
+          {"index":1,"textStart":50,"textEnd":100,"audioStartMs":2000,"audioEndMs":10000}
+        ]
+        """;
+
     when(sourceRepository.findChapters(projectId, "owner"))
         .thenReturn(
             List.of(
@@ -37,8 +44,8 @@ class GetProductionTimelineAlignedTimingTest {
                     "Chapter 1",
                     3L,
                     "0".repeat(64),
-                    planId,
-                    1,
+                    null,
+                    null,
                     "16:9",
                     10_000L,
                     "audio/chapter.mp3",
@@ -47,35 +54,32 @@ class GetProductionTimelineAlignedTimingTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     UUID.randomUUID(),
+                    "x".repeat(100),
+                    spans,
                     10_000L,
                     2,
                     2)));
     when(sourceRepository.findBeats(projectId, "owner"))
         .thenReturn(
             List.of(
-                beat(chapterId, planId, 0, 0L, 2_000L, 5_000L),
-                beat(chapterId, planId, 1, 2_000L, 10_000L, 5_000L)));
+                beat(chapterId, 0, 0, 50),
+                beat(chapterId, 1, 50, 100)));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
+    assertThat(timeline.readyForRender()).isTrue();
     assertThat(timeline.beats())
         .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
         .containsExactly(List.of(0L, 2_000L, 2_000L), List.of(2_000L, 10_000L, 8_000L));
   }
 
-  private static BeatSource beat(
-      UUID chapterId,
-      UUID planId,
-      int beatIndex,
-      long audioStartMs,
-      long audioEndMs,
-      long staleAudioDurationMs) {
+  private static BeatSource beat(UUID chapterId, int beatIndex, int textStart, int textEnd) {
     UUID visualBeatId = UUID.randomUUID();
     return new BeatSource(
         chapterId,
         0,
-        planId,
-        1,
+        null,
+        null,
         0,
         beatIndex,
         visualBeatId,
@@ -83,9 +87,8 @@ class GetProductionTimelineAlignedTimingTest {
         "Intent",
         "NONE",
         "GENERATE_NEW",
-        audioStartMs,
-        audioEndMs,
-        staleAudioDurationMs,
+        textStart,
+        textEnd,
         UUID.randomUUID(),
         "IMAGE",
         null,

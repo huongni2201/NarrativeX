@@ -42,9 +42,6 @@
     <result property="assetStrategy" column="asset_strategy" />
     <result property="textStart" column="text_start" />
     <result property="textEnd" column="text_end" />
-    <result property="audioStartMs" column="audio_start_ms" />
-    <result property="audioEndMs" column="audio_end_ms" />
-    <result property="audioDurationMs" column="audio_duration_ms" />
     <result property="mediaAssetId" column="media_asset_id" />
     <result property="mediaType" column="media_type" />
     <result property="sourceDurationMs" column="source_duration_ms" />
@@ -214,9 +211,6 @@
            'GENERATE_NEW' AS asset_strategy,
            cb.text_start,
            cb.text_end,
-           NULL::bigint AS audio_start_ms,
-           NULL::bigint AS audio_end_ms,
-           NULL::bigint AS audio_duration_ms,
            COALESCE(chosen.media_asset_id, preview.media_asset_id) AS media_asset_id,
            COALESCE(chosen.media_type, preview.media_type) AS media_type,
            COALESCE(chosen.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
