@@ -30,6 +30,7 @@ CREATE TABLE generation_jobs (
     media_plan_id UUID,
     media_plan_revision INTEGER,
     production_mode VARCHAR(32),
+    regeneration_plan_id UUID,
     analysis_visual_generation_mode VARCHAR(16),
     analysis_image_provider VARCHAR(32),
     CONSTRAINT ck_generation_jobs_progress CHECK (progress BETWEEN 0 AND 100),
@@ -52,6 +53,9 @@ CREATE TABLE generation_jobs (
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
         production_mode IS NULL OR production_mode = 'IMAGE_MOTION'
+    ),
+    CONSTRAINT ck_generation_jobs_regeneration_plan_type CHECK (
+        regeneration_plan_id IS NULL OR job_type = 'CHAPTER_GENERATE'
     ),
     CONSTRAINT ck_generation_jobs_analysis_visual_mode CHECK (
         analysis_visual_generation_mode IS NULL
@@ -192,16 +196,15 @@ CREATE TABLE quota_reservations (
 );
 
 -- -----------------------------------------------------------------------------
--- Media assets and validation
+-- Project media and account voice-reference assets
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE media_assets (
     id UUID PRIMARY KEY,
     account_id VARCHAR(128) NOT NULL,
-    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     asset_type VARCHAR(16) NOT NULL,
     origin VARCHAR(24) NOT NULL,
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
     storage_key VARCHAR(512),
     original_filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(160) NOT NULL,
@@ -222,25 +225,38 @@ CREATE TABLE media_assets (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED', 'LOCAL_ONLY')),
-    CONSTRAINT ck_media_assets_storage_scope CHECK (
-        (storage_mode = 'REMOTE'
-            AND project_id IS NULL
-            AND asset_type = 'AUDIO'
-            AND storage_key IS NOT NULL)
-        OR
-        (storage_mode = 'PROJECT_LOCAL'
-            AND project_id IS NOT NULL
-            AND storage_key IS NOT NULL)
-        OR
-        (storage_mode = 'LOCAL_ONLY'
-            AND project_id IS NOT NULL
-            AND storage_key IS NULL)
-    ),
     CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
     CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
     CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_media_assets_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
+);
+
+CREATE TABLE voice_reference_assets (
+    id UUID PRIMARY KEY,
+    account_id VARCHAR(128) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(160) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    detected_content_type VARCHAR(160),
+    detected_container VARCHAR(64),
+    detected_codec VARCHAR(64),
+    validation_error_code VARCHAR(96),
+    validation_error_detail VARCHAR(1024),
+    validated_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    row_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_voice_reference_assets_account_checksum UNIQUE (account_id, sha256),
+    CONSTRAINT ck_voice_reference_assets_size CHECK (size_bytes > 0),
+    CONSTRAINT ck_voice_reference_assets_sha CHECK (char_length(sha256) = 64),
+    CONSTRAINT ck_voice_reference_assets_storage_key CHECK (storage_key LIKE 'voices/%'),
+    CONSTRAINT ck_voice_reference_assets_status CHECK (
+        status IN ('VALIDATING', 'READY', 'REJECTED', 'DELETED')
+    )
 );
 
 ALTER TABLE visual_beats
@@ -274,22 +290,10 @@ CREATE TABLE character_version_reference_assets (
     CONSTRAINT ck_character_version_reference_priority CHECK (priority BETWEEN 0 AND 99)
 );
 
-CREATE TABLE media_asset_checksums (
-    account_id VARCHAR(128) NOT NULL,
-    sha256 VARCHAR(64) NOT NULL,
-    media_asset_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_media_asset_checksums PRIMARY KEY (account_id, sha256),
-    CONSTRAINT ck_media_asset_checksums_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT fk_media_asset_checksums_asset
-        FOREIGN KEY (media_asset_id) REFERENCES media_assets(id)
-        DEFERRABLE INITIALLY DEFERRED
-);
-
 CREATE TABLE media_validation_jobs (
     id UUID PRIMARY KEY,
     account_id VARCHAR(128) NOT NULL,
-    media_asset_id UUID NOT NULL UNIQUE REFERENCES media_assets(id),
+    media_asset_id UUID NOT NULL UNIQUE REFERENCES voice_reference_assets(id) ON DELETE CASCADE,
     storage_key VARCHAR(512) NOT NULL,
     declared_type VARCHAR(16) NOT NULL,
     declared_content_type VARCHAR(160) NOT NULL,
