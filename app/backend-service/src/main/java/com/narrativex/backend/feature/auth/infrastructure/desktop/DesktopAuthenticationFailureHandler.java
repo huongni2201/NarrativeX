@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
@@ -35,7 +37,11 @@ public class DesktopAuthenticationFailureHandler implements AuthenticationFailur
         attempt != null && isAllowedRedirect(attempt.redirectUri())
             ? attempt.redirectUri()
             : DEFAULT_DESKTOP_REDIRECT_URI;
-    response.sendRedirect(redirectUri + "?error=authentication_failed");
+    String attemptQuery =
+        attempt == null
+            ? ""
+            : "&attempt=" + URLEncoder.encode(attempt.attemptId(), StandardCharsets.UTF_8);
+    response.sendRedirect(redirectUri + "?error=authentication_failed" + attemptQuery);
   }
 
   private static boolean isAllowedRedirect(String redirectUri) {
