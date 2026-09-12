@@ -122,7 +122,7 @@ source_anchor
 ```text
 V1__identity_and_access.sql
 V2__project_story_and_planning.sql
-V3__generation_billing_and_media.sql
+V3__generation_quota_and_media.sql
 V4__narration_notifications_and_artifacts.sql
 V5__catalog_generation_and_render_snapshots.sql
 V6__database_logic_and_triggers.sql
