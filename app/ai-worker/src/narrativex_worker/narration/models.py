@@ -11,12 +11,25 @@ class NarrationSegment:
 
 
 @dataclass(frozen=True)
-class AlignmentSpan:
+class WordAlignment:
+    """One spoken source word mapped to its measured audio interval."""
+
     index: int
     text_start: int
     text_end: int
     audio_start_ms: int
     audio_end_ms: int
+    confidence: float
+
+    def __post_init__(self) -> None:
+        if self.index < 0:
+            raise ValueError("index must not be negative")
+        if self.text_start < 0 or self.text_end <= self.text_start:
+            raise ValueError("invalid text range")
+        if self.audio_start_ms < 0 or self.audio_end_ms <= self.audio_start_ms:
+            raise ValueError("invalid audio range")
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0 and 1")
 
 
 @dataclass(frozen=True)
