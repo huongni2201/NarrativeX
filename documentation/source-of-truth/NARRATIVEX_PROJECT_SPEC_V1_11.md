@@ -99,7 +99,7 @@ Persisted exact audio timing may remain as compatibility input, but provisional/
 
 ### 3.4 Backend owns execution policy
 
-The backend creates/version-controls authorized MediaPlan/production policy and expensive job admission. Workers and Desktop devices execute persisted policy and may not silently escalate paid work.
+The backend creates/version-controls authorized MediaPlan/production policy and expensive job admission. Workers and Desktop devices execute persisted policy and may not silently escalate provider-consuming work.
 
 ### 3.5 PostgreSQL remains durable control-plane authority
 
@@ -123,7 +123,7 @@ The Chromium renderer sandbox is currently disabled for Desktop startup compatib
 
 Backend contracts identify local media using stable asset/job IDs, checksums and opaque project-relative keys. Absolute machine paths stay inside Electron main/local storage.
 
-### 3.9 Backend authorization gates paid/account work
+### 3.9 Backend authorization gates provider/account work
 
 Guest/user role enforcement belongs to backend security. Renderer state may improve UX but cannot be the only authorization gate.
 
@@ -395,12 +395,12 @@ There is no server-side final render executor or final-video byte-storage path i
 Source/reviewed state
   -> OperationPlan / MediaPlan where applicable
   -> GenerationJob / StageAttempt
-  -> ProviderOperation when crossing external paid boundary
+  -> ProviderOperation when crossing external provider boundary
   -> validated immutable result
   -> project-local media persistence/materialization
 ```
 
-External provider ambiguity preserves `UNKNOWN` and reconciles before paid resubmission. Long provider/network calls must not hold long business transactions open.
+External provider ambiguity preserves `UNKNOWN` and reconciles before external resubmission. Long provider/network calls must not hold long business transactions open.
 
 Provider-specific temporary infrastructure such as GCS batch staging is not NarrativeX project storage. R2 is not a generated-image/narration transport in the current runtime.
 
@@ -411,7 +411,7 @@ Provider-specific temporary infrastructure such as GCS batch staging is not Narr
 ```text
 V1__identity_and_access.sql
 V2__project_story_and_planning.sql
-V3__generation_billing_and_media.sql
+V3__generation_quota_and_media.sql
 V4__narration_notifications_and_artifacts.sql
 V5__catalog_generation_and_render_snapshots.sql
 V6__database_logic_and_triggers.sql
@@ -419,7 +419,7 @@ V7__indexes.sql
 V8__seed_catalog.sql
 ```
 
-V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Current project-media, voice-reference, subtitle snapshot, Chapter Workspace and VieNeu speaking-rate behavior is represented directly in the owning baseline migrations.
+V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Current project-media, voice-reference, subtitle snapshot, Chapter Workspace and VieNeu speaking-rate behavior is represented directly in the owning baseline migrations. The former V9–V18 patch history has been folded into these owning migrations; a clean database does not create retired monetary billing/credit or storage-compatibility schema first and remove it later.
 
 Future schema evolution starts with append-only `V9__*.sql` only after the first production deployment. Current disposable development/test databases may be recreated when the clean baseline changes.
 
@@ -468,11 +468,12 @@ Historical schema columns/defaults that no longer have an active executor do not
 | Immutable subtitle snapshot + local SRT track | IMPLEMENTED foundation |
 | Local media duration probing | IMPLEMENTED foundation |
 | Custom voice reference preview | IMPLEMENTED foundation |
+| Non-monetary capacity/export quota lifecycle | IMPLEMENTED foundation |
+| Monetary billing / credit / pricing runtime | REMOVED |
 | Production packaging/signing/auto-update | TARGET |
 | Full abrupt-process render recovery UX | PARTIAL |
 | Adaptive narration-driven VisualScenePlanner | TARGET |
 | Rich reuse/reframe/edit AssetResolver | DEFERRED fast-follow |
-| Complete actual usage/billing reconciliation | PARTIAL |
 
 ---
 
@@ -527,7 +528,7 @@ Active work belongs in `../product/ROADMAP.md`, currently centered on:
 4. adaptive narration-driven scene planning and continuity review;
 5. richer asset reuse/reframe/edit lineage;
 6. user-audio alignment/production hardening;
-7. billing/actual-usage and operational evidence.
+7. provider execution telemetry and operational evidence.
 
 Completed Desktop/backend/persistence/timing migration plans are historical evidence. Use accepted ADRs and Git history for rationale rather than preserving stale migration checklists as current truth.
 
