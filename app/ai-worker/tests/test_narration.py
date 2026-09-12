@@ -18,6 +18,42 @@ def test_segmenter_preserves_utf16_offsets_for_unicode() -> None:
     assert all(a.text_end <= b.text_start for a, b in zip(segments, segments[1:], strict=False))
 
 
+def test_default_segmenter_preserves_sentence_boundaries_for_alignment() -> None:
+    text = "Câu thứ nhất. Câu thứ hai. Câu thứ ba."
+    segments = NarrationSegmenter().segment(text)
+
+    assert [segment.text.strip() for segment in segments] == [
+        "Câu thứ nhất.",
+        "Câu thứ hai.",
+        "Câu thứ ba.",
+    ]
+    assert "".join(segment.text for segment in segments) == text
+
+
+def test_default_segmenter_caps_long_alignment_spans_to_subtitle_cue_size() -> None:
+    text = (
+        "Người đàn ông bước chậm qua hành lang tối rồi dừng trước cửa, nhưng bên trong căn "
+        "phòng vẫn hoàn toàn im lặng như chưa từng có ai ở đó."
+    )
+    segments = NarrationSegmenter().segment(text)
+
+    assert len(segments) >= 2
+    assert all(len(segment.text) <= 96 for segment in segments)
+    assert "".join(segment.text for segment in segments) == text
+
+
+def test_default_segmenter_uses_newlines_as_alignment_boundaries() -> None:
+    text = "Anh nhìn sang bên trái\nCô vẫn đứng yên\nKhông ai nói gì"
+    segments = NarrationSegmenter().segment(text)
+
+    assert [segment.text.strip() for segment in segments] == [
+        "Anh nhìn sang bên trái",
+        "Cô vẫn đứng yên",
+        "Không ai nói gì",
+    ]
+    assert "".join(segment.text for segment in segments) == text
+
+
 def test_alignment_validator_rejects_overlap() -> None:
     validator = NarrationAlignmentValidator()
     with pytest.raises(ValueError, match="audio spans overlap"):
