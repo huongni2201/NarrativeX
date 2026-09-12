@@ -75,23 +75,25 @@ public class DesktopAuthController {
       @RequestParam(name = "redirect_uri", defaultValue = "narrativex://auth/callback")
           String redirectUri,
       @RequestParam(name = "code_challenge", required = false) String codeChallenge,
+      @RequestParam(name = "attempt", required = false) String attemptId,
       HttpServletRequest request,
       HttpServletResponse response)
       throws IOException {
-    if (!isAllowedRedirect(redirectUri) || !isAllowedCodeChallenge(codeChallenge)) {
-      response.sendError(HttpStatus.BAD_REQUEST.value(), "Unsupported desktop redirect URI.");
+    if (!isAllowedRedirect(redirectUri)
+        || !isAllowedCodeChallenge(codeChallenge)
+        || !isAllowedAttemptId(attemptId)) {
+      response.sendError(HttpStatus.BAD_REQUEST.value(), "Unsupported desktop auth request.");
       return;
     }
 
     String canonicalStartUrl =
-        canonicalPublicStartUrl(publicBaseUrl, request, redirectUri, codeChallenge);
+        canonicalPublicStartUrl(publicBaseUrl, request, redirectUri, codeChallenge, attemptId);
     if (canonicalStartUrl != null) {
       response.sendRedirect(canonicalStartUrl);
       return;
     }
 
     var session = request.getSession(true);
-    String attemptId = UUID.randomUUID().toString();
     DesktopOAuth2AuthorizationRequestRepository.storePendingDesktopAttempt(
         session, attemptId, redirectUri, codeChallenge);
     response.sendRedirect(
@@ -194,7 +196,11 @@ public class DesktopAuthController {
   }
 
   static String canonicalPublicStartUrl(
-      String publicBaseUrl, HttpServletRequest request, String redirectUri, String codeChallenge) {
+      String publicBaseUrl,
+      HttpServletRequest request,
+      String redirectUri,
+      String codeChallenge,
+      String attemptId) {
     if (publicBaseUrl == null || publicBaseUrl.isBlank()) {
       return null;
     }
@@ -212,11 +218,18 @@ public class DesktopAuthController {
 
     String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
     String encodedCodeChallenge = URLEncoder.encode(codeChallenge, StandardCharsets.UTF_8);
+    String encodedAttemptId = URLEncoder.encode(attemptId, StandardCharsets.UTF_8);
     return UriComponentsBuilder.fromUri(publicOrigin)
         .replacePath(DESKTOP_START_PATH)
         .replaceQuery(null)
         .fragment(null)
-        .query("redirect_uri=" + encodedRedirectUri + "&code_challenge=" + encodedCodeChallenge)
+        .query(
+            "redirect_uri="
+                + encodedRedirectUri
+                + "&code_challenge="
+                + encodedCodeChallenge
+                + "&attempt="
+                + encodedAttemptId)
         .build(true)
         .toUriString();
   }
@@ -261,5 +274,14 @@ public class DesktopAuthController {
 
   static boolean isAllowedCodeChallenge(String codeChallenge) {
     return codeChallenge != null && codeChallenge.matches(CODE_CHALLENGE_PATTERN);
+  }
+
+  static boolean isAllowedAttemptId(String attemptId) {
+    if (attemptId == null || attemptId.isBlank()) return false;
+    try {
+      return UUID.fromString(attemptId).toString().equalsIgnoreCase(attemptId);
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
   }
 }
