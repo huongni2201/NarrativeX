@@ -35,7 +35,7 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
                     row.getNarrationAssetId(),
                     row.getNarrationAlignmentId(),
                     row.getSubtitleText(),
-                    row.getSubtitleSpansJson(),
+                    row.getSubtitleWordsJson(),
                     row.getFallbackDurationMs(),
                     row.getBeatCount(),
                     row.getReadyBeatCount()))
