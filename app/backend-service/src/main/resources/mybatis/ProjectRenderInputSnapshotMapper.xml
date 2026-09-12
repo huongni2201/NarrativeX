@@ -24,7 +24,7 @@
       media_plan_id, media_plan_revision, global_start_ms, global_end_ms,
       audio_storage_key, audio_size_bytes, audio_checksum, audio_duration_ms,
       narration_request_id, narration_asset_id, narration_alignment_id,
-      subtitle_text, subtitle_spans_json, continuity_plan_id, continuity_report_revision
+      subtitle_text, subtitle_words_json, continuity_plan_id, continuity_report_revision
     ) VALUES (
       #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{chapter.chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
@@ -44,10 +44,11 @@
            AND c.deleted_at IS NULL
       ), ''),
       (
-        SELECT nal.spans_json
+        SELECT nal.words_json
           FROM narration_alignments nal
          WHERE nal.id = #{chapter.narrationAlignmentId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND nal.source_hash = #{chapter.sourceHash}
+           AND nal.alignment_version = 'word-whisper-v1'
       ),
       (
         SELECT ccp.id
