@@ -1,4 +1,4 @@
--- NarrativeX pre-release baseline: generation execution, billing/quota, and media assets.
+-- NarrativeX pre-release baseline: generation execution, capacity/export quotas, and media assets.
 
 -- -----------------------------------------------------------------------------
 -- Generation jobs and provider operations
@@ -110,20 +110,10 @@ CREATE TABLE provider_operations (
     request_fingerprint VARCHAR(128),
     result_fingerprint VARCHAR(128),
     normalized_result_json JSONB,
-    actual_cost NUMERIC(19, 9),
-    billing_currency VARCHAR(3),
-    usage_json JSONB,
-    pricing_snapshot_json JSONB,
     next_reconcile_at TIMESTAMP WITH TIME ZONE,
     reconcile_attempts INTEGER NOT NULL DEFAULT 0,
     last_reconcile_error TEXT,
     CONSTRAINT ck_provider_operations_status CHECK (status IN ('RESERVED', 'SUBMITTED', 'RUNNING', 'COMPLETED', 'FAILED', 'UNKNOWN')),
-    CONSTRAINT ck_provider_operations_actual_cost_nonnegative CHECK (actual_cost IS NULL OR actual_cost >= 0),
-    CONSTRAINT ck_provider_operations_billing_complete CHECK (
-        (actual_cost IS NULL AND billing_currency IS NULL AND usage_json IS NULL AND pricing_snapshot_json IS NULL)
-        OR
-        (actual_cost IS NOT NULL AND billing_currency IS NOT NULL AND usage_json IS NOT NULL AND pricing_snapshot_json IS NOT NULL)
-    ),
     CONSTRAINT ck_provider_operations_reconcile_attempts CHECK (reconcile_attempts >= 0),
     CONSTRAINT ck_provider_operations_completed_has_result CHECK (status <> 'COMPLETED' OR normalized_result_json IS NOT NULL),
     CONSTRAINT ck_provider_operations_completed_has_fingerprint CHECK (status <> 'COMPLETED' OR (normalized_result_json IS NOT NULL AND result_fingerprint IS NOT NULL)),
@@ -137,15 +127,11 @@ CREATE TABLE operation_plans (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     project_id UUID NOT NULL REFERENCES projects(id),
     generation_job_id UUID REFERENCES generation_jobs(id),
-    operation_type VARCHAR(40) NOT NULL,
-    estimate_min NUMERIC(19, 6) NOT NULL,
-    estimate_max NUMERIC(19, 6) NOT NULL,
-    max_authorized_cost NUMERIC(19, 6) NOT NULL,
-    confidence VARCHAR(16) NOT NULL
+    operation_type VARCHAR(40) NOT NULL
 );
 
 -- -----------------------------------------------------------------------------
--- Plans, usage and quota reservations
+-- Plans, usage and non-monetary quota reservations
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE plan_entitlements (
@@ -158,7 +144,6 @@ CREATE TABLE plan_entitlements (
     max_short_exports_month INTEGER,
     max_concurrent_expensive_jobs INTEGER NOT NULL,
     feature_flags_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    monthly_credits NUMERIC(19, 6),
     active_from TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT uq_plan_entitlements_key_version UNIQUE (plan_key, version)
 );
@@ -177,7 +162,6 @@ CREATE TABLE usage_windows (
     period_key VARCHAR(32) NOT NULL,
     longform_exports INTEGER NOT NULL DEFAULT 0,
     short_exports INTEGER NOT NULL DEFAULT 0,
-    credits_used NUMERIC(19, 9) NOT NULL DEFAULT 0,
     row_version BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, period_key)
 );
@@ -191,12 +175,14 @@ CREATE TABLE quota_reservations (
     user_id VARCHAR(128) NOT NULL,
     period_key VARCHAR(32) NOT NULL,
     generation_job_id UUID UNIQUE REFERENCES generation_jobs(id),
-    estimated_cost NUMERIC(19, 6) NOT NULL,
-    actual_cost NUMERIC(19, 9),
-    billing_currency VARCHAR(3),
+    quota_kind VARCHAR(32) NOT NULL,
+    units INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(16) NOT NULL,
-    CONSTRAINT ck_quota_reservations_cost_nonnegative CHECK (estimated_cost >= 0),
-    CONSTRAINT ck_quota_reservations_actual_cost_nonnegative CHECK (actual_cost IS NULL OR actual_cost >= 0),
+    CONSTRAINT ck_quota_reservations_kind CHECK (quota_kind IN ('CAPACITY', 'LONGFORM_EXPORT')),
+    CONSTRAINT ck_quota_reservations_units CHECK (
+        (quota_kind = 'CAPACITY' AND units = 0)
+        OR (quota_kind = 'LONGFORM_EXPORT' AND units > 0)
+    ),
     CONSTRAINT ck_quota_reservations_status CHECK (status IN ('RESERVED', 'CONSUMED', 'RELEASED')),
     CONSTRAINT ck_quota_reservations_finalized CHECK (
         (status = 'RESERVED' AND finalized_at IS NULL)
@@ -257,13 +243,9 @@ CREATE TABLE media_assets (
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
 );
 
--- VisualBeat production preview identity uses canonical MediaAsset IDs once media_assets exists.
 ALTER TABLE visual_beats
     ADD COLUMN preview_media_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL;
 
--- Durable non-destructive editor selection for the media used by each VisualBeat.
--- Scene and Chapter remain logical groups; the selected media is resolved when the
--- production timeline/render snapshot is built.
 CREATE TABLE production_beat_media_selections (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
