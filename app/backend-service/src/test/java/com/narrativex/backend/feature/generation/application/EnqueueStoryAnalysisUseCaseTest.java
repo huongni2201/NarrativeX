@@ -267,7 +267,6 @@ class EnqueueStoryAnalysisUseCaseTest {
         "QUEUED",
         null,
         "user-1",
-        "user-1",
         STORY_VERSION_ID,
         CHAPTER_ID,
         STORYBOARD_REVISION_ID,
