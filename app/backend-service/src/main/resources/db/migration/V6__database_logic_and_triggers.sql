@@ -1,4 +1,5 @@
--- NarrativeX pre-release baseline: database functions, immutability guards, capacity/export settlement, notifications, generation events, and final schema normalization.
+-- NarrativeX pre-release baseline: database functions, immutability guards,
+-- capacity/export settlement, notifications, and generation events.
 
 CREATE OR REPLACE FUNCTION reject_media_plan_update()
 RETURNS TRIGGER AS $$
@@ -48,6 +49,59 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_media_generation_items_identity_immutable
 BEFORE UPDATE ON media_generation_items
 FOR EACH ROW EXECUTE FUNCTION reject_media_generation_item_snapshot_update();
+
+CREATE OR REPLACE FUNCTION reject_continuity_snapshot_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION '% is immutable; create a new continuity revision instead', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_chapter_continuity_plans_immutable
+BEFORE UPDATE OR DELETE ON chapter_continuity_plans
+FOR EACH ROW EXECUTE FUNCTION reject_continuity_snapshot_mutation();
+
+CREATE TRIGGER trg_scene_continuity_states_immutable
+BEFORE UPDATE OR DELETE ON scene_continuity_states
+FOR EACH ROW EXECUTE FUNCTION reject_continuity_snapshot_mutation();
+
+CREATE TRIGGER trg_visual_beat_continuity_states_immutable
+BEFORE UPDATE OR DELETE ON visual_beat_continuity_states
+FOR EACH ROW EXECUTE FUNCTION reject_continuity_snapshot_mutation();
+
+CREATE TRIGGER trg_continuity_reports_immutable
+BEFORE UPDATE OR DELETE ON continuity_reports
+FOR EACH ROW EXECUTE FUNCTION reject_continuity_snapshot_mutation();
+
+CREATE OR REPLACE FUNCTION guard_completed_analysis_checkpoint()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.status = 'COMPLETED' THEN
+        IF NEW.status IS DISTINCT FROM OLD.status
+           OR NEW.result_json IS DISTINCT FROM OLD.result_json
+           OR NEW.result_hash IS DISTINCT FROM OLD.result_hash
+           OR NEW.provider_operation_id IS DISTINCT FROM OLD.provider_operation_id THEN
+            RAISE EXCEPTION 'completed analysis checkpoint result is immutable';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_analysis_checkpoint_terminal_immutable
+BEFORE UPDATE ON analysis_checkpoints
+FOR EACH ROW EXECUTE FUNCTION guard_completed_analysis_checkpoint();
+
+CREATE OR REPLACE FUNCTION reject_regeneration_plan_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'regeneration_plans is immutable; create a new plan instead';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_regeneration_plans_immutable
+BEFORE UPDATE OR DELETE ON regeneration_plans
+FOR EACH ROW EXECUTE FUNCTION reject_regeneration_plan_mutation();
 
 CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal()
 RETURNS TRIGGER
@@ -209,68 +263,3 @@ EXECUTE FUNCTION notify_generation_job_change();
 
 COMMENT ON COLUMN project_render_input_snapshots.assigned_local_device_id IS
     'Paired Desktop device assigned to execute this immutable local project render.';
-
--- -----------------------------------------------------------------------------
--- Device-local project-media hard cut (pre-release baseline finalization)
--- Project media is project-owned/local. Custom account voice references are R2-backed.
--- -----------------------------------------------------------------------------
-CREATE TABLE voice_reference_assets (
-    id UUID PRIMARY KEY,
-    account_id VARCHAR(128) NOT NULL,
-    storage_key VARCHAR(512) NOT NULL,
-    original_filename VARCHAR(255) NOT NULL,
-    content_type VARCHAR(160) NOT NULL,
-    size_bytes BIGINT NOT NULL,
-    sha256 VARCHAR(64) NOT NULL,
-    status VARCHAR(24) NOT NULL,
-    detected_content_type VARCHAR(160),
-    detected_container VARCHAR(64),
-    detected_codec VARCHAR(64),
-    validation_error_code VARCHAR(96),
-    validation_error_detail VARCHAR(1024),
-    validated_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    row_version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT uq_voice_reference_assets_account_checksum UNIQUE (account_id, sha256),
-    CONSTRAINT ck_voice_reference_assets_size CHECK (size_bytes > 0),
-    CONSTRAINT ck_voice_reference_assets_sha CHECK (char_length(sha256) = 64),
-    CONSTRAINT ck_voice_reference_assets_storage_key CHECK (storage_key LIKE 'voices/%'),
-    CONSTRAINT ck_voice_reference_assets_status CHECK (
-        status IN ('VALIDATING', 'READY', 'REJECTED', 'DELETED')
-    )
-);
-
-ALTER TABLE media_upload_sessions
-    DROP CONSTRAINT IF EXISTS media_upload_sessions_media_asset_id_fkey;
-ALTER TABLE media_upload_sessions
-    ADD CONSTRAINT media_upload_sessions_media_asset_id_fkey
-    FOREIGN KEY (media_asset_id) REFERENCES voice_reference_assets(id) ON DELETE SET NULL;
-
-ALTER TABLE media_validation_jobs
-    DROP CONSTRAINT IF EXISTS media_validation_jobs_media_asset_id_fkey;
-ALTER TABLE media_validation_jobs
-    ADD CONSTRAINT media_validation_jobs_media_asset_id_fkey
-    FOREIGN KEY (media_asset_id) REFERENCES voice_reference_assets(id) ON DELETE CASCADE;
-
-ALTER TABLE narration_requests
-    ADD COLUMN account_voice_reference_asset_id UUID REFERENCES voice_reference_assets(id),
-    ADD CONSTRAINT ck_narration_requests_single_voice_reference
-    CHECK (
-        project_voice_reference_asset_id IS NULL
-        OR account_voice_reference_asset_id IS NULL
-    );
-
-DROP TABLE media_asset_checksums;
-
-ALTER TABLE media_assets DROP CONSTRAINT IF EXISTS ck_media_assets_storage_scope;
-ALTER TABLE media_assets DROP CONSTRAINT IF EXISTS ck_media_assets_storage_mode;
-ALTER TABLE media_assets ALTER COLUMN project_id SET NOT NULL;
-ALTER TABLE media_assets DROP COLUMN storage_mode;
-
-ALTER TABLE project_render_input_beats
-    DROP CONSTRAINT IF EXISTS ck_project_render_input_beats_storage_mode;
-ALTER TABLE project_render_input_beats
-    DROP COLUMN IF EXISTS storage_mode;
-
-DROP TABLE IF EXISTS local_media_materializations CASCADE;
