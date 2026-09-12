@@ -18,20 +18,19 @@ public class MyBatisQuotaReservation implements QuotaReservation {
   @Override
   @Transactional
   public Optional<Reservation> reserve(
-      String userId, BigDecimal estimatedCost, int maxConcurrentExpensiveJobs) {
-    return reserve(userId, estimatedCost, maxConcurrentExpensiveJobs, null, "CREDIT", 0);
+      String userId, BigDecimal ignoredEstimatedCost, int maxConcurrentExpensiveJobs) {
+    return reserve(userId, maxConcurrentExpensiveJobs, null, "CAPACITY", 0);
   }
 
   @Override
   @Transactional
   public Optional<Reservation> reserveLongformExport(
       String userId,
-      BigDecimal estimatedCost,
+      BigDecimal ignoredEstimatedCost,
       int maxConcurrentExpensiveJobs,
       Integer maxLongformExportsMonth) {
     return reserve(
         userId,
-        estimatedCost,
         maxConcurrentExpensiveJobs,
         maxLongformExportsMonth,
         "LONGFORM_EXPORT",
@@ -40,14 +39,10 @@ public class MyBatisQuotaReservation implements QuotaReservation {
 
   private Optional<Reservation> reserve(
       String userId,
-      BigDecimal estimatedCost,
       int maxConcurrentExpensiveJobs,
       Integer maxLongformExportsMonth,
       String quotaKind,
       int units) {
-    if (estimatedCost == null || estimatedCost.signum() < 0) {
-      throw new IllegalArgumentException("estimatedCost must be non-negative");
-    }
     var activePlan = mapper.findActivePlanForUpdate(userId);
     if (activePlan == null) {
       return Optional.empty();
@@ -63,25 +58,17 @@ public class MyBatisQuotaReservation implements QuotaReservation {
             > maxLongformExportsMonth) {
       return Optional.empty();
     }
-    if (activePlan.getMonthlyCredits() != null) {
-      BigDecimal creditsUsed = zero(mapper.findCreditsUsedForUpdate(userId, periodKey));
-      BigDecimal creditsReserved = zero(mapper.findCreditsReserved(userId, periodKey));
-      if (creditsUsed
-              .add(creditsReserved)
-              .add(estimatedCost)
-              .compareTo(activePlan.getMonthlyCredits())
-          > 0) {
-        return Optional.empty();
-      }
-    }
+
     Long reservationId =
         mapper.insertReservation(
-            new QuotaReservationRow(userId, periodKey, estimatedCost, quotaKind, units));
+            new QuotaReservationRow(
+                userId, periodKey, BigDecimal.ZERO, quotaKind, units));
     if (reservationId == null) {
       throw new IllegalStateException("Quota reservation insert returned no id");
     }
     return Optional.of(
-        new Reservation(reservationId, userId, periodKey, estimatedCost, quotaKind, units));
+        new Reservation(
+            reservationId, userId, periodKey, BigDecimal.ZERO, quotaKind, units));
   }
 
   @Override
@@ -96,9 +83,6 @@ public class MyBatisQuotaReservation implements QuotaReservation {
   @Override
   @Transactional
   public boolean consumeForJob(UUID generationJobId) {
-    if (mapper.countBilledOperations(generationJobId) == 0) {
-      return false;
-    }
     return mapper.consumeForJob(generationJobId) == 1;
   }
 
@@ -106,9 +90,5 @@ public class MyBatisQuotaReservation implements QuotaReservation {
   @Transactional
   public boolean releaseForJob(UUID generationJobId) {
     return mapper.releaseForJob(generationJobId) == 1;
-  }
-
-  private static BigDecimal zero(BigDecimal value) {
-    return value == null ? BigDecimal.ZERO : value;
   }
 }
