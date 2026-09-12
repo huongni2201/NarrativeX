@@ -91,7 +91,7 @@
               SELECT COUNT(*)::int AS cnt
                 FROM generation_jobs
                WHERE project_id = p.id
-                 AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
+                 AND status IN ('QUEUED', 'RUNNING', 'STALLED')
           ) proc_jobs ON TRUE
           LEFT JOIN LATERAL (
               SELECT COUNT(*)::int AS cnt
@@ -119,7 +119,7 @@
                c.order_index,
                c.title,
                CASE
-                 WHEN latest_job.status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
+                 WHEN latest_job.status IN ('QUEUED', 'RUNNING', 'STALLED')
                       AND latest_job.source_hash = c.source_hash
                    THEN 'ANALYZING'
                  WHEN latest_job.status = 'FAILED'
