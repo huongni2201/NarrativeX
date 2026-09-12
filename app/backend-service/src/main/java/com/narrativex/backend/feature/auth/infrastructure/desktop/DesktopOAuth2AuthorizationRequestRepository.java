@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.desktop;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -28,7 +29,7 @@ public final class DesktopOAuth2AuthorizationRequestRepository
   private static final String STATE_ATTEMPT_PREFIX = "NARRATIVEX_DESKTOP_OAUTH_STATE:";
   private static final int MAX_PENDING_REQUESTS = 8;
 
-  public record DesktopAttempt(String redirectUri, String codeChallenge) {}
+  public record DesktopAttempt(String redirectUri, String codeChallenge) implements Serializable {}
 
   public static void storePendingDesktopAttempt(
       HttpSession session, String attemptId, String redirectUri, String codeChallenge) {
