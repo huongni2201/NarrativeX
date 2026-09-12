@@ -5,7 +5,7 @@ import java.util.List;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Maps UTF-16 source offsets onto the authoritative narration alignment clock. */
+/** Maps UTF-16 source offsets onto the authoritative narration word clock. */
 public final class NarrationTextClockMapper {
   private static final JsonMapper JSON = JsonMapper.builder().build();
   private static final long HARD_MAX_VISUAL_BEAT_MS = 10_000L;
@@ -20,20 +20,20 @@ public final class NarrationTextClockMapper {
     }
   }
 
-  private record AlignmentSpan(int textStart, int textEnd, long audioStartMs, long audioEndMs) {}
+  private record WordAlignment(int textStart, int textEnd, long audioStartMs, long audioEndMs) {}
 
   public static List<AudioRange> map(
-      List<TextRange> ranges, String spansJson, long audioDurationMs) {
-    if (ranges.isEmpty() || spansJson == null || spansJson.isBlank() || audioDurationMs <= 0) {
+      List<TextRange> ranges, String wordsJson, long audioDurationMs) {
+    if (ranges.isEmpty() || wordsJson == null || wordsJson.isBlank() || audioDurationMs <= 0) {
       return List.of();
     }
-    List<AlignmentSpan> spans = parseSpans(spansJson);
-    if (spans.isEmpty()) return List.of();
+    List<WordAlignment> words = parseWords(wordsJson, audioDurationMs);
+    if (words.isEmpty()) return List.of();
 
     List<Long> starts = new ArrayList<>(ranges.size());
     starts.add(0L);
     for (int index = 1; index < ranges.size(); index++) {
-      Long mapped = mapOffset(ranges.get(index).textStart(), spans);
+      Long mapped = mapStartOffset(ranges.get(index).textStart(), words);
       if (mapped == null) return List.of();
       starts.add(mapped);
     }
@@ -54,49 +54,58 @@ public final class NarrationTextClockMapper {
     return List.copyOf(result);
   }
 
-  private static List<AlignmentSpan> parseSpans(String spansJson) {
+  private static List<WordAlignment> parseWords(String wordsJson, long audioDurationMs) {
     try {
-      JsonNode root = JSON.readTree(spansJson);
+      JsonNode root = JSON.readTree(wordsJson);
       if (!root.isArray() || root.isEmpty()) return List.of();
-      List<AlignmentSpan> spans = new ArrayList<>();
+      List<WordAlignment> words = new ArrayList<>();
       long previousAudioEnd = 0L;
       int previousTextEnd = 0;
+      int expectedIndex = 0;
       for (JsonNode node : root) {
-        if (!node.hasNonNull("textStart")
+        if (!node.hasNonNull("index")
+            || !node.hasNonNull("textStart")
             || !node.hasNonNull("textEnd")
             || !node.hasNonNull("audioStartMs")
-            || !node.hasNonNull("audioEndMs")) {
+            || !node.hasNonNull("audioEndMs")
+            || !node.hasNonNull("confidence")) {
           return List.of();
         }
+        int index = node.get("index").asInt();
         int textStart = node.get("textStart").asInt();
         int textEnd = node.get("textEnd").asInt();
         long audioStart = node.get("audioStartMs").asLong();
         long audioEnd = node.get("audioEndMs").asLong();
-        if (textStart < previousTextEnd
+        double confidence = node.get("confidence").asDouble();
+        if (index != expectedIndex
+            || textStart < previousTextEnd
             || textEnd <= textStart
             || audioStart < previousAudioEnd
-            || audioEnd <= audioStart) {
+            || audioEnd <= audioStart
+            || audioEnd > audioDurationMs
+            || confidence < 0.0
+            || confidence > 1.0) {
           return List.of();
         }
-        spans.add(new AlignmentSpan(textStart, textEnd, audioStart, audioEnd));
+        words.add(new WordAlignment(textStart, textEnd, audioStart, audioEnd));
         previousTextEnd = textEnd;
         previousAudioEnd = audioEnd;
+        expectedIndex += 1;
       }
-      return List.copyOf(spans);
+      return List.copyOf(words);
     } catch (Exception ignored) {
       return List.of();
     }
   }
 
-  private static Long mapOffset(int offset, List<AlignmentSpan> spans) {
-    for (AlignmentSpan span : spans) {
-      if (offset >= span.textStart() && offset <= span.textEnd()) {
-        long textWidth = span.textEnd() - span.textStart();
-        long audioWidth = span.audioEndMs() - span.audioStartMs();
-        long relative = offset - span.textStart();
-        return span.audioStartMs() + Math.round((double) relative * audioWidth / textWidth);
+  private static Long mapStartOffset(int offset, List<WordAlignment> words) {
+    WordAlignment previous = null;
+    for (WordAlignment word : words) {
+      if (offset <= word.textEnd()) {
+        return word.audioStartMs();
       }
+      previous = word;
     }
-    return null;
+    return previous == null ? null : previous.audioEndMs();
   }
 }
