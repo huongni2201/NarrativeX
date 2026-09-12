@@ -28,6 +28,7 @@ image = [
 narration = [
     "boto3==1.43.83",
     "vieneu==3.3.0",
+    "faster-whisper==1.2.1",
     "torch==2.8.0",
     "torchaudio==2.8.0",
     "numpy==1.26.4",
