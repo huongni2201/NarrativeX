@@ -34,7 +34,9 @@ public class DesktopAuthenticationSuccessHandler implements AuthenticationSucces
     response.sendRedirect(
         attempt.redirectUri()
             + "?code="
-            + URLEncoder.encode(code, StandardCharsets.UTF_8));
+            + URLEncoder.encode(code, StandardCharsets.UTF_8)
+            + "&attempt="
+            + URLEncoder.encode(attempt.attemptId(), StandardCharsets.UTF_8));
   }
 
   private static DesktopUserPrincipal toDesktopPrincipal(Authentication authentication) {
