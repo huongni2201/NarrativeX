@@ -1,11 +1,12 @@
 """Narration asset completion and durable materialization."""
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import asyncpg  # type: ignore[import-untyped]
 
 from narrativex_worker.narration.errors import NarrationLeaseLostError
+from narrativex_worker.narration.models import WordAlignment
 from narrativex_worker.narration.repository.implementation import (
     ClaimedNarrationJob,
     NarrationProviderStateConflictError,
@@ -27,7 +28,7 @@ class NarrationCompletionMixin:
         duration_ms: int,
         sample_rate_hz: int,
         channels: int,
-        spans: list[Any],
+        words: list[WordAlignment],
     ) -> None:
         pool = self._require_pool()
         async with pool.acquire() as connection:
@@ -124,26 +125,27 @@ class NarrationCompletionMixin:
                     channels,
                     media_asset.checksum,
                 )
-                span_payload = [
+                word_payload = [
                     {
-                        "index": span.index,
-                        "textStart": span.text_start,
-                        "textEnd": span.text_end,
-                        "audioStartMs": span.audio_start_ms,
-                        "audioEndMs": span.audio_end_ms,
+                        "index": word.index,
+                        "textStart": word.text_start,
+                        "textEnd": word.text_end,
+                        "audioStartMs": word.audio_start_ms,
+                        "audioEndMs": word.audio_end_ms,
+                        "confidence": word.confidence,
                     }
-                    for span in spans
+                    for word in words
                 ]
                 await connection.execute(
                     """
                     INSERT INTO narration_alignments
-                        (id, narration_asset_id, source_hash, alignment_version, spans_json)
-                    VALUES ($1, $2, $3, 'segment-duration-v1', $4::jsonb)
+                        (id, narration_asset_id, source_hash, alignment_version, words_json)
+                    VALUES ($1, $2, $3, 'word-whisper-v1', $4::jsonb)
                     """,
                     uuid7(),
                     narration_asset_id,
                     claimed.source_hash,
-                    json.dumps(span_payload, separators=(",", ":")),
+                    json.dumps(word_payload, separators=(",", ":")),
                 )
                 stage = await connection.execute(
                     """
