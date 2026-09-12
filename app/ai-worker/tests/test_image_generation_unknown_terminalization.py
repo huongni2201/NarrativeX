@@ -144,8 +144,8 @@ async def test_expired_known_provider_operation_reschedules_instead_of_terminali
 
 
 @pytest.mark.asyncio
-async def test_known_provider_operation_terminalizes_after_reconcile_attempt_limit() -> None:
-    connection = _Connection("FAILED")
+async def test_known_provider_operation_stays_unknown_after_reconcile_attempt_limit() -> None:
+    connection = _Connection("UNKNOWN")
     repository = ImageGenerationRepository(
         "postgresql://unused",
         lease_seconds=30,
@@ -165,10 +165,11 @@ async def test_known_provider_operation_terminalizes_after_reconcile_attempt_lim
 
     assert await repository.mark_unknown(operation, "NETWORK_TIMEOUT") is True
     provider_query, provider_args = connection.fetchrow_calls[0]
+    assert "provider_operation_id IS NULL" in provider_query
     assert "reconcile_attempts + 1 >= $5" in provider_query
     assert provider_args[4] == 1
-    assert len(connection.execute_calls) == 1
-    assert aggregate_calls == [(connection, operation.stage_attempt_id)]
+    assert connection.execute_calls == []
+    assert aggregate_calls == []
 
 
 @pytest.mark.asyncio
