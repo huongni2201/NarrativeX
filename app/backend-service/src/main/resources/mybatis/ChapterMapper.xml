@@ -70,7 +70,7 @@
             SELECT 1
               FROM generation_jobs
              WHERE chapter_id = #{chapterId}
-               AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT')
+               AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
         )
     </select>
 
@@ -85,7 +85,7 @@
                SELECT 1
                  FROM generation_jobs gj
                 WHERE gj.chapter_id = c.id
-                  AND gj.status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT')
+                  AND gj.status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
            )
     </update>
 
