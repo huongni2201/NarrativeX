@@ -148,9 +148,9 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   private void insertJob(UUID id, UUID jobId, UUID projectId, UUID chapterId) {
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
-            + " resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, ?,"
-            + " ?, 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER', 100, 'seed-user-01',"
-            + " 'seed-user-01') ON CONFLICT (id) DO NOTHING",
+            + " resource_class, progress, requested_by_user_id) VALUES (?, ?, ?,"
+            + " ?, 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER', 100, 'seed-user-01')"
+            + " ON CONFLICT (id) DO NOTHING",
         id,
         jobId,
         projectId,
