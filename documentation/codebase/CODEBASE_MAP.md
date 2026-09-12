@@ -128,19 +128,11 @@ V5__catalog_generation_and_render_snapshots.sql
 V6__database_logic_and_triggers.sql
 V7__indexes.sql
 V8__seed_catalog.sql
-V9__chapter_continuity_and_analysis_checkpoints.sql
-V10__chapter_continuity_guards.sql
-V11__chapter_continuity_indexes.sql
-V12__continuity_regeneration_plans.sql
-V13__render_continuity_provenance.sql
-V14__storyboard_generation_snapshots.sql
-V15__export_quota_reservations.sql
-V16__render_profile_watermark_policy.sql
-V17__remove_image_billing_metadata.sql
-V18__remove_credit_quota_accounting.sql
 ```
 
-A clean database applies **V1 → V18**. V18 migrates legacy `CREDIT` reservations to non-monetary `CAPACITY` reservations and updates quota constraints while preserving long-form export reservation fencing. Because NarrativeX is still pre-production, the baseline contains only the current schema: V2 directly owns structured VisualBeat direction and omits duplicate storyboard audio/camera fields; V3 adds only canonical `preview_media_asset_id` after `media_assets` exists; V4/V7 never create the unowned short-clip queue or its indexes. V15 owns durable monthly export reservations and settlement; V16 owns the compatible render-profile watermark policy; V17 removes image-generation cost/pricing metadata from media and regeneration plans. Applied migrations remain immutable; subsequent evolution is append-only.
+A clean pre-production database applies **V1 → V8** only. The former V9–V18 patch sequence has been folded into the owning baseline migrations, so new databases are created directly in the final schema shape instead of creating legacy columns/tables and later altering or dropping them. Continuity/checkpoints, regeneration, storyboard-generation snapshots, render continuity provenance and render-profile watermark policy are owned directly by V2/V5/V6/V7 as appropriate. Monetary image/regeneration pricing metadata and legacy credit accounting are not created by the baseline.
+
+This rewrite is allowed because NarrativeX has not frozen a production migration history yet. At the first production deployment, the accepted V1–V8 history becomes immutable and subsequent schema evolution is append-only.
 
 ## Production mode contract
 
