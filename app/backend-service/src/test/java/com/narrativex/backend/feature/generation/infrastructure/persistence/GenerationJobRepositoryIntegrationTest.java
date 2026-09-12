@@ -17,7 +17,6 @@ import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.adapter.MyBatisGenerationJobPersistenceAdapter;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
-import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -104,7 +103,6 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             "QUEUED",
             null,
             "owner-c",
-            "owner-c",
             null,
             null,
             null,
@@ -162,7 +160,6 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             0,
             "QUEUED",
             null,
-            "owner-f",
             "owner-f",
             media.storyVersionId(),
             media.chapterId(),
@@ -262,13 +259,12 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         INSERT INTO media_plans
           (id, chapter_id, chapter_row_version, source_hash, production_mode, revision,
            narration_characters, image_generate_count, image_edit_count, basic_motion_seconds,
-           planned_i2v_seconds, estimated_cost, created_at)
-        VALUES (?, ?, 0, ?, 'IMAGE_MOTION', 1, 0, 0, 0, 0, 0, ?, CURRENT_TIMESTAMP)
+           planned_i2v_seconds, created_at)
+        VALUES (?, ?, 0, ?, 'IMAGE_MOTION', 1, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP)
         """,
         mediaPlanId,
         chapterId,
-        sourceHash,
-        BigDecimal.ZERO);
+        sourceHash);
     return new MediaFixture(storyVersionId, chapterId, sourceHash, mediaPlanId);
   }
 
@@ -284,7 +280,6 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         0,
         "QUEUED",
         null,
-        userId,
         userId,
         null,
         null,
@@ -309,7 +304,6 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         job.getCurrentStep(),
         job.getErrorCode(),
         job.getRequestedByUserId(),
-        job.getBilledToUserId(),
         job.getStoryVersionId(),
         job.getChapterId(),
         job.getStoryboardRevisionId(),
