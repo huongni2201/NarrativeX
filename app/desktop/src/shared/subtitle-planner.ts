@@ -50,7 +50,11 @@ export function planChapterSubtitles(
     chapterDurationMs,
   );
   if (spans.length) {
-    const cues = spans.flatMap((span) => {
+    // Alignment spans are authoritative audio boundaries. New narration is synthesized
+    // with subtitle-sized spans, so these normally map one-to-one to cues. Older
+    // narration may still contain larger spans; those are split proportionally only
+    // when necessary, but measured boundaries between spans are never merged away.
+    return spans.flatMap((span) => {
       const spanText = cleanCueText(sourceText.slice(span.textStart, span.textEnd));
       if (!spanText) return [];
       return splitTimedText(
@@ -61,7 +65,6 @@ export function planChapterSubtitles(
         "NARRATION_ALIGNMENT",
       );
     });
-    return mergeOrphanCues(cues);
   }
 
   const chunks = splitReadableText(normalizeFallbackText(sourceText));
@@ -86,7 +89,7 @@ export function planChapterSubtitles(
     });
     cursor = cues[cues.length - 1].endMs;
   }
-  return cues.filter((cue) => cue.endMs > cue.startMs);
+  return mergeFallbackOrphanCues(cues.filter((cue) => cue.endMs > cue.startMs));
 }
 
 function parseAlignmentSpans(
@@ -242,11 +245,11 @@ function chooseReadableSplit(
   );
 }
 
-function mergeOrphanCues(cues: readonly PlannedSubtitle[]): PlannedSubtitle[] {
+function mergeFallbackOrphanCues(cues: readonly PlannedSubtitle[]): PlannedSubtitle[] {
   const merged: PlannedSubtitle[] = [];
   for (const cue of cues) {
     const previous = merged.at(-1);
-    if (previous && shouldMergeOrphanCue(previous, cue)) {
+    if (previous && shouldMergeFallbackOrphanCue(previous, cue)) {
       merged[merged.length - 1] = {
         ...previous,
         endMs: cue.endMs,
@@ -259,10 +262,14 @@ function mergeOrphanCues(cues: readonly PlannedSubtitle[]): PlannedSubtitle[] {
   return merged;
 }
 
-function shouldMergeOrphanCue(previous: PlannedSubtitle, current: PlannedSubtitle): boolean {
+function shouldMergeFallbackOrphanCue(
+  previous: PlannedSubtitle,
+  current: PlannedSubtitle,
+): boolean {
   if (
+    previous.timingSource !== "TEXT_WEIGHT_FALLBACK" ||
+    current.timingSource !== "TEXT_WEIGHT_FALLBACK" ||
     previous.chapterId !== current.chapterId ||
-    previous.timingSource !== current.timingSource ||
     previous.endMs !== current.startMs ||
     TERMINAL_PUNCTUATION.test(previous.text.trim())
   ) {
