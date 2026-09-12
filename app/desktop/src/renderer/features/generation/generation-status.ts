@@ -5,7 +5,6 @@ const ACTIVE_GENERATION_JOB_STATUSES = new Set<GenerationJobStatus>([
   "RUNNING",
   "UNKNOWN",
   "STALLED",
-  "PAUSED_COST_LIMIT",
 ]);
 
 const ACTIVE_MEDIA_EXECUTION_STATUSES = new Set([
