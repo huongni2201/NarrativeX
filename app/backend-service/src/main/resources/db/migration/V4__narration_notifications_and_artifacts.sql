@@ -61,10 +61,10 @@ CREATE TABLE narration_alignments (
     narration_asset_id UUID NOT NULL REFERENCES narration_assets(id),
     source_hash VARCHAR(64) NOT NULL,
     alignment_version VARCHAR(64) NOT NULL,
-    spans_json JSONB NOT NULL,
+    words_json JSONB NOT NULL,
     CONSTRAINT uk_narration_alignments_asset_version UNIQUE (narration_asset_id, alignment_version),
     CONSTRAINT ck_narration_alignments_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_narration_alignments_spans_array CHECK (jsonb_typeof(spans_json) = 'array')
+    CONSTRAINT ck_narration_alignments_words_array CHECK (jsonb_typeof(words_json) = 'array')
 );
 
 CREATE TABLE narration_sets (
@@ -177,7 +177,7 @@ CREATE TABLE outbox_events (
     payload_json JSONB NOT NULL,
     status VARCHAR(24) NOT NULL DEFAULT 'PENDING',
     attempts INTEGER NOT NULL DEFAULT 0,
-    available_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    available_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
