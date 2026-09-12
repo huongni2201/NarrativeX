@@ -142,7 +142,7 @@ class StoryboardApiIntegrationTest {
         "INSERT INTO narration_assets (id, narration_request_id, project_asset_id, duration_ms, size_bytes, codec, sample_rate_hz, channels, checksum) VALUES ('00000000-0000-4000-8000-000000002003', '00000000-0000-4000-8000-000000002001', ?, 42000, 840000, 'PCM_S16LE', 48000, 2, repeat('2', 64)) ON CONFLICT (id) DO NOTHING",
         PROJECT_ASSET);
     jdbcTemplate.update(
-        "INSERT INTO media_plans (id, chapter_id, chapter_row_version, source_hash, production_mode, revision, narration_characters, image_generate_count, image_edit_count, basic_motion_seconds, planned_i2v_seconds, estimated_cost, created_at) VALUES (?, ?, 0, repeat('a', 64), 'IMAGE_MOTION', 1, 100, 1, 0, 10, 0, 0.1, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO media_plans (id, chapter_id, chapter_row_version, source_hash, production_mode, revision, narration_characters, image_generate_count, image_edit_count, basic_motion_seconds, planned_i2v_seconds, created_at) VALUES (?, ?, 0, repeat('a', 64), 'IMAGE_MOTION', 1, 100, 1, 0, 10, 0, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
         MEDIA_PLAN_1,
         CHAPTER_1);
     jdbcTemplate.update(
@@ -152,7 +152,7 @@ class StoryboardApiIntegrationTest {
         CHAPTER_1,
         MEDIA_PLAN_1);
     jdbcTemplate.update(
-        "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, ?, ?, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'seed-user-01', 'seed-user-01') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status, resource_class, progress, requested_by_user_id) VALUES (?, ?, ?, ?, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'seed-user-01') ON CONFLICT (id) DO NOTHING",
         RENDER_JOB,
         RENDER_JOB,
         PROJECT_1,
@@ -273,9 +273,9 @@ class StoryboardApiIntegrationTest {
     jdbcTemplate.update(
         "INSERT INTO media_plans (id, chapter_id, chapter_row_version, source_hash, production_mode, revision, "
             + "narration_characters, image_generate_count, image_edit_count, basic_motion_seconds, planned_i2v_seconds, "
-            + "estimated_cost, storyboard_revision_id, created_at) "
+            + "storyboard_revision_id, created_at) "
             + "VALUES (?, ?, 1, repeat('b', 64), 'IMAGE_MOTION', 2, "
-            + "100, 3, 0, 10, 0, 0.1, ?, CURRENT_TIMESTAMP)",
+            + "100, 3, 0, 10, 0, ?, CURRENT_TIMESTAMP)",
         MEDIA_PLAN_2,
         CHAPTER_1,
         REVISION_3);
@@ -287,9 +287,9 @@ class StoryboardApiIntegrationTest {
 
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
-            + "storyboard_revision_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "storyboard_revision_id, job_type, status, resource_class, progress, requested_by_user_id) "
             + "VALUES (?, ?, ?, ?, 0, repeat('a', 64), ?, "
-            + "'CHAPTER_ANALYZE', 'RUNNING', 'PROVIDER_INTERACTIVE', 5, 'seed-user-01', 'seed-user-01')",
+            + "'CHAPTER_ANALYZE', 'RUNNING', 'PROVIDER_INTERACTIVE', 5, 'seed-user-01')",
         testUuid(6009),
         testUuid(6009),
         PROJECT_1,
@@ -298,9 +298,9 @@ class StoryboardApiIntegrationTest {
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
             + "storyboard_revision_id, media_plan_id, media_plan_revision, production_mode, job_type, status, "
-            + "resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "resource_class, progress, requested_by_user_id) "
             + "VALUES (?, ?, ?, ?, 0, repeat('a', 64), ?, ?, 1, 'IMAGE_MOTION', "
-            + "'CHAPTER_GENERATE', 'FAILED', 'PROVIDER_BATCH', 100, 'seed-user-01', 'seed-user-01')",
+            + "'CHAPTER_GENERATE', 'FAILED', 'PROVIDER_BATCH', 100, 'seed-user-01')",
         testUuid(6010),
         testUuid(6010),
         PROJECT_1,
@@ -312,9 +312,9 @@ class StoryboardApiIntegrationTest {
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
             + "storyboard_revision_id, media_plan_id, media_plan_revision, production_mode, job_type, status, "
-            + "resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "resource_class, progress, requested_by_user_id) "
             + "VALUES (?, ?, ?, ?, 1, repeat('b', 64), ?, ?, 2, 'IMAGE_MOTION', "
-            + "'CHAPTER_GENERATE', 'COMPLETED', 'PROVIDER_BATCH', 100, 'seed-user-01', 'seed-user-01')",
+            + "'CHAPTER_GENERATE', 'COMPLETED', 'PROVIDER_BATCH', 100, 'seed-user-01')",
         currentMediaJobId,
         currentMediaJobId,
         PROJECT_1,

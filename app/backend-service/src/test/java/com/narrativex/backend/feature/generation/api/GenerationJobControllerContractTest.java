@@ -48,7 +48,6 @@ class GenerationJobControllerContractTest {
             "ANALYZING",
             null,
             "owner",
-            "owner",
             null,
             null,
             null,

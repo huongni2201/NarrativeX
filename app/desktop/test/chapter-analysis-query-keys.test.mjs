@@ -21,7 +21,7 @@ test("chapter analysis query keys stay scoped to project chapter and generation 
 });
 
 test("chapter analysis reuses generation polling vocabulary", () => {
-  for (const status of ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"]) {
+  for (const status of ["QUEUED", "RUNNING", "UNKNOWN", "STALLED"]) {
     assert.equal(chapterAnalysisShouldPoll(status), true, status);
   }
   for (const status of ["COMPLETED", "FAILED", "CANCELED"]) {

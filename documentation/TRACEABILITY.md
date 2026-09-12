@@ -1,6 +1,6 @@
 # NarrativeX V1.12 Baseline Implementation Traceability
 
-This matrix maps maintained documentation to implementation checkpoint `main` / `c370418fad5c5b7229c80c4ab64dfb796ba4dd5d` (2026-09-12). The versioned V1.11 project spec remains the last formal spec cut, but current code, accepted ADRs, maintained workflow/product docs, migrations and tests are authoritative for AS-IS claims that changed after that cut.
+This matrix maps maintained documentation to implementation checkpoint `main` / `b1457f38a169ccc59a5789c9f40207db275cc06f` (2026-09-12). The versioned V1.11 project spec remains the last formal spec cut, but current code, accepted ADRs, maintained workflow/product docs, migrations and tests are authoritative for AS-IS claims that changed after that cut.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
@@ -19,7 +19,7 @@ This matrix maps maintained documentation to implementation checkpoint `main` / 
 | Non-monetary provider usage telemetry | provider adapters retain diagnostic usage without monetary pricing/cost contracts | IMPLEMENTED foundation |
 | Monetary billing/credit/quota runtime | billing repositories, pricing enforcement and credit settlement are outside the current runtime contract | REMOVED |
 | MyBatis-only production persistence | backend production adapters use MyBatis + explicit PostgreSQL SQL | IMPLEMENTED |
-| Flyway baseline policy | repository remains pre-production; baseline policy requires obsolete patch history to be folded before production freeze | NEEDS CLEANUP: migration directory currently extends beyond documented V1-V8 baseline |
+| Flyway baseline policy | pre-production patch history is folded into the owning migrations; clean databases apply only V1–V8 and create the final schema directly | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
 | Generated narration | VieNeu provider path + project-local persistence/Desktop materialization | IMPLEMENTED foundation |

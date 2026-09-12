@@ -4,7 +4,7 @@
 **Planning rule:** dependency order, not fixed-date commitment.  
 **Current checkpoint:** `main` at `c370418fad5c5b7229c80c4ab64dfb796ba4dd5d` (2026-09-12)
 
-The browser→Desktop, JPA/JDBC→MyBatis and monetary billing/credit/quota migrations are no longer roadmap tracks. Desktop is already the only editor client, MyBatis is the production persistence path, and provider execution no longer carries a monetary accounting contract. Remaining work is product/reliability/release work.
+The browser→Desktop, JPA/JDBC→MyBatis and monetary billing/credit migrations are no longer roadmap tracks. Desktop is already the only editor client, MyBatis is the production persistence path, provider execution no longer carries a monetary accounting contract, and non-monetary capacity/export quota is part of the current runtime foundation. Remaining work is product/reliability/release work.
 
 ## Current implemented foundations
 
@@ -124,7 +124,7 @@ Remaining:
 
 ## Fast-follow / deferred
 
-- HYBRID_LOCAL_I2V/Wan runtime hardening;
+- any future provider-side/local I2V runtime only after an explicit architecture decision defines its provider, storage and execution boundaries; the removed Wan/Python path is not a deferred runtime to harden;
 - provider-neutral publish/upload from an explicitly exported local final artifact;
 - richer collaborative/cross-device workflows after single-device reliability is proven.
 

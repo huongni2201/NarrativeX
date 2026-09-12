@@ -29,9 +29,9 @@ Redis is not part of the MVP runtime. Workers discover durable work from Postgre
 
 ## Backend authority
 
-Backend owns guest/account ownership, Google-only authentication policy, Projects/Chapters/storyboard/production choices, quotas/admission, durable generation/provider state, voice-reference scope validation, local-device render leases, stable media identity/checksums/lineage, final-artifact metadata and Flyway schema.
+Backend owns guest/account ownership, Google-only authentication policy, Projects/Chapters/storyboard/production choices, non-monetary capacity/export quotas and admission, durable generation/provider state, voice-reference scope validation, local-device render leases, stable media identity/checksums/lineage, final-artifact metadata and Flyway schema.
 
-It does not own absolute Desktop paths or final-video bytes.
+It does not own absolute Desktop paths, final-video bytes or a monetary billing/credit/pricing ledger.
 
 ## Electron main
 
@@ -74,6 +74,7 @@ Complete persisted exact audio spans may remain compatibility input. Provisional
 
 ```text
 backend admits project render
+  -> reserve non-monetary capacity/export quota
   -> eligible paired Desktop assigned
   -> device claims lease
   -> preflight runtime/disk/assets
@@ -89,7 +90,7 @@ There is no cloud/server final-render executor, no server Chapter-render pipelin
 
 ## Database baseline
 
-The pre-production Flyway baseline is V1–V8. After first production deployment, applied migrations become immutable and subsequent changes are append-only.
+The pre-production Flyway baseline is exactly V1–V8. The former V9–V18 patch sequence has been folded into the owning baseline migrations. After first production deployment, applied migrations become immutable and subsequent changes are append-only starting at V9.
 
 ## Remaining hardening
 
@@ -97,4 +98,4 @@ The pre-production Flyway baseline is V1–V8. After first production deployment
 - richer crash/restart render resume behavior;
 - adaptive narration-driven scene/beat planning;
 - richer asset reuse/reframe/edit lineage;
-- complete billing/actual-usage reconciliation and operations evidence.
+- richer provider execution telemetry and operational evidence.

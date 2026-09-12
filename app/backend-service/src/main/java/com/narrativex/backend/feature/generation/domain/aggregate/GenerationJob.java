@@ -20,7 +20,6 @@ public final class GenerationJob extends AggregateRoot {
   private final String currentStep;
   private final String errorCode;
   private final String requestedByUserId;
-  private final String billedToUserId;
   private final UUID storyVersionId;
   private final UUID chapterId;
   private final UUID storyboardRevisionId;
@@ -47,7 +46,6 @@ public final class GenerationJob extends AggregateRoot {
       String currentStep,
       String errorCode,
       String requestedByUserId,
-      String billedToUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -74,7 +72,6 @@ public final class GenerationJob extends AggregateRoot {
     this.currentStep = currentStep;
     this.errorCode = errorCode;
     this.requestedByUserId = required(requestedByUserId, "requestedByUserId");
-    this.billedToUserId = required(billedToUserId, "billedToUserId");
     this.storyVersionId = storyVersionId;
     this.chapterId = chapterId;
     this.storyboardRevisionId = storyboardRevisionId;
@@ -105,7 +102,6 @@ public final class GenerationJob extends AggregateRoot {
         0,
         "QUEUED",
         null,
-        userId,
         userId,
         null,
         null,
@@ -179,7 +175,6 @@ public final class GenerationJob extends AggregateRoot {
         "QUEUED",
         null,
         userId,
-        userId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -217,7 +212,6 @@ public final class GenerationJob extends AggregateRoot {
         "QUEUED",
         null,
         userId,
-        userId,
         storyVersionId,
         mediaPlan.chapterId(),
         mediaPlan.storyboardRevisionId(),
@@ -245,7 +239,6 @@ public final class GenerationJob extends AggregateRoot {
       String currentStep,
       String errorCode,
       String requestedByUserId,
-      String billedToUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -266,7 +259,6 @@ public final class GenerationJob extends AggregateRoot {
         currentStep,
         errorCode,
         requestedByUserId,
-        billedToUserId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -294,7 +286,6 @@ public final class GenerationJob extends AggregateRoot {
       String currentStep,
       String errorCode,
       String requestedByUserId,
-      String billedToUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -318,7 +309,6 @@ public final class GenerationJob extends AggregateRoot {
         currentStep,
         errorCode,
         requestedByUserId,
-        billedToUserId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -346,7 +336,6 @@ public final class GenerationJob extends AggregateRoot {
       String currentStep,
       String errorCode,
       String requestedByUserId,
-      String billedToUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -372,7 +361,6 @@ public final class GenerationJob extends AggregateRoot {
         currentStep,
         errorCode,
         requestedByUserId,
-        billedToUserId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -422,10 +410,6 @@ public final class GenerationJob extends AggregateRoot {
 
   public String getRequestedByUserId() {
     return requestedByUserId;
-  }
-
-  public String getBilledToUserId() {
-    return billedToUserId;
   }
 
   public UUID getStoryVersionId() {

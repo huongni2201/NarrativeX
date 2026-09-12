@@ -226,10 +226,9 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         jdbcTemplate.queryForObject(
             """
             INSERT INTO generation_jobs
-              (job_id, project_id, job_type, status, resource_class, progress,
-               requested_by_user_id, billed_to_user_id)
+              (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id)
             VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0,
-                    'provider-operation-test', 'provider-operation-test')
+                    'provider-operation-test')
             RETURNING id
             """,
             UUID.class,

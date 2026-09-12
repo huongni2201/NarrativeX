@@ -17,21 +17,12 @@ public final class FlywayMigrationContract {
       List.of(
           "V1__identity_and_access.sql",
           "V2__project_story_and_planning.sql",
-          "V3__generation_billing_and_media.sql",
+          "V3__generation_quota_and_media.sql",
           "V4__narration_notifications_and_artifacts.sql",
           "V5__catalog_generation_and_render_snapshots.sql",
           "V6__database_logic_and_triggers.sql",
           "V7__indexes.sql",
-          "V8__seed_catalog.sql",
-          "V9__chapter_continuity_and_analysis_checkpoints.sql",
-          "V10__chapter_continuity_guards.sql",
-          "V11__chapter_continuity_indexes.sql",
-          "V12__continuity_regeneration_plans.sql",
-          "V13__render_continuity_provenance.sql",
-          "V14__storyboard_generation_snapshots.sql",
-          "V15__export_quota_reservations.sql",
-          "V16__render_profile_watermark_policy.sql",
-          "V17__remove_image_billing_metadata.sql");
+          "V8__seed_catalog.sql");
 
   private FlywayMigrationContract() {}
 

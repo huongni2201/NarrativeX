@@ -104,7 +104,6 @@ class WorkerSettings(BaseSettings):
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE"),
     )
-    tts_pricing_catalog_version: str = "vieneu-local-2026-08-23"
     narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
     vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
     vieneu_voice_name: str = "Ngọc Huyền v2"

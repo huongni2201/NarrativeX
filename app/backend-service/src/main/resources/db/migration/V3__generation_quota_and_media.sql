@@ -1,4 +1,4 @@
--- NarrativeX pre-release baseline: generation execution, billing/quota, and media assets.
+-- NarrativeX pre-release baseline: generation execution, capacity/export quotas, and media assets.
 
 -- -----------------------------------------------------------------------------
 -- Generation jobs and provider operations
@@ -18,7 +18,6 @@ CREATE TABLE generation_jobs (
     current_step VARCHAR(80),
     error_code VARCHAR(80),
     requested_by_user_id VARCHAR(128) NOT NULL,
-    billed_to_user_id VARCHAR(128) NOT NULL,
     story_version_id UUID REFERENCES story_versions(id),
     chapter_id UUID REFERENCES chapters(id),
     chapter_row_version BIGINT,
@@ -30,12 +29,13 @@ CREATE TABLE generation_jobs (
     media_plan_id UUID,
     media_plan_revision INTEGER,
     production_mode VARCHAR(32),
+    regeneration_plan_id UUID,
     analysis_visual_generation_mode VARCHAR(16),
     analysis_image_provider VARCHAR(32),
     CONSTRAINT ck_generation_jobs_progress CHECK (progress BETWEEN 0 AND 100),
     CONSTRAINT ck_generation_jobs_status CHECK (status IN (
         'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED',
-        'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT'
+        'UNKNOWN', 'STALLED'
     )),
     CONSTRAINT ck_generation_jobs_job_type CHECK (job_type IN (
         'CHAPTER_ANALYZE', 'NARRATION_GENERATE', 'CHAPTER_GENERATE', 'RENDER_PROJECT'
@@ -52,6 +52,9 @@ CREATE TABLE generation_jobs (
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
         production_mode IS NULL OR production_mode = 'IMAGE_MOTION'
+    ),
+    CONSTRAINT ck_generation_jobs_regeneration_plan_type CHECK (
+        regeneration_plan_id IS NULL OR job_type = 'CHAPTER_GENERATE'
     ),
     CONSTRAINT ck_generation_jobs_analysis_visual_mode CHECK (
         analysis_visual_generation_mode IS NULL
@@ -92,7 +95,7 @@ CREATE TABLE stage_attempts (
     CONSTRAINT uk_stage_attempts_job_stage_number UNIQUE (generation_job_id, stage_name, attempt_number),
     CONSTRAINT ck_stage_attempts_status CHECK (status IN (
         'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED',
-        'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT'
+        'UNKNOWN', 'STALLED'
     ))
 );
 
@@ -110,20 +113,10 @@ CREATE TABLE provider_operations (
     request_fingerprint VARCHAR(128),
     result_fingerprint VARCHAR(128),
     normalized_result_json JSONB,
-    actual_cost NUMERIC(19, 9),
-    billing_currency VARCHAR(3),
-    usage_json JSONB,
-    pricing_snapshot_json JSONB,
     next_reconcile_at TIMESTAMP WITH TIME ZONE,
     reconcile_attempts INTEGER NOT NULL DEFAULT 0,
     last_reconcile_error TEXT,
     CONSTRAINT ck_provider_operations_status CHECK (status IN ('RESERVED', 'SUBMITTED', 'RUNNING', 'COMPLETED', 'FAILED', 'UNKNOWN')),
-    CONSTRAINT ck_provider_operations_actual_cost_nonnegative CHECK (actual_cost IS NULL OR actual_cost >= 0),
-    CONSTRAINT ck_provider_operations_billing_complete CHECK (
-        (actual_cost IS NULL AND billing_currency IS NULL AND usage_json IS NULL AND pricing_snapshot_json IS NULL)
-        OR
-        (actual_cost IS NOT NULL AND billing_currency IS NOT NULL AND usage_json IS NOT NULL AND pricing_snapshot_json IS NOT NULL)
-    ),
     CONSTRAINT ck_provider_operations_reconcile_attempts CHECK (reconcile_attempts >= 0),
     CONSTRAINT ck_provider_operations_completed_has_result CHECK (status <> 'COMPLETED' OR normalized_result_json IS NOT NULL),
     CONSTRAINT ck_provider_operations_completed_has_fingerprint CHECK (status <> 'COMPLETED' OR (normalized_result_json IS NOT NULL AND result_fingerprint IS NOT NULL)),
@@ -137,15 +130,11 @@ CREATE TABLE operation_plans (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     project_id UUID NOT NULL REFERENCES projects(id),
     generation_job_id UUID REFERENCES generation_jobs(id),
-    operation_type VARCHAR(40) NOT NULL,
-    estimate_min NUMERIC(19, 6) NOT NULL,
-    estimate_max NUMERIC(19, 6) NOT NULL,
-    max_authorized_cost NUMERIC(19, 6) NOT NULL,
-    confidence VARCHAR(16) NOT NULL
+    operation_type VARCHAR(40) NOT NULL
 );
 
 -- -----------------------------------------------------------------------------
--- Plans, usage and quota reservations
+-- Plans, usage and non-monetary quota reservations
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE plan_entitlements (
@@ -158,7 +147,6 @@ CREATE TABLE plan_entitlements (
     max_short_exports_month INTEGER,
     max_concurrent_expensive_jobs INTEGER NOT NULL,
     feature_flags_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    monthly_credits NUMERIC(19, 6),
     active_from TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT uq_plan_entitlements_key_version UNIQUE (plan_key, version)
 );
@@ -177,7 +165,6 @@ CREATE TABLE usage_windows (
     period_key VARCHAR(32) NOT NULL,
     longform_exports INTEGER NOT NULL DEFAULT 0,
     short_exports INTEGER NOT NULL DEFAULT 0,
-    credits_used NUMERIC(19, 9) NOT NULL DEFAULT 0,
     row_version BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, period_key)
 );
@@ -191,12 +178,14 @@ CREATE TABLE quota_reservations (
     user_id VARCHAR(128) NOT NULL,
     period_key VARCHAR(32) NOT NULL,
     generation_job_id UUID UNIQUE REFERENCES generation_jobs(id),
-    estimated_cost NUMERIC(19, 6) NOT NULL,
-    actual_cost NUMERIC(19, 9),
-    billing_currency VARCHAR(3),
+    quota_kind VARCHAR(32) NOT NULL,
+    units INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(16) NOT NULL,
-    CONSTRAINT ck_quota_reservations_cost_nonnegative CHECK (estimated_cost >= 0),
-    CONSTRAINT ck_quota_reservations_actual_cost_nonnegative CHECK (actual_cost IS NULL OR actual_cost >= 0),
+    CONSTRAINT ck_quota_reservations_kind CHECK (quota_kind IN ('CAPACITY', 'LONGFORM_EXPORT')),
+    CONSTRAINT ck_quota_reservations_units CHECK (
+        (quota_kind = 'CAPACITY' AND units = 0)
+        OR (quota_kind = 'LONGFORM_EXPORT' AND units > 0)
+    ),
     CONSTRAINT ck_quota_reservations_status CHECK (status IN ('RESERVED', 'CONSUMED', 'RELEASED')),
     CONSTRAINT ck_quota_reservations_finalized CHECK (
         (status = 'RESERVED' AND finalized_at IS NULL)
@@ -206,16 +195,15 @@ CREATE TABLE quota_reservations (
 );
 
 -- -----------------------------------------------------------------------------
--- Media assets and validation
+-- Project media and account voice-reference assets
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE media_assets (
     id UUID PRIMARY KEY,
     account_id VARCHAR(128) NOT NULL,
-    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     asset_type VARCHAR(16) NOT NULL,
     origin VARCHAR(24) NOT NULL,
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
     storage_key VARCHAR(512),
     original_filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(160) NOT NULL,
@@ -236,20 +224,6 @@ CREATE TABLE media_assets (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED', 'LOCAL_ONLY')),
-    CONSTRAINT ck_media_assets_storage_scope CHECK (
-        (storage_mode = 'REMOTE'
-            AND project_id IS NULL
-            AND asset_type = 'AUDIO'
-            AND storage_key IS NOT NULL)
-        OR
-        (storage_mode = 'PROJECT_LOCAL'
-            AND project_id IS NOT NULL
-            AND storage_key IS NOT NULL)
-        OR
-        (storage_mode = 'LOCAL_ONLY'
-            AND project_id IS NOT NULL
-            AND storage_key IS NULL)
-    ),
     CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
     CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
     CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
@@ -257,13 +231,36 @@ CREATE TABLE media_assets (
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
 );
 
--- VisualBeat production preview identity uses canonical MediaAsset IDs once media_assets exists.
+CREATE TABLE voice_reference_assets (
+    id UUID PRIMARY KEY,
+    account_id VARCHAR(128) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(160) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    detected_content_type VARCHAR(160),
+    detected_container VARCHAR(64),
+    detected_codec VARCHAR(64),
+    validation_error_code VARCHAR(96),
+    validation_error_detail VARCHAR(1024),
+    validated_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    row_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_voice_reference_assets_account_checksum UNIQUE (account_id, sha256),
+    CONSTRAINT ck_voice_reference_assets_size CHECK (size_bytes > 0),
+    CONSTRAINT ck_voice_reference_assets_sha CHECK (char_length(sha256) = 64),
+    CONSTRAINT ck_voice_reference_assets_storage_key CHECK (storage_key LIKE 'voices/%'),
+    CONSTRAINT ck_voice_reference_assets_status CHECK (
+        status IN ('VALIDATING', 'READY', 'REJECTED', 'DELETED')
+    )
+);
+
 ALTER TABLE visual_beats
     ADD COLUMN preview_media_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL;
 
--- Durable non-destructive editor selection for the media used by each VisualBeat.
--- Scene and Chapter remain logical groups; the selected media is resolved when the
--- production timeline/render snapshot is built.
 CREATE TABLE production_beat_media_selections (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
@@ -292,22 +289,10 @@ CREATE TABLE character_version_reference_assets (
     CONSTRAINT ck_character_version_reference_priority CHECK (priority BETWEEN 0 AND 99)
 );
 
-CREATE TABLE media_asset_checksums (
-    account_id VARCHAR(128) NOT NULL,
-    sha256 VARCHAR(64) NOT NULL,
-    media_asset_id UUID NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_media_asset_checksums PRIMARY KEY (account_id, sha256),
-    CONSTRAINT ck_media_asset_checksums_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT fk_media_asset_checksums_asset
-        FOREIGN KEY (media_asset_id) REFERENCES media_assets(id)
-        DEFERRABLE INITIALLY DEFERRED
-);
-
 CREATE TABLE media_validation_jobs (
     id UUID PRIMARY KEY,
     account_id VARCHAR(128) NOT NULL,
-    media_asset_id UUID NOT NULL UNIQUE REFERENCES media_assets(id),
+    media_asset_id UUID NOT NULL UNIQUE REFERENCES voice_reference_assets(id) ON DELETE CASCADE,
     storage_key VARCHAR(512) NOT NULL,
     declared_type VARCHAR(16) NOT NULL,
     declared_content_type VARCHAR(160) NOT NULL,

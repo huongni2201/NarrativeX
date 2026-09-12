@@ -34,10 +34,11 @@ Current code, Flyway migrations and automated tests decide factual AS-IS claims.
 | Generated project media via R2 | REMOVED | images/narration are project-local |
 | R2 voice-reference/custom-voice storage | IMPLEMENTED foundation | only current R2 responsibility |
 | MyBatis production persistence | IMPLEMENTED | explicit PostgreSQL SQL |
-| Flyway clean pre-production baseline | NEEDS CLEANUP | policy expects obsolete patch history folded before production freeze; current tree is V1–V18 |
-| Monetary billing / credit / quota runtime | REMOVED | do not treat provider usage telemetry as a pricing/accounting contract |
+| Flyway clean pre-production baseline | IMPLEMENTED | clean DB applies squashed V1–V8 final schema directly; former V9–V18 patch history is folded away |
+| Monetary billing / credit runtime | REMOVED | no monetary estimates, pricing snapshots, credit balances, billing owner or cost-limit status |
+| Non-monetary capacity/export quota | IMPLEMENTED foundation | `CAPACITY` and `LONGFORM_EXPORT` reservations with exactly-once terminal settlement |
 | Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | reconcile/fence before external resubmission |
-| Non-monetary provider usage telemetry | IMPLEMENTED foundation | diagnostic token usage where providers expose it |
+| Non-monetary provider usage telemetry | IMPLEMENTED foundation | diagnostic usage where providers expose it; not a pricing/accounting contract |
 | Adaptive VisualScenePlanner | TARGET | narration-driven adaptive scene/beat planning |
 | Rich reuse/reframe/edit lineage | DEFERRED fast-follow | richer asset reuse after core reliability |
 | Provider-side/local I2V runtime | NOT CURRENT RUNTIME | VIDEO/web generation remains separate |
@@ -52,9 +53,11 @@ Generated narration             -> project-local media -> Desktop ProjectStorage
 Imported image/audio/video      -> Desktop ProjectStorage
 Render work/cache               -> Desktop project workspace/work
 Final MP4                       -> Desktop project workspace/artifacts
-Voice reference/custom voice    -> R2 when remote account storage is required
+ACCOUNT voice reference/custom voice -> Cloudflare R2
 Business/job/artifact metadata  -> PostgreSQL
 ```
+
+R2 is not generated-project-media transport, fallback storage or final-video storage.
 
 ## Rendering contract
 
@@ -70,9 +73,11 @@ backend-authorized project snapshot
 
 Do not claim a cloud/server fallback or remote final-video store.
 
-## Provider accounting contract
+## Provider and quota contract
 
-Provider usage telemetry is operational diagnostics only. The current runtime does not expose monetary cost calculation, credit balances, quota settlement, reservation/refund accounting or a provider-pricing catalog as a product contract.
+Provider usage telemetry is operational diagnostics only. The current runtime does not expose monetary cost calculation, user credit balances, provider-pricing catalogs, pricing snapshots or reservation/refund accounting in currency.
+
+Quota enforcement remains non-monetary: capacity reservations limit concurrent expensive work and long-form export reservations enforce period export limits. Terminal job transitions consume/release those reservations and settle export units exactly once.
 
 ## VIDEO contract
 

@@ -40,8 +40,8 @@ CREATE TABLE story_versions (
     source_language VARCHAR(16) NOT NULL,
     status VARCHAR(24) NOT NULL,
     CONSTRAINT uk_story_versions_project_version UNIQUE (project_id, version_number),
-    CONSTRAINT ck_story_versions_status
-        CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))
+    CONSTRAINT uq_story_versions_project_id_id UNIQUE (project_id, id),
+    CONSTRAINT ck_story_versions_status CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))
 );
 
 CREATE TABLE chapters (
@@ -61,6 +61,7 @@ CREATE TABLE chapters (
     inherited_snapshot_hash VARCHAR(128),
     current_storyboard_revision_id UUID,
     deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT uq_chapters_story_version_id_id UNIQUE (story_version_id, id),
     CONSTRAINT ck_chapters_source_hash_sha256 CHECK (source_hash ~ '^[0-9a-f]{64}$')
 );
 
@@ -74,8 +75,7 @@ CREATE TABLE chapter_creation_idempotency (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT uq_chapter_creation_idempotency UNIQUE (owner_id, project_id, idempotency_key),
-    CONSTRAINT ck_chapter_creation_idempotency_fingerprint
-        CHECK (request_fingerprint ~ '^[0-9a-f]{64}$')
+    CONSTRAINT ck_chapter_creation_idempotency_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE storyboard_revisions (
@@ -90,6 +90,7 @@ CREATE TABLE storyboard_revisions (
     based_on_revision_id UUID REFERENCES storyboard_revisions(id),
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     CONSTRAINT uk_storyboard_revisions_chapter_number UNIQUE (chapter_id, revision_number),
+    CONSTRAINT uq_storyboard_revisions_chapter_id_id UNIQUE (chapter_id, id),
     CONSTRAINT ck_storyboard_revisions_status CHECK (status IN ('DRAFT', 'FAILED')),
     CONSTRAINT ck_storyboard_revisions_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$')
 );
@@ -159,8 +160,7 @@ CREATE TABLE character_appearances (
     appearance_prompt TEXT,
     outfit_version_id UUID,
     CONSTRAINT fk_character_appearances_outfit_character
-        FOREIGN KEY (outfit_version_id, character_id)
-        REFERENCES outfit_versions (id, character_id)
+        FOREIGN KEY (outfit_version_id, character_id) REFERENCES outfit_versions (id, character_id)
 );
 
 CREATE TABLE project_characters (
@@ -228,12 +228,9 @@ CREATE TABLE project_character_ai_identities (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_project_character_ai_identities PRIMARY KEY (project_id, ai_key),
     CONSTRAINT fk_project_character_ai_identity_entity
-        FOREIGN KEY (project_id, project_character_id)
-        REFERENCES project_characters(project_id, id) ON DELETE CASCADE,
-    CONSTRAINT ck_project_character_ai_identity_key
-        CHECK (ai_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
-    CONSTRAINT ck_project_character_ai_identity_match_basis
-        CHECK (match_basis IN ('EXACT_KEY', 'ALIAS', 'OBSERVATION', 'CANDIDATE', 'CREATED')),
+        FOREIGN KEY (project_id, project_character_id) REFERENCES project_characters(project_id, id) ON DELETE CASCADE,
+    CONSTRAINT ck_project_character_ai_identity_key CHECK (ai_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
+    CONSTRAINT ck_project_character_ai_identity_match_basis CHECK (match_basis IN ('EXACT_KEY', 'ALIAS', 'OBSERVATION', 'CANDIDATE', 'CREATED')),
     CONSTRAINT ck_project_character_ai_identity_confidence CHECK (confidence >= 0 AND confidence <= 1)
 );
 
@@ -251,12 +248,9 @@ CREATE TABLE project_location_ai_identities (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_project_location_ai_identities PRIMARY KEY (project_id, ai_key),
     CONSTRAINT fk_project_location_ai_identity_entity
-        FOREIGN KEY (project_id, project_location_id)
-        REFERENCES project_locations(project_id, id) ON DELETE CASCADE,
-    CONSTRAINT ck_project_location_ai_identity_key
-        CHECK (ai_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
-    CONSTRAINT ck_project_location_ai_identity_match_basis
-        CHECK (match_basis IN ('EXACT_KEY', 'ALIAS', 'OBSERVATION', 'CANDIDATE', 'CREATED')),
+        FOREIGN KEY (project_id, project_location_id) REFERENCES project_locations(project_id, id) ON DELETE CASCADE,
+    CONSTRAINT ck_project_location_ai_identity_key CHECK (ai_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
+    CONSTRAINT ck_project_location_ai_identity_match_basis CHECK (match_basis IN ('EXACT_KEY', 'ALIAS', 'OBSERVATION', 'CANDIDATE', 'CREATED')),
     CONSTRAINT ck_project_location_ai_identity_confidence CHECK (confidence >= 0 AND confidence <= 1)
 );
 
@@ -277,7 +271,8 @@ CREATE TABLE scenes (
     duration_seconds INTEGER,
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     project_location_id UUID REFERENCES project_locations(id) ON DELETE SET NULL,
-    CONSTRAINT uk_scenes_revision_order UNIQUE (storyboard_revision_id, order_index)
+    CONSTRAINT uk_scenes_revision_order UNIQUE (storyboard_revision_id, order_index),
+    CONSTRAINT uq_scenes_chapter_id_id UNIQUE (chapter_id, id)
 );
 
 CREATE TABLE scene_characters (
@@ -305,13 +300,13 @@ CREATE TABLE visual_beats (
     text_start INTEGER,
     text_end INTEGER,
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
+    CONSTRAINT uq_visual_beats_scene_id_id UNIQUE (scene_id, id),
     CONSTRAINT ck_visual_beats_review_status CHECK (review_status IN ('NEEDS_REVIEW', 'APPROVED')),
     CONSTRAINT ck_visual_beats_motion_mode CHECK (motion_mode IN ('STILL', 'BASIC_MOTION', 'AI_VIDEO')),
     CONSTRAINT ck_visual_beats_text_start_nonnegative CHECK (text_start IS NULL OR text_start >= 0),
     CONSTRAINT ck_visual_beats_text_range CHECK (text_end IS NULL OR (text_start IS NOT NULL AND text_end >= text_start)),
     CONSTRAINT ck_visual_beats_visual_direction_json_object CHECK (
-        visual_direction_json IS NULL
-        OR jsonb_typeof(visual_direction_json::jsonb) = 'object'
+        visual_direction_json IS NULL OR jsonb_typeof(visual_direction_json::jsonb) = 'object'
     )
 );
 
@@ -340,23 +335,18 @@ CREATE TABLE media_plans (
     image_edit_count INTEGER NOT NULL CHECK (image_edit_count >= 0),
     basic_motion_seconds INTEGER NOT NULL CHECK (basic_motion_seconds >= 0),
     planned_i2v_seconds INTEGER NOT NULL CHECK (planned_i2v_seconds >= 0),
-    estimated_cost NUMERIC(19, 6) NOT NULL CHECK (estimated_cost >= 0),
     storyboard_revision_id UUID REFERENCES storyboard_revisions(id),
     workflow_version VARCHAR(64),
     image_aspect_ratio VARCHAR(16),
     image_provider_key VARCHAR(64),
     image_model_key VARCHAR(128),
-    pricing_snapshot_json JSONB,
-    pricing_fingerprint VARCHAR(128),
     narration_set_id UUID,
     narration_alignment_run_id UUID,
     created_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_media_plans_chapter_revision UNIQUE (chapter_id, revision),
     CONSTRAINT uq_media_plans_job_pointer UNIQUE (id, revision, production_mode),
     CONSTRAINT ck_media_plans_workflow_version CHECK (workflow_version IS NULL OR length(workflow_version) BETWEEN 1 AND 64),
-    CONSTRAINT ck_media_plans_image_aspect_ratio CHECK (image_aspect_ratio IS NULL OR image_aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4')),
-    CONSTRAINT ck_media_plans_pricing_snapshot_object CHECK (pricing_snapshot_json IS NULL OR jsonb_typeof(pricing_snapshot_json) = 'object'),
-    CONSTRAINT ck_media_plans_pricing_fingerprint CHECK (pricing_fingerprint IS NULL OR pricing_fingerprint ~ '^[0-9a-f]{64,128}$')
+    CONSTRAINT ck_media_plans_image_aspect_ratio CHECK (image_aspect_ratio IS NULL OR image_aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4'))
 );
 
 CREATE TABLE media_scene_plans (
@@ -393,18 +383,14 @@ CREATE TABLE media_beat_plans (
     PRIMARY KEY (media_plan_id, scene_index, beat_index),
     CONSTRAINT fk_media_beat_plan_scene
         FOREIGN KEY (media_plan_id, scene_index)
-        REFERENCES media_scene_plans(media_plan_id, scene_index)
-        ON DELETE CASCADE,
+        REFERENCES media_scene_plans(media_plan_id, scene_index) ON DELETE CASCADE,
     CONSTRAINT ck_media_beat_plans_asset_strategy
         CHECK (asset_strategy IS NULL OR asset_strategy IN ('GENERATE_NEW', 'REUSE_APPROVED', 'REFRAME_DERIVED', 'EDIT_EXISTING')),
-    CONSTRAINT ck_media_beat_plans_reuse_source_strategy
-        CHECK (
-            (asset_strategy IN ('REUSE_APPROVED', 'REFRAME_DERIVED') AND reuse_source_visual_beat_id IS NOT NULL)
-            OR
-            (asset_strategy NOT IN ('REUSE_APPROVED', 'REFRAME_DERIVED') AND reuse_source_visual_beat_id IS NULL)
-        ),
-    CONSTRAINT ck_media_beat_plans_reuse_source_not_self
-        CHECK (reuse_source_visual_beat_id IS NULL OR reuse_source_visual_beat_id <> visual_beat_id),
+    CONSTRAINT ck_media_beat_plans_reuse_source_strategy CHECK (
+        (asset_strategy IN ('REUSE_APPROVED', 'REFRAME_DERIVED') AND reuse_source_visual_beat_id IS NOT NULL)
+        OR (asset_strategy NOT IN ('REUSE_APPROVED', 'REFRAME_DERIVED') AND reuse_source_visual_beat_id IS NULL)
+    ),
+    CONSTRAINT ck_media_beat_plans_reuse_source_not_self CHECK (reuse_source_visual_beat_id IS NULL OR reuse_source_visual_beat_id <> visual_beat_id),
     CONSTRAINT ck_media_beat_plans_prompt_snapshot_size CHECK (prompt_snapshot IS NULL OR length(prompt_snapshot) <= 16000),
     CONSTRAINT ck_media_beat_plans_audio_range CHECK (audio_start_ms IS NULL OR (audio_end_ms IS NOT NULL AND audio_start_ms >= 0 AND audio_end_ms > audio_start_ms)),
     CONSTRAINT ck_media_beat_plans_audio_duration CHECK (audio_duration_ms IS NULL OR audio_duration_ms > 0),

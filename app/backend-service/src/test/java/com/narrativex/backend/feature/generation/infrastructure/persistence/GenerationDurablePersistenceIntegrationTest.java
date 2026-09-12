@@ -20,7 +20,6 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.adap
 import com.narrativex.backend.feature.generation.infrastructure.persistence.adapter.OperationPlanPersistenceAdapter;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.adapter.StageAttemptPersistenceAdapter;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
-import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,9 +51,7 @@ class GenerationDurablePersistenceIntegrationTest extends PostgreSqlIntegrationT
                 projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT, "owner"));
 
     OperationPlan persistedPlan =
-        operationPlanRepository.save(
-            OperationPlan.create(
-                projectId, "CHAPTER_ANALYZE", BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN));
+        operationPlanRepository.save(OperationPlan.create(projectId, "CHAPTER_ANALYZE"));
     assertNotNull(persistedPlan.getId());
     OperationPlan boundPlan =
         operationPlanRepository.save(persistedPlan.withGenerationJobId(job.getId()));

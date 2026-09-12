@@ -5,7 +5,7 @@
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
 - Last formal spec sync: `2026-08-31`
-- Current implementation checkpoint reviewed: `main` at `c370418fad5c5b7229c80c4ab64dfb796ba4dd5d` (2026-09-12)
+- Implementation checkpoint: `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 - Runtime refinements: accepted ADRs plus maintained architecture/workflow docs
 
@@ -69,13 +69,12 @@ Monetary billing, credit balances, reservation settlement and provider pricing a
 
 ## Database migration state
 
-The repository is still pre-production. The documented baseline policy says obsolete patch history should be folded into a clean baseline before production freeze; however the current migration directory contains V1 through V18. This is an implementation cleanup debt, not evidence that the pre-production baseline policy has changed.
+NarrativeX is still pre-production, so obsolete patch history has been folded into the owning Flyway baseline migrations. A clean database now applies only **V1 through V8** and creates the current schema directly: continuity/checkpoints, regeneration, storyboard-generation snapshots, render provenance and watermark policy are present without replaying former V9–V18 patch migrations. Retired monetary image/regeneration pricing metadata and legacy credit accounting are not created by the baseline.
 
-At the first production deployment, the accepted migration history becomes immutable and subsequent schema changes become append-only.
+At the first production deployment, the accepted V1–V8 migration history becomes immutable and subsequent schema changes become append-only.
 
 ## Primary remaining work
 
-- fold the current V9-V18 pre-production patch history into the owned baseline migrations before production freeze;
 - production packaging, signing, auto-update and packaged protocol/OAuth/OS integration coverage;
 - hardening long-running local execution across abrupt process/OS failure and richer recovery UX;
 - richer timeline/editor review and regeneration workflows;

@@ -28,7 +28,6 @@ public class ChapterWorkspaceAggregateRow {
   private int visualGenerationQueued;
   private int visualGenerationStalled;
   private int visualGenerationUnknown;
-  private int visualGenerationPaused;
   private UUID visualGenerationLatestJobId;
   private UUID visualGenerationMediaPlanId;
   private Integer visualGenerationMediaPlanRevision;

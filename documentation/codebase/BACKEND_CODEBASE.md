@@ -34,7 +34,7 @@ NarrativeX Desktop is guest-first.
 ```text
 persisted Chapter source
   -> lock/reload authoritative source snapshot
-  -> ownership + idempotency + entitlement/quota/cost admission
+  -> ownership + idempotency + entitlement/capacity admission
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
   -> commit + outbox finalization
   -> worker polls/claims durable PostgreSQL job
@@ -53,13 +53,13 @@ OperationPlan
             -> ProviderOperation
 ```
 
-Provider requests require durable lifecycle state. Ambiguous external acceptance uses `UNKNOWN` reconciliation rather than blind resubmission. Provider calls stay outside long business transactions.
+Provider requests require durable lifecycle state. Ambiguous external acceptance uses `UNKNOWN` reconciliation rather than blind resubmission. Provider calls stay outside long business transactions. The runtime does not persist provider pricing snapshots, monetary operation estimates, user credit balances or a separate billing owner on generation jobs.
 
 Generation/media outbox rows are persisted transactionally with admitted work. Because workers consume the durable PostgreSQL queue tables directly, the outbox dispatcher only finalizes pending bookkeeping rows after commit; it does not publish to Redis, `NOTIFY`, or another broker. A failed acknowledgement remains `PENDING` and becomes claimable after its reservation timeout.
 
 ## Project media identity
 
-The backend owns stable media identity/metadata, not Desktop absolute file paths. Remote R2 upload/session/validation paths remain valid for server/provider workflows, but are not a requirement for every Desktop project asset.
+The backend owns stable media identity/metadata, not Desktop absolute file paths. Project media is project-local; Cloudflare R2 is restricted to authenticated reusable ACCOUNT voice-reference/custom-voice assets rather than generated-project-media transport or fallback storage.
 
 ## Production timeline and local render
 
@@ -80,7 +80,7 @@ Current pre-release baseline:
 ```text
 V1__identity_and_access.sql
 V2__project_story_and_planning.sql
-V3__generation_billing_and_media.sql
+V3__generation_quota_and_media.sql
 V4__narration_notifications_and_artifacts.sql
 V5__catalog_generation_and_render_snapshots.sql
 V6__database_logic_and_triggers.sql
@@ -88,16 +88,16 @@ V7__indexes.sql
 V8__seed_catalog.sql
 ```
 
-V1-V6 separate schema/database logic by responsibility, V7 contains the index/invariant set, and V8 contains deterministic system/catalog seeds. Render subtitle fields are created directly with project render snapshots; the Chapter Workspace covering lookup is part of V7; VieNeu voices are seeded with `supportsSpeakingRate=true`, and narration requests persist a positive `speaking_rate`. Translation/content-variant schema is absent.
+V1-V6 separate schema/database logic by responsibility, V7 contains the index/invariant set, and V8 contains deterministic system/catalog seeds. Continuity/checkpoints, regeneration plans, storyboard-generation snapshots, render continuity provenance and watermark policy are already folded into the owning V1-V8 migrations; there is no V9+ cleanup chain in the current pre-production baseline. Render subtitle fields are created directly with project render snapshots; the Chapter Workspace covering lookup is part of V7; VieNeu voices are seeded with `supportsSpeakingRate=true`, and narration requests persist a positive `speaking_rate`. Translation/content-variant schema is absent.
 
-Because no production database has adopted this history yet, the baseline can still be reorganized for clarity and disposable development/test databases should be recreated after checksum/version changes. The baseline becomes immutable at the first production deployment; future changes after that point must be append-only.
+Because no production database has adopted this history yet, the baseline can still be reorganized for clarity and disposable development/test databases should be recreated after checksum/version changes. The baseline becomes immutable at the first production deployment; future changes after that point must be append-only starting at V9.
 
 ## Quality/concurrency rules
 
 - Domain code remains framework-free.
 - Mutable writes use expected-version/state predicates where concurrency matters.
 - Zero affected rows for a guarded mutation becomes a conflict rather than silent success.
-- Paid/provider submission uses persisted fences and UNKNOWN reconciliation.
+- Provider submission uses persisted fences and `UNKNOWN` reconciliation before any ambiguous resubmission.
 - PostgreSQL/Testcontainers is required for PostgreSQL-specific locking/migration/transaction behavior.
 - Architecture tests protect MyBatis/schema/client boundaries.
 - JaCoCo's current bundle line floor comes from `pom.xml`, not from a hardcoded historical measurement in this document.

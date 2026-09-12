@@ -14,7 +14,7 @@
         <result property="visualGenerationTotal" column="visual_generation_total"/><result property="visualGenerationCompleted" column="visual_generation_completed"/>
         <result property="visualGenerationFailed" column="visual_generation_failed"/><result property="visualGenerationRunning" column="visual_generation_running"/>
         <result property="visualGenerationQueued" column="visual_generation_queued"/><result property="visualGenerationStalled" column="visual_generation_stalled"/>
-        <result property="visualGenerationUnknown" column="visual_generation_unknown"/><result property="visualGenerationPaused" column="visual_generation_paused"/>
+        <result property="visualGenerationUnknown" column="visual_generation_unknown"/>
         <result property="visualGenerationLatestJobId" column="visual_generation_latest_job_id"/>
         <result property="visualGenerationMediaPlanId" column="visual_generation_media_plan_id"
                 typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
@@ -84,8 +84,7 @@
                    CASE
                      WHEN gj.status = 'UNKNOWN' THEN GREATEST(COALESCE(item_stats.unknown, 0), 1)
                      ELSE COALESCE(item_stats.unknown, 0)
-                   END::int AS media_generation_unknown,
-                   CASE WHEN gj.status = 'PAUSED_COST_LIMIT' THEN 1 ELSE 0 END::int AS media_generation_paused
+                   END::int AS media_generation_unknown
               FROM current_revision cr
               LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = cr.chapter_id
               LEFT JOIN generation_jobs gj
@@ -131,8 +130,7 @@
                    cmj.media_generation_running AS running,
                    cmj.media_generation_queued AS queued,
                    cmj.media_generation_stalled AS stalled,
-                   cmj.media_generation_unknown AS unknown,
-                   cmj.media_generation_paused AS paused
+                   cmj.media_generation_unknown AS unknown
               FROM current_media_job cmj
         ), latest_narration AS (
             SELECT na.id AS narration_asset_id, op.job_id AS job_id, op.status AS job_status,
@@ -215,7 +213,7 @@
                vg.total AS visual_generation_total, vg.completed AS visual_generation_completed,
                vg.failed AS visual_generation_failed, vg.running AS visual_generation_running,
                vg.queued AS visual_generation_queued, vg.stalled AS visual_generation_stalled,
-               vg.unknown AS visual_generation_unknown, vg.paused AS visual_generation_paused,
+               vg.unknown AS visual_generation_unknown,
                cmj.media_generation_job_key AS visual_generation_latest_job_id,
                cmj.media_plan_id AS visual_generation_media_plan_id,
                cmj.media_plan_revision AS visual_generation_media_plan_revision,
