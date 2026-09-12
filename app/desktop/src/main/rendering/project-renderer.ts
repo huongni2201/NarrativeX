@@ -125,11 +125,13 @@ export class ProjectRenderer {
           return completion(manifest.renderFingerprint, metadata, artifact);
         }
       } catch (error) {
-        if (isUserCancellation(error)) {
+        const abortReason = signal.aborted ? signal.reason : undefined;
+        if (isUserCancellation(error) || isUserCancellation(abortReason)) {
           await this.journals.advance(journal, "CANCELLED");
-          throw error;
+          throw isUserCancellation(abortReason) ? abortReason : error;
         }
         if (isResumableInterruption(error)) throw error;
+        if (isResumableInterruption(abortReason)) throw abortReason;
         const failure = asRenderFailure(
           journal.stage === "VERIFY" ? "RENDER_VERIFY_FAILED" : "RENDER_REGISTER_FAILED",
           error,
@@ -198,11 +200,13 @@ export class ProjectRenderer {
       await this.journals.advance(journal, "COMPLETED");
       return completion(manifest.renderFingerprint, metadata, artifact);
     } catch (error) {
-      if (isUserCancellation(error)) {
+      const abortReason = signal.aborted ? signal.reason : undefined;
+      if (isUserCancellation(error) || isUserCancellation(abortReason)) {
         await this.journals.advance(journal, "CANCELLED");
-        throw error;
+        throw isUserCancellation(abortReason) ? abortReason : error;
       }
       if (isResumableInterruption(error)) throw error;
+      if (isResumableInterruption(abortReason)) throw abortReason;
       const failure = error instanceof RenderExecutionError
         ? error
         : new RenderExecutionError("LOCAL_RENDER_FAILED", errorMessage(error), true);
