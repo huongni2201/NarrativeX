@@ -164,10 +164,8 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
         duration_ms: int,
         sample_rate_hz: int,
         channels: int,
-        spans: list[WordAlignment],
+        words: list[WordAlignment],
     ) -> None:
-        # Runner call sites still pass the historical keyword name `spans`, but the
-        # payload itself is exclusively word-level and is persisted as words_json.
         await super().complete(
             claimed,
             self._lease_owner(worker_id),
@@ -175,7 +173,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
             duration_ms=duration_ms,
             sample_rate_hz=sample_rate_hz,
             channels=channels,
-            words=spans,
+            words=words,
         )
         self._claim_owner.set(None)
 
