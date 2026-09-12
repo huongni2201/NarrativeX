@@ -1,9 +1,6 @@
 import pytest
 
-from narrativex_worker.narration.alignment import (
-    NarrationAlignmentValidator,
-    normalize_alignment_duration,
-)
+from narrativex_worker.narration.alignment import NarrationAlignmentValidator
 from narrativex_worker.narration.models import WordAlignment
 
 
@@ -51,24 +48,6 @@ def test_validator_allows_real_pause_between_words() -> None:
     )
 
 
-def test_normalize_alignment_never_stretches_last_word_across_trailing_silence() -> None:
-    words = [_word(0, 0, 4, 100, 600)]
-
-    normalized = normalize_alignment_duration(words, audio_duration_ms=1_800)
-
-    assert normalized == words
-    assert normalized[-1].audio_end_ms == 600
-
-
-def test_normalize_alignment_clamps_only_small_codec_overshoot() -> None:
-    words = [_word(0, 0, 4, 100, 1_820)]
-
-    normalized = normalize_alignment_duration(words, audio_duration_ms=1_800)
-
-    assert normalized[-1].audio_start_ms == 100
-    assert normalized[-1].audio_end_ms == 1_800
-
-
 def test_validator_rejects_overlapping_word_audio() -> None:
     words = [
         _word(0, 0, 3, 100, 500),
@@ -76,6 +55,31 @@ def test_validator_rejects_overlapping_word_audio() -> None:
     ]
 
     with pytest.raises(ValueError, match="audio ranges overlap"):
+        NarrationAlignmentValidator().validate(
+            words,
+            source_utf16_length=8,
+            audio_duration_ms=1_000,
+        )
+
+
+def test_validator_rejects_word_past_final_audio_without_stretching_or_clamping() -> None:
+    words = [_word(0, 0, 4, 100, 1_820)]
+
+    with pytest.raises(ValueError, match="exceeds narration duration"):
+        NarrationAlignmentValidator().validate(
+            words,
+            source_utf16_length=4,
+            audio_duration_ms=1_800,
+        )
+
+
+def test_validator_requires_contiguous_word_indexes() -> None:
+    words = [
+        _word(0, 0, 3, 100, 300),
+        _word(2, 4, 8, 350, 700),
+    ]
+
+    with pytest.raises(ValueError, match="indexes must be contiguous"):
         NarrationAlignmentValidator().validate(
             words,
             source_utf16_length=8,
