@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 import unicodedata
+import wave
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
-from narrativex_worker.narration.models import WordAlignment
+from narrativex_worker.narration.models import (
+    MaterializedAudioSegment,
+    SynthesizedSegment,
+    WordAlignment,
+)
 
 _WORD_PATTERN = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
 
@@ -34,11 +42,7 @@ class _TimedWord:
 
 
 class WhisperWordAligner:
-    """Align synthesized narration back to source words with Whisper word timestamps.
-
-    Whisper supplies measured speech boundaries. Source text remains authoritative for text
-    offsets; ASR text is used only to reconcile the measured word clock back to those offsets.
-    """
+    """Map synthesized narration to source words using measured Whisper timestamps."""
 
     def __init__(
         self,
@@ -54,22 +58,79 @@ class WhisperWordAligner:
         self.minimum_exact_coverage = minimum_exact_coverage
         self._model: Any | None = None
 
-    def align(self, audio_path: Path, source_text: str, language: str) -> list[WordAlignment]:
-        source_words = _source_words(source_text)
+    def align_segments(
+        self,
+        segments: list[SynthesizedSegment | MaterializedAudioSegment],
+    ) -> list[WordAlignment]:
+        if not segments:
+            raise WordAlignmentError("Narration contains no synthesized segments")
+
+        result: list[WordAlignment] = []
+        audio_cursor = Fraction(0, 1)
+        with tempfile.TemporaryDirectory(prefix="narrativex-word-align-") as temp_dir:
+            workdir = Path(temp_dir)
+            for item in segments:
+                pcm = _pcm_bytes(item)
+                wav_path = workdir / f"segment-{item.segment.index:04d}.wav"
+                _write_wav(
+                    wav_path,
+                    pcm,
+                    sample_rate_hz=item.sample_rate_hz,
+                    channels=item.channels,
+                )
+                local_words = self._align_audio(
+                    wav_path,
+                    item.segment.text,
+                    text_base_utf16=item.segment.text_start,
+                )
+                global_start_ms = round(audio_cursor)
+                for word in local_words:
+                    result.append(
+                        WordAlignment(
+                            index=len(result),
+                            text_start=word.text_start,
+                            text_end=word.text_end,
+                            audio_start_ms=global_start_ms + word.audio_start_ms,
+                            audio_end_ms=global_start_ms + word.audio_end_ms,
+                            confidence=word.confidence,
+                        )
+                    )
+                audio_cursor += _exact_duration_ms(item)
+
+        _validate_monotonic(result)
+        return result
+
+    def align(self, audio_path: Path, source_text: str, language: str = "") -> list[WordAlignment]:
+        whisper_language = language.split("-", 1)[0].strip().lower() or None
+        return self._align_audio(
+            audio_path,
+            source_text,
+            text_base_utf16=0,
+            language=whisper_language,
+        )
+
+    def _align_audio(
+        self,
+        audio_path: Path,
+        source_text: str,
+        *,
+        text_base_utf16: int,
+        language: str | None = None,
+    ) -> list[WordAlignment]:
+        source_words = _source_words(source_text, text_base_utf16=text_base_utf16)
         if not source_words:
-            raise WordAlignmentError("Narration source contains no alignable words")
+            raise WordAlignmentError("Narration segment contains no alignable words")
 
         model = self._load_model()
-        whisper_language = language.split("-", 1)[0].strip().lower() or None
         segments, _ = model.transcribe(
             str(audio_path),
-            language=whisper_language,
+            language=language,
             beam_size=1,
             temperature=0.0,
             word_timestamps=True,
             condition_on_previous_text=False,
             vad_filter=False,
-            initial_prompt=source_text[:4000],
+            initial_prompt=source_text,
         )
         timed_words = _timed_words(list(segments))
         if not timed_words:
@@ -98,7 +159,21 @@ class WhisperWordAligner:
         return self._model
 
 
-def _source_words(source_text: str) -> list[_SourceWord]:
+def default_word_aligner() -> WhisperWordAligner:
+    coverage_raw = os.getenv("NARRATION_WORD_ALIGNMENT_MIN_COVERAGE", "0.75")
+    try:
+        coverage = float(coverage_raw)
+    except ValueError as exception:
+        raise WordAlignmentError("Invalid NARRATION_WORD_ALIGNMENT_MIN_COVERAGE") from exception
+    return WhisperWordAligner(
+        model_size=os.getenv("NARRATION_WORD_ALIGNMENT_MODEL", "small"),
+        device=os.getenv("NARRATION_WORD_ALIGNMENT_DEVICE", "cpu"),
+        compute_type=os.getenv("NARRATION_WORD_ALIGNMENT_COMPUTE_TYPE", "int8"),
+        minimum_exact_coverage=coverage,
+    )
+
+
+def _source_words(source_text: str, *, text_base_utf16: int) -> list[_SourceWord]:
     utf16_offsets = [0]
     for character in source_text:
         utf16_offsets.append(utf16_offsets[-1] + (2 if ord(character) > 0xFFFF else 1))
@@ -112,8 +187,8 @@ def _source_words(source_text: str) -> list[_SourceWord]:
         words.append(
             _SourceWord(
                 text=text,
-                text_start=utf16_offsets[match.start()],
-                text_end=utf16_offsets[match.end()],
+                text_start=text_base_utf16 + utf16_offsets[match.start()],
+                text_end=text_base_utf16 + utf16_offsets[match.end()],
                 key=key,
             )
         )
@@ -251,6 +326,28 @@ def _validate_monotonic(words: list[WordAlignment]) -> None:
         if previous is not None and previous.audio_end_ms > word.audio_start_ms:
             raise WordAlignmentError("Whisper word timestamps overlap after source reconciliation")
         previous = word
+
+
+def _pcm_bytes(item: SynthesizedSegment | MaterializedAudioSegment) -> bytes:
+    if isinstance(item, SynthesizedSegment):
+        return item.pcm_bytes
+    return item.file_path.read_bytes()
+
+
+def _write_wav(path: Path, pcm: bytes, *, sample_rate_hz: int, channels: int) -> None:
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(channels)
+        output.setsampwidth(2)
+        output.setframerate(sample_rate_hz)
+        output.writeframes(pcm)
+
+
+def _exact_duration_ms(item: SynthesizedSegment | MaterializedAudioSegment) -> Fraction:
+    if isinstance(item, SynthesizedSegment):
+        return Fraction(item.frame_count * 1000, item.sample_rate_hz)
+    if item.frame_count is not None:
+        return Fraction(item.frame_count * 1000, item.sample_rate_hz)
+    return Fraction(item.duration_ms, 1)
 
 
 def _comparison_key(value: str) -> str:
