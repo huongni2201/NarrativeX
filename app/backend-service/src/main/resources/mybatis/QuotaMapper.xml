@@ -97,8 +97,8 @@
 
     <select id="insertReservation" parameterType="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaReservationRow" resultType="long" affectData="true">
         INSERT INTO quota_reservations
-          (user_id, period_key, estimated_cost, quota_kind, units, status)
-        VALUES (#{userId}, #{periodKey}, 0, #{quotaKind}, #{units}, 'RESERVED')
+          (user_id, period_key, quota_kind, units, status)
+        VALUES (#{userId}, #{periodKey}, #{quotaKind}, #{units}, 'RESERVED')
         RETURNING id
     </select>
 
