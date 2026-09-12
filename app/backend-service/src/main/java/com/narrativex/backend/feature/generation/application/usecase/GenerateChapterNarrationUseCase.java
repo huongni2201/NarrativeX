@@ -148,7 +148,6 @@ public class GenerateChapterNarrationUseCase {
                 "QUEUED",
                 null,
                 userId,
-                userId,
                 chapter.storyVersionId(),
                 command.chapterId(),
                 null,
