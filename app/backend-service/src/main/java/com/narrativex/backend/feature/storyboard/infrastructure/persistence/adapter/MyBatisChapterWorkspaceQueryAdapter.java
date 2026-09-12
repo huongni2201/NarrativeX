@@ -46,8 +46,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                     row.getVisualGenerationRunning(),
                     row.getVisualGenerationQueued(),
                     row.getVisualGenerationStalled(),
-                    row.getVisualGenerationUnknown(),
-                    row.getVisualGenerationPaused()),
+                    row.getVisualGenerationUnknown()),
                 row.getVisualGenerationTotal(),
                 row.getVisualGenerationCompleted(),
                 row.getVisualGenerationFailed(),
@@ -90,12 +89,10 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
       int running,
       int queued,
       int stalled,
-      int unknown,
-      int paused) {
+      int unknown) {
     if (total == 0) return "NOT_STARTED";
     if (running > 0) return "RUNNING";
     if (queued > 0) return "QUEUED";
-    if (paused > 0) return "PAUSED_COST_LIMIT";
     if (unknown > 0) return "UNKNOWN";
     if (stalled > 0) return "STALLED";
     if (failed > 0) return "FAILED";
@@ -107,7 +104,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
     if (jobStatus == null) return "NOT_STARTED";
     return switch (jobStatus) {
       case "RUNNING" -> "GENERATING";
-      case "QUEUED", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> jobStatus;
+      case "QUEUED", "STALLED", "UNKNOWN" -> jobStatus;
       default -> "FAILED";
     };
   }
@@ -123,7 +120,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
   private static boolean isActive(String status) {
     return status != null
         && switch (status) {
-          case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+          case "QUEUED", "RUNNING", "STALLED", "UNKNOWN" -> true;
           default -> false;
         };
   }
