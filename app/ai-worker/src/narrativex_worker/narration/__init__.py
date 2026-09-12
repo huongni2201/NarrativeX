@@ -2,10 +2,10 @@
 
 from narrativex_worker.narration.alignment import NarrationAlignmentValidator, build_alignment
 from narrativex_worker.narration.models import (
-    AlignmentSpan,
     MaterializedAudioSegment,
     NarrationSegment,
     SynthesizedSegment,
+    WordAlignment,
 )
 from narrativex_worker.narration.providers import FakeTtsProvider, TtsProvider, TtsRequest
 from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_length
@@ -17,7 +17,6 @@ from narrativex_worker.narration.storage import (
 )
 
 __all__ = [
-    "AlignmentSpan",
     "FakeTtsProvider",
     "FullChapterNarrationService",
     "MediaAssetConflictError",
@@ -31,6 +30,7 @@ __all__ = [
     "SynthesizedSegment",
     "TtsProvider",
     "TtsRequest",
+    "WordAlignment",
     "build_alignment",
     "utf16_length",
 ]
