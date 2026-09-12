@@ -2,7 +2,10 @@ import { createHash, randomBytes } from "node:crypto";
 import type { DesktopApiResponse, DesktopBackendApiService } from "../api/backend-api-service";
 
 const DESKTOP_REDIRECT_URI = "narrativex://auth/callback";
-const DESKTOP_AUTH_PENDING_TTL_MS = 90_000;
+// This TTL only bounds how long the desktop keeps the PKCE verifier while the user is still
+// completing Google sign-in. The backend handoff code has its own short TTL that starts only after
+// OAuth succeeds and the callback is issued.
+const DESKTOP_GOOGLE_LOGIN_PENDING_TTL_MS = 15 * 60_000;
 const DESKTOP_AUTH_VERIFIER_BYTES = 32;
 const ALLOWED_CSRF_HEADERS = new Set(["x-csrf-token", "x-xsrf-token"]);
 
@@ -45,7 +48,7 @@ export class DesktopAuthService {
     this.pendingVerifier = verifier;
     this.pendingVerifierTimer = setTimeout(
       () => this.clearPendingLogin(),
-      DESKTOP_AUTH_PENDING_TTL_MS,
+      DESKTOP_GOOGLE_LOGIN_PENDING_TTL_MS,
     );
 
     const startUrl = new URL("/api/v1/auth/desktop/start", `${this.backendBaseUrl}/`);
