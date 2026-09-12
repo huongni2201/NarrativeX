@@ -29,7 +29,6 @@ public class GenerationJobRow {
   private String currentStep;
   private String errorCode;
   private String requestedByUserId;
-  private String billedToUserId;
   private UUID storyVersionId;
   private UUID chapterId;
   private Long chapterRowVersion;
