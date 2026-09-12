@@ -22,7 +22,6 @@ import com.narrativex.backend.feature.generation.application.service.ChapterAnal
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
-import com.narrativex.backend.feature.generation.domain.enums.EstimateConfidence;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
@@ -30,7 +29,6 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
-import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -113,21 +111,9 @@ class EnqueueStoryAnalysisUseCaseTest {
   @Test
   void persistsExactlyOneDurableEnqueueBoundaryInOrder() {
     var snapshot = snapshot();
-    var estimate =
-        new com.narrativex.backend.feature.generation.application.service
-            .ChapterAnalysisCostEstimate(20, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
-    var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-08", BigDecimal.TEN);
+    var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-09", "CAPACITY", 1);
     var persistedPlan =
-        OperationPlan.rehydrate(
-            PLAN_ID,
-            0L,
-            PROJECT_ID,
-            null,
-            "CHAPTER_ANALYZE",
-            BigDecimal.ONE,
-            BigDecimal.TEN,
-            BigDecimal.TEN,
-            EstimateConfidence.LOW);
+        OperationPlan.rehydrate(PLAN_ID, 0L, PROJECT_ID, null, "CHAPTER_ANALYZE");
     var persistedJob = persistedJob(JobStatus.QUEUED);
 
     when(currentUserId.get()).thenReturn("user-1");
@@ -142,7 +128,7 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
         .thenReturn(Optional.empty());
     when(admissionService.admit("user-1", PROJECT_ID, snapshot))
-        .thenReturn(new ChapterAnalysisAdmissionService.Admission(estimate, reservation));
+        .thenReturn(new ChapterAnalysisAdmissionService.Admission(reservation));
     when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
         .thenReturn(STORYBOARD_REVISION_ID);
     when(operationPlanRepository.save(org.mockito.ArgumentMatchers.any(OperationPlan.class)))
@@ -227,10 +213,7 @@ class EnqueueStoryAnalysisUseCaseTest {
   @Test
   void failureBeforeOutboxDoesNotInvokeLaterDurableSteps() {
     var snapshot = snapshot();
-    var estimate =
-        new com.narrativex.backend.feature.generation.application.service
-            .ChapterAnalysisCostEstimate(20, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
-    var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-08", BigDecimal.TEN);
+    var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-09", "CAPACITY", 1);
     RuntimeException failure = new RuntimeException("generation job insert failed");
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
@@ -244,21 +227,11 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
         .thenReturn(Optional.empty());
     when(admissionService.admit("user-1", PROJECT_ID, snapshot))
-        .thenReturn(new ChapterAnalysisAdmissionService.Admission(estimate, reservation));
+        .thenReturn(new ChapterAnalysisAdmissionService.Admission(reservation));
     when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
         .thenReturn(STORYBOARD_REVISION_ID);
     when(operationPlanRepository.save(org.mockito.ArgumentMatchers.any(OperationPlan.class)))
-        .thenReturn(
-            OperationPlan.rehydrate(
-                PLAN_ID,
-                0L,
-                PROJECT_ID,
-                null,
-                "CHAPTER_ANALYZE",
-                BigDecimal.ONE,
-                BigDecimal.TEN,
-                BigDecimal.TEN,
-                EstimateConfidence.LOW));
+        .thenReturn(OperationPlan.rehydrate(PLAN_ID, 0L, PROJECT_ID, null, "CHAPTER_ANALYZE"));
     doThrow(failure)
         .when(generationJobRepository)
         .save(org.mockito.ArgumentMatchers.any(GenerationJob.class));
