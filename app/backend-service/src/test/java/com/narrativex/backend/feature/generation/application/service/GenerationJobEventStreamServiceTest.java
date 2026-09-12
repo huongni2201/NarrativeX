@@ -92,7 +92,6 @@ class GenerationJobEventStreamServiceTest {
         status == JobStatus.COMPLETED ? "DONE" : "ANALYZING",
         null,
         OWNER_ID,
-        OWNER_ID,
         null,
         null,
         null,
