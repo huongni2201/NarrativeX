@@ -50,12 +50,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
     async def _attach_system_voice_reference(
         self, claimed: ClaimedNarrationJob
     ) -> ClaimedNarrationJob:
-        """Attach a catalog-owned R2 key only when the request has no custom reference.
-
-        PROJECT references stay device-local and ACCOUNT references retain their own R2
-        object metadata. A catalog reference is therefore a fallback for system voices,
-        never a replacement for an explicitly selected custom voice.
-        """
+        """Attach a catalog-owned R2 key only when the request has no custom reference."""
         if (
             claimed.voice_reference_scope is not None
             or claimed.voice_reference_storage_key is not None
@@ -79,12 +74,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
         self,
         operation: DurableNarrationProviderOperation,
         result: dict[str, object],
-        *,
-        character_count: int,
-        pricing: object,
     ) -> DurableNarrationProviderOperation:
-        """Persist only durable provider result state; billing metadata is intentionally ignored."""
-        del character_count, pricing
         serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
         fingerprint = hashlib.sha256(serialized.encode()).hexdigest()
         row = await self._require_pool().fetchrow(
