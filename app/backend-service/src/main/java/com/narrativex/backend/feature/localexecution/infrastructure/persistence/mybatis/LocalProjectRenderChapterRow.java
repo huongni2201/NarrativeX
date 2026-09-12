@@ -13,7 +13,7 @@ public record LocalProjectRenderChapterRow(
     String checksum,
     long durationMs,
     String subtitleText,
-    String subtitleSpansJson) {
+    String subtitleWordsJson) {
   public LocalProjectRenderChapterRow(
       UUID chapterId,
       int orderIndex,
