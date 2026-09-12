@@ -13,13 +13,10 @@
         <result property="maxLongformExportsMonth" column="max_longform_exports_month" />
         <result property="maxShortExportsMonth" column="max_short_exports_month" />
         <result property="maxConcurrentExpensiveJobs" column="max_concurrent_expensive_jobs" />
-        <result property="monthlyCredits" column="monthly_credits" />
         <result property="featureFlagsJson" column="feature_flags_json" />
         <result property="longformExports" column="longform_exports" />
         <result property="shortExports" column="short_exports" />
         <result property="activeReservedJobs" column="active_reserved_jobs" />
-        <result property="creditsUsed" column="credits_used" />
-        <result property="creditsReserved" column="credits_reserved" />
     </resultMap>
 
     <select id="findCurrent" resultMap="quotaCurrentRow">
@@ -32,17 +29,12 @@
                pe.max_longform_exports_month,
                pe.max_short_exports_month,
                pe.max_concurrent_expensive_jobs,
-               pe.monthly_credits,
                pe.feature_flags_json::text AS feature_flags_json,
                COALESCE(uw.longform_exports, 0) AS longform_exports,
                COALESCE(uw.short_exports, 0) AS short_exports,
                COALESCE((SELECT COUNT(*) FROM quota_reservations qr
                           WHERE qr.user_id = upa.user_id AND qr.status = 'RESERVED'), 0)::integer
-                   AS active_reserved_jobs,
-               COALESCE(uw.credits_used, 0) AS credits_used,
-               COALESCE((SELECT SUM(qr.estimated_cost) FROM quota_reservations qr
-                          WHERE qr.user_id = upa.user_id AND qr.period_key = #{periodKey}
-                            AND qr.status = 'RESERVED'), 0) AS credits_reserved
+                   AS active_reserved_jobs
           FROM user_plan_assignments upa
           JOIN plan_entitlements pe
             ON pe.plan_key = CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END
@@ -59,27 +51,10 @@
 
     <resultMap id="activePlanRow" type="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.ActivePlanRow">
         <result property="planKey" column="plan_key" />
-        <result property="monthlyCredits" column="monthly_credits" />
     </resultMap>
 
     <select id="findActivePlanForUpdate" resultMap="activePlanRow">
-        SELECT CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END AS plan_key,
-               pe.monthly_credits
-          FROM user_plan_assignments upa
-          JOIN plan_entitlements pe
-            ON pe.plan_key = CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END
-           AND pe.version = CASE WHEN upa.plan_key = 'STANDARD' THEN 1 ELSE upa.entitlement_version END
-         WHERE upa.user_id = #{userId}
-           AND upa.status = 'ACTIVE'
-           AND (upa.period_start IS NULL OR upa.period_start &lt;= CURRENT_TIMESTAMP)
-           AND (upa.period_end IS NULL OR upa.period_end &gt;= CURRENT_TIMESTAMP)
-         ORDER BY pe.active_from DESC, pe.id DESC
-         LIMIT 1
-         FOR UPDATE OF upa
-    </select>
-
-    <select id="findMonthlyCreditsForUpdate" resultType="java.math.BigDecimal">
-        SELECT pe.monthly_credits
+        SELECT CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END AS plan_key
           FROM user_plan_assignments upa
           JOIN plan_entitlements pe
             ON pe.plan_key = CASE WHEN upa.plan_key = 'STANDARD' THEN 'NORMAL' ELSE upa.plan_key END
@@ -108,17 +83,6 @@
          WHERE user_id = #{userId} AND status = 'RESERVED'
     </select>
 
-    <select id="findCreditsUsedForUpdate" resultType="java.math.BigDecimal">
-        SELECT credits_used FROM usage_windows
-         WHERE user_id = #{userId} AND period_key = #{periodKey}
-         FOR UPDATE
-    </select>
-
-    <select id="findCreditsReserved" resultType="java.math.BigDecimal">
-        SELECT COALESCE(SUM(estimated_cost), 0) FROM quota_reservations
-         WHERE user_id = #{userId} AND period_key = #{periodKey} AND status = 'RESERVED'
-    </select>
-
     <select id="findLongformExportsUsedForUpdate" resultType="int">
         SELECT longform_exports FROM usage_windows
          WHERE user_id = #{userId} AND period_key = #{periodKey}
@@ -134,7 +98,7 @@
     <select id="insertReservation" parameterType="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaReservationRow" resultType="long" affectData="true">
         INSERT INTO quota_reservations
           (user_id, period_key, estimated_cost, quota_kind, units, status)
-        VALUES (#{userId}, #{periodKey}, #{estimatedCost}, #{quotaKind}, #{units}, 'RESERVED')
+        VALUES (#{userId}, #{periodKey}, 0, #{quotaKind}, #{units}, 'RESERVED')
         RETURNING id
     </select>
 
@@ -146,43 +110,35 @@
            AND (generation_job_id IS NULL OR generation_job_id = #{generationJobId})
     </update>
 
-    <select id="countBilledOperations" resultType="int">
-        SELECT COUNT(*)::int FROM provider_operations po
-        JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
-        WHERE sa.generation_job_id = #{generationJobId} AND po.actual_cost IS NOT NULL
-    </select>
-
     <update id="consumeForJob">
-        WITH reconciled AS (
-            SELECT SUM(po.actual_cost) AS actual_cost,
-                   CASE WHEN COUNT(DISTINCT po.billing_currency) = 1
-                        THEN MAX(po.billing_currency) ELSE NULL END AS billing_currency
-              FROM provider_operations po
-              JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
-             WHERE sa.generation_job_id = #{generationJobId} AND po.actual_cost IS NOT NULL
-        ), consumed AS (
-            UPDATE quota_reservations qr
-               SET status = 'CONSUMED', actual_cost = reconciled.actual_cost,
-                   billing_currency = reconciled.billing_currency,
-                   finalized_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
-                   row_version = qr.row_version + 1
-              FROM reconciled
-             WHERE qr.generation_job_id = #{generationJobId}
-               AND qr.status = 'RESERVED' AND reconciled.billing_currency IS NOT NULL
-             RETURNING qr.user_id, qr.period_key, qr.actual_cost
+        WITH consumed AS (
+            UPDATE quota_reservations
+               SET status = 'CONSUMED',
+                   finalized_at = CURRENT_TIMESTAMP,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE generation_job_id = #{generationJobId} AND status = 'RESERVED'
+             RETURNING user_id, period_key, quota_kind, units
+        ), settled AS (
+            SELECT user_id,
+                   period_key,
+                   SUM(CASE WHEN quota_kind = 'LONGFORM_EXPORT' THEN units ELSE 0 END)::integer
+                       AS longform_units
+              FROM consumed
+             GROUP BY user_id, period_key
         )
         UPDATE usage_windows uw
-           SET credits_used = uw.credits_used + consumed.actual_cost,
+           SET longform_exports = uw.longform_exports + settled.longform_units,
                row_version = uw.row_version + 1
-          FROM consumed
-         WHERE uw.user_id = consumed.user_id AND uw.period_key = consumed.period_key
+          FROM settled
+         WHERE uw.user_id = settled.user_id AND uw.period_key = settled.period_key
     </update>
 
     <update id="releaseForJob">
         UPDATE quota_reservations
-           SET status = 'RELEASED', actual_cost = 0,
-               billing_currency = COALESCE(billing_currency, 'USD'),
-               finalized_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+           SET status = 'RELEASED',
+               finalized_at = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP,
                row_version = row_version + 1
          WHERE generation_job_id = #{generationJobId} AND status = 'RESERVED'
     </update>
