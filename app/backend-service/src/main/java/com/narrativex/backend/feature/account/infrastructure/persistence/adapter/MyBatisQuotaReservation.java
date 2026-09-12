@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.account.infrastructure.persistence.adapte
 import com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaMapper;
 import com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaReservationRow;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
-import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -17,18 +16,14 @@ public class MyBatisQuotaReservation implements QuotaReservation {
 
   @Override
   @Transactional
-  public Optional<Reservation> reserve(
-      String userId, BigDecimal ignoredEstimatedCost, int maxConcurrentExpensiveJobs) {
+  public Optional<Reservation> reserve(String userId, int maxConcurrentExpensiveJobs) {
     return reserve(userId, maxConcurrentExpensiveJobs, null, "CAPACITY", 0);
   }
 
   @Override
   @Transactional
   public Optional<Reservation> reserveLongformExport(
-      String userId,
-      BigDecimal ignoredEstimatedCost,
-      int maxConcurrentExpensiveJobs,
-      Integer maxLongformExportsMonth) {
+      String userId, int maxConcurrentExpensiveJobs, Integer maxLongformExportsMonth) {
     return reserve(
         userId,
         maxConcurrentExpensiveJobs,
@@ -60,15 +55,11 @@ public class MyBatisQuotaReservation implements QuotaReservation {
     }
 
     Long reservationId =
-        mapper.insertReservation(
-            new QuotaReservationRow(
-                userId, periodKey, BigDecimal.ZERO, quotaKind, units));
+        mapper.insertReservation(new QuotaReservationRow(userId, periodKey, quotaKind, units));
     if (reservationId == null) {
       throw new IllegalStateException("Quota reservation insert returned no id");
     }
-    return Optional.of(
-        new Reservation(
-            reservationId, userId, periodKey, BigDecimal.ZERO, quotaKind, units));
+    return Optional.of(new Reservation(reservationId, userId, periodKey, quotaKind, units));
   }
 
   @Override
