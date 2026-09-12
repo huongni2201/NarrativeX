@@ -11,9 +11,9 @@ from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
 from narrativex_worker.analysis_pipeline import run_chapter_analysis_pipeline
 from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
 from narrativex_worker.providers.ports import (
-    ProviderBilling,
     ProviderCapabilities,
     ProviderOperation,
+    ProviderTokenUsage,
 )
 from narrativex_worker.providers.vertex import (
     VertexGeminiTransport,
@@ -42,7 +42,7 @@ class _VertexStructuredAdapter:
         self._access_token = access_token
         self._request = request
         self._execution = execution
-        self.billings: list[ProviderBilling] = []
+        self.usages: list[ProviderTokenUsage] = []
         self.reused_subcalls = 0
 
     async def generate(
@@ -51,16 +51,16 @@ class _VertexStructuredAdapter:
         model: type[ModelT],
         *,
         identity: AnalysisStepIdentity | None = None,
-    ) -> tuple[ModelT | None, ProviderBilling, str]:
+    ) -> tuple[ModelT | None, ProviderTokenUsage, str]:
         if self._execution is None or identity is None or self._request is None:
-            result, billing, response_id = await self._transport._bounded_generate_structured(  # noqa: SLF001
+            result, usage, response_id = await self._transport._bounded_generate_structured(  # noqa: SLF001
                 self._client,
                 self._access_token,
                 prompt,
                 model,
             )
-            self.billings.append(billing)
-            return result, billing, response_id
+            self.usages.append(usage)
+            return result, usage, response_id
 
         fingerprint = analysis_step_fingerprint(
             tenant_scope=f"project:{self._request.project_id}",
@@ -96,7 +96,7 @@ class _VertexStructuredAdapter:
             self.reused_subcalls += 1
             return (
                 model.model_validate(result_payload),
-                self._transport._zero_billing(),  # noqa: SLF001
+                self._transport._zero_usage(),  # noqa: SLF001
                 checkpoint_response_id,
             )
         if checkpoint.status is AnalysisCheckpointStatus.UNKNOWN:
@@ -109,20 +109,19 @@ class _VertexStructuredAdapter:
             checkpoint,
             provider_key="vertex",
         )
-        result, billing, response_id = await self._transport._bounded_generate_structured(  # noqa: SLF001
+        result, usage, response_id = await self._transport._bounded_generate_structured(  # noqa: SLF001
             self._client,
             self._access_token,
             prompt,
             model,
         )
-        self.billings.append(billing)
+        self.usages.append(usage)
         if result is None:
             await self._execution.checkpoints.fail_provider_call(
                 checkpoint,
                 provider_response_id=response_id,
-                billing=billing,
             )
-            return None, billing, response_id
+            return None, usage, response_id
 
         durable_result = {
             "responseId": response_id,
@@ -132,9 +131,8 @@ class _VertexStructuredAdapter:
             checkpoint,
             result=durable_result,
             provider_response_id=response_id,
-            billing=billing,
         )
-        return result, billing, response_id
+        return result, usage, response_id
 
 
 class ContinuityVertexGeminiProvider(VertexGeminiTransport):
@@ -161,7 +159,7 @@ class ContinuityVertexGeminiProvider(VertexGeminiTransport):
                 provider_key="vertex",
                 operation_id=None,
                 status=ProviderOperationStatus.FAILED,
-                billing=self._zero_billing(),
+                usage=self._zero_usage(),
             )
 
         limits = httpx.Limits(
@@ -191,19 +189,12 @@ class ContinuityVertexGeminiProvider(VertexGeminiTransport):
                 request.chapter_id,
                 self._safe_exception_reason(exception),
             )
-            billings = adapter.billings if adapter is not None else []
-            billing = (
-                self._orchestration_billing()
-                if execution is not None
-                else self._merge_billings(billings)
-                if billings
-                else self._zero_billing()
-            )
+            usages = adapter.usages if adapter is not None else []
             return ProviderOperation(
                 provider_key="vertex",
                 operation_id=None,
                 status=ProviderOperationStatus.FAILED,
-                billing=billing,
+                usage=self._merge_usage(usages) if usages else self._zero_usage(),
             )
 
         if pipeline.report.status.value != "PASS":
@@ -245,11 +236,7 @@ class ContinuityVertexGeminiProvider(VertexGeminiTransport):
             operation_id=pipeline.final_response_id,
             status=ProviderOperationStatus.COMPLETED,
             result=durable_result,
-            billing=(
-                self._orchestration_billing()
-                if execution is not None
-                else self._merge_billings(pipeline.billings)
-            ),
+            usage=self._merge_usage(pipeline.usages),
         )
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
