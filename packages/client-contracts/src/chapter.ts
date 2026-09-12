@@ -10,7 +10,7 @@ export interface DesktopChapter {
   audioSizeBytes?: number | null;
   audioChecksum?: string | null;
   subtitleText?: string | null;
-  subtitleSpansJson?: string | null;
+  subtitleWordsJson?: string | null;
 }
 
 export interface DesktopChapterDetails {
