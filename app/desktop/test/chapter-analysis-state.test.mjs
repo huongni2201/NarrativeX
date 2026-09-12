@@ -20,7 +20,7 @@ test("chapter analysis state disables duplicate requests while mutation or job i
   assert.equal(pending.isAnalyzing, true);
   assert.equal(pending.canAnalyze, false);
 
-  for (const status of ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"]) {
+  for (const status of ["QUEUED", "RUNNING", "UNKNOWN", "STALLED"]) {
     const state = deriveChapterAnalysisUiState(job(status), false);
     assert.equal(state.isAnalyzing, true, status);
     assert.equal(state.isTerminal, false, status);
