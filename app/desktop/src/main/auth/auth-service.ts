@@ -7,6 +7,7 @@ const DESKTOP_REDIRECT_URI = "narrativex://auth/callback";
 // OAuth succeeds and the callback is issued.
 const DESKTOP_GOOGLE_LOGIN_PENDING_TTL_MS = 15 * 60_000;
 const DESKTOP_AUTH_VERIFIER_BYTES = 32;
+const DESKTOP_CALLBACK_TOKEN_SEPARATOR = ".";
 const ALLOWED_CSRF_HEADERS = new Set(["x-csrf-token", "x-xsrf-token"]);
 
 export function createDesktopAuthVerifier(): string {
@@ -67,17 +68,21 @@ export class DesktopAuthService {
     }
   }
 
-  async exchange(code: string, attemptId: string): Promise<DesktopApiResponse> {
-    if (!code || !code.trim()) throw new Error("Desktop auth code is required.");
-    if (!attemptId || !attemptId.trim()) throw new Error("Desktop auth attempt is required.");
-    const normalizedAttemptId = attemptId.trim();
-    const pending = this.pendingLogins.get(normalizedAttemptId);
+  async exchange(callbackToken: string): Promise<DesktopApiResponse> {
+    const separator = callbackToken.lastIndexOf(DESKTOP_CALLBACK_TOKEN_SEPARATOR);
+    if (separator <= 0 || separator === callbackToken.length - 1) {
+      throw new Error("Desktop auth callback is missing its attempt.");
+    }
+    const code = callbackToken.slice(0, separator).trim();
+    const attemptId = callbackToken.slice(separator + 1).trim();
+    if (!code) throw new Error("Desktop auth code is required.");
+    const pending = this.pendingLogins.get(attemptId);
     if (!pending) throw new Error("No pending desktop login attempt.");
-    this.clearPendingLogin(normalizedAttemptId);
+    this.clearPendingLogin(attemptId);
 
     return this.requestWithCsrf(
       "/api/v1/auth/desktop/exchange",
-      JSON.stringify({ code: code.trim(), codeVerifier: pending.verifier }),
+      JSON.stringify({ code, codeVerifier: pending.verifier }),
     );
   }
 
