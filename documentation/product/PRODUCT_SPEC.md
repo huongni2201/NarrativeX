@@ -71,6 +71,10 @@ Metadata                        -> PostgreSQL
 
 R2 is not the project-media store and is not a transport for generated project images, generated narration or final video.
 
+## Provider accounting boundary
+
+Monetary billing, credit balances, reservation settlement and user-facing provider-cost accounting are not part of the current runtime contract. Provider execution retains only the non-monetary telemetry needed for diagnostics, such as token usage, while durable provider-operation fencing and UNKNOWN reconciliation remain authoritative for retry safety.
+
 ## Final render
 
 ```text
@@ -110,7 +114,8 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Adaptive VisualScenePlanner | TARGET |
 | Rich reuse/reframe/edit lineage | DEFERRED fast-follow |
 | Provider-side/local I2V planning runtime | NOT CURRENT RUNTIME |
-| Complete billing/actual-usage reconciliation | PARTIAL |
+| Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation |
+| Non-monetary provider usage telemetry | IMPLEMENTED foundation |
 | Packaging/signing/auto-update | TARGET |
 
 ## Acceptance direction
