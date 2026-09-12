@@ -21,7 +21,7 @@ class DesktopAuthenticationFailureHandlerTest {
       new DesktopAuthenticationFailureHandler();
 
   @Test
-  void redirectsMatchingDesktopOAuthFailureToTheDesktopProtocol() throws Exception {
+  void redirectsMatchingDesktopOAuthFailureToTheCorrelatedDesktopProtocol() throws Exception {
     HttpServletRequest request = mock(HttpServletRequest.class);
     HttpServletResponse response = mock(HttpServletResponse.class);
     HttpSession session = statefulSession(request);
@@ -39,7 +39,8 @@ class DesktopAuthenticationFailureHandlerTest {
 
     handler.onAuthenticationFailure(request, response, exception);
 
-    verify(response).sendRedirect("narrativex://auth/callback?error=authentication_failed");
+    verify(response)
+        .sendRedirect("narrativex://auth/callback?error=authentication_failed&attempt=attempt-1");
   }
 
   @Test
