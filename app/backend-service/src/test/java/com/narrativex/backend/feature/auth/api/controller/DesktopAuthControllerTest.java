@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import com.narrativex.backend.feature.auth.api.request.DesktopGuestSessionReques
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopUserPrincipal;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopOAuth2AuthorizationRequestRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -27,6 +29,7 @@ import java.io.ObjectOutputStream;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -126,9 +129,12 @@ class DesktopAuthControllerTest {
 
     controller.start("narrativex://auth/callback", challenge, request, response);
 
-    verify(session).setAttribute("NARRATIVEX_DESKTOP_REDIRECT_URI", "narrativex://auth/callback");
-    verify(session).setAttribute("NARRATIVEX_DESKTOP_CODE_CHALLENGE", challenge);
-    verify(response).sendRedirect("/oauth2/authorization/google");
+    verify(session)
+        .setAttribute(
+            anyString(), any(DesktopOAuth2AuthorizationRequestRepository.DesktopAttempt.class));
+    ArgumentCaptor<String> redirect = ArgumentCaptor.forClass(String.class);
+    verify(response).sendRedirect(redirect.capture());
+    assertTrue(redirect.getValue().startsWith("/oauth2/authorization/google?desktop_attempt="));
   }
 
   @Test
