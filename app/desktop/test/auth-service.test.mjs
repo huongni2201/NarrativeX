@@ -41,7 +41,11 @@ function fakeBackendApi() {
   };
 }
 
-test("login sends only the PKCE challenge and exchange keeps the verifier in main", async () => {
+function callbackToken(code, attemptId) {
+  return `${code}.${attemptId}`;
+}
+
+test("login sends attempt and PKCE challenge while exchange keeps the verifier in main", async () => {
   const backend = fakeBackendApi();
   backend.responses.push(csrfResponse, exchangeResponse());
   const openedUrls = [];
@@ -54,22 +58,27 @@ test("login sends only the PKCE challenge and exchange keeps the verifier in mai
   await service.login();
   const startUrl = new URL(openedUrls[0]);
   const challenge = startUrl.searchParams.get("code_challenge");
+  const attemptId = startUrl.searchParams.get("attempt");
   assert.match(challenge, /^[A-Za-z0-9_-]{43}$/);
+  assert.match(attemptId, /^[0-9a-f-]{36}$/i);
   assert.equal(startUrl.searchParams.has("code_verifier"), false);
 
-  const result = await service.exchange("a".repeat(43));
+  const result = await service.exchange(callbackToken("a".repeat(43), attemptId));
   assert.equal(result.status, 200);
   const exchangeRequest = backend.requests[1];
   const payload = JSON.parse(exchangeRequest.body);
   assert.equal(payload.code, "a".repeat(43));
   assert.match(payload.codeVerifier, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(createDesktopAuthChallenge(payload.codeVerifier), challenge);
-  await assert.rejects(() => service.exchange("a".repeat(43)), /No pending desktop login/);
+  await assert.rejects(
+    () => service.exchange(callbackToken("a".repeat(43), attemptId)),
+    /No pending desktop login/,
+  );
 });
 
-test("a new login replaces the pending verifier and failed opening clears it", async () => {
+test("overlapping logins keep independent verifiers when callbacks arrive in reverse order", async () => {
   const backend = fakeBackendApi();
-  backend.responses.push(csrfResponse, exchangeResponse());
+  backend.responses.push(csrfResponse, exchangeResponse(), csrfResponse, exchangeResponse());
   const openedUrls = [];
   const service = new DesktopAuthService(
     "http://localhost:8080",
@@ -78,14 +87,27 @@ test("a new login replaces the pending verifier and failed opening clears it", a
   );
 
   await service.login();
-  const firstChallenge = new URL(openedUrls[0]).searchParams.get("code_challenge");
   await service.login();
-  const secondChallenge = new URL(openedUrls[1]).searchParams.get("code_challenge");
+  const first = new URL(openedUrls[0]);
+  const second = new URL(openedUrls[1]);
+  const firstAttempt = first.searchParams.get("attempt");
+  const secondAttempt = second.searchParams.get("attempt");
+  const firstChallenge = first.searchParams.get("code_challenge");
+  const secondChallenge = second.searchParams.get("code_challenge");
+  assert.notEqual(firstAttempt, secondAttempt);
   assert.notEqual(firstChallenge, secondChallenge);
-  await service.exchange("b".repeat(43));
-  const verifier = JSON.parse(backend.requests[1].body).codeVerifier;
-  assert.equal(createDesktopAuthChallenge(verifier), secondChallenge);
 
+  await service.exchange(callbackToken("b".repeat(43), firstAttempt));
+  await service.exchange(callbackToken("c".repeat(43), secondAttempt));
+
+  const firstVerifier = JSON.parse(backend.requests[1].body).codeVerifier;
+  const secondVerifier = JSON.parse(backend.requests[3].body).codeVerifier;
+  assert.equal(createDesktopAuthChallenge(firstVerifier), firstChallenge);
+  assert.equal(createDesktopAuthChallenge(secondVerifier), secondChallenge);
+});
+
+test("failed browser opening clears only its own pending attempt", async () => {
+  const backend = fakeBackendApi();
   const failed = new DesktopAuthService(
     "http://localhost:8080",
     backend,
@@ -94,21 +116,29 @@ test("a new login replaces the pending verifier and failed opening clears it", a
     },
   );
   await assert.rejects(() => failed.login(), /browser unavailable/);
-  await assert.rejects(() => failed.exchange("c".repeat(43)), /No pending desktop login/);
+  await assert.rejects(
+    () => failed.exchange(callbackToken("c".repeat(43), "00000000-0000-4000-8000-000000000001")),
+    /No pending desktop login/,
+  );
   assert.match(createDesktopAuthVerifier(), /^[A-Za-z0-9_-]{43}$/);
 });
 
-test("logout clears a pending verifier before making the logout request", async () => {
+test("logout clears all pending verifiers before making the logout request", async () => {
   const backend = fakeBackendApi();
   backend.responses.push(csrfResponse, { status: 204, statusText: "No Content", bodyText: "" });
+  const openedUrls = [];
   const service = new DesktopAuthService(
     "http://localhost:8080",
     backend,
-    async () => undefined,
+    async (url) => openedUrls.push(url),
   );
 
   await service.login();
+  const attemptId = new URL(openedUrls[0]).searchParams.get("attempt");
   await service.logout();
-  await assert.rejects(() => service.exchange("d".repeat(43)), /No pending desktop login/);
+  await assert.rejects(
+    () => service.exchange(callbackToken("d".repeat(43), attemptId)),
+    /No pending desktop login/,
+  );
   assert.equal(backend.requests[1].path, "/logout");
 });
