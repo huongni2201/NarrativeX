@@ -13,11 +13,11 @@ export function useEditorSubtitles({
   storyVersionId: string | null;
   chapters: DesktopTimeline["chapters"];
 }>): { cues: PlannedSubtitle[]; loading: boolean } {
-  const needsTextFallback = chapters.some((chapter) => !chapter.subtitleText?.trim());
+  const needsSubtitleTextSource = chapters.some((chapter) => !chapter.subtitleText?.trim());
   const sources = useQuery({
     queryKey: ["editor", "subtitle-sources", projectId ?? "none", storyVersionId ?? "none"],
     queryFn: () => chaptersApi.listAll(projectId as string, storyVersionId as string),
-    enabled: Boolean(projectId && storyVersionId && chapters.length && needsTextFallback),
+    enabled: Boolean(projectId && storyVersionId && chapters.length && needsSubtitleTextSource),
     staleTime: 60_000,
   });
 
@@ -34,11 +34,11 @@ export function useEditorSubtitles({
           globalStartMs: chapter.startMs,
           globalEndMs: chapter.endMs,
           subtitleText,
-          subtitleSpansJson: chapter.subtitleSpansJson ?? null,
+          subtitleWordsJson: chapter.subtitleWordsJson ?? null,
         }];
       }),
     );
   }, [chapters, sources.data]);
 
-  return { cues, loading: needsTextFallback && sources.isLoading };
+  return { cues, loading: needsSubtitleTextSource && sources.isLoading };
 }
