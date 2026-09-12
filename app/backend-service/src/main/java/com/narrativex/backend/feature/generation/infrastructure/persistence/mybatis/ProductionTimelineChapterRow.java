@@ -28,7 +28,7 @@ public class ProductionTimelineChapterRow {
   private UUID narrationAssetId;
   private UUID narrationAlignmentId;
   private String subtitleText;
-  private String subtitleSpansJson;
+  private String subtitleWordsJson;
   private Long fallbackDurationMs;
   private int beatCount;
   private int readyBeatCount;
