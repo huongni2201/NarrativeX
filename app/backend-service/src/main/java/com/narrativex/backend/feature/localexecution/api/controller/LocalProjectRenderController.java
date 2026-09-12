@@ -181,7 +181,7 @@ public class LocalProjectRenderController {
       String checksum,
       long durationMs,
       String subtitleText,
-      String subtitleSpansJson) {
+      String subtitleWordsJson) {
     static ChapterInputResponse from(
         LocalProjectRenderUseCase.ChapterInput value, String downloadUrl) {
       return new ChapterInputResponse(
@@ -195,7 +195,7 @@ public class LocalProjectRenderController {
           value.checksum(),
           value.durationMs(),
           value.subtitleText(),
-          value.subtitleSpansJson());
+          value.subtitleWordsJson());
     }
   }
 
