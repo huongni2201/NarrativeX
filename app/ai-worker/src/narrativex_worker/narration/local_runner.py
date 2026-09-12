@@ -4,7 +4,6 @@ import asyncio
 from functools import partial
 from pathlib import Path
 
-from narrativex_worker.narration.alignment import build_alignment, normalize_alignment_duration
 from narrativex_worker.narration.errors import (
     NarrationLeaseLostError,
     NarrationPermanentError,
@@ -155,11 +154,14 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         "Final narration assembly or storage is temporarily unavailable"
                     ) from exception
                 raise NarrationPermanentError(str(exception)) from exception
-            spans = normalize_alignment_duration(
-                build_alignment(materialized), audio_duration_ms=actual_duration_ms
+
+            words = await self._align_final_narration(
+                mp3_path,
+                claimed.source_text,
+                claimed.language,
             )
             self.validator.validate(
-                spans,
+                words,
                 source_utf16_length=utf16_length(claimed.source_text),
                 audio_duration_ms=actual_duration_ms,
             )
@@ -181,7 +183,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         duration_ms=actual_duration_ms,
                         sample_rate_hz=48000,
                         channels=1,
-                        spans=spans,
+                        words=words,
                     )
                 )
             except NarrationLeaseLostError:
