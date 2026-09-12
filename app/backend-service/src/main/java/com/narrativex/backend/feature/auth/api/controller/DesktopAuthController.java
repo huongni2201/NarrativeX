@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopG
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopUserPrincipal;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopOAuth2AuthorizationRequestRepository;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,6 +19,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -39,8 +41,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RestController
 @RequestMapping("/api/v1/auth/desktop")
 public class DesktopAuthController {
-  private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
-  private static final String CODE_CHALLENGE_SESSION_KEY = "NARRATIVEX_DESKTOP_CODE_CHALLENGE";
   private static final String CODE_CHALLENGE_PATTERN = "[A-Za-z0-9_-]{43}";
   private static final String ROLE_USER = "ROLE_USER";
   private static final String ROLE_GUEST = "ROLE_GUEST";
@@ -91,9 +91,14 @@ public class DesktopAuthController {
     }
 
     var session = request.getSession(true);
-    session.setAttribute(REDIRECT_SESSION_KEY, redirectUri);
-    session.setAttribute(CODE_CHALLENGE_SESSION_KEY, codeChallenge);
-    response.sendRedirect("/oauth2/authorization/google");
+    String attemptId = UUID.randomUUID().toString();
+    DesktopOAuth2AuthorizationRequestRepository.storePendingDesktopAttempt(
+        session, attemptId, redirectUri, codeChallenge);
+    response.sendRedirect(
+        "/oauth2/authorization/google?"
+            + DesktopOAuth2AuthorizationRequestRepository.DESKTOP_ATTEMPT_PARAMETER
+            + "="
+            + URLEncoder.encode(attemptId, StandardCharsets.UTF_8));
   }
 
   @PostMapping("/guest")
