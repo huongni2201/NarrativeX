@@ -1,19 +1,17 @@
-"""Regression coverage for Vertex usage-to-cost reconciliation."""
+"""Regression coverage for Vertex usage telemetry with monetary billing disabled."""
 
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
-import pytest
-
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.providers.vertex import VertexGeminiTransport, VertexProviderError
+from narrativex_worker.providers.vertex import VertexGeminiTransport
 
 
-def transport() -> VertexGeminiTransport:
+def transport(model: str = "gemini-2.5-flash") -> VertexGeminiTransport:
     settings = WorkerSettings(
         provider_mode="vertex",
         vertex_project_id="billing-test-project",
-        vertex_model="gemini-2.5-flash",
+        vertex_model=model,
         vertex_location="us-central1",
     )
     credentials = Mock(valid=True, token="test-token")
@@ -24,8 +22,8 @@ def transport() -> VertexGeminiTransport:
         return VertexGeminiTransport(settings)
 
 
-def test_standard_usage_is_reconciled_from_prompt_cache_tool_and_output_tokens() -> None:
-    billing = transport()._billing(
+def test_standard_usage_is_kept_as_non_monetary_telemetry() -> None:
+    usage = transport()._usage_envelope(
         {
             "usageMetadata": {
                 "promptTokenCount": 1000,
@@ -37,16 +35,20 @@ def test_standard_usage_is_reconciled_from_prompt_cache_tool_and_output_tokens()
         }
     )
 
-    assert billing.currency == "USD"
-    assert billing.actual_cost == Decimal("0.000435000")
-    assert billing.usage.prompt_tokens == 1000
-    assert billing.usage.cached_input_tokens == 200
-    assert billing.pricing.pricing_mode == "STANDARD"
-    assert billing.pricing.output_usd_per_million == Decimal("0.60")
+    assert usage.actual_cost == Decimal("0.000000000")
+    assert usage.usage.prompt_tokens == 1000
+    assert usage.usage.cached_input_tokens == 200
+    assert usage.usage.tool_input_tokens == 50
+    assert usage.usage.candidate_tokens == 500
+    assert usage.usage.total_tokens == 1550
+    assert usage.pricing.catalog_version == "billing-disabled"
+    assert usage.pricing.pricing_mode == "USAGE_ONLY"
+    assert usage.pricing.input_usd_per_million == Decimal("0")
+    assert usage.pricing.output_usd_per_million == Decimal("0")
 
 
-def test_thinking_usage_prices_response_and_reasoning_at_thinking_rate() -> None:
-    billing = transport()._billing(
+def test_thinking_usage_is_not_assigned_a_price() -> None:
+    usage = transport()._usage_envelope(
         {
             "usageMetadata": {
                 "promptTokenCount": 1000,
@@ -57,24 +59,21 @@ def test_thinking_usage_prices_response_and_reasoning_at_thinking_rate() -> None
         }
     )
 
-    assert billing.actual_cost == Decimal("0.002250000")
-    assert billing.pricing.pricing_mode == "STANDARD_THINKING"
-    assert billing.pricing.output_usd_per_million == Decimal("3.50")
+    assert usage.actual_cost == Decimal("0.000000000")
+    assert usage.usage.thought_tokens == 100
+    assert usage.pricing.pricing_mode == "USAGE_ONLY"
+    assert usage.pricing.output_usd_per_million == Decimal("0")
 
 
-def test_non_billable_response_has_zero_cost_evidence() -> None:
-    billing = transport()._zero_billing()
+def test_response_without_usage_has_non_monetary_compatibility_envelope() -> None:
+    usage = transport()._zero_billing()
 
-    assert billing.actual_cost == Decimal("0.000000000")
-    assert billing.pricing.pricing_mode == "NOT_CHARGED_NON_200"
+    assert usage.actual_cost == Decimal("0.000000000")
+    assert usage.pricing.catalog_version == "billing-disabled"
+    assert usage.pricing.pricing_mode == "USAGE_UNAVAILABLE"
 
 
-def test_unsupported_vertex_model_fails_closed_instead_of_guessing_price() -> None:
-    settings = WorkerSettings(
-        provider_mode="vertex",
-        vertex_project_id="billing-test-project",
-        vertex_model="gemini-unknown",
-    )
+def test_vertex_model_support_is_not_limited_by_a_pricing_catalog() -> None:
+    adapter = transport("gemini-unknown")
 
-    with pytest.raises(VertexProviderError, match="unsupported model"):
-        VertexGeminiTransport(settings)
+    assert adapter.settings.vertex_model == "gemini-unknown"
