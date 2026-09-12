@@ -1,8 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { DesktopApiResponse, DesktopBackendApiService } from "../api/backend-api-service";
 
 const DESKTOP_REDIRECT_URI = "narrativex://auth/callback";
-// This TTL only bounds how long the desktop keeps the PKCE verifier while the user is still
+// This TTL only bounds how long the desktop keeps each PKCE verifier while the user is still
 // completing Google sign-in. The backend handoff code has its own short TTL that starts only after
 // OAuth succeeds and the callback is issued.
 const DESKTOP_GOOGLE_LOGIN_PENDING_TTL_MS = 15 * 60_000;
@@ -22,11 +22,15 @@ interface CsrfTokenResponse {
   headerName: string;
 }
 
+interface PendingLogin {
+  verifier: string;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 type OpenExternal = (url: string) => Promise<void>;
 
 export class DesktopAuthService {
-  private pendingVerifier: string | null = null;
-  private pendingVerifierTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly pendingLogins = new Map<string, PendingLogin>();
   private readonly backendBaseUrl: string;
   private readonly backendApi: Pick<DesktopBackendApiService, "request">;
   private readonly openExternal: OpenExternal;
@@ -42,35 +46,38 @@ export class DesktopAuthService {
   }
 
   async login(): Promise<void> {
-    this.clearPendingLogin();
+    const attemptId = randomUUID();
     const verifier = createDesktopAuthVerifier();
     const challenge = createDesktopAuthChallenge(verifier);
-    this.pendingVerifier = verifier;
-    this.pendingVerifierTimer = setTimeout(
-      () => this.clearPendingLogin(),
+    const timer = setTimeout(
+      () => this.clearPendingLogin(attemptId),
       DESKTOP_GOOGLE_LOGIN_PENDING_TTL_MS,
     );
+    this.pendingLogins.set(attemptId, { verifier, timer });
 
     const startUrl = new URL("/api/v1/auth/desktop/start", `${this.backendBaseUrl}/`);
     startUrl.searchParams.set("redirect_uri", DESKTOP_REDIRECT_URI);
     startUrl.searchParams.set("code_challenge", challenge);
+    startUrl.searchParams.set("attempt", attemptId);
     try {
       await this.openExternal(startUrl.toString());
     } catch (error) {
-      this.clearPendingLogin();
+      this.clearPendingLogin(attemptId);
       throw error;
     }
   }
 
-  async exchange(code: string): Promise<DesktopApiResponse> {
+  async exchange(code: string, attemptId: string): Promise<DesktopApiResponse> {
     if (!code || !code.trim()) throw new Error("Desktop auth code is required.");
-    const verifier = this.pendingVerifier;
-    if (!verifier) throw new Error("No pending desktop login attempt.");
-    this.clearPendingLogin();
+    if (!attemptId || !attemptId.trim()) throw new Error("Desktop auth attempt is required.");
+    const normalizedAttemptId = attemptId.trim();
+    const pending = this.pendingLogins.get(normalizedAttemptId);
+    if (!pending) throw new Error("No pending desktop login attempt.");
+    this.clearPendingLogin(normalizedAttemptId);
 
     return this.requestWithCsrf(
       "/api/v1/auth/desktop/exchange",
-      JSON.stringify({ code: code.trim(), codeVerifier: verifier }),
+      JSON.stringify({ code: code.trim(), codeVerifier: pending.verifier }),
     );
   }
 
@@ -79,12 +86,17 @@ export class DesktopAuthService {
     return this.requestWithCsrf("/logout");
   }
 
-  clearPendingLogin(): void {
-    this.pendingVerifier = null;
-    if (this.pendingVerifierTimer !== null) {
-      clearTimeout(this.pendingVerifierTimer);
-      this.pendingVerifierTimer = null;
+  clearPendingLogin(attemptId?: string): void {
+    if (attemptId !== undefined) {
+      const pending = this.pendingLogins.get(attemptId);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      this.pendingLogins.delete(attemptId);
+      return;
     }
+
+    for (const pending of this.pendingLogins.values()) clearTimeout(pending.timer);
+    this.pendingLogins.clear();
   }
 
   private async requestWithCsrf(path: string, body?: string): Promise<DesktopApiResponse> {
