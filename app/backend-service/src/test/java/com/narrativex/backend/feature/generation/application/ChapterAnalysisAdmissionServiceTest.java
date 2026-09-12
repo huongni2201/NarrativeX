@@ -11,7 +11,6 @@ import com.narrativex.backend.feature.generation.application.port.out.QuotaReser
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
-import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -64,7 +63,15 @@ class ChapterAnalysisAdmissionServiceTest {
 
   private static UserQuotaAccess.QuotaSnapshot quota(boolean storyAnalysis) {
     return new UserQuotaAccess.QuotaSnapshot(
-        new PlanFeatures(storyAnalysis), 4, 0, BigDecimal.ZERO, BigDecimal.valueOf(10));
+        new PlanFeatures(storyAnalysis),
+        4,
+        0,
+        true,
+        "ULTRA",
+        null,
+        null,
+        0,
+        0);
   }
 
   private static final class ReservationSpy implements QuotaReservation {
