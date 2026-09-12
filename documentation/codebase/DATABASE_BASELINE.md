@@ -14,7 +14,7 @@ Until the first production schema is frozen, schema changes should be folded int
 |---|---|
 | `V1__identity_and_access.sql` | identity, Desktop auth, sessions and local-device state |
 | `V2__project_story_and_planning.sql` | Projects, Stories, Chapters, Storyboard/Scene/VisualBeat entities and final MediaPlan shape |
-| `V3__generation_billing_and_media.sql` | durable jobs/provider operations, non-monetary capacity/export quota reservations, final project MediaAsset schema and account voice-reference assets |
+| `V3__generation_quota_and_media.sql` | durable jobs/provider operations, non-monetary capacity/export quota reservations, final project MediaAsset schema and account voice-reference assets |
 | `V4__narration_notifications_and_artifacts.sql` | final narration/alignment contracts, notifications/outbox and artifact metadata |
 | `V5__catalog_generation_and_render_snapshots.sql` | catalogs, voice-reference upload lifecycle, media generation/lineage, continuity/checkpoints, regeneration plans, Storyboard generation snapshots and immutable project-render snapshots |
 | `V6__database_logic_and_triggers.sql` | immutable-state guards, non-monetary quota settlement, completion notifications and generation events |
