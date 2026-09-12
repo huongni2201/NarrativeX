@@ -12,7 +12,6 @@ from narrativex_worker.narration.errors import (
     narration_reconcile_delay_seconds,
 )
 from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
-from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog
 from narrativex_worker.narration.providers import TtsRequest
 from narrativex_worker.narration.repository import (
     ClaimedNarrationJob,
@@ -122,11 +121,8 @@ class RecoveryRepository:
         self,
         operation: DurableNarrationProviderOperation,
         result: dict[str, object],
-        *,
-        character_count: int,
-        pricing: object,
     ) -> DurableNarrationProviderOperation:
-        del result, character_count, pricing
+        del result
         self.operation = replace(
             operation,
             status=ProviderOperationStatus.COMPLETED,
@@ -167,24 +163,8 @@ def test_narration_stage_retry_policy_is_bounded_and_backed_off() -> None:
     ] == [5, 10]
 
 
-@pytest.mark.asyncio
-async def test_existing_r2_segment_recovers_without_resubmitting_tts(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    async def no_sleep(delay: float) -> None:
-        del delay
-
-    monkeypatch.setattr("narrativex_worker.narration.errors.asyncio.sleep", no_sleep)
-    runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
-    provider = CountingTtsProvider()
-    storage = PersistThenTimeoutStorage()
-    repository = RecoveryRepository()
-    runner.provider = provider
-    runner.storage = storage
-    runner.pricing = GoogleTtsPricingCatalog("v1")
-    runner.repository = cast(NarrationWorkerRepository, repository)
-
-    claimed = ClaimedNarrationJob(
+def _claimed_job() -> ClaimedNarrationJob:
+    return ClaimedNarrationJob(
         stage_attempt_id=1,
         generation_job_id=1,
         job_id="job-1",
@@ -199,15 +179,33 @@ async def test_existing_r2_segment_recovers_without_resubmitting_tts(
         speaking_rate=1.0,
         request_fingerprint="request",
     )
+
+
+@pytest.mark.asyncio
+async def test_existing_r2_segment_recovers_without_resubmitting_tts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(delay: float) -> None:
+        del delay
+
+    monkeypatch.setattr("narrativex_worker.narration.errors.asyncio.sleep", no_sleep)
+    runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
+    provider = CountingTtsProvider()
+    storage = PersistThenTimeoutStorage()
+    repository = RecoveryRepository()
+    runner.provider = provider
+    runner.storage = storage
+    runner.repository = cast(NarrationWorkerRepository, repository)
+
+    claimed = _claimed_job()
     segment = NarrationSegment(0, 0, 5, "hello")
-    pricing = runner.pricing.resolve(claimed.voice_id)
 
     with pytest.raises(NarrationOutcomeUnknownError):
-        await runner._materialize_segment(claimed, segment, pricing, tmp_path)
+        await runner._materialize_segment(claimed, segment, tmp_path)
     assert provider.calls == 1
     assert repository.scheduled
 
-    recovered = await runner._materialize_segment(claimed, segment, pricing, tmp_path)
+    recovered = await runner._materialize_segment(claimed, segment, tmp_path)
 
     assert provider.calls == 1
     assert recovered.file_path.is_file()
@@ -223,25 +221,9 @@ async def test_scratch_write_failure_is_unknown_without_resubmitting_tts(
     repository = RecoveryRepository()
     runner.provider = provider
     runner.storage = InMemoryMediaStorage()
-    runner.pricing = GoogleTtsPricingCatalog("v1")
     runner.repository = cast(NarrationWorkerRepository, repository)
-    claimed = ClaimedNarrationJob(
-        stage_attempt_id=1,
-        generation_job_id=1,
-        job_id="job-1",
-        narration_request_id=uuid4(),
-        project_id=1,
-        chapter_id=1,
-        chapter_row_version=1,
-        source_hash="a" * 64,
-        source_text="hello",
-        voice_id="en-US-Neural2-A",
-        language="en-US",
-        speaking_rate=1.0,
-        request_fingerprint="request",
-    )
+    claimed = _claimed_job()
     segment = NarrationSegment(0, 0, 5, "hello")
-    pricing = runner.pricing.resolve(claimed.voice_id)
     original_open = Path.open
 
     def fail_segment_write(path: Path, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
@@ -252,7 +234,7 @@ async def test_scratch_write_failure_is_unknown_without_resubmitting_tts(
     monkeypatch.setattr(Path, "open", fail_segment_write)
 
     with pytest.raises(NarrationOutcomeUnknownError):
-        await runner._materialize_segment(claimed, segment, pricing, tmp_path)
+        await runner._materialize_segment(claimed, segment, tmp_path)
 
     assert provider.calls == 1
     assert repository.scheduled
@@ -260,36 +242,18 @@ async def test_scratch_write_failure_is_unknown_without_resubmitting_tts(
 
 
 @pytest.mark.asyncio
-async def test_invalid_provider_audio_is_failed_after_submission_fence(
-    tmp_path: Path,
-) -> None:
+async def test_invalid_provider_audio_is_failed_after_submission_fence(tmp_path: Path) -> None:
     runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
     provider = InvalidFormatTtsProvider()
     repository = RecoveryRepository()
     runner.provider = provider
     runner.storage = InMemoryMediaStorage()
-    runner.pricing = GoogleTtsPricingCatalog("v1")
     runner.repository = cast(NarrationWorkerRepository, repository)
-    claimed = ClaimedNarrationJob(
-        stage_attempt_id=1,
-        generation_job_id=1,
-        job_id="job-1",
-        narration_request_id=uuid4(),
-        project_id=1,
-        chapter_id=1,
-        chapter_row_version=1,
-        source_hash="a" * 64,
-        source_text="hello",
-        voice_id="en-US-Neural2-A",
-        language="en-US",
-        speaking_rate=1.0,
-        request_fingerprint="request",
-    )
+    claimed = _claimed_job()
     segment = NarrationSegment(0, 0, 5, "hello")
-    pricing = runner.pricing.resolve(claimed.voice_id)
 
     with pytest.raises(NarrationPermanentError, match="48kHz mono PCM"):
-        await runner._materialize_segment(claimed, segment, pricing, tmp_path)
+        await runner._materialize_segment(claimed, segment, tmp_path)
 
     assert provider.calls == 1
     assert repository.failed
@@ -297,34 +261,16 @@ async def test_invalid_provider_audio_is_failed_after_submission_fence(
 
 
 @pytest.mark.asyncio
-async def test_immutable_storage_conflict_fails_provider_operation(
-    tmp_path: Path,
-) -> None:
+async def test_immutable_storage_conflict_fails_provider_operation(tmp_path: Path) -> None:
     runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
     provider = CountingTtsProvider()
     storage = InMemoryMediaStorage()
     repository = RecoveryRepository()
     runner.provider = provider
     runner.storage = storage
-    runner.pricing = GoogleTtsPricingCatalog("v1")
     runner.repository = cast(NarrationWorkerRepository, repository)
-    claimed = ClaimedNarrationJob(
-        stage_attempt_id=1,
-        generation_job_id=1,
-        job_id="job-1",
-        narration_request_id=uuid4(),
-        project_id=1,
-        chapter_id=1,
-        chapter_row_version=1,
-        source_hash="a" * 64,
-        source_text="hello",
-        voice_id="en-US-Neural2-A",
-        language="en-US",
-        speaking_rate=1.0,
-        request_fingerprint="request",
-    )
+    claimed = _claimed_job()
     segment = NarrationSegment(0, 0, 5, "hello")
-    pricing = runner.pricing.resolve(claimed.voice_id)
     storage_key = f"narration/{claimed.narration_request_id}/segments/0000.pcm"
     await storage.put_immutable(
         storage_key=storage_key,
@@ -334,7 +280,7 @@ async def test_immutable_storage_conflict_fails_provider_operation(
     )
 
     with pytest.raises(NarrationPermanentError, match="different immutable content"):
-        await runner._materialize_segment(claimed, segment, pricing, tmp_path)
+        await runner._materialize_segment(claimed, segment, tmp_path)
 
     assert provider.calls == 1
     assert repository.failed
@@ -342,9 +288,7 @@ async def test_immutable_storage_conflict_fails_provider_operation(
 
 
 @pytest.mark.asyncio
-async def test_corrupted_recovered_segment_fails_provider_operation(
-    tmp_path: Path,
-) -> None:
+async def test_corrupted_recovered_segment_fails_provider_operation(tmp_path: Path) -> None:
     runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
     provider = CountingTtsProvider()
     storage = InMemoryMediaStorage()
@@ -356,25 +300,9 @@ async def test_corrupted_recovered_segment_fails_provider_operation(
     )
     runner.provider = provider
     runner.storage = storage
-    runner.pricing = GoogleTtsPricingCatalog("v1")
     runner.repository = cast(NarrationWorkerRepository, repository)
-    claimed = ClaimedNarrationJob(
-        stage_attempt_id=1,
-        generation_job_id=1,
-        job_id="job-1",
-        narration_request_id=uuid4(),
-        project_id=1,
-        chapter_id=1,
-        chapter_row_version=1,
-        source_hash="a" * 64,
-        source_text="hello",
-        voice_id="en-US-Neural2-A",
-        language="en-US",
-        speaking_rate=1.0,
-        request_fingerprint="request",
-    )
+    claimed = _claimed_job()
     segment = NarrationSegment(0, 0, 5, "hello")
-    pricing = runner.pricing.resolve(claimed.voice_id)
     storage_key = f"narration/{claimed.narration_request_id}/segments/0000.pcm"
     content = b"\x00\x00" * 4800
     await storage.put_immutable(
@@ -385,7 +313,7 @@ async def test_corrupted_recovered_segment_fails_provider_operation(
     )
 
     with pytest.raises(NarrationPermanentError, match="metadata is incomplete"):
-        await runner._materialize_segment(claimed, segment, pricing, tmp_path)
+        await runner._materialize_segment(claimed, segment, tmp_path)
 
     assert provider.calls == 0
     assert repository.failed
