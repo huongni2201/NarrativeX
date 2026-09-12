@@ -4,12 +4,12 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Effective docs sync: `2026-08-31`
-- Implementation checkpoint: `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
+- Last formal spec sync: `2026-08-31`
+- Current implementation checkpoint reviewed: `main` at `c370418fad5c5b7229c80c4ab64dfb796ba4dd5d` (2026-09-12)
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
-- Runtime refinements: ADR-0020 (PostgreSQL-only MVP runtime), ADR-0021 (Desktop Gemini Web), ADR-0022 (R2 voice-only + voice-reference scope), ADR-0023 (source-anchored visual timing)
+- Runtime refinements: accepted ADRs plus maintained architecture/workflow docs
 
-Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims. Accepted ADRs outrank the canonical specification within the exact scope they supersede.
+Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims. Accepted ADRs outrank the versioned canonical specification within the exact scope they supersede.
 
 ## Current architecture direction
 
@@ -56,33 +56,29 @@ Cloudflare R2 is **not** generated-project-media transport. It is limited to aut
 ```text
 VisualBeat source_anchor
   -> deterministic UTF-16 textStart/textEnd
-  -> narration/subtitle alignment spans
+  -> current narration/subtitle alignment spans
   -> backend NarrationTextClockMapper
   -> production audio start/end/duration
 ```
 
-Narration is the master clock. Existing persisted VisualBeat audio timing may still be consumed as compatibility data when complete, but new timing authority comes from source-anchored alignment. Provisional fallback timing keeps the Editor inspectable only; it does not satisfy final render readiness.
+Narration is the master clock. Persisted `visual_beats.audio_start_ms/audio_end_ms` are not Production Timeline inputs. Production timing is derived from deterministic source ranges plus the current narration alignment. Provisional fallback timing keeps the Editor inspectable only; it does not satisfy final render readiness.
 
-## Database baseline
+## Provider accounting contract
 
-```text
-V1__identity_and_access.sql
-V2__project_story_and_planning.sql
-V3__generation_billing_and_media.sql
-V4__narration_notifications_and_artifacts.sql
-V5__catalog_generation_and_render_snapshots.sql
-V6__database_logic_and_triggers.sql
-V7__indexes.sql
-V8__seed_catalog.sql
-```
+Monetary billing, credit balances, reservation settlement and provider pricing are not current runtime capabilities. Durable provider-operation fencing and UNKNOWN reconciliation remain required for retry safety. Provider adapters may retain non-monetary usage telemetry for diagnostics without turning that telemetry into a cost/accounting contract.
 
-The repository is still pre-production, so this is a clean development baseline rather than frozen upgrade history. Disposable development/test databases should be recreated when the baseline changes. The accepted baseline becomes immutable at the first production deployment; only then do future changes become append-only from the next version.
+## Database migration state
+
+The repository is still pre-production. The documented baseline policy says obsolete patch history should be folded into a clean baseline before production freeze; however the current migration directory contains V1 through V18. This is an implementation cleanup debt, not evidence that the pre-production baseline policy has changed.
+
+At the first production deployment, the accepted migration history becomes immutable and subsequent schema changes become append-only.
 
 ## Primary remaining work
 
+- fold the current V9-V18 pre-production patch history into the owned baseline migrations before production freeze;
 - production packaging, signing, auto-update and packaged protocol/OAuth/OS integration coverage;
 - hardening long-running local execution across abrupt process/OS failure and richer recovery UX;
 - richer timeline/editor review and regeneration workflows;
 - narration-driven adaptive `VisualScenePlanner` and continuity-aware review completion;
 - richer asset approval/reframe/edit lineage;
-- complete production billing/actual-usage reconciliation and operational evidence.
+- provider-operation observability and retry/replay evidence without reintroducing monetary billing contracts.
