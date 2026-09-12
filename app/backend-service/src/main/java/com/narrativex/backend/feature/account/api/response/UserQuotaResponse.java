@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.account.api.response;
 
 import com.narrativex.backend.feature.account.application.query.UserQuotaView;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record UserQuotaResponse(
@@ -10,9 +9,7 @@ public record UserQuotaResponse(
     LocalDate periodStart,
     LocalDate periodEnd,
     Limits limits,
-    Usage usage,
-    BigDecimal totalCredits,
-    BigDecimal remainingCredits) {
+    Usage usage) {
 
   public static UserQuotaResponse from(UserQuotaView view) {
     return new UserQuotaResponse(
@@ -30,10 +27,7 @@ public record UserQuotaResponse(
         new Usage(
             view.longformExportsUsed(),
             view.shortExportsUsed(),
-            view.expensiveJobsActive(),
-            view.creditsUsed()),
-        view.totalCredits(),
-        view.remainingCredits());
+            view.expensiveJobsActive()));
   }
 
   public record Limits(
@@ -44,6 +38,5 @@ public record UserQuotaResponse(
       int maxConcurrentExpensiveJobs,
       String featureFlagsJson) {}
 
-  public record Usage(
-      int longformExports, int shortExports, int expensiveJobsActive, BigDecimal creditsUsed) {}
+  public record Usage(int longformExports, int shortExports, int expensiveJobsActive) {}
 }
