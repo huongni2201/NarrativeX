@@ -98,7 +98,7 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
             "fixture-" + UuidV7.random());
     UUID jobId =
         jdbcTemplate.queryForObject(
-            "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, 'transaction-fixture', 'transaction-fixture') RETURNING id",
+            "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id) VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, 'transaction-fixture') RETURNING id",
             UUID.class,
             UuidV7.random(),
             projectId);
