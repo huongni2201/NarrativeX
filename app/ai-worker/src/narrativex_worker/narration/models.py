@@ -32,10 +32,6 @@ class WordAlignment:
             raise ValueError("confidence must be between 0 and 1")
 
 
-# Internal source-compatibility only: this no longer represents segment-duration timing.
-AlignmentSpan = WordAlignment
-
-
 @dataclass(frozen=True)
 class SynthesizedSegment:
     segment: NarrationSegment
