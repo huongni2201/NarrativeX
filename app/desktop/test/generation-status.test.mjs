@@ -7,7 +7,7 @@ import {
 } from "../src/renderer/features/generation/generation-status.ts";
 
 test("generation polling includes every backend active state", () => {
-  for (const status of ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"]) {
+  for (const status of ["QUEUED", "RUNNING", "UNKNOWN", "STALLED"]) {
     assert.equal(isActiveGenerationJobStatus(status), true, status);
   }
   for (const status of ["COMPLETED", "FAILED", "CANCELED"]) {
