@@ -41,7 +41,8 @@ class DesktopAuthenticationSuccessHandlerTest {
   }
 
   @Test
-  void officialDesktopFlowIssuesOneTimeCodeAndRedirectsToCustomProtocol() throws Exception {
+  void officialDesktopFlowIssuesOneTimeCodeAndRedirectsToCorrelatedCustomProtocol()
+      throws Exception {
     HttpServletRequest request = mock(HttpServletRequest.class);
     HttpServletResponse response = mock(HttpServletResponse.class);
     HttpSession session = statefulSession(request);
@@ -66,7 +67,8 @@ class DesktopAuthenticationSuccessHandlerTest {
 
     handler.onAuthenticationSuccess(request, response, authentication);
 
-    verify(response).sendRedirect("narrativex://auth/callback?code=one-time-code");
+    verify(response)
+        .sendRedirect("narrativex://auth/callback?code=one-time-code&attempt=attempt-1");
   }
 
   @Test
