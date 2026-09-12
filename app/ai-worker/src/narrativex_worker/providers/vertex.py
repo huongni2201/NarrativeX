@@ -1,4 +1,4 @@
-"""Shared Vertex AI Gemini transport and billing primitives."""
+"""Shared Vertex AI Gemini transport primitives."""
 
 import asyncio
 import json
@@ -35,23 +35,13 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class VertexGeminiTransport:
-    """Shared Vertex auth, HTTP, structured-output and billing transport primitives."""
+    """Shared Vertex auth, HTTP and structured-output transport primitives."""
 
-    _MILLION = Decimal("1000000")
-    _FLASH_25_INPUT = Decimal("0.15")
-    _FLASH_25_CACHED_INPUT = Decimal("0.0375")
-    _FLASH_25_OUTPUT = Decimal("0.60")
-    _FLASH_25_THINKING_OUTPUT = Decimal("3.50")
-    _PRICING_CATALOG_VERSION = "vertex-public-2026-08-19"
+    _BILLING_DISABLED_CATALOG_VERSION = "billing-disabled"
 
     def __init__(self, settings: WorkerSettings) -> None:
         if not settings.vertex_project_id:
             raise VertexProviderError("VERTEX_PROJECT_ID is required when provider_mode=vertex")
-        if settings.vertex_model != "gemini-2.5-flash":
-            raise VertexProviderError(
-                "Actual-cost reconciliation currently requires a pricing rule for the configured "
-                f"model; unsupported model={settings.vertex_model}"
-            )
         self.settings = settings
         self.logger = logging.getLogger("narrativex.worker.vertex")
         credentials, _ = google.auth.default(
@@ -147,7 +137,7 @@ class VertexGeminiTransport:
             )
             return None, self._zero_billing(), response_id
 
-        billing = self._billing(raw)
+        usage = self._usage_envelope(raw)
         text = self._candidate_text(raw)
         if text is None:
             self.logger.error(
@@ -155,10 +145,10 @@ class VertexGeminiTransport:
                 response_id,
                 model.__name__,
             )
-            return None, billing, response_id
+            return None, usage, response_id
         try:
             parsed = json.loads(text)
-            return model.model_validate(parsed), billing, response_id
+            return model.model_validate(parsed), usage, response_id
         except (TypeError, ValueError, json.JSONDecodeError) as exception:
             self.logger.warning(
                 "Vertex structured response validation failed responseId=%s model=%s reason=%s",
@@ -166,47 +156,25 @@ class VertexGeminiTransport:
                 model.__name__,
                 self._safe_exception_reason(exception),
             )
-            return None, billing, response_id
+            return None, usage, response_id
 
-    def _billing(self, raw: dict[str, object]) -> ProviderBilling:
+    def _usage_envelope(self, raw: dict[str, object]) -> ProviderBilling:
+        """Capture token telemetry without applying prices or monetary accounting."""
         usage_raw = raw.get("usageMetadata")
-        if not isinstance(usage_raw, dict):
-            raise VertexProviderError("Successful Vertex response did not include usageMetadata")
-
-        usage = ProviderTokenUsage(
-            prompt_tokens=self._int_field(usage_raw, "promptTokenCount"),
-            candidate_tokens=self._int_field(usage_raw, "candidatesTokenCount"),
-            thought_tokens=self._int_field(usage_raw, "thoughtsTokenCount"),
-            cached_input_tokens=self._int_field(usage_raw, "cachedContentTokenCount"),
-            tool_input_tokens=self._int_field(usage_raw, "toolUsePromptTokenCount"),
-            total_tokens=self._int_field(usage_raw, "totalTokenCount"),
-            traffic_type=self._string_field(usage_raw, "trafficType"),
+        usage = (
+            ProviderTokenUsage(
+                prompt_tokens=self._int_field(usage_raw, "promptTokenCount"),
+                candidate_tokens=self._int_field(usage_raw, "candidatesTokenCount"),
+                thought_tokens=self._int_field(usage_raw, "thoughtsTokenCount"),
+                cached_input_tokens=self._int_field(usage_raw, "cachedContentTokenCount"),
+                tool_input_tokens=self._int_field(usage_raw, "toolUsePromptTokenCount"),
+                total_tokens=self._int_field(usage_raw, "totalTokenCount"),
+                traffic_type=self._string_field(usage_raw, "trafficType"),
+            )
+            if isinstance(usage_raw, dict)
+            else ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0)
         )
-        uncached_prompt = max(0, usage.prompt_tokens - usage.cached_input_tokens)
-        output_rate = (
-            self._FLASH_25_THINKING_OUTPUT if usage.thought_tokens > 0 else self._FLASH_25_OUTPUT
-        )
-        output_tokens = usage.candidate_tokens + usage.thought_tokens
-        actual_cost = (
-            Decimal(uncached_prompt + usage.tool_input_tokens) * self._FLASH_25_INPUT
-            + Decimal(usage.cached_input_tokens) * self._FLASH_25_CACHED_INPUT
-            + Decimal(output_tokens) * output_rate
-        ) / self._MILLION
-        pricing = ProviderPricingSnapshot(
-            catalog_version=self._PRICING_CATALOG_VERSION,
-            model_key=self.settings.vertex_model,
-            location=self.settings.vertex_location,
-            pricing_mode="STANDARD_THINKING" if usage.thought_tokens > 0 else "STANDARD",
-            input_usd_per_million=self._FLASH_25_INPUT,
-            cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
-            output_usd_per_million=output_rate,
-        )
-        return ProviderBilling(
-            actual_cost=actual_cost.quantize(Decimal("0.000000001")),
-            currency="USD",
-            usage=usage,
-            pricing=pricing,
-        )
+        return self._non_monetary_envelope(usage, "USAGE_ONLY")
 
     def _merge_billings(self, billings: list[ProviderBilling]) -> ProviderBilling:
         prompt_tokens = sum(item.usage.prompt_tokens for item in billings)
@@ -216,67 +184,47 @@ class VertexGeminiTransport:
         tool_input_tokens = sum(item.usage.tool_input_tokens for item in billings)
         total_tokens = sum(item.usage.total_tokens for item in billings)
         traffic_types = {item.usage.traffic_type for item in billings if item.usage.traffic_type}
-        usage = ProviderTokenUsage(
-            prompt_tokens=prompt_tokens,
-            candidate_tokens=candidate_tokens,
-            thought_tokens=thought_tokens,
-            cached_input_tokens=cached_input_tokens,
-            tool_input_tokens=tool_input_tokens,
-            total_tokens=total_tokens,
-            traffic_type=next(iter(traffic_types)) if len(traffic_types) == 1 else None,
-        )
-        output_rate = (
-            self._FLASH_25_THINKING_OUTPUT if thought_tokens > 0 else self._FLASH_25_OUTPUT
-        )
-        pricing = ProviderPricingSnapshot(
-            catalog_version=self._PRICING_CATALOG_VERSION,
-            model_key=self.settings.vertex_model,
-            location=self.settings.vertex_location,
-            pricing_mode="SHARDED_THINKING" if thought_tokens > 0 else "SHARDED",
-            input_usd_per_million=self._FLASH_25_INPUT,
-            cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
-            output_usd_per_million=output_rate,
-        )
-        return ProviderBilling(
-            actual_cost=sum((item.actual_cost for item in billings), Decimal("0")).quantize(
-                Decimal("0.000000001")
+        return self._non_monetary_envelope(
+            ProviderTokenUsage(
+                prompt_tokens=prompt_tokens,
+                candidate_tokens=candidate_tokens,
+                thought_tokens=thought_tokens,
+                cached_input_tokens=cached_input_tokens,
+                tool_input_tokens=tool_input_tokens,
+                total_tokens=total_tokens,
+                traffic_type=next(iter(traffic_types)) if len(traffic_types) == 1 else None,
             ),
-            currency="USD",
-            usage=usage,
-            pricing=pricing,
+            "USAGE_ONLY_SHARDED",
         )
 
     def _zero_billing(self) -> ProviderBilling:
-        return ProviderBilling(
-            actual_cost=Decimal("0.000000000"),
-            currency="USD",
-            usage=ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
-            pricing=ProviderPricingSnapshot(
-                catalog_version=self._PRICING_CATALOG_VERSION,
-                model_key=self.settings.vertex_model,
-                location=self.settings.vertex_location,
-                pricing_mode="NOT_CHARGED_NON_200",
-                input_usd_per_million=self._FLASH_25_INPUT,
-                cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
-                output_usd_per_million=self._FLASH_25_OUTPUT,
-            ),
+        return self._non_monetary_envelope(
+            ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
+            "USAGE_UNAVAILABLE",
         )
 
     def _orchestration_billing(self) -> ProviderBilling:
-        """Zero-cost envelope billing when durable subcalls own the actual usage evidence."""
-        billing = self._zero_billing()
+        """Compatibility envelope for orchestration rows; monetary billing is disabled."""
+        return self._non_monetary_envelope(
+            ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
+            "ORCHESTRATION_ENVELOPE",
+        )
+
+    def _non_monetary_envelope(
+        self, usage: ProviderTokenUsage, pricing_mode: str
+    ) -> ProviderBilling:
         return ProviderBilling(
-            actual_cost=billing.actual_cost,
-            currency=billing.currency,
-            usage=billing.usage,
+            actual_cost=Decimal("0.000000000"),
+            currency="USD",
+            usage=usage,
             pricing=ProviderPricingSnapshot(
-                catalog_version=billing.pricing.catalog_version,
-                model_key=billing.pricing.model_key,
-                location=billing.pricing.location,
-                pricing_mode="ORCHESTRATION_ENVELOPE",
-                input_usd_per_million=billing.pricing.input_usd_per_million,
-                cached_input_usd_per_million=billing.pricing.cached_input_usd_per_million,
-                output_usd_per_million=billing.pricing.output_usd_per_million,
+                catalog_version=self._BILLING_DISABLED_CATALOG_VERSION,
+                model_key=self.settings.vertex_model,
+                location=self.settings.vertex_location,
+                pricing_mode=pricing_mode,
+                input_usd_per_million=Decimal("0"),
+                cached_input_usd_per_million=Decimal("0"),
+                output_usd_per_million=Decimal("0"),
             ),
         )
 
