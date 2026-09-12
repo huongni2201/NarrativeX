@@ -132,13 +132,7 @@ public class GenerateChapterNarrationUseCase {
                 command.voiceReference()));
 
     OperationPlan operationPlan =
-        operationPlanRepository.save(
-            OperationPlan.create(
-                command.projectId(),
-                STAGE_NAME,
-                admission.estimate().estimateMin(),
-                admission.estimate().estimateMax(),
-                admission.estimate().maxAuthorizedCost()));
+        operationPlanRepository.save(OperationPlan.create(command.projectId(), STAGE_NAME));
 
     GenerationJob job =
         generationJobRepository.save(
