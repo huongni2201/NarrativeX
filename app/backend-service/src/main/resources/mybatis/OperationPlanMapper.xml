@@ -9,26 +9,19 @@
         <result property="projectId" column="project_id" />
         <result property="generationJobId" column="generation_job_id" />
         <result property="operationType" column="operation_type" />
-        <result property="estimateMin" column="estimate_min" />
-        <result property="estimateMax" column="estimate_max" />
-        <result property="maxAuthorizedCost" column="max_authorized_cost" />
-        <result property="confidence" column="confidence" />
     </resultMap>
 
     <sql id="columns">
-        id, row_version, project_id, generation_job_id, operation_type,
-        estimate_min, estimate_max, max_authorized_cost, confidence
+        id, row_version, project_id, generation_job_id, operation_type
     </sql>
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow"
             resultType="java.util.UUID" affectData="true">
         INSERT INTO operation_plans
-            (project_id, generation_job_id, operation_type, estimate_min, estimate_max,
-             max_authorized_cost, confidence)
+            (project_id, generation_job_id, operation_type)
         VALUES
-            (#{projectId}, #{generationJobId}, #{operationType}, #{estimateMin}, #{estimateMax},
-             #{maxAuthorizedCost}, #{confidence})
+            (#{projectId}, #{generationJobId}, #{operationType})
         RETURNING id
     </select>
 
@@ -38,10 +31,6 @@
            SET project_id = #{projectId},
                generation_job_id = #{generationJobId},
                operation_type = #{operationType},
-               estimate_min = #{estimateMin},
-               estimate_max = #{estimateMax},
-               max_authorized_cost = #{maxAuthorizedCost},
-               confidence = #{confidence},
                updated_at = CURRENT_TIMESTAMP,
                row_version = row_version + 1
          WHERE id = #{id}
