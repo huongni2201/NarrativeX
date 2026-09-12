@@ -15,8 +15,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class DesktopAuthenticationFailureHandler implements AuthenticationFailureHandler {
   private static final String DEFAULT_DESKTOP_REDIRECT_URI = "narrativex://auth/callback";
-  private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
-  private static final String CODE_CHALLENGE_SESSION_KEY = "NARRATIVEX_DESKTOP_CODE_CHALLENGE";
 
   @Override
   public void onAuthenticationFailure(
@@ -31,16 +29,12 @@ public class DesktopAuthenticationFailureHandler implements AuthenticationFailur
         exception.getMessage(),
         exception);
 
-    Object redirect = session == null ? null : session.getAttribute(REDIRECT_SESSION_KEY);
+    DesktopOAuth2AuthorizationRequestRepository.DesktopAttempt attempt =
+        DesktopOAuth2AuthorizationRequestRepository.consumeDesktopAttempt(request);
     String redirectUri =
-        redirect instanceof String candidate && isAllowedRedirect(candidate)
-            ? candidate
+        attempt != null && isAllowedRedirect(attempt.redirectUri())
+            ? attempt.redirectUri()
             : DEFAULT_DESKTOP_REDIRECT_URI;
-
-    if (session != null) {
-      session.removeAttribute(REDIRECT_SESSION_KEY);
-      session.removeAttribute(CODE_CHALLENGE_SESSION_KEY);
-    }
     response.sendRedirect(redirectUri + "?error=authentication_failed");
   }
 
