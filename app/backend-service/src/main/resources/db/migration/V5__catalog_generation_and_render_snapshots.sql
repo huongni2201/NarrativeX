@@ -145,17 +145,6 @@ CREATE TABLE chapter_media_heads (
 -- Continuity snapshots and durable analysis checkpoints
 -- -----------------------------------------------------------------------------
 
-CREATE UNIQUE INDEX uq_story_versions_project_id_id
-    ON story_versions (project_id, id);
-CREATE UNIQUE INDEX uq_chapters_story_version_id_id
-    ON chapters (story_version_id, id);
-CREATE UNIQUE INDEX uq_storyboard_revisions_chapter_id_id
-    ON storyboard_revisions (chapter_id, id);
-CREATE UNIQUE INDEX uq_scenes_chapter_id_id
-    ON scenes (chapter_id, id);
-CREATE UNIQUE INDEX uq_visual_beats_scene_id_id
-    ON visual_beats (scene_id, id);
-
 CREATE TABLE chapter_continuity_plans (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL,
