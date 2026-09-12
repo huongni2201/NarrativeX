@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.account.infrastructure.persistence.mybatis;
 
-import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -9,7 +8,6 @@ import lombok.Getter;
 public class QuotaReservationRow {
   private final String userId;
   private final String periodKey;
-  private final BigDecimal estimatedCost;
   private final String quotaKind;
   private final int units;
 }
