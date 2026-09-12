@@ -22,11 +22,6 @@ from narrativex_worker.narration.models import (
     NarrationSegment,
     SynthesizedSegment,
 )
-from narrativex_worker.narration.pricing import (
-    GoogleTtsPricingCatalog,
-    TtsPricingSnapshot,
-    VieneuTtsPricingCatalog,
-)
 from narrativex_worker.narration.providers import (
     FakeTtsProvider,
     TtsProvider,
@@ -83,13 +78,11 @@ class NarrationWorkerRunner:
         )
         self.provider: TtsProvider | None = None
         self.storage: MediaStorage | None = None
-        self.pricing: GoogleTtsPricingCatalog | VieneuTtsPricingCatalog | None = None
         if self.enabled:
             if settings.tts_provider_mode == "fake":
                 self.provider = FakeTtsProvider()
             elif settings.tts_provider_mode == "vieneu":
                 self.provider = VieneuTtsProvider(settings)
-                self.pricing = VieneuTtsPricingCatalog(settings.tts_pricing_catalog_version)
             else:
                 raise RuntimeError(f"Unsupported TTS provider mode: {settings.tts_provider_mode}")
             self.storage = LocalMediaStorage(settings.project_media_local_dir)
@@ -157,8 +150,6 @@ class NarrationWorkerRunner:
                     self.worker_id,
                 )
         finally:
-            # stop() only stops new claims. Existing jobs retain their lease/heartbeat and
-            # are allowed to finish before the repository pool is closed.
             if self._in_flight:
                 await asyncio.gather(*self._in_flight, return_exceptions=True)
                 self._in_flight.clear()
@@ -207,7 +198,6 @@ class NarrationWorkerRunner:
                 processing.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await processing
-
         except NarrationOutcomeUnknownError as exception:
             self.logger.warning(
                 "Narration job=%s stageAttemptId=%s narrationRequestId=%s "
@@ -317,9 +307,7 @@ class NarrationWorkerRunner:
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
         assert self.storage is not None
-        assert self.pricing is not None
         storage = self.storage
-        pricing = self.pricing.resolve(claimed.voice_id)
         async with self.workspace.create_job_dir(str(claimed.narration_request_id)) as job_dir:
             self.logger.debug(
                 "Narration workspace created job=%s request=%s",
@@ -353,12 +341,12 @@ class NarrationWorkerRunner:
             for segment in segments:
                 if reference_audio_path is None:
                     materialized.append(
-                        await self._materialize_segment(claimed, segment, pricing, job_dir)
+                        await self._materialize_segment(claimed, segment, job_dir)
                     )
                 else:
                     materialized.append(
                         await self._materialize_segment(
-                            claimed, segment, pricing, job_dir, reference_audio_path
+                            claimed, segment, job_dir, reference_audio_path
                         )
                     )
 
@@ -431,7 +419,6 @@ class NarrationWorkerRunner:
         self,
         claimed: ClaimedNarrationJob,
         segment: NarrationSegment,
-        pricing: TtsPricingSnapshot,
         job_dir: Path,
         reference_audio_path: Path | None = None,
     ) -> MaterializedAudioSegment:
@@ -496,7 +483,7 @@ class NarrationWorkerRunner:
                     reconciliation_exhausted=exhausted,
                 ) from exception
             return await self._persist_segment_completion(
-                durable, recovered, storage_key, stored.checksum, stored.size_bytes, pricing
+                durable, recovered, storage_key, stored.checksum, stored.size_bytes
             )
         if durable.status is not ProviderOperationStatus.RESERVED:
             raise NarrationOutcomeUnknownError(
@@ -603,7 +590,6 @@ class NarrationWorkerRunner:
             storage_key,
             stored.checksum,
             stored.size_bytes,
-            pricing,
         )
 
     async def _persist_segment_completion(
@@ -613,7 +599,6 @@ class NarrationWorkerRunner:
         storage_key: str,
         checksum: str,
         size_bytes: int,
-        pricing: TtsPricingSnapshot,
     ) -> MaterializedAudioSegment:
         result = {
             "storageKey": storage_key,
@@ -625,12 +610,7 @@ class NarrationWorkerRunner:
         }
         try:
             await retry_local_io(
-                lambda: self.repository.complete_provider_operation(
-                    durable,
-                    result,
-                    character_count=len(synthesized.segment.text),
-                    pricing=pricing,
-                )
+                lambda: self.repository.complete_provider_operation(durable, result)
             )
         except Exception as exception:
             if not is_transient_infrastructure_error(exception):
@@ -655,18 +635,17 @@ class NarrationWorkerRunner:
                     durable.id,
                 )
                 return True
-            else:
-                scheduled = await self.repository.schedule_provider_reconciliation(
-                    durable, error=error
-                )
-                self.logger.info(
-                    "narration_reconciliation_attempt_total=1 providerOperationId=%s "
-                    "reconcileAttempt=%s nextReconcileAt=%s",
-                    durable.id,
-                    scheduled.reconcile_attempts,
-                    scheduled.next_reconcile_at,
-                )
-                return False
+            scheduled = await self.repository.schedule_provider_reconciliation(
+                durable, error=error
+            )
+            self.logger.info(
+                "narration_reconciliation_attempt_total=1 providerOperationId=%s "
+                "reconcileAttempt=%s nextReconcileAt=%s",
+                durable.id,
+                scheduled.reconcile_attempts,
+                scheduled.next_reconcile_at,
+            )
+            return False
         except Exception as exception:
             if is_transient_infrastructure_error(exception):
                 raise NarrationRetryableInfrastructureError(
