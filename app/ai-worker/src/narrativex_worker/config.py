@@ -105,21 +105,6 @@ class WorkerSettings(BaseSettings):
         validation_alias=AliasChoices("TTS_PROVIDER_MODE"),
     )
     narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
-    narration_word_alignment_model: str = Field(
-        default="small", validation_alias=AliasChoices("NARRATION_WORD_ALIGNMENT_MODEL")
-    )
-    narration_word_alignment_device: Literal["cpu", "cuda"] = Field(
-        default="cpu", validation_alias=AliasChoices("NARRATION_WORD_ALIGNMENT_DEVICE")
-    )
-    narration_word_alignment_compute_type: str = Field(
-        default="int8", validation_alias=AliasChoices("NARRATION_WORD_ALIGNMENT_COMPUTE_TYPE")
-    )
-    narration_word_alignment_min_coverage: float = Field(
-        default=0.9,
-        ge=0.5,
-        le=1.0,
-        validation_alias=AliasChoices("NARRATION_WORD_ALIGNMENT_MIN_COVERAGE"),
-    )
     vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
     vieneu_voice_name: str = "Ngọc Huyền v2"
     vieneu_reference_audio_path: str | None = None
