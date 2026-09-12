@@ -4,7 +4,7 @@ import uuid
 from contextvars import ContextVar
 from dataclasses import replace
 
-from narrativex_worker.narration.models import AlignmentSpan
+from narrativex_worker.narration.models import WordAlignment
 from narrativex_worker.narration.repository.completion import NarrationCompletionMixin
 from narrativex_worker.narration.repository.implementation import (
     ClaimedNarrationJob,
@@ -116,7 +116,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
         duration_ms: int,
         sample_rate_hz: int,
         channels: int,
-        spans: list[AlignmentSpan],
+        words: list[WordAlignment],
     ) -> None:
         await super().complete(
             claimed,
@@ -125,7 +125,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
             duration_ms=duration_ms,
             sample_rate_hz=sample_rate_hz,
             channels=channels,
-            spans=spans,
+            words=words,
         )
         self._claim_owner.set(None)
 
