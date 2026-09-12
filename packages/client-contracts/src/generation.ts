@@ -5,8 +5,7 @@ export type DesktopRenderJobStatus =
   | "FAILED"
   | "CANCELED"
   | "UNKNOWN"
-  | "STALLED"
-  | "PAUSED_COST_LIMIT";
+  | "STALLED";
 
 export interface DesktopRenderJob {
   jobId: string;
