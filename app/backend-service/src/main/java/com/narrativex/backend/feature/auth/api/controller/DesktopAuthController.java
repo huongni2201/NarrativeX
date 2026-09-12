@@ -75,24 +75,27 @@ public class DesktopAuthController {
       @RequestParam(name = "redirect_uri", defaultValue = "narrativex://auth/callback")
           String redirectUri,
       @RequestParam(name = "code_challenge", required = false) String codeChallenge,
-      @RequestParam(name = "attempt", required = false) String attemptId,
       HttpServletRequest request,
       HttpServletResponse response)
       throws IOException {
+    String requestedAttemptId = request.getParameter("attempt");
     if (!isAllowedRedirect(redirectUri)
         || !isAllowedCodeChallenge(codeChallenge)
-        || !isAllowedAttemptId(attemptId)) {
+        || (requestedAttemptId != null && !isAllowedAttemptId(requestedAttemptId))) {
       response.sendError(HttpStatus.BAD_REQUEST.value(), "Unsupported desktop auth request.");
       return;
     }
 
     String canonicalStartUrl =
-        canonicalPublicStartUrl(publicBaseUrl, request, redirectUri, codeChallenge, attemptId);
+        canonicalPublicStartUrl(
+            publicBaseUrl, request, redirectUri, codeChallenge, requestedAttemptId);
     if (canonicalStartUrl != null) {
       response.sendRedirect(canonicalStartUrl);
       return;
     }
 
+    String attemptId =
+        requestedAttemptId != null ? requestedAttemptId : UUID.randomUUID().toString();
     var session = request.getSession(true);
     DesktopOAuth2AuthorizationRequestRepository.storePendingDesktopAttempt(
         session, attemptId, redirectUri, codeChallenge);
@@ -218,18 +221,16 @@ public class DesktopAuthController {
 
     String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
     String encodedCodeChallenge = URLEncoder.encode(codeChallenge, StandardCharsets.UTF_8);
-    String encodedAttemptId = URLEncoder.encode(attemptId, StandardCharsets.UTF_8);
+    String query =
+        "redirect_uri=" + encodedRedirectUri + "&code_challenge=" + encodedCodeChallenge;
+    if (attemptId != null) {
+      query += "&attempt=" + URLEncoder.encode(attemptId, StandardCharsets.UTF_8);
+    }
     return UriComponentsBuilder.fromUri(publicOrigin)
         .replacePath(DESKTOP_START_PATH)
         .replaceQuery(null)
         .fragment(null)
-        .query(
-            "redirect_uri="
-                + encodedRedirectUri
-                + "&code_challenge="
-                + encodedCodeChallenge
-                + "&attempt="
-                + encodedAttemptId)
+        .query(query)
         .build(true)
         .toUriString();
   }
