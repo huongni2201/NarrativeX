@@ -32,7 +32,7 @@ from narrativex_worker.continuity.schema import (
     ContinuityReportStatus,
 )
 from narrativex_worker.continuity.validator import validate_shard_result
-from narrativex_worker.providers.ports import ProviderBilling
+from narrativex_worker.providers.ports import ProviderTokenUsage
 from narrativex_worker.schema import ChapterAnalysisRequest
 
 
@@ -45,7 +45,7 @@ async def run_chapter_analysis_pipeline(
     repair_attempts: int,
     planning_duration_ms: int | None = None,
 ) -> ChapterAnalysisPipelineResult:
-    structure, structure_billings, response_id = await _generate_structure(
+    structure, structure_usages, response_id = await _generate_structure(
         request=request,
         adapter=adapter,
         repair_attempts=repair_attempts,
@@ -70,19 +70,19 @@ async def run_chapter_analysis_pipeline(
     ) -> tuple[
         VisualBeatShard,
         VisualBeatShardWithContinuityResult,
-        list[ProviderBilling],
+        list[ProviderTokenUsage],
         str,
         list[ContinuityIssue],
     ]:
         reason: str | None = None
-        billings: list[ProviderBilling] = []
+        usages: list[ProviderTokenUsage] = []
         shard_response_id = response_id
         context = contexts[(shard.scene_index, shard.shard_index)]
         last_valid_result: VisualBeatShardWithContinuityResult | None = None
         last_issues: list[ContinuityIssue] = []
 
         for attempt in range(repair_attempts + 1):
-            result, billing, shard_response_id = await adapter.generate(
+            result, usage, shard_response_id = await adapter.generate(
                 build_visual_beat_shard_prompt(
                     request,
                     structure,
@@ -105,7 +105,7 @@ async def run_chapter_analysis_pipeline(
                     continuity_inputs=context.model_dump(mode="json", by_alias=True),
                 ),
             )
-            billings.append(billing)
+            usages.append(usage)
             reason = shard_validation_error(structure, shard, result)
             if reason is not None or result is None:
                 continue
@@ -125,14 +125,14 @@ async def run_chapter_analysis_pipeline(
                 if issue.severity is ContinuityIssueSeverity.BLOCKING
             ]
             if not blocking:
-                return shard, result, billings, shard_response_id, last_issues
+                return shard, result, usages, shard_response_id, last_issues
             reason = "deterministic continuity conflicts: " + ",".join(
                 sorted({issue.code for issue in blocking})
             )
 
         if last_valid_result is not None:
             # A structurally valid result remains reviewable after bounded repair is exhausted.
-            return shard, last_valid_result, billings, shard_response_id, last_issues
+            return shard, last_valid_result, usages, shard_response_id, last_issues
         raise ValueError(
             f"continuity shard scene={shard.scene_index} shard={shard.shard_index} "
             f"rejected after bounded repair: {reason or 'invalid structured output'}"
@@ -150,12 +150,12 @@ async def run_chapter_analysis_pipeline(
 
     shard_results: dict[tuple[int, int], VisualBeatShardResult] = {}
     continuity_states: dict[tuple[int, int], list[BeatContinuityState]] = {}
-    billings = list(structure_billings)
+    usages = list(structure_usages)
     final_response_id = response_id
     issues: list[ContinuityIssue] = []
-    for shard, result, shard_billings, shard_response_id, shard_issues in generated:
+    for shard, result, shard_usages, shard_response_id, shard_issues in generated:
         key = (shard.scene_index, shard.shard_index)
-        billings.extend(shard_billings)
+        usages.extend(shard_usages)
         final_response_id = shard_response_id
         shard_results[key] = VisualBeatShardResult(visual_beats=result.visual_beats)
         continuity_states[key] = result.continuity_states
@@ -170,7 +170,7 @@ async def run_chapter_analysis_pipeline(
             status=ContinuityReportStatus.NEEDS_REVIEW if issues else ContinuityReportStatus.PASS,
             issues=issues,
         ),
-        billings=billings,
+        usages=usages,
         final_response_id=final_response_id,
     )
 
@@ -180,12 +180,12 @@ async def _generate_structure(
     request: ChapterAnalysisRequest,
     adapter: StructuredAnalysisAdapter,
     repair_attempts: int,
-) -> tuple[ChapterStructureWithContinuityResult, list[ProviderBilling], str]:
+) -> tuple[ChapterStructureWithContinuityResult, list[ProviderTokenUsage], str]:
     reason: str | None = None
-    billings: list[ProviderBilling] = []
+    usages: list[ProviderTokenUsage] = []
     response_id = ""
     for attempt in range(repair_attempts + 1):
-        result, billing, response_id = await adapter.generate(
+        result, usage, response_id = await adapter.generate(
             build_chapter_structure_prompt(
                 request,
                 repair_reason=reason if attempt > 0 else None,
@@ -200,7 +200,7 @@ async def _generate_structure(
                 },
             ),
         )
-        billings.append(billing)
+        usages.append(usage)
         if result is None:
             reason = "invalid structured chapter continuity output"
             continue
@@ -209,5 +209,5 @@ async def _generate_structure(
         except ValueError as exc:
             reason = str(exc)
             continue
-        return result, billings, response_id
+        return result, usages, response_id
     raise ValueError(f"chapter structure rejected after bounded repair: {reason}")
