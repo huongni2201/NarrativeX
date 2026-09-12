@@ -34,12 +34,14 @@ Current code, Flyway migrations and automated tests decide factual AS-IS claims.
 | Generated project media via R2 | REMOVED | images/narration are project-local |
 | R2 voice-reference/custom-voice storage | IMPLEMENTED foundation | only current R2 responsibility |
 | MyBatis production persistence | IMPLEMENTED | explicit PostgreSQL SQL |
-| Flyway V1–V8 clean baseline | IMPLEMENTED | pre-production baseline; no patch-only V9 |
+| Flyway clean pre-production baseline | NEEDS CLEANUP | policy expects obsolete patch history folded before production freeze; current tree is V1–V18 |
+| Monetary billing / credit / quota runtime | REMOVED | do not treat provider usage telemetry as a pricing/accounting contract |
+| Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | reconcile/fence before external resubmission |
+| Non-monetary provider usage telemetry | IMPLEMENTED foundation | diagnostic token usage where providers expose it |
 | Adaptive VisualScenePlanner | TARGET | narration-driven adaptive scene/beat planning |
 | Rich reuse/reframe/edit lineage | DEFERRED fast-follow | richer asset reuse after core reliability |
 | Provider-side/local I2V runtime | NOT CURRENT RUNTIME | VIDEO/web generation remains separate |
 | Full abrupt-process render recovery | PARTIAL | journals exist; richer resume UX remains |
-| Complete billing/actual-usage reconciliation | PARTIAL | estimate/reservation/actual usage remain distinct |
 | Packaging/signing/auto-update | TARGET | release hardening |
 
 ## Storage contract
@@ -67,6 +69,10 @@ backend-authorized project snapshot
 ```
 
 Do not claim a cloud/server fallback or remote final-video store.
+
+## Provider accounting contract
+
+Provider usage telemetry is operational diagnostics only. The current runtime does not expose monetary cost calculation, credit balances, quota settlement, reservation/refund accounting or a provider-pricing catalog as a product contract.
 
 ## VIDEO contract
 

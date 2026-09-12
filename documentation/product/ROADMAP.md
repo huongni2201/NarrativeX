@@ -2,9 +2,9 @@
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
-**Current checkpoint:** `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28)
+**Current checkpoint:** `main` at `c370418fad5c5b7229c80c4ab64dfb796ba4dd5d` (2026-09-12)
 
-The browser→Desktop and JPA/JDBC→MyBatis migrations are no longer roadmap tracks. Desktop is already the only editor client and MyBatis is the production persistence path. Remaining work is product/reliability/release work.
+The browser→Desktop, JPA/JDBC→MyBatis and monetary billing/credit/quota migrations are no longer roadmap tracks. Desktop is already the only editor client, MyBatis is the production persistence path, and provider execution no longer carries a monetary accounting contract. Remaining work is product/reliability/release work.
 
 ## Current implemented foundations
 
@@ -105,18 +105,18 @@ Remaining:
 - preserve `USER_PROVIDED_AUDIO` as an explicit TTS bypass;
 - keep narration timing authoritative for visual duration.
 
-## Track G — Billing, quota and provider operations — MEDIUM
+## Track G — Provider operation reliability and observability — MEDIUM
 
-- complete actual-usage ledger and reservation settlement evidence;
-- prove terminal release/refund behavior under retries and provider ambiguity;
-- improve provider operation observability without weakening UNKNOWN reconciliation rules;
-- expose user-facing cost/usage status from backend-authoritative values;
-- add failure-mode tests for concurrent enqueue/edit/lease and provider terminal replay.
+- preserve UNKNOWN-before-resubmit fencing across every external provider boundary;
+- prove terminal replay/idempotency behavior under retries and ambiguous outcomes;
+- improve provider operation observability and non-monetary usage telemetry;
+- add failure-mode tests for concurrent enqueue/edit/lease and provider terminal replay;
+- keep provider usage diagnostics separate from any future commercial/accounting product decision.
 
 ## Track H — Operational hardening — MEDIUM
 
 - production backup/restore evidence for backend PostgreSQL state;
-- retention/cleanup policy for remote generated-media transport and local generated/render work;
+- retention/cleanup policy for remote account-owned voice assets and local generated/render work;
 - structured observability/correlation across Desktop, backend and worker;
 - SSRF/upload/media validation hardening where external resources are accepted;
 - security review for guest credential lifecycle, ownership transfer and logout/resume behavior;

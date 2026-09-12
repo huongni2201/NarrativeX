@@ -114,7 +114,7 @@ async def test_vertex_rejects_invalid_facts_with_private_rule_diagnostics(
         )
     )
 
-    result, billing, response_id = await _transport()._generate_structured(
+    result, usage, response_id = await _transport()._generate_structured(
         client,
         "token",
         "prompt",
@@ -122,7 +122,7 @@ async def test_vertex_rejects_invalid_facts_with_private_rule_diagnostics(
     )
 
     assert result is None
-    assert billing.usage.candidate_tokens == 5
+    assert usage.candidate_tokens == 5
     assert response_id == "invalid-fact-response"
     assert f"continuityStates.0.entryFacts.0:{code}" in caplog.text
     assert "SECRET_STORY_FRAGMENT" not in caplog.text
@@ -210,7 +210,7 @@ async def test_completed_checkpoint_replays_without_resubmitting_vertex() -> Non
         execution=execution,
     )
 
-    result, billing, response_id = await adapter.generate(
+    result, usage, response_id = await adapter.generate(
         "prompt",
         _TinyResult,
         identity=AnalysisStepIdentity(
@@ -221,7 +221,8 @@ async def test_completed_checkpoint_replays_without_resubmitting_vertex() -> Non
 
     assert result == _TinyResult(value="replayed")
     assert response_id == "durable-response"
-    assert billing.actual_cost == 0
+    assert usage.prompt_tokens == 0
+    assert usage.candidate_tokens == 0
     assert adapter.reused_subcalls == 1
     assert checkpoints.begin_calls == 0
     transport_call.assert_not_awaited()

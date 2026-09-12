@@ -1,7 +1,6 @@
 """Provider-agnostic ports. Concrete SDKs must live in adapters."""
 
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Protocol
 
 from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
@@ -27,6 +26,8 @@ class ProviderCapabilities:
 
 @dataclass(frozen=True)
 class ProviderTokenUsage:
+    """Non-monetary provider telemetry for diagnostics and smoke verification."""
+
     prompt_tokens: int
     candidate_tokens: int
     thought_tokens: int = 0
@@ -37,31 +38,12 @@ class ProviderTokenUsage:
 
 
 @dataclass(frozen=True)
-class ProviderPricingSnapshot:
-    catalog_version: str
-    model_key: str
-    location: str
-    pricing_mode: str
-    input_usd_per_million: Decimal
-    cached_input_usd_per_million: Decimal
-    output_usd_per_million: Decimal
-
-
-@dataclass(frozen=True)
-class ProviderBilling:
-    actual_cost: Decimal
-    currency: str
-    usage: ProviderTokenUsage
-    pricing: ProviderPricingSnapshot
-
-
-@dataclass(frozen=True)
 class ProviderOperation:
     provider_key: str
     operation_id: str | None
     status: ProviderOperationStatus
     result: ChapterAnalysisResult | None = None
-    billing: ProviderBilling | None = None
+    usage: ProviderTokenUsage | None = None
 
 
 class LlmProvider(Protocol):

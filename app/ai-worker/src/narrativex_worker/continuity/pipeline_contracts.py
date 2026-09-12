@@ -16,7 +16,7 @@ from narrativex_worker.continuity.schema import (
     ChapterContinuityPlan,
     ContinuityReport,
 )
-from narrativex_worker.providers.ports import ProviderBilling
+from narrativex_worker.providers.ports import ProviderTokenUsage
 from narrativex_worker.schema import ChapterAnalysisResult
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -40,7 +40,7 @@ class StructuredAnalysisAdapter(Protocol):
         model: type[ModelT],
         *,
         identity: AnalysisStepIdentity | None = None,
-    ) -> tuple[ModelT | None, ProviderBilling, str]: ...
+    ) -> tuple[ModelT | None, ProviderTokenUsage, str]: ...
 
 
 class ChapterStructureWithContinuityResult(ChapterStructureResult):
@@ -69,5 +69,5 @@ class ChapterAnalysisPipelineResult:
     continuity_plan: ChapterContinuityPlan
     continuity_states: dict[tuple[int, int], list[BeatContinuityState]]
     report: ContinuityReport
-    billings: list[ProviderBilling]
+    usages: list[ProviderTokenUsage]
     final_response_id: str

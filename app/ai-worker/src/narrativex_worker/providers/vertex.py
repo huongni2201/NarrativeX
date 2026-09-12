@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import uuid
-from decimal import Decimal
 from typing import TypeVar
 
 import google.auth
@@ -15,8 +14,6 @@ from pydantic import BaseModel, ValidationError
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.ports import (
-    ProviderBilling,
-    ProviderPricingSnapshot,
     ProviderSubmissionUnknownError,
     ProviderTokenUsage,
 )
@@ -36,8 +33,6 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 class VertexGeminiTransport:
     """Shared Vertex auth, HTTP and structured-output transport primitives."""
-
-    _BILLING_DISABLED_CATALOG_VERSION = "billing-disabled"
 
     def __init__(self, settings: WorkerSettings) -> None:
         if not settings.vertex_project_id:
@@ -83,7 +78,7 @@ class VertexGeminiTransport:
         token: str,
         prompt: str,
         model: type[ModelT],
-    ) -> tuple[ModelT | None, ProviderBilling, str]:
+    ) -> tuple[ModelT | None, ProviderTokenUsage, str]:
         async with self._analysis_request_gate:
             return await self._generate_structured(client, token, prompt, model)
 
@@ -93,7 +88,7 @@ class VertexGeminiTransport:
         token: str,
         prompt: str,
         model: type[ModelT],
-    ) -> tuple[ModelT | None, ProviderBilling, str]:
+    ) -> tuple[ModelT | None, ProviderTokenUsage, str]:
         endpoint = (
             f"https://{self.settings.vertex_location}-aiplatform.googleapis.com/v1/projects/"
             f"{self.settings.vertex_project_id}/locations/{self.settings.vertex_location}/"
@@ -135,9 +130,9 @@ class VertexGeminiTransport:
                 provider_status,
                 ",".join(field_paths) if field_paths else None,
             )
-            return None, self._zero_billing(), response_id
+            return None, self._zero_usage(), response_id
 
-        usage = self._usage_envelope(raw)
+        usage = self._usage(raw)
         text = self._candidate_text(raw)
         if text is None:
             self.logger.error(
@@ -158,75 +153,37 @@ class VertexGeminiTransport:
             )
             return None, usage, response_id
 
-    def _usage_envelope(self, raw: dict[str, object]) -> ProviderBilling:
-        """Capture token telemetry without applying prices or monetary accounting."""
+    def _usage(self, raw: dict[str, object]) -> ProviderTokenUsage:
+        """Capture token telemetry without pricing or monetary accounting."""
         usage_raw = raw.get("usageMetadata")
-        usage = (
-            ProviderTokenUsage(
-                prompt_tokens=self._int_field(usage_raw, "promptTokenCount"),
-                candidate_tokens=self._int_field(usage_raw, "candidatesTokenCount"),
-                thought_tokens=self._int_field(usage_raw, "thoughtsTokenCount"),
-                cached_input_tokens=self._int_field(usage_raw, "cachedContentTokenCount"),
-                tool_input_tokens=self._int_field(usage_raw, "toolUsePromptTokenCount"),
-                total_tokens=self._int_field(usage_raw, "totalTokenCount"),
-                traffic_type=self._string_field(usage_raw, "trafficType"),
-            )
-            if isinstance(usage_raw, dict)
-            else ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0)
-        )
-        return self._non_monetary_envelope(usage, "USAGE_ONLY")
-
-    def _merge_billings(self, billings: list[ProviderBilling]) -> ProviderBilling:
-        prompt_tokens = sum(item.usage.prompt_tokens for item in billings)
-        candidate_tokens = sum(item.usage.candidate_tokens for item in billings)
-        thought_tokens = sum(item.usage.thought_tokens for item in billings)
-        cached_input_tokens = sum(item.usage.cached_input_tokens for item in billings)
-        tool_input_tokens = sum(item.usage.tool_input_tokens for item in billings)
-        total_tokens = sum(item.usage.total_tokens for item in billings)
-        traffic_types = {item.usage.traffic_type for item in billings if item.usage.traffic_type}
-        return self._non_monetary_envelope(
-            ProviderTokenUsage(
-                prompt_tokens=prompt_tokens,
-                candidate_tokens=candidate_tokens,
-                thought_tokens=thought_tokens,
-                cached_input_tokens=cached_input_tokens,
-                tool_input_tokens=tool_input_tokens,
-                total_tokens=total_tokens,
-                traffic_type=next(iter(traffic_types)) if len(traffic_types) == 1 else None,
-            ),
-            "USAGE_ONLY_SHARDED",
+        if not isinstance(usage_raw, dict):
+            return self._zero_usage()
+        return ProviderTokenUsage(
+            prompt_tokens=self._int_field(usage_raw, "promptTokenCount"),
+            candidate_tokens=self._int_field(usage_raw, "candidatesTokenCount"),
+            thought_tokens=self._int_field(usage_raw, "thoughtsTokenCount"),
+            cached_input_tokens=self._int_field(usage_raw, "cachedContentTokenCount"),
+            tool_input_tokens=self._int_field(usage_raw, "toolUsePromptTokenCount"),
+            total_tokens=self._int_field(usage_raw, "totalTokenCount"),
+            traffic_type=self._string_field(usage_raw, "trafficType"),
         )
 
-    def _zero_billing(self) -> ProviderBilling:
-        return self._non_monetary_envelope(
-            ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
-            "USAGE_UNAVAILABLE",
+    @staticmethod
+    def _merge_usage(usages: list[ProviderTokenUsage]) -> ProviderTokenUsage:
+        traffic_types = {item.traffic_type for item in usages if item.traffic_type}
+        return ProviderTokenUsage(
+            prompt_tokens=sum(item.prompt_tokens for item in usages),
+            candidate_tokens=sum(item.candidate_tokens for item in usages),
+            thought_tokens=sum(item.thought_tokens for item in usages),
+            cached_input_tokens=sum(item.cached_input_tokens for item in usages),
+            tool_input_tokens=sum(item.tool_input_tokens for item in usages),
+            total_tokens=sum(item.total_tokens for item in usages),
+            traffic_type=next(iter(traffic_types)) if len(traffic_types) == 1 else None,
         )
 
-    def _orchestration_billing(self) -> ProviderBilling:
-        """Compatibility envelope for orchestration rows; monetary billing is disabled."""
-        return self._non_monetary_envelope(
-            ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
-            "ORCHESTRATION_ENVELOPE",
-        )
-
-    def _non_monetary_envelope(
-        self, usage: ProviderTokenUsage, pricing_mode: str
-    ) -> ProviderBilling:
-        return ProviderBilling(
-            actual_cost=Decimal("0.000000000"),
-            currency="USD",
-            usage=usage,
-            pricing=ProviderPricingSnapshot(
-                catalog_version=self._BILLING_DISABLED_CATALOG_VERSION,
-                model_key=self.settings.vertex_model,
-                location=self.settings.vertex_location,
-                pricing_mode=pricing_mode,
-                input_usd_per_million=Decimal("0"),
-                cached_input_usd_per_million=Decimal("0"),
-                output_usd_per_million=Decimal("0"),
-            ),
-        )
+    @staticmethod
+    def _zero_usage() -> ProviderTokenUsage:
+        return ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0)
 
     async def _access_token(self) -> str:
         if self._credentials.valid and isinstance(self._credentials.token, str):

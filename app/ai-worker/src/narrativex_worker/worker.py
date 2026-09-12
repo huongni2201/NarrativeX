@@ -6,11 +6,9 @@ import logging
 import signal
 import sys
 import uuid
-from dataclasses import replace
 from typing import Any
 
 from narrativex_worker.analysis_execution import ChapterAnalysisExecutionContext
-from narrativex_worker.billing_repository import ProviderBillingRepository
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers.disabled import DisabledProvider
 from narrativex_worker.providers.fake_analysis import FakeAnalysisProvider
@@ -48,7 +46,6 @@ class NarrativeXWorker:
             lease_seconds=self.settings.lease_seconds,
             pool_size=max(5, self.settings.worker_concurrency * 2 + 1),
         )
-        self.billing_repository = ProviderBillingRepository(self.settings.database_url)
         provider = (
             ContinuityVertexGeminiProvider(self.settings)
             if self.settings.provider_mode == "vertex"
@@ -205,12 +202,12 @@ class NarrativeXWorker:
     ) -> None:
         capabilities = self.service.provider.get_capabilities()
         if capabilities.supports_durable_subcall_resume:
-            # The outer row is a local orchestration envelope. Real paid calls are fenced by the
-            # subcall checkpoint repository, so marking this coordinator RUNNING remains resumable.
+            # The outer row is a local orchestration envelope. External provider subcalls are
+            # fenced by the checkpoint repository, so marking this coordinator RUNNING is resumable.
             active = await self.repository.mark_provider_orchestration_running(durable)
             execution = self._analysis_execution_context(claimed)
         else:
-            # Legacy/direct providers still need the external-call UNKNOWN fence before submit.
+            # Direct providers still need the external-call UNKNOWN fence before submit.
             reconcile_delay = max(
                 float(self.settings.lease_seconds),
                 self.settings.vertex_timeout_seconds
@@ -368,33 +365,6 @@ class NarrativeXWorker:
         durable: DurableProviderOperation,
         operation: ProviderOperation,
     ) -> None:
-        if self.settings.provider_mode == "vertex" and operation.status in (
-            ProviderOperationStatus.COMPLETED,
-            ProviderOperationStatus.FAILED,
-        ):
-            if operation.billing is None:
-                with contextlib.suppress(ProviderOperationStateConflictError):
-                    await self.repository.suspend_provider_reconciliation(
-                        durable,
-                        "Terminal Vertex operation has no durable billing metadata",
-                    )
-                raise ProviderOperationUnreconcilableError(
-                    "Terminal Vertex operation has no durable billing metadata"
-                )
-            try:
-                row_version = await self.billing_repository.persist(durable, operation.billing)
-                durable = replace(durable, row_version=row_version)
-            except ProviderOperationStateConflictError:
-                await self._resolve_provider_operation_conflict(claimed, durable)
-                return
-            except Exception as exception:
-                error = (
-                    f"Provider billing persistence outcome is unknown: {type(exception).__name__}"
-                )
-                with contextlib.suppress(ProviderOperationStateConflictError):
-                    await self.repository.suspend_provider_reconciliation(durable, error)
-                raise ProviderOperationUnreconcilableError(error) from exception
-
         if operation.status is ProviderOperationStatus.COMPLETED and operation.result is not None:
             try:
                 durable = await self.repository.persist_provider_result(
@@ -536,9 +506,6 @@ class NarrativeXWorker:
                 )
                 continue
             try:
-                if reconciled.billing is not None:
-                    row_version = await self.billing_repository.persist(durable, reconciled.billing)
-                    durable = replace(durable, row_version=row_version)
                 if (
                     reconciled.status is ProviderOperationStatus.COMPLETED
                     and reconciled.result is not None

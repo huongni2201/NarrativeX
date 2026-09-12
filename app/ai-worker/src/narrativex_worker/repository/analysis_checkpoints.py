@@ -10,7 +10,6 @@ from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.providers.ports import ProviderBilling
 from narrativex_worker.repository.analysis_fingerprint import result_fingerprint
 
 
@@ -161,10 +160,8 @@ class AnalysisCheckpointRepository:
         *,
         result: dict[str, Any],
         provider_response_id: str,
-        billing: ProviderBilling,
     ) -> AnalysisCheckpoint:
         """Atomically persist the subcall result and checkpoint completion."""
-        del billing
         if checkpoint.provider_operation_id is None:
             raise RuntimeError("analysis checkpoint has no linked provider operation")
         result_text, result_hash = result_fingerprint(result)
@@ -178,10 +175,6 @@ class AnalysisCheckpointRepository:
                            status = 'COMPLETED',
                            result_fingerprint = $3,
                            normalized_result_json = $4::jsonb,
-                           actual_cost = NULL,
-                           billing_currency = NULL,
-                           usage_json = NULL,
-                           pricing_snapshot_json = NULL,
                            completed_at = CURRENT_TIMESTAMP,
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
@@ -234,10 +227,8 @@ class AnalysisCheckpointRepository:
         checkpoint: AnalysisCheckpoint,
         *,
         provider_response_id: str,
-        billing: ProviderBilling,
     ) -> AnalysisCheckpoint:
-        """Persist a conclusive provider or validation failure without monetary metadata."""
-        del billing
+        """Persist a conclusive provider or validation failure."""
         if checkpoint.provider_operation_id is None:
             raise RuntimeError("analysis checkpoint has no linked provider operation")
 
@@ -248,10 +239,6 @@ class AnalysisCheckpointRepository:
                     UPDATE provider_operations
                        SET provider_operation_id = $2,
                            status = 'FAILED',
-                           actual_cost = NULL,
-                           billing_currency = NULL,
-                           usage_json = NULL,
-                           pricing_snapshot_json = NULL,
                            completed_at = CURRENT_TIMESTAMP,
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
@@ -308,7 +295,7 @@ class AnalysisCheckpointRepository:
         result: dict[str, Any],
         provider_operation_id: uuid.UUID | None,
     ) -> AnalysisCheckpoint:
-        """Complete deterministic/non-provider checkpoints retained for compatibility."""
+        """Complete deterministic/non-provider checkpoints."""
         result_text, result_hash = result_fingerprint(result)
         row = await self._pool.fetchrow(
             """
