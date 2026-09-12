@@ -55,9 +55,9 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
         STORY_VERSION_ID);
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
-            + " resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, ?, ?,"
+            + " resource_class, progress, requested_by_user_id) VALUES (?, ?, ?, ?,"
             + " 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER',"
-            + " 100, 'artifact-owner', 'artifact-owner') ON CONFLICT (id) DO NOTHING",
+            + " 100, 'artifact-owner') ON CONFLICT (id) DO NOTHING",
         GENERATION_JOB_ID,
         UUID.fromString(JOB_ID),
         PROJECT_ID,
