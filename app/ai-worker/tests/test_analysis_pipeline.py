@@ -1,5 +1,4 @@
 import hashlib
-from decimal import Decimal
 
 import pytest
 
@@ -9,29 +8,12 @@ from narrativex_worker.analysis_pipeline import (
     run_chapter_analysis_pipeline,
 )
 from narrativex_worker.continuity.pipeline_contracts import AnalysisStepIdentity
-from narrativex_worker.providers.ports import (
-    ProviderBilling,
-    ProviderPricingSnapshot,
-    ProviderTokenUsage,
-)
+from narrativex_worker.providers.ports import ProviderTokenUsage
 from narrativex_worker.schema import ChapterAnalysisRequest
 
 
-def _billing() -> ProviderBilling:
-    return ProviderBilling(
-        actual_cost=Decimal("0"),
-        currency="USD",
-        usage=ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
-        pricing=ProviderPricingSnapshot(
-            catalog_version="test",
-            model_key="fake",
-            location="test",
-            pricing_mode="test",
-            input_usd_per_million=Decimal("0"),
-            cached_input_usd_per_million=Decimal("0"),
-            output_usd_per_million=Decimal("0"),
-        ),
-    )
+def _usage() -> ProviderTokenUsage:
+    return ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0)
 
 
 def _request(source: str) -> ChapterAnalysisRequest:
@@ -106,7 +88,7 @@ class FakeStructuredAdapter:
             payload["continuityPlan"]["sourceHash"] = prompt.split("SOURCE_HASH=", 1)[1].split(
                 "\n", 1
             )[0]
-            return model.model_validate(payload), _billing(), "structure-1"
+            return model.model_validate(payload), _usage(), "structure-1"
 
         assert model is VisualBeatShardWithContinuityResult
         self.shard_calls += 1
@@ -158,7 +140,7 @@ class FakeStructuredAdapter:
                     ],
                 }
             ),
-            _billing(),
+            _usage(),
             f"shard-{self.shard_calls}",
         )
 
