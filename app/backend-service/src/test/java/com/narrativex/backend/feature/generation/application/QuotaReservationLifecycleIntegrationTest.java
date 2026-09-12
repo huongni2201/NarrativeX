@@ -225,14 +225,13 @@ class QuotaReservationLifecycleIntegrationTest {
         """
         INSERT INTO generation_jobs
           (job_id, project_id, job_type, status, resource_class, progress,
-           requested_by_user_id, billed_to_user_id, idempotency_key)
-        VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?, ?)
+           requested_by_user_id, idempotency_key)
+        VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?)
         RETURNING id
         """,
         UUID.class,
         com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         projectId,
-        USER_ID,
         USER_ID,
         suffix);
   }
@@ -241,15 +240,13 @@ class QuotaReservationLifecycleIntegrationTest {
     return jdbcTemplate.queryForObject(
         """
         INSERT INTO generation_jobs
-          (job_id, project_id, job_type, status, resource_class, progress,
-           requested_by_user_id, billed_to_user_id)
-        VALUES (?, ?, 'RENDER_PROJECT', 'QUEUED', 'CPU_RENDER', 0, ?, ?)
+          (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id)
+        VALUES (?, ?, 'RENDER_PROJECT', 'QUEUED', 'CPU_RENDER', 0, ?)
         RETURNING id
         """,
         UUID.class,
         com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         projectId,
-        USER_ID,
         USER_ID);
   }
 
