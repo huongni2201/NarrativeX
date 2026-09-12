@@ -8,7 +8,10 @@ from narrativex_worker.narration.models import NarrationSegment
 # short dialogue/paragraph lines without terminal punctuation.
 _BOUNDARY = re.compile(r"(?:(?<=[.!?…。！？])(?:[\"'”’)]*)[ \t]+|\r?\n+)")
 _CLAUSE_BREAK_CHARS = frozenset(",;:，；：")
-_DEFAULT_MAX_CHARS = 180
+# Keep this in lockstep with the desktop subtitle cue ceiling. When an alignment span
+# already fits one cue, subtitle timing can use the measured segment audio range exactly
+# instead of subdividing that range with character-weight interpolation.
+_DEFAULT_MAX_CHARS = 96
 
 
 def utf16_length(value: str) -> int:
