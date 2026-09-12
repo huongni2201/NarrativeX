@@ -1,6 +1,6 @@
 """Full-chapter narration primitives."""
 
-from narrativex_worker.narration.alignment import NarrationAlignmentValidator, build_alignment
+from narrativex_worker.narration.alignment import NarrationAlignmentValidator
 from narrativex_worker.narration.models import (
     MaterializedAudioSegment,
     NarrationSegment,
@@ -15,6 +15,7 @@ from narrativex_worker.narration.storage import (
     MediaStorage,
     StoredMediaAsset,
 )
+from narrativex_worker.narration.word_alignment import WhisperWordAligner, WordAlignmentError
 
 __all__ = [
     "FakeTtsProvider",
@@ -30,7 +31,8 @@ __all__ = [
     "SynthesizedSegment",
     "TtsProvider",
     "TtsRequest",
+    "WhisperWordAligner",
     "WordAlignment",
-    "build_alignment",
+    "WordAlignmentError",
     "utf16_length",
 ]
