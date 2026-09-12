@@ -139,7 +139,7 @@ class NarrationCompletionMixin:
                 await connection.execute(
                     """
                     INSERT INTO narration_alignments
-                        (id, narration_asset_id, source_hash, alignment_version, spans_json)
+                        (id, narration_asset_id, source_hash, alignment_version, words_json)
                     VALUES ($1, $2, $3, 'word-whisper-v1', $4::jsonb)
                     """,
                     uuid7(),
