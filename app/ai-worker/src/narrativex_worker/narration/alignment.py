@@ -8,6 +8,8 @@ from narrativex_worker.narration.models import (
 )
 from narrativex_worker.narration.word_alignment import default_word_aligner
 
+_WORD_ALIGNER = default_word_aligner()
+
 
 class NarrationAlignmentValidator:
     """Validate word timing without requiring subtitles to cover silence."""
@@ -47,7 +49,7 @@ def build_alignment(
 ) -> list[WordAlignment]:
     """Build authoritative word timing from synthesized audio, never text-duration weighting."""
 
-    return default_word_aligner().align_segments(list(segments))
+    return _WORD_ALIGNER.align_segments(list(segments))
 
 
 def normalize_alignment_duration(
