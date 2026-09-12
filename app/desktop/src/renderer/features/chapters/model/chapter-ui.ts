@@ -12,7 +12,6 @@ const AUDIO_PROCESSING_STATUSES = new Set([
   "GENERATING",
   "STALLED",
   "UNKNOWN",
-  "PAUSED_COST_LIMIT",
 ]);
 
 const ANALYSIS_PROCESSING_STATUSES = new Set(["QUEUED", "RUNNING", "STALLED", "UNKNOWN"]);
@@ -98,7 +97,6 @@ export function chapterAudioListClass(status: string | undefined) {
 
 export function pipelineStatusLabel(status: string) {
   if (status === "COMPLETED" || status === "READY") return "Hoàn thành";
-  if (status === "PAUSED_COST_LIMIT") return "Tạm dừng";
   if (PIPELINE_PROCESSING_STATUSES.has(status)) return "Đang chạy";
   if (status === "FAILED") return "Thất bại";
   return "Chưa bắt đầu";
@@ -106,7 +104,6 @@ export function pipelineStatusLabel(status: string) {
 
 export function audioStatusLabel(status: string) {
   if (status === "READY" || status === "COMPLETED") return "Sẵn sàng";
-  if (status === "PAUSED_COST_LIMIT") return "Tạm dừng";
   if (isAudioProcessingStatus(status)) return "Đang xử lý";
   if (status === "FAILED") return "Thất bại";
   return "Chưa tạo";

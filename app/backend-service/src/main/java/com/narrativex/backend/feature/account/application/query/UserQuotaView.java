@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.account.application.query;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record UserQuotaView(
@@ -16,7 +15,4 @@ public record UserQuotaView(
     String featureFlagsJson,
     int longformExportsUsed,
     int shortExportsUsed,
-    int expensiveJobsActive,
-    BigDecimal creditsUsed,
-    BigDecimal totalCredits,
-    BigDecimal remainingCredits) {}
+    int expensiveJobsActive) {}

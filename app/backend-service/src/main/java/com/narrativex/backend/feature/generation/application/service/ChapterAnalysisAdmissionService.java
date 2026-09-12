@@ -14,25 +14,25 @@ import org.springframework.stereotype.Service;
 public class ChapterAnalysisAdmissionService {
   private final UserQuotaAccess quotaQuery;
   private final QuotaReservation quotaReservation;
-  private final ChapterAnalysisCostEstimator costEstimator;
 
   public Admission admit(String userId, UUID projectId, ChapterAnalysisSource source) {
-    ChapterAnalysisCostEstimate estimate = costEstimator.estimate(source.sourceText());
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery
             .findCurrentQuota(userId)
             .orElseThrow(
-                () -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "ENTITLEMENT_DENIED", "No active plan."));
 
     requireEntitled(quota);
     QuotaReservation.Reservation reservation =
         quotaReservation
-            .reserve(userId, estimate.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
+            .reserve(userId, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
-                        "COST_LIMIT", "The story-analysis quota is exhausted."));
-    return new Admission(estimate, reservation);
+                        "CAPACITY_LIMIT", "The story-analysis concurrency quota is exhausted."));
+    return new Admission(reservation);
   }
 
   private static void requireEntitled(UserQuotaAccess.QuotaSnapshot quota) {
@@ -41,6 +41,5 @@ public class ChapterAnalysisAdmissionService {
     }
   }
 
-  public record Admission(
-      ChapterAnalysisCostEstimate estimate, QuotaReservation.Reservation reservation) {}
+  public record Admission(QuotaReservation.Reservation reservation) {}
 }

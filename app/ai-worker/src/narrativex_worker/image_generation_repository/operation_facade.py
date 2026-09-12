@@ -193,39 +193,43 @@ class ImageProviderOperationFacadeMixin(ImageRepositoryMixin):
                     """
                     UPDATE provider_operations
                        SET status = CASE
-                               WHEN (
-                                   (provider_operation_id IS NULL
-                                    AND reserved_at <= CURRENT_TIMESTAMP
-                                        - ($4 * INTERVAL '1 second'))
-                                   OR reconcile_attempts + 1 >= $5
-                               ) THEN 'FAILED'
+                               WHEN provider_operation_id IS NULL
+                                    AND (
+                                        reserved_at <= CURRENT_TIMESTAMP
+                                            - ($4 * INTERVAL '1 second')
+                                        OR reconcile_attempts + 1 >= $5
+                                    )
+                               THEN 'FAILED'
                                ELSE 'UNKNOWN'
                            END,
                            completed_at = CASE
-                               WHEN (
-                                   (provider_operation_id IS NULL
-                                    AND reserved_at <= CURRENT_TIMESTAMP
-                                        - ($4 * INTERVAL '1 second'))
-                                   OR reconcile_attempts + 1 >= $5
-                               ) THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
+                               WHEN provider_operation_id IS NULL
+                                    AND (
+                                        reserved_at <= CURRENT_TIMESTAMP
+                                            - ($4 * INTERVAL '1 second')
+                                        OR reconcile_attempts + 1 >= $5
+                                    )
+                               THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
                                ELSE completed_at
                            END,
                            next_reconcile_at = CASE
-                               WHEN (
-                                   (provider_operation_id IS NULL
-                                    AND reserved_at <= CURRENT_TIMESTAMP
-                                        - ($4 * INTERVAL '1 second'))
-                                   OR reconcile_attempts + 1 >= $5
-                               ) THEN NULL
+                               WHEN provider_operation_id IS NULL
+                                    AND (
+                                        reserved_at <= CURRENT_TIMESTAMP
+                                            - ($4 * INTERVAL '1 second')
+                                        OR reconcile_attempts + 1 >= $5
+                                    )
+                               THEN NULL
                                ELSE CURRENT_TIMESTAMP + INTERVAL '15 seconds'
                            END,
                            last_reconcile_error = CASE
-                               WHEN (
-                                   (provider_operation_id IS NULL
-                                    AND reserved_at <= CURRENT_TIMESTAMP
-                                        - ($4 * INTERVAL '1 second'))
-                                   OR reconcile_attempts + 1 >= $5
-                               ) THEN 'PROVIDER_SUBMISSION_UNRESOLVED'
+                               WHEN provider_operation_id IS NULL
+                                    AND (
+                                        reserved_at <= CURRENT_TIMESTAMP
+                                            - ($4 * INTERVAL '1 second')
+                                        OR reconcile_attempts + 1 >= $5
+                                    )
+                               THEN 'PROVIDER_SUBMISSION_UNRESOLVED'
                                ELSE $2
                            END,
                            reconcile_attempts = reconcile_attempts + 1,

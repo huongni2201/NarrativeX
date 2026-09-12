@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.account.infrastructure.persistence.mybatis;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,11 +16,8 @@ public class QuotaCurrentRow {
   private Integer maxLongformExportsMonth;
   private Integer maxShortExportsMonth;
   private int maxConcurrentExpensiveJobs;
-  private BigDecimal monthlyCredits;
   private String featureFlagsJson;
   private int longformExports;
   private int shortExports;
   private int activeReservedJobs;
-  private BigDecimal creditsUsed;
-  private BigDecimal creditsReserved;
 }

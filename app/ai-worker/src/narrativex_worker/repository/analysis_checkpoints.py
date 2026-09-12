@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
@@ -163,12 +163,11 @@ class AnalysisCheckpointRepository:
         provider_response_id: str,
         billing: ProviderBilling,
     ) -> AnalysisCheckpoint:
-        """Atomically persist subcall result, billing evidence, and checkpoint completion."""
+        """Atomically persist the subcall result and checkpoint completion."""
+        del billing
         if checkpoint.provider_operation_id is None:
             raise RuntimeError("analysis checkpoint has no linked provider operation")
         result_text, result_hash = result_fingerprint(result)
-        usage_text = json.dumps(asdict(billing.usage), ensure_ascii=False)
-        pricing_text = json.dumps(asdict(billing.pricing), ensure_ascii=False, default=str)
 
         async with self._pool.acquire() as connection:
             async with connection.transaction():
@@ -179,10 +178,10 @@ class AnalysisCheckpointRepository:
                            status = 'COMPLETED',
                            result_fingerprint = $3,
                            normalized_result_json = $4::jsonb,
-                           actual_cost = $5,
-                           billing_currency = $6,
-                           usage_json = $7::jsonb,
-                           pricing_snapshot_json = $8::jsonb,
+                           actual_cost = NULL,
+                           billing_currency = NULL,
+                           usage_json = NULL,
+                           pricing_snapshot_json = NULL,
                            completed_at = CURRENT_TIMESTAMP,
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
@@ -194,10 +193,6 @@ class AnalysisCheckpointRepository:
                     provider_response_id,
                     result_hash,
                     result_text,
-                    billing.actual_cost,
-                    billing.currency,
-                    usage_text,
-                    pricing_text,
                 )
                 if operation_updated is None:
                     raise RuntimeError("analysis subcall provider operation lost its UNKNOWN fence")
@@ -241,11 +236,10 @@ class AnalysisCheckpointRepository:
         provider_response_id: str,
         billing: ProviderBilling,
     ) -> AnalysisCheckpoint:
-        """Persist a conclusive provider/validation failure and its billable usage."""
+        """Persist a conclusive provider or validation failure without monetary metadata."""
+        del billing
         if checkpoint.provider_operation_id is None:
             raise RuntimeError("analysis checkpoint has no linked provider operation")
-        usage_text = json.dumps(asdict(billing.usage), ensure_ascii=False)
-        pricing_text = json.dumps(asdict(billing.pricing), ensure_ascii=False, default=str)
 
         async with self._pool.acquire() as connection:
             async with connection.transaction():
@@ -254,10 +248,10 @@ class AnalysisCheckpointRepository:
                     UPDATE provider_operations
                        SET provider_operation_id = $2,
                            status = 'FAILED',
-                           actual_cost = $3,
-                           billing_currency = $4,
-                           usage_json = $5::jsonb,
-                           pricing_snapshot_json = $6::jsonb,
+                           actual_cost = NULL,
+                           billing_currency = NULL,
+                           usage_json = NULL,
+                           pricing_snapshot_json = NULL,
                            completed_at = CURRENT_TIMESTAMP,
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
@@ -267,10 +261,6 @@ class AnalysisCheckpointRepository:
                     """,
                     checkpoint.provider_operation_id,
                     provider_response_id,
-                    billing.actual_cost,
-                    billing.currency,
-                    usage_text,
-                    pricing_text,
                 )
                 if operation_updated is None:
                     raise RuntimeError("analysis subcall provider operation lost its UNKNOWN fence")

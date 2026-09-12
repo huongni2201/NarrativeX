@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.desktop;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -15,16 +16,46 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 import org.springframework.stereotype.Component;
 
 /**
- * Keeps pending OAuth requests independent when a user opens more than one Google login tab. Spring
- * Security's default repository stores only one request per HTTP session, so a later login attempt
- * can overwrite the state needed by an earlier callback.
+ * Keeps pending OAuth requests and their desktop PKCE metadata independent when a user opens more
+ * than one Google login tab.
  */
 @Component
 public final class DesktopOAuth2AuthorizationRequestRepository
     implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
+  public static final String DESKTOP_ATTEMPT_PARAMETER = "desktop_attempt";
   private static final String ATTRIBUTE_PREFIX = "NARRATIVEX_OAUTH2_AUTHORIZATION_REQUEST:";
   private static final String INDEX_ATTRIBUTE = "NARRATIVEX_OAUTH2_AUTHORIZATION_REQUEST_INDEX";
+  private static final String PENDING_ATTEMPT_PREFIX = "NARRATIVEX_DESKTOP_OAUTH_PENDING:";
+  private static final String STATE_ATTEMPT_PREFIX = "NARRATIVEX_DESKTOP_OAUTH_STATE:";
   private static final int MAX_PENDING_REQUESTS = 8;
+
+  public record DesktopAttempt(String attemptId, String redirectUri, String codeChallenge)
+      implements Serializable {}
+
+  public static void storePendingDesktopAttempt(
+      HttpSession session,
+      String attemptId,
+      String redirectUri,
+      String codeChallenge) {
+    synchronized (session) {
+      session.setAttribute(
+          pendingAttemptName(attemptId),
+          new DesktopAttempt(attemptId, redirectUri, codeChallenge));
+    }
+  }
+
+  public static DesktopAttempt consumeDesktopAttempt(HttpServletRequest request) {
+    String state = request.getParameter("state");
+    if (state == null || state.isBlank()) return null;
+    HttpSession session = request.getSession(false);
+    if (session == null) return null;
+    synchronized (session) {
+      String attribute = stateAttemptName(state);
+      Object value = session.getAttribute(attribute);
+      session.removeAttribute(attribute);
+      return value instanceof DesktopAttempt attempt ? attempt : null;
+    }
+  }
 
   @Override
   public void saveAuthorizationRequest(
@@ -41,6 +72,16 @@ public final class DesktopOAuth2AuthorizationRequestRepository
 
     HttpSession session = request.getSession(true);
     synchronized (session) {
+      String attemptId = request.getParameter(DESKTOP_ATTEMPT_PARAMETER);
+      if (attemptId != null && !attemptId.isBlank()) {
+        String pendingName = pendingAttemptName(attemptId);
+        Object pending = session.getAttribute(pendingName);
+        if (pending instanceof DesktopAttempt) {
+          session.setAttribute(stateAttemptName(state), pending);
+          session.removeAttribute(pendingName);
+        }
+      }
+
       session.setAttribute(attributeName(state), authorizationRequest);
       Set<String> index = readIndex(session);
       index.remove(state);
@@ -49,6 +90,7 @@ public final class DesktopOAuth2AuthorizationRequestRepository
         String oldestState = index.iterator().next();
         index.remove(oldestState);
         session.removeAttribute(attributeName(oldestState));
+        session.removeAttribute(stateAttemptName(oldestState));
       }
       session.setAttribute(INDEX_ATTRIBUTE, index);
     }
@@ -84,6 +126,7 @@ public final class DesktopOAuth2AuthorizationRequestRepository
       } else {
         session.setAttribute(INDEX_ATTRIBUTE, index);
       }
+      // Keep state-bound desktop metadata until the success/failure handler consumes it.
       return authorizationRequest;
     }
   }
@@ -96,6 +139,14 @@ public final class DesktopOAuth2AuthorizationRequestRepository
       if (state instanceof String candidate && !candidate.isBlank()) index.add(candidate);
     }
     return index;
+  }
+
+  private static String pendingAttemptName(String attemptId) {
+    return PENDING_ATTEMPT_PREFIX + hashState(attemptId);
+  }
+
+  private static String stateAttemptName(String state) {
+    return STATE_ATTEMPT_PREFIX + hashState(state);
   }
 
   private static String attributeName(String state) {

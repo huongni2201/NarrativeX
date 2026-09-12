@@ -7,12 +7,11 @@ public enum JobStatus {
   FAILED,
   CANCELED,
   UNKNOWN,
-  STALLED,
-  PAUSED_COST_LIMIT;
+  STALLED;
 
   public boolean isActive() {
     return switch (this) {
-      case QUEUED, RUNNING, UNKNOWN, STALLED, PAUSED_COST_LIMIT -> true;
+      case QUEUED, RUNNING, UNKNOWN, STALLED -> true;
       case COMPLETED, FAILED, CANCELED -> false;
     };
   }
@@ -20,7 +19,7 @@ public enum JobStatus {
   public boolean isTerminal() {
     return switch (this) {
       case COMPLETED, FAILED, CANCELED -> true;
-      case QUEUED, RUNNING, UNKNOWN, STALLED, PAUSED_COST_LIMIT -> false;
+      case QUEUED, RUNNING, UNKNOWN, STALLED -> false;
     };
   }
 }

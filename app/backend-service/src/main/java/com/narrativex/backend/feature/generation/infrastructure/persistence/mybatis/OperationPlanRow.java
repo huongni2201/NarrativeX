@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
-import com.narrativex.backend.feature.generation.domain.enums.EstimateConfidence;
-import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,8 +16,4 @@ public class OperationPlanRow {
   private UUID projectId;
   private UUID generationJobId;
   private String operationType;
-  private BigDecimal estimateMin;
-  private BigDecimal estimateMax;
-  private BigDecimal maxAuthorizedCost;
-  private EstimateConfidence confidence;
 }

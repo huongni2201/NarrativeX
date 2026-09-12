@@ -2,7 +2,7 @@
 
 ## Authority
 
-PostgreSQL is the authoritative business/control-state store. The backend owns Flyway and relational schema evolution. NarrativeX is still pre-production, so disposable development schemas are not compatibility targets: the Flyway set describes only the current contract.
+PostgreSQL is the authoritative business/control-state store. The backend owns Flyway and relational schema evolution. Applied migrations are immutable; schema changes are appended with a new migration so existing databases can upgrade safely.
 
 ## Canonical Flyway set
 
@@ -24,9 +24,10 @@ PostgreSQL is the authoritative business/control-state store. The backend owns F
 | `V14__storyboard_generation_snapshots.sql` | immutable Storyboard/Gemini generation batches, beat snapshots, references and attempt evidence |
 | `V15__export_quota_reservations.sql` | durable long-form export reservations and exactly-once monthly settlement |
 | `V16__render_profile_watermark_policy.sql` | render-profile v3 watermark policy while retaining explicit v2 legacy snapshots |
-| `V17__remove_image_billing_metadata.sql` | removes image-generation cost/pricing metadata from media/regeneration plans while preserving generic billable-operation accounting |
+| `V17__remove_image_billing_metadata.sql` | removes image-generation cost/pricing metadata from media/regeneration plans while preserving generic provider-operation compatibility fields |
+| `V18__remove_credit_quota_accounting.sql` | migrates legacy CREDIT reservations to non-monetary CAPACITY reservations and updates reservation constraints |
 
-A clean database applies **V1 → V17**. Compatibility-only migrations are not retained before first production deployment. The current baseline therefore never exposes image-generation monetary metadata through active MediaPlan/regeneration contracts, and it never creates the retired standalone VisualBeat camera/audio columns, the old `preview_asset_id`, or the unowned `short_clip_requests` queue.
+A clean database applies **V1 → V18**. V18 keeps concurrency/export fencing but removes monetary credit semantics from active reservation admission. The current schema does not expose image-generation monetary metadata through active MediaPlan/regeneration contracts, and it never creates the retired standalone VisualBeat camera/audio columns, the old `preview_asset_id`, or the unowned `short_clip_requests` queue.
 
 ## Current storage decisions
 
@@ -94,24 +95,20 @@ Stage names such as `SHOT_IMAGE_GENERATE`, `SHOT_IMAGE_REGENERATE` and `RENDER_P
 
 `analysis_visual_generation_mode` intentionally allows `IMAGE` and `VIDEO`; VIDEO is independent of the current production-mode enum.
 
-## Pre-release migration policy
+## Migration policy
 
-Until first production deployment:
-
-- keep each table/constraint in a clear owning migration or cohesive baseline slice;
-- do not retain compatibility-only migrations, columns, aliases or tables for disposable development data;
+- never rewrite an applied migration to change a deployed schema;
+- add a forward migration for every schema evolution;
+- keep each table/constraint in a clear owning migration or cohesive migration slice;
 - do not create fractional migration names such as `V6_1` for new subsystem work;
-- recreate disposable local/test databases after baseline changes;
-- keep defensive validation for malformed current data, while rejecting unsupported schema versions;
-- keep sample/application data out of Flyway.
-
-At first production deployment, freeze the accepted baseline. After that, all schema changes are append-only.
+- keep sample/application data out of Flyway;
+- keep defensive validation for malformed current data while rejecting unsupported schema versions.
 
 ## Verification
 
-A supported empty PostgreSQL instance must:
+A supported PostgreSQL instance must:
 
-1. apply V1 through V17 successfully;
+1. apply V1 through V18 successfully;
 2. expose no pending migration;
 3. contain no removed server Chapter-render snapshot tables;
 4. contain no remote final-video artifact fields;
@@ -123,4 +120,5 @@ A supported empty PostgreSQL instance must:
 10. contain `visual_direction_json` but no standalone VisualBeat camera/audio columns, no `preview_asset_id`, and no `short_clip_requests` table;
 11. constrain the current production mode to `IMAGE_MOTION`;
 12. contain no active image MediaPlan/regeneration cost, currency, pricing snapshot or pricing fingerprint columns after V17;
-13. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.
+13. accept `CAPACITY` and `LONGFORM_EXPORT` reservations while rejecting legacy `CREDIT` reservations after V18;
+14. pass backend Testcontainers/Flyway/MyBatis tests and worker persistence tests.

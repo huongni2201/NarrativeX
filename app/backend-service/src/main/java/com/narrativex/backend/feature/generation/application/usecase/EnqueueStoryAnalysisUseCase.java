@@ -76,7 +76,7 @@ public class EnqueueStoryAnalysisUseCase {
       }
       idempotencyKey = baseIdempotencyKey + ":retry:" + UuidV7.random();
       log.info(
-          "Retrying legacy chapter analysis after terminal job id={} with new idempotencyKey='{}'",
+          "Retrying chapter analysis after terminal job id={} with new idempotencyKey='{}'",
           latest.orElse(existing).getId(),
           idempotencyKey);
     }
@@ -84,20 +84,13 @@ public class EnqueueStoryAnalysisUseCase {
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
     String analysisLanguage = project.getSourceLanguage();
     var admission = admissionService.admit(userId, command.projectId(), chapter);
-    var estimate = admission.estimate();
 
     UUID storyboardRevisionId =
         storyboardRevisionAccess.createDraft(
             command.chapterId(), chapter.sourceHash(), chapter.rowVersion());
 
     OperationPlan operationPlan =
-        operationPlanRepository.save(
-            OperationPlan.create(
-                command.projectId(),
-                "CHAPTER_ANALYZE",
-                estimate.estimateMin(),
-                estimate.estimateMax(),
-                estimate.maxAuthorizedCost()));
+        operationPlanRepository.save(OperationPlan.create(command.projectId(), "CHAPTER_ANALYZE"));
 
     GenerationJob job =
         generationJobRepository.save(

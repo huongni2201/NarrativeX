@@ -13,30 +13,30 @@ import org.springframework.stereotype.Service;
 public class NarrationAdmissionService {
   private final UserQuotaAccess quotaQuery;
   private final QuotaReservation quotaReservation;
-  private final NarrationCostEstimator costEstimator;
 
   public Admission admit(String userId, ChapterAnalysisSource source, boolean localExecution) {
     return admitText(userId, source.sourceText(), localExecution);
   }
 
   public Admission admitText(String userId, String sourceText, boolean localExecution) {
-    NarrationCostEstimate estimate = costEstimator.estimate(sourceText, localExecution);
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery
             .findCurrentQuota(userId)
             .orElseThrow(
-                () -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "ENTITLEMENT_DENIED", "No active plan."));
     if (!quota.features().narrationEnabled()) {
       throw new FeatureNotAvailableException("Narration is not enabled for this plan.");
     }
     QuotaReservation.Reservation reservation =
         quotaReservation
-            .reserve(userId, estimate.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
+            .reserve(userId, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
-                        "COST_LIMIT", "The narration quota is exhausted."));
-    return new Admission(estimate, reservation);
+                        "CAPACITY_LIMIT", "The narration concurrency quota is exhausted."));
+    return new Admission(reservation);
   }
 
   public Admission admit(String userId, ChapterAnalysisSource source, String voiceId) {
@@ -47,6 +47,5 @@ public class NarrationAdmissionService {
     return admit(userId, source, false);
   }
 
-  public record Admission(
-      NarrationCostEstimate estimate, QuotaReservation.Reservation reservation) {}
+  public record Admission(QuotaReservation.Reservation reservation) {}
 }

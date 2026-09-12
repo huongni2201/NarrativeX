@@ -6,7 +6,6 @@ import com.narrativex.backend.feature.account.application.port.out.UserQuotaQuer
 import com.narrativex.backend.feature.account.application.query.UserQuotaView;
 import com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaCurrentRow;
 import com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaMapper;
-import java.math.BigDecimal;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataRetrievalFailureException;
@@ -27,13 +26,6 @@ public class MyBatisUserQuotaQueryAdapter implements UserQuotaQueryRepository, U
     if (row == null) {
       return Optional.empty();
     }
-    BigDecimal monthlyCredits = row.getMonthlyCredits();
-    BigDecimal creditsUsed = zero(row.getCreditsUsed());
-    BigDecimal creditsReserved = zero(row.getCreditsReserved());
-    BigDecimal remainingCredits =
-        monthlyCredits == null
-            ? null
-            : monthlyCredits.subtract(creditsUsed).subtract(creditsReserved).max(BigDecimal.ZERO);
     return Optional.of(
         new UserQuotaView(
             row.getPlanKey(),
@@ -48,10 +40,7 @@ public class MyBatisUserQuotaQueryAdapter implements UserQuotaQueryRepository, U
             row.getFeatureFlagsJson(),
             row.getLongformExports(),
             row.getShortExports(),
-            row.getActiveReservedJobs(),
-            creditsUsed,
-            monthlyCredits,
-            remainingCredits));
+            row.getActiveReservedJobs()));
   }
 
   @Override
@@ -63,8 +52,6 @@ public class MyBatisUserQuotaQueryAdapter implements UserQuotaQueryRepository, U
                     parseFeatures(quota.featureFlagsJson()),
                     quota.maxConcurrentExpensiveJobs(),
                     quota.expensiveJobsActive(),
-                    quota.creditsUsed(),
-                    quota.totalCredits(),
                     quota.watermarkRequired(),
                     quota.maxVideoQuality(),
                     quota.maxLongformExportsMonth(),
@@ -83,9 +70,5 @@ public class MyBatisUserQuotaQueryAdapter implements UserQuotaQueryRepository, U
       throw new DataRetrievalFailureException(
           "Invalid feature_flags_json for active plan entitlement", exception);
     }
-  }
-
-  private static BigDecimal zero(BigDecimal value) {
-    return value == null ? BigDecimal.ZERO : value;
   }
 }
