@@ -2,150 +2,130 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { activeSubtitleAt, planSubtitles } from "../src/shared/subtitle-planner.ts";
 
-test("editor subtitle fallback follows the global narration span", () => {
+function wordsFor(text, timings) {
+  const matches = [...text.matchAll(/[^\s.,!?;:]+/gu)];
+  assert.equal(matches.length, timings.length);
+  return matches.map((match, index) => ({
+    index,
+    textStart: match.index,
+    textEnd: match.index + match[0].length,
+    audioStartMs: timings[index][0],
+    audioEndMs: timings[index][1],
+    confidence: 0.98,
+  }));
+}
+
+test("subtitle is omitted when authoritative word alignment is missing", () => {
   const cues = planSubtitles([
     {
       chapterId: "chapter-1",
       globalStartMs: 10_000,
       globalEndMs: 20_000,
       subtitleText: "Câu thứ nhất. Câu thứ hai.",
-      subtitleSpansJson: null,
+      subtitleWordsJson: null,
     },
   ]);
 
-  assert.equal(cues[0].startMs, 10_000);
-  assert.equal(cues.at(-1).endMs, 20_000);
-  assert.equal(activeSubtitleAt(cues, 10_001)?.text, "Câu thứ nhất.");
-  assert.equal(activeSubtitleAt(cues, 20_000), null);
+  assert.deepEqual(cues, []);
 });
 
-test("editor subtitle alignment snaps a bounded tail drift to narration duration", () => {
+test("subtitle preserves leading and trailing silence", () => {
+  const text = "Xin chào bạn.";
+  const words = wordsFor(text, [
+    [500, 850],
+    [900, 1_250],
+    [1_300, 1_600],
+  ]);
   const cues = planSubtitles([
     {
       chapterId: "chapter-1",
       globalStartMs: 10_000,
-      globalEndMs: 20_000,
-      subtitleText: "Câu thứ nhất. Câu thứ hai.",
-      subtitleSpansJson: JSON.stringify([
-        { index: 0, textStart: 0, textEnd: 14, audioStartMs: 0, audioEndMs: 4_000 },
-        { index: 1, textStart: 14, textEnd: 26, audioStartMs: 4_000, audioEndMs: 10_024 },
-      ]),
+      globalEndMs: 15_000,
+      subtitleText: text,
+      subtitleWordsJson: JSON.stringify(words),
     },
   ]);
 
-  assert.equal(cues[0].timingSource, "NARRATION_ALIGNMENT");
-  assert.equal(cues.at(-1).timingSource, "NARRATION_ALIGNMENT");
-  assert.equal(cues.at(-1).endMs, 20_000);
+  assert.equal(cues.length, 1);
+  assert.equal(cues[0].startMs, 10_500);
+  assert.equal(cues[0].endMs, 11_600);
+  assert.equal(cues[0].text, text);
+  assert.equal(cues[0].timingSource, "WORD_ALIGNMENT");
+  assert.equal(activeSubtitleAt(cues, 10_200), null);
+  assert.equal(activeSubtitleAt(cues, 12_000), null);
 });
 
-test("editor subtitle keeps a readable complete sentence in one cue", () => {
-  const sentence =
-    "Hắn đứng dậy rất chậm, nhìn về phía cánh cửa nhưng không thấy bất kỳ ai trong căn phòng đó.";
-  const cues = planSubtitles([
-    {
-      chapterId: "chapter-1",
-      globalStartMs: 0,
-      globalEndMs: 8_000,
-      subtitleText: sentence,
-      subtitleSpansJson: null,
-    },
+test("long spoken pause creates a subtitle-free gap", () => {
+  const text = "Anh nhìn cô. Cô quay đi.";
+  const words = wordsFor(text, [
+    [100, 300],
+    [330, 570],
+    [600, 820],
+    [1_700, 1_920],
+    [1_950, 2_180],
+    [2_220, 2_430],
   ]);
-
-  assert.deepEqual(cues.map((cue) => cue.text), [sentence]);
-});
-
-test("editor subtitle balances long sentences instead of orphaning the final word", () => {
-  const sentence =
-    "Người đàn ông đứng lặng trước cánh cửa cũ trong căn phòng tối rất lâu nhưng cuối cùng vẫn không nhìn thấy bất kỳ ai đang ở phía sau nữa nữa nữa.";
-  const cues = planSubtitles([
-    {
-      chapterId: "chapter-1",
-      globalStartMs: 0,
-      globalEndMs: 12_000,
-      subtitleText: sentence,
-      subtitleSpansJson: null,
-    },
-  ]);
-
-  assert.equal(cues.length, 2);
-  assert.notEqual(cues.at(-1)?.text, "nữa.");
-  assert.ok(cues.every((cue) => cue.text.length <= 96));
-});
-
-test("editor subtitle preserves measured alignment boundaries instead of merging an orphan", () => {
-  const sentence = "Hắn đứng dậy rồi nhìn về phía cánh cửa nhưng không thấy bất kỳ ai.";
-  const orphanStart = sentence.lastIndexOf("ai.");
-  const cues = planSubtitles([
-    {
-      chapterId: "chapter-1",
-      globalStartMs: 10_000,
-      globalEndMs: 20_000,
-      subtitleText: sentence,
-      subtitleSpansJson: JSON.stringify([
-        { index: 0, textStart: 0, textEnd: orphanStart, audioStartMs: 0, audioEndMs: 8_500 },
-        {
-          index: 1,
-          textStart: orphanStart,
-          textEnd: sentence.length,
-          audioStartMs: 8_500,
-          audioEndMs: 10_000,
-        },
-      ]),
-    },
-  ]);
-
-  assert.equal(cues.length, 2);
-  assert.equal(cues[0].startMs, 10_000);
-  assert.equal(cues[0].endMs, 18_500);
-  assert.equal(cues[1].text, "ai.");
-  assert.equal(cues[1].startMs, 18_500);
-  assert.equal(cues[1].endMs, 20_000);
-});
-
-test("editor subtitle prefers a nearby clause boundary when balancing a long sentence", () => {
-  const sentence =
-    "Người đàn ông bước chậm qua hành lang tối rồi dừng trước cửa, nhưng bên trong căn phòng vẫn hoàn toàn im lặng như chưa từng có ai ở đó.";
-  const cues = planSubtitles([
-    {
-      chapterId: "chapter-1",
-      globalStartMs: 0,
-      globalEndMs: 10_000,
-      subtitleText: sentence,
-      subtitleSpansJson: null,
-    },
-  ]);
-
-  assert.equal(cues.length, 2);
-  assert.ok(cues[0].text.endsWith(","));
-});
-
-test("editor subtitle preserves an intentional short sentence after terminal punctuation", () => {
-  const sentence = "Anh có đi không? Không.";
-  const shortSentenceStart = sentence.lastIndexOf("Không.");
   const cues = planSubtitles([
     {
       chapterId: "chapter-1",
       globalStartMs: 0,
       globalEndMs: 4_000,
-      subtitleText: sentence,
-      subtitleSpansJson: JSON.stringify([
+      subtitleText: text,
+      subtitleWordsJson: JSON.stringify(words),
+    },
+  ]);
+
+  assert.deepEqual(cues.map((cue) => cue.text), ["Anh nhìn cô.", "Cô quay đi."]);
+  assert.equal(cues[0].endMs, 820);
+  assert.equal(cues[1].startMs, 1_700);
+  assert.equal(activeSubtitleAt(cues, 1_200), null);
+});
+
+test("terminal punctuation closes a cue at the measured last word time", () => {
+  const text = "Anh có đi không? Không.";
+  const words = wordsFor(text, [
+    [0, 200],
+    [230, 400],
+    [430, 600],
+    [630, 850],
+    [1_000, 1_350],
+  ]);
+  const cues = planSubtitles([
+    {
+      chapterId: "chapter-1",
+      globalStartMs: 0,
+      globalEndMs: 3_000,
+      subtitleText: text,
+      subtitleWordsJson: JSON.stringify(words),
+    },
+  ]);
+
+  assert.deepEqual(cues.map((cue) => cue.text), ["Anh có đi không?", "Không."]);
+  assert.deepEqual(cues.map((cue) => [cue.startMs, cue.endMs]), [
+    [0, 850],
+    [1_000, 1_350],
+  ]);
+});
+
+test("invalid word alignment never falls back to proportional text timing", () => {
+  const cues = planSubtitles([
+    {
+      chapterId: "chapter-1",
+      globalStartMs: 0,
+      globalEndMs: 4_000,
+      subtitleText: "Một câu ngắn.",
+      subtitleWordsJson: JSON.stringify([
         {
           index: 0,
           textStart: 0,
-          textEnd: shortSentenceStart,
-          audioStartMs: 0,
-          audioEndMs: 2_500,
-        },
-        {
-          index: 1,
-          textStart: shortSentenceStart,
-          textEnd: sentence.length,
-          audioStartMs: 2_500,
-          audioEndMs: 4_000,
+          textEnd: 3,
+          audioStartMs: 500,
+          audioEndMs: 4_500,
+          confidence: 0.9,
         },
       ]),
     },
   ]);
 
-  assert.deepEqual(cues.map((cue) => cue.text), ["Anh có đi không?", "Không."]);
+  assert.deepEqual(cues, []);
 });
