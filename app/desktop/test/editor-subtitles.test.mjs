@@ -72,7 +72,7 @@ test("editor subtitle balances long sentences instead of orphaning the final wor
   assert.ok(cues.every((cue) => cue.text.length <= 96));
 });
 
-test("editor subtitle merges an orphan alignment fragment back into its unfinished sentence", () => {
+test("editor subtitle preserves measured alignment boundaries instead of merging an orphan", () => {
   const sentence = "Hắn đứng dậy rồi nhìn về phía cánh cửa nhưng không thấy bất kỳ ai.";
   const orphanStart = sentence.lastIndexOf("ai.");
   const cues = planSubtitles([
@@ -94,10 +94,12 @@ test("editor subtitle merges an orphan alignment fragment back into its unfinish
     },
   ]);
 
-  assert.equal(cues.length, 1);
-  assert.equal(cues[0].text, sentence);
+  assert.equal(cues.length, 2);
   assert.equal(cues[0].startMs, 10_000);
-  assert.equal(cues[0].endMs, 20_000);
+  assert.equal(cues[0].endMs, 18_500);
+  assert.equal(cues[1].text, "ai.");
+  assert.equal(cues[1].startMs, 18_500);
+  assert.equal(cues[1].endMs, 20_000);
 });
 
 test("editor subtitle prefers a nearby clause boundary when balancing a long sentence", () => {
