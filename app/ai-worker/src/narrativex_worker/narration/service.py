@@ -1,8 +1,9 @@
 import hashlib
+
 from dataclasses import dataclass
 
 from narrativex_worker.narration.alignment import NarrationAlignmentValidator, build_alignment
-from narrativex_worker.narration.models import AlignmentSpan
+from narrativex_worker.narration.models import WordAlignment
 from narrativex_worker.narration.providers import TtsProvider, TtsRequest
 from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_length
 
@@ -14,7 +15,7 @@ class NarrationResult:
     channels: int
     duration_ms: int
     checksum: str
-    alignment: list[AlignmentSpan]
+    alignment: list[WordAlignment]
 
 
 class FullChapterNarrationService:
@@ -55,7 +56,10 @@ class FullChapterNarrationService:
 
         pcm = b"".join(item.pcm_bytes for item in synthesized)
         alignment = build_alignment(synthesized)
-        duration_ms = alignment[-1].audio_end_ms
+        sample_rate_hz = synthesized[0].sample_rate_hz
+        channels = synthesized[0].channels
+        frame_count = len(pcm) // (2 * channels)
+        duration_ms = round(frame_count * 1000 / sample_rate_hz)
         self.validator.validate(
             alignment,
             source_utf16_length=utf16_length(source_text),
@@ -63,8 +67,8 @@ class FullChapterNarrationService:
         )
         return NarrationResult(
             pcm_bytes=pcm,
-            sample_rate_hz=synthesized[0].sample_rate_hz,
-            channels=synthesized[0].channels,
+            sample_rate_hz=sample_rate_hz,
+            channels=channels,
             duration_ms=duration_ms,
             checksum=hashlib.sha256(pcm).hexdigest(),
             alignment=alignment,
