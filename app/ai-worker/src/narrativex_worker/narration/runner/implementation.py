@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.narration.alignment import NarrationAlignmentValidator, build_alignment
+from narrativex_worker.narration.alignment import NarrationAlignmentValidator
 from narrativex_worker.narration.audio import FfmpegAudioAssembler
 from narrativex_worker.narration.errors import (
     NarrationLeaseLostError,
@@ -21,6 +21,7 @@ from narrativex_worker.narration.models import (
     MaterializedAudioSegment,
     NarrationSegment,
     SynthesizedSegment,
+    WordAlignment,
 )
 from narrativex_worker.narration.pricing import (
     GoogleTtsPricingCatalog,
@@ -50,6 +51,7 @@ from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
     prepare_mp3_reference,
 )
+from narrativex_worker.narration.word_alignment import WhisperWordAligner, WordAlignmentError
 from narrativex_worker.observability import PipelineContext, PipelineMetrics
 from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
 from narrativex_worker.runtime.retry_policy import UNKNOWN_RECONCILIATION_POLICY
@@ -95,6 +97,12 @@ class NarrationWorkerRunner:
             self.storage = LocalMediaStorage(settings.project_media_local_dir)
         self.segmenter = NarrationSegmenter()
         self.validator = NarrationAlignmentValidator()
+        self.word_aligner = WhisperWordAligner(
+            model_size=settings.narration_word_alignment_model,
+            device=settings.narration_word_alignment_device,
+            compute_type=settings.narration_word_alignment_compute_type,
+            minimum_exact_coverage=settings.narration_word_alignment_min_coverage,
+        )
         self.audio = FfmpegAudioAssembler()
         self.workspace = WorkerWorkspace()
 
@@ -314,6 +322,28 @@ class NarrationWorkerRunner:
                     ),
                 )
 
+    async def _align_final_narration(
+        self,
+        audio_path: Path,
+        source_text: str,
+        language: str,
+    ) -> list[WordAlignment]:
+        """Measure words on the exact encoded audio file consumed by renderers."""
+
+        try:
+            return await asyncio.to_thread(
+                self.word_aligner.align,
+                audio_path,
+                source_text,
+                language,
+            )
+        except WordAlignmentError as exception:
+            raise NarrationPermanentError(str(exception)) from exception
+        except (OSError, RuntimeError) as exception:
+            raise NarrationRetryableInfrastructureError(
+                "Narration word alignment is temporarily unavailable"
+            ) from exception
+
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
         assert self.storage is not None
@@ -367,9 +397,13 @@ class NarrationWorkerRunner:
             mp3_path = job_dir / "chapter.mp3"
             await self.audio.encode_mp3_file(pcm_path, mp3_path, sample_rate_hz=48000, channels=1)
             actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
-            spans = build_alignment(materialized)
+            words = await self._align_final_narration(
+                mp3_path,
+                claimed.source_text,
+                claimed.language,
+            )
             self.validator.validate(
-                spans,
+                words,
                 source_utf16_length=utf16_length(claimed.source_text),
                 audio_duration_ms=actual_duration_ms,
             )
@@ -408,7 +442,7 @@ class NarrationWorkerRunner:
                         duration_ms=actual_duration_ms,
                         sample_rate_hz=48000,
                         channels=1,
-                        spans=spans,
+                        words=words,
                     )
                 )
             except NarrationLeaseLostError:
