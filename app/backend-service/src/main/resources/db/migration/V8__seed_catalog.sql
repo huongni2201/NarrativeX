@@ -11,18 +11,17 @@ INSERT INTO plan_entitlements (
     max_short_exports_month,
     max_concurrent_expensive_jobs,
     feature_flags_json,
-    monthly_credits,
     active_from
 )
 VALUES
-    (1, 'NORMAL', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
-    (3, 'PRO', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true,"narration":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
-    (6, 'PRO', 2, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
-    (7, 'PRO', 3, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
-    (8, 'PRO', 4, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
-    (9, 'PRO', 5, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP),
-    (10, 'PRO', 6, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP),
-    (11, 'ULTRA', 1, FALSE, 'ULTRA', NULL, NULL, 20, '{"storyAnalysis":true,"shorts":true,"narration":true,"batchReview":true,"team":true,"priority":true,"payAsYouGo":true}'::jsonb, NULL, CURRENT_TIMESTAMP)
+    (1, 'NORMAL', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, CURRENT_TIMESTAMP),
+    (3, 'PRO', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true,"narration":true}'::jsonb, CURRENT_TIMESTAMP),
+    (6, 'PRO', 2, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, CURRENT_TIMESTAMP),
+    (7, 'PRO', 3, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, CURRENT_TIMESTAMP),
+    (8, 'PRO', 4, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, CURRENT_TIMESTAMP),
+    (9, 'PRO', 5, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, CURRENT_TIMESTAMP),
+    (10, 'PRO', 6, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, CURRENT_TIMESTAMP),
+    (11, 'ULTRA', 1, FALSE, 'ULTRA', NULL, NULL, 20, '{"storyAnalysis":true,"shorts":true,"narration":true,"batchReview":true,"team":true,"priority":true}'::jsonb, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval(

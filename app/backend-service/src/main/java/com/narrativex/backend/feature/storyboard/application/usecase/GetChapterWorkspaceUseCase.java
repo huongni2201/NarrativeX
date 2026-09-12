@@ -171,7 +171,7 @@ public class GetChapterWorkspaceUseCase {
       return false;
     }
     return switch (status) {
-      case "QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+      case "QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN" -> true;
       default -> false;
     };
   }

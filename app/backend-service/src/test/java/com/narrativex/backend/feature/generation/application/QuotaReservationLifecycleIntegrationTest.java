@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -59,14 +58,14 @@ class QuotaReservationLifecycleIntegrationTest {
     List<UUID> jobIds = new ArrayList<>();
 
     for (int index = 0; index < 4; index++) {
-      var reservation = quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 4).orElseThrow();
+      var reservation = quotaReservation.reserve(USER_ID, 4).orElseThrow();
       UUID jobId = insertJob(projectId, "complete-slot-" + index);
       quotaReservation.bindToGenerationJob(reservation.id(), jobId);
       jobIds.add(jobId);
     }
 
     assertTrue(
-        quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 4).isEmpty(),
+        quotaReservation.reserve(USER_ID, 4).isEmpty(),
         "The fifth active expensive job must be rejected while four reservations are RESERVED");
 
     jdbcTemplate.update(
@@ -76,7 +75,7 @@ class QuotaReservationLifecycleIntegrationTest {
     assertEquals("CONSUMED", reservationStatus(jobIds.getFirst()));
     assertEquals(3, activeReservations());
     assertTrue(
-        quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 4).isPresent(),
+        quotaReservation.reserve(USER_ID, 4).isPresent(),
         "A completed job must free its concurrent slot");
   }
 
@@ -84,7 +83,7 @@ class QuotaReservationLifecycleIntegrationTest {
   void failedJobAlwaysReleasesReservationAndRetryIsIdempotent() {
     seedEntitlement(4, 100);
     UUID projectId = insertProject();
-    var reservation = quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 4).orElseThrow();
+    var reservation = quotaReservation.reserve(USER_ID, 4).orElseThrow();
     UUID jobId = insertJob(projectId, "failed-release");
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
 
@@ -108,35 +107,34 @@ class QuotaReservationLifecycleIntegrationTest {
     List<UUID> jobIds = new ArrayList<>();
 
     for (int index = 0; index < 20; index++) {
-      var reservation = quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 20).orElseThrow();
+      var reservation = quotaReservation.reserve(USER_ID, 20).orElseThrow();
       UUID jobId = insertJob(projectId, "capacity-" + index);
       quotaReservation.bindToGenerationJob(reservation.id(), jobId);
       jobIds.add(jobId);
     }
 
     assertEquals(20, activeReservations());
-    assertTrue(quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 20).isEmpty());
+    assertTrue(quotaReservation.reserve(USER_ID, 20).isEmpty());
 
     jdbcTemplate.update(
         "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?",
         jobIds.getFirst());
-    assertTrue(quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 20).isPresent());
+    assertTrue(quotaReservation.reserve(USER_ID, 20).isPresent());
   }
 
   @Test
   void longformExportReservesLastUnitAndConfirmedFailureReleasesIt() {
     seedEntitlement(4, 1);
     UUID projectId = insertProject();
-    var reservation =
-        quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).orElseThrow();
+    var reservation = quotaReservation.reserveLongformExport(USER_ID, 4, 1).orElseThrow();
     UUID jobId = insertProjectRenderJob(projectId);
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
 
-    assertTrue(quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).isEmpty());
+    assertTrue(quotaReservation.reserveLongformExport(USER_ID, 4, 1).isEmpty());
 
     jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
 
-    assertTrue(quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).isPresent());
+    assertTrue(quotaReservation.reserveLongformExport(USER_ID, 4, 1).isPresent());
     assertEquals(0, longformExportsUsed());
   }
 
@@ -144,8 +142,7 @@ class QuotaReservationLifecycleIntegrationTest {
   void completedLongformExportSettlesExactlyOnceIntoReservationPeriod() {
     seedEntitlement(4, 1);
     UUID projectId = insertProject();
-    var reservation =
-        quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).orElseThrow();
+    var reservation = quotaReservation.reserveLongformExport(USER_ID, 4, 1).orElseThrow();
     UUID jobId = insertProjectRenderJob(projectId);
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
 
@@ -155,7 +152,7 @@ class QuotaReservationLifecycleIntegrationTest {
         "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?", jobId);
 
     assertEquals(1, longformExportsUsed());
-    assertTrue(quotaReservation.reserveLongformExport(USER_ID, BigDecimal.ZERO, 4, 1).isEmpty());
+    assertTrue(quotaReservation.reserveLongformExport(USER_ID, 4, 1).isEmpty());
   }
 
   private void seedEntitlement(int maxConcurrentJobs, Integer maxLongformExports) {

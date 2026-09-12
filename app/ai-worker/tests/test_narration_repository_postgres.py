@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 
-from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog
 from narrativex_worker.narration.repository import (
     ClaimedNarrationJob,
     NarrationProviderStateConflictError,
@@ -117,10 +116,6 @@ async def narration_provider_database() -> AsyncIterator[str]:
                 request_fingerprint TEXT NOT NULL,
                 normalized_result_json JSONB,
                 result_fingerprint TEXT,
-                actual_cost NUMERIC(19, 9),
-                billing_currency TEXT,
-                usage_json JSONB,
-                pricing_snapshot_json JSONB,
                 next_reconcile_at TIMESTAMPTZ,
                 reconcile_attempts INTEGER NOT NULL DEFAULT 0,
                 last_reconcile_error TEXT,
@@ -500,9 +495,7 @@ async def test_stale_running_narration_lease_is_recovered(
     connection = await asyncpg.connect(narration_provider_database)
     try:
         await connection.execute(
-            """
-            UPDATE generation_jobs SET status = 'RUNNING' WHERE id = $1
-            """,
+            "UPDATE generation_jobs SET status = 'RUNNING' WHERE id = $1",
             job_id,
         )
         await connection.execute(
@@ -774,7 +767,7 @@ async def test_reconciliation_exhaustion_surfaces_manual_attention(
 
 
 @pytest.mark.asyncio
-async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshotted(
+async def test_segment_provider_operation_is_idempotent_and_result_is_durable(
     narration_provider_database: str,
 ) -> None:
     stage_id = await seed_stage(narration_provider_database)
@@ -782,10 +775,10 @@ async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshott
     await repository.connect()
     try:
         first = await repository.reserve_provider_operation(
-            stage_id, "google-cloud-tts", "fingerprint"
+            stage_id, "vieneu-tts", "fingerprint"
         )
         duplicate = await repository.reserve_provider_operation(
-            stage_id, "google-cloud-tts", "fingerprint"
+            stage_id, "vieneu-tts", "fingerprint"
         )
         assert first.id == duplicate.id
         assert first.created is True
@@ -794,9 +787,6 @@ async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshott
         unknown = await repository.fence_submission_unknown(first)
         assert unknown.next_reconcile_at is not None
         assert unknown.reconcile_attempts == 0
-        pricing = GoogleTtsPricingCatalog("google-tts-2026-08-20").resolve(
-            "vi-VN-Chirp3-HD-Achernar"
-        )
         result = {
             "storageKey": "narration/request/segments/0000.pcm",
             "checksum": "a" * 64,
@@ -805,35 +795,15 @@ async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshott
             "sampleRateHz": 48000,
             "channels": 1,
         }
-        completed = await repository.complete_provider_operation(
-            unknown, result, character_count=2000, pricing=pricing
-        )
-        replay = await repository.complete_provider_operation(
-            completed, result, character_count=2000, pricing=pricing
-        )
+        completed = await repository.complete_provider_operation(unknown, result)
+        replay = await repository.complete_provider_operation(completed, result)
     finally:
         await repository.close()
 
     assert completed.status is ProviderOperationStatus.COMPLETED
     assert replay.id == completed.id
-
-    connection = await asyncpg.connect(narration_provider_database)
-    try:
-        row = await connection.fetchrow(
-            """
-            SELECT actual_cost, billing_currency, usage_json, pricing_snapshot_json
-              FROM provider_operations
-             WHERE id = $1
-            """,
-            completed.id,
-        )
-    finally:
-        await connection.close()
-    assert row is not None
-    assert str(row["actual_cost"]) == "0.060000000"
-    assert row["billing_currency"] == "USD"
-    assert row["usage_json"] is not None
-    assert row["pricing_snapshot_json"] is not None
+    assert replay.result == result
+    assert replay.result_fingerprint is not None
 
 
 @pytest.mark.asyncio
@@ -846,10 +816,10 @@ async def test_provider_operation_is_reused_by_a_retry_stage(
     await repository.connect()
     try:
         first = await repository.reserve_provider_operation(
-            first_stage_id, "google-cloud-tts", "same-logical-request"
+            first_stage_id, "vieneu-tts", "same-logical-request"
         )
         retry = await repository.reserve_provider_operation(
-            second_stage_id, "google-cloud-tts", "same-logical-request"
+            second_stage_id, "vieneu-tts", "same-logical-request"
         )
     finally:
         await repository.close()
@@ -868,11 +838,11 @@ async def test_reconciliation_backoff_update_is_cas_fenced(
     await repository.connect()
     try:
         reserved = await repository.reserve_provider_operation(
-            stage_id, "google-cloud-tts", "reconcile-cas"
+            stage_id, "vieneu-tts", "reconcile-cas"
         )
         unknown = await repository.fence_submission_unknown(reserved)
         scheduled = await repository.schedule_provider_reconciliation(
-            unknown, error="temporary R2 timeout"
+            unknown, error="temporary local storage timeout"
         )
         with pytest.raises(NarrationProviderStateConflictError):
             await repository.schedule_provider_reconciliation(unknown, error="stale worker update")
@@ -881,7 +851,7 @@ async def test_reconciliation_backoff_update_is_cas_fenced(
 
     assert scheduled.reconcile_attempts == 1
     assert scheduled.next_reconcile_at is not None
-    assert scheduled.last_reconcile_error == "temporary R2 timeout"
+    assert scheduled.last_reconcile_error == "temporary local storage timeout"
 
 
 @pytest.mark.asyncio
@@ -891,24 +861,19 @@ async def test_completed_segment_result_cannot_be_overwritten(
     stage_id = await seed_stage(narration_provider_database)
     repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
     await repository.connect()
-    pricing = GoogleTtsPricingCatalog("v1").resolve("en-US-Neural2-A")
     try:
         reserved = await repository.reserve_provider_operation(
-            stage_id, "google-cloud-tts", "immutable"
+            stage_id, "vieneu-tts", "immutable"
         )
         unknown = await repository.fence_submission_unknown(reserved)
         completed = await repository.complete_provider_operation(
             unknown,
             {"storageKey": "a", "checksum": "a" * 64},
-            character_count=10,
-            pricing=pricing,
         )
         with pytest.raises(NarrationProviderStateConflictError):
             await repository.complete_provider_operation(
                 completed,
                 {"storageKey": "b", "checksum": "b" * 64},
-                character_count=10,
-                pricing=pricing,
             )
     finally:
         await repository.close()

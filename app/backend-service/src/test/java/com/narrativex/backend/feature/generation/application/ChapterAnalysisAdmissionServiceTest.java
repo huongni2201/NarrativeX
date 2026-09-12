@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.common.exception.FeatureNotAvailableExcept
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
-import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisCostEstimator;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import java.math.BigDecimal;
@@ -34,34 +33,33 @@ class ChapterAnalysisAdmissionServiceTest {
   }
 
   @Test
-  void atomicReservationDenialBecomesCostLimit() {
+  void atomicReservationDenialBecomesCapacityLimit() {
     var service = service(quota(true), new ReservationSpy(false));
 
     var exception =
         assertThrows(
             GenerationAdmissionDeniedException.class,
             () -> service.admit("user-1", PROJECT_ID, SOURCE));
-    assertEquals("COST_LIMIT", exception.getCode());
+    assertEquals("CAPACITY_LIMIT", exception.getCode());
   }
 
   @Test
-  void entitledRequestReturnsEstimateAndDurableReservation() {
+  void entitledRequestReturnsDurableCapacityReservation() {
     var reservation = new ReservationSpy(true);
     var service = service(quota(true), reservation);
 
     var admission = service.admit("user-1", PROJECT_ID, SOURCE);
 
-    assertEquals(new BigDecimal("0.010000"), admission.estimate().estimateMin());
-    assertEquals(new BigDecimal("0.010016"), admission.estimate().estimateMax());
-    assertEquals(0, new BigDecimal("0.020032").compareTo(reservation.cost));
     assertEquals(41L, admission.reservation().id());
+    assertEquals("CAPACITY", admission.reservation().quotaKind());
+    assertEquals(1, admission.reservation().units());
+    assertEquals(4, reservation.maxConcurrentExpensiveJobs);
   }
 
   private static ChapterAnalysisAdmissionService service(
       UserQuotaAccess.QuotaSnapshot quota, ReservationSpy reservation) {
     UserQuotaAccess quotaAccess = userId -> Optional.of(quota);
-    return new ChapterAnalysisAdmissionService(
-        quotaAccess, reservation, new ChapterAnalysisCostEstimator());
+    return new ChapterAnalysisAdmissionService(quotaAccess, reservation);
   }
 
   private static UserQuotaAccess.QuotaSnapshot quota(boolean storyAnalysis) {
@@ -71,20 +69,19 @@ class ChapterAnalysisAdmissionServiceTest {
 
   private static final class ReservationSpy implements QuotaReservation {
     private final boolean allowed;
-    private BigDecimal cost;
+    private int maxConcurrentExpensiveJobs;
 
     private ReservationSpy(boolean allowed) {
       this.allowed = allowed;
     }
 
     @Override
-    public Optional<Reservation> reserve(
-        String userId, BigDecimal estimatedCost, int maxConcurrentExpensiveJobs) {
-      cost = estimatedCost;
+    public Optional<Reservation> reserve(String userId, int maxConcurrentExpensiveJobs) {
+      this.maxConcurrentExpensiveJobs = maxConcurrentExpensiveJobs;
       if (!allowed) {
         return Optional.empty();
       }
-      return Optional.of(new Reservation(41L, userId, "2026-08", estimatedCost));
+      return Optional.of(new Reservation(41L, userId, "2026-09", "CAPACITY", 1));
     }
 
     @Override

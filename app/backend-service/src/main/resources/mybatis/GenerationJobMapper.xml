@@ -17,7 +17,6 @@
         <result property="currentStep" column="current_step" />
         <result property="errorCode" column="error_code" />
         <result property="requestedByUserId" column="requested_by_user_id" />
-        <result property="billedToUserId" column="billed_to_user_id" />
         <result property="storyVersionId" column="story_version_id" />
         <result property="chapterId" column="chapter_id" />
         <result property="chapterRowVersion" column="chapter_row_version" />
@@ -48,7 +47,7 @@
     <sql id="columns">
         id, row_version, created_at, updated_at, job_id, project_id, job_type, status,
         resource_class, progress, current_step, error_code, requested_by_user_id,
-        billed_to_user_id, story_version_id, chapter_id, chapter_row_version, source_hash,
+        story_version_id, chapter_id, chapter_row_version, source_hash,
         source_text, source_language, idempotency_key, storyboard_revision_id, media_plan_id,
         media_plan_revision, production_mode, analysis_visual_generation_mode, analysis_image_provider
     </sql>
@@ -56,7 +55,7 @@
     <sql id="qualifiedColumns">
         j.id, j.row_version, j.created_at, j.updated_at, j.job_id, j.project_id, j.job_type, j.status,
         j.resource_class, j.progress, j.current_step, j.error_code, j.requested_by_user_id,
-        j.billed_to_user_id, j.story_version_id, j.chapter_id, j.chapter_row_version, j.source_hash,
+        j.story_version_id, j.chapter_id, j.chapter_row_version, j.source_hash,
         j.source_text, j.source_language, j.idempotency_key, j.storyboard_revision_id, j.media_plan_id,
         j.media_plan_revision, j.production_mode, j.analysis_visual_generation_mode, j.analysis_image_provider
     </sql>
@@ -66,13 +65,13 @@
             resultType="java.util.UUID" affectData="true">
         INSERT INTO generation_jobs
             (job_id, project_id, job_type, status, resource_class, progress, current_step,
-             error_code, requested_by_user_id, billed_to_user_id, story_version_id, chapter_id,
+             error_code, requested_by_user_id, story_version_id, chapter_id,
              chapter_row_version, source_hash, source_text, source_language, idempotency_key,
              storyboard_revision_id, media_plan_id, media_plan_revision, production_mode,
              analysis_visual_generation_mode, analysis_image_provider)
         VALUES
             (#{jobId}, #{projectId}, #{type}, #{status}, #{resourceClass}, #{progress}, #{currentStep},
-             #{errorCode}, #{requestedByUserId}, #{billedToUserId}, #{storyVersionId}, #{chapterId},
+             #{errorCode}, #{requestedByUserId}, #{storyVersionId}, #{chapterId},
              #{chapterRowVersion}, #{sourceHash}, #{sourceText}, #{sourceLanguage}, #{idempotencyKey},
              #{storyboardRevisionId},
              #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
@@ -92,7 +91,6 @@
                current_step = #{currentStep},
                error_code = #{errorCode},
                requested_by_user_id = #{requestedByUserId},
-               billed_to_user_id = #{billedToUserId},
                story_version_id = #{storyVersionId},
                chapter_id = #{chapterId},
                chapter_row_version = #{chapterRowVersion},

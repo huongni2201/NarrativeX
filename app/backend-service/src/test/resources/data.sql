@@ -7,7 +7,6 @@ MERGE INTO plan_entitlements (
     max_short_exports_month,
     max_concurrent_expensive_jobs,
     feature_flags_json,
-    monthly_credits,
     active_from
 )
 KEY (plan_key, version)
@@ -20,7 +19,6 @@ VALUES (
     5,
     1,
     '{"storyAnalysis":true}',
-    2.000000,
     CURRENT_TIMESTAMP
 );
 
@@ -33,7 +31,6 @@ MERGE INTO plan_entitlements (
     max_short_exports_month,
     max_concurrent_expensive_jobs,
     feature_flags_json,
-    monthly_credits,
     active_from
 )
 KEY (plan_key, version)
@@ -45,7 +42,6 @@ VALUES (
     NULL,
     NULL,
     20,
-    '{"storyAnalysis":true,"shorts":true,"narration":true,"batchReview":true,"team":true,"priority":true,"payAsYouGo":true}',
-    NULL,
+    '{"storyAnalysis":true,"shorts":true,"narration":true,"batchReview":true,"team":true,"priority":true}',
     CURRENT_TIMESTAMP
 );

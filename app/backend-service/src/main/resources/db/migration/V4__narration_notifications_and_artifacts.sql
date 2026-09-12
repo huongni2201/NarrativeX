@@ -18,9 +18,14 @@ CREATE TABLE narration_requests (
     segmentation_version VARCHAR(64) NOT NULL,
     request_fingerprint VARCHAR(64) NOT NULL,
     project_voice_reference_asset_id UUID REFERENCES media_assets(id),
+    account_voice_reference_asset_id UUID REFERENCES voice_reference_assets(id),
     CONSTRAINT uk_narration_requests_fingerprint UNIQUE (request_fingerprint),
     CONSTRAINT ck_narration_requests_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_narration_requests_speaking_rate CHECK (speaking_rate > 0)
+    CONSTRAINT ck_narration_requests_speaking_rate CHECK (speaking_rate > 0),
+    CONSTRAINT ck_narration_requests_single_voice_reference CHECK (
+        project_voice_reference_asset_id IS NULL
+        OR account_voice_reference_asset_id IS NULL
+    )
 );
 
 CREATE TABLE narration_operations (

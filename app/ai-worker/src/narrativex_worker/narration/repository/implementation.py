@@ -12,7 +12,6 @@ from narrativex_worker.narration.errors import (
     narration_reconcile_delay_seconds,
 )
 from narrativex_worker.narration.models import AlignmentSpan
-from narrativex_worker.narration.pricing import TtsPricingSnapshot
 from narrativex_worker.narration.storage import StoredMediaAsset
 from narrativex_worker.runtime.retry_policy import NARRATION_STAGE_RETRY_POLICY
 from narrativex_worker.schema import ProviderOperationStatus
@@ -421,33 +420,18 @@ class NarrationWorkerRepository:
         self,
         operation: DurableNarrationProviderOperation,
         result: dict[str, Any],
-        *,
-        character_count: int,
-        pricing: TtsPricingSnapshot,
     ) -> DurableNarrationProviderOperation:
         serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
         fingerprint = hashlib.sha256(serialized.encode()).hexdigest()
-        actual_cost = pricing.actual_cost(character_count)
-        usage_json = json.dumps({"characters": character_count}, separators=(",", ":"))
-        pricing_json = json.dumps(
-            {
-                "catalogVersion": pricing.catalog_version,
-                "voiceTier": pricing.voice_tier,
-                "sku": pricing.sku,
-                "usdPerMillionCharacters": str(pricing.usd_per_million_characters),
-            },
-            separators=(",", ":"),
-        )
         row = await self._require_pool().fetchrow(
             """
             UPDATE provider_operations
                SET status = 'COMPLETED', normalized_result_json = $2::jsonb,
-                   result_fingerprint = $3, actual_cost = $4, billing_currency = 'USD',
-                   usage_json = $5::jsonb, pricing_snapshot_json = $6::jsonb,
+                   result_fingerprint = $3,
                    completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
                    next_reconcile_at = NULL, last_reconcile_error = NULL,
                    updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-             WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $7
+             WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $4
              RETURNING id, stage_attempt_id, provider_key, status, row_version,
                        request_fingerprint, normalized_result_json, result_fingerprint,
                        next_reconcile_at, reconcile_attempts, last_reconcile_error
@@ -455,9 +439,6 @@ class NarrationWorkerRepository:
             operation.id,
             serialized,
             fingerprint,
-            actual_cost,
-            usage_json,
-            pricing_json,
             operation.row_version,
         )
         if row is not None:

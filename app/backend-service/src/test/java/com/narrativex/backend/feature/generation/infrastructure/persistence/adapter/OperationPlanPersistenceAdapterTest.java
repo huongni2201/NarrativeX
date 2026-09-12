@@ -9,10 +9,8 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
-import com.narrativex.backend.feature.generation.domain.enums.EstimateConfidence;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow;
-import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,28 +75,10 @@ class OperationPlanPersistenceAdapterTest {
   }
 
   private static OperationPlan plan(UUID id, long rowVersion) {
-    return OperationPlan.rehydrate(
-        id,
-        rowVersion,
-        PROJECT_ID,
-        JOB_ID,
-        "CHAPTER_ANALYZE",
-        BigDecimal.ONE,
-        BigDecimal.TEN,
-        BigDecimal.TEN,
-        EstimateConfidence.HIGH);
+    return OperationPlan.rehydrate(id, rowVersion, PROJECT_ID, JOB_ID, "CHAPTER_ANALYZE");
   }
 
   private static OperationPlanRow row(UUID id, long rowVersion) {
-    return new OperationPlanRow(
-        id,
-        rowVersion,
-        PROJECT_ID,
-        JOB_ID,
-        "CHAPTER_ANALYZE",
-        BigDecimal.ONE,
-        BigDecimal.TEN,
-        BigDecimal.TEN,
-        EstimateConfidence.HIGH);
+    return new OperationPlanRow(id, rowVersion, PROJECT_ID, JOB_ID, "CHAPTER_ANALYZE");
   }
 }

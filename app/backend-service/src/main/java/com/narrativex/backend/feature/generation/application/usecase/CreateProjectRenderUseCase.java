@@ -21,7 +21,6 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -113,18 +112,14 @@ public class CreateProjectRenderUseCase {
           "ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
     }
 
-    BigDecimal renderCost = BigDecimal.ZERO;
     var reservation =
         quotaReservation
             .reserveLongformExport(
-                userId,
-                renderCost,
-                quota.maxConcurrentExpensiveJobs(),
-                quota.maxLongformExportsMonth())
+                userId, quota.maxConcurrentExpensiveJobs(), quota.maxLongformExportsMonth())
             .orElseThrow(
                 () ->
                     new GenerationAdmissionDeniedException(
-                        "COST_LIMIT", "Project render concurrency quota is exhausted."));
+                        "QUOTA_LIMIT", "Project render concurrency or export quota is exhausted."));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -163,11 +158,7 @@ public class CreateProjectRenderUseCase {
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
-                command.projectId(),
-                operationType(command.resolution(), command.format()),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO));
+                command.projectId(), operationType(command.resolution(), command.format())));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), LOCAL_STAGE_NAME, 1));
@@ -191,8 +182,7 @@ public class CreateProjectRenderUseCase {
           "LOCAL_DEVICE_REQUIRED", "Project render requires a paired Desktop device.");
     }
     try {
-      localDeviceAccess.requireEligibleOwnedDevice(
-          userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
+      localDeviceAccess.requireEligibleOwnedDevice(userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
     } catch (IllegalArgumentException | IllegalStateException exception) {
       throw new GenerationAdmissionDeniedException(
           "LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());

@@ -9,7 +9,6 @@ import pytest
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.audio import FfmpegAudioAssembler
 from narrativex_worker.narration.models import MaterializedAudioSegment, NarrationSegment
-from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog, TtsPricingSnapshot
 from narrativex_worker.narration.repository import ClaimedNarrationJob
 from narrativex_worker.narration.runner import NarrationWorkerRunner
 from narrativex_worker.narration.storage import (
@@ -27,7 +26,6 @@ async def test_media_storage_file_boundary_round_trips_without_bytes_api() -> No
     checksum = hashlib.sha256(content).hexdigest()
     storage = InMemoryMediaStorage()
 
-    # The production runner passes scratch files across this boundary.
     import tempfile
 
     with tempfile.TemporaryDirectory() as directory:
@@ -171,7 +169,6 @@ async def test_runner_uses_file_pipeline_and_cleans_workspace(
     runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
     runner.provider = object()  # type: ignore[assignment]
     runner.storage = _FileOnlyStorage()
-    runner.pricing = GoogleTtsPricingCatalog("test")
     runner.audio = _FileAudio()  # type: ignore[assignment]
     runner.repository = _CompleteRepository()  # type: ignore[assignment]
     runner.workspace = WorkerWorkspace(root=tmp_path)
@@ -179,10 +176,9 @@ async def test_runner_uses_file_pipeline_and_cleans_workspace(
     async def materialize(
         claimed: ClaimedNarrationJob,
         current_segment: NarrationSegment,
-        pricing: TtsPricingSnapshot,
         job_dir: Path,
     ) -> MaterializedAudioSegment:
-        del claimed, pricing
+        del claimed
         path = job_dir / "segment-0000.pcm"
         path.write_bytes(b"pcm")
         return MaterializedAudioSegment(current_segment, path, 48000, 1, 100, "a" * 64)
