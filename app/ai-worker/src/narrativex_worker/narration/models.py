@@ -19,7 +19,7 @@ class WordAlignment:
     text_end: int
     audio_start_ms: int
     audio_end_ms: int
-    confidence: float
+    confidence: float = 1.0
 
     def __post_init__(self) -> None:
         if self.index < 0:
@@ -30,6 +30,10 @@ class WordAlignment:
             raise ValueError("invalid audio range")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
+
+
+# Internal source-compatibility only: this no longer represents segment-duration timing.
+AlignmentSpan = WordAlignment
 
 
 @dataclass(frozen=True)
