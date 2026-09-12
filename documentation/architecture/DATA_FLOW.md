@@ -10,6 +10,7 @@ PostgreSQL state determines durable business/execution truth. Desktop owns machi
 | Project/Chapter/storyboard/continuity | PostgreSQL |
 | Generation jobs/provider operations | PostgreSQL |
 | Queue discovery | PostgreSQL polling/claim SQL |
+| Non-monetary capacity/export quota state | PostgreSQL |
 | Production media selection | PostgreSQL |
 | Narration/alignment metadata | PostgreSQL |
 | Project byte locations | Desktop `project.manifest.json` |
@@ -17,7 +18,7 @@ PostgreSQL state determines durable business/execution truth. Desktop owns machi
 | Final MP4 bytes | Desktop project `artifacts/` |
 | Voice reference/custom voice remote bytes | Cloudflare R2 |
 
-Redis is not required by the MVP runtime.
+Redis is not required by the MVP runtime. Monetary billing/credit/pricing state is not part of the current runtime authority model.
 
 ## Chapter Analyze
 
@@ -93,6 +94,7 @@ Absolute machine paths do not enter backend domain state.
 ```text
 production timeline + narration + selected image/video media
   -> backend admits project render
+  -> reserve non-monetary capacity/export quota
   -> paired Desktop assignment
   -> claim + lease
   -> local preflight and checksum resolution
@@ -101,6 +103,7 @@ production timeline + narration + selected image/video media
   -> subtitle mux where available
   -> local final MP4
   -> backend artifact metadata
+  -> consume export reservation exactly once
 ```
 
 There is no server/cloud final-render executor or remote final-video store.
@@ -120,4 +123,4 @@ Desktop backup/archive tooling operates on manifest-verified project workspaces.
 - richer media reuse/reframe/edit lineage;
 - complete arbitrary multi-part audio production behavior;
 - packaging/signing/update hardening;
-- complete billing/actual-usage and operational evidence.
+- richer provider execution telemetry and operational evidence.
