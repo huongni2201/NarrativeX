@@ -135,7 +135,6 @@ public class CreateProjectRenderUseCase {
                 "QUEUED",
                 null,
                 userId,
-                userId,
                 timeline.storyVersionId(),
                 null,
                 null,
