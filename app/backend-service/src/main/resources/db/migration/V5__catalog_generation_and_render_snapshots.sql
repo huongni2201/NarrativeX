@@ -1,7 +1,8 @@
--- NarrativeX pre-release baseline: catalog/read models, upload lifecycle, media generation, and immutable project-render snapshots.
+-- NarrativeX pre-release baseline: catalog/read models, upload lifecycle, media generation,
+-- continuity/checkpoints, selective regeneration, storyboard generation, and immutable render snapshots.
 
 -- -----------------------------------------------------------------------------
--- Catalog read models and upload lifecycle
+-- Catalog read models and account voice-reference upload lifecycle
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE style_presets (
@@ -51,7 +52,7 @@ CREATE TABLE media_upload_sessions (
     status VARCHAR(24) NOT NULL DEFAULT 'PENDING_UPLOAD',
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    media_asset_id UUID REFERENCES media_assets(id),
+    media_asset_id UUID REFERENCES voice_reference_assets(id) ON DELETE SET NULL,
     CONSTRAINT ck_media_upload_sessions_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_upload_sessions_size CHECK (expected_size > 0),
     CONSTRAINT ck_media_upload_sessions_sha256 CHECK (expected_sha256 ~ '^[0-9a-f]{64}$'),
@@ -141,6 +142,232 @@ CREATE TABLE chapter_media_heads (
 );
 
 -- -----------------------------------------------------------------------------
+-- Continuity snapshots and durable analysis checkpoints
+-- -----------------------------------------------------------------------------
+
+CREATE UNIQUE INDEX uq_story_versions_project_id_id
+    ON story_versions (project_id, id);
+CREATE UNIQUE INDEX uq_chapters_story_version_id_id
+    ON chapters (story_version_id, id);
+CREATE UNIQUE INDEX uq_storyboard_revisions_chapter_id_id
+    ON storyboard_revisions (chapter_id, id);
+CREATE UNIQUE INDEX uq_scenes_chapter_id_id
+    ON scenes (chapter_id, id);
+CREATE UNIQUE INDEX uq_visual_beats_scene_id_id
+    ON visual_beats (scene_id, id);
+
+CREATE TABLE chapter_continuity_plans (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL,
+    story_version_id UUID NOT NULL,
+    chapter_id UUID NOT NULL,
+    storyboard_revision_id UUID NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision > 0),
+    source_hash VARCHAR(64) NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 1 CHECK (schema_version > 0),
+    prompt_version VARCHAR(64) NOT NULL,
+    model_config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    plan_json JSONB NOT NULL,
+    result_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_chapter_continuity_plan_revision UNIQUE (chapter_id, revision),
+    CONSTRAINT uq_chapter_continuity_plan_scope UNIQUE (id, project_id, chapter_id),
+    CONSTRAINT ck_chapter_continuity_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_chapter_continuity_result_hash CHECK (result_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_chapter_continuity_model_config_object CHECK (jsonb_typeof(model_config_json) = 'object'),
+    CONSTRAINT ck_chapter_continuity_plan_object CHECK (jsonb_typeof(plan_json) = 'object'),
+    CONSTRAINT fk_chapter_continuity_project_story
+        FOREIGN KEY (project_id, story_version_id) REFERENCES story_versions(project_id, id),
+    CONSTRAINT fk_chapter_continuity_story_chapter
+        FOREIGN KEY (story_version_id, chapter_id) REFERENCES chapters(story_version_id, id),
+    CONSTRAINT fk_chapter_continuity_chapter_storyboard
+        FOREIGN KEY (chapter_id, storyboard_revision_id) REFERENCES storyboard_revisions(chapter_id, id)
+);
+
+CREATE TABLE scene_continuity_states (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    plan_id UUID NOT NULL,
+    project_id UUID NOT NULL,
+    chapter_id UUID NOT NULL,
+    scene_id UUID NOT NULL,
+    scene_key VARCHAR(64) NOT NULL,
+    timeline_key VARCHAR(128) NOT NULL,
+    entry_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    exit_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    event_keys_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_scene_continuity_plan_scene UNIQUE (plan_id, scene_id),
+    CONSTRAINT uq_scene_continuity_plan_key UNIQUE (plan_id, scene_key),
+    CONSTRAINT ck_scene_continuity_key CHECK (scene_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
+    CONSTRAINT ck_scene_continuity_entry_array CHECK (jsonb_typeof(entry_facts_json) = 'array'),
+    CONSTRAINT ck_scene_continuity_exit_array CHECK (jsonb_typeof(exit_facts_json) = 'array'),
+    CONSTRAINT ck_scene_continuity_events_array CHECK (jsonb_typeof(event_keys_json) = 'array'),
+    CONSTRAINT fk_scene_continuity_plan_scope
+        FOREIGN KEY (plan_id, project_id, chapter_id)
+        REFERENCES chapter_continuity_plans(id, project_id, chapter_id) ON DELETE CASCADE,
+    CONSTRAINT fk_scene_continuity_chapter_scene
+        FOREIGN KEY (chapter_id, scene_id) REFERENCES scenes(chapter_id, id) ON DELETE CASCADE
+);
+
+CREATE TABLE visual_beat_continuity_states (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    plan_id UUID NOT NULL,
+    project_id UUID NOT NULL,
+    chapter_id UUID NOT NULL,
+    scene_id UUID NOT NULL,
+    visual_beat_id UUID NOT NULL,
+    beat_key VARCHAR(64) NOT NULL,
+    entry_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    visible_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    exit_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    event_keys_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    semantic_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_visual_beat_continuity_plan_beat UNIQUE (plan_id, visual_beat_id),
+    CONSTRAINT uq_visual_beat_continuity_plan_key UNIQUE (plan_id, beat_key),
+    CONSTRAINT ck_visual_beat_continuity_key CHECK (beat_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
+    CONSTRAINT ck_visual_beat_continuity_semantic_hash CHECK (semantic_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_visual_beat_continuity_entry_array CHECK (jsonb_typeof(entry_facts_json) = 'array'),
+    CONSTRAINT ck_visual_beat_continuity_visible_array CHECK (jsonb_typeof(visible_facts_json) = 'array'),
+    CONSTRAINT ck_visual_beat_continuity_exit_array CHECK (jsonb_typeof(exit_facts_json) = 'array'),
+    CONSTRAINT ck_visual_beat_continuity_events_array CHECK (jsonb_typeof(event_keys_json) = 'array'),
+    CONSTRAINT fk_visual_beat_continuity_plan_scope
+        FOREIGN KEY (plan_id, project_id, chapter_id)
+        REFERENCES chapter_continuity_plans(id, project_id, chapter_id) ON DELETE CASCADE,
+    CONSTRAINT fk_visual_beat_continuity_chapter_scene
+        FOREIGN KEY (chapter_id, scene_id) REFERENCES scenes(chapter_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_visual_beat_continuity_scene_beat
+        FOREIGN KEY (scene_id, visual_beat_id) REFERENCES visual_beats(scene_id, id) ON DELETE CASCADE
+);
+
+CREATE TABLE continuity_reports (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    plan_id UUID NOT NULL REFERENCES chapter_continuity_plans(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL CHECK (revision > 0),
+    status VARCHAR(24) NOT NULL,
+    issues_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    origin VARCHAR(24) NOT NULL DEFAULT 'DETERMINISTIC',
+    reviewed_by VARCHAR(128),
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_continuity_report_revision UNIQUE (plan_id, revision),
+    CONSTRAINT ck_continuity_report_status CHECK (status IN ('PASS', 'NEEDS_REVIEW')),
+    CONSTRAINT ck_continuity_report_origin CHECK (origin IN ('DETERMINISTIC', 'SEMANTIC', 'HUMAN')),
+    CONSTRAINT ck_continuity_report_issues_array CHECK (jsonb_typeof(issues_json) = 'array'),
+    CONSTRAINT ck_continuity_report_review_consistency CHECK (
+        (reviewed_by IS NULL AND reviewed_at IS NULL)
+        OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)
+    )
+);
+
+CREATE TABLE analysis_checkpoints (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    generation_job_id UUID NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    stage_attempt_id UUID NOT NULL REFERENCES stage_attempts(id) ON DELETE CASCADE,
+    step_key VARCHAR(160) NOT NULL,
+    input_fingerprint VARCHAR(64) NOT NULL,
+    claim_owner VARCHAR(128) NOT NULL,
+    lease_version BIGINT NOT NULL DEFAULT 1,
+    status VARCHAR(16) NOT NULL,
+    result_json JSONB,
+    result_hash VARCHAR(64),
+    provider_operation_id UUID REFERENCES provider_operations(id),
+    CONSTRAINT uq_analysis_checkpoint_identity UNIQUE (generation_job_id, step_key, input_fingerprint),
+    CONSTRAINT ck_analysis_checkpoint_fingerprint CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_analysis_checkpoint_result_hash CHECK (result_hash IS NULL OR result_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_analysis_checkpoint_status CHECK (status IN ('RESERVED', 'RUNNING', 'COMPLETED', 'FAILED', 'UNKNOWN')),
+    CONSTRAINT ck_analysis_checkpoint_lease_version CHECK (lease_version > 0),
+    CONSTRAINT ck_analysis_checkpoint_terminal_result CHECK (
+        (status = 'COMPLETED' AND result_json IS NOT NULL AND result_hash IS NOT NULL AND completed_at IS NOT NULL)
+        OR status <> 'COMPLETED'
+    )
+);
+
+-- -----------------------------------------------------------------------------
+-- Immutable selective-regeneration plans
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE regeneration_plans (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL,
+    chapter_id UUID NOT NULL,
+    continuity_plan_id UUID NOT NULL,
+    source_hash VARCHAR(64) NOT NULL,
+    requested_beat_ids_json JSONB NOT NULL,
+    affected_beat_ids_json JSONB NOT NULL,
+    reusable_beat_ids_json JSONB NOT NULL,
+    reason VARCHAR(512) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    input_fingerprint VARCHAR(64) NOT NULL,
+    created_by VARCHAR(128) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_regeneration_plan_fingerprint UNIQUE (project_id, chapter_id, input_fingerprint),
+    CONSTRAINT uq_regeneration_plan_scope UNIQUE (id, project_id, chapter_id),
+    CONSTRAINT ck_regeneration_plan_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_regeneration_plan_fingerprint CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_regeneration_plan_requested_array CHECK (jsonb_typeof(requested_beat_ids_json) = 'array'),
+    CONSTRAINT ck_regeneration_plan_affected_array CHECK (jsonb_typeof(affected_beat_ids_json) = 'array'),
+    CONSTRAINT ck_regeneration_plan_reusable_array CHECK (jsonb_typeof(reusable_beat_ids_json) = 'array'),
+    CONSTRAINT fk_regeneration_plan_continuity_scope
+        FOREIGN KEY (continuity_plan_id, project_id, chapter_id)
+        REFERENCES chapter_continuity_plans(id, project_id, chapter_id)
+);
+
+ALTER TABLE generation_jobs
+    ADD CONSTRAINT fk_generation_jobs_regeneration_plan
+    FOREIGN KEY (regeneration_plan_id) REFERENCES regeneration_plans(id);
+
+-- -----------------------------------------------------------------------------
+-- Storyboard generation immutable input snapshots
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE storyboard_generation_batches (
+    id UUID PRIMARY KEY,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    storyboard_revision_id UUID NOT NULL REFERENCES storyboard_revisions(id),
+    source_hash VARCHAR(64) NOT NULL,
+    continuity_plan_id UUID REFERENCES chapter_continuity_plans(id),
+    continuity_plan_revision INTEGER,
+    continuity_report_revision INTEGER,
+    style_policy_version VARCHAR(64) NOT NULL,
+    provider_policy_version VARCHAR(64) NOT NULL,
+    idempotency_key VARCHAR(128) NOT NULL,
+    request_fingerprint VARCHAR(64) NOT NULL,
+    issues_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status VARCHAR(24) NOT NULL DEFAULT 'PREPARED',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_storyboard_generation_batch_idempotency UNIQUE (project_id, chapter_id, idempotency_key),
+    CONSTRAINT ck_storyboard_generation_batch_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_storyboard_generation_batch_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_storyboard_generation_batch_issues CHECK (jsonb_typeof(issues_json) = 'array')
+);
+
+CREATE TABLE storyboard_generation_beat_snapshots (
+    id UUID PRIMARY KEY,
+    batch_id UUID NOT NULL REFERENCES storyboard_generation_batches(id) ON DELETE CASCADE,
+    visual_beat_id UUID NOT NULL REFERENCES visual_beats(id),
+    scene_id UUID NOT NULL REFERENCES scenes(id),
+    beat_row_version BIGINT NOT NULL,
+    prompt TEXT NOT NULL,
+    negative_prompt TEXT NOT NULL DEFAULT '',
+    character_snapshot_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    references_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    continuity_semantic_hash VARCHAR(128),
+    input_fingerprint VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_storyboard_generation_beat_snapshot UNIQUE (batch_id, visual_beat_id),
+    CONSTRAINT ck_storyboard_generation_beat_prompt CHECK (length(prompt) BETWEEN 1 AND 16000),
+    CONSTRAINT ck_storyboard_generation_beat_character_snapshot CHECK (jsonb_typeof(character_snapshot_json) = 'object'),
+    CONSTRAINT ck_storyboard_generation_beat_references CHECK (jsonb_typeof(references_json) = 'array'),
+    CONSTRAINT ck_storyboard_generation_beat_fingerprint CHECK (input_fingerprint ~ '^[0-9a-f]{64}$')
+);
+
+-- -----------------------------------------------------------------------------
 -- Project render snapshots and Desktop execution assignment
 -- -----------------------------------------------------------------------------
 
@@ -156,7 +383,7 @@ CREATE TABLE project_render_input_snapshots (
     beat_count INTEGER NOT NULL CHECK (beat_count > 0),
     assigned_local_device_id UUID NOT NULL REFERENCES local_devices(id),
     render_profile_json JSONB NOT NULL DEFAULT '{
-      "schemaVersion": 2,
+      "schemaVersion": 3,
       "rendererVersion": "project-image-motion-v3-composition",
       "compositionPolicyVersion": 1,
       "fps": 30,
@@ -168,13 +395,22 @@ CREATE TABLE project_render_input_snapshots (
         "pixelFormat": "yuv420p"
       },
       "color": {"mode": "SDR_BT709_LIMITED"},
-      "subtitles": {"mode": "none"}
+      "subtitles": {"mode": "none"},
+      "watermark": {"mode": "none", "policyVersion": 1}
     }'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p', '1440p')),
     CONSTRAINT ck_project_render_input_format CHECK (render_format = 'mp4'),
     CONSTRAINT ck_project_render_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
-    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer = 2)
+    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer IN (2, 3)),
+    CONSTRAINT ck_project_render_profile_v3_watermark CHECK (
+        (render_profile_json ->> 'schemaVersion')::integer = 2
+        OR (
+            jsonb_typeof(render_profile_json -> 'watermark') = 'object'
+            AND render_profile_json -> 'watermark' ->> 'mode' IN ('required', 'none')
+            AND (render_profile_json -> 'watermark' ->> 'policyVersion')::integer = 1
+        )
+    )
 );
 
 CREATE TABLE project_render_input_chapters (
@@ -185,6 +421,8 @@ CREATE TABLE project_render_input_chapters (
     source_hash VARCHAR(64) NOT NULL,
     media_plan_id UUID REFERENCES media_plans(id),
     media_plan_revision INTEGER CHECK (media_plan_revision IS NULL OR media_plan_revision > 0),
+    continuity_plan_id UUID REFERENCES chapter_continuity_plans(id),
+    continuity_report_revision INTEGER,
     global_start_ms BIGINT NOT NULL CHECK (global_start_ms >= 0),
     global_end_ms BIGINT NOT NULL,
     audio_storage_key TEXT NOT NULL,
@@ -198,8 +436,12 @@ CREATE TABLE project_render_input_chapters (
     subtitle_spans_json JSONB,
     PRIMARY KEY (generation_job_id, chapter_id),
     CONSTRAINT ck_project_render_chapter_range CHECK (global_end_ms > global_start_ms),
-    CONSTRAINT ck_project_render_subtitle_spans_array
-        CHECK (subtitle_spans_json IS NULL OR jsonb_typeof(subtitle_spans_json) = 'array')
+    CONSTRAINT ck_project_render_subtitle_spans_array CHECK (subtitle_spans_json IS NULL OR jsonb_typeof(subtitle_spans_json) = 'array'),
+    CONSTRAINT ck_project_render_input_chapter_continuity_report_revision CHECK (continuity_report_revision IS NULL OR continuity_report_revision > 0),
+    CONSTRAINT ck_project_render_input_chapter_continuity_pair CHECK (
+        (continuity_plan_id IS NULL AND continuity_report_revision IS NULL)
+        OR continuity_plan_id IS NOT NULL
+    )
 );
 
 COMMENT ON COLUMN project_render_input_chapters.subtitle_text IS
@@ -222,7 +464,6 @@ CREATE TABLE project_render_input_beats (
     size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
     checksum VARCHAR(128) NOT NULL,
     media_type VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
-    storage_mode VARCHAR(24) NOT NULL DEFAULT 'PROJECT_LOCAL',
     source_duration_ms BIGINT,
     fit_mode VARCHAR(24) NOT NULL DEFAULT 'TRIM',
     trim_start_ms BIGINT NOT NULL DEFAULT 0,
@@ -230,7 +471,6 @@ CREATE TABLE project_render_input_beats (
     PRIMARY KEY (generation_job_id, visual_beat_id),
     CONSTRAINT ck_project_render_beat_range CHECK (global_end_ms > global_start_ms),
     CONSTRAINT ck_project_render_input_beat_media_type CHECK (media_type IN ('IMAGE', 'VIDEO')),
-    CONSTRAINT ck_project_render_input_beat_storage_mode CHECK (storage_mode IN ('PROJECT_LOCAL', 'LOCAL_ONLY')),
     CONSTRAINT ck_project_render_input_beat_source_duration CHECK (source_duration_ms IS NULL OR source_duration_ms > 0),
     CONSTRAINT ck_project_render_input_beat_fit_mode CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
     CONSTRAINT ck_project_render_input_beat_trim_start CHECK (trim_start_ms >= 0)
