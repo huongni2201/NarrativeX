@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 
+from narrativex_worker.narration.models import WordAlignment
 from narrativex_worker.narration.repository import NarrationWorkerRepository
 from narrativex_worker.narration.storage import StoredMediaAsset
 
@@ -83,13 +84,14 @@ async def test_public_narration_completion_uses_uuidv7_for_durable_ids() -> None
         size_bytes=4096,
         mime_type="audio/mpeg",
     )
-    spans = [
-        SimpleNamespace(
+    words = [
+        WordAlignment(
             index=0,
             text_start=0,
             text_end=12,
-            audio_start_ms=0,
+            audio_start_ms=1,
             audio_end_ms=800,
+            confidence=1.0,
         )
     ]
 
@@ -100,7 +102,7 @@ async def test_public_narration_completion_uses_uuidv7_for_durable_ids() -> None
         duration_ms=800,
         sample_rate_hz=48000,
         channels=1,
-        spans=spans,
+        words=words,
     )
 
     asset_insert = next(
