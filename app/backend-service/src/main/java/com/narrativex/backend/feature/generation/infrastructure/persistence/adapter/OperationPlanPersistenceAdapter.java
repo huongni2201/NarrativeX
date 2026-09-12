@@ -24,8 +24,9 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
     UUID id = mapper.insert(toRow(operationPlan));
     if (id == null) throw new IllegalStateException("Inserted operation plan did not return an id");
     OperationPlanRow inserted = mapper.findById(id);
-    if (inserted == null)
+    if (inserted == null) {
       throw new IllegalStateException("Inserted operation plan " + id + " disappeared");
+    }
     return toDomain(inserted);
   }
 
@@ -54,11 +55,7 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
         plan.getRowVersion(),
         plan.getProjectId(),
         plan.getGenerationJobId(),
-        plan.getOperationType(),
-        plan.getEstimateMin(),
-        plan.getEstimateMax(),
-        plan.getMaxAuthorizedCost(),
-        plan.getConfidence());
+        plan.getOperationType());
   }
 
   private static OperationPlan toDomain(OperationPlanRow row) {
@@ -67,10 +64,6 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
         row.getRowVersion(),
         row.getProjectId(),
         row.getGenerationJobId(),
-        row.getOperationType(),
-        row.getEstimateMin(),
-        row.getEstimateMax(),
-        row.getMaxAuthorizedCost(),
-        row.getConfidence());
+        row.getOperationType());
   }
 }
