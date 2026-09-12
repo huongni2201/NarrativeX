@@ -9,22 +9,24 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class ProductionBeatMediaSelectionScopeContractTest {
+  private static final Path MEDIA_SCHEMA =
+      Path.of("src/main/resources/db/migration/V3__generation_billing_and_media.sql");
   private static final Path SELECTION_MAPPER =
       Path.of("src/main/resources/mybatis/ProductionBeatMediaSelectionMapper.xml");
-  private static final Path FINAL_SCHEMA =
-      Path.of("src/main/resources/db/migration/V6__database_logic_and_triggers.sql");
 
   @Test
   void projectMediaUsesDirectProjectOwnershipWithoutStorageMode() throws IOException {
     String mapper = Files.readString(SELECTION_MAPPER);
-    String schema = Files.readString(FINAL_SCHEMA);
+    String schema = Files.readString(MEDIA_SCHEMA);
 
     assertTrue(mapper.contains("ma.project_id = #{projectId"));
     assertFalse(mapper.contains("local_media_materializations"));
     assertFalse(mapper.contains("storage_mode"));
-    assertTrue(schema.contains("ALTER TABLE media_assets ALTER COLUMN project_id SET NOT NULL"));
-    assertTrue(schema.contains("ALTER TABLE media_assets DROP COLUMN storage_mode"));
-    assertTrue(schema.contains("DROP TABLE IF EXISTS local_media_materializations"));
+
+    assertTrue(schema.contains("project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE"));
     assertTrue(schema.contains("CREATE TABLE voice_reference_assets"));
+    assertFalse(schema.contains("storage_mode"));
+    assertFalse(schema.contains("local_media_materializations"));
+    assertFalse(schema.contains("media_asset_checksums"));
   }
 }
