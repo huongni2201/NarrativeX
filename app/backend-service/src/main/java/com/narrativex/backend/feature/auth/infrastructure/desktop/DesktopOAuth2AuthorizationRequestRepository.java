@@ -29,13 +29,18 @@ public final class DesktopOAuth2AuthorizationRequestRepository
   private static final String STATE_ATTEMPT_PREFIX = "NARRATIVEX_DESKTOP_OAUTH_STATE:";
   private static final int MAX_PENDING_REQUESTS = 8;
 
-  public record DesktopAttempt(String redirectUri, String codeChallenge) implements Serializable {}
+  public record DesktopAttempt(String attemptId, String redirectUri, String codeChallenge)
+      implements Serializable {}
 
   public static void storePendingDesktopAttempt(
-      HttpSession session, String attemptId, String redirectUri, String codeChallenge) {
+      HttpSession session,
+      String attemptId,
+      String redirectUri,
+      String codeChallenge) {
     synchronized (session) {
       session.setAttribute(
-          pendingAttemptName(attemptId), new DesktopAttempt(redirectUri, codeChallenge));
+          pendingAttemptName(attemptId),
+          new DesktopAttempt(attemptId, redirectUri, codeChallenge));
     }
   }
 
