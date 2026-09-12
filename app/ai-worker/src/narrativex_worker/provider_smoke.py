@@ -45,7 +45,7 @@ async def run_smoke() -> None:
 
     if operation.status != ProviderOperationStatus.COMPLETED or operation.result is None:
         raise RuntimeError(f"Vertex smoke analysis failed with status={operation.status}")
-    if operation.billing is None or operation.billing.usage.prompt_tokens <= 0:
+    if operation.usage is None or operation.usage.prompt_tokens <= 0:
         raise RuntimeError("Vertex smoke response did not report prompt token usage")
 
     print(
@@ -54,9 +54,8 @@ async def run_smoke() -> None:
                 "status": "ok",
                 "provider": operation.provider_key,
                 "sceneCount": len(operation.result.scenes),
-                "promptTokens": operation.billing.usage.prompt_tokens,
-                "candidateTokens": operation.billing.usage.candidate_tokens,
-                "actualCostUsd": str(operation.billing.actual_cost),
+                "promptTokens": operation.usage.prompt_tokens,
+                "candidateTokens": operation.usage.candidate_tokens,
             },
             separators=(",", ":"),
         )
