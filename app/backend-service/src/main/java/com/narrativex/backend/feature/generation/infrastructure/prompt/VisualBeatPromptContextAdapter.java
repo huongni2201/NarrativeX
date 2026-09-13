@@ -7,8 +7,8 @@ import com.narrativex.backend.feature.generation.application.port.out.VisualProm
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.application.service.StoryboardVisualPromptComposer;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer.ComposedVisualPrompt;
-import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
-import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
+import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
   private static final int MAX_REFERENCE_IMAGES = 3;
 
-  private final GetChapterStoryboardUseCase getChapterStoryboardUseCase;
+  private final StoryboardBeatAccess storyboardBeatAccess;
   private final VisualPromptContextRepository visualPromptContextRepository;
   private final StoryboardVisualPromptComposer storyboardVisualPromptComposer;
 
@@ -51,12 +51,9 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
       return Map.of();
     }
 
-    var storyboard = getChapterStoryboardUseCase.execute(projectId, chapterId).data();
-    Map<UUID, VisualBeatResponse> beatsById =
-        storyboard.scenes().stream()
-            .flatMap(scene -> scene.visualBeats().stream())
-            .collect(Collectors.toMap(VisualBeatResponse::id, Function.identity()));
-
+    Map<UUID, VisualBeat> beatsById =
+        storyboardBeatAccess.requireCurrentBeats(projectId, chapterId).stream()
+            .collect(Collectors.toMap(VisualBeat::getId, Function.identity()));
     for (UUID visualBeatId : visualBeatIds) {
       if (!beatsById.containsKey(visualBeatId)) {
         throw new ResourceNotFoundException(
@@ -77,18 +74,18 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
       }
 
       String aspectRatio =
-          beat.aspectRatioOverride() == null ? null : beat.aspectRatioOverride().name();
+          beat.getAspectRatioOverride() == null ? null : beat.getAspectRatioOverride().name();
       var composed =
           storyboardVisualPromptComposer.compose(
-              beat.visualIntent(), beat.visualDirectionJson(), aspectRatio, context);
+              beat.getVisualIntent(), beat.getVisualDirectionJson(), aspectRatio, context);
       var continuity = context.continuity();
       prepared.put(
           visualBeatId,
           Preparation.ready(
               new PreparedVisualBeatPrompt(
-                  beat.id(),
-                  beat.sceneId(),
-                  beat.rowVersion(),
+                  beat.getId(),
+                  beat.getSceneId(),
+                  beat.getRowVersion(),
                   continuity == null ? null : continuity.planId(),
                   continuity == null ? null : continuity.semanticHash(),
                   composed)));
