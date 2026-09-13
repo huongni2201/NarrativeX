@@ -17,7 +17,7 @@ _DECIMAL_PATTERN = re.compile(r"(?<!\d)(\d+)[.,](\d+)(?!\d)")
 _SUBSTITUTION_CONFIDENCE_CAP = 0.65
 _INITIAL_PROMPT_CHARS = 1000
 _MAX_MEASURED_TOKENS_PER_SOURCE_WORD = 16
-_VI_DIGITS = (
+_VI_DIGITS: tuple[str, ...] = (
     "không",
     "một",
     "hai",
@@ -29,7 +29,7 @@ _VI_DIGITS = (
     "tám",
     "chín",
 )
-_VI_ACRONYM_LETTERS = {
+_VI_ACRONYM_LETTERS: dict[str, str] = {
     "A": "ây",
     "B": "bi",
     "C": "xi",
@@ -218,18 +218,21 @@ def _source_words(
     text_base_utf16: int,
     language: str | None = None,
 ) -> list[_SourceWord]:
-    utf16_offsets = [0]
+    utf16_offsets: list[int] = [0]
     for character in source_text:
         utf16_offsets.append(utf16_offsets[-1] + (2 if ord(character) > 0xFFFF else 1))
 
-    contextual_forms = _speech_context_forms(source_text, language=language)
+    contextual_forms: dict[tuple[int, int], set[str]] = _speech_context_forms(
+        source_text,
+        language=language,
+    )
     words: list[_SourceWord] = []
     for match in _WORD_PATTERN.finditer(source_text):
         text = match.group(0)
         key = _comparison_key(text)
         if not key:
             continue
-        spoken_forms = _spoken_forms(text, language=language)
+        spoken_forms: set[str] = _spoken_forms(text, language=language)
         spoken_forms.update(contextual_forms.get((match.start(), match.end()), set()))
         spoken_forms.discard(key)
         words.append(
@@ -293,7 +296,8 @@ def _reconcile_words(
     for source_word in source_words:
         next_scores: dict[int, int] = {}
         next_backpointers: dict[int, _BackPointer] = {}
-        forms = {source_word.key, *source_word.spoken_forms}
+        forms: set[str] = {source_word.key}
+        forms.update(source_word.spoken_forms)
         for timed_start, score in scores.items():
             _consider_path(
                 next_scores,
@@ -415,7 +419,9 @@ def _spoken_forms(value: str, *, language: str | None) -> set[str]:
     if value.isdigit():
         forms.update(_vietnamese_number_forms(value))
     if value.isascii() and value.isalpha() and value.isupper() and 1 < len(value) <= 8:
-        acronym = "".join(_VI_ACRONYM_LETTERS.get(letter, letter) for letter in value)
+        acronym: str = "".join(
+            _VI_ACRONYM_LETTERS.get(letter, letter) for letter in value
+        )
         forms.add(_comparison_key(acronym))
     return forms
 
@@ -442,7 +448,7 @@ def _speech_context_forms(
             )
 
     for match in _DATE_PATTERN.finditer(source_text):
-        prefixes = ("ngày", "tháng", "năm")
+        prefixes: tuple[str, ...] = ("ngày", "tháng", "năm")
         for group_index, prefix in enumerate(prefixes, start=1):
             _add_contextual_forms(
                 result,
@@ -452,7 +458,7 @@ def _speech_context_forms(
             )
 
     for match in _DECIMAL_PATTERN.finditer(source_text):
-        fractional_forms = _vietnamese_number_forms(match.group(2))
+        fractional_forms: set[str] = _vietnamese_number_forms(match.group(2))
         for prefix in ("phẩy", "chấm"):
             _add_contextual_forms(
                 result,
@@ -480,16 +486,16 @@ def _add_contextual_forms(
 
 def _vietnamese_number_forms(value: str) -> set[str]:
     normalized_digits = value.lstrip("0") or "0"
-    forms = {normalized_digits}
+    forms: set[str] = {normalized_digits}
     if len(value) > 1:
         forms.add(value)
 
-    digit_words = [_VI_DIGITS[int(character)] for character in value]
+    digit_words: list[str] = [_VI_DIGITS[int(character)] for character in value]
     forms.add(_comparison_key(" ".join(digit_words)))
 
     if len(normalized_digits) > 12:
         return forms
-    number = int(normalized_digits)
+    number: int = int(normalized_digits)
     for words in _read_vietnamese_integer(number, preserve_lower_hundreds=True):
         forms.add(_comparison_key(" ".join(words)))
     for words in _read_vietnamese_integer(number, preserve_lower_hundreds=False):
@@ -505,9 +511,9 @@ def _read_vietnamese_integer(
     if value == 0:
         return {("không",)}
 
-    scales = ("", "nghìn", "triệu", "tỷ")
+    scales: tuple[str, ...] = ("", "nghìn", "triệu", "tỷ")
     groups: list[int] = []
-    remaining = value
+    remaining: int = value
     while remaining:
         groups.append(remaining % 1000)
         remaining //= 1000
@@ -525,12 +531,15 @@ def _read_vietnamese_integer(
             and group_index < highest_index
             and group_value < 100
         )
-        group_variants = _read_vietnamese_triplet(group_value, force_hundreds=force_hundreds)
-        scale = scales[group_index]
+        group_variants: set[tuple[str, ...]] = _read_vietnamese_triplet(
+            group_value,
+            force_hundreds=force_hundreds,
+        )
+        scale: str = scales[group_index]
         expanded: set[tuple[str, ...]] = set()
         for prefix in variants:
             for group_words in group_variants:
-                suffix = group_words + ((scale,) if scale else ())
+                suffix: tuple[str, ...] = group_words + ((scale,) if scale else ())
                 expanded.add(prefix + suffix)
         variants = expanded
     return variants
@@ -544,7 +553,7 @@ def _read_vietnamese_triplet(value: int, *, force_hundreds: bool) -> set[tuple[s
         hundreds_word = _VI_DIGITS[hundreds]
         variants = {(hundreds_word, "trăm")}
         if remainder and remainder < 10:
-            bridged = {
+            bridged: set[tuple[str, ...]] = {
                 prefix + (bridge,)
                 for prefix in variants
                 for bridge in ("linh", "lẻ")
@@ -557,6 +566,7 @@ def _read_vietnamese_triplet(value: int, *, force_hundreds: bool) -> set[tuple[s
     ones = remainder % 10
     if tens == 0:
         return {prefix + (_VI_DIGITS[ones],) for prefix in variants}
+    base: tuple[str, ...]
     if tens == 1:
         base = ("mười",)
     else:
@@ -564,7 +574,7 @@ def _read_vietnamese_triplet(value: int, *, force_hundreds: bool) -> set[tuple[s
     if ones == 0:
         return {prefix + base for prefix in variants}
 
-    ones_variants = {_VI_DIGITS[ones]}
+    ones_variants: set[str] = {_VI_DIGITS[ones]}
     if tens >= 2 and ones == 1:
         ones_variants.add("mốt")
     if tens >= 2 and ones == 4:
