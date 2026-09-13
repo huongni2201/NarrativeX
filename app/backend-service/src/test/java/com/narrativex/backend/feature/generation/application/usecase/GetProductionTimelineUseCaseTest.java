@@ -62,20 +62,21 @@ class GetProductionTimelineUseCaseTest {
   }
 
   @Test
-  void derivesVisualClockFromSourceRangesAndNarrationAlignment() {
+  void derivesVisualClockFromMeasuredNarrationWordBoundaries() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-    String spans =
+    String words =
         """
         [
-          {"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":5000},
-          {"index":1,"textStart":50,"textEnd":100,"audioStartMs":5000,"audioEndMs":10000}
+          {"index":0,"textStart":0,"textEnd":39,"audioStartMs":0,"audioEndMs":3500,"confidence":0.99},
+          {"index":1,"textStart":40,"textEnd":69,"audioStartMs":4000,"audioEndMs":6500,"confidence":0.98},
+          {"index":2,"textStart":70,"textEnd":100,"audioStartMs":7000,"audioEndMs":10000,"confidence":0.97}
         ]
         """;
 
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, spans, 3)));
+        .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, words, 3)));
     when(sourceRepository.findBeats(projectId, "owner"))
         .thenReturn(
             List.of(
@@ -99,16 +100,16 @@ class GetProductionTimelineUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-    String incompleteSpans =
+    String incompleteWords =
         """
-        [{"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":10000}]
+        [{"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":10000,"confidence":0.99}]
         """;
 
     when(sourceRepository.findChapters(projectId, "owner"))
         .thenReturn(
             List.of(
                 chapterWithAlignment(
-                    storyVersionId, chapterId, 10_000L, incompleteSpans, 2)));
+                    storyVersionId, chapterId, 10_000L, incompleteWords, 2)));
     when(sourceRepository.findBeats(projectId, "owner"))
         .thenReturn(
             List.of(
@@ -129,12 +130,15 @@ class GetProductionTimelineUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-    String spans =
+    String words =
         """
-        [{"index":0,"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":10000}]
+        [
+          {"index":0,"textStart":0,"textEnd":39,"audioStartMs":0,"audioEndMs":3500,"confidence":0.99},
+          {"index":1,"textStart":40,"textEnd":100,"audioStartMs":4000,"audioEndMs":10000,"confidence":0.98}
+        ]
         """;
     when(sourceRepository.findChapters(projectId, "owner"))
-        .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, spans, 2)));
+        .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, words, 2)));
     BeatSource ready = beatWithText(chapterId, 0, 0, 0, 40, "b".repeat(64));
     BeatSource missing = beatWithText(chapterId, 0, 1, 40, 100, null, false);
     when(sourceRepository.findBeats(projectId, "owner")).thenReturn(List.of(ready, missing));
@@ -173,7 +177,7 @@ class GetProductionTimelineUseCaseTest {
   }
 
   private static ChapterSource chapterWithAlignment(
-      UUID storyVersionId, UUID chapterId, long durationMs, String spansJson, int beatCount) {
+      UUID storyVersionId, UUID chapterId, long durationMs, String wordsJson, int beatCount) {
     return new ChapterSource(
         storyVersionId,
         chapterId,
@@ -192,7 +196,7 @@ class GetProductionTimelineUseCaseTest {
         UUID.randomUUID(),
         UUID.randomUUID(),
         "x".repeat(100),
-        spansJson,
+        wordsJson,
         durationMs,
         beatCount,
         beatCount);
