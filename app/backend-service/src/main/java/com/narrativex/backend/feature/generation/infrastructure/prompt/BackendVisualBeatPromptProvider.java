@@ -2,10 +2,8 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
-import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
-import com.narrativex.backend.feature.generation.application.service.VisualPromptSafety;
+import com.narrativex.backend.feature.generation.application.service.StoryboardVisualPromptComposer;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
-import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.out.VisualBeatPromptProvider;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import java.util.LinkedHashMap;
@@ -19,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider {
-  private final VisualPromptComposer visualPromptComposer;
+  private final StoryboardVisualPromptComposer storyboardVisualPromptComposer;
   private final VisualPromptContextRepository visualPromptContextRepository;
 
   @Override
@@ -51,18 +49,12 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
         visualBeat.getAspectRatioOverride() != null
             ? visualBeat.getAspectRatioOverride().name()
             : null;
-    String safeVisualIntent =
-        VisualPromptSafety.sanitizeSceneDirection(visualBeat.getVisualIntent());
     var composedPrompt =
-        visualPromptComposer.compose(
-            ImageStyle.CINEMATIC_ANIME,
-            safeVisualIntent,
+        storyboardVisualPromptComposer.compose(
+            visualBeat.getVisualIntent(),
             visualBeat.getVisualDirectionJson(),
             aspectRatio,
             context);
-    // The story-owned input is sanitized before composition. Sanitizing the completed
-    // structured prompt would collapse section separators and make this adapter emit
-    // different bytes from the canonical Gemini prompt path.
     return VisualPromptText.finalPrompt(composedPrompt);
   }
 }
