@@ -6,9 +6,9 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
-import java.util.Set;
+import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
+import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ public class StoryboardBeatAccessService implements StoryboardBeatAccess {
 
   @Override
   @Transactional(readOnly = true)
-  public Set<UUID> requireCurrentBeatIds(UUID projectId, UUID chapterId) {
+  public List<VisualBeat> requireCurrentBeats(UUID projectId, UUID chapterId) {
     var chapter =
         chapterRepository
             .findById(chapterId)
@@ -34,8 +34,6 @@ public class StoryboardBeatAccessService implements StoryboardBeatAccess {
         storyboardRepository.findScenesByChapterId(chapterId).stream()
             .map(scene -> scene.getId())
             .toList();
-    return storyboardRepository.findVisualBeatsBySceneIds(sceneIds).stream()
-        .map(beat -> beat.getId())
-        .collect(Collectors.toUnmodifiableSet());
+    return List.copyOf(storyboardRepository.findVisualBeatsBySceneIds(sceneIds));
   }
 }

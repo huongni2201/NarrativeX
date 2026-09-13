@@ -19,11 +19,13 @@ It deliberately separates input/transport correctness from provider visual quali
 
 ### Immutable Storyboard generation inputs
 
-- Additive Flyway `V14__storyboard_generation_snapshots.sql` persists immutable batch and beat snapshot metadata.
+- Baseline Flyway `V5__catalog_generation_and_render_snapshots.sql` contains the immutable Storyboard generation batch and beat snapshot schema.
 - Prepare runs in `REPEATABLE_READ` and uses existing project/chapter ownership authorization.
 - Batch provenance pins source hash, storyboard revision, continuity plan/report revision, style/provider policy versions, exact prompt, character snapshot, ordered reference metadata/checksums and input fingerprints.
 - Idempotency fingerprint includes the requested beat scope, including requests whose beats are all blocked before snapshot creation.
 - Stale evaluation checks source/storyboard/continuity/policy and current beat fingerprints, catching canon/appearance/reference/row-version changes that do not advance chapter source hash.
+- Preview and immutable generation snapshots share one canonical Storyboard Visual Beat prompt composer, including scene-direction sanitization.
+- Multi-beat preparation resolves the Storyboard once and prompt contexts through the repository batch projection instead of rebuilding the full prompt context per beat.
 
 ### Desktop transport and attempts
 
@@ -43,6 +45,8 @@ Backend:
 
 - appearance prompt does not mask structured wardrobe/injury/hairstyle/age;
 - generated preview resets review state;
+- preview prompt and immutable generation prompt share the same sanitization/composition path;
+- prompt context preparation batches multi-beat scope;
 - prepare same-key/same-scope reuse;
 - same-key/different blocked requested scope conflict;
 - content-fingerprint stale detection even when source/storyboard IDs remain stable;
@@ -65,13 +69,13 @@ Desktop:
 
 ### Automated repository gate
 
-GitHub Actions run `34065793535` was triggered while implementation was in progress. All jobs terminated within approximately four seconds without recorded steps, and job-log retrieval returned no executable test output. This is treated as a workflow/runner startup failure, not evidence that backend/Desktop tests passed or failed.
+The repository must be considered merge-ready only after the current pull-request workflow is green. Source-level deterministic controls and regression tests are not treated as proof that backend/Desktop/worker gates passed.
 
-A fresh successful `backend ./mvnw verify`, Desktop `npm run check`, repository gates and AI-worker checks are still required before merge. No check is marked PASS solely because source code or tests exist.
+Required gates remain backend `./mvnw verify`, Desktop checks, repository gates and AI-worker checks.
 
 ### Desktop runtime
 
-Not verified in this implementation session. Required runtime evidence:
+Runtime acceptance still requires a production-like Electron run:
 
 1. launch the Electron/Vite Desktop application;
 2. prepare and generate one beat;
@@ -86,7 +90,7 @@ Until this is executed, UI/runtime acceptance is **BLOCKED**, not PASS.
 
 ### Real-image provider quality
 
-Not measured in this implementation session. A production-like comparison must use the same story fixture and record actual submitted prompt, reference checksums, model/preset, batch/snapshot fingerprints and output mapping.
+A production-like comparison must use the same story fixture and record actual submitted prompt, reference checksums, model/preset, batch/snapshot fingerprints and output mapping.
 
 Recommended minimum fixture:
 
@@ -105,9 +109,9 @@ Compare identity, outfit timing, cast leakage, location continuity, style drift 
 
 Open T6 only if the measured benchmark shows material visual drift while submitted input/transport invariants are correct. If opened, evaluate with/without anchor under the same prompt/reference budget and record latency, review steps, cast leakage and copy-pose behavior.
 
-## Rollback and legacy notes
+## Rollback and baseline notes
 
-- `V14` is additive; do not rewrite already-applied migrations.
+- The repository is pre-production and uses the consolidated V1–V8 baseline; do not document removed V9+ patch migrations as current schema authorities.
 - Existing chapter media is not automatically regenerated or deleted.
 - Legacy/missing-continuity chapters can still prepare with a warning; if a current continuity plan exists but a requested beat lacks its required state, that beat is blocking.
 - Legacy local Gemini queues are restored paused and require prepare for pending work. Existing generated/approved assets remain intact.
@@ -116,4 +120,4 @@ Open T6 only if the measured benchmark shows material visual drift while submitt
 
 ## Release conclusion
 
-The deterministic implementation is intended to remove mixed-revision, wrong-reference, stale-attach and blind-resubmit classes of errors. Release is **not yet declared DONE** because successful full repository CI, Desktop runtime evidence and the real-image quality benchmark are still required by the plan.
+The deterministic implementation removes mixed-revision, wrong-reference, stale-attach and blind-resubmit classes of errors at the application boundary. Release is **not yet declared DONE** until the current repository CI, Desktop runtime evidence and real-image quality benchmark are green.
