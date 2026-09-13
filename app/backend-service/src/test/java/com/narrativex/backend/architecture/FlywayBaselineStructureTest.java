@@ -85,6 +85,11 @@ class FlywayBaselineStructureTest {
             "account_voice_reference_asset_id UUID REFERENCES voice_reference_assets(id)"));
     assertTrue(v4.contains("ck_narration_requests_single_voice_reference"));
     assertFalse(v4.contains("\n    voice_reference_asset_id UUID REFERENCES media_assets(id),"));
+    assertTrue(v4.contains("CREATE TABLE narration_alignments"));
+    assertTrue(v4.contains("words_json JSONB NOT NULL"));
+    assertTrue(v4.contains("ck_narration_alignments_words_array"));
+    String narrationAlignments = table(v4, "narration_alignments", "narration_sets");
+    assertFalse(narrationAlignments.contains("spans_json"));
     assertTrue(v4.contains("CREATE TABLE notifications"));
     assertTrue(v4.contains("CREATE TABLE final_artifacts"));
     assertFalse(v4.contains("CREATE TABLE short_clip_requests"));
@@ -95,8 +100,9 @@ class FlywayBaselineStructureTest {
     assertTrue(v5.contains("CREATE TABLE regeneration_plans"));
     assertTrue(v5.contains("CREATE TABLE storyboard_generation_batches"));
     assertTrue(v5.contains("subtitle_text TEXT NOT NULL DEFAULT ''"));
-    assertTrue(v5.contains("subtitle_spans_json JSONB"));
-    assertTrue(v5.contains("ck_project_render_subtitle_spans_array"));
+    assertTrue(v5.contains("subtitle_words_json JSONB"));
+    assertTrue(v5.contains("ck_project_render_subtitle_words_array"));
+    assertFalse(v5.contains("subtitle_spans_json"));
     assertTrue(v5.contains("media_selection_active BOOLEAN NOT NULL DEFAULT FALSE"));
     assertFalse(v5.contains("estimated_cost"));
     assertFalse(v5.contains("currency VARCHAR(3)"));

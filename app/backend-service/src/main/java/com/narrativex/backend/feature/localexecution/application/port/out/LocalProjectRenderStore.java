@@ -61,7 +61,7 @@ public interface LocalProjectRenderStore {
       String checksum,
       long durationMs,
       String subtitleText,
-      String subtitleSpansJson) {
+      String subtitleWordsJson) {
     public ChapterInput(
         UUID chapterId,
         int orderIndex,

@@ -1,42 +1,87 @@
-from narrativex_worker.narration.alignment import (
-    build_alignment,
-    normalize_alignment_duration,
-)
-from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
+import pytest
+
+from narrativex_worker.narration.alignment import NarrationAlignmentValidator
+from narrativex_worker.narration.models import WordAlignment
 
 
-def _segment(index: int, frame_count: int) -> SynthesizedSegment:
-    text_start = index * 4
-    return SynthesizedSegment(
-        segment=NarrationSegment(
-            index=index,
-            text_start=text_start,
-            text_end=text_start + 4,
-            text=f"seg{index}",
-        ),
-        pcm_bytes=b"\x00\x00" * frame_count,
-        sample_rate_hz=48_000,
-        channels=1,
+def _word(
+    index: int,
+    text_start: int,
+    text_end: int,
+    audio_start_ms: int,
+    audio_end_ms: int,
+    confidence: float = 0.95,
+) -> WordAlignment:
+    return WordAlignment(
+        index=index,
+        text_start=text_start,
+        text_end=text_end,
+        audio_start_ms=audio_start_ms,
+        audio_end_ms=audio_end_ms,
+        confidence=confidence,
     )
 
 
-def test_build_alignment_rounds_cumulative_pcm_clock_instead_of_each_segment() -> None:
-    # Each segment is 1000.5 ms. Rounding each segment independently produces
-    # 1000 + 1000 = 2000 ms, while the real cumulative PCM clock is 2001 ms.
-    spans = build_alignment([_segment(0, 48_024), _segment(1, 48_024)])
-
-    assert [(span.audio_start_ms, span.audio_end_ms) for span in spans] == [
-        (0, 1000),
-        (1000, 2001),
+def test_validator_allows_leading_and_trailing_silence() -> None:
+    words = [
+        _word(0, 0, 3, 220, 480),
+        _word(1, 4, 9, 610, 930),
     ]
 
+    NarrationAlignmentValidator().validate(
+        words,
+        source_utf16_length=9,
+        audio_duration_ms=1_600,
+    )
 
-def test_normalize_alignment_duration_distributes_encoded_audio_drift() -> None:
-    spans = build_alignment([_segment(0, 48_000), _segment(1, 48_000)])
 
-    normalized = normalize_alignment_duration(spans, audio_duration_ms=2_024)
-
-    assert [(span.audio_start_ms, span.audio_end_ms) for span in normalized] == [
-        (0, 1012),
-        (1012, 2024),
+def test_validator_allows_real_pause_between_words() -> None:
+    words = [
+        _word(0, 0, 3, 100, 350),
+        _word(1, 4, 8, 1_100, 1_430),
     ]
+
+    NarrationAlignmentValidator().validate(
+        words,
+        source_utf16_length=8,
+        audio_duration_ms=2_000,
+    )
+
+
+def test_validator_rejects_overlapping_word_audio() -> None:
+    words = [
+        _word(0, 0, 3, 100, 500),
+        _word(1, 4, 8, 450, 800),
+    ]
+
+    with pytest.raises(ValueError, match="audio ranges overlap"):
+        NarrationAlignmentValidator().validate(
+            words,
+            source_utf16_length=8,
+            audio_duration_ms=1_000,
+        )
+
+
+def test_validator_rejects_word_past_final_audio_without_stretching_or_clamping() -> None:
+    words = [_word(0, 0, 4, 100, 1_820)]
+
+    with pytest.raises(ValueError, match="exceeds narration duration"):
+        NarrationAlignmentValidator().validate(
+            words,
+            source_utf16_length=4,
+            audio_duration_ms=1_800,
+        )
+
+
+def test_validator_requires_contiguous_word_indexes() -> None:
+    words = [
+        _word(0, 0, 3, 100, 300),
+        _word(2, 4, 8, 350, 700),
+    ]
+
+    with pytest.raises(ValueError, match="indexes must be contiguous"):
+        NarrationAlignmentValidator().validate(
+            words,
+            source_utf16_length=8,
+            audio_duration_ms=1_000,
+        )

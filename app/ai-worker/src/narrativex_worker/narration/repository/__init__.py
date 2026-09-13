@@ -1,10 +1,12 @@
 """Stable narration repository facade."""
 
+import hashlib
+import json
 import uuid
 from contextvars import ContextVar
 from dataclasses import replace
 
-from narrativex_worker.narration.models import AlignmentSpan
+from narrativex_worker.narration.models import WordAlignment
 from narrativex_worker.narration.repository.completion import NarrationCompletionMixin
 from narrativex_worker.narration.repository.implementation import (
     ClaimedNarrationJob,
@@ -17,6 +19,7 @@ from narrativex_worker.narration.repository.implementation import (
     NarrationWorkerRepository as NarrationWorkerRepositoryImplementation,
 )
 from narrativex_worker.narration.storage import StoredMediaAsset
+from narrativex_worker.schema import ProviderOperationStatus
 
 
 class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerRepositoryImplementation):
@@ -67,6 +70,42 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
             return claimed
         return replace(claimed, voice_reference_storage_key=str(storage_key))
 
+    async def complete_provider_operation(
+        self,
+        operation: DurableNarrationProviderOperation,
+        result: dict[str, object],
+    ) -> DurableNarrationProviderOperation:
+        """Persist only durable provider result state; narration billing metadata is gone."""
+        serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
+        fingerprint = hashlib.sha256(serialized.encode()).hexdigest()
+        row = await self._require_pool().fetchrow(
+            """
+            UPDATE provider_operations
+               SET status = 'COMPLETED', normalized_result_json = $2::jsonb,
+                   result_fingerprint = $3,
+                   completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+                   next_reconcile_at = NULL, last_reconcile_error = NULL,
+                   updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+             WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $4
+             RETURNING id, stage_attempt_id, provider_key, status, row_version,
+                       request_fingerprint, normalized_result_json, result_fingerprint,
+                       next_reconcile_at, reconcile_attempts, last_reconcile_error
+            """,
+            operation.id,
+            serialized,
+            fingerprint,
+            operation.row_version,
+        )
+        if row is not None:
+            return self._operation(row)
+        current = await self.get_provider_operation(operation.id)
+        if (
+            current.status is ProviderOperationStatus.COMPLETED
+            and current.result_fingerprint == fingerprint
+        ):
+            return current
+        raise NarrationProviderStateConflictError(str(operation.id))
+
     async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         return await super().heartbeat(stage_attempt_id, self._lease_owner(worker_id))
 
@@ -116,7 +155,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
         duration_ms: int,
         sample_rate_hz: int,
         channels: int,
-        spans: list[AlignmentSpan],
+        words: list[WordAlignment],
     ) -> None:
         await super().complete(
             claimed,
@@ -125,7 +164,7 @@ class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerReposit
             duration_ms=duration_ms,
             sample_rate_hz=sample_rate_hz,
             channels=channels,
-            spans=spans,
+            words=words,
         )
         self._claim_owner.set(None)
 

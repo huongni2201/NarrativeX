@@ -7,7 +7,7 @@ import pytest
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.errors import NarrationRetryableInfrastructureError
 from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
-from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
+from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment, WordAlignment
 from narrativex_worker.narration.providers import (
     TtsExecutionSemantics,
     TtsProvider,
@@ -101,6 +101,17 @@ class RecordingAudioAssembler:
     async def probe_duration_ms_file(self, mp3_path: Path) -> int:
         del mp3_path
         return 10
+
+
+class FakeWordAligner:
+    def align(
+        self,
+        audio_path: Path,
+        source_text: str,
+        language: str = "",
+    ) -> list[WordAlignment]:
+        del audio_path, source_text, language
+        return [WordAlignment(0, 0, 1, 1, 9, 1.0)]
 
 
 class CompletionFailsInitiallyRepository:
@@ -197,6 +208,7 @@ async def test_local_runner_reuses_vieneu_and_final_mp3_after_completion_retry(
     runner.storage = InMemoryMediaStorage()
     runner.audio = cast(Any, audio)
     runner.repository = cast(NarrationWorkerRepository, repository)
+    runner.word_aligner = FakeWordAligner()
     claimed = claimed_job()
 
     with pytest.raises(NarrationRetryableInfrastructureError):
@@ -227,6 +239,7 @@ async def test_local_runner_does_not_regenerate_after_final_mp3_persistence_time
     runner.storage = FinalPersistenceFailsAfterWritingStorage()
     runner.audio = cast(Any, audio)
     runner.repository = cast(NarrationWorkerRepository, repository)
+    runner.word_aligner = FakeWordAligner()
     claimed = claimed_job()
 
     with pytest.raises(NarrationRetryableInfrastructureError):

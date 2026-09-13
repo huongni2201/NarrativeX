@@ -2,7 +2,10 @@ import re
 
 from narrativex_worker.narration.models import NarrationSegment
 
-_SENTENCE_END = re.compile(r"(?<=[.!?…])(?:[\"'”’)]*)\s+")
+# TTS segmentation optimizes prosody and provider request size. Subtitle cue sizing is
+# deliberately independent and is derived later from measured word timestamps.
+_SENTENCE_END = re.compile(r"(?<=[.!?…。！？])(?:[\"'”’)]*)\s+")
+_DEFAULT_MAX_CHARS = 1400
 
 
 def utf16_length(value: str) -> int:
@@ -14,7 +17,7 @@ def codepoint_to_utf16_offset(value: str, codepoint_offset: int) -> int:
 
 
 class NarrationSegmenter:
-    def __init__(self, max_chars: int = 1400) -> None:
+    def __init__(self, max_chars: int = _DEFAULT_MAX_CHARS) -> None:
         if max_chars < 64:
             raise ValueError("max_chars must be at least 64")
         self.max_chars = max_chars

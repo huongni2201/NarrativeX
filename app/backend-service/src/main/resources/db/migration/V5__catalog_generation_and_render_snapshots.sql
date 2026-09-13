@@ -422,10 +422,10 @@ CREATE TABLE project_render_input_chapters (
     narration_asset_id UUID,
     narration_alignment_id UUID,
     subtitle_text TEXT NOT NULL DEFAULT '',
-    subtitle_spans_json JSONB,
+    subtitle_words_json JSONB,
     PRIMARY KEY (generation_job_id, chapter_id),
     CONSTRAINT ck_project_render_chapter_range CHECK (global_end_ms > global_start_ms),
-    CONSTRAINT ck_project_render_subtitle_spans_array CHECK (subtitle_spans_json IS NULL OR jsonb_typeof(subtitle_spans_json) = 'array'),
+    CONSTRAINT ck_project_render_subtitle_words_array CHECK (subtitle_words_json IS NULL OR jsonb_typeof(subtitle_words_json) = 'array'),
     CONSTRAINT ck_project_render_input_chapter_continuity_report_revision CHECK (continuity_report_revision IS NULL OR continuity_report_revision > 0),
     CONSTRAINT ck_project_render_input_chapter_continuity_pair CHECK (
         (continuity_plan_id IS NULL AND continuity_report_revision IS NULL)
@@ -435,8 +435,8 @@ CREATE TABLE project_render_input_chapters (
 
 COMMENT ON COLUMN project_render_input_chapters.subtitle_text IS
     'Immutable narration source text captured when the project render job is admitted.';
-COMMENT ON COLUMN project_render_input_chapters.subtitle_spans_json IS
-    'Immutable narration alignment spans [{index,textStart,textEnd,audioStartMs,audioEndMs}] used for subtitle timing.';
+COMMENT ON COLUMN project_render_input_chapters.subtitle_words_json IS
+    'Immutable measured narration word alignment [{index,textStart,textEnd,audioStartMs,audioEndMs,confidence}] used for subtitle timing.';
 
 CREATE TABLE project_render_input_beats (
     generation_job_id UUID NOT NULL REFERENCES project_render_input_snapshots(generation_job_id) ON DELETE CASCADE,

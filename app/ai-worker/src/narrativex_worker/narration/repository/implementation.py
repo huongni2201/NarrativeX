@@ -7,12 +7,7 @@ from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.narration.errors import (
-    NarrationLeaseLostError,
-    narration_reconcile_delay_seconds,
-)
-from narrativex_worker.narration.models import AlignmentSpan
-from narrativex_worker.narration.storage import StoredMediaAsset
+from narrativex_worker.narration.errors import narration_reconcile_delay_seconds
 from narrativex_worker.runtime.retry_policy import NARRATION_STAGE_RETRY_POLICY
 from narrativex_worker.schema import ProviderOperationStatus
 
@@ -66,6 +61,13 @@ class DurableNarrationProviderOperation:
 
 
 class NarrationWorkerRepository:
+    """Low-level claim/provider-operation repository.
+
+    Final narration completion and normalized provider-result persistence live in the
+    public repository facade/mixins. Keeping those responsibilities out of this class
+    prevents legacy billing and segment-span completion paths from resurfacing.
+    """
+
     def __init__(self, database_url: str, lease_seconds: int, *, pool_size: int = 5) -> None:
         self.database_url = database_url
         self.lease_seconds = lease_seconds
@@ -416,41 +418,6 @@ class NarrationWorkerRepository:
             raise NarrationProviderStateConflictError(str(operation.id))
         return self._operation(row)
 
-    async def complete_provider_operation(
-        self,
-        operation: DurableNarrationProviderOperation,
-        result: dict[str, Any],
-    ) -> DurableNarrationProviderOperation:
-        serialized = json.dumps(result, sort_keys=True, separators=(",", ":"))
-        fingerprint = hashlib.sha256(serialized.encode()).hexdigest()
-        row = await self._require_pool().fetchrow(
-            """
-            UPDATE provider_operations
-               SET status = 'COMPLETED', normalized_result_json = $2::jsonb,
-                   result_fingerprint = $3,
-                   completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
-                   next_reconcile_at = NULL, last_reconcile_error = NULL,
-                   updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-             WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $4
-             RETURNING id, stage_attempt_id, provider_key, status, row_version,
-                       request_fingerprint, normalized_result_json, result_fingerprint,
-                       next_reconcile_at, reconcile_attempts, last_reconcile_error
-            """,
-            operation.id,
-            serialized,
-            fingerprint,
-            operation.row_version,
-        )
-        if row is not None:
-            return self._operation(row)
-        current = await self.get_provider_operation(operation.id)
-        if (
-            current.status is ProviderOperationStatus.COMPLETED
-            and current.result_fingerprint == fingerprint
-        ):
-            return current
-        raise NarrationProviderStateConflictError(str(operation.id))
-
     async def fail_provider_operation(
         self, operation: DurableNarrationProviderOperation
     ) -> DurableNarrationProviderOperation:
@@ -692,156 +659,6 @@ class NarrationWorkerRepository:
                     """,
                     claimed.generation_job_id,
                     error_code[:80],
-                )
-
-    async def complete(
-        self,
-        claimed: ClaimedNarrationJob,
-        worker_id: str,
-        media_asset: StoredMediaAsset,
-        *,
-        duration_ms: int,
-        sample_rate_hz: int,
-        channels: int,
-        spans: list[AlignmentSpan],
-    ) -> None:
-        pool = self._require_pool()
-        async with pool.acquire() as connection:
-            async with connection.transaction():
-                lease_owned = await connection.fetchval(
-                    """
-                    SELECT EXISTS(
-                        SELECT 1 FROM stage_attempts
-                         WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
-                    )
-                    """,
-                    claimed.stage_attempt_id,
-                    worker_id,
-                )
-                if not lease_owned:
-                    raise NarrationLeaseLostError("Worker no longer owns the narration lease")
-                existing = await connection.fetchrow(
-                    """
-                    SELECT na.checksum, pa.storage_key
-                      FROM narration_assets na
-                      JOIN project_assets pa ON pa.id = na.project_asset_id
-                     WHERE na.narration_request_id = $1
-                    """,
-                    claimed.narration_request_id,
-                )
-                if existing is not None:
-                    if (
-                        str(existing["checksum"]) != media_asset.checksum
-                        or str(existing["storage_key"]) != media_asset.storage_key
-                    ):
-                        raise NarrationProviderStateConflictError(
-                            "Narration final asset is immutable and differs from the retry result"
-                        )
-                    stage = await connection.execute(
-                        """
-                        UPDATE stage_attempts
-                           SET status = 'COMPLETED', heartbeat_at = CURRENT_TIMESTAMP,
-                               updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                         WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
-                        """,
-                        claimed.stage_attempt_id,
-                        worker_id,
-                    )
-                    if stage != "UPDATE 1":
-                        raise NarrationLeaseLostError(
-                            "Worker lost the narration lease before idempotent completion"
-                        )
-                    await connection.execute(
-                        """
-                        UPDATE generation_jobs
-                           SET status = 'COMPLETED', progress = 100, current_step = 'COMPLETED',
-                               error_code = NULL, updated_at = CURRENT_TIMESTAMP,
-                               row_version = row_version + 1
-                         WHERE id = $1 AND status = 'RUNNING'
-                        """,
-                        claimed.generation_job_id,
-                    )
-                    return
-                project_asset_id = await connection.fetchval(
-                    """
-                    INSERT INTO project_assets
-                        (project_id, name, asset_type, storage_key, mime_type, metadata_json)
-                    VALUES ($1, $2, 'AUDIO', $3, 'audio/mpeg', $4::jsonb)
-                    RETURNING id
-                    """,
-                    claimed.project_id,
-                    f"Chapter {claimed.chapter_id} narration",
-                    media_asset.storage_key,
-                    json.dumps(
-                        {
-                            "sha256": media_asset.checksum,
-                            "durationMs": duration_ms,
-                            "narrationRequestId": str(claimed.narration_request_id),
-                        },
-                        separators=(",", ":"),
-                    ),
-                )
-                narration_asset_id = uuid.uuid4()
-                await connection.execute(
-                    """
-                    INSERT INTO narration_assets
-                        (id, narration_request_id, project_asset_id, duration_ms, size_bytes,
-                         codec, sample_rate_hz, channels, checksum)
-                    VALUES ($1, $2, $3, $4, $5, 'mp3', $6, $7, $8)
-                    """,
-                    narration_asset_id,
-                    claimed.narration_request_id,
-                    project_asset_id,
-                    duration_ms,
-                    media_asset.size_bytes,
-                    sample_rate_hz,
-                    channels,
-                    media_asset.checksum,
-                )
-                span_payload = [
-                    {
-                        "index": span.index,
-                        "textStart": span.text_start,
-                        "textEnd": span.text_end,
-                        "audioStartMs": span.audio_start_ms,
-                        "audioEndMs": span.audio_end_ms,
-                    }
-                    for span in spans
-                ]
-                await connection.execute(
-                    """
-                    INSERT INTO narration_alignments
-                        (id, narration_asset_id, source_hash, alignment_version, spans_json)
-                    VALUES ($1, $2, $3, 'segment-duration-v1', $4::jsonb)
-                    """,
-                    uuid.uuid4(),
-                    narration_asset_id,
-                    claimed.source_hash,
-                    json.dumps(span_payload, separators=(",", ":")),
-                )
-                stage = await connection.execute(
-                    """
-                    UPDATE stage_attempts
-                       SET status = 'COMPLETED', heartbeat_at = CURRENT_TIMESTAMP,
-                           updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                     WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
-                    """,
-                    claimed.stage_attempt_id,
-                    worker_id,
-                )
-                if stage != "UPDATE 1":
-                    raise NarrationLeaseLostError(
-                        "Worker lost the narration lease before completion"
-                    )
-                await connection.execute(
-                    """
-                    UPDATE generation_jobs
-                       SET status = 'COMPLETED', progress = 100, current_step = 'COMPLETED',
-                           error_code = NULL, updated_at = CURRENT_TIMESTAMP,
-                           row_version = row_version + 1
-                     WHERE id = $1 AND status = 'RUNNING'
-                    """,
-                    claimed.generation_job_id,
                 )
 
     def _require_pool(self) -> asyncpg.Pool:

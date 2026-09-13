@@ -8,7 +8,11 @@ import pytest
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.audio import FfmpegAudioAssembler
-from narrativex_worker.narration.models import MaterializedAudioSegment, NarrationSegment
+from narrativex_worker.narration.models import (
+    MaterializedAudioSegment,
+    NarrationSegment,
+    WordAlignment,
+)
 from narrativex_worker.narration.repository import ClaimedNarrationJob
 from narrativex_worker.narration.runner import NarrationWorkerRunner
 from narrativex_worker.narration.storage import (
@@ -144,6 +148,17 @@ class _CompleteRepository:
         self.completed = True
 
 
+class _FakeWordAligner:
+    def align(
+        self,
+        audio_path: Path,
+        source_text: str,
+        language: str = "",
+    ) -> list[WordAlignment]:
+        del audio_path, source_text, language
+        return [WordAlignment(0, 0, 1, 10, 90, 1.0)]
+
+
 def _claimed_job() -> ClaimedNarrationJob:
     return ClaimedNarrationJob(
         stage_attempt_id=1,
@@ -171,6 +186,7 @@ async def test_runner_uses_file_pipeline_and_cleans_workspace(
     runner.storage = _FileOnlyStorage()
     runner.audio = _FileAudio()  # type: ignore[assignment]
     runner.repository = _CompleteRepository()  # type: ignore[assignment]
+    runner.word_aligner = _FakeWordAligner()
     runner.workspace = WorkerWorkspace(root=tmp_path)
 
     async def materialize(

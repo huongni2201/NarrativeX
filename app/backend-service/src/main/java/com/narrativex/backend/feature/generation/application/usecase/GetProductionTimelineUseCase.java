@@ -114,7 +114,7 @@ public class GetProductionTimelineUseCase {
               chapter.narrationAssetId(),
               chapter.narrationAlignmentId(),
               chapter.subtitleText(),
-              chapter.subtitleSpansJson(),
+              chapter.subtitleWordsJson(),
               chapter.beatCount(),
               chapter.readyBeatCount(),
               chapterReady));
@@ -135,8 +135,8 @@ public class GetProductionTimelineUseCase {
   private static List<AudioRange> resolveAlignedClock(
       ChapterSource chapter, List<BeatSource> sources, long chapterDurationMs) {
     if (sources.isEmpty()
-        || chapter.subtitleSpansJson() == null
-        || chapter.subtitleSpansJson().isBlank()) {
+        || chapter.subtitleWordsJson() == null
+        || chapter.subtitleWordsJson().isBlank()) {
       return List.of();
     }
 
@@ -152,7 +152,7 @@ public class GetProductionTimelineUseCase {
     }
 
     List<AudioRange> audioRanges =
-        NarrationTextClockMapper.map(textRanges, chapter.subtitleSpansJson(), chapterDurationMs);
+        NarrationTextClockMapper.map(textRanges, chapter.subtitleWordsJson(), chapterDurationMs);
     return audioRanges.size() == sources.size() ? audioRanges : List.of();
   }
 

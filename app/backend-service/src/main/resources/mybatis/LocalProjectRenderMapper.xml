@@ -98,7 +98,7 @@
            audio_checksum AS checksum,
            audio_duration_ms AS durationMs,
            subtitle_text AS subtitleText,
-           subtitle_spans_json::text AS subtitleSpansJson
+           subtitle_words_json::text AS subtitleWordsJson
       FROM project_render_input_chapters
      WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
      ORDER BY chapter_order_index, chapter_id

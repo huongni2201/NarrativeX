@@ -3,7 +3,7 @@ export interface SubtitlePlanningChapter {
   globalStartMs: number;
   globalEndMs: number;
   subtitleText: string;
-  subtitleSpansJson: string | null;
+  subtitleWordsJson: string | null;
 }
 
 export interface PlannedSubtitle {
@@ -11,25 +11,25 @@ export interface PlannedSubtitle {
   startMs: number;
   endMs: number;
   text: string;
-  timingSource: "NARRATION_ALIGNMENT" | "TEXT_WEIGHT_FALLBACK";
+  timingSource: "WORD_ALIGNMENT";
 }
 
-interface AlignmentSpan {
+interface WordAlignment {
   index: number;
   textStart: number;
   textEnd: number;
   audioStartMs: number;
   audioEndMs: number;
+  confidence: number;
 }
 
 const MAX_CUE_CHARS = 96;
-const ORPHAN_CUE_MAX_CHARS = 28;
-const ORPHAN_CUE_MAX_WORDS = 4;
-const PREFERRED_BREAK_TOLERANCE_CHARS = 18;
-const MIN_CUE_MS = 240;
-const MAX_ALIGNMENT_TAIL_DRIFT_MS = 250;
+const MAX_CUE_MS = 4_500;
+const FORCE_BREAK_GAP_MS = 600;
+const PREFERRED_CLAUSE_BREAK_CHARS = 48;
+const PREFERRED_CLAUSE_BREAK_MS = 1_800;
 const TERMINAL_PUNCTUATION = /[.!?…。！？]["'”’)]*$/u;
-const CLAUSE_PUNCTUATION = /[,;:，；：]$/u;
+const CLAUSE_PUNCTUATION = /[,;:，；：]["'”’)]*$/u;
 
 export function planSubtitles(
   chapters: readonly SubtitlePlanningChapter[],
@@ -44,253 +44,166 @@ export function planChapterSubtitles(
   const chapterDurationMs = Math.max(0, chapter.globalEndMs - chapter.globalStartMs);
   if (!sourceText.trim() || chapterDurationMs <= 0) return [];
 
-  const spans = parseAlignmentSpans(
-    chapter.subtitleSpansJson,
+  const words = parseWordAlignments(
+    chapter.subtitleWordsJson,
     sourceText.length,
     chapterDurationMs,
   );
-  if (spans.length) {
-    const cues = spans.flatMap((span) => {
-      const spanText = cleanCueText(sourceText.slice(span.textStart, span.textEnd));
-      if (!spanText) return [];
-      return splitTimedText(
-        chapter.chapterId,
-        spanText,
-        chapter.globalStartMs + span.audioStartMs,
-        chapter.globalStartMs + span.audioEndMs,
-        "NARRATION_ALIGNMENT",
-      );
-    });
-    return mergeOrphanCues(cues);
-  }
+  if (!words.length) return [];
 
-  const chunks = splitReadableText(normalizeFallbackText(sourceText));
-  if (!chunks.length) return [];
-  const weights = chunks.map((chunk) => Math.max(1, visibleWeight(chunk)));
-  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
-  const cues: PlannedSubtitle[] = [];
-  let cursor = chapter.globalStartMs;
-  let cumulative = 0;
-  for (let index = 0; index < chunks.length; index += 1) {
-    cumulative += weights[index];
-    const end =
-      index === chunks.length - 1
-        ? chapter.globalEndMs
-        : chapter.globalStartMs + Math.round((chapterDurationMs * cumulative) / totalWeight);
-    cues.push({
-      chapterId: chapter.chapterId,
-      startMs: cursor,
-      endMs: Math.max(cursor + 1, Math.min(end, chapter.globalEndMs)),
-      text: chunks[index],
-      timingSource: "TEXT_WEIGHT_FALLBACK",
-    });
-    cursor = cues[cues.length - 1].endMs;
-  }
-  return cues.filter((cue) => cue.endMs > cue.startMs);
+  return groupWordsIntoCues(chapter.chapterId, sourceText, chapter.globalStartMs, words);
 }
 
-function parseAlignmentSpans(
+function parseWordAlignments(
   raw: string | null,
   textLength: number,
   chapterDurationMs: number,
-): AlignmentSpan[] {
+): WordAlignment[] {
   if (!raw) return [];
   try {
     const value = JSON.parse(raw) as unknown;
     if (!Array.isArray(value) || !value.length) return [];
-    const result: AlignmentSpan[] = [];
+
+    const words: WordAlignment[] = [];
     let previousTextEnd = 0;
     let previousAudioEnd = 0;
-    for (let index = 0; index < value.length; index += 1) {
-      const item = value[index];
+    for (let expectedIndex = 0; expectedIndex < value.length; expectedIndex += 1) {
+      const item = value[expectedIndex];
       if (!item || typeof item !== "object") return [];
-      const span = item as Partial<AlignmentSpan>;
+      const word = item as Partial<WordAlignment>;
       if (
-        !Number.isInteger(span.index) ||
-        !Number.isInteger(span.textStart) ||
-        !Number.isInteger(span.textEnd) ||
-        !Number.isFinite(span.audioStartMs) ||
-        !Number.isFinite(span.audioEndMs)
+        !Number.isInteger(word.index) ||
+        !Number.isInteger(word.textStart) ||
+        !Number.isInteger(word.textEnd) ||
+        !Number.isFinite(word.audioStartMs) ||
+        !Number.isFinite(word.audioEndMs) ||
+        !Number.isFinite(word.confidence)
       ) {
         return [];
       }
-      const normalized: AlignmentSpan = {
-        index: Number(span.index),
-        textStart: Number(span.textStart),
-        textEnd: Number(span.textEnd),
-        audioStartMs: Math.round(Number(span.audioStartMs)),
-        audioEndMs: Math.round(Number(span.audioEndMs)),
+
+      const normalized: WordAlignment = {
+        index: Number(word.index),
+        textStart: Number(word.textStart),
+        textEnd: Number(word.textEnd),
+        audioStartMs: Math.round(Number(word.audioStartMs)),
+        audioEndMs: Math.round(Number(word.audioEndMs)),
+        confidence: Number(word.confidence),
       };
-      const isLast = index === value.length - 1;
       if (
+        normalized.index !== expectedIndex ||
         normalized.textStart < previousTextEnd ||
         normalized.textEnd <= normalized.textStart ||
         normalized.textEnd > textLength ||
         normalized.audioStartMs < previousAudioEnd ||
         normalized.audioEndMs <= normalized.audioStartMs ||
-        (!isLast && normalized.audioEndMs > chapterDurationMs)
+        normalized.audioEndMs > chapterDurationMs ||
+        normalized.confidence < 0 ||
+        normalized.confidence > 1
       ) {
         return [];
       }
-      result.push(normalized);
+
+      words.push(normalized);
       previousTextEnd = normalized.textEnd;
       previousAudioEnd = normalized.audioEndMs;
     }
-
-    const last = result.at(-1);
-    if (
-      !last ||
-      Math.abs(last.audioEndMs - chapterDurationMs) > MAX_ALIGNMENT_TAIL_DRIFT_MS ||
-      chapterDurationMs <= last.audioStartMs
-    ) {
-      return [];
-    }
-    result[result.length - 1] = { ...last, audioEndMs: chapterDurationMs };
-    return result;
+    return words;
   } catch {
     return [];
   }
 }
 
-function splitTimedText(
+function groupWordsIntoCues(
   chapterId: string,
-  text: string,
-  startMs: number,
-  endMs: number,
-  timingSource: PlannedSubtitle["timingSource"],
+  sourceText: string,
+  chapterStartMs: number,
+  words: readonly WordAlignment[],
 ): PlannedSubtitle[] {
-  const chunks = splitReadableText(text);
-  if (chunks.length <= 1) {
-    return [{ chapterId, startMs, endMs, text, timingSource }];
-  }
-  const duration = Math.max(1, endMs - startMs);
-  const weights = chunks.map((chunk) => Math.max(1, visibleWeight(chunk)));
-  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
-  let cursor = startMs;
-  let cumulative = 0;
-  return chunks.map((chunk, index) => {
-    cumulative += weights[index];
-    const rawEnd =
-      index === chunks.length - 1
-        ? endMs
-        : startMs + Math.round((duration * cumulative) / totalWeight);
-    const cueEnd = Math.min(endMs, Math.max(cursor + 1, rawEnd));
-    const cue = { chapterId, startMs: cursor, endMs: cueEnd, text: chunk, timingSource };
-    cursor = cueEnd;
-    return cue;
-  });
-}
+  const cues: PlannedSubtitle[] = [];
+  let cueStartIndex = 0;
 
-function splitReadableText(value: string): string[] {
-  const sentences = value
-    .split(/(?<=[.!?…。！？])\s+/u)
-    .map(cleanCueText)
-    .filter(Boolean);
-  const source = sentences.length ? sentences : [cleanCueText(value)].filter(Boolean);
-  return source.flatMap((sentence) =>
-    sentence.length <= MAX_CUE_CHARS ? [sentence] : splitBalancedSentence(sentence),
-  );
-}
+  const pushCue = (endIndex: number) => {
+    if (endIndex < cueStartIndex) return;
+    const first = words[cueStartIndex];
+    const last = words[endIndex];
+    const text = cleanCueText(sourceText.slice(first.textStart, cueTextEnd(sourceText, last, words[endIndex + 1])));
+    if (text) {
+      cues.push({
+        chapterId,
+        startMs: chapterStartMs + first.audioStartMs,
+        endMs: chapterStartMs + last.audioEndMs,
+        text,
+        timingSource: "WORD_ALIGNMENT",
+      });
+    }
+    cueStartIndex = endIndex + 1;
+  };
 
-function splitBalancedSentence(sentence: string): string[] {
-  const chunkCount = Math.ceil(sentence.length / MAX_CUE_CHARS);
-  const chunks: string[] = [];
-  let remaining = cleanCueText(sentence);
-  let remainingChunks = chunkCount;
+  for (let index = 0; index < words.length; index += 1) {
+    const current = words[index];
+    const previous = index > cueStartIndex ? words[index - 1] : null;
 
-  while (remaining && remainingChunks > 1) {
-    const idealSplit = Math.round(remaining.length / remainingChunks);
-    const minSplit = Math.max(1, remaining.length - MAX_CUE_CHARS * (remainingChunks - 1));
-    const maxSplit = Math.min(MAX_CUE_CHARS, remaining.length - (remainingChunks - 1));
-    const splitAt = chooseReadableSplit(remaining, minSplit, maxSplit, idealSplit);
-    const head = cleanCueText(remaining.slice(0, splitAt));
-    if (!head) break;
-    chunks.push(head);
-    remaining = cleanCueText(remaining.slice(splitAt));
-    remainingChunks -= 1;
-  }
+    if (previous && current.audioStartMs - previous.audioEndMs >= FORCE_BREAK_GAP_MS) {
+      pushCue(index - 1);
+    }
 
-  if (remaining) chunks.push(remaining);
-  return chunks;
-}
+    if (index < cueStartIndex) continue;
+    const first = words[cueStartIndex];
+    const candidateText = cleanCueText(
+      sourceText.slice(first.textStart, cueTextEnd(sourceText, current, words[index + 1])),
+    );
+    const candidateDurationMs = current.audioEndMs - first.audioStartMs;
 
-function chooseReadableSplit(
-  value: string,
-  minSplit: number,
-  maxSplit: number,
-  idealSplit: number,
-): number {
-  const whitespaceBreaks: number[] = [];
-  const clauseBreaks: number[] = [];
-
-  for (let index = minSplit; index <= maxSplit; index += 1) {
-    if (!/\s/u.test(value[index] ?? "")) continue;
-    whitespaceBreaks.push(index);
-    const previous = value.slice(0, index).trimEnd().at(-1) ?? "";
     if (
-      CLAUSE_PUNCTUATION.test(previous) &&
-      Math.abs(index - idealSplit) <= PREFERRED_BREAK_TOLERANCE_CHARS
+      index > cueStartIndex &&
+      (candidateText.length > MAX_CUE_CHARS || candidateDurationMs > MAX_CUE_MS)
     ) {
-      clauseBreaks.push(index);
+      pushCue(index - 1);
+    }
+
+    if (index < cueStartIndex) continue;
+    const activeFirst = words[cueStartIndex];
+    const activeText = cleanCueText(
+      sourceText.slice(activeFirst.textStart, cueTextEnd(sourceText, current, words[index + 1])),
+    );
+    const activeDurationMs = current.audioEndMs - activeFirst.audioStartMs;
+    const punctuationAfterWord = sourceText.slice(
+      current.textEnd,
+      words[index + 1]?.textStart ?? sourceText.length,
+    );
+
+    if (
+      TERMINAL_PUNCTUATION.test(punctuationAfterWord.trim()) ||
+      (CLAUSE_PUNCTUATION.test(punctuationAfterWord.trim()) &&
+        (activeText.length >= PREFERRED_CLAUSE_BREAK_CHARS ||
+          activeDurationMs >= PREFERRED_CLAUSE_BREAK_MS))
+    ) {
+      pushCue(index);
     }
   }
 
-  const candidates = clauseBreaks.length ? clauseBreaks : whitespaceBreaks;
-  if (!candidates.length) return maxSplit;
-  return candidates.reduce((best, current) =>
-    Math.abs(current - idealSplit) < Math.abs(best - idealSplit) ? current : best,
-  );
+  if (cueStartIndex < words.length) pushCue(words.length - 1);
+  return cues.filter((cue) => cue.endMs > cue.startMs);
 }
 
-function mergeOrphanCues(cues: readonly PlannedSubtitle[]): PlannedSubtitle[] {
-  const merged: PlannedSubtitle[] = [];
-  for (const cue of cues) {
-    const previous = merged.at(-1);
-    if (previous && shouldMergeOrphanCue(previous, cue)) {
-      merged[merged.length - 1] = {
-        ...previous,
-        endMs: cue.endMs,
-        text: cleanCueText(`${previous.text} ${cue.text}`),
-      };
-      continue;
-    }
-    merged.push(cue);
-  }
-  return merged;
-}
-
-function shouldMergeOrphanCue(previous: PlannedSubtitle, current: PlannedSubtitle): boolean {
-  if (
-    previous.chapterId !== current.chapterId ||
-    previous.timingSource !== current.timingSource ||
-    previous.endMs !== current.startMs ||
-    TERMINAL_PUNCTUATION.test(previous.text.trim())
-  ) {
-    return false;
-  }
-
-  const currentText = cleanCueText(current.text);
-  const currentWordCount = currentText.split(/\s+/u).filter(Boolean).length;
-  if (currentText.length > ORPHAN_CUE_MAX_CHARS || currentWordCount > ORPHAN_CUE_MAX_WORDS) {
-    return false;
-  }
-  return cleanCueText(`${previous.text} ${currentText}`).length <= MAX_CUE_CHARS;
-}
-
-function normalizeFallbackText(value: string): string {
-  return value.replace(/\r\n?/g, "\n").trim();
+function cueTextEnd(
+  sourceText: string,
+  word: WordAlignment,
+  nextWord: WordAlignment | undefined,
+): number {
+  const boundary = nextWord?.textStart ?? sourceText.length;
+  const between = sourceText.slice(word.textEnd, boundary);
+  const punctuation = between.match(/^\s*[^\p{L}\p{N}_\s]+/u)?.[0] ?? "";
+  return Math.min(boundary, word.textEnd + punctuation.length);
 }
 
 function cleanCueText(value: string): string {
   return value.replace(/\s+/gu, " ").trim();
 }
 
-function visibleWeight(value: string): number {
-  return value.replace(/\s+/gu, "").length;
-}
-
 export function subtitleCueIsRenderable(cue: PlannedSubtitle): boolean {
-  return Boolean(cue.text.trim()) && cue.endMs - cue.startMs >= MIN_CUE_MS;
+  return Boolean(cue.text.trim()) && cue.endMs > cue.startMs;
 }
 
 export function activeSubtitleAt(

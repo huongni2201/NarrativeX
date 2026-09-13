@@ -123,7 +123,7 @@ public class LocalProjectRenderUseCase {
       String checksum,
       long durationMs,
       String subtitleText,
-      String subtitleSpansJson) {
+      String subtitleWordsJson) {
     static ChapterInput from(LocalProjectRenderStore.ChapterInput value) {
       return new ChapterInput(
           value.chapterId(),
@@ -136,7 +136,7 @@ public class LocalProjectRenderUseCase {
           value.checksum(),
           value.durationMs(),
           value.subtitleText(),
-          value.subtitleSpansJson());
+          value.subtitleWordsJson());
     }
 
     public ChapterInput(

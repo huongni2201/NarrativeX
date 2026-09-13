@@ -43,7 +43,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         chapter.checksum(),
                         chapter.durationMs(),
                         chapter.subtitleText(),
-                        chapter.subtitleSpansJson()))
+                        chapter.subtitleWordsJson()))
             .toList();
     Map<UUID, LocalProjectRenderBeatMediaRow> mediaByBeat =
         beatMediaMapper.listBeatMedia(row.generationJobId()).stream()
