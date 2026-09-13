@@ -6,15 +6,57 @@ import threading
 import unicodedata
 import wave
 from dataclasses import dataclass
-from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
 from narrativex_worker.narration.models import WordAlignment
 
 _WORD_PATTERN = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
+_DATE_PATTERN = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{2,4})(?!\d)")
+_DECIMAL_PATTERN = re.compile(r"(?<!\d)(\d+)[.,](\d+)(?!\d)")
 _SUBSTITUTION_CONFIDENCE_CAP = 0.65
 _INITIAL_PROMPT_CHARS = 1000
+_MAX_MEASURED_TOKENS_PER_SOURCE_WORD = 16
+_VI_DIGITS: tuple[str, ...] = (
+    "không",
+    "một",
+    "hai",
+    "ba",
+    "bốn",
+    "năm",
+    "sáu",
+    "bảy",
+    "tám",
+    "chín",
+)
+_VI_ACRONYM_LETTERS: dict[str, str] = {
+    "A": "ây",
+    "B": "bi",
+    "C": "xi",
+    "D": "đi",
+    "E": "i",
+    "F": "ép",
+    "G": "gi",
+    "H": "âych",
+    "I": "ai",
+    "J": "giây",
+    "K": "cây",
+    "L": "eo",
+    "M": "em",
+    "N": "en",
+    "O": "âu",
+    "P": "pi",
+    "Q": "kiu",
+    "R": "a",
+    "S": "ét",
+    "T": "ti",
+    "U": "diu",
+    "V": "vi",
+    "W": "đắp liu",
+    "X": "ích",
+    "Y": "oai",
+    "Z": "di",
+}
 
 
 class WordAlignmentError(RuntimeError):
@@ -27,6 +69,7 @@ class _SourceWord:
     text_start: int
     text_end: int
     key: str
+    spoken_forms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -38,12 +81,18 @@ class _TimedWord:
     key: str
 
 
+@dataclass(frozen=True)
+class _BackPointer:
+    previous_timed_index: int
+    exact: bool
+
+
 class WhisperWordAligner:
     """Map narration audio to source words using measured Whisper timestamps.
 
-    The aligner never manufactures word timestamps. Exact transcript matches retain
-    Whisper confidence. Same-count ASR substitutions may reuse the measured timed-token
-    intervals with reduced confidence, while insertions/deletions fail alignment.
+    Every output interval comes directly from one or more contiguous Whisper word
+    intervals. Language-aware speech normalization may group multiple measured tokens
+    into one source word, but the aligner never splits or interpolates measured timing.
     """
 
     def __init__(
@@ -114,7 +163,11 @@ class WhisperWordAligner:
         text_base_utf16: int,
         language: str | None,
     ) -> list[WordAlignment]:
-        source_words = _source_words(source_text, text_base_utf16=text_base_utf16)
+        source_words = _source_words(
+            source_text,
+            text_base_utf16=text_base_utf16,
+            language=language,
+        )
         if not source_words:
             raise WordAlignmentError("Narration contains no alignable source words")
         if not audio_path.is_file():
@@ -159,23 +212,36 @@ class WhisperWordAligner:
         return self._model
 
 
-def _source_words(source_text: str, *, text_base_utf16: int) -> list[_SourceWord]:
-    utf16_offsets = [0]
+def _source_words(
+    source_text: str,
+    *,
+    text_base_utf16: int,
+    language: str | None = None,
+) -> list[_SourceWord]:
+    utf16_offsets: list[int] = [0]
     for character in source_text:
         utf16_offsets.append(utf16_offsets[-1] + (2 if ord(character) > 0xFFFF else 1))
 
+    contextual_forms: dict[tuple[int, int], set[str]] = _speech_context_forms(
+        source_text,
+        language=language,
+    )
     words: list[_SourceWord] = []
     for match in _WORD_PATTERN.finditer(source_text):
         text = match.group(0)
         key = _comparison_key(text)
         if not key:
             continue
+        spoken_forms: set[str] = _spoken_forms(text, language=language)
+        spoken_forms.update(contextual_forms.get((match.start(), match.end()), set()))
+        spoken_forms.discard(key)
         words.append(
             _SourceWord(
                 text=text,
                 text_start=text_base_utf16 + utf16_offsets[match.start()],
                 text_end=text_base_utf16 + utf16_offsets[match.end()],
                 key=key,
+                spoken_forms=tuple(sorted(spoken_forms)),
             )
         )
     return words
@@ -217,11 +283,58 @@ def _reconcile_words(
     *,
     minimum_exact_coverage: float,
 ) -> list[WordAlignment]:
-    source_keys = [word.key for word in source_words]
-    timed_keys = [word.key for word in timed_words]
-    matcher = SequenceMatcher(a=source_keys, b=timed_keys, autojunk=False)
-    opcodes = matcher.get_opcodes()
-    exact_count = sum(i2 - i1 for tag, i1, i2, _, _ in opcodes if tag == "equal")
+    if not source_words:
+        return []
+    if len(timed_words) < len(source_words):
+        raise WordAlignmentError(
+            "Whisper/source token counts diverged; refusing to split measured timing "
+            f"sourceWords={len(source_words)} timedWords={len(timed_words)}"
+        )
+
+    scores: dict[int, int] = {0: 0}
+    backpointers: list[dict[int, _BackPointer]] = []
+    for source_word in source_words:
+        next_scores: dict[int, int] = {}
+        next_backpointers: dict[int, _BackPointer] = {}
+        forms: set[str] = {source_word.key}
+        forms.update(source_word.spoken_forms)
+        for timed_start, score in scores.items():
+            _consider_path(
+                next_scores,
+                next_backpointers,
+                timed_start + 1,
+                score,
+                _BackPointer(timed_start, False),
+                timed_word_count=len(timed_words),
+            )
+
+            combined_key = ""
+            max_end = min(
+                len(timed_words),
+                timed_start + _MAX_MEASURED_TOKENS_PER_SOURCE_WORD,
+            )
+            for timed_end in range(timed_start + 1, max_end + 1):
+                combined_key += timed_words[timed_end - 1].key
+                if combined_key not in forms:
+                    continue
+                _consider_path(
+                    next_scores,
+                    next_backpointers,
+                    timed_end,
+                    score + 1,
+                    _BackPointer(timed_start, True),
+                    timed_word_count=len(timed_words),
+                )
+        scores = next_scores
+        backpointers.append(next_backpointers)
+
+    if len(timed_words) not in scores:
+        raise WordAlignmentError(
+            "Whisper/source token counts diverged; refusing to invent word timing "
+            f"sourceWords={len(source_words)} timedWords={len(timed_words)}"
+        )
+
+    exact_count = scores[len(timed_words)]
     exact_coverage = exact_count / len(source_words)
     if exact_coverage < minimum_exact_coverage:
         raise WordAlignmentError(
@@ -229,62 +342,250 @@ def _reconcile_words(
             f"{exact_coverage:.3f} is below {minimum_exact_coverage:.3f}"
         )
 
+    resolved: list[tuple[int, int, bool]] = []
+    timed_end = len(timed_words)
+    for source_index in range(len(source_words) - 1, -1, -1):
+        pointer = backpointers[source_index][timed_end]
+        resolved.append((pointer.previous_timed_index, timed_end, pointer.exact))
+        timed_end = pointer.previous_timed_index
+    resolved.reverse()
+
     result: list[WordAlignment] = []
-    for tag, source_start, source_end, timed_start, timed_end in opcodes:
-        source_count = source_end - source_start
-        timed_count = timed_end - timed_start
-        if tag == "equal":
-            _append_measured_pairs(
-                result,
-                source_words[source_start:source_end],
-                timed_words[timed_start:timed_end],
-                confidence_cap=None,
-            )
-            continue
-        if tag == "replace" and source_count == timed_count and source_count > 0:
-            _append_measured_pairs(
-                result,
-                source_words[source_start:source_end],
-                timed_words[timed_start:timed_end],
-                confidence_cap=_SUBSTITUTION_CONFIDENCE_CAP,
-            )
-            continue
-        raise WordAlignmentError(
-            "Whisper/source token counts diverged; refusing to invent word timing "
-            f"for opcode={tag} sourceWords={source_count} timedWords={timed_count}"
+    for source_word, (timed_start, timed_end, exact) in zip(
+        source_words,
+        resolved,
+        strict=True,
+    ):
+        measured = timed_words[timed_start:timed_end]
+        confidence_cap = None if exact else _SUBSTITUTION_CONFIDENCE_CAP
+        _append_measured_group(
+            result,
+            source_word,
+            measured,
+            confidence_cap=confidence_cap,
         )
 
-    if len(result) != len(source_words):
-        raise WordAlignmentError(
-            f"Word alignment resolved {len(result)} of {len(source_words)} source words"
-        )
     _validate_monotonic(result)
     return result
 
 
-def _append_measured_pairs(
+def _consider_path(
+    scores: dict[int, int],
+    backpointers: dict[int, _BackPointer],
+    timed_end: int,
+    score: int,
+    pointer: _BackPointer,
+    *,
+    timed_word_count: int,
+) -> None:
+    if timed_end > timed_word_count:
+        return
+    previous_score = scores.get(timed_end)
+    if previous_score is not None and previous_score >= score:
+        return
+    scores[timed_end] = score
+    backpointers[timed_end] = pointer
+
+
+def _append_measured_group(
     result: list[WordAlignment],
-    source_words: list[_SourceWord],
+    source_word: _SourceWord,
     timed_words: list[_TimedWord],
     *,
     confidence_cap: float | None,
 ) -> None:
-    if len(source_words) != len(timed_words):
-        raise WordAlignmentError("Measured source/timed word counts must match")
-    for source_word, timed_word in zip(source_words, timed_words, strict=True):
-        confidence = timed_word.confidence
-        if confidence_cap is not None:
-            confidence = min(confidence_cap, confidence)
-        result.append(
-            WordAlignment(
-                index=len(result),
-                text_start=source_word.text_start,
-                text_end=source_word.text_end,
-                audio_start_ms=timed_word.audio_start_ms,
-                audio_end_ms=timed_word.audio_end_ms,
-                confidence=confidence,
-            )
+    if not timed_words:
+        raise WordAlignmentError("Measured token group must not be empty")
+    confidence = min(word.confidence for word in timed_words)
+    if confidence_cap is not None:
+        confidence = min(confidence_cap, confidence)
+    result.append(
+        WordAlignment(
+            index=len(result),
+            text_start=source_word.text_start,
+            text_end=source_word.text_end,
+            audio_start_ms=timed_words[0].audio_start_ms,
+            audio_end_ms=timed_words[-1].audio_end_ms,
+            confidence=confidence,
         )
+    )
+
+
+def _spoken_forms(value: str, *, language: str | None) -> set[str]:
+    if language != "vi":
+        return set()
+
+    forms: set[str] = set()
+    if value.isdigit():
+        forms.update(_vietnamese_number_forms(value))
+    if value.isascii() and value.isalpha() and value.isupper() and 1 < len(value) <= 8:
+        acronym: str = "".join(
+            _VI_ACRONYM_LETTERS.get(letter, letter) for letter in value
+        )
+        forms.add(_comparison_key(acronym))
+    return forms
+
+
+def _speech_context_forms(
+    source_text: str,
+    *,
+    language: str | None,
+) -> dict[tuple[int, int], set[str]]:
+    if language != "vi":
+        return {}
+
+    result: dict[tuple[int, int], set[str]] = {}
+    for match in _WORD_PATTERN.finditer(source_text):
+        if not match.group(0).isdigit():
+            continue
+        suffix = source_text[match.end() :]
+        if suffix.lstrip().startswith("%"):
+            _add_contextual_forms(
+                result,
+                (match.start(), match.end()),
+                _vietnamese_number_forms(match.group(0)),
+                suffix="phần trăm",
+            )
+
+    for match in _DATE_PATTERN.finditer(source_text):
+        prefixes: tuple[str, ...] = ("ngày", "tháng", "năm")
+        for group_index, prefix in enumerate(prefixes, start=1):
+            _add_contextual_forms(
+                result,
+                match.span(group_index),
+                _vietnamese_number_forms(match.group(group_index)),
+                prefix=prefix,
+            )
+
+    for match in _DECIMAL_PATTERN.finditer(source_text):
+        fractional_forms: set[str] = _vietnamese_number_forms(match.group(2))
+        for prefix in ("phẩy", "chấm"):
+            _add_contextual_forms(
+                result,
+                match.span(2),
+                fractional_forms,
+                prefix=prefix,
+            )
+    return result
+
+
+def _add_contextual_forms(
+    result: dict[tuple[int, int], set[str]],
+    span: tuple[int, int],
+    base_forms: set[str],
+    *,
+    prefix: str = "",
+    suffix: str = "",
+) -> None:
+    forms = result.setdefault(span, set())
+    normalized_prefix = _comparison_key(prefix)
+    normalized_suffix = _comparison_key(suffix)
+    for form in base_forms:
+        forms.add(normalized_prefix + form + normalized_suffix)
+
+
+def _vietnamese_number_forms(value: str) -> set[str]:
+    normalized_digits = value.lstrip("0") or "0"
+    forms: set[str] = {normalized_digits}
+    if len(value) > 1:
+        forms.add(value)
+
+    digit_words: list[str] = [_VI_DIGITS[int(character)] for character in value]
+    forms.add(_comparison_key(" ".join(digit_words)))
+
+    if len(normalized_digits) > 12:
+        return forms
+    number: int = int(normalized_digits)
+    for words in _read_vietnamese_integer(number, preserve_lower_hundreds=True):
+        forms.add(_comparison_key(" ".join(words)))
+    for words in _read_vietnamese_integer(number, preserve_lower_hundreds=False):
+        forms.add(_comparison_key(" ".join(words)))
+    return forms
+
+
+def _read_vietnamese_integer(
+    value: int,
+    *,
+    preserve_lower_hundreds: bool,
+) -> set[tuple[str, ...]]:
+    if value == 0:
+        return {("không",)}
+
+    scales: tuple[str, ...] = ("", "nghìn", "triệu", "tỷ")
+    groups: list[int] = []
+    remaining: int = value
+    while remaining:
+        groups.append(remaining % 1000)
+        remaining //= 1000
+    if len(groups) > len(scales):
+        return set()
+
+    variants: set[tuple[str, ...]] = {()}
+    highest_index = len(groups) - 1
+    for group_index in range(highest_index, -1, -1):
+        group_value = groups[group_index]
+        if group_value == 0:
+            continue
+        force_hundreds = (
+            preserve_lower_hundreds
+            and group_index < highest_index
+            and group_value < 100
+        )
+        group_variants: set[tuple[str, ...]] = _read_vietnamese_triplet(
+            group_value,
+            force_hundreds=force_hundreds,
+        )
+        scale: str = scales[group_index]
+        expanded: set[tuple[str, ...]] = set()
+        for prefix in variants:
+            for group_words in group_variants:
+                suffix: tuple[str, ...] = group_words + ((scale,) if scale else ())
+                expanded.add(prefix + suffix)
+        variants = expanded
+    return variants
+
+
+def _read_vietnamese_triplet(value: int, *, force_hundreds: bool) -> set[tuple[str, ...]]:
+    hundreds = value // 100
+    remainder = value % 100
+    variants: set[tuple[str, ...]] = {()}
+    if hundreds or force_hundreds:
+        hundreds_word = _VI_DIGITS[hundreds]
+        variants = {(hundreds_word, "trăm")}
+        if remainder and remainder < 10:
+            bridged: set[tuple[str, ...]] = {
+                prefix + (bridge,)
+                for prefix in variants
+                for bridge in ("linh", "lẻ")
+            }
+            variants = bridged | variants
+    if remainder == 0:
+        return variants
+
+    tens = remainder // 10
+    ones = remainder % 10
+    if tens == 0:
+        return {prefix + (_VI_DIGITS[ones],) for prefix in variants}
+    base: tuple[str, ...]
+    if tens == 1:
+        base = ("mười",)
+    else:
+        base = (_VI_DIGITS[tens], "mươi")
+    if ones == 0:
+        return {prefix + base for prefix in variants}
+
+    ones_variants: set[str] = {_VI_DIGITS[ones]}
+    if tens >= 2 and ones == 1:
+        ones_variants.add("mốt")
+    if tens >= 2 and ones == 4:
+        ones_variants.add("tư")
+    if tens >= 1 and ones == 5:
+        ones_variants.add("lăm")
+    return {
+        prefix + base + (ones_word,)
+        for prefix in variants
+        for ones_word in ones_variants
+    }
 
 
 def _validate_timed_words(words: list[_TimedWord]) -> None:

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class GetProductionTimelineAlignedTimingTest {
   @Test
-  void usesNarrationAlignmentInsteadOfTextWeightFallback() {
+  void usesMeasuredNarrationWordBoundariesInsteadOfTextWeightFallback() {
     CurrentUserId currentUserId = mock(CurrentUserId.class);
     ProjectAccess projectAccess = mock(ProjectAccess.class);
     ProductionTimelineSourceRepository sourceRepository =
@@ -26,11 +26,11 @@ class GetProductionTimelineAlignedTimingTest {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
-    String spans =
+    String words =
         """
         [
-          {"index":0,"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":2000},
-          {"index":1,"textStart":50,"textEnd":100,"audioStartMs":2000,"audioEndMs":10000}
+          {"index":0,"textStart":0,"textEnd":49,"audioStartMs":0,"audioEndMs":1800,"confidence":0.99},
+          {"index":1,"textStart":50,"textEnd":100,"audioStartMs":2000,"audioEndMs":10000,"confidence":0.98}
         ]
         """;
 
@@ -55,7 +55,7 @@ class GetProductionTimelineAlignedTimingTest {
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     "x".repeat(100),
-                    spans,
+                    words,
                     10_000L,
                     2,
                     2)));

@@ -8,19 +8,20 @@ import org.junit.jupiter.api.Test;
 
 class NarrationTextClockMapperTest {
   @Test
-  void mapsSemanticBeatStartsAcrossNarrationSpans() {
-    String spans =
+  void mapsSemanticBeatStartsFromMeasuredNarrationWords() {
+    String words =
         """
         [
-          {"textStart":0,"textEnd":50,"audioStartMs":0,"audioEndMs":5000},
-          {"textStart":50,"textEnd":100,"audioStartMs":5000,"audioEndMs":10000}
+          {"index":0,"textStart":0,"textEnd":39,"audioStartMs":0,"audioEndMs":3500,"confidence":0.99},
+          {"index":1,"textStart":40,"textEnd":69,"audioStartMs":4000,"audioEndMs":6500,"confidence":0.98},
+          {"index":2,"textStart":70,"textEnd":100,"audioStartMs":7000,"audioEndMs":10000,"confidence":0.97}
         ]
         """;
 
     var ranges =
         NarrationTextClockMapper.map(
             List.of(new TextRange(0, 40), new TextRange(40, 70), new TextRange(70, 100)),
-            spans,
+            words,
             10_000L);
 
     assertThat(ranges)
@@ -30,28 +31,31 @@ class NarrationTextClockMapperTest {
 
   @Test
   void rejectsNonIncreasingSemanticTransitions() {
-    String spans =
+    String words =
         """
-        [{"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":10000}]
+        [{"index":0,"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":10000,"confidence":0.99}]
         """;
 
     var ranges =
         NarrationTextClockMapper.map(
-            List.of(new TextRange(0, 30), new TextRange(0, 50)), spans, 10_000L);
+            List.of(new TextRange(0, 30), new TextRange(0, 50)), words, 10_000L);
 
     assertThat(ranges).isEmpty();
   }
 
   @Test
   void rejectsAlignedClockWhenAnyVisualBeatExceedsTenSeconds() {
-    String spans =
+    String words =
         """
-        [{"textStart":0,"textEnd":100,"audioStartMs":0,"audioEndMs":25000}]
+        [
+          {"index":0,"textStart":0,"textEnd":49,"audioStartMs":0,"audioEndMs":1000,"confidence":0.99},
+          {"index":1,"textStart":50,"textEnd":100,"audioStartMs":12000,"audioEndMs":25000,"confidence":0.99}
+        ]
         """;
 
     var ranges =
         NarrationTextClockMapper.map(
-            List.of(new TextRange(0, 50), new TextRange(50, 100)), spans, 25_000L);
+            List.of(new TextRange(0, 50), new TextRange(50, 100)), words, 25_000L);
 
     assertThat(ranges).isEmpty();
   }
