@@ -2,7 +2,7 @@
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
-**Current checkpoint:** `main` at `c370418fad5c5b7229c80c4ab64dfb796ba4dd5d` (2026-09-12)
+**Current checkpoint:** `main` at `2d7a8a48c2d97cf628215206fcab8d39c9f8beba` (2026-09-13)
 
 The browser→Desktop, JPA/JDBC→MyBatis and monetary billing/credit migrations are no longer roadmap tracks. Desktop is already the only editor client, MyBatis is the production persistence path, provider execution no longer carries a monetary accounting contract, and non-monetary capacity/export quota is part of the current runtime foundation. Remaining work is product/reliability/release work.
 
