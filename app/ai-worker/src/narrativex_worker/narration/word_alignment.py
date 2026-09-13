@@ -42,8 +42,11 @@ class WhisperWordAligner:
     """Map narration audio to source words using measured Whisper timestamps.
 
     The aligner never manufactures word timestamps. Exact transcript matches retain
-    Whisper confidence. Same-count ASR substitutions may reuse the measured timed-token
-    intervals with reduced confidence, while insertions/deletions fail alignment.
+    Whisper confidence. Same-count ASR substitutions may reuse measured timed-token
+    intervals with reduced confidence. A source token may also consume multiple measured
+    Whisper tokens when their normalized text concatenates exactly to that source token;
+    the source token then uses the measured first-start/last-end interval. Other token
+    count divergence is rejected instead of fabricating timing.
     """
 
     def __init__(
@@ -221,7 +224,17 @@ def _reconcile_words(
     timed_keys = [word.key for word in timed_words]
     matcher = SequenceMatcher(a=source_keys, b=timed_keys, autojunk=False)
     opcodes = matcher.get_opcodes()
-    exact_count = sum(i2 - i1 for tag, i1, i2, _, _ in opcodes if tag == "equal")
+
+    exact_count = 0
+    for tag, source_start, source_end, timed_start, timed_end in opcodes:
+        if tag == "equal":
+            exact_count += source_end - source_start
+        elif tag == "replace" and _can_merge_timed_tokens(
+            source_words[source_start:source_end],
+            timed_words[timed_start:timed_end],
+        ):
+            exact_count += 1
+
     exact_coverage = exact_count / len(source_words)
     if exact_coverage < minimum_exact_coverage:
         raise WordAlignmentError(
@@ -231,23 +244,28 @@ def _reconcile_words(
 
     result: list[WordAlignment] = []
     for tag, source_start, source_end, timed_start, timed_end in opcodes:
-        source_count = source_end - source_start
-        timed_count = timed_end - timed_start
+        source_slice = source_words[source_start:source_end]
+        timed_slice = timed_words[timed_start:timed_end]
+        source_count = len(source_slice)
+        timed_count = len(timed_slice)
         if tag == "equal":
             _append_measured_pairs(
                 result,
-                source_words[source_start:source_end],
-                timed_words[timed_start:timed_end],
+                source_slice,
+                timed_slice,
                 confidence_cap=None,
             )
             continue
         if tag == "replace" and source_count == timed_count and source_count > 0:
             _append_measured_pairs(
                 result,
-                source_words[source_start:source_end],
-                timed_words[timed_start:timed_end],
+                source_slice,
+                timed_slice,
                 confidence_cap=_SUBSTITUTION_CONFIDENCE_CAP,
             )
+            continue
+        if tag == "replace" and _can_merge_timed_tokens(source_slice, timed_slice):
+            _append_measured_group(result, source_slice[0], timed_slice)
             continue
         raise WordAlignmentError(
             "Whisper/source token counts diverged; refusing to invent word timing "
@@ -260,6 +278,33 @@ def _reconcile_words(
         )
     _validate_monotonic(result)
     return result
+
+
+def _can_merge_timed_tokens(
+    source_words: list[_SourceWord], timed_words: list[_TimedWord]
+) -> bool:
+    if len(source_words) != 1 or len(timed_words) <= 1:
+        return False
+    return source_words[0].key == "".join(word.key for word in timed_words)
+
+
+def _append_measured_group(
+    result: list[WordAlignment],
+    source_word: _SourceWord,
+    timed_words: list[_TimedWord],
+) -> None:
+    if not timed_words:
+        raise WordAlignmentError("Measured token group must not be empty")
+    result.append(
+        WordAlignment(
+            index=len(result),
+            text_start=source_word.text_start,
+            text_end=source_word.text_end,
+            audio_start_ms=timed_words[0].audio_start_ms,
+            audio_end_ms=timed_words[-1].audio_end_ms,
+            confidence=min(word.confidence for word in timed_words),
+        )
+    )
 
 
 def _append_measured_pairs(
