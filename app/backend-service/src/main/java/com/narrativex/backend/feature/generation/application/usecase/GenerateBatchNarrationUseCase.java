@@ -40,7 +40,7 @@ public class GenerateBatchNarrationUseCase {
                     command.voiceReference()));
         accepted.add(new ChapterNarrationJob(chapterId, job));
       } catch (GenerationAdmissionDeniedException exception) {
-        if (!accepted.isEmpty() && "COST_LIMIT".equals(exception.getCode())) {
+        if (!accepted.isEmpty() && "CAPACITY_LIMIT".equals(exception.getCode())) {
           break;
         }
         throw exception;

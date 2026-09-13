@@ -83,7 +83,7 @@ public class EnqueueStoryAnalysisUseCase {
 
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
     String analysisLanguage = project.getSourceLanguage();
-    var admission = admissionService.admit(userId, command.projectId(), chapter);
+    var admission = admissionService.admit(userId);
 
     UUID storyboardRevisionId =
         storyboardRevisionAccess.createDraft(

@@ -113,8 +113,7 @@ public class GenerateChapterNarrationUseCase {
           idempotencyKey);
     }
 
-    var admission =
-        admissionService.admitText(userId, sourceText, voiceCapabilities.localExecution());
+    var admission = admissionService.admit(userId);
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(

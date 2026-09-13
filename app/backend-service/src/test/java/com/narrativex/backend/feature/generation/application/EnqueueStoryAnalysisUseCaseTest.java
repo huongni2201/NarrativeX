@@ -127,7 +127,7 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
         .thenReturn(Optional.empty());
-    when(admissionService.admit("user-1", PROJECT_ID, snapshot))
+    when(admissionService.admit("user-1"))
         .thenReturn(new ChapterAnalysisAdmissionService.Admission(reservation));
     when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
         .thenReturn(STORYBOARD_REVISION_ID);
@@ -166,11 +166,7 @@ class EnqueueStoryAnalysisUseCaseTest {
 
     assertSame(existing, useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID)));
 
-    verify(admissionService, never())
-        .admit(
-            org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any());
+    verify(admissionService, never()).admit(org.mockito.ArgumentMatchers.any());
     verify(operationPlanRepository, never()).save(org.mockito.ArgumentMatchers.any());
     verify(generationJobRepository, never()).save(org.mockito.ArgumentMatchers.any());
     verify(quotaReservation, never())
@@ -226,7 +222,7 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
         .thenReturn(Optional.empty());
-    when(admissionService.admit("user-1", PROJECT_ID, snapshot))
+    when(admissionService.admit("user-1"))
         .thenReturn(new ChapterAnalysisAdmissionService.Admission(reservation));
     when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
         .thenReturn(STORYBOARD_REVISION_ID);

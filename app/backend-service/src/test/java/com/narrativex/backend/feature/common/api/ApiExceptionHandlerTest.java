@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
 import java.sql.SQLException;
 import java.util.List;
@@ -62,6 +63,18 @@ class ApiExceptionHandlerTest {
     assertEquals(409, error.status());
     assertEquals("RESOURCE_CONFLICT", error.code());
     assertEquals("Archived projects cannot receive story versions", error.message());
+  }
+
+  @Test
+  void capacityAdmissionPreservesItsErrorCode() {
+    ErrorResponse error =
+        body(
+            handler.handleDomainConflict(
+                new GenerationAdmissionDeniedException("CAPACITY_LIMIT", "Capacity exhausted"),
+                request));
+    assertEquals(409, error.status());
+    assertEquals("CAPACITY_LIMIT", error.code());
+    assertEquals("corr-test-123", error.correlationId());
   }
 
   @Test

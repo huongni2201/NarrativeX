@@ -29,7 +29,11 @@ persisted source
   -> local project media store
 ```
 
-Local/self-hosted inference may have no external provider charge while still consuming application compute/quota policy.
+Narration admission checks the authenticated account entitlement and reserves concurrent capacity. It has no monetary estimator, pricing snapshot or local/external pricing branch. Source text, project ownership and voice capabilities are validated by the generation use case before admission.
+
+## Batch admission and capacity errors
+
+Each chapter request owns its transaction. If capacity is exhausted after one or more chapters were accepted, batch narration stops and returns those accepted jobs. If no chapter was accepted, `CAPACITY_LIMIT` is returned as HTTP 409. Other admission failures, including `ENTITLEMENT_DENIED`, are propagated even after partial acceptance. The API preserves `CAPACITY_LIMIT` rather than falling back to a generic conflict code.
 
 ## Desktop generated-audio workflow
 

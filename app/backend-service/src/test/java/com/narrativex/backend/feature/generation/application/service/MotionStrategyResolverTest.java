@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class MotionStrategyResolverTest {
   private final MotionStrategyResolver resolver =
-      new MotionStrategyResolver(new DefaultMotionExecutionPolicy());
+      new MotionStrategyResolver();
 
   @Test
   void imageMotionNeverEscalatesToI2v() {

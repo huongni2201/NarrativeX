@@ -4,7 +4,6 @@ import com.narrativex.backend.feature.account.application.port.in.UserQuotaAcces
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
-import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,11 +13,7 @@ public class NarrationAdmissionService {
   private final UserQuotaAccess quotaQuery;
   private final QuotaReservation quotaReservation;
 
-  public Admission admit(String userId, ChapterAnalysisSource source, boolean localExecution) {
-    return admitText(userId, source.sourceText(), localExecution);
-  }
-
-  public Admission admitText(String userId, String sourceText, boolean localExecution) {
+  public Admission admit(String userId) {
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery
             .findCurrentQuota(userId)
@@ -37,14 +32,6 @@ public class NarrationAdmissionService {
                     new GenerationAdmissionDeniedException(
                         "CAPACITY_LIMIT", "The narration concurrency quota is exhausted."));
     return new Admission(reservation);
-  }
-
-  public Admission admit(String userId, ChapterAnalysisSource source, String voiceId) {
-    return admit(userId, source, voiceId != null && voiceId.startsWith("vieneu-"));
-  }
-
-  public Admission admit(String userId, ChapterAnalysisSource source) {
-    return admit(userId, source, false);
   }
 
   public record Admission(QuotaReservation.Reservation reservation) {}

@@ -16,7 +16,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Outfit/age/hairstyle/injury/story-state changes belong to CharacterAppearance/OutfitVersion, not a new Character.
 - Scene/VisualBeat AI context must resolve participating characters only. Locked `CharacterVersion`, approved assets, render versions, and provider snapshots are immutable.
 - Persist provider reservation/outbox state before external submission. Ambiguous outcomes become `UNKNOWN` and must reconcile before retry; never blind-resubmit.
-- Expensive operations require an `OperationPlan`, cost estimate/reservation, account abuse checks, entitlement checks, idempotency, and usage attribution.
+- Expensive operations require an `OperationPlan`, non-monetary capacity/export reservation, account abuse checks, entitlement checks, idempotency, and usage attribution. Monetary billing, credit accounting and provider-pricing estimates are retired; token usage remains diagnostic telemetry.
 - Server-side entitlement is authoritative for watermark, quality, export, concurrency, and quota rules.
 - Real-person references require explicit consent, tenant isolation, restricted retention, and deletion handling.
 - `app/desktop` is the only editor client. Do not recreate `app/frontend-web` or add a parallel browser editor without an explicit ADR.

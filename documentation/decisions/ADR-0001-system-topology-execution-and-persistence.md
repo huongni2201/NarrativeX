@@ -73,6 +73,8 @@ Before crossing an external provider submission boundary, durable provider-opera
 
 Provider-operation lifecycle preserves fenced request identity, external operation identity where available, normalized result state, result fingerprints and reconciliation metadata. It does not persist user billing currency, actual provider cost, pricing snapshots or pricing fingerprints as an application contract.
 
+Admission services receive account identity only; project/source/voice validation belongs to the calling use case. Retired zero-cost estimators and unused uploaded-audio admission facades are removed. Capacity exhaustion uses the stable `CAPACITY_LIMIT` API code.
+
 Quota admission is non-monetary. `quota_reservations` represents supported capacity/export reservations such as `CAPACITY` and `LONGFORM_EXPORT`. The terminal PostgreSQL trigger consumes successful reservations and releases failed/canceled reservations; completed long-form exports increment the period usage counter exactly once. There is no credit balance, monthly-credit allowance, estimated-cost reservation or `PAUSED_COST_LIMIT` job state.
 
 ### 6. Desktop final project rendering
@@ -119,3 +121,7 @@ The backend and Python workers do not execute final project FFmpeg rendering and
 - The V1–V8 core remains easy to reason about before production freeze while future V9+ migrations preserve normal Flyway upgrade semantics after production adoption.
 
 See [`DATABASE_BASELINE.md`](../codebase/DATABASE_BASELINE.md) for the concrete migration matrix and verification gate.
+
+### Cleanup clarification — 2026-09-13
+
+`IMAGE_MOTION` is the only executable production mode. `MotionStrategyResolver` maps every current editor motion intent to `BASIC_IMAGE_MOTION`; there is no dormant provider/GPU/cost authorization pipeline behind that mapping. The former motion policy/context/decision wrappers had no reachable image-to-video branch under the current enum and are removed. Adding another executable mode requires an explicit production-policy decision and implementation, not enabling pre-existing fallback code.
