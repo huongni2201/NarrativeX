@@ -32,6 +32,9 @@ jobs:
       - name: Documentation drift
         run: python scripts/check-docs-drift.py
 
+      - name: Narration alignment contract
+        run: python scripts/check-narration-alignment-contract.py
+
       - name: Validate Compose configuration
         run: docker compose config --no-interpolate >/dev/null
 
