@@ -119,7 +119,7 @@
               FROM narration_alignments nal
              WHERE nal.narration_asset_id = na.id
                AND nal.source_hash = nr.source_hash
-               AND nal.alignment_version = 'word-whisper-v1'
+               AND nal.alignment_version = 'whisper-word-v1'
              ORDER BY nal.created_at DESC, nal.id DESC
              LIMIT 1
           ) alignment ON TRUE
