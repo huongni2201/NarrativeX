@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
@@ -18,13 +20,10 @@ import com.narrativex.backend.feature.generation.application.port.out.Storyboard
 import com.narrativex.backend.feature.generation.application.port.out.StoryboardGenerationSnapshotRepository.GenerationBatch;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer.ComposedVisualPrompt;
 import com.narrativex.backend.feature.generation.application.usecase.PrepareStoryboardGenerationBatchUseCase;
-import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardResponse;
-import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
-import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
-import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
-import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,6 +49,18 @@ class PrepareStoryboardGenerationBatchUseCaseTest {
     assertEquals(first.batch().id(), second.batch().id());
     assertEquals(first.batch().requestFingerprint(), second.batch().requestFingerprint());
     assertEquals(fixture.stored.get().id(), second.batch().id());
+  }
+
+  @Test
+  void batchPreparationIsUsedForMultipleBeats() {
+    Fixture fixture = fixture();
+
+    var result =
+        fixture.useCase.execute(
+            projectId, chapterId, List.of(beatOne, beatTwo), null, "batch-key");
+
+    assertEquals(2, result.batch().beats().size());
+    verify(fixture.promptContext).prepareMany(projectId, chapterId, List.of(beatOne, beatTwo));
   }
 
   @Test
@@ -134,42 +145,33 @@ class PrepareStoryboardGenerationBatchUseCaseTest {
         .thenReturn(prepared(beatOne, "PROMPT ONE"));
     when(promptContext.prepare(projectId, chapterId, beatTwo))
         .thenReturn(prepared(beatTwo, "PROMPT TWO"));
+    when(promptContext.prepareMany(eq(projectId), eq(chapterId), anyList()))
+        .thenAnswer(
+            invocation -> {
+              List<UUID> beatIds = invocation.getArgument(2);
+              Map<UUID, VisualBeatPromptContext.Preparation> result = new LinkedHashMap<>();
+              for (UUID beatId : beatIds) {
+                try {
+                  result.put(
+                      beatId,
+                      VisualBeatPromptContext.Preparation.ready(
+                          promptContext.prepare(projectId, chapterId, beatId)));
+                } catch (ResourceConflictException conflict) {
+                  String message =
+                      conflict.getMessage() == null
+                          ? "Generation input conflict"
+                          : conflict.getMessage();
+                  result.put(beatId, VisualBeatPromptContext.Preparation.conflict(message));
+                }
+              }
+              return Map.copyOf(result);
+            });
 
     return new Fixture(
         new PrepareStoryboardGenerationBatchUseCase(
             storyboard, promptContext, continuity, snapshots, new ObjectMapper()),
         promptContext,
         stored);
-  }
-
-  private ChapterStoryboardResponse storyboard() {
-    return new ChapterStoryboardResponse(
-        new ChapterStoryboardResponse.ChapterItem(chapterId, 0, "Chapter"),
-        List.of(
-            new ChapterStoryboardResponse.SceneItem(
-                sceneId,
-                0,
-                "Scene",
-                SceneStatus.READY_FOR_VISUAL,
-                0,
-                2,
-                List.of(beatResponse(beatOne, 0), beatResponse(beatTwo, 1)))));
-  }
-
-  private VisualBeatResponse beatResponse(UUID beatId, int orderIndex) {
-    return new VisualBeatResponse(
-        beatId,
-        sceneId,
-        orderIndex,
-        "Beat " + orderIndex,
-        "Visual intent",
-        null,
-        null,
-        MotionMode.STILL,
-        VisualBeatReviewStatus.NEEDS_REVIEW,
-        null,
-        null,
-        3L);
   }
 
   private VisualBeatPromptContext.PreparedVisualBeatPrompt prepared(UUID beatId, String prompt) {
