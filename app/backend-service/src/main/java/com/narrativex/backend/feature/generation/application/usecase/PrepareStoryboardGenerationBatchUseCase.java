@@ -90,10 +90,21 @@ public class PrepareStoryboardGenerationBatchUseCase {
               "Current continuity report requires review before release-quality generation."));
     }
 
+    Map<UUID, VisualBeatPromptContext.Preparation> preparations =
+        visualBeatPromptContext.prepareMany(projectId, chapterId, beatIds);
     List<BeatSnapshot> beatSnapshots = new ArrayList<>();
     for (UUID beatId : beatIds) {
+      var preparation = preparations.get(beatId);
+      if (preparation == null) {
+        throw new IllegalStateException("Prompt preparation did not return Visual Beat " + beatId);
+      }
+      if (preparation.hasConflict()) {
+        String message = preparation.conflictMessage();
+        issues.add(new GenerationIssue(conflictCode(message), "BLOCKING", beatId, message));
+        continue;
+      }
       try {
-        var prepared = visualBeatPromptContext.prepare(projectId, chapterId, beatId);
+        var prepared = preparation.prepared();
         if (continuity != null && prepared.continuityPlanId() == null) {
           issues.add(
               new GenerationIssue(
@@ -197,12 +208,22 @@ public class PrepareStoryboardGenerationBatchUseCase {
     CurrentContinuity continuity = currentContinuity(batch.projectId(), batch.chapterId(), scope);
     if (!matchesContinuity(batch, continuity)) return true;
 
+    Map<UUID, VisualBeatPromptContext.Preparation> preparations;
+    try {
+      preparations =
+          visualBeatPromptContext.prepareMany(
+              batch.projectId(),
+              batch.chapterId(),
+              batch.beats().stream().map(BeatSnapshot::visualBeatId).toList());
+    } catch (RuntimeException changedOrInvalid) {
+      return true;
+    }
+
     for (BeatSnapshot stored : batch.beats()) {
       try {
-        var prepared =
-            visualBeatPromptContext.prepare(
-                batch.projectId(), batch.chapterId(), stored.visualBeatId());
-        BeatSnapshot current = toBeatSnapshot(scope, prepared, stored.id());
+        var preparation = preparations.get(stored.visualBeatId());
+        if (preparation == null || preparation.hasConflict()) return true;
+        BeatSnapshot current = toBeatSnapshot(scope, preparation.prepared(), stored.id());
         if (!stored.inputFingerprint().equals(current.inputFingerprint())) return true;
       } catch (RuntimeException changedOrInvalid) {
         return true;
