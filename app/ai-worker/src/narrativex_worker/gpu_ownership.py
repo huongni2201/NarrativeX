@@ -1,14 +1,16 @@
 """Cross-process single-GPU ownership and model-residency transitions.
 
 NarrativeX runs Qwen, ComfyUI/RealVisXL and VoiceStudio as separate processes/services. A local
-asyncio semaphore cannot serialize those processes, so every GPU stage acquires one PostgreSQL
-session-level advisory lock before touching CUDA. The same database already owns durable worker
-state, and PostgreSQL automatically releases the lock when a crashed worker loses its connection.
+asyncio semaphore cannot serialize those processes, so every GPU inference boundary acquires one
+PostgreSQL session-level advisory lock before touching CUDA. The same database already owns durable
+worker state, and PostgreSQL automatically releases the lock when a crashed worker loses its
+connection.
 
-Holding the lock is only half of the safety boundary: before a new owner runs, every other model
-runtime is explicitly asked to release GPU memory. Qwen uses vLLM sleep mode, ComfyUI unloads its
-models/cache, and VoiceStudio unloads its resident TTS engine. The active owner is also released on
-normal exit so idle services do not pin VRAM on the RTX 4060.
+The active owner may remain warm after its request finishes. Before any different owner runs, every
+competing runtime is explicitly asked to release GPU memory: Qwen uses vLLM sleep mode, ComfyUI
+drains its queue then unloads models/cache, and VoiceStudio unloads its resident TTS engine. This
+keeps at most one heavy model stack resident while avoiding unsafe unloads before durable provider
+metadata has been persisted by the caller.
 """
 
 from __future__ import annotations
@@ -74,29 +76,18 @@ class GpuResidencyController:
 
         started = time.monotonic()
         if owner is not GpuOwner.QWEN:
-            await self._sleep_qwen()
+            await self._ensure_qwen_sleeping()
         if owner is not GpuOwner.REALVISXL:
             await self._drain_and_free_comfyui()
         if owner is not GpuOwner.VOICESTUDIO:
             await self._unload_voicestudio()
         if owner is GpuOwner.QWEN:
-            await self._wake_qwen()
+            await self._ensure_qwen_awake()
         self.logger.info(
             "GPU owner activated owner=%s transitionSeconds=%.3f",
             owner.value,
             time.monotonic() - started,
         )
-
-    async def release(self, owner: GpuOwner) -> None:
-        """Release the active runtime so idle services never pin scarce VRAM."""
-
-        if owner is GpuOwner.QWEN:
-            await self._sleep_qwen()
-        elif owner is GpuOwner.REALVISXL:
-            await self._drain_and_free_comfyui()
-        elif owner is GpuOwner.VOICESTUDIO:
-            await self._unload_voicestudio()
-        self.logger.info("GPU owner released owner=%s", owner.value)
 
     async def aclose(self) -> None:
         if self._owns_client:
@@ -119,7 +110,28 @@ class GpuResidencyController:
         token = self.settings.voicestudio_api_key.get_secret_value().strip()
         return {"Authorization": f"Bearer {token}"} if token else {}
 
-    async def _sleep_qwen(self) -> None:
+    async def _qwen_sleeping(self) -> bool:
+        endpoint = f"{self._qwen_origin}/is_sleeping"
+        try:
+            response = await self._client.get(endpoint, headers=self._qwen_headers())
+        except (httpx.TimeoutException, httpx.NetworkError) as exception:
+            raise GpuOwnershipError("QWEN_SLEEP_STATE_UNREACHABLE") from exception
+        self._require_success(response, "QWEN_SLEEP_STATE_FAILED")
+        try:
+            payload = response.json()
+        except ValueError as exception:
+            raise GpuOwnershipError("QWEN_SLEEP_STATE_INVALID_JSON") from exception
+        if isinstance(payload, bool):
+            return payload
+        if isinstance(payload, dict):
+            value = payload.get("is_sleeping", payload.get("sleeping"))
+            if isinstance(value, bool):
+                return value
+        raise GpuOwnershipError("QWEN_SLEEP_STATE_INVALID_RESPONSE")
+
+    async def _ensure_qwen_sleeping(self) -> None:
+        if await self._qwen_sleeping():
+            return
         endpoint = f"{self._qwen_origin}/sleep"
         try:
             response = await self._client.post(
@@ -131,7 +143,9 @@ class GpuResidencyController:
             raise GpuOwnershipError("QWEN_SLEEP_UNREACHABLE") from exception
         self._require_success(response, "QWEN_SLEEP_FAILED")
 
-    async def _wake_qwen(self) -> None:
+    async def _ensure_qwen_awake(self) -> None:
+        if not await self._qwen_sleeping():
+            return
         endpoint = f"{self._qwen_origin}/wake_up"
         try:
             response = await self._client.post(endpoint, headers=self._qwen_headers())
@@ -229,16 +243,10 @@ class GlobalGpuLease:
             raise
 
     async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
-        release_error: BaseException | None = None
-        try:
-            await self.controller.release(self.owner)
-        except BaseException as exception:  # release must not leak the advisory lock
-            release_error = exception
-            self.logger.exception("GPU owner release failed owner=%s", self.owner.value)
-        finally:
-            await self._release_lock(close_controller=True)
-        if release_error is not None and exc is None:
-            raise release_error
+        # Do not unload the active owner here. The provider must be able to durably persist the
+        # response/prompt id after leaving this context. The next owner evicts competitors while
+        # holding the same global advisory lock, which preserves the one-resident-stack invariant.
+        await self._release_lock(close_controller=True)
 
     async def _release_lock(self, *, close_controller: bool) -> None:
         connection = self._connection
