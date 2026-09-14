@@ -41,8 +41,8 @@ narrativex:
   generation:
     media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
     image:
-      provider-key: ${NARRATIVEX_IMAGE_PROVIDER_KEY:vertex}
-      model: ${NARRATIVEX_IMAGE_MODEL:gemini-2.5-flash-image}
+      provider-key: ${NARRATIVEX_IMAGE_PROVIDER_KEY:realvisxl}
+      model: ${NARRATIVEX_IMAGE_MODEL:realvisxl-checkpoint.safetensors}
       execution-mode: ${NARRATIVEX_IMAGE_EXECUTION_MODE:BATCH}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
