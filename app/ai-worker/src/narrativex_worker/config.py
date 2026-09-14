@@ -1,8 +1,4 @@
-"""Worker configuration module.
-
-Chapter analysis is local-first. Qwen credentials, when a local gateway requires one, and Google
-credentials used by the legacy Vertex image path are never copied into durable job payloads.
-"""
+"""Worker configuration for the local-first NarrativeX runtime."""
 
 import ipaddress
 from typing import Literal
@@ -70,10 +66,12 @@ class WorkerSettings(BaseSettings):
         default=1024 * 1024 * 1024, ge=1024, le=2 * 1024 * 1024 * 1024
     )
 
+    # Analysis hard-cuts production to local Qwen. Vertex remains accepted only so old development
+    # fixtures can still be read while the dead adapter/tests are removed in the cleanup follow-up.
     provider_mode: Literal["disabled", "fake", "qwen", "vertex"] = Field(
         default="disabled",
         validation_alias=AliasChoices("AI_PROVIDER_MODE"),
-        description="Story-analysis provider adapter mode; disabled is safe by default",
+        description="Story-analysis provider adapter mode; production requires qwen",
     )
     qwen_base_url: str = Field(
         default="http://qwen:8000/v1",
@@ -90,20 +88,16 @@ class WorkerSettings(BaseSettings):
     qwen_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
     qwen_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
     qwen_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
+
+    # Legacy Vertex analysis/image fields are intentionally non-production compatibility only.
     vertex_project_id: str | None = None
     vertex_location: str = "us-central1"
-    # Deprecated analysis compatibility. Production validation below requires Qwen; these fields
-    # remain temporarily because the Vertex image adapter and rollback-only analysis tests share
-    # the same worker package.
     vertex_model: str = "gemini-2.5-flash"
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     vertex_analysis_shard_concurrency: int = Field(default=3, ge=1, le=4)
     vertex_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
     vertex_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
     vertex_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
-    image_provider_mode: Literal["disabled", "fake", "vertex"] = Field(
-        default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
-    )
     vertex_image_model: str = "gemini-2.5-flash-image"
     vertex_image_location: str = "global"
     vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
@@ -115,6 +109,22 @@ class WorkerSettings(BaseSettings):
     vertex_image_batch_poll_seconds: float = Field(default=30.0, ge=5.0, le=300.0)
     vertex_image_batch_http_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
+
+    image_provider_mode: Literal["disabled", "fake", "vertex", "realvisxl"] = Field(
+        default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
+    )
+    image_batch_max_items: int = Field(default=1, ge=1, le=16)
+    realvisxl_base_url: str = Field(
+        default="http://host.docker.internal:8188",
+        validation_alias=AliasChoices("REALVISXL_BASE_URL"),
+        description="Private ComfyUI service origin used by the RealVisXL adapter",
+    )
+    realvisxl_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
+    realvisxl_reference_workflow_path: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("REALVISXL_REFERENCE_WORKFLOW_PATH"),
+        description="Optional ComfyUI API-format reference-conditioning workflow",
+    )
     image_reconcile_max_attempts: int = Field(default=5, ge=1, le=100)
     image_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=100)
     image_circuit_breaker_open_seconds: int = Field(default=120, ge=1, le=86_400)
@@ -202,6 +212,14 @@ class WorkerSettings(BaseSettings):
             raise ValueError("QWEN_MODEL must not be blank")
         return normalized
 
+    @field_validator("realvisxl_base_url")
+    @classmethod
+    def validate_realvisxl_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("http://", "https://")):
+            raise ValueError("REALVISXL_BASE_URL must use http:// or https://")
+        return normalized
+
     @field_validator("voicestudio_base_url")
     @classmethod
     def validate_voicestudio_base_url(cls, value: str) -> str:
@@ -240,6 +258,7 @@ class WorkerSettings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def normalized_vertex_image_batch_prefix(self) -> str:
+        """Legacy property retained until the dead Vertex adapter is removed."""
         return self.vertex_image_batch_gcs_prefix.strip().strip("/")
 
     @model_validator(mode="after")
@@ -290,7 +309,7 @@ class WorkerSettings(BaseSettings):
             raise ValueError("Missing voice-reference R2 settings: " + ", ".join(missing))
 
     def _validate_production_runtime(self) -> None:
-        """Prevent a production worker container from silently selecting test adapters."""
+        """Prevent a production worker from silently selecting remote/legacy adapters."""
         errors: list[str] = []
         if self.has_worker_role("analysis") and self.provider_mode != "qwen":
             errors.append("AI_PROVIDER_MODE=qwen is required for production analysis")
@@ -300,8 +319,18 @@ class WorkerSettings(BaseSettings):
             and not _is_private_endpoint(self.qwen_base_url)
         ):
             errors.append("QWEN_BASE_URL must resolve to a loopback/private/local host")
-        if self.has_worker_role("image-generation") and self.image_provider_mode != "vertex":
-            errors.append("IMAGE_PROVIDER_MODE=vertex is required for production image generation")
+        if self.has_worker_role("image-generation") and self.image_provider_mode != "realvisxl":
+            errors.append(
+                "IMAGE_PROVIDER_MODE=realvisxl is required for production image generation"
+            )
+        if (
+            self.has_worker_role("image-generation")
+            and self.image_provider_mode == "realvisxl"
+            and not _is_private_endpoint(self.realvisxl_base_url)
+        ):
+            errors.append("REALVISXL_BASE_URL must resolve to a loopback/private/local host")
+        if self.has_worker_role("image-generation") and self.image_batch_max_items != 1:
+            errors.append("IMAGE_BATCH_MAX_ITEMS=1 is required for single-GPU RealVisXL")
         if self.has_worker_role("narration") and self.tts_provider_mode != "voicestudio":
             errors.append("TTS_PROVIDER_MODE=voicestudio is required for production narration")
         if (
@@ -324,7 +353,7 @@ def _is_private_endpoint(url: str) -> bool:
     if hostname is None:
         return False
     normalized = hostname.lower().rstrip(".")
-    if normalized in {"localhost", "host.docker.internal", "qwen"}:
+    if normalized in {"localhost", "host.docker.internal", "qwen", "voicestudio", "comfyui"}:
         return True
     if "." not in normalized or normalized.endswith((".local", ".internal")):
         return True
