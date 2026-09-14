@@ -62,7 +62,6 @@ services:
       QWEN_ENABLED: "true"
       QWEN_RUNTIME: vllm-local
       QWEN_MODEL: ${QWEN_MODEL:-Qwen/Qwen3-8B-AWQ}
-      # R2 is backend-owned only for authenticated voice-reference upload/finalization.
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
@@ -97,7 +96,6 @@ services:
       BUILD_SHA: ${BUILD_SHA:-local}
       POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-1}
       LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-60}
-      # Qwen + RealVisXL share one local GPU. Keep this process strictly serial.
       WORKER_CONCURRENCY: ${GENERAL_WORKER_CONCURRENCY:-1}
       PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media
       MEDIA_DOWNLOAD_TIMEOUT_SECONDS: ${MEDIA_DOWNLOAD_TIMEOUT_SECONDS:-120}
@@ -105,6 +103,8 @@ services:
       MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES:-104857600}
       MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES:-104857600}
       MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES:-1073741824}
+      GPU_TRANSITION_TIMEOUT_SECONDS: ${GPU_TRANSITION_TIMEOUT_SECONDS:-600}
+      GPU_COMFYUI_IDLE_POLL_SECONDS: ${GPU_COMFYUI_IDLE_POLL_SECONDS:-0.5}
       AI_PROVIDER_MODE: qwen
       QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:8000/v1}
       QWEN_API_KEY: ${QWEN_API_KEY:-}
@@ -131,7 +131,8 @@ services:
       IMAGE_CIRCUIT_BREAKER_OPEN_SECONDS: ${IMAGE_CIRCUIT_BREAKER_OPEN_SECONDS:-120}
       IMAGE_MAX_OUTPUT_BYTES: ${IMAGE_MAX_OUTPUT_BYTES:-15000000}
       TTS_PROVIDER_MODE: disabled
-      # R2 credentials are present only because this process hosts voice-reference validation.
+      VOICESTUDIO_BASE_URL: http://voicestudio:3900
+      VOICESTUDIO_API_KEY: ${VOICESTUDIO_API_KEY:?Set VOICESTUDIO_API_KEY in .env}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
@@ -146,6 +147,7 @@ services:
     depends_on:
       backend: { condition: service_healthy }
       postgres: { condition: service_healthy }
+      voicestudio: { condition: service_healthy }
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks: [appnet]
@@ -176,8 +178,13 @@ services:
       MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES:-104857600}
       MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES:-104857600}
       MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES:-1073741824}
+      GPU_TRANSITION_TIMEOUT_SECONDS: ${GPU_TRANSITION_TIMEOUT_SECONDS:-600}
+      GPU_COMFYUI_IDLE_POLL_SECONDS: ${GPU_COMFYUI_IDLE_POLL_SECONDS:-0.5}
       AI_PROVIDER_MODE: disabled
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:8000/v1}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
       IMAGE_PROVIDER_MODE: disabled
+      REALVISXL_BASE_URL: ${REALVISXL_BASE_URL:-http://host.docker.internal:8188}
       TTS_PROVIDER_MODE: voicestudio
       TTS_SEGMENT_BATCH_SIZE: ${TTS_SEGMENT_BATCH_SIZE:-8}
       VOICESTUDIO_BASE_URL: http://voicestudio:3900
@@ -187,7 +194,6 @@ services:
       VOICESTUDIO_VOICE_PROFILE_ID: ${VOICESTUDIO_VOICE_PROFILE_ID:-default}
       VOICESTUDIO_TIMEOUT_SECONDS: ${VOICESTUDIO_TIMEOUT_SECONDS:-600}
       VOICESTUDIO_INFERENCE_CONCURRENCY: ${VOICESTUDIO_INFERENCE_CONCURRENCY:-1}
-      # R2 is read-only from narration and supplies selected custom voice references.
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
@@ -204,6 +210,8 @@ services:
       backend: { condition: service_healthy }
       postgres: { condition: service_healthy }
       voicestudio: { condition: service_healthy }
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks: [appnet]
 
   voicestudio:
