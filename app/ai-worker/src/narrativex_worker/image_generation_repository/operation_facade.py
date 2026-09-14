@@ -254,7 +254,7 @@ class ImageProviderOperationFacadeMixin(ImageRepositoryMixin):
                     operation.id,
                     error[:2000],
                     operation.row_version,
-                    self.settings.vertex_image_unknown_max_age_seconds,
+                    self.settings.image_unknown_max_age_seconds,
                     self.settings.image_reconcile_max_attempts,
                     operation.worker_id,
                     operation.lease_token,

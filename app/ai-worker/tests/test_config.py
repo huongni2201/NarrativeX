@@ -203,69 +203,66 @@ def test_removed_translation_worker_role_is_rejected() -> None:
         WorkerSettings(worker_roles="translation")
 
 
-def test_image_generation_defaults_to_gemini_flash_image_batch_configuration() -> None:
+def test_realvisxl_image_defaults_to_single_item_local_execution() -> None:
     settings = WorkerSettings()
 
-    assert settings.vertex_image_model == "gemini-2.5-flash-image"
-    assert settings.vertex_image_location == "global"
-    assert settings.vertex_image_service_tier == "standard"
-    assert settings.vertex_image_batch_gcs_bucket is None
+    assert settings.realvisxl_base_url == "http://host.docker.internal:8188"
+    assert settings.realvisxl_timeout_seconds == 120.0
+    assert settings.image_batch_max_items == 1
 
 
-def test_gemini_25_flash_image_rejects_flex_paygo() -> None:
-    with pytest.raises(ValidationError, match="does not support Flex PayGo"):
-        WorkerSettings(vertex_image_service_tier="flex")
+def test_realvisxl_base_url_is_normalized() -> None:
+    settings = WorkerSettings(realvisxl_base_url="http://comfyui:8188/")
+
+    assert settings.realvisxl_base_url == "http://comfyui:8188"
 
 
-def test_flex_requires_global_endpoint() -> None:
-    with pytest.raises(ValidationError, match="requires VERTEX_IMAGE_LOCATION=global"):
-        WorkerSettings(
-            vertex_image_model="gemini-3.1-flash-image",
-            vertex_image_location="us-central1",
-            vertex_image_service_tier="flex",
-        )
+def test_enabled_realvisxl_uses_local_project_media_without_r2() -> None:
+    settings = WorkerSettings(image_provider_mode="realvisxl")
 
-
-def test_enabled_vertex_requires_gcs_staging_bucket() -> None:
-    with pytest.raises(ValidationError, match="VERTEX_IMAGE_BATCH_GCS_BUCKET"):
-        WorkerSettings(
-            image_provider_mode="vertex",
-            vertex_project_id="project-123",
-        )
-
-
-def test_enabled_image_uses_local_project_media_without_r2() -> None:
-    settings = WorkerSettings(
-        image_provider_mode="vertex",
-        vertex_project_id="project-123",
-        vertex_image_batch_gcs_bucket="image-batches",
-    )
-
-    assert settings.image_provider_mode == "vertex"
+    assert settings.image_provider_mode == "realvisxl"
     assert settings.project_media_local_dir
 
 
-def test_disabled_image_provider_does_not_require_batch_bucket() -> None:
+def test_disabled_image_provider_stays_safe_by_default() -> None:
     settings = WorkerSettings()
 
     assert settings.image_provider_mode == "disabled"
-    assert settings.vertex_image_batch_gcs_bucket is None
 
 
 def test_production_image_worker_rejects_disabled_provider() -> None:
-    with pytest.raises(ValidationError, match="IMAGE_PROVIDER_MODE=vertex"):
+    with pytest.raises(ValidationError, match="IMAGE_PROVIDER_MODE=realvisxl"):
         WorkerSettings(worker_env="production", worker_roles="image-generation")
 
 
-def test_production_image_worker_accepts_real_provider_with_local_project_media() -> None:
+def test_production_image_worker_accepts_private_realvisxl() -> None:
     settings = WorkerSettings(
         worker_env="production",
         worker_roles="image-generation",
-        image_provider_mode="vertex",
-        vertex_project_id="project-123",
-        vertex_image_batch_gcs_bucket="image-batches",
+        image_provider_mode="realvisxl",
+        realvisxl_base_url="http://host.docker.internal:8188",
         project_media_local_dir="/data/narrativex/projects",
     )
 
-    assert settings.image_provider_mode == "vertex"
+    assert settings.image_provider_mode == "realvisxl"
     assert settings.project_media_local_dir == "/data/narrativex/projects"
+
+
+def test_production_image_worker_rejects_public_realvisxl() -> None:
+    with pytest.raises(ValidationError, match="REALVISXL_BASE_URL"):
+        WorkerSettings(
+            worker_env="production",
+            worker_roles="image-generation",
+            image_provider_mode="realvisxl",
+            realvisxl_base_url="https://images.example.com",
+        )
+
+
+def test_production_realvisxl_requires_single_item_batches() -> None:
+    with pytest.raises(ValidationError, match="IMAGE_BATCH_MAX_ITEMS=1"):
+        WorkerSettings(
+            worker_env="production",
+            worker_roles="image-generation",
+            image_provider_mode="realvisxl",
+            image_batch_max_items=2,
+        )

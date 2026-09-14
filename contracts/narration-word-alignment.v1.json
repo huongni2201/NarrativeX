@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "alignmentVersion": "whisper-word-v1",
+  "alignmentVersion": "whisperx-forced-v1",
   "timingAuthority": "MEASURED_WORD_TIMESTAMPS",
   "allowProportionalFallback": false,
   "allowLeadingSilence": true,

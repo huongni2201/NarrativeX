@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.fake_image import FakeImageProvider
+from narrativex_worker.providers.gpu_owned_image import GpuOwnedBatchImageProvider
 from narrativex_worker.providers.image import (
     BatchImageGenerationProvider,
     ImageBatchItem,
@@ -9,9 +10,7 @@ from narrativex_worker.providers.image import (
     ImageProviderOperation,
     ReferenceObjectStore,
 )
-from narrativex_worker.providers.vertex_image_reference_batch import (
-    ReferenceAwareVertexBatchImageProvider,
-)
+from narrativex_worker.providers.realvisxl import RealVisXLBatchImageProvider
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -54,6 +53,7 @@ def create_image_provider(
 ) -> BatchImageGenerationProvider:
     if settings.image_provider_mode == "fake":
         return FakeImageProvider()
-    if settings.image_provider_mode == "vertex":
-        return ReferenceAwareVertexBatchImageProvider(settings, reference_store)
+    if settings.image_provider_mode == "realvisxl":
+        inner = RealVisXLBatchImageProvider(settings, reference_store)
+        return GpuOwnedBatchImageProvider(settings, inner)
     return DisabledImageProvider()

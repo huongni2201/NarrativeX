@@ -12,6 +12,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from narrativex_worker.config import WorkerSettings
+from narrativex_worker.gpu_ownership import GpuOwner, gpu_lease
 from narrativex_worker.providers.ports import ProviderSubmissionUnknownError, ProviderTokenUsage
 
 
@@ -64,7 +65,8 @@ class QwenOpenAITransport:
         model: type[ModelT],
     ) -> tuple[ModelT | None, ProviderTokenUsage, str]:
         async with self._analysis_request_gate:
-            return await self._generate_structured(client, prompt, model)
+            async with gpu_lease(self.settings, GpuOwner.QWEN):
+                return await self._generate_structured(client, prompt, model)
 
     async def _generate_structured(
         self,

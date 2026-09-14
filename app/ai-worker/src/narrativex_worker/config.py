@@ -1,22 +1,11 @@
-"""Worker configuration module.
-
-Chapter analysis is local-first. Qwen credentials, when a local gateway requires one, and Google
-credentials used by the legacy Vertex image path are never copied into durable job payloads.
-"""
+"""Worker configuration for the local-first NarrativeX runtime."""
 
 import ipaddress
 from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import (
-    AliasChoices,
-    Field,
-    SecretStr,
-    computed_field,
-    field_validator,
-    model_validator,
-)
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
     "analysis",
@@ -35,6 +24,28 @@ class WorkerSettings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Keep Python field names usable in code, but never accept them as env aliases.
+
+        Pydantic normally treats ``populate_by_name=True`` as permission for environment sources
+        to consume raw field names too. NarrativeX deliberately exposes only explicit environment
+        aliases (for example ``AI_PROVIDER_MODE``), so removed names such as ``PROVIDER_MODE``
+        cannot silently reactivate an old configuration contract.
+        """
+        del cls, settings_cls
+        for source in (env_settings, dotenv_settings):
+            source.config["populate_by_name"] = False
+            source.config["validate_by_name"] = False
+        return init_settings, env_settings, dotenv_settings, file_secret_settings
 
     worker_name: str = Field(default="narrativex-worker", description="Identifier of the worker")
     worker_env: str = Field(default="development", description="Environment stage")
@@ -70,10 +81,10 @@ class WorkerSettings(BaseSettings):
         default=1024 * 1024 * 1024, ge=1024, le=2 * 1024 * 1024 * 1024
     )
 
-    provider_mode: Literal["disabled", "fake", "qwen", "vertex"] = Field(
+    provider_mode: Literal["disabled", "fake", "qwen"] = Field(
         default="disabled",
         validation_alias=AliasChoices("AI_PROVIDER_MODE"),
-        description="Story-analysis provider adapter mode; disabled is safe by default",
+        description="Story-analysis provider adapter mode; production requires local Qwen",
     )
     qwen_base_url: str = Field(
         default="http://qwen:8000/v1",
@@ -90,32 +101,24 @@ class WorkerSettings(BaseSettings):
     qwen_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
     qwen_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
     qwen_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
-    vertex_project_id: str | None = None
-    vertex_location: str = "us-central1"
-    # Deprecated analysis compatibility. Production validation below requires Qwen; these fields
-    # remain temporarily because the Vertex image adapter and rollback-only analysis tests share
-    # the same worker package.
-    vertex_model: str = "gemini-2.5-flash"
-    vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    vertex_analysis_shard_concurrency: int = Field(default=3, ge=1, le=4)
-    vertex_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
-    vertex_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
-    vertex_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
-    image_provider_mode: Literal["disabled", "fake", "vertex"] = Field(
+
+    image_provider_mode: Literal["disabled", "fake", "realvisxl"] = Field(
         default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
     )
-    vertex_image_model: str = "gemini-2.5-flash-image"
-    vertex_image_location: str = "global"
-    vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
-    vertex_image_service_tier: Literal["standard", "flex"] = "standard"
-    vertex_image_batch_max_items: int = Field(default=50, ge=1, le=1000)
-    vertex_image_batch_location: str = "global"
-    vertex_image_batch_gcs_bucket: str | None = None
-    vertex_image_batch_gcs_prefix: str = "narrativex/image-batches"
-    vertex_image_batch_poll_seconds: float = Field(default=30.0, ge=5.0, le=300.0)
-    vertex_image_batch_http_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
+    image_batch_max_items: int = Field(default=1, ge=1, le=16)
+    realvisxl_base_url: str = Field(
+        default="http://host.docker.internal:8188",
+        validation_alias=AliasChoices("REALVISXL_BASE_URL"),
+        description="Private ComfyUI service origin used by the RealVisXL adapter",
+    )
+    realvisxl_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
+    realvisxl_reference_workflow_path: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("REALVISXL_REFERENCE_WORKFLOW_PATH"),
+        description="Optional ComfyUI API-format reference-conditioning workflow",
+    )
     image_reconcile_max_attempts: int = Field(default=5, ge=1, le=100)
+    image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
     image_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=100)
     image_circuit_breaker_open_seconds: int = Field(default=120, ge=1, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
@@ -132,6 +135,21 @@ class WorkerSettings(BaseSettings):
     voicestudio_voice_profile_id: str = "default"
     voicestudio_timeout_seconds: float = Field(default=600.0, gt=1, le=3600)
     voicestudio_inference_concurrency: int = Field(default=1, ge=1, le=2)
+
+    gpu_transition_timeout_seconds: float = Field(
+        default=600.0,
+        gt=1,
+        le=3600,
+        validation_alias=AliasChoices("GPU_TRANSITION_TIMEOUT_SECONDS"),
+        description="Maximum time to acquire GPU ownership or drain/unload a competing runtime",
+    )
+    gpu_comfyui_idle_poll_seconds: float = Field(
+        default=0.5,
+        gt=0,
+        le=10,
+        validation_alias=AliasChoices("GPU_COMFYUI_IDLE_POLL_SECONDS"),
+        description="Polling interval while waiting for ComfyUI to become idle before unload",
+    )
 
     project_media_local_dir: str = Field(
         default="/data/narrativex/project-media",
@@ -202,6 +220,14 @@ class WorkerSettings(BaseSettings):
             raise ValueError("QWEN_MODEL must not be blank")
         return normalized
 
+    @field_validator("realvisxl_base_url")
+    @classmethod
+    def validate_realvisxl_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("http://", "https://")):
+            raise ValueError("REALVISXL_BASE_URL must use http:// or https://")
+        return normalized
+
     @field_validator("voicestudio_base_url")
     @classmethod
     def validate_voicestudio_base_url(cls, value: str) -> str:
@@ -237,39 +263,12 @@ class WorkerSettings(BaseSettings):
             return f"https://{self.r2_account_id.strip()}.r2.cloudflarestorage.com"
         return None
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def normalized_vertex_image_batch_prefix(self) -> str:
-        return self.vertex_image_batch_gcs_prefix.strip().strip("/")
-
     @model_validator(mode="after")
     def validate_runtime(self) -> "WorkerSettings":
         if self.worker_env.strip().lower() in {"production", "prod"}:
             self._validate_production_runtime()
         if self.qwen_analysis_shard_max_beats < self.qwen_analysis_shard_target_beats:
             raise ValueError("Qwen analysis shard max beats must be >= target beats")
-        if self.vertex_analysis_shard_max_beats < self.vertex_analysis_shard_target_beats:
-            raise ValueError("Vertex analysis shard max beats must be >= target beats")
-        if self.image_provider_mode == "vertex" and not self.vertex_project_id:
-            raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
-        if self.vertex_image_service_tier == "flex":
-            if self.vertex_image_location != "global":
-                raise ValueError("Vertex image Flex PayGo requires VERTEX_IMAGE_LOCATION=global")
-            if self.vertex_image_model == "gemini-2.5-flash-image":
-                raise ValueError(
-                    "gemini-2.5-flash-image does not support Flex PayGo; use the standard tier "
-                    "or Vertex batch inference for the 50% discounted rate"
-                )
-        if self.image_provider_mode == "vertex":
-            if (
-                not self.vertex_image_batch_gcs_bucket
-                or not self.vertex_image_batch_gcs_bucket.strip()
-            ):
-                raise ValueError(
-                    "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when IMAGE_PROVIDER_MODE=vertex"
-                )
-        if not self.normalized_vertex_image_batch_prefix:
-            raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
         return self
 
     def require_voice_reference_r2(self) -> None:
@@ -290,7 +289,7 @@ class WorkerSettings(BaseSettings):
             raise ValueError("Missing voice-reference R2 settings: " + ", ".join(missing))
 
     def _validate_production_runtime(self) -> None:
-        """Prevent a production worker container from silently selecting test adapters."""
+        """Prevent production from selecting anything outside the local single-GPU stack."""
         errors: list[str] = []
         if self.has_worker_role("analysis") and self.provider_mode != "qwen":
             errors.append("AI_PROVIDER_MODE=qwen is required for production analysis")
@@ -300,8 +299,18 @@ class WorkerSettings(BaseSettings):
             and not _is_private_endpoint(self.qwen_base_url)
         ):
             errors.append("QWEN_BASE_URL must resolve to a loopback/private/local host")
-        if self.has_worker_role("image-generation") and self.image_provider_mode != "vertex":
-            errors.append("IMAGE_PROVIDER_MODE=vertex is required for production image generation")
+        if self.has_worker_role("image-generation") and self.image_provider_mode != "realvisxl":
+            errors.append(
+                "IMAGE_PROVIDER_MODE=realvisxl is required for production image generation"
+            )
+        if (
+            self.has_worker_role("image-generation")
+            and self.image_provider_mode == "realvisxl"
+            and not _is_private_endpoint(self.realvisxl_base_url)
+        ):
+            errors.append("REALVISXL_BASE_URL must resolve to a loopback/private/local host")
+        if self.has_worker_role("image-generation") and self.image_batch_max_items != 1:
+            errors.append("IMAGE_BATCH_MAX_ITEMS=1 is required for single-GPU RealVisXL")
         if self.has_worker_role("narration") and self.tts_provider_mode != "voicestudio":
             errors.append("TTS_PROVIDER_MODE=voicestudio is required for production narration")
         if (
@@ -324,7 +333,7 @@ def _is_private_endpoint(url: str) -> bool:
     if hostname is None:
         return False
     normalized = hostname.lower().rstrip(".")
-    if normalized in {"localhost", "host.docker.internal", "qwen"}:
+    if normalized in {"localhost", "host.docker.internal", "qwen", "voicestudio", "comfyui"}:
         return True
     if "." not in normalized or normalized.endswith((".local", ".internal")):
         return True

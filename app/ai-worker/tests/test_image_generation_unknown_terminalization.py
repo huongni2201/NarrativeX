@@ -67,7 +67,7 @@ def _operation(
     return DurableImageOperation(
         id=20,
         stage_attempt_id=10,
-        provider_key="vertex",
+        provider_key="realvisxl",
         request_fingerprint="a" * 64,
         provider_operation_id=provider_operation_id,
         status=status,
@@ -129,7 +129,7 @@ async def test_expired_known_provider_operation_reschedules_instead_of_terminali
 
     repository._aggregate_generation_job = cast(Any, aggregate)
     operation = _operation(
-        provider_operation_id="projects/p/locations/global/batchPredictionJobs/123",
+        provider_operation_id="comfyui-prompt-123",
         status=ProviderOperationStatus.RUNNING,
     )
 
@@ -159,7 +159,7 @@ async def test_known_provider_operation_stays_unknown_after_reconcile_attempt_li
 
     repository._aggregate_generation_job = cast(Any, aggregate)
     operation = _operation(
-        provider_operation_id="projects/p/locations/global/batchPredictionJobs/123",
+        provider_operation_id="comfyui-prompt-123",
         status=ProviderOperationStatus.RUNNING,
     )
 

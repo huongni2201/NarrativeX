@@ -17,10 +17,8 @@ from narrativex_worker.providers.image import (
     ImageBatchItem,
     ImageBatchOperation,
     ImageGenerationRequest,
-)
-from narrativex_worker.providers.vertex_image import (
-    VertexImageProviderError,
-    VertexImageSubmissionUnknownError,
+    ImageProviderError,
+    ImageSubmissionUnknownError,
 )
 from narrativex_worker.schema import ImageAspectRatio, ProviderOperationStatus
 
@@ -148,7 +146,7 @@ def _operation() -> DurableImageOperation:
     return DurableImageOperation(
         id=20,
         stage_attempt_id=10,
-        provider_key="vertex",
+        provider_key="realvisxl",
         request_fingerprint="a" * 64,
         provider_operation_id=None,
         status=ProviderOperationStatus.UNKNOWN,
@@ -177,9 +175,9 @@ def _item() -> ImageBatchItem:
             prompt="A quiet room",
             negative_prompt=None,
             aspect_ratio=ImageAspectRatio.RATIO_16_9,
-            provider_key="vertex",
-            model_key="gemini-2.5-flash-image",
-            location="global",
+            provider_key="realvisxl",
+            model_key="realvisxl-checkpoint.safetensors",
+            location="local",
         ),
     )
 
@@ -189,7 +187,7 @@ def _runner(repository: _Repository, provider: _Provider) -> Any:
     runner.repository = repository
     runner.provider = provider
     runner.settings = SimpleNamespace(
-        vertex_image_batch_max_items=8,
+        image_batch_max_items=1,
         image_circuit_breaker_failure_threshold=3,
         image_circuit_breaker_open_seconds=120,
     )
@@ -201,7 +199,7 @@ def _runner(repository: _Repository, provider: _Provider) -> Any:
 
 def _failed_operation() -> ImageBatchOperation:
     return ImageBatchOperation(
-        provider_key="vertex",
+        provider_key="realvisxl",
         operation_id=None,
         status=ProviderOperationStatus.FAILED,
         items=(_item(),),
@@ -211,8 +209,8 @@ def _failed_operation() -> ImageBatchOperation:
 
 def _running_operation() -> ImageBatchOperation:
     return ImageBatchOperation(
-        provider_key="vertex",
-        operation_id="vertex-operation-20",
+        provider_key="realvisxl",
+        operation_id="comfyui-prompt-20",
         status=ProviderOperationStatus.RUNNING,
         items=(_item(),),
     )
@@ -232,7 +230,7 @@ async def test_submit_batch_persists_provider_failed_and_fails_items() -> None:
 @pytest.mark.asyncio
 async def test_submit_batch_treats_deterministic_provider_error_as_failed() -> None:
     repository = _Repository(_operation())
-    runner = _runner(repository, _Provider(VertexImageProviderError("HTTP_400")))
+    runner = _runner(repository, _Provider(ImageProviderError("HTTP_400")))
     await runner._submit_batch(_job(), (_item(),))
     assert repository.mark_unknown_calls == []
     assert repository.fail_provider_operation_calls == ["HTTP_400"]
@@ -241,7 +239,7 @@ async def test_submit_batch_treats_deterministic_provider_error_as_failed() -> N
 @pytest.mark.asyncio
 async def test_submit_batch_does_not_call_provider_when_circuit_is_open() -> None:
     repository = _Repository(_operation())
-    provider = _Provider(VertexImageProviderError("HTTP_503"))
+    provider = _Provider(ImageProviderError("HTTP_503"))
     runner = _runner(repository, provider)
     runner.circuit_breaker = ProviderCircuitBreaker(1, 120)
     await runner._submit_batch(_job(), (_item(),))
@@ -253,7 +251,7 @@ async def test_submit_batch_does_not_call_provider_when_circuit_is_open() -> Non
 @pytest.mark.asyncio
 async def test_submit_batch_keeps_unknown_for_ambiguous_provider_error() -> None:
     repository = _Repository(_operation())
-    runner = _runner(repository, _Provider(VertexImageSubmissionUnknownError("request timed out")))
+    runner = _runner(repository, _Provider(ImageSubmissionUnknownError("request timed out")))
     await runner._submit_batch(_job(), (_item(),))
     assert repository.mark_unknown_calls == ["REQUEST TIMED OUT"]
     assert repository.fail_provider_operation_calls == []

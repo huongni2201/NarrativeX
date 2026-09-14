@@ -17,7 +17,6 @@ from narrativex_worker.providers.ports import (
     ProviderSubmissionUnknownError,
 )
 from narrativex_worker.providers.qwen_continuity import ContinuityQwenProvider
-from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
@@ -50,8 +49,6 @@ class NarrativeXWorker:
         provider = (
             ContinuityQwenProvider(self.settings)
             if self.settings.provider_mode == "qwen"
-            else ContinuityVertexGeminiProvider(self.settings)
-            if self.settings.provider_mode == "vertex"
             else FakeAnalysisProvider()
             if self.settings.provider_mode == "fake"
             else DisabledProvider()
@@ -205,17 +202,12 @@ class NarrativeXWorker:
     ) -> None:
         capabilities = self.service.provider.get_capabilities()
         if capabilities.supports_durable_subcall_resume:
-            # The outer row is a local orchestration envelope. External provider subcalls are
-            # fenced by the checkpoint repository, so marking this coordinator RUNNING is resumable.
             active = await self.repository.mark_provider_orchestration_running(durable)
             execution = self._analysis_execution_context(claimed)
         else:
-            # Direct providers still need the external-call UNKNOWN fence before submit.
             reconcile_delay = max(
                 float(self.settings.lease_seconds),
-                self.settings.vertex_timeout_seconds
-                if self.settings.provider_mode == "vertex"
-                else self.settings.qwen_timeout_seconds
+                self.settings.qwen_timeout_seconds
                 if self.settings.provider_mode == "qwen"
                 else float(self.settings.lease_seconds),
             )
@@ -273,8 +265,6 @@ class NarrativeXWorker:
             ) from exception
         except Exception as exception:
             if has_durable_subcalls:
-                # No blanket UNKNOWN promotion here: every external call has its own durable fence.
-                # A coordinator/process restart can safely replay completed checkpoints.
                 raise
             error = f"Provider submission outcome is unknown: {type(exception).__name__}"
             with contextlib.suppress(ProviderOperationStateConflictError):
