@@ -23,10 +23,11 @@ from narrativex_worker.image_generation_runner import (
 from narrativex_worker.narration.storage import LocalMediaStorage, MediaStorage
 from narrativex_worker.observability import PipelineContext, PipelineMetrics
 from narrativex_worker.providers.factory import create_image_provider
-from narrativex_worker.providers.image import ImageBatchItem, ImageBatchOperation
-from narrativex_worker.providers.vertex_image import (
-    VertexImageProviderError,
-    VertexImageSubmissionUnknownError,
+from narrativex_worker.providers.image import (
+    ImageBatchItem,
+    ImageBatchOperation,
+    ImageProviderError,
+    ImageSubmissionUnknownError,
 )
 from narrativex_worker.schema import ProviderOperationStatus
 
@@ -154,7 +155,7 @@ class ImageGenerationWorkerRunner:
                 await self.repository.aggregate_generation_job(job.stage_attempt_id)
                 return
             items = [ImageBatchItem(item.item_key, item.request) for item in pending]
-            for batch in _partition_batches(items, self.settings.vertex_image_batch_max_items):
+            for batch in _partition_batches(items, self.settings.image_batch_max_items):
                 await self._submit_batch(job, batch)
 
     async def _submit_batch(
@@ -174,11 +175,11 @@ class ImageGenerationWorkerRunner:
         await self.repository.assert_lease(job)
         try:
             provider_operation = await self.provider.submit_batch(items)
-        except VertexImageSubmissionUnknownError as exception:
+        except ImageSubmissionUnknownError as exception:
             self._record_provider_failure(normalize_error(exception))
             await self.repository.mark_unknown(operation, normalize_error(exception))
             return
-        except VertexImageProviderError as exception:
+        except ImageProviderError as exception:
             self._record_provider_failure(normalize_error(exception))
             await self.repository.fail_provider_operation(operation, normalize_error(exception))
             return
@@ -273,10 +274,10 @@ class ImageGenerationWorkerRunner:
                     resolved, durable_operation_id=durable.id
                 )
                 await self.repository.complete_provider_operation(durable, materialized)
-            except (VertexImageSubmissionUnknownError, ImageGenerationUnknownError) as exception:
+            except (ImageSubmissionUnknownError, ImageGenerationUnknownError) as exception:
                 self._record_provider_failure(normalize_error(exception))
                 await self.repository.mark_unknown(durable, normalize_error(exception))
-            except VertexImageProviderError as exception:
+            except ImageProviderError as exception:
                 self._record_provider_failure(normalize_error(exception))
                 await self.repository.fail_provider_operation(durable, normalize_error(exception))
             except (ImageGenerationOutputError, ImageGenerationProviderRejectedError) as exception:
