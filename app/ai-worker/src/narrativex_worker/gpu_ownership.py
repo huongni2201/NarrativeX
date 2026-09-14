@@ -184,7 +184,12 @@ class GpuResidencyController:
                 raise GpuOwnershipError("COMFYUI_QUEUE_INVALID_RESPONSE")
             running = payload.get("queue_running")
             pending = payload.get("queue_pending")
-            if isinstance(running, list) and isinstance(pending, list) and not running and not pending:
+            if (
+                isinstance(running, list)
+                and isinstance(pending, list)
+                and not running
+                and not pending
+            ):
                 return
             if asyncio.get_running_loop().time() >= deadline:
                 raise GpuOwnershipError("COMFYUI_DRAIN_TIMEOUT")
@@ -225,7 +230,7 @@ class GlobalGpuLease:
         self._lock_acquired = False
         self.logger = logging.getLogger("narrativex.worker.gpu-ownership")
 
-    async def __aenter__(self) -> "GlobalGpuLease":
+    async def __aenter__(self) -> GlobalGpuLease:
         started = time.monotonic()
         connection = await asyncpg.connect(self.settings.database_url)
         self._connection = connection

@@ -1,14 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Cpu, Database, HardDrive, Palette, RotateCcw } from "lucide-react";
-import type { DesktopPreferences, DesktopPreferenceResetScope } from "../../../../preload/types";
+import type { DesktopPreferenceResetScope } from "../../../../preload/types";
 import { Button } from "../../../components/ui/button";
 import { FeaturePage } from "../../workspace/components/FeaturePage";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
-import { GeminiBrowserSettings } from "../components/GeminiBrowserSettings";
-import { GeminiConcurrencySettings } from "../components/GeminiConcurrencySettings";
-
-const MIN_TABS = 1;
-const MAX_TABS = 8;
 
 export function SettingsScreen({
   workspace,
@@ -16,7 +11,6 @@ export function SettingsScreen({
   workspace: DesktopWorkspaceState;
 }>) {
   const [executorState, setExecutorState] = useState("Checking…");
-  const [preferences, setPreferences] = useState<DesktopPreferences | null>(null);
   const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,37 +20,14 @@ export function SettingsScreen({
       .catch(() => setExecutorState("Unavailable"));
     void window.narrativex.preferences
       .get()
-      .then(setPreferences)
+      .then(() => undefined)
       .catch((error) => setPreferenceNotice(error instanceof Error ? error.message : "Unable to load personalized settings."));
   }, []);
 
-  const showNotice = useCallback((message: string) => {
-    setPreferenceNotice(message);
-  }, []);
-
-  async function updateGemini(field: "characterTabs" | "storyboardTabs", value: number) {
-    if (!preferences) return;
-    const clamped = Math.min(MAX_TABS, Math.max(MIN_TABS, value));
-    try {
-      const next = await window.narrativex.preferences.updateGemini({ [field]: clamped });
-      setPreferences(next);
-      setPreferenceNotice("Saved. New Gemini queues will use this global concurrency.");
-    } catch (error) {
-      setPreferenceNotice(error instanceof Error ? error.message : "Unable to save Gemini settings.");
-    }
-  }
-
   async function resetPreferences(scope: DesktopPreferenceResetScope) {
     try {
-      const next = await window.narrativex.preferences.reset(scope);
-      setPreferences(next);
-      setPreferenceNotice(
-        scope === "GEMINI"
-          ? "Gemini concurrency reset to environment defaults. Browser logins were preserved."
-          : scope === "WINDOW"
-            ? "Window layout reset."
-            : "Personalized settings reset. Gemini browser profiles and logins were preserved.",
-      );
+      await window.narrativex.preferences.reset(scope);
+      setPreferenceNotice(scope === "WINDOW" ? "Window layout reset." : "Personalized settings reset.");
     } catch (error) {
       setPreferenceNotice(error instanceof Error ? error.message : "Unable to reset personalized settings.");
     }
@@ -87,22 +58,10 @@ export function SettingsScreen({
         </SettingsGroup>
 
         <div className="lg:col-span-2">
-          <GeminiBrowserSettings onNotice={showNotice} />
-        </div>
-
-        <div className="lg:col-span-2">
-          <GeminiConcurrencySettings
-            preferences={preferences}
-            onUpdate={(field, value) => void updateGemini(field, value)}
-            onReset={() => void resetPreferences("GEMINI")}
-          />
-        </div>
-
-        <div className="lg:col-span-2">
           <SettingsGroup
             eyebrow="Personalization"
             title="Reset Actions"
-            description="Reset Desktop layout/preferences without silently deleting saved Gemini browser logins."
+            description="Reset Desktop layout preferences."
           >
             <ResetRow
               title="Reset window layout"
@@ -111,7 +70,7 @@ export function SettingsScreen({
             />
             <ResetRow
               title="Reset all personalized settings"
-              description="Reset window and Gemini concurrency preferences. Browser profiles and login sessions are preserved."
+              description="Reset all personalized Desktop settings."
               onReset={() => void resetPreferences("ALL")}
             />
           </SettingsGroup>

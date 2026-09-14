@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ListProjectResourcesUseCase {
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ProjectResourceQueryRepository repository;
 
@@ -22,14 +20,14 @@ public class ListProjectResourcesUseCase {
   public CursorPage<ProjectResourceView.Location> locations(
       UUID projectId, String cursor, int limit) {
     validateLimit(limit);
-    projectAccess.findOwnedProject(projectId, currentUserId.get());
+    projectAccess.findProject(projectId);
     return repository.listLocations(projectId, cursor, limit);
   }
 
   @Transactional(readOnly = true)
   public CursorPage<ProjectResourceView.Asset> assets(UUID projectId, String cursor, int limit) {
     validateLimit(limit);
-    projectAccess.findOwnedProject(projectId, currentUserId.get());
+    projectAccess.findProject(projectId);
     return repository.listAssets(projectId, cursor, limit);
   }
 

@@ -13,15 +13,13 @@ public interface ProjectMapper extends NarrativeXMyBatisMapper {
 
   ProjectRow findById(@Param("id") UUID id);
 
-  ProjectRow findOwnedById(@Param("projectId") UUID projectId, @Param("ownerId") String ownerId);
+  ProjectRow findByIdActive(@Param("projectId") UUID projectId);
 
-  ProjectRow findOwnedByIdForUpdate(
-      @Param("projectId") UUID projectId, @Param("ownerId") String ownerId);
+  ProjectRow findByIdActiveForUpdate(@Param("projectId") UUID projectId);
 
-  List<ProjectRow> findActiveFirstPage(@Param("ownerId") String ownerId, @Param("limit") int limit);
+  List<ProjectRow> findActiveFirstPage(@Param("limit") int limit);
 
   List<ProjectRow> findActiveAfter(
-      @Param("ownerId") String ownerId,
       @Param("updatedAt") Instant updatedAt,
       @Param("id") UUID id,
       @Param("limit") int limit);

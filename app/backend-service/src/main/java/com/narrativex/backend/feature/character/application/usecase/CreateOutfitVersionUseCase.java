@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.CreateOutfitVersionCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.OutfitVersionRepository;
@@ -15,13 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateOutfitVersionUseCase {
   private final CharacterRepository characterRepository;
   private final OutfitVersionRepository outfitVersionRepository;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public OutfitVersion execute(CreateOutfitVersionCommand command) {
-    String ownerId = currentUserId.get();
     characterRepository
-        .findOwnedByIdForUpdate(command.characterId(), ownerId)
+        .findByIdForUpdate(command.characterId())
         .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
     int versionNumber =
         outfitVersionRepository.findMaxVersionNumberByCharacterId(command.characterId()) + 1;

@@ -3,8 +3,6 @@ import type {
   LocalRenderPreflight,
   LocalRenderPreflightAssetInput,
 } from "@narrativex/client-contracts";
-import type { GeminiWebLane as GeminiWebLaneType } from "../shared/gemini-web-lanes";
-export type { GeminiWebLane } from "../shared/gemini-web-lanes";
 
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
@@ -12,14 +10,7 @@ export type LocalExecutionConnectionState =
   | "ONLINE"
   | "OFFLINE";
 
-export type DesktopPreferenceResetScope = "GEMINI" | "WINDOW" | "ALL";
-export type GeminiWatermarkState = "PENDING" | "REMOVED" | "NOT_APPLICABLE";
-
-export interface GeminiWatermarkRemovalResult {
-  processed: string[];
-  skipped: string[];
-  failed: Array<{ assetId: string; message: string }>;
-}
+export type DesktopPreferenceResetScope = "WINDOW" | "ALL";
 
 export interface DesktopWindowPreference {
   x: number;
@@ -29,38 +20,9 @@ export interface DesktopWindowPreference {
   maximized: boolean;
 }
 
-export interface DesktopGeminiBrowserProfile {
-  id: string;
-  name: string;
-  createdAt: string;
-  loginConfirmed: boolean;
-}
-
-export interface DesktopGeminiPreferences {
-  characterTabs: number;
-  storyboardTabs: number;
-  browsers: DesktopGeminiBrowserProfile[];
-  environmentDefaults: {
-    characterTabs: number;
-    storyboardTabs: number;
-  };
-}
-
 export interface DesktopPreferences {
   userId: string;
-  gemini: DesktopGeminiPreferences;
   window: DesktopWindowPreference | null;
-}
-
-export type GeminiBrowserAuthStatus = "LOGGED_IN" | "NOT_LOGGED_IN";
-
-export interface GeminiBrowserView {
-  id: string;
-  name: string;
-  createdAt: string;
-  authStatus: GeminiBrowserAuthStatus;
-  activeLeases: number;
-  canRemove: boolean;
 }
 
 export interface LocalExecutionStatus {
@@ -151,59 +113,6 @@ export interface LocalAssetSelection {
   generationInputFingerprint?: string;
 }
 
-export interface GeminiWebReferenceInput {
-  refLabel: string;
-  assetId: string;
-  characterId: string;
-  canonicalName: string;
-  beatRole?: string | null;
-  referenceRole?: string | null;
-  priority?: number;
-  contentType?: string | null;
-  sha256?: string | null;
-}
-
-export interface GeminiWebGenerationProvenance {
-  attemptId: string;
-  batchId: string;
-  snapshotId: string;
-  batchFingerprint: string;
-  inputFingerprint: string;
-  stylePolicyVersion: string;
-  providerPolicyVersion: string;
-}
-
-export type GeminiWebAttemptStage =
-  | "PREPARED"
-  | "SUBMITTING"
-  | "COMPLETED"
-  | "FAILED"
-  | "UNKNOWN";
-
-export interface GeminiWebAttemptRecord {
-  attemptId: string;
-  lane: GeminiWebLaneType;
-  projectId: string | null;
-  batchId: string | null;
-  snapshotId: string | null;
-  batchFingerprint: string | null;
-  inputFingerprint: string | null;
-  stylePolicyVersion: string | null;
-  providerPolicyVersion: string | null;
-  stage: GeminiWebAttemptStage;
-  outputChecksumSha256: string | null;
-  errorCode: string | null;
-  updatedAt: string;
-}
-
-export interface GeminiWebGenerateImageInput {
-  lane: GeminiWebLaneType;
-  prompt: string;
-  projectId?: string;
-  references?: GeminiWebReferenceInput[];
-  provenance?: GeminiWebGenerationProvenance;
-}
-
 export interface VoiceReferenceUploadResult {
   assetId: string;
   status: string;
@@ -291,7 +200,6 @@ export interface NarrativeXDesktopBridge {
   preferences: {
     bindUser(userId: string): Promise<DesktopPreferences>;
     get(): Promise<DesktopPreferences>;
-    updateGemini(input: { characterTabs?: number; storyboardTabs?: number }): Promise<DesktopPreferences>;
     reset(scope: DesktopPreferenceResetScope): Promise<DesktopPreferences>;
   };
   localExecution: {
@@ -329,32 +237,6 @@ export interface NarrativeXDesktopBridge {
       selectionToken: string;
     }): Promise<LocalAssetImportResult>;
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
-  };
-  geminiWeb: {
-    browsers: {
-      list(): Promise<GeminiBrowserView[]>;
-      add(): Promise<GeminiBrowserView[]>;
-      open(browserId: string): Promise<void>;
-      setLoginConfirmed(browserId: string, loginConfirmed: boolean): Promise<GeminiBrowserView[]>;
-      resetLogin(browserId: string): Promise<GeminiBrowserView[]>;
-      remove(browserId: string): Promise<GeminiBrowserView[]>;
-    };
-    generateImage(input: GeminiWebGenerateImageInput): Promise<LocalAssetSelection>;
-    attemptStatus(input: { attemptId: string }): Promise<GeminiWebAttemptRecord | null>;
-    commitImage(input: {
-      lane: GeminiWebLaneType;
-      projectId: string;
-      assetId: string;
-      selectionToken: string;
-    }): Promise<LocalAssetImportResult>;
-    watermarkStates(input: {
-      projectId: string;
-      assetIds: string[];
-    }): Promise<Record<string, GeminiWatermarkState>>;
-    removeWatermarks(input: {
-      projectId: string;
-      assetIds: string[];
-    }): Promise<GeminiWatermarkRemovalResult>;
   };
   render: {
     status(): Promise<FfmpegRuntimeStatus>;

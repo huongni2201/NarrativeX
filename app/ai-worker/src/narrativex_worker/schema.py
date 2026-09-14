@@ -292,7 +292,7 @@ class ChapterAnalysisRequest(BaseModel):
     source_text: str = Field(min_length=1, max_length=500_000)
     source_language: str = Field(default="vi-VN", min_length=2, max_length=16)
     visual_generation_mode: str = Field(default="IMAGE", pattern=r"^(IMAGE|VIDEO)$")
-    image_provider: str | None = Field(default="API", pattern=r"^(GEMINI_WEB|API)$")
+    image_provider: str | None = Field(default="API", pattern=r"^API$")
     safety_policy_version: str = Field(default="safety-v1.8", min_length=1, max_length=64)
     preferred_locale: str = Field(default="vi-VN", min_length=2, max_length=16)
 

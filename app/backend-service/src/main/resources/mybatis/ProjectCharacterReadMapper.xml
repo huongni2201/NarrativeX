@@ -7,7 +7,6 @@
         <id property="assignmentId" column="assignment_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="characterId" column="character_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="projectId" column="project_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
-        <result property="workspaceId" column="workspace_id" />
         <result property="canonicalName" column="canonical_name" />
         <result property="aliasesJson" column="aliases_json" />
         <result property="projectAliasesJson" column="project_aliases_json" />
@@ -32,11 +31,10 @@
         <result property="appearancePrompt" column="appearance_prompt" />
     </resultMap>
 
-    <select id="projectOwnedBy" resultType="boolean">
+    <select id="projectExists" resultType="boolean">
         SELECT EXISTS(
             SELECT 1 FROM projects
              WHERE id = #{projectId}
-               AND owner_id = #{ownerId}
                AND archived_at IS NULL
         )
     </select>
@@ -45,7 +43,6 @@
         pc.id AS assignment_id,
         c.id AS character_id,
         pc.project_id,
-        c.workspace_id,
         c.canonical_name,
         c.aliases::text AS aliases_json,
         pc.project_aliases::text AS project_aliases_json,
@@ -112,7 +109,6 @@
         SELECT <include refid="baseColumns" />
         <include refid="joins" />
          WHERE pc.project_id = #{projectId}
-           AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'
@@ -124,7 +120,6 @@
         SELECT <include refid="baseColumns" />
         <include refid="joins" />
          WHERE pc.project_id = #{projectId}
-           AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'
@@ -139,7 +134,6 @@
         <include refid="joins" />
          WHERE pc.project_id = #{projectId}
            AND c.id = #{characterId}
-           AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'

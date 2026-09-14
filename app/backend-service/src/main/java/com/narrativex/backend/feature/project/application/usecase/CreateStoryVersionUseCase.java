@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.project.application.command.CreateStoryVersionCommand;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
@@ -19,13 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateStoryVersionUseCase {
   private final ProjectAccess projectAccess;
   private final StoryVersionRepository storyVersionRepository;
-  private final CurrentUserId currentUserId;
   private final NarrativeXLimitsProperties limits;
 
   @Transactional
   public StoryVersion execute(CreateStoryVersionCommand command) {
-    String resolvedOwnerId = currentUserId.get();
-    Project project = projectAccess.findOwnedProjectForUpdate(command.projectId(), resolvedOwnerId);
+    Project project = projectAccess.findProjectForUpdate(command.projectId());
     int characterCount = command.content().codePointCount(0, command.content().length());
     if (characterCount > limits.getMaxStoryCharacters()) {
       throw new StoryCharacterLimitExceededException(

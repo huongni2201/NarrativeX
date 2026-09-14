@@ -5,9 +5,9 @@ import tempfile
 import threading
 import unicodedata
 import wave
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Mapping
 from typing import Any
 
 from narrativex_worker.narration.models import WordAlignment

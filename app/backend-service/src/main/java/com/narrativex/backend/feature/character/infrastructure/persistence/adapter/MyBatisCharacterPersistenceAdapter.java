@@ -23,12 +23,12 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
   private final CharacterMyBatisRowMapper rowMapper;
 
   @Override
-  public CursorPage<Character> findActiveByOwnerId(String ownerId, String cursor, int limit) {
+  public CursorPage<Character> findActive(String cursor, int limit) {
     UuidCursorKey key = CursorCodec.decodeUuid(cursor);
     List<CharacterRow> rows =
         key == null
-            ? mapper.findActiveFirstPage(ownerId, limit + 1)
-            : mapper.findActiveAfter(ownerId, key.updatedAt(), key.id(), limit + 1);
+            ? mapper.findActiveFirstPage(limit + 1)
+            : mapper.findActiveAfter(key.updatedAt(), key.id(), limit + 1);
     boolean hasNext = rows.size() > limit;
     List<CharacterRow> visible = rows.subList(0, Math.min(limit, rows.size()));
     String next =
@@ -40,20 +40,20 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
   }
 
   @Override
-  public long countActiveByOwnerId(String ownerId) {
-    return mapper.countActive(ownerId, CharacterStatus.ACTIVE.name());
+  public long countActive() {
+    return mapper.countActive(CharacterStatus.ACTIVE.name());
   }
 
   @Override
-  public Optional<Character> findOwnedById(UUID id, String ownerId) {
-    return Optional.ofNullable(mapper.findOwned(id, ownerId, CharacterStatus.ARCHIVED.name()))
+  public Optional<Character> findById(UUID id) {
+    return Optional.ofNullable(mapper.findActiveById(id, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 
   @Override
-  public Optional<Character> findOwnedByIdForUpdate(UUID id, String ownerId) {
+  public Optional<Character> findByIdForUpdate(UUID id) {
     return Optional.ofNullable(
-            mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name()))
+            mapper.findActiveByIdForUpdate(id, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 

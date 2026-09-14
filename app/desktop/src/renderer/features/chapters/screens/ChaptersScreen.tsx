@@ -386,9 +386,9 @@ export function ChaptersScreen({
   async function analyzeAll() {
     if (!bulkAnalysisChapterIds.length || bulkAnalysisBusy) return;
     const currentMode = selectedWorkspace?.pipeline.analysis.visualGenerationMode ?? "IMAGE";
-    const preferences = {
+    const preferences: AnalyzeChapterInput = {
       visualGenerationMode: currentMode,
-      imageProvider: currentMode === "IMAGE" ? selectedWorkspace?.pipeline.analysis.imageProvider ?? "GEMINI_WEB" : null,
+      imageProvider: currentMode === "IMAGE" ? "API" : null,
     };
 
     setBulkAnalysisBusy(true);

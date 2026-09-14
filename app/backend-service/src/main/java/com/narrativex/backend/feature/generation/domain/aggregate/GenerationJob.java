@@ -19,7 +19,6 @@ public final class GenerationJob extends AggregateRoot {
   private final int progress;
   private final String currentStep;
   private final String errorCode;
-  private final String requestedByUserId;
   private final UUID storyVersionId;
   private final UUID chapterId;
   private final UUID storyboardRevisionId;
@@ -45,7 +44,6 @@ public final class GenerationJob extends AggregateRoot {
       int progress,
       String currentStep,
       String errorCode,
-      String requestedByUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -71,7 +69,6 @@ public final class GenerationJob extends AggregateRoot {
     this.progress = progress;
     this.currentStep = currentStep;
     this.errorCode = errorCode;
-    this.requestedByUserId = required(requestedByUserId, "requestedByUserId");
     this.storyVersionId = storyVersionId;
     this.chapterId = chapterId;
     this.storyboardRevisionId = storyboardRevisionId;
@@ -90,7 +87,7 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob create(
-      UUID projectId, JobType type, ResourceClass resourceClass, String userId) {
+      UUID projectId, JobType type, ResourceClass resourceClass) {
     return new GenerationJob(
         null,
         0L,
@@ -102,7 +99,6 @@ public final class GenerationJob extends AggregateRoot {
         0,
         "QUEUED",
         null,
-        userId,
         null,
         null,
         null,
@@ -127,8 +123,7 @@ public final class GenerationJob extends AggregateRoot {
       String sourceHash,
       String sourceText,
       String sourceLanguage,
-      String idempotencyKey,
-      String userId) {
+      String idempotencyKey) {
     return createChapterAnalysis(
         projectId,
         storyVersionId,
@@ -140,8 +135,7 @@ public final class GenerationJob extends AggregateRoot {
         sourceLanguage,
         idempotencyKey,
         "IMAGE",
-        "API",
-        userId);
+        "API");
   }
 
   public static GenerationJob createChapterAnalysis(
@@ -155,8 +149,7 @@ public final class GenerationJob extends AggregateRoot {
       String sourceLanguage,
       String idempotencyKey,
       String visualGenerationMode,
-      String imageProvider,
-      String userId) {
+      String imageProvider) {
     Objects.requireNonNull(storyVersionId, "storyVersionId");
     Objects.requireNonNull(chapterId, "chapterId");
     Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId");
@@ -174,7 +167,6 @@ public final class GenerationJob extends AggregateRoot {
         0,
         "QUEUED",
         null,
-        userId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -196,8 +188,7 @@ public final class GenerationJob extends AggregateRoot {
       MediaPlan mediaPlan,
       ResourceClass resourceClass,
       String sourceLanguage,
-      String idempotencyKey,
-      String userId) {
+      String idempotencyKey) {
     Objects.requireNonNull(mediaPlan, "mediaPlan");
     Objects.requireNonNull(storyVersionId, "storyVersionId");
     return new GenerationJob(
@@ -211,7 +202,6 @@ public final class GenerationJob extends AggregateRoot {
         0,
         "QUEUED",
         null,
-        userId,
         storyVersionId,
         mediaPlan.chapterId(),
         mediaPlan.storyboardRevisionId(),
@@ -238,7 +228,6 @@ public final class GenerationJob extends AggregateRoot {
       int progress,
       String currentStep,
       String errorCode,
-      String requestedByUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -258,7 +247,6 @@ public final class GenerationJob extends AggregateRoot {
         progress,
         currentStep,
         errorCode,
-        requestedByUserId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -285,7 +273,6 @@ public final class GenerationJob extends AggregateRoot {
       int progress,
       String currentStep,
       String errorCode,
-      String requestedByUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -308,7 +295,6 @@ public final class GenerationJob extends AggregateRoot {
         progress,
         currentStep,
         errorCode,
-        requestedByUserId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -335,7 +321,6 @@ public final class GenerationJob extends AggregateRoot {
       int progress,
       String currentStep,
       String errorCode,
-      String requestedByUserId,
       UUID storyVersionId,
       UUID chapterId,
       UUID storyboardRevisionId,
@@ -360,7 +345,6 @@ public final class GenerationJob extends AggregateRoot {
         progress,
         currentStep,
         errorCode,
-        requestedByUserId,
         storyVersionId,
         chapterId,
         storyboardRevisionId,
@@ -406,10 +390,6 @@ public final class GenerationJob extends AggregateRoot {
 
   public String getErrorCode() {
     return errorCode;
-  }
-
-  public String getRequestedByUserId() {
-    return requestedByUserId;
   }
 
   public UUID getStoryVersionId() {
@@ -488,9 +468,8 @@ public final class GenerationJob extends AggregateRoot {
       throw new IllegalArgumentException("visualGenerationMode must be IMAGE or VIDEO");
     }
     if ("IMAGE".equals(visualGenerationMode)) {
-      if (!"GEMINI_WEB".equals(imageProvider) && !"API".equals(imageProvider)) {
-        throw new IllegalArgumentException(
-            "imageProvider must be GEMINI_WEB or API for IMAGE mode");
+      if (!"API".equals(imageProvider)) {
+        throw new IllegalArgumentException("imageProvider must be API for IMAGE mode");
       }
       return;
     }

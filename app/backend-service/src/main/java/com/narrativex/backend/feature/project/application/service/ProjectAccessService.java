@@ -17,17 +17,17 @@ public class ProjectAccessService implements ProjectAccess {
 
   @Override
   @Transactional(readOnly = true)
-  public Project findOwnedProject(UUID projectId, String ownerId) {
+  public Project findProject(UUID projectId) {
     return projectRepository
-        .findOwnedById(projectId, ownerId)
+        .findById(projectId)
         .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
   }
 
   @Override
   @Transactional
-  public Project findOwnedProjectForUpdate(UUID projectId, String ownerId) {
+  public Project findProjectForUpdate(UUID projectId) {
     return projectRepository
-        .findOwnedByIdForUpdate(projectId, ownerId)
+        .findByIdForUpdate(projectId)
         .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
   }
 }

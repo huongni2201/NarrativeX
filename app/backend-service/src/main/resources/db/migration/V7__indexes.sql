@@ -138,10 +138,6 @@ CREATE UNIQUE INDEX uq_final_artifacts_chapter_render_fingerprint
 CREATE INDEX idx_final_artifacts_project_created ON final_artifacts (project_id, created_at DESC, id DESC);
 CREATE INDEX idx_final_artifacts_chapter_created ON final_artifacts (chapter_id, created_at DESC, id DESC)
     WHERE chapter_id IS NOT NULL;
-CREATE INDEX idx_storyboard_generation_batches_scope
-    ON storyboard_generation_batches (project_id, chapter_id, created_at DESC);
-CREATE INDEX idx_storyboard_generation_beat_snapshot_beat
-    ON storyboard_generation_beat_snapshots (visual_beat_id, created_at DESC);
 CREATE INDEX idx_project_render_input_chapters_continuity
     ON project_render_input_chapters (continuity_plan_id, continuity_report_revision)
     WHERE continuity_plan_id IS NOT NULL;

@@ -6,11 +6,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProjectRepository {
-  CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit);
+  CursorPage<Project> findActive(String cursor, int limit);
 
-  Optional<Project> findOwnedById(UUID projectId, String ownerId);
+  Optional<Project> findById(UUID projectId);
 
-  Optional<Project> findOwnedByIdForUpdate(UUID projectId, String ownerId);
+  Optional<Project> findByIdForUpdate(UUID projectId);
 
   Project save(Project project);
 }

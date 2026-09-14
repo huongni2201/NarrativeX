@@ -3,9 +3,9 @@ package com.narrativex.backend.feature.project.application.port.in;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import java.util.UUID;
 
-/** Cross-module inbound contract for ownership-checked project access. */
+/** Cross-module inbound contract for project access. */
 public interface ProjectAccess {
-  Project findOwnedProject(UUID projectId, String ownerId);
+  Project findProject(UUID projectId);
 
-  Project findOwnedProjectForUpdate(UUID projectId, String ownerId);
+  Project findProjectForUpdate(UUID projectId);
 }

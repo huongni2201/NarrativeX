@@ -101,7 +101,7 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
     }
     return "REFERENCE_BUDGET_EXCEEDED: Visual Beat requires identity references for "
         + requiredIdentityReferences
-        + " participating characters but Gemini Web supports at most "
+        + " participating characters but image generation supports at most "
         + MAX_REFERENCE_IMAGES
         + ".";
   }

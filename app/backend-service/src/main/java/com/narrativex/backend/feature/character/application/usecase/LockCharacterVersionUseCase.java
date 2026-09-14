@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.ChangeCharacterVersionStatusCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
@@ -18,14 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class LockCharacterVersionUseCase {
   private final CharacterVersionRepository versionRepository;
   private final CharacterVersionReferenceRepository referenceRepository;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public CharacterVersion execute(ChangeCharacterVersionStatusCommand command) {
-    String actorId = currentUserId.get();
     CharacterVersion version =
         versionRepository
-            .findOwnedByIdForUpdate(command.characterVersionId(), actorId)
+            .findByIdForUpdate(command.characterVersionId())
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     boolean hasIdentityReference =
         referenceRepository.findByVersionId(command.characterVersionId()).stream()
@@ -34,10 +31,10 @@ public class LockCharacterVersionUseCase {
       throw new ResourceConflictException(
           "Character version requires an IDENTITY reference before lock");
     }
-    version.lock(actorId);
+    version.lock();
     CharacterVersion saved = versionRepository.save(version);
     log.info(
-        "Locked character version {} by authenticated principal", command.characterVersionId());
+        "Locked character version {}", command.characterVersionId());
     return saved;
   }
 }

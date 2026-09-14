@@ -6,13 +6,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CharacterRepository {
-  CursorPage<Character> findActiveByOwnerId(String ownerId, String cursor, int limit);
+  CursorPage<Character> findActive(String cursor, int limit);
 
-  long countActiveByOwnerId(String ownerId);
+  long countActive();
 
   Character save(Character character);
 
-  Optional<Character> findOwnedById(UUID characterId, String ownerId);
+  Optional<Character> findById(UUID characterId);
 
-  Optional<Character> findOwnedByIdForUpdate(UUID characterId, String ownerId);
+  Optional<Character> findByIdForUpdate(UUID characterId);
 }

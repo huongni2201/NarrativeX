@@ -12,7 +12,6 @@ import {
   extractDesktopAuthError,
   isNarrativeXProtocolUrl,
 } from "./auth/protocol-handler";
-import { registerGeminiWebIpc } from "./gemini-web/gemini-web-ipc";
 import { LocalExecutionBackendClient } from "./local-execution/backend-client";
 import { loadLocalExecutionConfig } from "./local-execution/config";
 import { DeviceIdentityStore } from "./local-execution/device-identity";
@@ -331,7 +330,6 @@ void app.whenReady().then(async () => {
   installLocalAssetPreviewProtocol(session.defaultSession.protocol, projectStorage);
   const projectCatalog = new ProjectCatalog(projectStorage);
   registerProjectCatalogIpc(trustPolicy, projectCatalog);
-  registerGeminiWebIpc(trustPolicy, projectStorage);
   renderPreflight = new LocalRenderPreflightService(ffmpegRuntime, projectStorage);
   renderJournals = new RenderJournalStore(projectStorage.rootDirectory());
   remoteAssetMaterializer = new RemoteAssetMaterializer(projectStorage, desktopApi);

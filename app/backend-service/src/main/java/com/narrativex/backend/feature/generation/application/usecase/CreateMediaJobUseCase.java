@@ -59,12 +59,6 @@ public class CreateMediaJobUseCase {
     }
 
     String imageProvider = normalizeImageProvider(command.imageProvider());
-    if ("GEMINI_WEB".equals(imageProvider)) {
-      throw new GenerationAdmissionDeniedException(
-          "EXTERNAL_IMAGE_PROVIDER",
-          "Gemini Web generation is performed per visual beat from Storyboard and does not create an API media job.");
-    }
-
     String idempotencyKey = requireIdempotencyKey(command.idempotencyKey());
     String requestFingerprint = fingerprint(command, imageProvider);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
@@ -200,7 +194,7 @@ public class CreateMediaJobUseCase {
 
   private static String normalizeImageProvider(String value) {
     if (value == null || value.isBlank()) return "API";
-    if (!"API".equals(value) && !"GEMINI_WEB".equals(value)) {
+    if (!"API".equals(value)) {
       throw new GenerationAdmissionDeniedException(
           "UNSUPPORTED_MEDIA_STRATEGY", "Unsupported image generation provider: " + value);
     }

@@ -18,7 +18,6 @@ public final class CharacterVersion extends DomainEntity {
   private final String visualPrompt;
   private CharacterVersionStatus status;
   private Instant lockedAt;
-  private String lockedBy;
 
   private CharacterVersion(
       UUID id,
@@ -28,8 +27,7 @@ public final class CharacterVersion extends DomainEntity {
       String bible,
       String visualPrompt,
       CharacterVersionStatus status,
-      Instant lockedAt,
-      String lockedBy) {
+      Instant lockedAt) {
     super(id, rowVersion);
     this.characterId = Objects.requireNonNull(characterId, "characterId");
     if (versionNumber <= 0) throw new IllegalArgumentException("versionNumber must be positive");
@@ -38,7 +36,6 @@ public final class CharacterVersion extends DomainEntity {
     this.visualPrompt = required(visualPrompt, "visualPrompt");
     this.status = Objects.requireNonNull(status, "status");
     this.lockedAt = lockedAt;
-    this.lockedBy = lockedBy;
   }
 
   public static CharacterVersion create(
@@ -51,7 +48,6 @@ public final class CharacterVersion extends DomainEntity {
         bible,
         visualPrompt,
         CharacterVersionStatus.DRAFT,
-        null,
         null);
   }
 
@@ -63,8 +59,7 @@ public final class CharacterVersion extends DomainEntity {
       String bible,
       String visualPrompt,
       CharacterVersionStatus status,
-      Instant lockedAt,
-      String lockedBy) {
+      Instant lockedAt) {
     return new CharacterVersion(
         id,
         rowVersion,
@@ -73,8 +68,7 @@ public final class CharacterVersion extends DomainEntity {
         bible,
         visualPrompt,
         status,
-        lockedAt,
-        lockedBy);
+        lockedAt);
   }
 
   public void submitForReview() {
@@ -85,15 +79,13 @@ public final class CharacterVersion extends DomainEntity {
     status = CharacterVersionStatus.REVIEW;
   }
 
-  public void lock(String actorId) {
+  public void lock() {
     if (status != CharacterVersionStatus.REVIEW) {
       throw new InvalidCharacterVersionTransitionException(
           "Only reviewed character versions can be locked");
     }
-    String resolvedActorId = required(actorId, "actorId");
     status = CharacterVersionStatus.LOCKED;
     lockedAt = Instant.now();
-    lockedBy = resolvedActorId;
   }
 
   public UUID getCharacterId() {
@@ -118,10 +110,6 @@ public final class CharacterVersion extends DomainEntity {
 
   public Instant getLockedAt() {
     return lockedAt;
-  }
-
-  public String getLockedBy() {
-    return lockedBy;
   }
 
   private static String required(String value, String field) {

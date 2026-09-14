@@ -32,8 +32,8 @@ function isNullableVisualGenerationMode(value: unknown): value is "IMAGE" | "VID
   return value === null || value === "IMAGE" || value === "VIDEO";
 }
 
-function isNullableImageProvider(value: unknown): value is "GEMINI_WEB" | "API" | null {
-  return value === null || value === "GEMINI_WEB" || value === "API";
+function isNullableImageProvider(value: unknown): value is "API" | null {
+  return value === null || value === "API";
 }
 
 function isChapter(value: unknown): value is DesktopChapterDetails {

@@ -22,8 +22,8 @@ public class StoryVersionAccessService implements StoryVersionAccess {
 
   @Override
   @Transactional(readOnly = true)
-  public void requireOwnedStoryVersion(UUID projectId, UUID storyVersionId, String ownerId) {
-    projectAccess.findOwnedProject(projectId, ownerId);
+  public void requireStoryVersion(UUID projectId, UUID storyVersionId) {
+    projectAccess.findProject(projectId);
     storyVersionRepository
         .findByIdAndProjectId(storyVersionId, projectId)
         .orElseThrow(() -> new ResourceNotFoundException("Story version not found"));
@@ -31,8 +31,8 @@ public class StoryVersionAccessService implements StoryVersionAccess {
 
   @Override
   @Transactional
-  public UUID resolveOrCreateStoryVersion(UUID projectId, String ownerId, String fallbackContent) {
-    Project project = projectAccess.findOwnedProjectForUpdate(projectId, ownerId);
+  public UUID resolveOrCreateStoryVersion(UUID projectId, String fallbackContent) {
+    Project project = projectAccess.findProjectForUpdate(projectId);
     return storyVersionRepository
         .findActiveByProjectId(projectId)
         .or(() -> storyVersionRepository.findLatestByProjectId(projectId))
@@ -42,7 +42,7 @@ public class StoryVersionAccessService implements StoryVersionAccess {
                 createStoryVersionUseCase
                     .execute(
                         new CreateStoryVersionCommand(
-                            projectId, fallbackContent, project.getSourceLanguage(), null))
+                            projectId, fallbackContent, project.getSourceLanguage()))
                     .getId());
   }
 }

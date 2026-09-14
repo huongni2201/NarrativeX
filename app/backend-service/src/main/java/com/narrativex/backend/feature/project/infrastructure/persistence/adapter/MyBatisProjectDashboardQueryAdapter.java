@@ -19,25 +19,25 @@ public class MyBatisProjectDashboardQueryAdapter
 
   @Override
   public List<ProjectDashboardView.Item> findPage(
-      String userId, String status, String query, String sort, int offset, int limit) {
-    return mapper.findDashboardPage(userId, status, query, sort, offset, limit).stream()
+      String status, String query, String sort, int offset, int limit) {
+    return mapper.findDashboardPage(status, query, sort, offset, limit).stream()
         .map(MyBatisProjectDashboardQueryAdapter::toItem)
         .toList();
   }
 
   @Override
-  public ProjectDashboardView.Counts findCounts(String userId, String query) {
-    return toCounts(mapper.findDashboardCounts(userId, query));
+  public ProjectDashboardView.Counts findCounts(String query) {
+    return toCounts(mapper.findDashboardCounts(query));
   }
 
   @Override
-  public void add(String userId, UUID projectId) {
-    mapper.addFavorite(userId, projectId);
+  public void add(UUID projectId) {
+    mapper.addFavorite(projectId);
   }
 
   @Override
-  public void remove(String userId, UUID projectId) {
-    mapper.removeFavorite(userId, projectId);
+  public void remove(UUID projectId) {
+    mapper.removeFavorite(projectId);
   }
 
   private static ProjectDashboardView.Item toItem(ProjectDashboardRow row) {

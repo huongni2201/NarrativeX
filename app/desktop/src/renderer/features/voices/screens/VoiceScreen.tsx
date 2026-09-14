@@ -24,6 +24,7 @@ import { VoiceWorkspaceContext } from "../components/VoiceWorkspaceContext";
 import {
   filterVoices,
   playableSampleUrl,
+  resolveVoiceSelection,
   uniqueVoiceValues,
   type VoiceSortMode,
 } from "../model/voice-filters";
@@ -36,7 +37,7 @@ import {
   useVoiceReferenceAsset,
 } from "../queries/voice-media.queries";
 
-const DEFAULT_VOICE_ID = "vieneu-ngoc-huyen-v2";
+const DEFAULT_VOICE_ID = "voicestudio-default";
 const DEFAULT_PREVIEW_TEXT =
   "Xin chào, đây là giọng đọc mẫu được tạo từ đoạn giọng tham chiếu bạn vừa tải lên.";
 
@@ -79,9 +80,8 @@ export function VoiceScreen({
 
   useEffect(() => {
     if (!chapterId && chapters[0]) setChapterId(chapters[0].id);
-    if (!voiceId && voices.length) {
-      setVoiceId(voices.find((voice) => voice.id === DEFAULT_VOICE_ID)?.id ?? voices[0].id);
-    }
+    const resolvedVoiceId = resolveVoiceSelection(voiceId, voices, DEFAULT_VOICE_ID);
+    if (resolvedVoiceId !== voiceId) setVoiceId(resolvedVoiceId);
   }, [chapterId, chapters, voiceId, voices]);
 
   useEffect(() => () => audioRef.current?.pause(), []);

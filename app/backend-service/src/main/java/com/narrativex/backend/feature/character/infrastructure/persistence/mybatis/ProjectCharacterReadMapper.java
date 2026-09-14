@@ -7,22 +7,19 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface ProjectCharacterReadMapper extends NarrativeXMyBatisMapper {
-  boolean projectOwnedBy(@Param("projectId") UUID projectId, @Param("ownerId") String ownerId);
+  boolean projectExists(@Param("projectId") UUID projectId);
 
   List<ProjectCharacterReadRow> findFirstPage(
       @Param("projectId") UUID projectId,
-      @Param("ownerId") String ownerId,
       @Param("limit") int limit);
 
   List<ProjectCharacterReadRow> findAfter(
       @Param("projectId") UUID projectId,
-      @Param("ownerId") String ownerId,
       @Param("updatedAt") Instant updatedAt,
       @Param("id") UUID id,
       @Param("limit") int limit);
 
   ProjectCharacterReadRow findDetail(
       @Param("projectId") UUID projectId,
-      @Param("characterId") UUID characterId,
-      @Param("ownerId") String ownerId);
+      @Param("characterId") UUID characterId);
 }

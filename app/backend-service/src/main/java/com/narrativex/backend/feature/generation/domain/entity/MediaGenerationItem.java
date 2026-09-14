@@ -23,7 +23,6 @@ public final class MediaGenerationItem {
   private final String errorCode;
   private final String errorDetailRef;
   private MediaGenerationReviewStatus reviewStatus;
-  private String reviewedByUserId;
   private Instant reviewedAt;
 
   private MediaGenerationItem(
@@ -41,7 +40,6 @@ public final class MediaGenerationItem {
       String errorCode,
       String errorDetailRef,
       MediaGenerationReviewStatus reviewStatus,
-      String reviewedByUserId,
       Instant reviewedAt) {
     this.id = Objects.requireNonNull(id, "id");
     this.rowVersion = rowVersion;
@@ -58,7 +56,6 @@ public final class MediaGenerationItem {
     this.errorCode = errorCode;
     this.errorDetailRef = errorDetailRef;
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus");
-    this.reviewedByUserId = reviewedByUserId;
     this.reviewedAt = reviewedAt;
   }
 
@@ -84,7 +81,6 @@ public final class MediaGenerationItem {
         null,
         null,
         MediaGenerationReviewStatus.NOT_READY,
-        null,
         null);
   }
 
@@ -103,7 +99,6 @@ public final class MediaGenerationItem {
       String errorCode,
       String errorDetailRef,
       MediaGenerationReviewStatus reviewStatus,
-      String reviewedByUserId,
       Instant reviewedAt) {
     return new MediaGenerationItem(
         id,
@@ -120,7 +115,6 @@ public final class MediaGenerationItem {
         errorCode,
         errorDetailRef,
         reviewStatus,
-        reviewedByUserId,
         reviewedAt);
   }
 
@@ -180,21 +174,16 @@ public final class MediaGenerationItem {
     return reviewStatus;
   }
 
-  public String getReviewedByUserId() {
-    return reviewedByUserId;
-  }
-
   public Instant getReviewedAt() {
     return reviewedAt;
   }
 
-  public void review(MediaGenerationReviewStatus decision, String reviewerId, Instant at) {
+  public void review(MediaGenerationReviewStatus decision, Instant at) {
     if (executionStatus != MediaGenerationExecutionStatus.READY
         || reviewStatus != MediaGenerationReviewStatus.NEEDS_REVIEW) {
       throw new IllegalStateException("Only READY items awaiting review can be reviewed");
     }
     reviewStatus = Objects.requireNonNull(decision, "decision");
-    reviewedByUserId = required(reviewerId, "reviewerId");
     reviewedAt = Objects.requireNonNull(at, "at");
   }
 

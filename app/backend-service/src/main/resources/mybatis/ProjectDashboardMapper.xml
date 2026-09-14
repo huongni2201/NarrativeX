@@ -28,8 +28,7 @@
     </resultMap>
 
     <sql id="baseDashboardFilter">
-        p.owner_id = #{userId}
-        AND p.archived_at IS NULL
+        p.archived_at IS NULL
         <if test="query != null and query != ''">
             AND LOWER(p.name) LIKE '%' || LOWER(#{query}) || '%'
         </if>
@@ -48,7 +47,7 @@
                      ORDER BY (
                          EXISTS (
                              SELECT 1 FROM project_favorites pf
-                              WHERE pf.user_id = #{userId} AND pf.project_id = p.id
+                              WHERE pf.project_id = p.id
                          )
                      ) DESC, p.updated_at DESC, p.id DESC
                  </when>
@@ -68,7 +67,7 @@
                p.updated_at,
                EXISTS (
                    SELECT 1 FROM project_favorites pf
-                    WHERE pf.user_id = #{userId} AND pf.project_id = p.id
+                    WHERE pf.project_id = p.id
                ) AS starred,
                COALESCE(metrics.total_chapters, 0) AS total_chapters,
                COALESCE(metrics.total_scenes, 0) AS total_scenes,
@@ -107,30 +106,23 @@
 
     <select id="findDashboardCounts" resultMap="projectDashboardCountsRow">
         SELECT COUNT(*)::bigint AS all_count,
-               COUNT(*) FILTER (WHERE p.status = 'ACTIVE')::bigint AS active_count,
-               COUNT(*) FILTER (WHERE p.status = 'DRAFT')::bigint AS draft_count
+                COUNT(*) FILTER (WHERE p.status = 'ACTIVE')::bigint AS active_count,
+                COUNT(*) FILTER (WHERE p.status = 'DRAFT')::bigint AS draft_count
           FROM projects p
          WHERE <include refid="baseDashboardFilter" />
     </select>
 
     <insert id="addFavorite">
-        INSERT INTO project_favorites (user_id, project_id)
-        SELECT #{userId}, p.id
+        INSERT INTO project_favorites (project_id)
+        SELECT p.id
           FROM projects p
          WHERE p.id = #{projectId}
-           AND p.owner_id = #{userId}
            AND p.archived_at IS NULL
-        ON CONFLICT (user_id, project_id) DO NOTHING
+        ON CONFLICT (project_id) DO NOTHING
     </insert>
 
     <delete id="removeFavorite">
         DELETE FROM project_favorites pf
-         WHERE pf.user_id = #{userId}
-           AND pf.project_id = #{projectId}
-           AND EXISTS (
-               SELECT 1 FROM projects p
-                WHERE p.id = pf.project_id
-                  AND p.owner_id = #{userId}
-           )
+         WHERE pf.project_id = #{projectId}
     </delete>
 </mapper>

@@ -4,7 +4,14 @@ import ipaddress
 from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    SecretStr,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {

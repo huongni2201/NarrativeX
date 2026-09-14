@@ -24,8 +24,8 @@ public class MyBatisOutfitVersionPersistenceAdapter implements OutfitVersionRepo
   }
 
   @Override
-  public Optional<OutfitVersion> findOwnedById(UUID id, String ownerId) {
-    return Optional.ofNullable(mapper.findOwnedOutfit(id, ownerId, CharacterStatus.ARCHIVED.name()))
+  public Optional<OutfitVersion> findById(UUID id) {
+    return Optional.ofNullable(mapper.findActiveOutfit(id, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 

@@ -18,5 +18,4 @@ public class CharacterVersionRow {
   private String visualPrompt;
   private String status;
   private Instant lockedAt;
-  private String lockedBy;
 }

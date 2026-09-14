@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
@@ -21,12 +20,10 @@ public class ActivateStoryVersionUseCase {
   private final ProjectAccess projectAccess;
   private final ProjectRepository projectRepository;
   private final StoryVersionRepository storyVersionRepository;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public StoryVersion execute(UUID projectId, UUID storyVersionId) {
-    String ownerId = currentUserId.get();
-    Project project = projectAccess.findOwnedProjectForUpdate(projectId, ownerId);
+    Project project = projectAccess.findProjectForUpdate(projectId);
     StoryVersion nextVersion =
         storyVersionRepository
             .findByIdAndProjectId(storyVersionId, projectId)

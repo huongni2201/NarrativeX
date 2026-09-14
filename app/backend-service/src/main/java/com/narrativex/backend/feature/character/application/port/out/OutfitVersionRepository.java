@@ -7,7 +7,7 @@ import java.util.UUID;
 public interface OutfitVersionRepository {
   int findMaxVersionNumberByCharacterId(UUID characterId);
 
-  Optional<OutfitVersion> findOwnedById(UUID outfitVersionId, String ownerId);
+  Optional<OutfitVersion> findById(UUID outfitVersionId);
 
   OutfitVersion save(OutfitVersion outfitVersion);
 }

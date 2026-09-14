@@ -26,9 +26,8 @@ public record EnqueueStoryAnalysisCommand(
       throw new IllegalArgumentException("visualGenerationMode must be IMAGE or VIDEO");
     }
     if ("IMAGE".equals(visualGenerationMode)) {
-      if (!"GEMINI_WEB".equals(imageProvider) && !"API".equals(imageProvider)) {
-        throw new IllegalArgumentException(
-            "imageProvider must be GEMINI_WEB or API for IMAGE mode");
+      if (!"API".equals(imageProvider)) {
+        throw new IllegalArgumentException("imageProvider must be API for IMAGE mode");
       }
     } else {
       imageProvider = null;

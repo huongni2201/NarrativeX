@@ -57,9 +57,9 @@ class LocalDeviceControllerRequestValidationTest {
   void validRequestsRespectDatabaseColumnLimits() {
     var pairRequest =
         new LocalDeviceController.PairDeviceRequest(
-            "pairing-code", "Desktop", "windows", "1.0.0", List.of("GEMINI_WEB"));
+            "pairing-code", "Desktop", "windows", "1.0.0", List.of("IMAGE_GENERATION"));
     var heartbeatRequest =
-        new LocalDeviceController.HeartbeatRequest("1.0.0", List.of("GEMINI_WEB"));
+        new LocalDeviceController.HeartbeatRequest("1.0.0", List.of("IMAGE_GENERATION"));
 
     assertThat(validator.validate(pairRequest)).isEmpty();
     assertThat(validator.validate(heartbeatRequest)).isEmpty();

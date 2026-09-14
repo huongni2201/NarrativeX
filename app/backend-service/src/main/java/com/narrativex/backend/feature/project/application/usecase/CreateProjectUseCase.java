@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.project.application.command.CreateProjectCommand;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
@@ -15,11 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateProjectUseCase {
   private final ProjectRepository projectRepository;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public Project execute(CreateProjectCommand command) {
-    String ownerId = currentUserId.get();
     String sourceLanguage = defaultValue(command.sourceLanguage(), "vi-VN");
     String narrationLanguage = defaultValue(command.narrationLanguage(), sourceLanguage);
     String metadataLanguage = defaultValue(command.metadataLanguage(), sourceLanguage);
@@ -32,16 +29,14 @@ public class CreateProjectUseCase {
             Project.create(
                 command.name(),
                 command.description(),
-                ownerId,
                 sourceLanguage,
                 narrationLanguage,
                 metadataLanguage,
                 ratio));
     log.info(
-        "Created project id={} (name='{}', ownerId={}, sourceLanguage={})",
+        "Created project id={} (name='{}', sourceLanguage={})",
         project.getId(),
         project.getName(),
-        ownerId,
         sourceLanguage);
     return project;
   }

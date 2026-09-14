@@ -6,10 +6,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProjectCharacterReadRepository {
-  boolean projectOwnedBy(UUID projectId, String ownerId);
+  boolean projectExists(UUID projectId);
 
   CursorPage<ProjectCharacterReadModel> findByProject(
-      UUID projectId, String ownerId, String cursor, int limit);
+      UUID projectId, String cursor, int limit);
 
-  Optional<ProjectCharacterReadModel> findDetail(UUID projectId, UUID characterId, String ownerId);
+  Optional<ProjectCharacterReadModel> findDetail(UUID projectId, UUID characterId);
 }

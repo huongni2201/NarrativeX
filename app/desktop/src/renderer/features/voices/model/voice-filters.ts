@@ -38,6 +38,15 @@ export function uniqueVoiceValues(values: string[]): string[] {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right, "vi"));
 }
 
+export function resolveVoiceSelection(
+  selectedVoiceId: string,
+  voices: DesktopVoice[],
+  defaultVoiceId: string,
+): string {
+  if (voices.some((voice) => voice.id === selectedVoiceId)) return selectedVoiceId;
+  return voices.some((voice) => voice.id === defaultVoiceId) ? defaultVoiceId : "";
+}
+
 export function playableSampleUrl(value: string): string | null {
   try {
     const url = new URL(value);

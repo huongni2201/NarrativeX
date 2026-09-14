@@ -15,7 +15,6 @@ public class ProjectCharacterReadRow {
   private UUID assignmentId;
   private UUID characterId;
   private UUID projectId;
-  private String workspaceId;
   private String canonicalName;
   private String aliasesJson;
   private String projectAliasesJson;

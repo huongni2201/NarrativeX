@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.ChangeCharacterVersionStatusCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
@@ -15,14 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SubmitCharacterVersionForReviewUseCase {
   private final CharacterVersionRepository versionRepository;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public CharacterVersion execute(ChangeCharacterVersionStatusCommand command) {
-    String actorId = currentUserId.get();
     CharacterVersion version =
         versionRepository
-            .findOwnedById(command.characterVersionId(), actorId)
+            .findById(command.characterVersionId())
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     version.submitForReview();
     CharacterVersion saved = versionRepository.save(version);

@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterVersionCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
@@ -17,14 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateCharacterVersionUseCase {
   private final CharacterRepository characterRepository;
   private final CharacterVersionRepository versionRepository;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public CharacterVersion execute(CreateCharacterVersionCommand command) {
-    String ownerId = currentUserId.get();
     var character =
         characterRepository
-            .findOwnedByIdForUpdate(command.characterId(), ownerId)
+            .findByIdForUpdate(command.characterId())
             .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
     int versionNumber = versionRepository.findMaxVersionNumberByCharacterId(character.getId()) + 1;
     CharacterVersion saved =

@@ -7,7 +7,6 @@ import java.util.UUID;
 
 public record CharacterSummaryResponse(
     UUID id,
-    String workspaceId,
     String canonicalName,
     List<String> aliases,
     CharacterStatus status,
@@ -16,7 +15,6 @@ public record CharacterSummaryResponse(
   public static CharacterSummaryResponse from(Character character) {
     return new CharacterSummaryResponse(
         character.getId(),
-        character.getWorkspaceId(),
         character.getCanonicalName(),
         character.getAliases(),
         character.getStatus(),
