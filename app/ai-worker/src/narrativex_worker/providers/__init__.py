@@ -1,9 +1,4 @@
-"""Provider ports with lazy exports for role-specific adapters.
-
-Importing the provider namespace must not import image, narration or other
-optional runtime dependencies. Concrete adapters are loaded only when a caller
-requests their named export or imports the adapter module directly.
-"""
+"""Provider ports with lazy exports for role-specific local adapters."""
 
 from importlib import import_module
 from typing import Any
@@ -27,20 +22,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "ContinuityQwenProvider",
     ),
     "QwenProviderError": ("narrativex_worker.providers.qwen", "QwenProviderError"),
-    "ContinuityVertexGeminiProvider": (
-        "narrativex_worker.providers.vertex_continuity",
-        "ContinuityVertexGeminiProvider",
-    ),
-    "VertexProviderError": ("narrativex_worker.providers.vertex", "VertexProviderError"),
-    "VertexImageProvider": ("narrativex_worker.providers.vertex_image", "VertexImageProvider"),
-    "VertexImageProviderError": (
-        "narrativex_worker.providers.vertex_image",
-        "VertexImageProviderError",
-    ),
-    "VertexImageSubmissionUnknownError": (
-        "narrativex_worker.providers.vertex_image",
-        "VertexImageSubmissionUnknownError",
-    ),
 }
 
 __all__ = sorted(_LAZY_EXPORTS)
