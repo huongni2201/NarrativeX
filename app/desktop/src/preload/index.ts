@@ -5,7 +5,6 @@ import type {
   DesktopPreferenceResetScope,
   DesktopSseEvent,
   DesktopSseHandlers,
-  GeminiWebGenerateImageInput,
   LocalExecutionStatus,
   NarrativeXDesktopBridge,
   VoiceReferenceUploadResult,
@@ -41,7 +40,6 @@ const bridge: NarrativeXDesktopBridge = {
   preferences: {
     bindUser: (userId: string) => ipcRenderer.invoke("desktop:preferences:bind-user", userId),
     get: () => ipcRenderer.invoke("desktop:preferences:get"),
-    updateGemini: (input) => ipcRenderer.invoke("desktop:preferences:update-gemini", input),
     reset: (scope: DesktopPreferenceResetScope) => ipcRenderer.invoke("desktop:preferences:reset", scope),
   },
   localExecution: {
@@ -86,32 +84,6 @@ const bridge: NarrativeXDesktopBridge = {
     commitSelectedAsset: (input) => ipcRenderer.invoke("desktop:local-storage:commit-selected-asset", input),
     revealArtifact: (input) =>
       ipcRenderer.invoke("desktop:local-storage:reveal-artifact", input),
-  },
-  geminiWeb: {
-    browsers: {
-      list: () => ipcRenderer.invoke("desktop:gemini-web:browsers:list"),
-      add: () => ipcRenderer.invoke("desktop:gemini-web:browsers:add"),
-      open: (browserId: string) =>
-        ipcRenderer.invoke("desktop:gemini-web:browsers:open", browserId),
-      setLoginConfirmed: (browserId: string, loginConfirmed: boolean) =>
-        ipcRenderer.invoke(
-          "desktop:gemini-web:browsers:set-login-confirmed",
-          browserId,
-          loginConfirmed,
-        ),
-      resetLogin: (browserId: string) =>
-        ipcRenderer.invoke("desktop:gemini-web:browsers:reset-login", browserId),
-      remove: (browserId: string) =>
-        ipcRenderer.invoke("desktop:gemini-web:browsers:remove", browserId),
-    },
-    generateImage: (input: GeminiWebGenerateImageInput) =>
-      ipcRenderer.invoke("desktop:gemini-web:generate-image", input),
-    attemptStatus: (input) => ipcRenderer.invoke("desktop:gemini-web:attempt-status", input),
-    commitImage: (input) => ipcRenderer.invoke("desktop:gemini-web:commit-image", input),
-    watermarkStates: (input) =>
-      ipcRenderer.invoke("desktop:gemini-web:watermark-states", input),
-    removeWatermarks: (input) =>
-      ipcRenderer.invoke("desktop:gemini-web:remove-watermarks", input),
   },
   render: {
     status: () => ipcRenderer.invoke("desktop:render:status"),

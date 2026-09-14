@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-image-generate.json",
+  "title": "ImageGenerateInputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["prompt", "negativePrompt", "width", "height", "seed"],
+  "properties": {
+    "prompt": {"type": "string", "minLength": 1, "maxLength": 20000},
+    "negativePrompt": {"type": "string", "maxLength": 10000},
+    "width": {"type": "integer", "minimum": 64, "maximum": 8192},
+    "height": {"type": "integer", "minimum": 64, "maximum": 8192},
+    "seed": {"type": "integer", "minimum": 0}
+  }
+}

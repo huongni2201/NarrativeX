@@ -16,7 +16,6 @@ public final class Project extends UuidAggregateRoot {
   private final String name;
   private final String description;
   private final String coverImageUrl;
-  private final String ownerId;
   private ProjectStatus status;
   private final String sourceLanguage;
   private final String narrationLanguage;
@@ -30,7 +29,6 @@ public final class Project extends UuidAggregateRoot {
       String name,
       String description,
       String coverImageUrl,
-      String ownerId,
       ProjectStatus status,
       String sourceLanguage,
       String narrationLanguage,
@@ -41,7 +39,6 @@ public final class Project extends UuidAggregateRoot {
     this.name = required(name, "name", 160);
     this.description = description;
     this.coverImageUrl = coverImageUrl;
-    this.ownerId = required(ownerId, "ownerId", 128);
     this.status = Objects.requireNonNull(status, "status");
     this.sourceLanguage = required(sourceLanguage, "sourceLanguage", 16);
     this.narrationLanguage = required(narrationLanguage, "narrationLanguage", 16);
@@ -52,19 +49,17 @@ public final class Project extends UuidAggregateRoot {
 
   public static Project create(
       String name,
-      String ownerId,
       String sourceLanguage,
       String narrationLanguage,
       String metadataLanguage,
       AspectRatio imageAspectRatio) {
     return create(
-        name, null, ownerId, sourceLanguage, narrationLanguage, metadataLanguage, imageAspectRatio);
+        name, null, sourceLanguage, narrationLanguage, metadataLanguage, imageAspectRatio);
   }
 
   public static Project create(
       String name,
       String description,
-      String ownerId,
       String sourceLanguage,
       String narrationLanguage,
       String metadataLanguage,
@@ -75,7 +70,6 @@ public final class Project extends UuidAggregateRoot {
         name,
         description,
         null,
-        ownerId,
         ProjectStatus.DRAFT,
         sourceLanguage,
         narrationLanguage,
@@ -88,7 +82,6 @@ public final class Project extends UuidAggregateRoot {
       UUID id,
       long rowVersion,
       String name,
-      String ownerId,
       ProjectStatus status,
       String sourceLanguage,
       String narrationLanguage,
@@ -101,7 +94,6 @@ public final class Project extends UuidAggregateRoot {
         name,
         null,
         null,
-        ownerId,
         status,
         sourceLanguage,
         narrationLanguage,
@@ -116,7 +108,6 @@ public final class Project extends UuidAggregateRoot {
       String name,
       String description,
       String coverImageUrl,
-      String ownerId,
       ProjectStatus status,
       String sourceLanguage,
       String narrationLanguage,
@@ -129,7 +120,6 @@ public final class Project extends UuidAggregateRoot {
         name,
         description,
         coverImageUrl,
-        ownerId,
         status,
         sourceLanguage,
         narrationLanguage,
@@ -199,10 +189,6 @@ public final class Project extends UuidAggregateRoot {
 
   public String getCoverImageUrl() {
     return coverImageUrl;
-  }
-
-  public String getOwnerId() {
-    return ownerId;
   }
 
   public ProjectStatus getStatus() {

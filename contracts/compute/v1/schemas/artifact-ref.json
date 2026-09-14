@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/artifact-ref.json",
+  "title": "ArtifactRef",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifactId", "role", "mediaType", "sizeBytes", "sha256", "access"],
+  "properties": {
+    "artifactId": {"type": "string", "format": "uuid"},
+    "role": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$"},
+    "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
+    "sizeBytes": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "url", "expiresAt", "headers"],
+      "properties": {
+        "method": {"type": "string", "enum": ["GET", "PUT"]},
+        "url": {"type": "string", "format": "uri", "pattern": "^https?://"},
+        "expiresAt": {"type": "string", "format": "date-time"},
+        "headers": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "propertyNames": {"pattern": "^[A-Za-z0-9-]+$"}
+        }
+      }
+    }
+  }
+}

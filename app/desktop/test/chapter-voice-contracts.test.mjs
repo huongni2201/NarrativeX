@@ -6,7 +6,11 @@ import {
   audioGenerationBlockMessage,
   narrationVoiceName,
 } from "../src/renderer/features/chapters/model/chapter-ui.ts";
-import { filterVoices, playableSampleUrl } from "../src/renderer/features/voices/model/voice-filters.ts";
+import {
+  filterVoices,
+  playableSampleUrl,
+  resolveVoiceSelection,
+} from "../src/renderer/features/voices/model/voice-filters.ts";
 
 const workspace = {
   chapter: {
@@ -28,7 +32,7 @@ const workspace = {
       completedAt: "2026-08-25T00:00:00Z",
       latestJobId: "019c4d49-3115-7f94-bac9-e11295993d31",
       visualGenerationMode: "IMAGE",
-      imageProvider: "GEMINI_WEB",
+      imageProvider: "API",
     },
     visualPlanning: { status: "COMPLETED", completedAt: "2026-08-25T00:00:00Z" },
     visualGeneration: {
@@ -77,7 +81,7 @@ test("chapter workspace parser accepts resumable analysis and narration metadata
   const parsed = parseChapterWorkspace(workspace);
   assert.equal(parsed.projectName, "Test");
   assert.equal(parsed.pipeline.analysis.visualGenerationMode, "IMAGE");
-  assert.equal(parsed.pipeline.analysis.imageProvider, "GEMINI_WEB");
+  assert.equal(parsed.pipeline.analysis.imageProvider, "API");
   assert.equal(
     parsed.previewScenes[0].previewMediaAssetId,
     "00000000-0000-4000-8000-000000091007",
@@ -123,6 +127,17 @@ test("voice preview only accepts HTTP(S) media URLs", () => {
   assert.equal(playableSampleUrl("https://media.example.test/sample.wav"), "https://media.example.test/sample.wav");
   assert.equal(playableSampleUrl("file:///secret/sample.wav"), null);
   assert.equal(playableSampleUrl("not-a-url"), null);
+});
+
+test("voice selection migrates legacy ids only to the explicit VoiceStudio default", () => {
+  const voices = [
+    { id: "other", provider: "VOICESTUDIO", name: "Other", language: "vi-VN", gender: null, sampleUrl: null },
+    { id: "voicestudio-default", provider: "VOICESTUDIO", name: "Default", language: "vi-VN", gender: null, sampleUrl: null },
+  ];
+
+  assert.equal(resolveVoiceSelection("vieneu-ngoc-huyen-v2", voices, "voicestudio-default"), "voicestudio-default");
+  assert.equal(resolveVoiceSelection("other", voices, "voicestudio-default"), "other");
+  assert.equal(resolveVoiceSelection("missing", [voices[0]], "voicestudio-default"), "");
 });
 
 test("chapter audio button shows a loading label while the selected chapter is pending", () => {

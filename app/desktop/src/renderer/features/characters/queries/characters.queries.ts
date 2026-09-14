@@ -1,10 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
 import { charactersApi } from "../api/characters.api";
-import {
-  generateCharacterIdentityReference,
-  importCharacterIdentityReference,
-} from "../services/character-reference-generation";
+import { importCharacterIdentityReference } from "../services/character-reference-generation";
 
 function characterDetailKey(projectId: string, characterId: string | null) {
   return ["projects", projectId, "characters", characterId] as const;
@@ -109,14 +106,6 @@ export function useCharacterReferenceActions(
     onSuccess: refresh,
   });
 
-  const generateIdentity = useMutation({
-    mutationFn: (input: { prompt: string }) => {
-      if (!versionId) throw new Error("Character chưa có version để lưu reference.");
-      return generateCharacterIdentityReference({ projectId, characterId, versionId, ...input });
-    },
-    onSuccess: refresh,
-  });
-
   const importIdentity = useMutation({
     mutationFn: () => {
       if (!versionId) throw new Error("Character chưa có version để lưu reference.");
@@ -150,5 +139,5 @@ export function useCharacterReferenceActions(
     onSettled: refresh,
   });
 
-  return { createVersion, generateIdentity, importIdentity, review, pin, lockAndPin };
+  return { createVersion, importIdentity, review, pin, lockAndPin };
 }

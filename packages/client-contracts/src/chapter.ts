@@ -60,7 +60,7 @@ export interface ChapterWorkspaceStep {
 export interface ChapterWorkspaceAnalysis extends ChapterWorkspaceStep {
   latestJobId: string | null;
   visualGenerationMode: "IMAGE" | "VIDEO" | null;
-  imageProvider: "GEMINI_WEB" | "API" | null;
+  imageProvider: "API" | null;
 }
 
 export interface ChapterWorkspaceProgress {

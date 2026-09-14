@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.project.application.port.out.ProjectFavoriteRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -11,15 +10,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SetProjectFavoriteUseCase {
   private final ProjectFavoriteRepository favorites;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public void add(UUID projectId) {
-    favorites.add(currentUserId.get(), projectId);
+    favorites.add(projectId);
   }
 
   @Transactional
   public void remove(UUID projectId) {
-    favorites.remove(currentUserId.get(), projectId);
+    favorites.remove(projectId);
   }
 }

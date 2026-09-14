@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface ProjectDashboardQueryRepository {
   List<ProjectDashboardView.Item> findPage(
-      String userId, String status, String query, String sort, int offset, int limit);
+      String status, String query, String sort, int offset, int limit);
 
-  ProjectDashboardView.Counts findCounts(String userId, String query);
+  ProjectDashboardView.Counts findCounts(String query);
 }

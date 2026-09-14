@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-audio-synthesize.json",
+  "title": "AudioSynthesizeInputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["script", "voice", "format"],
+  "properties": {
+    "script": {"type": "string", "minLength": 1, "maxLength": 100000},
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["catalog", "artifact"]},
+        "value": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["container", "sampleRateHz", "channels"],
+      "properties": {
+        "container": {"const": "wav"},
+        "sampleRateHz": {"type": "integer", "enum": [16000, 24000, 44100, 48000]},
+        "channels": {"type": "integer", "enum": [1, 2]}
+      }
+    }
+  }
+}

@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class GetCharacterVersionReferencesUseCase {
-  private final CurrentUserId currentUserId;
   private final CharacterVersionRepository versionRepository;
   private final CharacterVersionReferenceRepository referenceRepository;
 
@@ -22,7 +20,7 @@ public class GetCharacterVersionReferencesUseCase {
   public List<CharacterVersionReference> execute(UUID characterId, UUID versionId) {
     var version =
         versionRepository
-            .findOwnedById(versionId, currentUserId.get())
+            .findById(versionId)
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     if (!version.getCharacterId().equals(characterId)) {
       throw new ResourceNotFoundException("Character version not found");

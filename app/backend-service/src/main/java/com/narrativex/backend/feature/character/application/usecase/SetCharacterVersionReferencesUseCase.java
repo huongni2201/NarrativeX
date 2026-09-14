@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
@@ -24,7 +23,6 @@ public class SetCharacterVersionReferencesUseCase {
   private static final Set<String> ALLOWED_ROLES =
       Set.of("IDENTITY", "PROFILE", "EXPRESSION", "OUTFIT", "POSE");
 
-  private final CurrentUserId currentUserId;
   private final CharacterVersionRepository versionRepository;
   private final CharacterVersionReferenceRepository referenceRepository;
   private final MediaAssetAccess mediaAssetAccess;
@@ -32,10 +30,9 @@ public class SetCharacterVersionReferencesUseCase {
   @Transactional
   public List<CharacterVersionReference> execute(
       UUID characterId, UUID versionId, List<ReferenceInput> inputs) {
-    String ownerId = currentUserId.get();
     var version =
         versionRepository
-            .findOwnedByIdForUpdate(versionId, ownerId)
+            .findByIdForUpdate(versionId)
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     if (!version.getCharacterId().equals(characterId)) {
       throw new ResourceNotFoundException("Character version not found");
@@ -71,7 +68,7 @@ public class SetCharacterVersionReferencesUseCase {
 
       var asset =
           mediaAssetAccess
-              .findOwnedSummary(ownerId, input.assetId())
+              .findSummary(input.assetId())
               .orElseThrow(() -> new ResourceNotFoundException("Reference media asset not found"));
       if (!"IMAGE".equals(asset.type()) || !"READY".equals(asset.status())) {
         throw new ResourceConflictException("Character references must be READY image assets");

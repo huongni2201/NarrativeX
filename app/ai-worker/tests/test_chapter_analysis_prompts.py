@@ -150,7 +150,7 @@ def test_image_shard_prompt_uses_provider_safe_non_graphic_language() -> None:
     request = _request(
         "prefix",
         visual_generation_mode="IMAGE",
-        image_provider="GEMINI_WEB",
+        image_provider="API",
     )
     prompt = build_visual_beat_shard_prompt(request, _structure(), _shard())
 

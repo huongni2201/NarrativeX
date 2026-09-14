@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.project.api.response.ProjectDashboardResponse;
 import com.narrativex.backend.feature.project.application.port.out.ProjectDashboardQueryRepository;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class GetProjectDashboardUseCase {
   private final ProjectDashboardQueryRepository dashboardQuery;
-  private final CurrentUserId currentUserId;
 
   @Transactional(readOnly = true)
   public ProjectDashboardResponse execute(
@@ -27,15 +25,14 @@ public class GetProjectDashboardUseCase {
     String normalizedSort = normalizeSort(sort);
     String normalizedQuery = query == null ? null : query.trim();
     int offset = decodeOffset(cursor);
-    String userId = currentUserId.get();
 
     var rows =
         dashboardQuery.findPage(
-            userId, normalizedStatus, normalizedQuery, normalizedSort, offset, limit + 1);
+            normalizedStatus, normalizedQuery, normalizedSort, offset, limit + 1);
     boolean hasNext = rows.size() > limit;
     var visibleRows = hasNext ? rows.subList(0, limit) : rows;
     String nextCursor = hasNext ? encodeOffset(offset + limit) : null;
-    var counts = dashboardQuery.findCounts(userId, normalizedQuery);
+    var counts = dashboardQuery.findCounts(normalizedQuery);
 
     return new ProjectDashboardResponse(
         visibleRows.stream().map(ProjectDashboardResponse::item).toList(),

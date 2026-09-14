@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterAppearanceCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterAppearanceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
@@ -20,20 +19,18 @@ public class CreateCharacterAppearanceUseCase {
   private final CharacterAppearanceRepository appearanceRepository;
   private final OutfitVersionRepository outfitVersionRepository;
   private final ProjectAccess projectAccess;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public CharacterAppearance execute(CreateCharacterAppearanceCommand command) {
-    String ownerId = currentUserId.get();
     characterRepository
-        .findOwnedById(command.characterId(), ownerId)
+        .findById(command.characterId())
         .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
-    if (command.projectId() != null) projectAccess.findOwnedProject(command.projectId(), ownerId);
+    if (command.projectId() != null) projectAccess.findProject(command.projectId());
     OutfitVersion outfitVersion =
         command.outfitVersionId() == null
             ? null
             : outfitVersionRepository
-                .findOwnedById(command.outfitVersionId(), ownerId)
+                .findById(command.outfitVersionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Outfit version not found"));
     return appearanceRepository.save(
         CharacterAppearance.create(

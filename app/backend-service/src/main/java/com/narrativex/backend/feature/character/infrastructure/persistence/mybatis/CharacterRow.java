@@ -12,8 +12,6 @@ public class CharacterRow {
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
-  private String ownerId;
-  private String workspaceId;
   private String canonicalName;
   private String aliasesJson;
   private String status;

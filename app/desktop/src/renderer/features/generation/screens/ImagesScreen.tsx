@@ -47,7 +47,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
   const review = useReviewMediaItem();
   const [chapterId, setChapterId] = useState("");
   const [imageStyle, setImageStyle] = useState<MediaImageStyle>("CINEMATIC");
-  const [imageProvider, setImageProvider] = useState<ImageGenerationProvider>("API");
+  const imageProvider: ImageGenerationProvider = "API";
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -71,12 +71,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
     analysisIntentRef.current = null;
     mediaIntentRef.current = null;
   }, [chapterId]);
-
-  useEffect(() => {
-    setMediaJobId(null);
-    analysisIntentRef.current = null;
-    mediaIntentRef.current = null;
-  }, [imageProvider]);
 
   useEffect(() => {
     mediaIntentRef.current = null;
@@ -117,10 +111,6 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
 
 
   async function generateImages() {
-    if (imageProvider === "GEMINI_WEB") {
-      setNotice("Gemini Web tạo ảnh mới cho từng Visual Beat trong Storyboard. Không có API media job cho provider này.");
-      return;
-    }
     if (!chapterId || mediaBusy || mediaSubmissionBlocked || analysisBusy || !beats.length) return;
     setNotice(null);
     try {
@@ -157,9 +147,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
     );
   }
 
-  const generateLabel = imageProvider === "GEMINI_WEB"
-    ? "Use Storyboard"
-    : mediaHeadChecking
+  const generateLabel = mediaHeadChecking
       ? "Checking…"
       : mediaHeadUnavailable
         ? "Unavailable"
@@ -180,11 +168,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
               <SelectTrigger aria-label="Chapter" className="min-w-[210px]"><SelectValue placeholder="Chọn chapter" /></SelectTrigger>
               <SelectContent>{chapters.map((chapter) => <SelectItem key={chapter.id} value={chapter.id}>{chapter.title}</SelectItem>)}</SelectContent>
             </Select>
-            <Select value={imageProvider} onValueChange={(value) => setImageProvider(value as ImageGenerationProvider)}>
-              <SelectTrigger aria-label="Provider" className="min-w-[128px]"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="GEMINI_WEB">Gemini Web</SelectItem><SelectItem value="API">API</SelectItem></SelectContent>
-            </Select>
-            <Select value={imageStyle} disabled={imageProvider === "GEMINI_WEB"} onValueChange={(value) => setImageStyle(value as MediaImageStyle)}>
+            <Select value={imageStyle} onValueChange={(value) => setImageStyle(value as MediaImageStyle)}>
               <SelectTrigger aria-label="Image style" className="min-w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="CINEMATIC">Cinematic</SelectItem><SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem></SelectContent>
             </Select>
@@ -193,7 +177,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
           <Button
             size="sm"
             onClick={() => void generateImages()}
-            disabled={!chapterId || !beats.length || analysisBusy || (imageProvider === "API" && (mediaBusy || mediaSubmissionBlocked))}
+            disabled={!chapterId || !beats.length || analysisBusy || mediaBusy || mediaSubmissionBlocked}
           >
             <Sparkles size={13} /> {generateLabel}
           </Button>
@@ -204,16 +188,15 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
             items={[
               { label: "beats", value: beats.length },
               { label: "provider", value: formatProvider(imageProvider) },
-              { label: "profile", value: imageProvider === "API" ? "Premium" : "Gemini Web" },
+              { label: "profile", value: "RealVisXL" },
               { label: "analysis", value: analysisJob.data?.status ?? "idle" },
               { label: "generation", value: mediaGenerationJob.data?.status ?? "idle" },
             ]}
           />
         </div>
 
-        {imageProvider === "GEMINI_WEB" ? <InlineNotice tone="info">Gemini Web generate/import theo từng Visual Beat trong Storyboard; API media job không được tạo.</InlineNotice> : null}
         {notice ? <InlineNotice>{notice}</InlineNotice> : null}
-        {mediaHeadUnavailable && imageProvider === "API" ? <InlineNotice tone="warning">Không thể xác định media job hiện tại. Generate đã khóa để tránh gửi trùng.</InlineNotice> : null}
+        {mediaHeadUnavailable ? <InlineNotice tone="warning">Không thể xác định media job hiện tại. Generate đã khóa để tránh gửi trùng.</InlineNotice> : null}
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(230px,280px)_minmax(0,1fr)] overflow-hidden">
           <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">
@@ -223,7 +206,7 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
                 <div key={beat.visualBeatId} className="border-l-2 border-l-transparent border-b border-b-border-subtle px-3 py-2 hover:bg-surface-hover">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[9px] font-medium text-text-dim">Beat {index + 1}</span>
-                    <StatusIndicator label={formatProvider(imageProvider)} tone={imageProvider === "GEMINI_WEB" ? "accent" : "neutral"} />
+                    <StatusIndicator label={formatProvider(imageProvider)} tone="neutral" />
                   </div>
                   <strong className="mt-0.5 block truncate text-[11px] font-semibold text-foreground">{beat.title}</strong>
                   <p className="mt-1 line-clamp-2 text-[9px] leading-4 text-text-muted">{beat.visualIntent}</p>
@@ -236,13 +219,11 @@ export function ImagesScreen({ projectId, chapters, timeline }: Readonly<{ proje
           <WorkspacePane className="flex flex-col">
             <PaneHeader
               title="Media Review"
-              meta={imageProvider === "GEMINI_WEB" ? "Review continues in Storyboard" : `${mediaJob.data?.items.length ?? 0} items`}
+              meta={`${mediaJob.data?.items.length ?? 0} items`}
               actions={analysisJob.data || mediaGenerationJob.data ? <StatusIndicator label={mediaBusy ? "Processing" : "Ready"} tone={mediaBusy ? "warning" : "success"} /> : undefined}
             />
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              {imageProvider === "GEMINI_WEB" ? (
-                <EmptyState title="Review trong Storyboard" description="Import ảnh vào từng beat rồi approve trực tiếp trong Storyboard." />
-              ) : mediaJob.data?.items.length ? (
+              {mediaJob.data?.items.length ? (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5">
                   {mediaJob.data.items.map((item) => (
                     <article key={item.id} className="min-w-0 overflow-hidden border border-border-subtle bg-surface-panel">
@@ -310,7 +291,7 @@ function asAspectRatio(value: string | undefined): MediaAspectRatio {
 }
 
 function formatProvider(value: ImageGenerationProvider) {
-  return value === "GEMINI_WEB" ? "Gemini Web" : "API";
+  return value === "API" ? "RealVisXL" : value;
 }
 
 function toMessage(error: unknown) {

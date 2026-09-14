@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
-import { Loader2, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
@@ -12,9 +12,7 @@ import {
   WorkspacePane,
   WorkspaceToolbar,
 } from "../../workspace/components/WorkstationPrimitives";
-import { CharacterGeminiQueueBanner } from "../components/CharacterGeminiQueueBanner";
 import { CharacterReferenceStudio } from "../components/CharacterReferenceStudio";
-import { useCharacterGeminiQueue } from "../queries/character-gemini-queue";
 import { useCharacterDetail, useCharacterPortrait, useCreateCharacter, useDeleteCharacter } from "../queries/characters.queries";
 
 function normalizeLabel(value?: string | null) {
@@ -87,21 +85,6 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(characters[0]?.id ?? null);
-  const {
-    geminiQueue,
-    generatingCharacterId,
-    currentQueueCharacter,
-    queueProcessedCount,
-    geminiQueueActive,
-    startGeminiAll,
-    resumeGeminiAll,
-    skipCurrentGeminiCharacter,
-    stopGeminiAll,
-    dismissGeminiQueue,
-  } = useCharacterGeminiQueue(projectId, characters, {
-    onNotice: setNotice,
-    onSelectCharacter: setSelectedId,
-  });
 
   useEffect(() => {
     if (!characters.length) {
@@ -144,7 +127,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   }
 
   async function removeSelectedCharacter() {
-    if (!detail || geminiQueueActive || deleteCharacter.isPending) return;
+    if (!detail || deleteCharacter.isPending) return;
     if (!window.confirm(`Xoá ${detail.canonicalName} khỏi project này?`)) return;
     setNotice(null);
     try {
@@ -169,10 +152,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm character, alias, vai trò…" className="pl-8" />
           </div>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" disabled={!characters.length || geminiQueueActive} onClick={() => void startGeminiAll()}>
-              <Sparkles size={12} /> Generate All
-            </Button>
-            <Button size="sm" disabled={geminiQueueActive} onClick={() => setCreating((value) => !value)}>
+            <Button size="sm" onClick={() => setCreating((value) => !value)}>
               <Plus size={12} /> New Character
             </Button>
           </div>
@@ -184,25 +164,13 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
             <Input value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="Aliases, phân cách bằng dấu phẩy" aria-label="Aliases" />
             <div className="flex justify-end gap-1.5">
               <Button type="button" variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
-              <Button type="submit" size="sm" disabled={!name.trim() || createCharacter.isPending || geminiQueueActive}>
+              <Button type="submit" size="sm" disabled={!name.trim() || createCharacter.isPending}>
                 {createCharacter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                 {createCharacter.isPending ? "Creating…" : "Create"}
               </Button>
             </div>
           </form>
         ) : null}
-
-        <CharacterGeminiQueueBanner
-          queue={geminiQueue}
-          currentCharacterName={currentQueueCharacter?.canonicalName ?? null}
-          processedCount={queueProcessedCount}
-          busy={Boolean(generatingCharacterId)}
-          onStart={() => void startGeminiAll()}
-          onResume={() => void resumeGeminiAll()}
-          onSkip={() => void skipCurrentGeminiCharacter()}
-          onStop={stopGeminiAll}
-          onDismiss={dismissGeminiQueue}
-        />
 
         {notice ? <InlineNotice>{notice}</InlineNotice> : null}
 
@@ -235,10 +203,10 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={geminiQueueActive || deleteCharacter.isPending}
+                          disabled={deleteCharacter.isPending}
                           onClick={() => void removeSelectedCharacter()}
                           aria-label={`Xoá ${detail.canonicalName}`}
-                          title={geminiQueueActive ? "Dừng Generate All trước khi xoá nhân vật" : "Xoá nhân vật khỏi project"}
+                          title="Xoá nhân vật khỏi project"
                         >
                           {deleteCharacter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                           Delete
@@ -260,7 +228,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                         </p>
                       </div>
                     </div>
-                    <CharacterReferenceStudio projectId={projectId} character={detail} generationLocked={geminiQueueActive} />
+                    <CharacterReferenceStudio projectId={projectId} character={detail} />
                   </div>
                 </>
               )}

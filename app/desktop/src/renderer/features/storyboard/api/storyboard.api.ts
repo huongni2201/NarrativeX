@@ -1,7 +1,3 @@
-import type {
-  PrepareStoryboardGenerationBatchInput,
-  StoryboardGenerationBatch,
-} from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client.ts";
 
 export type VisualBeatReviewStatus = "NEEDS_REVIEW" | "APPROVED";
@@ -57,24 +53,6 @@ export interface ChapterStoryboard {
   scenes: StoryboardScene[];
 }
 
-export interface GeminiBeatReference {
-  refLabel: string;
-  assetId: string;
-  characterId: string;
-  canonicalName: string;
-  beatRole: string | null;
-  referenceRole: string | null;
-  priority: number;
-  contentType: string | null;
-  sha256: string | null;
-}
-
-export interface GeminiBeatContext {
-  visualBeatId: string;
-  prompt: string;
-  references: GeminiBeatReference[];
-}
-
 export interface CreateVisualBeatInput {
   title: string;
   visualIntent: string;
@@ -109,31 +87,6 @@ function chapterPath(projectId: string, chapterId: string) {
 export const storyboardApi = {
   get: (projectId: string, chapterId: string) =>
     apiRequest<ChapterStoryboard>(`${chapterPath(projectId, chapterId)}/storyboard`),
-
-  geminiContext: (projectId: string, chapterId: string, visualBeatId: string) =>
-    apiRequest<GeminiBeatContext>(
-      `${chapterPath(projectId, chapterId)}/visual-beats/${encodeURIComponent(visualBeatId)}/gemini-context`,
-    ),
-
-  prepareGeminiGenerationBatch: (
-    projectId: string,
-    chapterId: string,
-    input: PrepareStoryboardGenerationBatchInput,
-    idempotencyKey: string,
-  ) =>
-    apiRequest<StoryboardGenerationBatch>(
-      `${chapterPath(projectId, chapterId)}/gemini-generation-batches:prepare`,
-      {
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify(input),
-      },
-    ),
-
-  getGeminiGenerationBatch: (projectId: string, chapterId: string, batchId: string) =>
-    apiRequest<StoryboardGenerationBatch>(
-      `${chapterPath(projectId, chapterId)}/gemini-generation-batches/${encodeURIComponent(batchId)}`,
-    ),
 
   createVisualBeat: (
     projectId: string,

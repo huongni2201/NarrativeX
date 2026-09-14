@@ -6,6 +6,23 @@
 
 The browser→Desktop, JPA/JDBC→MyBatis and monetary billing/credit migrations are no longer roadmap tracks. Desktop is already the only editor client, MyBatis is the production persistence path, provider execution no longer carries a monetary accounting contract, and non-monetary capacity/export quota is part of the current runtime foundation. Remaining work is product/reliability/release work.
 
+The compute execution-plane replacement is now an active architecture track. Its protocol and
+domain-agnostic worker foundation are implemented in the migration branch, while backend dispatch,
+vertical-slice cut-over and legacy-worker deletion are not yet implemented. Track status must follow
+[`docs/plans/20260914-compute-execution-plane-migration.md`](../../docs/plans/20260914-compute-execution-plane-migration.md)
+and ADR-0028 rather than being inferred from the presence of `app/gpu-worker`.
+
+## Track 0 — Compute execution-plane replacement — IN PROGRESS
+
+- add the backend compute control-plane module and durable attempt mapping;
+- cut narration over first, then image generation and media validation;
+- move remaining domain orchestration/materialization into backend use cases;
+- deploy one worker implementation to local and remote GPU targets;
+- remove `app/ai-worker` only after parity, recovery, rollback and dependency gates pass.
+
+**Done when:** backend owns all durable business transitions, both target classes pass the same
+Compute Protocol suite, and no production path or deployment reference depends on `app/ai-worker`.
+
 ## Current implemented foundations
 
 ```text

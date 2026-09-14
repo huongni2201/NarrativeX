@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/capabilities.json",
+  "title": "WorkerCapabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersions", "workerVersion", "executors", "limits"],
+  "properties": {
+    "protocolVersions": {"type": "array", "items": {"const": "1.0"}, "minItems": 1},
+    "workerVersion": {"type": "string", "minLength": 1, "maxLength": 64},
+    "executors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "taskTypes", "models", "ready"],
+        "properties": {
+          "name": {"type": "string"},
+          "taskTypes": {"type": "array", "items": {"type": "string"}},
+          "models": {"type": "array", "items": {"$ref": "model-ref.json"}},
+          "ready": {"type": "boolean"}
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxConcurrentTasks", "maxRequestBytes", "maxArtifactBytes"],
+      "properties": {
+        "maxConcurrentTasks": {"type": "integer", "minimum": 1},
+        "maxRequestBytes": {"type": "integer", "minimum": 1},
+        "maxArtifactBytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

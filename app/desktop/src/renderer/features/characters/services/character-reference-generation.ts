@@ -23,7 +23,7 @@ function mergeIdentityReference(
   return [{ assetId, role: "IDENTITY", priority: 0 }, ...secondary];
 }
 
-async function registerSelection(projectId: string, selection: ImageSelection, generated: boolean) {
+async function registerSelection(projectId: string, selection: ImageSelection) {
   if (selection.kind !== "IMAGE") {
     throw new Error("Character reference chỉ chấp nhận file ảnh.");
   }
@@ -36,21 +36,12 @@ async function registerSelection(projectId: string, selection: ImageSelection, g
     checksumSha256: selection.checksumSha256,
     durationMs: null,
   });
-  if (generated) {
-    await window.narrativex.geminiWeb.commitImage({
-      lane: "CHARACTER",
-      projectId,
-      assetId: asset.id,
-      selectionToken: selection.selectionToken,
-    });
-  } else {
-    await window.narrativex.localStorage.commitSelectedAsset({
-      projectId,
-      assetId: asset.id,
-      kind: "IMAGE",
-      selectionToken: selection.selectionToken,
-    });
-  }
+  await window.narrativex.localStorage.commitSelectedAsset({
+    projectId,
+    assetId: asset.id,
+    kind: "IMAGE",
+    selectionToken: selection.selectionToken,
+  });
   return asset.id;
 }
 
@@ -67,25 +58,6 @@ async function assignIdentityReference(input: {
   );
 }
 
-export async function generateCharacterIdentityReference(input: {
-  projectId: string;
-  characterId: string;
-  versionId: string;
-  prompt: string;
-}) {
-  if (!input.prompt.trim()) {
-    throw new Error("Backend chưa trả character generation prompt.");
-  }
-  const selection = await window.narrativex.geminiWeb.generateImage({
-    lane: "CHARACTER",
-    projectId: input.projectId,
-    prompt: input.prompt,
-  });
-  const assetId = await registerSelection(input.projectId, selection, true);
-  const references = await assignIdentityReference({ ...input, assetId });
-  return { assetId, references };
-}
-
 export async function importCharacterIdentityReference(input: {
   projectId: string;
   characterId: string;
@@ -93,7 +65,7 @@ export async function importCharacterIdentityReference(input: {
 }) {
   const selection = await window.narrativex.localStorage.selectAsset();
   if (!selection) return null;
-  const assetId = await registerSelection(input.projectId, selection, false);
+  const assetId = await registerSelection(input.projectId, selection);
   const references = await assignIdentityReference({ ...input, assetId });
   return { assetId, references };
 }

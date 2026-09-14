@@ -15,10 +15,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -37,7 +37,6 @@ from narrativex_worker.providers.image import (
 )
 from narrativex_worker.providers.ports import ProviderCapabilities
 from narrativex_worker.schema import ImageAspectRatio, ModerationDecision, ProviderOperationStatus
-
 
 _PROVIDER_KEY = "realvisxl"
 _DEFAULT_BASE_URL = "http://host.docker.internal:8188"
@@ -329,7 +328,9 @@ class RealVisXLBatchImageProvider:
             subfolder = payload.get("subfolder")
             if not isinstance(name, str) or not name:
                 raise RealVisXLProviderError("REALVISXL_REFERENCE_UPLOAD_RESPONSE_INVALID")
-            uploaded.append(f"{subfolder}/{name}" if isinstance(subfolder, str) and subfolder else name)
+            uploaded.append(
+                f"{subfolder}/{name}" if isinstance(subfolder, str) and subfolder else name
+            )
         return tuple(uploaded)
 
     async def _download_output(self, record: Mapping[str, Any]) -> bytes:
@@ -555,7 +556,10 @@ def _find_prompt_by_fingerprint(history: Mapping[str, Any], fingerprint: str) ->
                 matches.append(prompt_id)
                 break
             extra = part.get("extra_data")
-            if isinstance(extra, Mapping) and extra.get("narrativex_batch_fingerprint") == fingerprint:
+            if (
+                isinstance(extra, Mapping)
+                and extra.get("narrativex_batch_fingerprint") == fingerprint
+            ):
                 matches.append(prompt_id)
                 break
     return sorted(matches)[-1] if matches else None

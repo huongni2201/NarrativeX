@@ -1,0 +1,19 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7ad",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab74",
+  "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7ad:1",
+  "requestFingerprint": "59353fe4fd738c86e23920848fbf7adcedb5f39976cd2b043dd80b6c49e4de0e",
+  "task": {"type": "media.validate", "schemaVersion": "1.0"},
+  "model": {"executor": "media-validator", "model": "builtin", "revision": "1"},
+  "constraints": {"deadline": "2026-09-14T12:00:00Z", "maxRuntimeSeconds": 60},
+  "inputs": {"artifactRole": "candidate", "allowedMediaTypes": ["image/png", "image/jpeg"], "decode": true},
+  "artifacts": [{
+    "artifactId": "0199b86a-6db8-75b8-bd98-78442a0177de",
+    "role": "candidate",
+    "mediaType": "image/png",
+    "sizeBytes": 1024,
+    "sha256": "350c80c0f808234c12876f8f38e4ea6b658b3bc2c9c98b2d55e302324e9ac946",
+    "access": {"method": "GET", "url": "https://artifact.invalid/opaque-image", "expiresAt": "2026-09-14T12:15:00Z", "headers": {}}
+  }]
+}

@@ -42,7 +42,7 @@ function analysisCommandFingerprint(
     chapterId,
     visualGenerationMode: preferences.visualGenerationMode,
     imageProvider:
-      preferences.visualGenerationMode === "IMAGE" ? preferences.imageProvider ?? "GEMINI_WEB" : null,
+      preferences.visualGenerationMode === "IMAGE" ? "API" : null,
   });
 }
 

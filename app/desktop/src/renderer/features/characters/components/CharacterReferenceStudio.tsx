@@ -49,7 +49,6 @@ export function CharacterReferenceStudio({
   const busy =
     generationLocked ||
     actions.createVersion.isPending ||
-    actions.generateIdentity.isPending ||
     actions.importIdentity.isPending ||
     actions.review.isPending ||
     actions.pin.isPending ||
@@ -58,7 +57,6 @@ export function CharacterReferenceStudio({
   const isReview = status === "REVIEW";
   const isLocked = status === "LOCKED";
   const isPinned = Boolean(versionId && character.pinnedCharacterVersionId === versionId);
-  const generationPrompt = character.version?.prompt?.trim() ?? "";
 
   async function createDraft() {
     if (!bible.trim() || !visualPrompt.trim()) return;
@@ -68,17 +66,6 @@ export function CharacterReferenceStudio({
       setNotice("Draft character version đã được tạo.");
     } catch (error) {
       setNotice(errorMessage(error, "Không thể tạo character version."));
-    }
-  }
-
-  async function generateIdentity() {
-    if (!generationPrompt) return;
-    setNotice(null);
-    try {
-      await actions.generateIdentity.mutateAsync({ prompt: generationPrompt });
-      setNotice(identity ? "Identity reference đã được regenerate." : "Identity reference đã được tạo.");
-    } catch (error) {
-      setNotice(errorMessage(error, "Không thể generate identity reference."));
     }
   }
 
@@ -195,10 +182,6 @@ export function CharacterReferenceStudio({
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {isDraft ? (
                 <>
-                  <Button size="sm" onClick={() => void generateIdentity()} disabled={busy || !generationPrompt}>
-                    {actions.generateIdentity.isPending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                    {identity ? "Regenerate" : "Generate Identity"}
-                  </Button>
                   <Button size="sm" variant="outline" onClick={() => void importIdentity()} disabled={busy}>
                     {actions.importIdentity.isPending ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                     Import

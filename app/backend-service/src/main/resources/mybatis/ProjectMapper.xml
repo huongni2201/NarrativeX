@@ -11,7 +11,6 @@
         <result property="name" column="name" />
         <result property="description" column="description" />
         <result property="coverImageUrl" column="cover_image_url" />
-        <result property="ownerId" column="owner_id" />
         <result property="status" column="status" />
         <result property="sourceLanguage" column="source_language" />
         <result property="narrationLanguage" column="narration_language" />
@@ -22,7 +21,7 @@
 
     <sql id="columns">
         id, row_version, created_at, updated_at, name, description, cover_image_url,
-        owner_id, status, source_language, narration_language, metadata_language,
+        status, source_language, narration_language, metadata_language,
         image_aspect_ratio, archived_at
     </sql>
 
@@ -32,12 +31,12 @@
             affectData="true">
         INSERT INTO projects (
             row_version, created_at, updated_at, name, description, cover_image_url,
-            owner_id, status, source_language, narration_language, metadata_language,
+            status, source_language, narration_language, metadata_language,
             image_aspect_ratio, archived_at
         )
         VALUES (
             #{rowVersion}, #{createdAt}, #{updatedAt}, #{name}, #{description}, #{coverImageUrl},
-            #{ownerId}, #{status}, #{sourceLanguage}, #{narrationLanguage}, #{metadataLanguage},
+            #{status}, #{sourceLanguage}, #{narrationLanguage}, #{metadataLanguage},
             #{imageAspectRatio}, #{archivedAt}
         )
         RETURNING id
@@ -49,7 +48,6 @@
            SET name = #{name},
                description = #{description},
                cover_image_url = #{coverImageUrl},
-               owner_id = #{ownerId},
                status = #{status},
                source_language = #{sourceLanguage},
                narration_language = #{narrationLanguage},
@@ -68,19 +66,17 @@
          WHERE id = #{id}
     </select>
 
-    <select id="findOwnedById" resultMap="projectRow">
+    <select id="findByIdActive" resultMap="projectRow">
         SELECT <include refid="columns" />
           FROM projects
          WHERE id = #{projectId}
-           AND owner_id = #{ownerId}
            AND archived_at IS NULL
     </select>
 
-    <select id="findOwnedByIdForUpdate" resultMap="projectRow">
+    <select id="findByIdActiveForUpdate" resultMap="projectRow">
         SELECT <include refid="columns" />
           FROM projects
          WHERE id = #{projectId}
-           AND owner_id = #{ownerId}
            AND archived_at IS NULL
          FOR UPDATE
     </select>
@@ -88,8 +84,7 @@
     <select id="findActiveFirstPage" resultMap="projectRow">
         SELECT <include refid="columns" />
           FROM projects
-         WHERE owner_id = #{ownerId}
-           AND archived_at IS NULL
+         WHERE archived_at IS NULL
          ORDER BY updated_at DESC, id DESC
          LIMIT #{limit}
     </select>
@@ -97,8 +92,7 @@
     <select id="findActiveAfter" resultMap="projectRow">
         SELECT <include refid="columns" />
           FROM projects
-         WHERE owner_id = #{ownerId}
-           AND archived_at IS NULL
+         WHERE archived_at IS NULL
            AND (updated_at &lt; #{updatedAt}
                 OR (updated_at = #{updatedAt} AND id &lt; #{id}))
          ORDER BY updated_at DESC, id DESC

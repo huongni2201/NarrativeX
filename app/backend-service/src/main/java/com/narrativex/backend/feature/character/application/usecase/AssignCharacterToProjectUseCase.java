@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.AssignCharacterToProjectCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
@@ -26,14 +25,12 @@ public class AssignCharacterToProjectUseCase {
   private final CharacterVersionRepository versionRepository;
   private final ProjectCharacterRepository projectCharacterRepository;
   private final ProjectAccess projectAccess;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public ProjectCharacter execute(AssignCharacterToProjectCommand command) {
-    String ownerId = currentUserId.get();
-    projectAccess.findOwnedProject(command.projectId(), ownerId);
+    projectAccess.findProject(command.projectId());
     characterRepository
-        .findOwnedById(command.characterId(), ownerId)
+        .findById(command.characterId())
         .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
 
     Optional<ProjectCharacter> existingAssignment =
@@ -79,7 +76,7 @@ public class AssignCharacterToProjectUseCase {
     if (command.pinnedCharacterVersionId() != null) {
       assignment.pinVersion(
           versionRepository
-              .findOwnedById(command.pinnedCharacterVersionId(), ownerId)
+              .findById(command.pinnedCharacterVersionId())
               .orElseThrow(() -> new ResourceNotFoundException("Character version not found")));
     }
     ProjectCharacter saved = projectCharacterRepository.save(assignment);

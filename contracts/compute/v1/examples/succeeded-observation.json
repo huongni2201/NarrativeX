@@ -1,0 +1,12 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7aa",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab71",
+  "state": "SUCCEEDED",
+  "sequence": 7,
+  "observedAt": "2026-09-14T11:42:31Z",
+  "executionHandle": "execution-opaque-1",
+  "progress": 1,
+  "outputs": [],
+  "metrics": {"runtimeMs": 18321, "gpuTimeMs": 17104, "peakVramBytes": 6442450944}
+}

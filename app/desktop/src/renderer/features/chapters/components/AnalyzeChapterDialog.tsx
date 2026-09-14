@@ -77,37 +77,19 @@ export function AnalyzeChapterDialog({
               <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
                 Step 2 · Image provider
               </span>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {(["GEMINI_WEB", "API"] as const).map((provider) => (
-                  <button
-                    key={provider}
-                    type="button"
-                    onClick={() => onImageProviderChange(provider)}
-                    className={`rounded-md border px-3 py-3 text-left transition ${
-                      imageProvider === provider
-                        ? "border-primary/60 bg-primary/10 text-foreground"
-                        : "border-border bg-surface text-text-secondary hover:bg-surface-2"
-                    }`}
-                  >
-                    <div className="text-xs font-bold">
-                      {provider === "GEMINI_WEB" ? "Gemini Web" : "API"}
-                    </div>
-                    <p className="mt-1 text-[10px] leading-4 text-text-muted">
-                      {provider === "GEMINI_WEB"
-                        ? "Manual generate/import trong Storyboard."
-                        : "Generation job tự động qua backend provider."}
-                    </p>
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => onImageProviderChange("API")}
+                className="mt-2 w-full rounded-md border border-primary/60 bg-primary/10 px-3 py-3 text-left text-foreground"
+              >
+                <div className="text-xs font-bold">RealVisXL / ComfyUI</div>
+                <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                  Generation job chạy qua GPU local hoặc endpoint GPU thuê đã cấu hình.
+                </p>
+              </button>
             </div>
           )}
 
-          {visualGenerationMode === "IMAGE" && imageProvider === "GEMINI_WEB" && (
-            <div className="rounded-md border border-info/25 bg-info-bg px-3 py-2 text-[10px] leading-4 text-text-secondary">
-              Web image generation luôn tạo ảnh mới cho từng visual beat. Reuse và reframe không dùng với Gemini Web.
-            </div>
-          )}
         </div>
 
         <footer className="flex justify-end gap-2 border-t border-border p-4">

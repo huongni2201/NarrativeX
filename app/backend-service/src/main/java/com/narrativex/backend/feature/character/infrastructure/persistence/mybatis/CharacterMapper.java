@@ -7,25 +7,21 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface CharacterMapper extends NarrativeXMyBatisMapper {
-  List<CharacterRow> findActiveFirstPage(
-      @Param("ownerId") String ownerId, @Param("limit") int limit);
+  List<CharacterRow> findActiveFirstPage(@Param("limit") int limit);
 
   List<CharacterRow> findActiveAfter(
-      @Param("ownerId") String ownerId,
       @Param("updatedAt") Instant updatedAt,
       @Param("id") UUID id,
       @Param("limit") int limit);
 
-  long countActive(@Param("ownerId") String ownerId, @Param("status") String status);
+  long countActive(@Param("status") String status);
 
-  CharacterRow findOwned(
+  CharacterRow findActiveById(
       @Param("id") UUID id,
-      @Param("ownerId") String ownerId,
       @Param("excludedStatus") String excludedStatus);
 
-  CharacterRow findOwnedForUpdate(
+  CharacterRow findActiveByIdForUpdate(
       @Param("id") UUID id,
-      @Param("ownerId") String ownerId,
       @Param("excludedStatus") String excludedStatus);
 
   CharacterRow findCharacter(@Param("id") UUID id);
@@ -36,10 +32,9 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
 
   int maxCharacterVersion(@Param("characterId") UUID characterId);
 
-  CharacterVersionRow findOwnedVersion(@Param("id") UUID id, @Param("ownerId") String ownerId);
+  CharacterVersionRow findVersion(@Param("id") UUID id);
 
-  CharacterVersionRow findOwnedVersionForUpdate(
-      @Param("id") UUID id, @Param("ownerId") String ownerId);
+  CharacterVersionRow findVersionForUpdate(@Param("id") UUID id);
 
   CharacterVersionRow findCharacterVersion(@Param("id") UUID id);
 
@@ -49,9 +44,8 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
 
   int maxOutfitVersion(@Param("characterId") UUID characterId);
 
-  OutfitVersionRow findOwnedOutfit(
+  OutfitVersionRow findActiveOutfit(
       @Param("id") UUID id,
-      @Param("ownerId") String ownerId,
       @Param("excludedStatus") String excludedStatus);
 
   OutfitVersionRow findOutfit(@Param("id") UUID id);

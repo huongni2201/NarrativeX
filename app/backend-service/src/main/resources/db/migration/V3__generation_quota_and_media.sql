@@ -62,7 +62,7 @@ CREATE TABLE generation_jobs (
     ),
     CONSTRAINT ck_generation_jobs_analysis_image_provider CHECK (
         analysis_image_provider IS NULL
-        OR analysis_image_provider IN ('GEMINI_WEB', 'API')
+        OR analysis_image_provider = 'API'
     ),
     CONSTRAINT ck_generation_jobs_analysis_preferences_job_type CHECK (
         (analysis_visual_generation_mode IS NULL AND analysis_image_provider IS NULL)
@@ -71,7 +71,7 @@ CREATE TABLE generation_jobs (
     CONSTRAINT ck_generation_jobs_analysis_preferences_consistent CHECK (
         (analysis_visual_generation_mode IS NULL AND analysis_image_provider IS NULL)
         OR (analysis_visual_generation_mode = 'IMAGE'
-            AND analysis_image_provider IN ('GEMINI_WEB', 'API'))
+            AND analysis_image_provider = 'API')
         OR (analysis_visual_generation_mode = 'VIDEO'
             AND analysis_image_provider IS NULL)
     ),

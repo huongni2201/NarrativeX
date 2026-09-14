@@ -33,7 +33,7 @@ export function ChapterEditorPanel({
   const [visualGenerationMode, setVisualGenerationMode] =
     useState<VisualGenerationMode>("IMAGE");
   const [imageProvider, setImageProvider] =
-    useState<ImageGenerationProvider>("GEMINI_WEB");
+    useState<ImageGenerationProvider>("API");
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function ChapterEditorPanel({
       setVisualGenerationMode(analysis.visualGenerationMode);
     }
     if (analysis?.imageProvider) {
-      setImageProvider(analysis.imageProvider);
+      setImageProvider("API");
     }
   }, [
     selected,

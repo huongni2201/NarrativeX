@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
@@ -14,11 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeleteProjectCharacterUseCase {
   private final ProjectCharacterRepository projectCharacterRepository;
   private final ProjectAccess projectAccess;
-  private final CurrentUserId currentUserId;
 
   @Transactional
   public void execute(UUID projectId, UUID characterId) {
-    projectAccess.findOwnedProject(projectId, currentUserId.get());
+    projectAccess.findProject(projectId);
     var assignment =
         projectCharacterRepository
             .findByProjectAndCharacterForUpdate(projectId, characterId)

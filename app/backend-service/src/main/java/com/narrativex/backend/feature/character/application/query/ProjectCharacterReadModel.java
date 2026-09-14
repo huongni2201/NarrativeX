@@ -8,7 +8,6 @@ public record ProjectCharacterReadModel(
     UUID assignmentId,
     UUID characterId,
     UUID projectId,
-    String workspaceId,
     String canonicalName,
     List<String> aliases,
     List<String> projectAliases,

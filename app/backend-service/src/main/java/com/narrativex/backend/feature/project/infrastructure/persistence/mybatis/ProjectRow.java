@@ -25,7 +25,6 @@ public class ProjectRow {
   private String name;
   private String description;
   private String coverImageUrl;
-  private String ownerId;
   private ProjectStatus status;
   private String sourceLanguage;
   private String narrationLanguage;
@@ -40,7 +39,6 @@ public class ProjectRow {
         name,
         description,
         coverImageUrl,
-        ownerId,
         status,
         sourceLanguage,
         narrationLanguage,

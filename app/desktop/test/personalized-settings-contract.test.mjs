@@ -9,10 +9,8 @@ test("preload exposes a typed per-user preferences bridge", () => {
   const preload = source("src", "preload", "index.ts");
   assert.match(types, /preferences:\s*\{/);
   assert.match(types, /bindUser\(userId: string\)/);
-  assert.match(types, /updateGemini/);
   assert.match(types, /reset\(scope: DesktopPreferenceResetScope\)/);
   assert.match(preload, /desktop:preferences:bind-user/);
-  assert.match(preload, /desktop:preferences:update-gemini/);
   assert.match(preload, /desktop:preferences:reset/);
 });
 
@@ -42,35 +40,8 @@ test("personalized preference bootstrap restores and persists native window stat
   assert.match(ipc, /desktop:preferences:reset/);
 });
 
-test("Settings delegates Gemini browser and concurrency behavior to focused components", () => {
+test("Settings exposes only active Desktop reset controls", () => {
   const settings = source("src", "renderer", "features", "settings", "screens", "SettingsScreen.tsx");
-  const browsers = source("src", "renderer", "features", "settings", "components", "GeminiBrowserSettings.tsx");
-  const concurrency = source("src", "renderer", "features", "settings", "components", "GeminiConcurrencySettings.tsx");
-
-  assert.match(settings, /GeminiBrowserSettings/);
-  assert.match(settings, /GeminiConcurrencySettings/);
-  assert.doesNotMatch(settings, /function ConcurrencyRow/);
-
-  assert.match(browsers, /Gemini Browsers/);
-  assert.match(browsers, /Add browser/);
-  assert.match(browsers, /I&apos;m logged in/);
-  assert.match(browsers, /Mark logged out/);
-  assert.match(browsers, /Reset login/);
-  assert.match(browsers, /Remove/);
-  assert.match(browsers, /geminiWeb\.browsers\.list/);
-  assert.match(browsers, /geminiWeb\.browsers\.add/);
-  assert.match(browsers, /geminiWeb\.browsers\.setLoginConfirmed/);
-  assert.doesNotMatch(browsers, /geminiWeb\.browsers\.login/);
-  assert.match(browsers, /geminiWeb\.browsers\.open/);
-  assert.match(browsers, /geminiWeb\.browsers\.resetLogin/);
-  assert.match(browsers, /geminiWeb\.browsers\.remove/);
-
-  assert.match(concurrency, /Generation Concurrency/);
-  assert.match(concurrency, /Character parallel tabs/);
-  assert.match(concurrency, /Storyboard parallel tabs/);
-  assert.match(concurrency, /environmentDefaults/);
-  assert.match(concurrency, /Reset Gemini generation settings/);
-
   assert.match(settings, /Reset window layout/);
   assert.match(settings, /Reset all personalized settings/);
 });

@@ -11,8 +11,7 @@ public record CharacterVersionResponse(
     String status,
     String bible,
     String visualPrompt,
-    Instant lockedAt,
-    String lockedBy) {
+    Instant lockedAt) {
   public static CharacterVersionResponse from(CharacterVersion version) {
     return new CharacterVersionResponse(
         version.getId(),
@@ -21,7 +20,6 @@ public record CharacterVersionResponse(
         version.getStatus().name(),
         version.getBible(),
         version.getVisualPrompt(),
-        version.getLockedAt(),
-        version.getLockedBy());
+        version.getLockedAt());
   }
 }

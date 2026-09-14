@@ -24,13 +24,13 @@ export function normalizeCreateMediaJobInput(input: CreateMediaJobInput): Create
 
 let analyzeChapterPreferences: AnalyzeChapterInput = {
   visualGenerationMode: "IMAGE",
-  imageProvider: "GEMINI_WEB",
+  imageProvider: "API",
 };
 
 export function setAnalyzeChapterPreferences(input: AnalyzeChapterInput) {
   analyzeChapterPreferences = {
     visualGenerationMode: input.visualGenerationMode,
-    imageProvider: input.visualGenerationMode === "IMAGE" ? input.imageProvider ?? "GEMINI_WEB" : null,
+    imageProvider: input.visualGenerationMode === "IMAGE" ? "API" : null,
   };
 }
 

@@ -26,13 +26,13 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
   private final ObjectMapper objectMapper;
 
   @Override
-  public boolean projectOwnedBy(UUID projectId, String ownerId) {
-    return mapper.projectOwnedBy(projectId, ownerId);
+  public boolean projectExists(UUID projectId) {
+    return mapper.projectExists(projectId);
   }
 
   @Override
   public CursorPage<ProjectCharacterReadModel> findByProject(
-      UUID projectId, String ownerId, String cursor, int limit) {
+      UUID projectId, String cursor, int limit) {
     if (limit < 1 || limit > 100) {
       throw new DomainValidationException("limit must be between 1 and 100");
     }
@@ -41,8 +41,8 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
     int fetchLimit = limit + 1;
     List<ProjectCharacterReadRow> rows =
         key == null
-            ? mapper.findFirstPage(projectId, ownerId, fetchLimit)
-            : mapper.findAfter(projectId, ownerId, key.updatedAt(), key.id(), fetchLimit);
+            ? mapper.findFirstPage(projectId, fetchLimit)
+            : mapper.findAfter(projectId, key.updatedAt(), key.id(), fetchLimit);
 
     boolean hasNext = rows.size() > limit;
     List<ProjectCharacterReadRow> pageRows = hasNext ? rows.subList(0, limit) : rows;
@@ -59,8 +59,8 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
 
   @Override
   public Optional<ProjectCharacterReadModel> findDetail(
-      UUID projectId, UUID characterId, String ownerId) {
-    return Optional.ofNullable(mapper.findDetail(projectId, characterId, ownerId)).map(this::map);
+      UUID projectId, UUID characterId) {
+    return Optional.ofNullable(mapper.findDetail(projectId, characterId)).map(this::map);
   }
 
   private ProjectCharacterReadModel map(ProjectCharacterReadRow row) {
@@ -94,7 +94,6 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
         row.getAssignmentId(),
         row.getCharacterId(),
         row.getProjectId(),
-        row.getWorkspaceId(),
         row.getCanonicalName(),
         parseStringList(row.getAliasesJson()),
         parseStringList(row.getProjectAliasesJson()),

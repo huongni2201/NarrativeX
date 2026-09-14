@@ -30,8 +30,6 @@ public class CharacterMyBatisRowMapper {
     return Character.rehydrate(
         row.getId(),
         row.getRowVersion(),
-        row.getOwnerId(),
-        row.getWorkspaceId(),
         row.getCanonicalName(),
         read(row.getAliasesJson(), STRINGS),
         CharacterStatus.valueOf(row.getStatus()));
@@ -46,8 +44,7 @@ public class CharacterMyBatisRowMapper {
         row.getBible(),
         row.getVisualPrompt(),
         CharacterVersionStatus.valueOf(row.getStatus()),
-        row.getLockedAt(),
-        row.getLockedBy());
+        row.getLockedAt());
   }
 
   public OutfitVersion toDomain(OutfitVersionRow row) {
@@ -98,8 +95,6 @@ public class CharacterMyBatisRowMapper {
     row.setRowVersion(value.getRowVersion());
     row.setCreatedAt(timestamps.createdAt());
     row.setUpdatedAt(timestamps.updatedAt());
-    row.setOwnerId(value.getOwnerId());
-    row.setWorkspaceId(value.getWorkspaceId());
     row.setCanonicalName(value.getCanonicalName());
     row.setAliasesJson(write(value.getAliases()));
     row.setStatus(value.getStatus().name());
@@ -118,7 +113,6 @@ public class CharacterMyBatisRowMapper {
     row.setVisualPrompt(value.getVisualPrompt());
     row.setStatus(value.getStatus().name());
     row.setLockedAt(value.getLockedAt());
-    row.setLockedBy(value.getLockedBy());
     return row;
   }
 
