@@ -2,56 +2,57 @@
 
 ## Status
 
-Accepted — Qwen chapter analysis implemented; image and video-ingest phases remain in migration.
+Accepted — Qwen Chapter analysis, VoiceStudio narration/WhisperX alignment and the durable
+RealVisXL adapter are implemented or actively cut over. Cross-process GPU residency scheduling and
+video-ingest migration remain follow-up work.
 
 ## Context
 
-NarrativeX must support two production workflows on an RTX 3090 24 GB host:
+NarrativeX targets a local RTX 4060 8 GB workstation for its AI-heavy production path:
 
 1. Chinese story text to Vietnamese narrated visual video.
 2. One-to-two-hour Chinese video to Vietnamese dubbed video.
 
-The previous implementation sent Chapter analysis to Vertex Gemini and also exposed a separate
-Desktop Gemini Web image workflow. That split increases operational variance, sends untrusted
-story content across a remote provider boundary, and does not fit a sequential single-GPU runtime.
-Chapter analysis also needs to translate/rewrite narration, not merely return source-language scene
-text.
+The previous implementation sent Chapter analysis and image generation through Google/Vertex paths,
+while Desktop also exposed a browser-driven Gemini image workflow. That split increases operational
+variance and does not fit an 8 GB single-GPU runtime. Chapter analysis also needs to
+translate/rewrite narration, not merely return source-language scene text.
 
-PostgreSQL is already authoritative for durable jobs, leases, provider-operation fences and
-analysis checkpoints. Electron main is already authoritative for local FFmpeg rendering. Those
-boundaries must remain unchanged.
+PostgreSQL remains authoritative for durable jobs, leases, provider-operation fences and analysis
+checkpoints. Electron main remains authoritative for local FFmpeg rendering. Those boundaries do
+not change.
 
 ## Decision drivers
 
-- Keep Chinese story and video-derived text on infrastructure controlled by the operator.
-- Produce Vietnamese narration that is natural for TTS while preserving names, glossary terms and
-  forms of address.
-- Reuse one 24 GB GPU sequentially instead of loading every model concurrently.
+- Run the production AI pipeline on the operator-controlled workstation where practical.
+- Fit the heavy local stages within an RTX 4060 8 GB VRAM budget.
+- Produce natural Vietnamese narration while preserving names, glossary terms and forms of address.
+- Reuse one GPU sequentially instead of executing heavy models concurrently.
 - Preserve durable checkpoint, ambiguity and stale-source safety.
-- Keep AI outputs schema-validated and treat source/provider text as untrusted data.
-- Avoid a second editor or a new message broker/cache.
+- Keep AI outputs schema-validated and treat source/model text as untrusted data.
+- Avoid a second editor, message broker or cache solely for AI orchestration.
 
 ## Decision
 
-NarrativeX adopts this local production stack:
+NarrativeX adopts this target stack:
 
 ```text
-Chinese Chapter -> Qwen3 14B AWQ -> Vietnamese narration + scene/beat plan
-                                     -> RealVisXL + controlled LoRA/reference conditioning
-                                     -> Vietnamese TTS -> forced alignment -> ASS
-                                     -> Electron-main FFmpeg/NVENC -> final video
+Chinese Chapter -> Qwen3 8B AWQ -> Vietnamese narration + scene/beat plan
+                                   -> RealVisXL + controlled LoRA/reference conditioning
+                                   -> VoiceStudio TTS -> WhisperX forced alignment -> ASS
+                                   -> Electron-main FFmpeg/NVENC -> final video
 
-Chinese video -> FFmpeg audio extraction -> Whisper large-v3 segments
-              -> Qwen3 14B AWQ Vietnamese dub rewrite
-              -> segment TTS + duration matching -> forced alignment -> ASS
+Chinese video -> FFmpeg audio extraction -> Whisper large-v3 / faster-whisper segments
+              -> Qwen3 8B AWQ Vietnamese dub rewrite
+              -> VoiceStudio segment TTS + duration matching
+              -> WhisperX forced alignment -> ASS
               -> Electron-main FFmpeg/NVENC -> final video
 ```
 
-For Chapter analysis, `Qwen/Qwen3-14B-AWQ` is served by a private local
-OpenAI-compatible runtime. vLLM is the reference deployment. The Python worker remains the only AI
-orchestration boundary and calls that private endpoint with schema-constrained, non-thinking
-requests. Every structure, shard and repair request is fenced by the existing PostgreSQL analysis
-checkpoint and provider-operation rows before inference.
+For Chapter analysis, `Qwen/Qwen3-8B-AWQ` is served by a private local OpenAI-compatible runtime.
+The Python worker remains the AI orchestration boundary and calls that endpoint with
+schema-constrained requests. Every structure, shard and repair request remains fenced by existing
+PostgreSQL analysis checkpoints/provider-operation rows before inference.
 
 The request distinguishes source and output language:
 
@@ -61,75 +62,83 @@ The request distinguishes source and output language:
 - verbatim source anchors remain in the original source language for deterministic provenance and
   alignment mapping.
 
-The single GPU is scheduled by durable worker roles/queues. Analysis concurrency defaults to one.
-Qwen, RealVisXL, Whisper and alignment runtimes must release or reuse VRAM between stages; they are
-not required to stay loaded simultaneously.
+RealVisXL runs behind a private ComfyUI HTTP boundary. NarrativeX preserves its existing durable
+image-operation state machine: submit one image prompt, persist the ComfyUI `prompt_id`, reconcile
+that exact operation after crashes/restarts, validate output, then materialize immutable local
+media. Character-reference inputs are checksum-verified and must never be silently dropped; a
+reference request fails closed until an explicit reference-conditioning workflow is configured.
 
-Vertex Gemini Chapter analysis is no longer a valid production configuration. The legacy adapter
-may remain temporarily for rollback-only tests during migration, but production validation requires
-`AI_PROVIDER_MODE=qwen`.
+VoiceStudio is the sole production TTS boundary. NarrativeX calls its headless API and does not load
+a TTS model inside the NarrativeX worker. VieNeu is not a production fallback.
 
-Gemini Web and Vertex image generation are deprecated by this decision. They remain operational
-only until a durable RealVisXL adapter and the corresponding Desktop workflow migration are
-complete. No new feature may deepen those paths.
+All GPU-heavy inference stages are logically serialized. Qwen, RealVisXL/ComfyUI and VoiceStudio
+must not execute heavy inference concurrently on the RTX 4060. Process-local concurrency is set to
+one where those stages share a worker. Because VoiceStudio is currently a separate service, a
+cross-process residency/ownership mechanism is still required before claiming strict global GPU
+serialization.
+
+Vertex Gemini Chapter analysis and Vertex image generation are no longer valid production
+configurations. Compatibility code may exist temporarily while old tests/adapters are deleted, but
+production validation and deployment configuration must select Qwen + RealVisXL + VoiceStudio.
 
 ## Consequences
 
 ### Positive
 
-- Saved story content no longer leaves the operator-controlled environment for Chapter analysis.
-- Chinese-to-Vietnamese narration rewrite is part of the validated Chapter result.
-- The existing PostgreSQL durability and ambiguity rules continue to apply.
-- The AWQ model fits a 24 GB GPU with room for the inference runtime and KV cache when context is
-  configured conservatively.
-- Image, audio and render stages converge on one local production architecture.
+- The main story/image/audio AI path can run locally on the user's workstation.
+- Chinese-to-Vietnamese narration rewrite remains part of the validated Chapter result.
+- Existing PostgreSQL durability and ambiguity rules continue to apply to local image generation.
+- The 8B AWQ analysis model is materially more realistic for an 8 GB card than the previous 14B
+  target, provided context and KV-cache budgets stay conservative.
+- Image, audio and render stages converge on one local-first architecture.
 
 ### Negative
 
-- A local model server must be installed, monitored and started before the analysis worker.
-- Qwen context length and GPU memory impose a practical Chapter-size ceiling; oversized Chapters
-  will require hierarchical structure extraction rather than silently increasing context.
+- Qwen, ComfyUI/RealVisXL and VoiceStudio must be installed and health-checked locally.
+- An 8 GB GPU requires strict stage ownership; keeping multiple heavy model engines resident can
+  exhaust VRAM even when requests are not concurrent.
 - Local throughput is lower than elastic hosted APIs and must be controlled through queueing.
-- The repository temporarily contains both the accepted target and deprecated image adapters until
-  the RealVisXL migration is complete.
+- A custom ComfyUI reference-conditioning workflow is required before character-reference image
+  jobs can be enabled safely.
 
 ### Risks and mitigations
 
-- **Invalid or incomplete JSON:** use vLLM structured output plus authoritative Pydantic and
+- **Invalid or incomplete JSON:** schema-constrained output plus authoritative Pydantic and
   deterministic continuity validation with bounded repair.
-- **Ambiguous timeout:** leave the subcall `UNKNOWN`; do not blind-resubmit.
+- **Ambiguous timeout:** leave the durable subcall/operation `UNKNOWN`; never blind-resubmit.
 - **Prompt injection in story text:** keep system authority separate, tag story text as untrusted,
   and never allow it to grant tool or instruction authority.
-- **GPU out-of-memory:** use Qwen3 14B AWQ, one analysis request at a time, a conservative model
-  context, and sequential stage ownership.
-- **Character drift:** resolve reusable project participants, immutable CharacterVersion snapshots
-  and glossary/xưng-hô context before inference; this remains required follow-up work where the
-  current payload does not yet provide those snapshots.
+- **GPU out-of-memory:** Qwen3 8B AWQ, one heavy stage at a time, conservative context, one-image
+  RealVisXL operations, and explicit model residency control.
+- **Character drift:** immutable CharacterVersion/reference snapshots, checksum validation and an
+  explicit IP-Adapter/reference workflow; never downgrade a reference job to text-only generation.
+- **Subtitle drift:** WhisperX alignment is authoritative for spoken timing; subtitle coverage does
+  not need to extend across silent tail video.
 
 ## Migration plan
 
-1. Switch production Chapter analysis and health metadata from Vertex Gemini to local Qwen.
-2. Persist/resolve project narration locale, Character Bible, glossary and forms-of-address context
-   as immutable analysis inputs.
-3. Add a durable RealVisXL + LoRA/reference-conditioning image adapter and migrate API image jobs.
-4. Remove Desktop Gemini Web controls, queues, IPC and ADR-0021 implementation after runtime UI
-   verification.
-5. Add segmented Whisper large-v3 video ingest, Vietnamese dub rewrite, segment TTS duration
-   matching and forced alignment.
-6. Remove rollback-only Vertex analysis code and Google analysis configuration after one stable
-   production release.
+1. Switch production Chapter analysis to local Qwen3 8B AWQ. **Done.**
+2. Replace VieNeu with VoiceStudio as the sole production TTS provider. **Done.**
+3. Keep WhisperX forced alignment as the authoritative subtitle timing source. **Done/in use.**
+4. Cut production API image jobs from Vertex to durable local RealVisXL/ComfyUI. **In progress.**
+5. Add/configure the explicit character-reference ComfyUI workflow and verify identity consistency
+   across regeneration. **Required before enabling reference jobs.**
+6. Add global GPU ownership/residency coordination across Qwen, ComfyUI and VoiceStudio. **Open.**
+7. Remove rollback-only Vertex analysis/image code, Google provider dependencies and stale tests.
+8. Complete segmented Whisper video ingest and Vietnamese dubbing flow.
+9. Remove any obsolete Desktop browser image workflow only after the active product path has been
+   explicitly chosen and runtime-verified.
 
 ## Related decisions
 
 - Supersedes the Vertex Gemini Chapter-analysis portions of ADR-0003 and ADR-0008.
-- Supersedes ADR-0021 as the target image-generation direction; ADR-0021 remains descriptive of the
-  legacy implementation until migration step 4 completes.
+- Supersedes Vertex image generation as the production API image path.
 - Preserves ADR-0020 PostgreSQL-only durable runtime state.
 - Preserves ADR-0012 Electron-main local project storage and final rendering.
 - Extends ADR-0024 durable analysis checkpoints and continuity validation.
 
 ## References
 
-- Qwen documentation: local vLLM deployment, thinking controls and structured output.
-- vLLM documentation: OpenAI-compatible JSON-schema response format.
-- Qwen model card: `Qwen/Qwen3-14B-AWQ`.
+- Qwen model/runtime target: `Qwen/Qwen3-8B-AWQ`.
+- ComfyUI HTTP API is the private execution boundary for RealVisXL.
+- VoiceStudio headless API is the private production TTS boundary.
