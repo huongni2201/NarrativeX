@@ -96,6 +96,7 @@ class WorkerSettings(BaseSettings):
         description="Optional ComfyUI API-format reference-conditioning workflow",
     )
     image_reconcile_max_attempts: int = Field(default=5, ge=1, le=100)
+    image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
     image_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=100)
     image_circuit_breaker_open_seconds: int = Field(default=120, ge=1, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
@@ -118,7 +119,7 @@ class WorkerSettings(BaseSettings):
         gt=1,
         le=3600,
         validation_alias=AliasChoices("GPU_TRANSITION_TIMEOUT_SECONDS"),
-        description="Maximum time allowed to drain/unload a competing local GPU runtime",
+        description="Maximum time to acquire GPU ownership or drain/unload a competing runtime",
     )
     gpu_comfyui_idle_poll_seconds: float = Field(
         default=0.5,
