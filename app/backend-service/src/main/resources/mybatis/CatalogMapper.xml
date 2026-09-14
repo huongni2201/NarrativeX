@@ -37,27 +37,27 @@
                metadata_json::text AS metadata_json, updated_at
          FROM voice_catalog
          WHERE enabled = TRUE
-           AND provider = 'VIENEU'
+           AND provider = 'VOICESTUDIO'
         <if test="language != null and language != ''">AND language = #{language}</if>
          ORDER BY language, LOWER(name), id
     </select>
     <select id="findVoiceCapabilities" resultMap="voiceCapabilitiesRow">
         SELECT id,
                provider,
-               COALESCE((metadata_json ->> 'supportsSpeakingRate')::boolean, provider = 'VIENEU')
+               COALESCE((metadata_json ->> 'supportsSpeakingRate')::boolean, provider = 'VOICESTUDIO')
                    AS supports_speaking_rate,
-               COALESCE((metadata_json ->> 'supportsVoiceClone')::boolean, provider = 'VIENEU')
+               COALESCE((metadata_json ->> 'supportsVoiceClone')::boolean, provider = 'VOICESTUDIO')
                    AS supports_voice_clone,
-               COALESCE((metadata_json ->> 'supportsBatch')::boolean, provider = 'VIENEU')
+               COALESCE((metadata_json ->> 'supportsBatch')::boolean, FALSE)
                    AS supports_batch,
                COALESCE((metadata_json ->> 'sampleRateHz')::integer, 48000) AS sample_rate_hz,
                COALESCE(
                    metadata_json ->> 'executionSemantics',
-                   CASE WHEN provider = 'VIENEU' THEN 'LOCAL_RETRYABLE' ELSE 'EXTERNAL_DURABLE' END
+                   CASE WHEN provider = 'VOICESTUDIO' THEN 'LOCAL_RETRYABLE' ELSE 'EXTERNAL_DURABLE' END
                ) AS execution_semantics
          FROM voice_catalog
          WHERE id = #{voiceId}
            AND enabled = TRUE
-           AND provider = 'VIENEU'
+           AND provider = 'VOICESTUDIO'
     </select>
 </mapper>

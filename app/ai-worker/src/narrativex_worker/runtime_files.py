@@ -16,8 +16,8 @@ def validate_runtime_files(
     """Fail fast when a configured bind mount resolves to a directory or invalid file.
 
     Google ADC may legitimately come from workload identity, so a credentials file is only
-    validated when GOOGLE_APPLICATION_CREDENTIALS is explicitly configured. VieNeu reference
-    audio is optional because narration jobs can materialize system/custom references from R2.
+    validated when GOOGLE_APPLICATION_CREDENTIALS is explicitly configured. VoiceStudio is a
+    service boundary and therefore has no host-mounted model or static-reference file here.
     """
 
     env = os.environ if environment is None else environment
@@ -39,11 +39,6 @@ def validate_runtime_files(
                 "GOOGLE_APPLICATION_CREDENTIALS must contain a JSON object: "
                 f"{credentials_path}"
             )
-
-    if settings.has_worker_role("narration") and settings.tts_provider_mode == "vieneu":
-        reference_path = (settings.vieneu_reference_audio_path or "").strip()
-        if reference_path:
-            _require_regular_file(reference_path, "VIENEU_REFERENCE_AUDIO_PATH")
 
 
 def _require_regular_file(raw_path: str, setting_name: str) -> Path:

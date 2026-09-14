@@ -70,6 +70,18 @@ This directory records decisions that affect more than one feature or change a p
 24. **[ADR-0024: Chapter continuity, selective regeneration and effective render reuse](./ADR-0024-chapter-continuity-selective-regeneration-and-render-reuse.md)**  
    Immutable continuity/checkpoint state, backend-authoritative selective regeneration and segment-cache identity based on effective encoded inputs rather than logical workflow identity.
 
+25. **[ADR-0025: Local Qwen, RealVisXL and staged single-GPU production stack](./ADR-0025-local-ai-production-stack.md)**
+   Local Qwen3 Chinese-to-Vietnamese Chapter analysis, sequential RTX 3090 scheduling and the accepted migration from Gemini/Vertex images to RealVisXL plus segmented Whisper/TTS dubbing.
+
+26. **[ADR-0026: Snapshot watermark policy for Desktop renders](./ADR-0026-immutable-render-watermark-policy.md)**
+   Server-authoritative watermark entitlement is captured in immutable render snapshots and
+   enforced by the supported Desktop FFmpeg renderer.
+
+27. **[ADR-0027: VoiceStudio-only TTS and WhisperX-aligned WAV narration](./ADR-0027-voicestudio-only-tts-and-whisperx-wav-pipeline.md)**
+   VoiceStudio is the sole production TTS engine boundary; NarrativeX synthesizes per segment,
+   persists a 48 kHz mono WAV master and force-aligns the known Vietnamese script with WhisperX on
+   the staged RTX 4060 8 GB runtime.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.
@@ -80,6 +92,8 @@ This directory records decisions that affect more than one feature or change a p
 - ADR-0022 supersedes ADR-0003/older docs wherever they describe R2 as generated project image/narration transport or allow project-media R2 fallback. It also defines `PROJECT` versus `ACCOUNT` voice-reference storage.
 - ADR-0023 supersedes older duration-weighted or audio-column-only visual timing descriptions. It does not remove compatibility fields still consumed by current code.
 - ADR-0024 extends ADR-0014 for continuity-aware regeneration/render reuse and extends ADR-0020 for durable analysis checkpoints. It does not move provider credentials or local render execution into the renderer.
+- ADR-0025 supersedes the Vertex Gemini Chapter-analysis portions of ADR-0003/ADR-0008 and supersedes ADR-0021 as the target direction. ADR-0021 remains an AS-IS description of the legacy Desktop image path until its migration is complete.
+- ADR-0027 supersedes ADR-0025 for the TTS engine, Qwen 8B/RTX 4060 runtime profile and post-TTS alignment boundary. VieNeu has no production or fallback path.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs; historical text remains rationale/history and is not an AS-IS contract.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 

@@ -7,7 +7,7 @@ from narrativex_worker.narration.alignment import NarrationAlignmentValidator
 from narrativex_worker.narration.models import WordAlignment
 from narrativex_worker.narration.providers import TtsProvider, TtsRequest
 from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_length
-from narrativex_worker.narration.word_alignment import WhisperWordAligner
+from narrativex_worker.narration.word_alignment import WhisperXWordAligner
 
 
 class WordAligner(Protocol):
@@ -44,7 +44,7 @@ class FullChapterNarrationService:
         self.provider = provider
         self.segmenter = segmenter or NarrationSegmenter()
         self.validator = validator or NarrationAlignmentValidator()
-        self.word_aligner = word_aligner or WhisperWordAligner()
+        self.word_aligner = word_aligner or WhisperXWordAligner()
 
     async def synthesize(
         self,

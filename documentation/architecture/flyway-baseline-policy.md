@@ -17,7 +17,8 @@ A new PostgreSQL database is built by applying exactly these responsibility-sepa
 
 The former V9–V18 patch sequence has been folded into the owning V1–V8 migrations and is not part of the current baseline. A clean database must not create retired billing/pricing, credit-accounting or storage-compatibility schema and then remove it later.
 
-VieNeu voices are seeded with `supportsSpeakingRate=true`; narration requests persist a positive `speaking_rate` value.
+The VoiceStudio default profile is seeded with `supportsSpeakingRate=true` and WAV output;
+narration requests persist a positive `speaking_rate` value.
 
 ## Pre-release rule
 

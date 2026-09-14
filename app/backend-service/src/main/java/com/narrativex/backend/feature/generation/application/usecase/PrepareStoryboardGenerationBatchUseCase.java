@@ -34,7 +34,7 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 public class PrepareStoryboardGenerationBatchUseCase {
-  public static final String STYLE_POLICY_VERSION = "storyboard-manhwa-v2";
+  public static final String STYLE_POLICY_VERSION = "storyboard-semi-realistic-cgi-v3";
   public static final String PROVIDER_POLICY_VERSION = "gemini-web-3.1-pro-cinematic-v1";
 
   private final StoryboardBeatAccess storyboardBeatAccess;

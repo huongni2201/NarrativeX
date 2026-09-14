@@ -6,25 +6,25 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ConfiguredProviderHealthSettings implements ProviderHealthSettings {
-  private final boolean vertexGeminiEnabled;
-  private final String location;
+  private final boolean qwenEnabled;
+  private final String runtime;
   private final String model;
 
   public ConfiguredProviderHealthSettings(
-      @Value("${narrativex.providers.vertex-gemini.enabled:false}") boolean vertexGeminiEnabled,
-      @Value("${narrativex.providers.vertex-gemini.location:us-central1}") String location,
-      @Value("${narrativex.providers.vertex-gemini.model:gemini-2.5-flash}") String model) {
-    this.vertexGeminiEnabled = vertexGeminiEnabled;
-    this.location = location;
+      @Value("${narrativex.providers.qwen.enabled:false}") boolean qwenEnabled,
+      @Value("${narrativex.providers.qwen.runtime:vllm-local}") String runtime,
+      @Value("${narrativex.providers.qwen.model:Qwen/Qwen3-8B-AWQ}") String model) {
+    this.qwenEnabled = qwenEnabled;
+    this.runtime = runtime;
     this.model = model;
   }
 
-  public boolean vertexGeminiEnabled() {
-    return vertexGeminiEnabled;
+  public boolean qwenEnabled() {
+    return qwenEnabled;
   }
 
-  public String location() {
-    return location;
+  public String runtime() {
+    return runtime;
   }
 
   public String model() {

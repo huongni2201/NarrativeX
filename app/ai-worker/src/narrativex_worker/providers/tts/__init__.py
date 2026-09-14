@@ -1,5 +1,5 @@
 """Production text-to-speech adapters."""
 
-from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
+from narrativex_worker.providers.tts.voicestudio import VoiceStudioTtsEngine
 
-__all__ = ["VieneuTtsProvider"]
+__all__ = ["VoiceStudioTtsEngine"]

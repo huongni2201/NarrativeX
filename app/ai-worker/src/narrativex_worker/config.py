@@ -1,10 +1,12 @@
 """Worker configuration module.
 
-Production Google authentication comes from ADC/workload identity at runtime. Provider credentials
-are never copied into durable job payloads.
+Chapter analysis is local-first. Qwen credentials, when a local gateway requires one, and Google
+credentials used by the legacy Vertex image path are never copied into durable job payloads.
 """
 
+import ipaddress
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import (
     AliasChoices,
@@ -68,13 +70,31 @@ class WorkerSettings(BaseSettings):
         default=1024 * 1024 * 1024, ge=1024, le=2 * 1024 * 1024 * 1024
     )
 
-    provider_mode: Literal["disabled", "fake", "vertex"] = Field(
+    provider_mode: Literal["disabled", "fake", "qwen", "vertex"] = Field(
         default="disabled",
         validation_alias=AliasChoices("AI_PROVIDER_MODE"),
         description="Story-analysis provider adapter mode; disabled is safe by default",
     )
+    qwen_base_url: str = Field(
+        default="http://qwen:8000/v1",
+        description="Private OpenAI-compatible endpoint serving the local Qwen model",
+    )
+    qwen_api_key: SecretStr | None = Field(
+        default=None,
+        description="Optional bearer token for a private local Qwen gateway",
+    )
+    qwen_model: str = "Qwen/Qwen3-8B-AWQ"
+    qwen_timeout_seconds: float = Field(default=600.0, gt=1, le=3600)
+    qwen_max_output_tokens: int = Field(default=16_384, ge=1024, le=32_768)
+    qwen_analysis_shard_concurrency: int = Field(default=1, ge=1, le=2)
+    qwen_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
+    qwen_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
+    qwen_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
     vertex_project_id: str | None = None
     vertex_location: str = "us-central1"
+    # Deprecated analysis compatibility. Production validation below requires Qwen; these fields
+    # remain temporarily because the Vertex image adapter and rollback-only analysis tests share
+    # the same worker package.
     vertex_model: str = "gemini-2.5-flash"
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     vertex_analysis_shard_concurrency: int = Field(default=3, ge=1, le=4)
@@ -100,24 +120,18 @@ class WorkerSettings(BaseSettings):
     image_circuit_breaker_open_seconds: int = Field(default=120, ge=1, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
-    tts_provider_mode: Literal["disabled", "fake", "vieneu"] = Field(
+    tts_provider_mode: Literal["disabled", "fake", "voicestudio"] = Field(
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE"),
     )
-    narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
-    vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
-    vieneu_voice_name: str = "Ngọc Huyền v2"
-    vieneu_reference_audio_path: str | None = None
-    vieneu_backend: Literal["auto", "onnx", "pytorch"] = "auto"
-    vieneu_precision: Literal["int8", "fp32"] = "int8"
-    vieneu_threads: int = Field(default=0, ge=0, le=64)
-    vieneu_batch_max_segments: int = Field(default=8, ge=1, le=64)
-    vieneu_max_batch_size: int = Field(default=32, ge=1, le=128)
-    vieneu_inference_concurrency: int = Field(default=1, ge=1, le=4)
-    vieneu_denoise_reference: bool = True
-    vieneu_save_voice_profile: bool = False
-    vieneu_force_reenroll: bool = False
-    vieneu_apply_watermark: bool = False
+    tts_segment_batch_size: int = Field(default=8, ge=1, le=64)
+    voicestudio_base_url: str = "http://voicestudio:3900"
+    voicestudio_api_key: SecretStr | None = None
+    voicestudio_model: str = "tts-1"
+    voicestudio_voice_id: str = "voicestudio-default"
+    voicestudio_voice_profile_id: str = "default"
+    voicestudio_timeout_seconds: float = Field(default=600.0, gt=1, le=3600)
+    voicestudio_inference_concurrency: int = Field(default=1, ge=1, le=2)
 
     project_media_local_dir: str = Field(
         default="/data/narrativex/project-media",
@@ -170,6 +184,46 @@ class WorkerSettings(BaseSettings):
             raise ValueError("PROJECT_MEDIA_LOCAL_DIR must not be blank")
         return normalized
 
+    @field_validator("qwen_base_url")
+    @classmethod
+    def validate_qwen_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("http://", "https://")):
+            raise ValueError("QWEN_BASE_URL must use http:// or https://")
+        if not normalized.endswith("/v1"):
+            raise ValueError("QWEN_BASE_URL must end with /v1")
+        return normalized
+
+    @field_validator("qwen_model")
+    @classmethod
+    def validate_qwen_model(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("QWEN_MODEL must not be blank")
+        return normalized
+
+    @field_validator("voicestudio_base_url")
+    @classmethod
+    def validate_voicestudio_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("http://", "https://")):
+            raise ValueError("VOICESTUDIO_BASE_URL must use http:// or https://")
+        if normalized.endswith("/v1"):
+            raise ValueError("VOICESTUDIO_BASE_URL must be the service origin, without /v1")
+        return normalized
+
+    @field_validator(
+        "voicestudio_model",
+        "voicestudio_voice_id",
+        "voicestudio_voice_profile_id",
+    )
+    @classmethod
+    def validate_non_blank_voicestudio_value(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("VoiceStudio model and voice identifiers must not be blank")
+        return normalized
+
     def has_worker_role(self, role: str) -> bool:
         return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
 
@@ -192,6 +246,8 @@ class WorkerSettings(BaseSettings):
     def validate_runtime(self) -> "WorkerSettings":
         if self.worker_env.strip().lower() in {"production", "prod"}:
             self._validate_production_runtime()
+        if self.qwen_analysis_shard_max_beats < self.qwen_analysis_shard_target_beats:
+            raise ValueError("Qwen analysis shard max beats must be >= target beats")
         if self.vertex_analysis_shard_max_beats < self.vertex_analysis_shard_target_beats:
             raise ValueError("Vertex analysis shard max beats must be >= target beats")
         if self.image_provider_mode == "vertex" and not self.vertex_project_id:
@@ -214,11 +270,6 @@ class WorkerSettings(BaseSettings):
                 )
         if not self.normalized_vertex_image_batch_prefix:
             raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
-        if self.tts_provider_mode == "vieneu":
-            if not self.vieneu_voice_id.strip():
-                raise ValueError("VIENEU_VOICE_ID must not be blank")
-            if not self.vieneu_voice_name.strip():
-                raise ValueError("VIENEU_VOICE_NAME must not be blank")
         return self
 
     def require_voice_reference_r2(self) -> None:
@@ -241,12 +292,24 @@ class WorkerSettings(BaseSettings):
     def _validate_production_runtime(self) -> None:
         """Prevent a production worker container from silently selecting test adapters."""
         errors: list[str] = []
-        if self.has_worker_role("analysis") and self.provider_mode != "vertex":
-            errors.append("AI_PROVIDER_MODE=vertex is required for production analysis")
+        if self.has_worker_role("analysis") and self.provider_mode != "qwen":
+            errors.append("AI_PROVIDER_MODE=qwen is required for production analysis")
+        if (
+            self.has_worker_role("analysis")
+            and self.provider_mode == "qwen"
+            and not _is_private_endpoint(self.qwen_base_url)
+        ):
+            errors.append("QWEN_BASE_URL must resolve to a loopback/private/local host")
         if self.has_worker_role("image-generation") and self.image_provider_mode != "vertex":
             errors.append("IMAGE_PROVIDER_MODE=vertex is required for production image generation")
-        if self.has_worker_role("narration") and self.tts_provider_mode != "vieneu":
-            errors.append("TTS_PROVIDER_MODE=vieneu is required for production narration")
+        if self.has_worker_role("narration") and self.tts_provider_mode != "voicestudio":
+            errors.append("TTS_PROVIDER_MODE=voicestudio is required for production narration")
+        if (
+            self.has_worker_role("narration")
+            and self.tts_provider_mode == "voicestudio"
+            and not _is_private_endpoint(self.voicestudio_base_url)
+        ):
+            errors.append("VOICESTUDIO_BASE_URL must resolve to a loopback/private/local host")
         if errors:
             raise ValueError("Invalid production worker configuration: " + "; ".join(errors))
 
@@ -254,3 +317,19 @@ class WorkerSettings(BaseSettings):
 def get_settings() -> WorkerSettings:
     """Return an initialized instance of WorkerSettings."""
     return WorkerSettings()
+
+
+def _is_private_endpoint(url: str) -> bool:
+    hostname = urlparse(url).hostname
+    if hostname is None:
+        return False
+    normalized = hostname.lower().rstrip(".")
+    if normalized in {"localhost", "host.docker.internal", "qwen"}:
+        return True
+    if "." not in normalized or normalized.endswith((".local", ".internal")):
+        return True
+    try:
+        address = ipaddress.ip_address(normalized)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback

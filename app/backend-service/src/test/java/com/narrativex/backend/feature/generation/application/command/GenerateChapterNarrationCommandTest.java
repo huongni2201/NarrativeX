@@ -14,7 +14,7 @@ class GenerateChapterNarrationCommandTest {
   void normalNarrationKeepsPreviewDisabled() {
     var command =
         new GenerateChapterNarrationCommand(
-            UUID.randomUUID(), UUID.randomUUID(), "vieneu-ngoc-huyen-v2", BigDecimal.ONE, null);
+            UUID.randomUUID(), UUID.randomUUID(), "voicestudio-default", BigDecimal.ONE, null);
 
     assertThat(command.preview()).isFalse();
     assertThat(command.previewText()).isNull();
@@ -28,7 +28,7 @@ class GenerateChapterNarrationCommandTest {
         new GenerateChapterNarrationCommand(
             UUID.randomUUID(),
             UUID.randomUUID(),
-            "vieneu-ngoc-huyen-v2",
+            "voicestudio-default",
             BigDecimal.ONE,
             reference,
             "  Xin chào, đây là giọng mẫu.  ");
@@ -48,7 +48,7 @@ class GenerateChapterNarrationCommandTest {
                 new GenerateChapterNarrationCommand(
                     projectId,
                     chapterId,
-                    "vieneu-ngoc-huyen-v2",
+                    "voicestudio-default",
                     BigDecimal.ONE,
                     null,
                     "Giọng mẫu"))
@@ -60,7 +60,7 @@ class GenerateChapterNarrationCommandTest {
                 new GenerateChapterNarrationCommand(
                     projectId,
                     chapterId,
-                    "vieneu-ngoc-huyen-v2",
+                    "voicestudio-default",
                     BigDecimal.ONE,
                     new VoiceReferenceSelection(VoiceReferenceScope.ACCOUNT, UUID.randomUUID()),
                     "a".repeat(501)))

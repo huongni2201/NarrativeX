@@ -85,21 +85,20 @@ class RecordingAudioAssembler:
         self.concatenate_calls += 1
         output_path.write_bytes(b"pcm")
 
-    async def encode_mp3_file(
+    async def encode_wav_file(
         self,
         pcm_path: Path,
-        mp3_path: Path,
+        wav_path: Path,
         *,
         sample_rate_hz: int,
         channels: int,
-        bitrate: str,
     ) -> None:
-        del pcm_path, sample_rate_hz, channels, bitrate
+        del pcm_path, sample_rate_hz, channels
         self.encode_calls += 1
-        mp3_path.write_bytes(b"mp3")
+        wav_path.write_bytes(b"wav")
 
-    async def probe_duration_ms_file(self, mp3_path: Path) -> int:
-        del mp3_path
+    async def probe_duration_ms_file(self, wav_path: Path) -> int:
+        del wav_path
         return 10
 
 
@@ -148,7 +147,7 @@ class FinalPersistenceFailsAfterWritingStorage(InMemoryMediaStorage):
             mime_type=mime_type,
             metadata=metadata,
         )
-        if storage_key.endswith(".mp3") and self.failures:
+        if storage_key.endswith(".wav") and self.failures:
             self.failures -= 1
             raise TimeoutError("final MP3 response was lost after the object was written")
         return asset
@@ -160,13 +159,13 @@ def test_local_runner_builds_project_scoped_audio_storage_key() -> None:
     storage_key = runner._final_audio_storage_key(claimed)
 
     assert storage_key == (
-        f"projects/{claimed.project_id}/assets/audio/chapter-{claimed.narration_request_id}.mp3"
+        f"projects/{claimed.project_id}/assets/audio/chapter-{claimed.narration_request_id}.wav"
     )
 
 
 @pytest.mark.asyncio
 async def test_local_runner_batches_and_persists_segments(tmp_path: Path) -> None:
-    settings = WorkerSettings(worker_env="test", vieneu_batch_max_segments=8)
+    settings = WorkerSettings(worker_env="test", tts_segment_batch_size=8)
     runner = LocalOptimizedNarrationWorkerRunner(settings)
     provider = RecordingLocalProvider()
     runner.provider = cast(TtsProvider, provider)
@@ -193,7 +192,7 @@ async def test_local_runner_batches_and_persists_segments(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
-async def test_local_runner_reuses_vieneu_and_final_mp3_after_completion_retry(
+async def test_local_runner_reuses_voicestudio_and_final_wav_after_completion_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def no_sleep(delay: float) -> None:
@@ -224,7 +223,7 @@ async def test_local_runner_reuses_vieneu_and_final_mp3_after_completion_retry(
 
 
 @pytest.mark.asyncio
-async def test_local_runner_does_not_regenerate_after_final_mp3_persistence_timeout(
+async def test_local_runner_does_not_regenerate_after_final_wav_persistence_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def no_sleep(delay: float) -> None:

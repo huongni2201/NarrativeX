@@ -1,4 +1,4 @@
-# Image Generation Workflow — V1.12
+# Image Generation Workflow — V1.13
 
 Image generation produces immutable image MediaAssets for VisualBeats. NarrativeX is image-first, but image generation is separate from final FFmpeg motion/rendering and from optional I2V.
 
@@ -67,7 +67,7 @@ Review/rejection/regeneration must not overwrite historical generated assets. Re
 
 Image style, source identity, storyboard/beat context, Character/Location continuity and relevant reference assets belong to the immutable generation snapshot/prompt context. Clients select allow-listed product options; they must not become the authority for server-owned policy/prompt suffixes.
 
-The backend owns the final Gemini Web prompt text for both Visual Beats and generated Character identity references. Both use the same allow-listed `CINEMATIC_ANIME` visual-style profile and negative prompt, while each task keeps its own composition instructions. The stored `visualIntent`/`visualPrompt` fields remain canonical source descriptions and are not replaced by the derived provider prompt.
+The backend owns the final Gemini Web prompt text for both Visual Beats and generated Character identity references. Both use the same allow-listed `CINEMATIC_ANIME` visual-style key and negative prompt. The key now denotes a premium semi-realistic 3D CGI rendering language: roughly 70% believable realism and 30% anime-influenced idealization, with physically based materials, soft subsurface skin scattering, strand-level hair, restrained filmic color and cinematic depth. Each task keeps its own composition instructions. The stored `visualIntent`/`visualPrompt` fields remain canonical source descriptions and are not replaced by the derived provider prompt.
 
 A live Storyboard `beat.prompt` is current-draft display data. It is not allowed to redefine a pending Gemini job after prepare. The Desktop renderer submits the prompt stored in the prepared backend beat snapshot verbatim and does not rebuild, append or maintain a parallel style prompt.
 
@@ -101,7 +101,7 @@ Prompt precedence is explicit:
 
 Location analysis stores narrative `description` separately from reusable `visual_prompt`. Location visual canon should capture stable architecture, layout, materials, important furniture/props and spatial landmarks; temporary event lighting, current character action and camera composition belong to the Visual Beat instead.
 
-The character identity-reference task uses the same `CINEMATIC_ANIME` rendering profile as storyboard frames but a neutral composition policy: one character, unobstructed readable face, restrained expression, simple background and soft frontal lighting. Dramatic story composition belongs to Visual Beats, not to the canonical identity anchor.
+The character identity-reference task uses the same `CINEMATIC_ANIME` semi-realistic 3D CGI profile as storyboard frames but a neutral composition policy: one character, unobstructed readable face, restrained expression, a softly defocused environmental background, an 85mm portrait-lens look, shallow depth of field, a diffused key, gentle fill and subtle rim light. Dramatic story composition belongs to Visual Beats, not to the canonical identity anchor.
 
 ### Beat-scoped character reference flow
 

@@ -21,7 +21,7 @@ def test_core_startup_does_not_import_optional_role_dependencies() -> None:
         for alias in node.names
     )
     assert top_level_imports.isdisjoint(
-        {"torch", "torchaudio", "vieneu", "numpy", "PIL", "pydub", "ffmpeg"}
+        {"torch", "torchaudio", "whisperx", "numpy", "PIL", "pydub", "ffmpeg"}
     )
 
 

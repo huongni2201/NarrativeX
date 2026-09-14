@@ -46,9 +46,9 @@ from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
     prepare_mp3_reference,
 )
-from narrativex_worker.narration.word_alignment import WhisperWordAligner, WordAlignmentError
+from narrativex_worker.narration.word_alignment import WhisperXWordAligner, WordAlignmentError
 from narrativex_worker.observability import PipelineContext, PipelineMetrics
-from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
+from narrativex_worker.providers.tts.voicestudio import VoiceStudioTtsEngine
 from narrativex_worker.runtime.retry_policy import UNKNOWN_RECONCILIATION_POLICY
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.task_runtime import reap_finished_tasks
@@ -83,14 +83,14 @@ class NarrationWorkerRunner:
         if self.enabled:
             if settings.tts_provider_mode == "fake":
                 self.provider = FakeTtsProvider()
-            elif settings.tts_provider_mode == "vieneu":
-                self.provider = VieneuTtsProvider(settings)
+            elif settings.tts_provider_mode == "voicestudio":
+                self.provider = VoiceStudioTtsEngine(settings)
             else:
                 raise RuntimeError(f"Unsupported TTS provider mode: {settings.tts_provider_mode}")
             self.storage = LocalMediaStorage(settings.project_media_local_dir)
         self.segmenter = NarrationSegmenter()
         self.validator = NarrationAlignmentValidator()
-        self.word_aligner = WhisperWordAligner()
+        self.word_aligner = WhisperXWordAligner()
         self.audio = FfmpegAudioAssembler()
         self.workspace = WorkerWorkspace()
 
@@ -100,6 +100,9 @@ class NarrationWorkerRunner:
             return
         if dry_run:
             self.logger.info("Narration worker configuration verified")
+            close_provider = getattr(self.provider, "aclose", None)
+            if close_provider is not None:
+                await close_provider()
             return
         await self.repository.connect()
         self._running = True
@@ -157,6 +160,9 @@ class NarrationWorkerRunner:
                 await asyncio.gather(*self._in_flight, return_exceptions=True)
                 self._in_flight.clear()
             await self.repository.close()
+            close_provider = getattr(self.provider, "aclose", None)
+            if close_provider is not None:
+                await close_provider()
 
     def _reap_finished_tasks(self) -> None:
         reap_finished_tasks(
@@ -377,11 +383,11 @@ class NarrationWorkerRunner:
 
             pcm_path = job_dir / "chapter.pcm"
             await self.audio.concatenate_files([item.file_path for item in materialized], pcm_path)
-            mp3_path = job_dir / "chapter.mp3"
-            await self.audio.encode_mp3_file(pcm_path, mp3_path, sample_rate_hz=48000, channels=1)
-            actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
+            wav_path = job_dir / "chapter.wav"
+            await self.audio.encode_wav_file(pcm_path, wav_path, sample_rate_hz=48000, channels=1)
+            actual_duration_ms = await self.audio.probe_duration_ms_file(wav_path)
             words = await self._align_final_narration(
-                mp3_path,
+                wav_path,
                 claimed.source_text,
                 claimed.language,
             )
@@ -390,15 +396,15 @@ class NarrationWorkerRunner:
                 source_utf16_length=utf16_length(claimed.source_text),
                 audio_duration_ms=actual_duration_ms,
             )
-            checksum = await asyncio.to_thread(sha256_file, mp3_path)
-            final_key = f"narration/{claimed.narration_request_id}/chapter.mp3"
+            checksum = await asyncio.to_thread(sha256_file, wav_path)
+            final_key = f"narration/{claimed.narration_request_id}/chapter.wav"
             try:
                 media_asset = await retry_local_io(
                     lambda: storage.put_file_immutable(
                         storage_key=final_key,
-                        file_path=mp3_path,
+                        file_path=wav_path,
                         checksum=checksum,
-                        mime_type="audio/mpeg",
+                        mime_type="audio/wav",
                         metadata={"duration-ms": str(actual_duration_ms)},
                     )
                 )
@@ -413,7 +419,7 @@ class NarrationWorkerRunner:
             self.logger.debug(
                 "Narration upload completed request=%s sizeBytes=%s checksum=%s",
                 claimed.narration_request_id,
-                mp3_path.stat().st_size,
+                wav_path.stat().st_size,
                 checksum,
             )
             try:
@@ -441,7 +447,7 @@ class NarrationWorkerRunner:
                 claimed.job_id,
                 claimed.narration_request_id,
                 actual_duration_ms,
-                mp3_path.stat().st_size,
+                wav_path.stat().st_size,
             )
 
     async def _materialize_segment(

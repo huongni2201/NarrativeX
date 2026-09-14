@@ -20,7 +20,7 @@ class _RecordingS3Client:
     def get_object(self, **kwargs: Any) -> dict[str, Any]:
         assert kwargs == {
             "Bucket": "voice-references",
-            "Key": "narration/vieneu-previews/test.wav",
+            "Key": "voices/account-1/test.wav",
         }
         return {
             "Body": _Body(self.content),
@@ -38,7 +38,7 @@ class _RecordingS3Client:
     def head_object(self, **kwargs: Any) -> dict[str, Any]:
         assert kwargs == {
             "Bucket": "voice-references",
-            "Key": "narration/vieneu-previews/test.wav",
+            "Key": "voices/account-1/test.wav",
         }
         return {
             "ContentLength": len(self.content),
@@ -54,22 +54,22 @@ def test_repair_object_adds_sha256_without_changing_voice_bytes() -> None:
     result = repair_object_metadata(
         client,
         bucket="voice-references",
-        storage_key="narration/vieneu-previews/test.wav",
+        storage_key="voices/account-1/test.wav",
     )
 
     checksum = hashlib.sha256(content).hexdigest()
     assert result == {
-        "storageKey": "narration/vieneu-previews/test.wav",
+        "storageKey": "voices/account-1/test.wav",
         "sha256": checksum,
         "sizeBytes": len(content),
         "contentType": "audio/wav",
     }
     assert client.copy_request == {
         "Bucket": "voice-references",
-        "Key": "narration/vieneu-previews/test.wav",
+        "Key": "voices/account-1/test.wav",
         "CopySource": {
             "Bucket": "voice-references",
-            "Key": "narration/vieneu-previews/test.wav",
+            "Key": "voices/account-1/test.wav",
         },
         "MetadataDirective": "REPLACE",
         "Metadata": {"owner": "catalog", "sha256": checksum},
@@ -86,7 +86,7 @@ def test_repair_object_is_idempotent_when_sha256_is_already_correct() -> None:
     result = repair_object_metadata(
         client,
         bucket="voice-references",
-        storage_key="narration/vieneu-previews/test.wav",
+        storage_key="voices/account-1/test.wav",
     )
 
     assert result["sha256"] == checksum

@@ -29,7 +29,7 @@ class AnalysisStepIdentity:
     step_key: str
     owned_source_range: dict[str, Any]
     continuity_inputs: dict[str, Any] = field(default_factory=dict)
-    prompt_version: str = "continuity-v2"
+    prompt_version: str = "continuity-v3-qwen-translation"
     schema_version: int = 1
 
 

@@ -35,6 +35,7 @@ def _structure() -> ChapterStructureResult:
         scenes=[
             SceneStructure(
                 title="Scene",
+                narration="Cảnh kể chuyện.",
                 source_start_anchor="prefix",
                 source_end_anchor="prefix",
                 characters=[{"character_key": "lead"}],
@@ -56,10 +57,13 @@ def _shard(source: str = "prefix") -> VisualBeatShard:
     )
 
 
-def test_structure_prompt_defers_visual_beats_and_full_scene_echo() -> None:
+def test_structure_prompt_requests_target_locale_narration_and_defers_visual_beats() -> None:
     prompt = build_chapter_structure_prompt(_request("full chapter text"))
 
-    assert "Do NOT create visual beats or rewrite scene narration" in prompt
+    assert "Do NOT create visual beats" in prompt
+    assert "narration must be in TARGET_LOCALE" in prompt
+    assert "TARGET_LOCALE=vi-VN" in prompt
+    assert "scenes:[{title,narration" in prompt
     assert "source_start_anchor" in prompt
     assert "source_end_anchor" in prompt
     assert "never duplicate the full scene source" in prompt
@@ -106,7 +110,8 @@ def test_structure_prompt_preserves_untrusted_boundary_and_source_language() -> 
     assert "<UNTRUSTED_CHAPTER>" in prompt
     assert source in prompt
     assert "SOURCE_LANGUAGE=vi-VN" in prompt
-    assert "Use SOURCE_LANGUAGE for every user-facing text field" in prompt
+    assert "Interpret UNTRUSTED_CHAPTER as SOURCE_LANGUAGE input" in prompt
+    assert "TARGET_LOCALE=vi-VN" in prompt
 
 
 def test_structure_prompt_requires_stable_entity_and_continuity_keys() -> None:

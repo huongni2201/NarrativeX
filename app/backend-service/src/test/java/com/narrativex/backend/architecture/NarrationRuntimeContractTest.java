@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 /** Locks critical narration/outbox baseline contracts used across runtime components. */
 class NarrationRuntimeContractTest {
-  private static final String ALIGNMENT_VERSION = "whisper-word-v1";
+  private static final String ALIGNMENT_VERSION = "whisperx-forced-v1";
   private static final String LEGACY_ALIGNMENT_VERSION = "word-whisper-v1";
 
   @Test

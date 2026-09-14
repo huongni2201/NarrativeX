@@ -16,18 +16,23 @@ For an accepted user-provided-audio scope, operation planning omits TTS work/res
 
 Generated narration starts from a persisted source identity and is validated/aligned before downstream use.
 
-### VieNeu
+### VoiceStudio
 
 ```text
 persisted source
   -> sentence-aware segments
-  -> VieNeu inference
-  -> pitch-preserving speaking-rate adjustment (0.25x–2.0x)
-  -> concatenate/encode
+  -> VoiceStudio headless/API inference per segment
+  -> native speaking-rate adjustment (0.25x–4.0x)
+  -> normalize/concatenate 48 kHz mono PCM
+  -> WAV master
   -> validate + SHA-256
-  -> alignment
+  -> WhisperX forced alignment against the known script
   -> local project media store
 ```
+
+The generic `TtsProvider` orchestration contract remains, but production contains only
+`VoiceStudioTtsEngine`. VoiceStudio is a persistent service; NarrativeX does not import its engine
+packages, depend on its Desktop UI, or start a model process per sentence.
 
 Narration admission checks the authenticated account entitlement and reserves concurrent capacity. It has no monetary estimator, pricing snapshot or local/external pricing branch. Source text, project ownership and voice capabilities are validated by the generation use case before admission.
 
@@ -65,7 +70,7 @@ Desktop native picker / existing project AUDIO asset
   -> narration request selects { scope: PROJECT, assetId }
   -> worker resolves the immutable project manifest entry
   -> size/checksum verification
-  -> temporary VieNeu enrollment input
+  -> temporary VoiceStudio reference input
 ```
 
 A PROJECT reference must not carry an R2 storage key. Missing, stale, unsafe or corrupt manifest data fails closed.
@@ -82,7 +87,7 @@ Desktop native picker (MP3/WAV)
   -> READY account VoiceReferenceAsset
   -> narration request selects { scope: ACCOUNT, assetId }
   -> authorized worker downloads only when selected
-  -> temporary VieNeu enrollment input
+  -> temporary VoiceStudio reference input
 ```
 
 ACCOUNT references require ownership, READY state, valid size/SHA-256 and R2 storage metadata.

@@ -79,10 +79,10 @@ async def test_public_narration_completion_uses_uuidv7_for_durable_ids() -> None
         source_hash="a" * 64,
     )
     stored = StoredMediaAsset(
-        storage_key="narration/chapter.mp3",
+        storage_key="narration/chapter.wav",
         checksum="b" * 64,
         size_bytes=4096,
-        mime_type="audio/mpeg",
+        mime_type="audio/wav",
     )
     words = [
         WordAlignment(

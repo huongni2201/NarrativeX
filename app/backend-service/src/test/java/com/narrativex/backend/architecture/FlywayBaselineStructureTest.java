@@ -123,9 +123,11 @@ class FlywayBaselineStructureTest {
     assertFalse(v7.contains("idx_visual_beats_audio_range"));
     assertFalse(v7.contains("short_clip_requests"));
 
-    assertTrue(v8.contains("'VIENEU'"));
+    assertTrue(v8.contains("'VOICESTUDIO'"));
+    assertFalse(v8.contains("'VIENEU'"));
     assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
     assertFalse(v8.contains("\"supportsSpeakingRate\":false"));
+    assertTrue(v8.contains("\"outputFormat\":\"wav\""));
     assertTrue(v8.contains("(1, 'NORMAL', 1"));
     assertTrue(v8.contains("(3, 'PRO', 1"));
     assertTrue(v8.contains("(11, 'ULTRA', 1"));

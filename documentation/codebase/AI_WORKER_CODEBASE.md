@@ -22,10 +22,16 @@ Backend admission
   -> GenerationJob + StageAttempt
   -> worker claim/lease
   -> saved Chapter source
-  -> provider structured result
+  -> private local Qwen3 structured result
   -> stale-source guard
   -> Character/Location/Scene/VisualBeat materialization
 ```
+
+The analysis adapter uses `Qwen/Qwen3-8B-AWQ` behind a private OpenAI-compatible `/v1`
+endpoint. It interprets `source_language`, translates and rewrites scene narration into
+`preferred_locale` for TTS, and emits English visual fields for the downstream image model.
+Chapter content is not submitted to Gemini/Vertex. Each structure/shard/repair inference remains
+covered by the durable checkpoint and provider-operation fence.
 
 ## Provider-operation fence
 
@@ -35,11 +41,14 @@ fact provenance contract. Shard output includes one ordered `continuityStates` e
 null value/evidence/canon ID; `APPROVED_CANON` requires a value and supplied canon version ID.
 Pydantic remains authoritative: invalid facts are rejected, never silently downgraded or repaired
 by inventing evidence. Validation logs expose field paths and stable `continuity_*` rule codes,
-without rejected story values. Prompt identity `continuity-v2` separates these requests from
-older checkpoint fingerprints. A failed analysis may leave no materialized continuity plan;
+without rejected story values. Prompt identity `continuity-v3-qwen-translation` separates local
+translated-narration requests from older Vertex/source-language checkpoint fingerprints. A failed
+analysis may leave no materialized continuity plan;
 the corresponding continuity GET then returns 404.
 
-External provider work persists request identity before submission. Ambiguous outcomes remain `UNKNOWN` and reconcile before resubmission. Lease loss prevents stale owners from creating new durable side effects or finalizing success.
+Provider work persists request identity before submission. Ambiguous local inference outcomes
+remain `UNKNOWN` and require operator reconciliation before resubmission. Lease loss prevents stale
+owners from creating new durable side effects or finalizing success.
 
 ## Image generation
 
@@ -59,13 +68,19 @@ Generated image bytes are written to the configured project-media local root. Th
 
 ```text
 TTS
-  -> VieNeu/provider execution
-  -> validate/normalize
+  -> VoiceStudioTtsEngine over the private headless API
+  -> one WAV response per narration segment
+  -> normalize/assemble a 48 kHz mono WAV master
+  -> WhisperX forced alignment with the known Vietnamese script
   -> project-local narration output
-  -> alignment
 ```
 
 Generated narration uses `PROJECT_MEDIA_LOCAL_DIR` as its canonical storage root. The removed `media_storage_mode` / `media_local_dir` compatibility aliases must not be restored.
+
+`TtsProvider` remains the orchestration contract (the code-level equivalent of `TtsEngine`), but
+production has exactly one implementation: `VoiceStudioTtsEngine`. The worker never imports or
+spawns VoiceStudio's model runtime; it calls one persistent service and serializes requests by
+default for an 8 GB GPU.
 
 Account-owned custom voice references are separate: an authorized reference may be read from R2 and copied into local/ephemeral execution storage for inference. Generated narration output still remains project-local.
 

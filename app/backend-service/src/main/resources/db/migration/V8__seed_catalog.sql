@@ -2,16 +2,9 @@
 -- Application/user content must never be embedded in Flyway migrations.
 
 INSERT INTO plan_entitlements (
-    id,
-    plan_key,
-    version,
-    watermark_required,
-    max_video_quality,
-    max_longform_exports_month,
-    max_short_exports_month,
-    max_concurrent_expensive_jobs,
-    feature_flags_json,
-    active_from
+    id, plan_key, version, watermark_required, max_video_quality,
+    max_longform_exports_month, max_short_exports_month,
+    max_concurrent_expensive_jobs, feature_flags_json, active_from
 )
 VALUES
     (1, 'NORMAL', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, CURRENT_TIMESTAMP),
@@ -31,15 +24,8 @@ SELECT setval(
 );
 
 INSERT INTO style_presets (
-    id,
-    name,
-    category,
-    description,
-    thumbnail_url,
-    prompt_suffix,
-    negative_prompt,
-    tags_json,
-    config_json
+    id, name, category, description, thumbnail_url, prompt_suffix,
+    negative_prompt, tags_json, config_json
 )
 VALUES
     (
@@ -73,36 +59,18 @@ SELECT setval(
 );
 
 INSERT INTO voice_catalog (
-    id,
-    provider,
-    name,
-    language,
-    gender,
-    sample_url,
-    metadata_json
+    id, provider, name, language, gender, sample_url, metadata_json
 )
 VALUES
-    ('vieneu-ngoc-huyen-v2', 'VIENEU', 'Ngọc Huyền v2', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-ngoc-huyen-v2.wav', '{"style":"natural","local":true,"voiceSource":"SYSTEM_REFERENCE","referenceStorageKey":"narration/vieneu-previews/vieneu-ngoc-huyen-v2.wav","sdkVoiceName":"Ngọc Huyền v2","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-minh-duc', 'VIENEU', 'Minh Đức', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-minh-duc.wav', '{"style":"natural","local":true,"sdkVoiceName":"Minh Đức","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-truc-ly', 'VIENEU', 'Trúc Ly', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-truc-ly.wav', '{"style":"gentle","local":true,"sdkVoiceName":"Trúc Ly","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-mai-anh', 'VIENEU', 'Mai Anh', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-mai-anh.wav', '{"style":"expressive","local":true,"sdkVoiceName":"Mai Anh","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-quynh-anh', 'VIENEU', 'Quỳnh Anh', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-quynh-anh.wav', '{"style":"clear","local":true,"sdkVoiceName":"Quỳnh Anh","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-doan-trang', 'VIENEU', 'Đoan Trang', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-doan-trang.wav', '{"style":"warm","local":true,"sdkVoiceName":"Đoan Trang","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-pham-tuyen', 'VIENEU', 'Phạm Tuyên', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-pham-tuyen.wav', '{"style":"formal","local":true,"sdkVoiceName":"Phạm Tuyên","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-quang-son', 'VIENEU', 'Quang Sơn', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-quang-son.wav', '{"style":"narrative","local":true,"sdkVoiceName":"Quang Sơn","region":"Trung","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-ngoc-tran', 'VIENEU', 'Ngọc Trân', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-ngoc-tran.wav', '{"style":"melodic","local":true,"sdkVoiceName":"Ngọc Trân","region":"Trung","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-adam', 'VIENEU', 'Adam', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-adam.wav', '{"style":"standard","local":true,"sdkVoiceName":"Adam","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-xuan-vinh', 'VIENEU', 'Xuân Vĩnh', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-xuan-vinh.wav', '{"style":"deep","local":true,"sdkVoiceName":"Xuân Vĩnh","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-thai-son', 'VIENEU', 'Thái Sơn', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-thai-son.wav', '{"style":"energetic","local":true,"sdkVoiceName":"Thái Sơn","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-thuy-dung', 'VIENEU', 'Thùy Dung', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-thuy-dung.wav', '{"style":"soft","local":true,"sdkVoiceName":"Thùy Dung","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-my-duyen', 'VIENEU', 'Mỹ Duyên', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-my-duyen.wav', '{"style":"bright","local":true,"sdkVoiceName":"Mỹ Duyên","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-minh-triet', 'VIENEU', 'Minh Triết', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-minh-triet.wav', '{"style":"confident","local":true,"sdkVoiceName":"Minh Triết","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-duc-tri', 'VIENEU', 'Đức Trí', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-duc-tri.wav', '{"style":"mature","local":true,"sdkVoiceName":"Đức Trí","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-thuc-doan', 'VIENEU', 'Thục Đoan', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-thuc-doan.wav', '{"style":"friendly","local":true,"sdkVoiceName":"Thục Đoan","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-ngoc-huyen', 'VIENEU', 'Ngọc Huyền', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-ngoc-huyen.wav', '{"style":"natural","local":true,"voiceSource":"PRESET","sdkVoiceName":"Ngọc Huyền","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-thanh-binh', 'VIENEU', 'Thanh Bình', 'vi-VN', 'MALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-thanh-binh.wav', '{"style":"storytelling","local":true,"voiceSource":"PRESET","sdkVoiceName":"Thanh Bình","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-ngoc-linh', 'VIENEU', 'Ngọc Linh', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-ngoc-linh.wav', '{"style":"storytelling","local":true,"voiceSource":"PRESET","sdkVoiceName":"Ngọc Linh","region":"Bắc","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb),
-    ('vieneu-kim-thanh', 'VIENEU', 'Kim Thanh', 'vi-VN', 'FEMALE', 'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-kim-thanh.wav', '{"style":"audiobook","local":true,"voiceSource":"PRESET","sdkVoiceName":"Kim Thanh","region":"Nam","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":true,"sampleRateHz":48000,"executionSemantics":"LOCAL_RETRYABLE"}'::jsonb)
+    (
+        'voicestudio-default',
+        'VOICESTUDIO',
+        'VoiceStudio Default',
+        'vi-VN',
+        'NEUTRAL',
+        NULL,
+        '{"style":"natural","local":true,"profileId":"default","model":"tts-1","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":false,"sampleRateHz":48000,"outputFormat":"wav","executionSemantics":"LOCAL_RETRYABLE"}'::jsonb
+    )
 ON CONFLICT (id) DO UPDATE
 SET provider = EXCLUDED.provider,
     name = EXCLUDED.name,
@@ -114,12 +82,7 @@ SET provider = EXCLUDED.provider,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO user_plan_assignments (
-    user_id,
-    plan_key,
-    entitlement_version,
-    status,
-    period_start,
-    period_end
+    user_id, plan_key, entitlement_version, status, period_start, period_end
 )
 SELECT au.id,
        pe.plan_key,

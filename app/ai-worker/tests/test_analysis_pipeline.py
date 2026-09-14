@@ -47,6 +47,7 @@ class FakeStructuredAdapter:
                 "scenes": [
                     {
                         "title": "Room",
+                        "narration": "Lan đặt thanh kiếm lên bàn.",
                         "source_start_anchor": "Lan đặt kiếm lên bàn.",
                         "source_end_anchor": "Lan đặt kiếm lên bàn.",
                         "characters": [{"character_key": "lan"}],
@@ -171,6 +172,7 @@ async def test_pipeline_builds_continuity_before_parallel_shards_and_returns_pas
 
     assert result.report.status.value == "PASS"
     assert result.continuity_plan.source_hash == request.source_hash
+    assert result.analysis.scenes[0].narration == "Lan đặt thanh kiếm lên bàn."
     assert result.analysis.scenes[0].visual_beats[0].source_anchor == source
     assert "CONTINUITY_CONTEXT=" in adapter.prompts[1]
     assert "READ_ONLY_CONTEXT" in adapter.prompts[1]
@@ -204,7 +206,7 @@ async def test_blocking_continuity_conflict_triggers_bounded_repair_and_can_reco
     )
     assert "continuityStates:[{beatKey,entryFacts:" in adapter.prompts[2]
     assert all(
-        identity.prompt_version == "continuity-v2"
+        identity.prompt_version == "continuity-v3-qwen-translation"
         for identity in adapter.identities
         if identity is not None
     )

@@ -75,7 +75,7 @@ class GenerateChapterNarrationUseCaseTest {
                 chapterId, storyVersionId, 7L, "a".repeat(64), "Narration source text"));
     when(projectAccess.findOwnedProject(projectId, ownerId)).thenReturn(project);
     when(project.getSourceLanguage()).thenReturn("vi");
-    when(voiceCatalogAccess.findVoice("vieneu-disabled")).thenReturn(Optional.empty());
+    when(voiceCatalogAccess.findVoice("voicestudio-disabled")).thenReturn(Optional.empty());
 
     var useCase =
         new GenerateChapterNarrationUseCase(
@@ -98,7 +98,7 @@ class GenerateChapterNarrationUseCaseTest {
             () ->
                 useCase.execute(
                     new GenerateChapterNarrationCommand(
-                        projectId, chapterId, "vieneu-disabled", BigDecimal.ONE, null)))
+                        projectId, chapterId, "voicestudio-disabled", BigDecimal.ONE, null)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("unavailable or disabled");
 

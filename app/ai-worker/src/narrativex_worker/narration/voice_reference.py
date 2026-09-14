@@ -1,4 +1,4 @@
-"""Prepare user-provided VieNeu reference audio in an ephemeral job workspace."""
+"""Prepare user-provided VoiceStudio reference audio in an ephemeral job workspace."""
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ SUPPORTED_REFERENCE_CONTENT_TYPES = {
 
 
 class VoiceReferenceAudioError(ValueError):
-    """The uploaded reference cannot satisfy VieNeu's voice-cloning contract."""
+    """The uploaded reference cannot satisfy VoiceStudio's voice-cloning contract."""
 
 
 def prepare_voice_reference(
@@ -34,14 +34,14 @@ def prepare_voice_reference(
     try:
         from pydub import AudioSegment  # type: ignore[import-untyped]
     except ImportError as exception:
-        raise RuntimeError("VieNeu voice uploads require the pydub package") from exception
+        raise RuntimeError("VoiceStudio voice uploads require the pydub package") from exception
 
     normalized_content_type = (content_type or "").strip().lower()
     audio_format: str | None = None
     if normalized_content_type:
         audio_format = SUPPORTED_REFERENCE_CONTENT_TYPES.get(normalized_content_type)
         if audio_format is None:
-            raise VoiceReferenceAudioError("VieNeu voice reference must be an MP3 or WAV file")
+            raise VoiceReferenceAudioError("VoiceStudio voice reference must be an MP3 or WAV file")
 
     try:
         if audio_format is None:

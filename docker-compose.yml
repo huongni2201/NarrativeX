@@ -59,10 +59,10 @@ services:
       NARRATIVEX_IMAGE_EXECUTION_MODE: ${NARRATIVEX_IMAGE_EXECUTION_MODE:-batch}
       NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:-15m}
       PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media
-      VERTEX_GEMINI_ENABLED: "true"
+      QWEN_ENABLED: "true"
+      QWEN_RUNTIME: vllm-local
+      QWEN_MODEL: ${QWEN_MODEL:-Qwen/Qwen3-8B-AWQ}
       GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT in .env}
-      VERTEX_LOCATION: ${VERTEX_LOCATION:-us-central1}
-      VERTEX_GEMINI_MODEL: ${VERTEX_GEMINI_MODEL:-gemini-2.5-flash}
       # R2 is backend-owned only for authenticated voice-reference upload/finalization.
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
@@ -105,15 +105,17 @@ services:
       MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES:-104857600}
       MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES:-104857600}
       MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES:-1073741824}
-      AI_PROVIDER_MODE: vertex
+      AI_PROVIDER_MODE: qwen
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:8000/v1}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      QWEN_MODEL: ${QWEN_MODEL:-Qwen/Qwen3-8B-AWQ}
+      QWEN_TIMEOUT_SECONDS: ${QWEN_TIMEOUT_SECONDS:-600}
+      QWEN_MAX_OUTPUT_TOKENS: ${QWEN_MAX_OUTPUT_TOKENS:-16384}
+      QWEN_ANALYSIS_SHARD_CONCURRENCY: ${QWEN_ANALYSIS_SHARD_CONCURRENCY:-1}
+      QWEN_ANALYSIS_SHARD_TARGET_BEATS: ${QWEN_ANALYSIS_SHARD_TARGET_BEATS:-12}
+      QWEN_ANALYSIS_SHARD_MAX_BEATS: ${QWEN_ANALYSIS_SHARD_MAX_BEATS:-20}
+      QWEN_ANALYSIS_REPAIR_ATTEMPTS: ${QWEN_ANALYSIS_REPAIR_ATTEMPTS:-1}
       VERTEX_PROJECT_ID: ${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT in .env}
-      VERTEX_LOCATION: ${VERTEX_LOCATION:-us-central1}
-      VERTEX_MODEL: ${VERTEX_GEMINI_MODEL:-gemini-2.5-flash}
-      VERTEX_TIMEOUT_SECONDS: ${VERTEX_TIMEOUT_SECONDS:-120}
-      VERTEX_ANALYSIS_SHARD_CONCURRENCY: ${VERTEX_ANALYSIS_SHARD_CONCURRENCY:-3}
-      VERTEX_ANALYSIS_SHARD_TARGET_BEATS: ${VERTEX_ANALYSIS_SHARD_TARGET_BEATS:-12}
-      VERTEX_ANALYSIS_SHARD_MAX_BEATS: ${VERTEX_ANALYSIS_SHARD_MAX_BEATS:-20}
-      VERTEX_ANALYSIS_REPAIR_ATTEMPTS: ${VERTEX_ANALYSIS_REPAIR_ATTEMPTS:-1}
       IMAGE_PROVIDER_MODE: vertex
       VERTEX_IMAGE_MODEL: ${NARRATIVEX_IMAGE_MODEL:-gemini-2.5-flash-image}
       VERTEX_IMAGE_LOCATION: ${VERTEX_IMAGE_LOCATION:-global}
@@ -153,6 +155,8 @@ services:
     depends_on:
       backend: { condition: service_healthy }
       postgres: { condition: service_healthy }
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks: [appnet]
 
   narration-worker:
@@ -183,23 +187,16 @@ services:
       MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES:-1073741824}
       AI_PROVIDER_MODE: disabled
       IMAGE_PROVIDER_MODE: disabled
-      TTS_PROVIDER_MODE: vieneu
-      NARRATION_MP3_BITRATE: ${NARRATION_MP3_BITRATE:-96k}
-      VIENEU_BACKEND: ${VIENEU_BACKEND:-onnx}
-      VIENEU_PRECISION: ${VIENEU_PRECISION:-int8}
-      VIENEU_THREADS: ${VIENEU_THREADS:-4}
-      VIENEU_BATCH_MAX_SEGMENTS: ${VIENEU_BATCH_MAX_SEGMENTS:-8}
-      VIENEU_MAX_BATCH_SIZE: ${VIENEU_MAX_BATCH_SIZE:-32}
-      VIENEU_INFERENCE_CONCURRENCY: ${VIENEU_INFERENCE_CONCURRENCY:-1}
-      OMP_NUM_THREADS: "${VIENEU_OMP_NUM_THREADS:-4}"
-      MKL_NUM_THREADS: "${VIENEU_MKL_NUM_THREADS:-4}"
-      OPENBLAS_NUM_THREADS: "${VIENEU_OPENBLAS_NUM_THREADS:-1}"
-      NUMEXPR_NUM_THREADS: "${VIENEU_NUMEXPR_NUM_THREADS:-1}"
-      VIENEU_DENOISE_REFERENCE: ${VIENEU_DENOISE_REFERENCE:-true}
-      VIENEU_SAVE_VOICE_PROFILE: ${VIENEU_SAVE_VOICE_PROFILE:-false}
-      VIENEU_FORCE_REENROLL: ${VIENEU_FORCE_REENROLL:-false}
-      VIENEU_APPLY_WATERMARK: ${VIENEU_APPLY_WATERMARK:-false}
-      # R2 is read-only from narration and supplies system/custom voice references per job.
+      TTS_PROVIDER_MODE: voicestudio
+      TTS_SEGMENT_BATCH_SIZE: ${TTS_SEGMENT_BATCH_SIZE:-8}
+      VOICESTUDIO_BASE_URL: http://voicestudio:3900
+      VOICESTUDIO_API_KEY: ${VOICESTUDIO_API_KEY:?Set VOICESTUDIO_API_KEY in .env}
+      VOICESTUDIO_MODEL: ${VOICESTUDIO_MODEL:-tts-1}
+      VOICESTUDIO_VOICE_ID: ${VOICESTUDIO_VOICE_ID:-voicestudio-default}
+      VOICESTUDIO_VOICE_PROFILE_ID: ${VOICESTUDIO_VOICE_PROFILE_ID:-default}
+      VOICESTUDIO_TIMEOUT_SECONDS: ${VOICESTUDIO_TIMEOUT_SECONDS:-600}
+      VOICESTUDIO_INFERENCE_CONCURRENCY: ${VOICESTUDIO_INFERENCE_CONCURRENCY:-1}
+      # R2 is read-only from narration and supplies selected custom voice references.
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
@@ -211,14 +208,31 @@ services:
         target: /data/narrativex/project-media
         bind:
           create_host_path: true
-      - vieneu-home:/home/appuser
+      - narration-model-cache:/home/appuser/.cache/huggingface
     depends_on:
       backend: { condition: service_healthy }
       postgres: { condition: service_healthy }
+      voicestudio: { condition: service_healthy }
+    networks: [appnet]
+
+  voicestudio:
+    image: ${VOICESTUDIO_IMAGE:-ghcr.io/debpalash/omnivoice-studio:0.5.2}
+    restart: unless-stopped
+    gpus: all
+    environment:
+      OMNIVOICE_API_KEY: ${VOICESTUDIO_API_KEY:?Set VOICESTUDIO_API_KEY in .env}
+      OMNIVOICE_DEVICE: cuda
+      OMNIVOICE_SINGLE_ENGINE_RESIDENT: "1"
+    volumes:
+      - voicestudio-data:/app/omnivoice_data
+      - voicestudio-model-cache:/root/.cache/huggingface
+    ports: ["127.0.0.1:3900:3900"]
     networks: [appnet]
 
 networks:
   appnet: { driver: bridge }
 volumes:
   postgres-data:
-  vieneu-home:
+  narration-model-cache:
+  voicestudio-data:
+  voicestudio-model-cache:

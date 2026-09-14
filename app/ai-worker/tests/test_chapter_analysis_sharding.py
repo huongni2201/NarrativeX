@@ -15,13 +15,12 @@ def _scene_source(marker: str, words: int) -> str:
 def _structure(source: str) -> ChapterStructureResult:
     first, second = source.split("\n\n", 1)
     return ChapterStructureResult(
-        characters=[
-            CharacterAnalysis(key="lead", name="Lead", visual_prompt="stable lead")
-        ],
+        characters=[CharacterAnalysis(key="lead", name="Lead", visual_prompt="stable lead")],
         locations=[LocationAnalysis(key="room", name="Room", visual_prompt="stable room")],
         scenes=[
             SceneStructure(
                 title="First",
+                narration="First translated narration",
                 source_start_anchor=first[: min(32, len(first))],
                 source_end_anchor=first[-min(32, len(first)) :],
                 characters=[{"character_key": "lead"}],
@@ -29,6 +28,7 @@ def _structure(source: str) -> ChapterStructureResult:
             ),
             SceneStructure(
                 title="Second",
+                narration="Second translated narration",
                 source_start_anchor=second[: min(32, len(second))],
                 source_end_anchor=second[-min(32, len(second)) :],
                 characters=[{"character_key": "lead"}],
@@ -96,11 +96,13 @@ def test_planner_uses_scene_anchors_as_hints_without_dropping_source_edges() -> 
         scenes=[
             SceneStructure(
                 title="First",
+                narration="First translated narration",
                 source_start_anchor="BEGIN_ALPHA alpha one",
                 source_end_anchor="alpha two END_ALPHA",
             ),
             SceneStructure(
                 title="Second",
+                narration="Second translated narration",
                 source_start_anchor="BEGIN_BETA beta one",
                 source_end_anchor="beta two END_BETA",
             ),
@@ -120,9 +122,7 @@ def test_long_scene_keeps_each_shard_near_configured_target() -> None:
 
     scene_zero = [shard for shard in shards if shard.scene_index == 0]
     assert len(scene_zero) == 3
-    assert all(
-        1 <= shard.minimum_beats <= shard.target_beats <= 20 for shard in scene_zero
-    )
+    assert all(1 <= shard.minimum_beats <= shard.target_beats <= 20 for shard in scene_zero)
     assert max(shard.target_beats for shard in scene_zero) <= 12
 
 
@@ -182,11 +182,8 @@ def test_merge_rejects_more_than_shard_maximum_beats() -> None:
         raise AssertionError("expected over-dense shard to be rejected")
 
 
-def test_merge_reconstructs_source_preserving_scene_narration() -> None:
-    source = (
-        "BEGIN_ALPHA alpha one alpha two END_ALPHA\n\n"
-        "BEGIN_BETA beta one beta two END_BETA"
-    )
+def test_merge_preserves_translated_scene_narration() -> None:
+    source = "BEGIN_ALPHA alpha one alpha two END_ALPHA\n\nBEGIN_BETA beta one beta two END_BETA"
     structure = _structure(source)
     shards = plan_visual_beat_shards(source, structure, target_beats=12, max_beats=20)
     results: dict[tuple[int, int], VisualBeatShardResult] = {}
@@ -199,7 +196,10 @@ def test_merge_reconstructs_source_preserving_scene_narration() -> None:
     merged = merge_shard_results(structure, shards, results)
 
     assert len(merged.scenes) == 2
-    assert "".join(scene.narration for scene in merged.scenes) == source
+    assert [scene.narration for scene in merged.scenes] == [
+        "First translated narration",
+        "Second translated narration",
+    ]
     assert sum(len(scene.visual_beats) for scene in merged.scenes) == sum(
         shard.minimum_beats for shard in shards
     )

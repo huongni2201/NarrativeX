@@ -87,12 +87,14 @@ def test_shard_context_filters_unrelated_character_facts_and_bounds_neighbor_sou
         scenes=[
             SceneStructure(
                 title="Present",
+                narration="Đèn tắt.",
                 source_start_anchor="Đèn tắt.",
                 source_end_anchor="Đèn tắt.",
                 characters=[],
             ),
             SceneStructure(
                 title="Past",
+                narration="Ngày trước, An mặc áo trắng.",
                 source_start_anchor="Ngày trước",
                 source_end_anchor="áo trắng.",
                 characters=[SceneCharacterRef(character_key="an")],
@@ -136,8 +138,7 @@ def test_shard_context_filters_unrelated_character_facts_and_bounds_neighbor_sou
     assert "Ngày trước" in first.neighbor_source
     assert "Đèn tắt." in second.neighbor_source
     assert all(
-        fact.subject_key != "other"
-        for fact in second.entry_facts + second.expected_exit_facts
+        fact.subject_key != "other" for fact in second.entry_facts + second.expected_exit_facts
     )
 
 
@@ -179,6 +180,7 @@ def test_later_shard_entry_includes_event_applied_in_earlier_shard() -> None:
         scenes=[
             SceneStructure(
                 title="Room",
+                narration="An bước vào rồi ngồi xuống.",
                 source_start_anchor="An bước vào.",
                 source_end_anchor="An ngồi xuống.",
                 characters=[SceneCharacterRef(character_key="an")],

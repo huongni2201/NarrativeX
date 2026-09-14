@@ -15,7 +15,7 @@ from narrativex_worker.narration.storage import (
     MediaStorage,
     StoredMediaAsset,
 )
-from narrativex_worker.narration.word_alignment import WhisperWordAligner, WordAlignmentError
+from narrativex_worker.narration.word_alignment import WhisperXWordAligner, WordAlignmentError
 
 __all__ = [
     "FakeTtsProvider",
@@ -31,7 +31,7 @@ __all__ = [
     "SynthesizedSegment",
     "TtsProvider",
     "TtsRequest",
-    "WhisperWordAligner",
+    "WhisperXWordAligner",
     "WordAlignment",
     "WordAlignmentError",
     "utf16_length",

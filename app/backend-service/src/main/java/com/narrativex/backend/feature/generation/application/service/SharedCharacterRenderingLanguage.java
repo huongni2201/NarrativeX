@@ -11,22 +11,21 @@ final class SharedCharacterRenderingLanguage {
 
     return """
         CHARACTER RENDERING LANGUAGE:
-        - premium modern manhwa and webnovel promotional key-art quality
-        - high-end 2.5D digital painting with polished Korean webtoon rendering quality
-        - idealized mature protagonist proportions while preserving canonical identity
-        - elegant refined facial planes and clearly constructed jawline
-        - sharp expressive eyes with proportional scale, never oversized childish anime eyes
-        - luminous layered iris detail with crisp, controlled catchlights
-        - detailed eyelashes that remain natural and never doll-like
-        - high-detail layered hair with individually readable strand groups, strong volume, and a stable recognizable silhouette
-        - clean painterly illustrated skin with subtle tonal transitions, not photographic pore texture
-        - premium wardrobe rendering with crisp folds and intentional silhouette
-        - dimensional cinematic lighting with readable shadows, polished highlights, and controlled rim light
-        - rich clean color separation with deep contrast and restrained accent colors
-        - premium commercial manhwa cover-art finish even when the image is a storyboard scene
+        - premium semi-realistic 3D CGI, like a high-budget East Asian animated feature or cinematic game cutscene
+        - balance approximately 70 percent believable realism with 30 percent anime-influenced idealization
+        - preserve canonical identity, apparent age, ethnicity, facial geometry, body proportions, and permanent traits
+        - elegant but believable facial planes with a natural refined jawline, chin, nose, lips, ears, and hairline
+        - proportional almond-shaped expressive eyes, never oversized childish anime eyes
+        - moist layered irises with restrained, physically coherent catchlights and natural eyelashes
+        - strand-level layered hair with fine flyaways, natural volume, and a stable recognizable silhouette
+        - physically based materials and soft subsurface skin scattering with subtle pores and natural tonal variation
+        - detailed wardrobe materials with readable weave, natural folds, and a canon-faithful silhouette
+        - soft cinematic motivated light, gentle fill, subtle rim light, readable shadows, and soft highlight roll-off
+        - restrained filmic color grading, moderate contrast, natural skin tones, and controlled saturation
+        - dimensional cinematic depth with atmospheric perspective and creamy bokeh when the requested shot permits it
 
         FACE QUALITY PRIORITY:
-        - if a character face is visible, render it with the same care as a standalone premium protagonist illustration
+        - if a character face is visible, render it with the same care as a premium animated-feature close-up
         - do not simplify facial anatomy, eye design, hair structure, or skin shading because the scene includes action or background
         - when the camera is close enough for the face to read clearly, facial fidelity is more important than generic stylization shortcuts
 
@@ -34,9 +33,9 @@ final class SharedCharacterRenderingLanguage {
         - do not enlarge the eyes
         - do not make the face rounder, younger, softer, or more childlike unless the canon explicitly requires it
         - do not collapse layered hair into flat helmet-like masses
-        - do not switch to flat cel shading or generic anime simplification
+        - do not switch to flat cel shading, 2.5D painterly illustration, or generic anime simplification
         - do not reduce mature characters to teenage anime proportions
-        - do not weaken the character into an ordinary generic office portrait or low-detail stock anime look
+        - do not drift into raw live-action photography, plastic doll CGI, a beauty-filter portrait, or low-detail stock anime
         """;
   }
 

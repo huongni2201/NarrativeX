@@ -12,6 +12,7 @@ from narrativex_worker.providers.ports import (
     ProviderCapabilities,
     ProviderOperation,
 )
+from narrativex_worker.providers.qwen_continuity import ContinuityQwenProvider
 from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
     ALLOWED_PROVIDER_TRANSITIONS,
@@ -138,6 +139,13 @@ def test_vertex_provider_fails_fast_without_project() -> None:
 
     with pytest.raises(VertexProviderError, match="VERTEX_PROJECT_ID is required"):
         NarrativeXWorker(settings=settings)
+
+
+def test_qwen_mode_selects_local_continuity_provider() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test", provider_mode="qwen"))
+
+    assert isinstance(worker.service.provider, ContinuityQwenProvider)
+    assert worker.service.provider.get_capabilities().provider_key == "qwen-local"
 
 
 def test_worker_custom_settings() -> None:

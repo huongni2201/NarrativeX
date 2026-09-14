@@ -61,6 +61,47 @@ class FfmpegAudioAssembler:
         if not output_path.is_file() or output_path.stat().st_size == 0:
             raise RuntimeError("ffmpeg returned empty MP3 output")
 
+    async def encode_wav_file(
+        self,
+        input_path: Path,
+        output_path: Path,
+        *,
+        sample_rate_hz: int,
+        channels: int,
+    ) -> None:
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "s16le",
+            "-ar",
+            str(sample_rate_hz),
+            "-ac",
+            str(channels),
+            "-i",
+            str(input_path),
+            "-c:a",
+            "pcm_s16le",
+            "-f",
+            "wav",
+            str(output_path),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await process.communicate()
+        except asyncio.CancelledError:
+            process.kill()
+            await process.wait()
+            raise
+        if process.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')[:1000]}")
+        if not output_path.is_file() or output_path.stat().st_size == 0:
+            raise RuntimeError("ffmpeg returned empty WAV output")
+
     async def encode_mp3(
         self,
         pcm_bytes: bytes,

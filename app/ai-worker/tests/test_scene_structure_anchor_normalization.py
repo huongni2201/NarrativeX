@@ -10,6 +10,7 @@ def test_scene_structure_normalizes_overlong_boundary_anchors() -> None:
     scene = SceneStructure.model_validate(
         {
             "title": "Scene",
+            "narration": "Cảnh đã được viết lại.",
             "source_start_anchor": start_anchor,
             "source_end_anchor": end_anchor,
         }

@@ -13,13 +13,13 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Backend | Java 25, Spring Boot 4.1.1, Security/OAuth2, Spring Session JDBC, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL + Spring Session JDBC | sole production application persistence path, including durable queues, server sessions and one-time OAuth handoffs |
 | Queue execution | PostgreSQL polling + row locking/leases | workers claim durable jobs directly; no Redis/broker/NOTIFY dependency |
-| Worker | Python 3.12+, Pydantic 2.13.5, pydantic-settings 2.15.0, HTTPX 0.28.1, asyncpg 0.31.0, google-auth 2.57.0 | asynchronous analysis/image/narration/media-validation execution |
-| Worker media/AI extras | boto3 1.43.83, Pillow 12.3.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, NumPy 1.26.4, pydub 0.25.1 | voice-reference R2 access, narration and image/media processing |
+| Worker | Python 3.12+, Pydantic 2.13.5, pydantic-settings 2.15.0, HTTPX 0.28.1, asyncpg 0.31.0, google-auth 2.57.0 | local Qwen analysis plus asynchronous image/narration/media-validation execution; Google auth remains temporary for the Vertex image adapter |
+| Worker media/AI extras | boto3 1.43.83, Pillow 12.3.0, faster-whisper 1.2.1, WhisperX 3.8.6, torch/torchaudio 2.8.0, NumPy 1.26.4, pydub 0.25.1 | video transcription, forced alignment, voice-reference R2 access and image/media processing; the TTS model stays inside VoiceStudio |
 | Worker quality/build | Hatchling 1.32.0, pytest 9.1.1, pytest-asyncio 1.4.0, Ruff 0.16.5, mypy 2.3.1 | reproducible worker packaging, tests, lint and strict type checks |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
-| AI analysis | Vertex Gemini | structured Chapter analysis from saved Chapter source |
+| AI analysis | Qwen3 8B AWQ + private local OpenAI-compatible endpoint | Chinese Chapter interpretation, Vietnamese TTS-ready rewrite, continuity and structured scene/VisualBeat planning on an 8 GB GPU |
 | Image generation | Vertex Gemini worker execution + Gemini Web Chrome/CDP Desktop automation | API jobs and Desktop web generation; accepted project image results are project-local |
-| Narration | VieNeu + user-provided audio | generated/imported narration from saved Chapter content; narration remains the master clock |
+| Narration | VoiceStudio 0.5.2 headless API + WhisperX + user-provided audio | segmented TTS, 48 kHz mono WAV master and forced alignment; narration remains the master clock |
 | Visual timing | source-anchor resolver + backend `NarrationTextClockMapper` | `source_anchor -> UTF-16 text range -> narration alignment -> production beat clock` |
 | Remote object storage | Cloudflare R2 | authenticated reusable ACCOUNT voice-reference/custom-voice assets only |
 | Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, PROJECT voice references, backups, render work/cache and final artifacts |

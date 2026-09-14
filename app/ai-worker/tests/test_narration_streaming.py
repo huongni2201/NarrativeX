@@ -123,7 +123,7 @@ class _FileAudio:
             for input_path in input_paths:
                 output.write(input_path.read_bytes())
 
-    async def encode_mp3_file(
+    async def encode_wav_file(
         self,
         input_path: Path,
         output_path: Path,
@@ -132,7 +132,7 @@ class _FileAudio:
         channels: int,
     ) -> None:
         del sample_rate_hz, channels
-        output_path.write_bytes(b"encoded-mp3:" + input_path.read_bytes())
+        output_path.write_bytes(b"encoded-wav:" + input_path.read_bytes())
 
     async def probe_duration_ms_file(self, path: Path) -> int:
         assert path.is_file()
@@ -275,8 +275,8 @@ async def test_r2_adapter_uses_chunked_file_download_and_file_upload(tmp_path: P
 def test_file_duration_probe_does_not_delete_workspace_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    output_path = tmp_path / "chapter.mp3"
-    output_path.write_bytes(b"mp3")
+    output_path = tmp_path / "chapter.wav"
+    output_path.write_bytes(b"wav")
 
     monkeypatch.setattr(
         "narrativex_worker.narration.audio.subprocess.run",

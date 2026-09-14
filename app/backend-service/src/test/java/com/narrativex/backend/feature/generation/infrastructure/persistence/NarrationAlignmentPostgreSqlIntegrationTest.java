@@ -99,7 +99,7 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
         AUDIO_PROJECT_ASSET_ID,
         "c".repeat(64));
     jdbcTemplate.update(
-        "INSERT INTO narration_alignments (id, narration_asset_id, source_hash, alignment_version, words_json) VALUES (?, ?, ?, 'whisper-word-v1', CAST(? AS jsonb))",
+        "INSERT INTO narration_alignments (id, narration_asset_id, source_hash, alignment_version, words_json) VALUES (?, ?, ?, 'whisperx-forced-v1', CAST(? AS jsonb))",
         ALIGNMENT_ID,
         NARRATION_ASSET_ID,
         SOURCE_HASH,

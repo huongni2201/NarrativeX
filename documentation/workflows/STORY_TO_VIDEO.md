@@ -74,9 +74,9 @@ Image-only camera/motion controls must not be shown as if they apply identically
 
 ```text
 TTS
-  -> VieNeu/provider execution
-  -> validate/normalize
-  -> alignment
+  -> VoiceStudio headless API per segment
+  -> 48 kHz mono WAV master
+  -> WhisperX forced alignment against the Vietnamese script
   -> local project media / Desktop materialization
 
 USER_PROVIDED_AUDIO

@@ -7,6 +7,7 @@ import unicodedata
 import wave
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from narrativex_worker.narration.models import WordAlignment
@@ -87,29 +88,22 @@ class _BackPointer:
     exact: bool
 
 
-class WhisperWordAligner:
-    """Map narration audio to source words using measured Whisper timestamps.
-
-    Every output interval comes directly from one or more contiguous Whisper word
-    intervals. Language-aware speech normalization may group multiple measured tokens
-    into one source word, but the aligner never splits or interpolates measured timing.
-    """
+class WhisperXWordAligner:
+    """Force-align the known narration script against the exact rendered WAV with WhisperX."""
 
     def __init__(
         self,
         *,
-        model_size: str = "small",
         device: str = "cpu",
-        compute_type: str = "int8",
+        model_name: str | None = None,
         minimum_exact_coverage: float = 0.75,
     ) -> None:
         if not 0.0 <= minimum_exact_coverage <= 1.0:
             raise ValueError("minimum_exact_coverage must be between 0 and 1")
-        self.model_size = model_size
         self.device = device
-        self.compute_type = compute_type
+        self.model_name = model_name
         self.minimum_exact_coverage = minimum_exact_coverage
-        self._model: Any | None = None
+        self._models: dict[str, tuple[Any, Mapping[str, Any]]] = {}
         self._inference_lock = threading.Lock()
 
     def align(
@@ -174,42 +168,100 @@ class WhisperWordAligner:
             raise WordAlignmentError(f"Narration audio does not exist: {audio_path}")
 
         with self._inference_lock:
-            model = self._load_model()
-            segments, _ = model.transcribe(
-                str(audio_path),
-                language=language,
-                beam_size=1,
-                temperature=0.0,
-                word_timestamps=True,
-                condition_on_previous_text=False,
-                vad_filter=False,
-                initial_prompt=source_text[:_INITIAL_PROMPT_CHARS],
+            if language is None:
+                raise WordAlignmentError("WhisperX forced alignment requires a language")
+            whisperx = self._load_whisperx()
+            audio = whisperx.load_audio(str(audio_path))
+            duration_seconds = len(audio) / 16_000
+            if duration_seconds <= 0:
+                raise WordAlignmentError("Narration audio is empty")
+            model, metadata = self._load_model(whisperx, language)
+            aligned = whisperx.align(
+                [{"text": source_text, "start": 0.0, "end": duration_seconds}],
+                model,
+                metadata,
+                audio,
+                self.device,
+                return_char_alignments=False,
+                print_progress=False,
             )
-            timed_words = _timed_words(list(segments))
+            timed_words = _whisperx_timed_words(aligned)
 
         if not timed_words:
-            raise WordAlignmentError("Whisper returned no word timestamps")
+            raise WordAlignmentError("WhisperX returned no word timestamps")
         return _reconcile_words(
             source_words,
             timed_words,
             minimum_exact_coverage=self.minimum_exact_coverage,
         )
 
-    def _load_model(self) -> Any:
-        if self._model is not None:
-            return self._model
+    @staticmethod
+    def _load_whisperx() -> Any:
         try:
-            from faster_whisper import WhisperModel  # type: ignore[import-not-found]
+            import whisperx  # type: ignore[import-not-found]
         except ImportError as exception:
             raise WordAlignmentError(
-                "Word alignment requires the narration dependency faster-whisper"
+                "Word alignment requires the narration dependency whisperx"
             ) from exception
-        self._model = WhisperModel(
-            self.model_size,
+        return whisperx
+
+    def _load_model(
+        self,
+        whisperx: Any,
+        language: str,
+    ) -> tuple[Any, Mapping[str, Any]]:
+        cached = self._models.get(language)
+        if cached is not None:
+            return cached
+        model, metadata = whisperx.load_align_model(
+            language_code=language,
             device=self.device,
-            compute_type=self.compute_type,
+            model_name=self.model_name,
         )
-        return self._model
+        normalized_metadata = dict(metadata)
+        self._models[language] = (model, normalized_metadata)
+        return model, normalized_metadata
+
+
+def _whisperx_timed_words(result: Any) -> list[_TimedWord]:
+    if not isinstance(result, Mapping):
+        raise WordAlignmentError("WhisperX returned an invalid alignment result")
+    raw_words = result.get("word_segments")
+    if not isinstance(raw_words, list):
+        raw_words = []
+        raw_segments = result.get("segments")
+        if isinstance(raw_segments, list):
+            for segment in raw_segments:
+                if isinstance(segment, Mapping) and isinstance(segment.get("words"), list):
+                    raw_words.extend(segment["words"])
+
+    timed: list[_TimedWord] = []
+    for item in raw_words:
+        if not isinstance(item, Mapping):
+            continue
+        text = str(item.get("word", "")).strip()
+        key = _comparison_key(text)
+        start = item.get("start")
+        end = item.get("end")
+        if not key or not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+            continue
+        start_ms = round(float(start) * 1000)
+        end_ms = round(float(end) * 1000)
+        if start_ms < 0 or end_ms <= start_ms:
+            continue
+        score = item.get("score", 0.8)
+        confidence = float(score) if isinstance(score, (int, float)) else 0.8
+        timed.append(
+            _TimedWord(
+                text=text,
+                audio_start_ms=start_ms,
+                audio_end_ms=end_ms,
+                confidence=max(0.0, min(confidence, 1.0)),
+                key=key,
+            )
+        )
+    _validate_timed_words(timed)
+    return timed
 
 
 def _source_words(

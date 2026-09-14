@@ -775,10 +775,10 @@ async def test_segment_provider_operation_is_idempotent_and_result_is_durable(
     await repository.connect()
     try:
         first = await repository.reserve_provider_operation(
-            stage_id, "vieneu-tts", "fingerprint"
+            stage_id, "voicestudio-tts-1", "fingerprint"
         )
         duplicate = await repository.reserve_provider_operation(
-            stage_id, "vieneu-tts", "fingerprint"
+            stage_id, "voicestudio-tts-1", "fingerprint"
         )
         assert first.id == duplicate.id
         assert first.created is True
@@ -816,10 +816,10 @@ async def test_provider_operation_is_reused_by_a_retry_stage(
     await repository.connect()
     try:
         first = await repository.reserve_provider_operation(
-            first_stage_id, "vieneu-tts", "same-logical-request"
+            first_stage_id, "voicestudio-tts-1", "same-logical-request"
         )
         retry = await repository.reserve_provider_operation(
-            second_stage_id, "vieneu-tts", "same-logical-request"
+            second_stage_id, "voicestudio-tts-1", "same-logical-request"
         )
     finally:
         await repository.close()
@@ -838,7 +838,7 @@ async def test_reconciliation_backoff_update_is_cas_fenced(
     await repository.connect()
     try:
         reserved = await repository.reserve_provider_operation(
-            stage_id, "vieneu-tts", "reconcile-cas"
+            stage_id, "voicestudio-tts-1", "reconcile-cas"
         )
         unknown = await repository.fence_submission_unknown(reserved)
         scheduled = await repository.schedule_provider_reconciliation(
@@ -863,7 +863,7 @@ async def test_completed_segment_result_cannot_be_overwritten(
     await repository.connect()
     try:
         reserved = await repository.reserve_provider_operation(
-            stage_id, "vieneu-tts", "immutable"
+            stage_id, "voicestudio-tts-1", "immutable"
         )
         unknown = await repository.fence_submission_unknown(reserved)
         completed = await repository.complete_provider_operation(

@@ -68,56 +68,106 @@ def test_removed_provider_settings_stay_removed() -> None:
         assert not hasattr(settings, field_name)
 
 
-def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_removed_tts_modes_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TTS_PROVIDER_MODE", "google")
 
-    with pytest.raises(ValidationError, match="disabled.*fake.*vieneu"):
+    with pytest.raises(ValidationError, match="disabled.*fake.*voicestudio"):
         WorkerSettings()
 
 
-def test_vieneu_does_not_require_project_media_r2() -> None:
-    settings = WorkerSettings(tts_provider_mode="vieneu")
+def test_voicestudio_does_not_require_project_media_r2() -> None:
+    settings = WorkerSettings(tts_provider_mode="voicestudio")
 
-    assert settings.tts_provider_mode == "vieneu"
+    assert settings.tts_provider_mode == "voicestudio"
     assert settings.project_media_local_dir
 
 
-def test_vieneu_voice_settings_are_available_without_provider_credentials() -> None:
+def test_voicestudio_settings_target_one_persistent_local_service() -> None:
     settings = WorkerSettings(
         worker_env="test",
-        vieneu_voice_id="vieneu-ngoc-huyen-v2",
-        vieneu_voice_name="Ngọc Huyền v2",
+        voicestudio_voice_id="voicestudio-default",
+        voicestudio_voice_profile_id="default",
     )
 
-    assert settings.vieneu_backend == "auto"
-    assert settings.vieneu_precision == "int8"
-    assert settings.vieneu_batch_max_segments == 8
-    assert settings.vieneu_max_batch_size == 32
-    assert settings.vieneu_inference_concurrency == 1
-    assert settings.vieneu_save_voice_profile is False
-    assert settings.vieneu_apply_watermark is False
-    assert settings.narration_mp3_bitrate == "96k"
+    assert settings.voicestudio_base_url == "http://voicestudio:3900"
+    assert settings.voicestudio_model == "tts-1"
+    assert settings.voicestudio_inference_concurrency == 1
+    assert settings.tts_segment_batch_size == 8
 
 
-def test_vertex_analysis_sharding_defaults_are_bounded() -> None:
+def test_voicestudio_base_url_rejects_public_service_for_production() -> None:
+    with pytest.raises(ValidationError, match="loopback/private/local"):
+        WorkerSettings(
+            worker_env="production",
+            worker_roles="narration",
+            tts_provider_mode="voicestudio",
+            voicestudio_base_url="https://speech.example.com",
+        )
+
+
+def test_production_narration_requires_voicestudio() -> None:
+    with pytest.raises(ValidationError, match="TTS_PROVIDER_MODE=voicestudio"):
+        WorkerSettings(worker_env="production", worker_roles="narration")
+
+
+def test_production_narration_accepts_private_voicestudio() -> None:
+    settings = WorkerSettings(
+        worker_env="production",
+        worker_roles="narration",
+        tts_provider_mode="voicestudio",
+        voicestudio_base_url="http://voicestudio:3900",
+    )
+
+    assert settings.tts_provider_mode == "voicestudio"
+
+
+def test_qwen_analysis_defaults_target_single_gpu_execution() -> None:
     settings = WorkerSettings()
 
-    assert settings.vertex_analysis_shard_concurrency == 3
-    assert settings.vertex_analysis_shard_target_beats == 12
-    assert settings.vertex_analysis_shard_max_beats == 20
-    assert settings.vertex_analysis_repair_attempts == 1
+    assert settings.qwen_base_url == "http://qwen:8000/v1"
+    assert settings.qwen_model == "Qwen/Qwen3-8B-AWQ"
+    assert settings.qwen_analysis_shard_concurrency == 1
+    assert settings.qwen_analysis_shard_target_beats == 12
+    assert settings.qwen_analysis_shard_max_beats == 20
+    assert settings.qwen_analysis_repair_attempts == 1
 
 
-def test_vertex_analysis_shard_concurrency_rejects_more_than_four() -> None:
+def test_qwen_analysis_shard_concurrency_rejects_more_than_two() -> None:
     with pytest.raises(ValidationError):
-        WorkerSettings(vertex_analysis_shard_concurrency=5)
+        WorkerSettings(qwen_analysis_shard_concurrency=3)
 
 
-def test_vertex_analysis_max_beats_cannot_be_lower_than_target() -> None:
+def test_qwen_analysis_max_beats_cannot_be_lower_than_target() -> None:
     with pytest.raises(ValidationError, match="max beats"):
         WorkerSettings(
-            vertex_analysis_shard_target_beats=16,
-            vertex_analysis_shard_max_beats=12,
+            qwen_analysis_shard_target_beats=16,
+            qwen_analysis_shard_max_beats=12,
+        )
+
+
+def test_production_analysis_worker_requires_qwen() -> None:
+    with pytest.raises(ValidationError, match="AI_PROVIDER_MODE=qwen"):
+        WorkerSettings(worker_env="production", worker_roles="analysis")
+
+
+def test_production_analysis_worker_accepts_qwen() -> None:
+    settings = WorkerSettings(
+        worker_env="production",
+        worker_roles="analysis",
+        provider_mode="qwen",
+        qwen_base_url="http://qwen:8000/v1",
+    )
+
+    assert settings.provider_mode == "qwen"
+
+
+def test_production_analysis_worker_rejects_public_qwen_endpoint() -> None:
+    with pytest.raises(ValidationError, match="loopback/private/local"):
+        WorkerSettings(
+            worker_env="production",
+            worker_roles="analysis",
+            provider_mode="qwen",
+            qwen_base_url="https://public-model-api.example.com/v1",
         )
 
 

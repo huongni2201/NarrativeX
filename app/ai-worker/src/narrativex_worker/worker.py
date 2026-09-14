@@ -16,6 +16,7 @@ from narrativex_worker.providers.ports import (
     ProviderOperation,
     ProviderSubmissionUnknownError,
 )
+from narrativex_worker.providers.qwen_continuity import ContinuityQwenProvider
 from narrativex_worker.providers.vertex_continuity import ContinuityVertexGeminiProvider
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
@@ -47,7 +48,9 @@ class NarrativeXWorker:
             pool_size=max(5, self.settings.worker_concurrency * 2 + 1),
         )
         provider = (
-            ContinuityVertexGeminiProvider(self.settings)
+            ContinuityQwenProvider(self.settings)
+            if self.settings.provider_mode == "qwen"
+            else ContinuityVertexGeminiProvider(self.settings)
             if self.settings.provider_mode == "vertex"
             else FakeAnalysisProvider()
             if self.settings.provider_mode == "fake"
@@ -212,6 +215,8 @@ class NarrativeXWorker:
                 float(self.settings.lease_seconds),
                 self.settings.vertex_timeout_seconds
                 if self.settings.provider_mode == "vertex"
+                else self.settings.qwen_timeout_seconds
+                if self.settings.provider_mode == "qwen"
                 else float(self.settings.lease_seconds),
             )
             active = await self.repository.mark_provider_operation_submission_unknown(

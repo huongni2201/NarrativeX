@@ -63,6 +63,7 @@ class SceneStructure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
+    narration: str = Field(min_length=1, max_length=50_000)
     source_start_anchor: str = Field(min_length=1, max_length=SCENE_BOUNDARY_ANCHOR_MAX_CHARS)
     source_end_anchor: str = Field(min_length=1, max_length=SCENE_BOUNDARY_ANCHOR_MAX_CHARS)
     visual_signals: SceneVisualSignals = Field(default_factory=SceneVisualSignals)
@@ -199,9 +200,7 @@ def plan_visual_beat_shards(
         shard_count = max(1, math.ceil(scene_target / target_beats))
         ranges = _split_source_range(source_text, scene_start, scene_end, shard_count)
         for shard_index, (start, end) in enumerate(ranges):
-            raw_shards.append(
-                (scene_index, shard_index, start, end, source_text[start:end])
-            )
+            raw_shards.append((scene_index, shard_index, start, end, source_text[start:end]))
 
     shard_weights = [
         max(1, end - start) * _semantic_factor(structure.scenes[scene_index].visual_signals)
@@ -238,9 +237,7 @@ def plan_visual_beat_shards(
     ):
         scene_index, shard_index, start, end, shard_text = raw
         if target > max_beats:
-            raise ValueError(
-                f"planned shard exceeds max beats: target={target}, max={max_beats}"
-            )
+            raise ValueError(f"planned shard exceeds max beats: target={target}, max={max_beats}")
         maximum = min(max_beats, max(target, maximum))
         shards.append(
             VisualBeatShard(
@@ -343,7 +340,6 @@ def merge_shard_results(
 ) -> ChapterAnalysisResult:
     """Validate source grounding, merge shard output, then coordinate chapter-level shots."""
     by_scene: dict[int, list[VisualBeatAnalysis]] = defaultdict(list)
-    source_by_scene: dict[int, list[str]] = defaultdict(list)
     for shard in sorted(shards, key=lambda item: (item.scene_index, item.shard_index)):
         key = (shard.scene_index, shard.shard_index)
         result = results.get(key)
@@ -357,7 +353,6 @@ def merge_shard_results(
             allowed_character_keys=allowed_character_keys,
         )
         by_scene[shard.scene_index].extend(result.visual_beats)
-        source_by_scene[shard.scene_index].append(shard.source_text)
 
     scenes: list[SceneAnalysis] = []
     for scene_index, scene in enumerate(structure.scenes):
@@ -367,7 +362,7 @@ def merge_shard_results(
         scenes.append(
             SceneAnalysis(
                 title=scene.title,
-                narration="".join(source_by_scene[scene_index]),
+                narration=scene.narration,
                 characters=scene.characters,
                 location_key=scene.location_key,
                 visual_beats=beats,

@@ -13,7 +13,7 @@ Current code, Flyway migrations and automated tests decide factual AS-IS claims.
 | `IMAGE` visual intent | IMPLEMENTED | API/worker and Gemini Web image workflows |
 | `VIDEO` visual intent | IMPLEMENTED foundation | retained in Analyze Chapter for web/browser video-generation workflows |
 | Python/Wan video provider | REMOVED | do not restore as implicit VIDEO/final-render fallback |
-| VieNeu narration | IMPLEMENTED foundation | generated narration persists project-locally |
+| VoiceStudio narration | IMPLEMENTED foundation | segmented headless TTS persists a project-local WAV master |
 | User-provided narration | IMPLEMENTED foundation | native import + logical audio clock |
 | Vertex image generation | IMPLEMENTED foundation | durable provider operation + local media result |
 | Gemini Web image generation | IMPLEMENTED foundation | Electron Chrome/CDP + local commit |

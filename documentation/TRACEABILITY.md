@@ -22,7 +22,7 @@ This matrix maps maintained documentation to implementation checkpoint `main` / 
 | Flyway baseline policy | pre-production patch history is folded into the owning migrations; clean databases apply only V1–V8 and create the final schema directly | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
-| Generated narration | VieNeu provider path + project-local persistence/Desktop materialization | IMPLEMENTED foundation |
+| Generated narration | VoiceStudio headless provider + WhisperX alignment + project-local WAV persistence/Desktop materialization | IMPLEMENTED foundation |
 | Local audio import | native import/registration with USER_PROVIDED_AUDIO guard | IMPLEMENTED foundation |
 | PROJECT voice-reference storage | project MediaAsset + ProjectStorage/manifest; no R2 storage key | IMPLEMENTED foundation |
 | ACCOUNT voice-reference storage | account-owned READY voice-reference asset + `voices/...` R2 namespace | IMPLEMENTED foundation |

@@ -15,9 +15,9 @@ public class GetProviderHealthUseCase {
   public ApiResponse<ProviderHealthResponse> execute(ProviderHealthQuery query) {
     ProviderHealthResponse response =
         new ProviderHealthResponse(
-            new ProviderHealthResponse.VertexGeminiHealth(
-                settings.vertexGeminiEnabled() ? "CONFIGURED_NOT_VERIFIED" : "NOT_CONFIGURED",
-                settings.location(),
+            new ProviderHealthResponse.LocalQwenHealth(
+                settings.qwenEnabled() ? "CONFIGURED_NOT_VERIFIED" : "NOT_CONFIGURED",
+                settings.runtime(),
                 settings.model(),
                 false));
     return ApiResponse.success("Provider health retrieved successfully", response);

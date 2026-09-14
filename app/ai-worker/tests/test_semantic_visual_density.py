@@ -17,12 +17,14 @@ def test_semantically_dense_short_scene_receives_more_than_text_length_baseline(
         scenes=[
             SceneStructure(
                 title="Static",
+                narration="Static narration",
                 source_start_anchor="BEGIN_STATIC",
                 source_end_anchor="END_STATIC",
                 visual_signals={},
             ),
             SceneStructure(
                 title="Dynamic",
+                narration="Dynamic narration",
                 source_start_anchor="BEGIN_DYNAMIC",
                 source_end_anchor="END_DYNAMIC",
                 visual_signals={
@@ -59,12 +61,14 @@ def test_semantic_signals_do_not_change_global_duration_budget() -> None:
         scenes=[
             SceneStructure(
                 title="First",
+                narration="First narration",
                 source_start_anchor="BEGIN_FIRST",
                 source_end_anchor="END_FIRST",
                 visual_signals={"physical_actions": 20},
             ),
             SceneStructure(
                 title="Second",
+                narration="Second narration",
                 source_start_anchor="BEGIN_SECOND",
                 source_end_anchor="END_SECOND",
                 visual_signals={},

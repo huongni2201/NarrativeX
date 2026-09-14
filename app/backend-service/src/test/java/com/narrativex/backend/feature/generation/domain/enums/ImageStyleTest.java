@@ -19,21 +19,21 @@ class ImageStyleTest {
   }
 
   @Test
-  void cinematicAnimeProfileUsesPremiumManhwaCoverRendering() {
+  void cinematicAnimeProfileUsesPremiumSemiRealisticCgiRendering() {
     String prompt =
         ImageStyle.CINEMATIC_ANIME.promptFor("A heroine stands in a moonlit abandoned house.");
 
     assertThat(prompt)
-        .contains("premium modern manhwa and webnovel cover illustration")
-        .contains("idealized protagonist design")
-        .contains("sharp expressive eyes")
+        .contains("premium semi-realistic 3D CGI character rendering")
+        .contains("70 percent realism and 30 percent anime-influenced stylization")
+        .contains("idealized but believable character design")
+        .contains("almond-shaped expressive eyes")
         .contains("layered iris detail")
-        .contains("high-detail layered hair")
-        .contains("fashion-forward wardrobe")
-        .contains("strong subject-background separation")
-        .contains("controlled rim lighting")
-        .contains("rich high-contrast color design")
-        .contains("main-character presence")
+        .contains("strand-level layered hair")
+        .contains("soft subsurface skin scattering")
+        .contains("subtle rim light")
+        .contains("restrained filmic color grading")
+        .contains("creamy cinematic bokeh")
         .contains("consistent face geometry")
         .doesNotContain("champagne gold")
         .doesNotContain("romantic bloom")
@@ -46,8 +46,10 @@ class ImageStyleTest {
             "ordinary office portrait",
             "generic stock illustration",
             "flat 2D cel anime",
+            "2.5D painterly illustration",
             "low-detail hair",
             "waxy skin",
+            "oversized eyes",
             "age regression",
             "face redesign",
             "changing facial identity",

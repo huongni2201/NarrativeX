@@ -38,7 +38,7 @@ public class CharacterIdentityPromptComposer {
     prompt
         .append("\nCHARACTER IDENTITY REFERENCE TASK")
         .append(
-            "\nGenerate exactly one canonical identity reference for the established character below as a premium manhwa protagonist reference, not a plain realistic portrait.")
+            "\nGenerate exactly one canonical identity reference for the established character below as a premium semi-realistic 3D CGI character portrait, not a flat illustration and not a raw live-action photograph.")
         .append("\nCHARACTER: ")
         .append(canonicalName.trim())
         .append("\nIDENTITY LOCK: ")
@@ -55,15 +55,16 @@ public class CharacterIdentityPromptComposer {
             + "\n- slight three-quarter angle unless a front view is more useful for identity readability"
             + "\n- face unobstructed and both eyes clearly readable"
             + "\n- sharp readable eyes with luminous iris detail and crisp catchlights"
-            + "\n- high-detail layered hair with visible strand groups, clean volume, stable silhouette and controlled highlights"
-            + "\n- fashion-forward character styling that preserves the specified wardrobe and canon instead of replacing it"
-            + "\n- clean premium background with subtle depth and atmosphere, never a blank passport-photo backdrop"
-            + "\n- polished three-point cinematic lighting with controlled key light, gentle fill and a subtle rim light separating hair and shoulders from the background"
-            + "\n- polished cover-art finish with strong main-character presence while keeping facial identity fully readable"
+            + "\n- strand-level layered hair with fine flyaways, natural volume, a stable silhouette and restrained edge highlights"
+            + "\n- character styling that preserves the specified wardrobe and canon instead of inventing accessories or redesigning it"
+            + "\n- clean softly defocused environmental background with subtle depth and atmosphere, never a blank passport-photo backdrop"
+            + "\n- soft cinematic lighting with a diffused key, gentle fill, subtle rim light, and natural skin-tone rendering"
+            + "\n- shallow depth of field and creamy bokeh using an 85mm portrait-lens look while keeping both eyes sharply readable"
+            + "\n- polished animated-feature CGI finish with quiet main-character presence while keeping facial identity fully readable"
             + "\n- no dramatic story action and no unrelated props"
             + "\n- no text, captions, logos, watermarks, contact sheet, or second character"
             + "\nIDENTITY PRIORITY: facial geometry and recognizable silhouette are more important than dramatic composition."
-            + "\nPURPOSE: this image becomes canonical identity evidence for later storyboard frames and should establish the same premium manhwa rendering language used by those frames."
+            + "\nPURPOSE: this image becomes canonical identity evidence for later storyboard frames and should establish the same premium semi-realistic 3D CGI rendering language used by those frames."
             + "\nPreserve specified traits exactly. Do not invent or redesign defining identity traits.");
 
     return new ComposedCharacterPrompt(prompt.toString(), style.negativePrompt());

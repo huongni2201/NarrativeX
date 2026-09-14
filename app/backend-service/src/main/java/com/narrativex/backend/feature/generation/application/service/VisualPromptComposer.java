@@ -251,7 +251,7 @@ public final class VisualPromptComposer {
   private static String styleLanguage(ImageStyle style) {
     return switch (style) {
       case CINEMATIC_ANIME ->
-          "Polished cinematic manhwa and webnovel illustration with proportional expressive faces, refined facial planes, detailed layered hair, clean anatomy, coherent perspective, painterly skin and fabric shading, cinematic depth, readable silhouettes and a premium commercial finish. Preserve canon rather than redesigning identity.";
+          "Premium semi-realistic 3D CGI with a high-budget East Asian animated-feature and cinematic game-cutscene aesthetic: believable proportional faces with subtle anime influence, refined facial planes, strand-level hair, physically based skin and fabric materials, soft subsurface scattering, coherent anatomy and perspective, motivated cinematic light, restrained filmic color, layered depth and creamy bokeh when the shot permits. Preserve canon rather than redesigning identity; never drift into flat 2D illustration or raw live-action photography.";
       case CINEMATIC ->
           "Grounded cinematic film-still rendering with coherent perspective, natural texture, motivated lighting, layered depth and restrained filmic color grading.";
       case STORYBOOK_WATERCOLOR ->

@@ -93,7 +93,7 @@ class NarrationCompletionMixin:
                     """
                     INSERT INTO project_assets
                         (project_id, name, asset_type, storage_key, mime_type, metadata_json)
-                    VALUES ($1, $2, 'AUDIO', $3, 'audio/mpeg', $4::jsonb)
+                    VALUES ($1, $2, 'AUDIO', $3, 'audio/wav', $4::jsonb)
                     RETURNING id
                     """,
                     claimed.project_id,
@@ -114,7 +114,7 @@ class NarrationCompletionMixin:
                     INSERT INTO narration_assets
                         (id, narration_request_id, project_asset_id, duration_ms, size_bytes,
                          codec, sample_rate_hz, channels, checksum)
-                    VALUES ($1, $2, $3, $4, $5, 'mp3', $6, $7, $8)
+                    VALUES ($1, $2, $3, $4, $5, 'pcm_s16le', $6, $7, $8)
                     """,
                     narration_asset_id,
                     claimed.narration_request_id,
@@ -140,7 +140,7 @@ class NarrationCompletionMixin:
                     """
                     INSERT INTO narration_alignments
                         (id, narration_asset_id, source_hash, alignment_version, words_json)
-                    VALUES ($1, $2, $3, 'whisper-word-v1', $4::jsonb)
+                    VALUES ($1, $2, $3, 'whisperx-forced-v1', $4::jsonb)
                     """,
                     uuid7(),
                     narration_asset_id,

@@ -9,10 +9,11 @@ For the architecture-level worker map, see `../../documentation/codebase/AI_WORK
 ## Current execution foundations
 
 - Chapter analysis and continuity/storyboard materialization;
+- local Qwen3 Chinese-to-Vietnamese narration rewrite with structured scene planning;
 - deterministic VisualBeat source-anchor to UTF-16 text-range materialization;
 - durable ProviderOperation submission/reconciliation fences;
 - Vertex Gemini image generation through the configured batch path;
-- VieNeu narration and alignment;
+- VoiceStudio headless narration plus WhisperX forced alignment;
 - user-provided narration timeline/alignment foundations;
 - media validation and runtime-file handling;
 - character-reference-aware image request foundations;
@@ -44,6 +45,33 @@ WORKER_POLL_INTERVAL_SECONDS
 
 Exact dependency versions and optional extras are authoritative in `pyproject.toml`.
 
+## Chapter analysis
+
+Production analysis uses `Qwen/Qwen3-8B-AWQ` through a private OpenAI-compatible local
+endpoint (vLLM is the reference runtime). Chapter source never goes to Gemini/Vertex:
+
+```text
+saved Chinese Chapter snapshot
+  -> PostgreSQL claim + lease
+  -> durable per-subcall checkpoint
+  -> local Qwen structure + continuity plan
+  -> Vietnamese TTS-ready scene narration
+  -> local Qwen visual-beat shards + English image directions
+  -> Pydantic/schema/continuity validation
+  -> immutable storyboard materialization
+```
+
+Start the model runtime on the GPU host before the worker, for example:
+
+```bash
+vllm serve Qwen/Qwen3-8B-AWQ --host 0.0.0.0 --port 8000 --max-model-len 16384
+```
+
+Set `AI_PROVIDER_MODE=qwen` and point `QWEN_BASE_URL` at its `/v1` endpoint. Keep
+`QWEN_ANALYSIS_SHARD_CONCURRENCY=1` on a single RTX 4060 so other GPU stages can own VRAM in
+turn. Qwen thinking is disabled for schema-constrained production output; prompts and Pydantic
+validation remain authoritative.
+
 ## Image generation
 
 The enabled Vertex image path uses durable provider-operation fencing and batch/reconciliation behavior:
@@ -68,10 +96,10 @@ GCS batch staging is temporary provider infrastructure, not NarrativeX project s
 
 ```text
 TTS
-  -> VieNeu
-  -> speaking-rate adjustment when requested (0.25x–2.0x)
-  -> validate/normalize
-  -> alignment
+  -> VoiceStudio persistent headless API, one request per segment
+  -> VoiceStudio speaking-rate/duration adjustment when requested
+  -> normalize to 48 kHz mono WAV master
+  -> WhisperX forced alignment against the known Vietnamese script
 
 USER_PROVIDED_AUDIO
   -> ordered registered parts
@@ -91,12 +119,15 @@ PROJECT
 ACCOUNT
   -> validate authorized account VoiceReferenceAsset
   -> download from R2 voices/... storage
-  -> use temporary local enrollment input
+  -> use temporary VoiceStudio reference input
 ```
 
 PROJECT references must not depend on R2. ACCOUNT references require R2 storage metadata and ownership/readiness checks.
 
-Catalog preview generation is a development/asset-maintenance task. `scripts/generate_vieneu_previews.py --publish-r2` publishes reusable voice-reference assets through the voice-only R2 boundary.
+NarrativeX does not import a TTS model package and does not start a model per sentence. The
+production `VoiceStudioTtsEngine` calls the long-running VoiceStudio service at
+`VOICESTUDIO_BASE_URL`. `VOICESTUDIO_MODEL` and voice profile IDs select the engine/profile
+without changing narration orchestration code.
 
 ## Visual timing responsibility
 

@@ -21,11 +21,12 @@ def test_worker_dependencies_are_split_by_role() -> None:
     extras = project["project"]["optional-dependencies"]
 
     assert not any(
-        dependency.lower().startswith(("torch", "torchaudio", "vieneu"))
+        dependency.lower().startswith(("torch", "torchaudio", "whisperx"))
         for dependency in dependencies
     )
     assert any(dependency.lower().startswith("pillow==") for dependency in extras["image"])
-    assert any(dependency.lower().startswith("vieneu==") for dependency in extras["narration"])
+    assert any(dependency.lower().startswith("whisperx==") for dependency in extras["narration"])
+    assert not any(dependency.lower().startswith("vieneu==") for dependency in extras["narration"])
     assert any(
         dependency.lower().startswith(("torch==", "torchaudio=="))
         for dependency in extras["narration"]
@@ -38,7 +39,7 @@ def test_dev_dependencies_do_not_install_tts_runtime_stack() -> None:
     dev_dependencies = project["project"]["optional-dependencies"]["dev"]
 
     assert not any(
-        dependency.lower().startswith(("vieneu==", "torch==", "torchaudio=="))
+        dependency.lower().startswith(("whisperx==", "vieneu==", "torch==", "torchaudio=="))
         for dependency in dev_dependencies
     )
 
@@ -87,16 +88,26 @@ def test_project_media_services_share_one_local_root() -> None:
         assert "MEDIA_STORAGE_MODE" not in service
 
 
-def test_narration_worker_reads_voice_references_from_r2_without_static_host_mount() -> None:
+def test_narration_worker_calls_persistent_voicestudio_and_reads_custom_references() -> None:
     compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
     narration_service = _service(compose_lines, "narration-worker")
 
     assert "<<: *worker-database-environment" in narration_service
     assert "WORKER_ROLES: narration" in narration_service
-    assert "TTS_PROVIDER_MODE: vieneu" in narration_service
+    assert "TTS_PROVIDER_MODE: voicestudio" in narration_service
+    assert "VOICESTUDIO_BASE_URL: http://voicestudio:3900" in narration_service
     assert "R2_ACCOUNT_ID:" in narration_service
     assert "R2_ACCESS_KEY_ID:" in narration_service
     assert "R2_SECRET_ACCESS_KEY:" in narration_service
-    assert "VIENEU_REFERENCE_AUDIO_PATH:" not in narration_service
-    assert "VIENEU_REFERENCE_AUDIO_FILE" not in narration_service
+    assert "VIENEU_" not in narration_service
     assert "target: /run/narrativex/voices/reference.wav" not in narration_service
+
+
+def test_compose_runs_voicestudio_as_a_persistent_gpu_service() -> None:
+    compose_lines = COMPOSE.read_text(encoding="utf-8").splitlines()
+    service = _service(compose_lines, "voicestudio")
+
+    assert "ghcr.io/debpalash/omnivoice-studio:0.5.2" in service
+    assert "gpus: all" in service
+    assert 'OMNIVOICE_SINGLE_ENGINE_RESIDENT: "1"' in service
+    assert "voicestudio-data:/app/omnivoice_data" in service

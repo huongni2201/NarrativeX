@@ -419,7 +419,7 @@ V7__indexes.sql
 V8__seed_catalog.sql
 ```
 
-V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Current project-media, voice-reference, subtitle snapshot, Chapter Workspace and VieNeu speaking-rate behavior is represented directly in the owning baseline migrations. The former V9–V18 patch history has been folded into these owning migrations; a clean database does not create retired monetary billing/credit or storage-compatibility schema first and remove it later.
+V1-V8 are the clean pre-release baseline. V1-V6 separate schema/database responsibilities, V7 owns indexes and invariants, and V8 owns deterministic catalog seeds. Current project-media, voice-reference, subtitle snapshot, Chapter Workspace and VoiceStudio speaking-rate/WAV behavior is represented directly in the owning baseline migrations. The former V9–V18 patch history has been folded into these owning migrations; a clean database does not create retired monetary billing/credit or storage-compatibility schema first and remove it later.
 
 Future schema evolution starts with append-only `V9__*.sql` only after the first production deployment. Current disposable development/test databases may be recreated when the clean baseline changes.
 

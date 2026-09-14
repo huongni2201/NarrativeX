@@ -12,7 +12,6 @@ class _Settings:
     provider_mode: str = "disabled"
     image_provider_mode: str = "disabled"
     tts_provider_mode: str = "disabled"
-    vieneu_reference_audio_path: str | None = None
     roles: set[str] = field(default_factory=set)
 
     def has_worker_role(self, role: str) -> bool:
@@ -49,34 +48,18 @@ def test_vertex_allows_adc_without_explicit_credentials_file() -> None:
     validate_runtime_files(settings, environment={})  # type: ignore[arg-type]
 
 
-def test_vieneu_allows_r2_job_reference_without_static_local_file() -> None:
-    settings = _Settings(tts_provider_mode="vieneu", roles={"narration"})
+def test_voicestudio_requires_no_host_mounted_model_or_reference() -> None:
+    settings = _Settings(tts_provider_mode="voicestudio", roles={"narration"})
 
     validate_runtime_files(settings, environment={})  # type: ignore[arg-type]
-
-
-def test_vieneu_reference_audio_must_be_regular_file_when_configured(tmp_path) -> None:
-    reference_directory = tmp_path / "reference.wav"
-    reference_directory.mkdir()
-    settings = _Settings(
-        tts_provider_mode="vieneu",
-        vieneu_reference_audio_path=str(reference_directory),
-        roles={"narration"},
-    )
-
-    with pytest.raises(RuntimeError, match="regular file, not a directory"):
-        validate_runtime_files(settings, environment={})  # type: ignore[arg-type]
 
 
 def test_configured_runtime_files_are_accepted(tmp_path) -> None:
     credentials_file = tmp_path / "gcp-service-account.json"
     credentials_file.write_text('{"type":"service_account"}', encoding="utf-8")
-    reference_file = tmp_path / "reference.wav"
-    reference_file.write_bytes(b"RIFF-test")
     settings = _Settings(
         provider_mode="vertex",
-        tts_provider_mode="vieneu",
-        vieneu_reference_audio_path=str(reference_file),
+        tts_provider_mode="voicestudio",
         roles={"analysis", "narration"},
     )
 

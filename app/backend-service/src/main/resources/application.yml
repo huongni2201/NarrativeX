@@ -60,11 +60,10 @@ narrativex:
     cors:
       allowed-origins: ${NARRATIVEX_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,null}
   providers:
-    vertex-gemini:
-      enabled: ${VERTEX_GEMINI_ENABLED:false}
-      project-id: ${GOOGLE_CLOUD_PROJECT:}
-      location: ${VERTEX_LOCATION:us-central1}
-      model: ${VERTEX_GEMINI_MODEL:gemini-2.5-flash}
+    qwen:
+      enabled: ${QWEN_ENABLED:false}
+      runtime: ${QWEN_RUNTIME:vllm-local}
+      model: ${QWEN_MODEL:Qwen/Qwen3-8B-AWQ}
   storage:
     upload-intent-ttl: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:15m}
     project-media-local-dir: ${PROJECT_MEDIA_LOCAL_DIR:/data/narrativex/project-media}
