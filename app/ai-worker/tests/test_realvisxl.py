@@ -1,4 +1,6 @@
+import asyncio
 import hashlib
+import json
 
 import httpx
 import pytest
@@ -6,6 +8,7 @@ import pytest
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.image import (
     ImageBatchItem,
+    ImageBatchOperation,
     ImageGenerationRequest,
     ImageReference,
 )
@@ -43,7 +46,7 @@ async def test_submit_persists_comfyui_prompt_id_and_uses_request_model() -> Non
 
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/prompt"
-        body = __import__("json").loads(request.content)
+        body = json.loads(request.content)
         captured.update(body)
         return httpx.Response(200, json={"prompt_id": "prompt-123", "node_errors": {}})
 
@@ -99,10 +102,6 @@ async def test_reconcile_materializes_completed_comfyui_png() -> None:
         WorkerSettings(image_provider_mode="realvisxl"), client=client
     )
     item = ImageBatchItem("beat-1", _request())
-    submitted = await provider.submit_batch((item,)) if False else None
-    del submitted
-
-    from narrativex_worker.providers.image import ImageBatchOperation
 
     resolved = await provider.reconcile_batch(
         ImageBatchOperation(
@@ -145,14 +144,15 @@ async def test_character_reference_fails_closed_without_reference_workflow(
         mime_type="image/png",
         sha256=hashlib.sha256(content).hexdigest(),
     )
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(
-                200,
-                json={"name": "uploaded.png", "subfolder": "narrativex"},
-            )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/upload/image"
+        return httpx.Response(
+            200,
+            json={"name": "uploaded.png", "subfolder": "narrativex"},
         )
-    )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     provider = RealVisXLBatchImageProvider(
         WorkerSettings(image_provider_mode="realvisxl"),
         reference_store=_ReferenceStore(content),
@@ -178,7 +178,5 @@ def test_realvisxl_rejects_multi_item_provider_batch() -> None:
         )
         assert operation.status is ProviderOperationStatus.FAILED
         assert operation.error_code == "REALVISXL_SINGLE_GPU_BATCH_REQUIRED"
-
-    import asyncio
 
     asyncio.run(run())
