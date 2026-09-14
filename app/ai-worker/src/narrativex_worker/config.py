@@ -5,7 +5,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
     "analysis",
@@ -24,6 +24,28 @@ class WorkerSettings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Keep Python field names usable in code, but never accept them as env aliases.
+
+        Pydantic normally treats ``populate_by_name=True`` as permission for environment sources
+        to consume raw field names too. NarrativeX deliberately exposes only explicit environment
+        aliases (for example ``AI_PROVIDER_MODE``), so removed names such as ``PROVIDER_MODE``
+        cannot silently reactivate an old configuration contract.
+        """
+        del cls, settings_cls
+        for source in (env_settings, dotenv_settings):
+            source.config["populate_by_name"] = False
+            source.config["validate_by_name"] = False
+        return init_settings, env_settings, dotenv_settings, file_secret_settings
 
     worker_name: str = Field(default="narrativex-worker", description="Identifier of the worker")
     worker_env: str = Field(default="development", description="Environment stage")
