@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import io
 import wave
+from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
+from typing import AsyncIterator
 
 import httpx
 import pytest
@@ -12,6 +14,19 @@ from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.models import NarrationSegment
 from narrativex_worker.narration.providers import TtsProviderRejectedError, TtsRequest
 from narrativex_worker.providers.tts.voicestudio import VoiceStudioTtsEngine
+
+
+@pytest.fixture(autouse=True)
+def _stub_global_gpu_lease(monkeypatch: pytest.MonkeyPatch) -> None:
+    @asynccontextmanager
+    async def no_op_lease(*args: object, **kwargs: object) -> AsyncIterator[None]:
+        del args, kwargs
+        yield
+
+    monkeypatch.setattr(
+        "narrativex_worker.providers.tts.voicestudio.gpu_lease",
+        no_op_lease,
+    )
 
 
 def _wav_bytes(frames: int = 480) -> bytes:
@@ -128,9 +143,7 @@ async def test_voicestudio_rejects_bad_input_without_calling_service() -> None:
     ) as client:
         engine = VoiceStudioTtsEngine(WorkerSettings(worker_env="test"), client=client)
         with pytest.raises(TtsProviderRejectedError, match="must not be blank"):
-            await engine.synthesize(
-                _request(segment=NarrationSegment(0, 0, 1, " "))
-            )
+            await engine.synthesize(_request(segment=NarrationSegment(0, 0, 1, " ")))
 
 
 @pytest.mark.asyncio
