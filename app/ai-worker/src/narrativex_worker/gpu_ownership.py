@@ -8,9 +8,9 @@ connection.
 
 The active owner may remain warm after its request finishes. Before any different owner runs, every
 competing runtime is explicitly asked to release GPU memory: Qwen uses vLLM sleep mode, ComfyUI
-drains its queue then unloads models/cache, and VoiceStudio unloads its resident TTS engine. This
-keeps at most one heavy model stack resident while avoiding unsafe unloads before durable provider
-metadata has been persisted by the caller.
+drains its queue then unloads models/cache, and VoiceStudio unloads its resident TTS engine. A new
+RealVisXL submission also waits for ComfyUI to become idle, so multiple worker processes cannot
+queue overlapping image renders behind short-lived advisory leases.
 """
 
 from __future__ import annotations
@@ -74,7 +74,9 @@ class GpuResidencyController:
         started = time.monotonic()
         if owner is not GpuOwner.QWEN:
             await self._ensure_qwen_sleeping()
-        if owner is not GpuOwner.REALVISXL:
+        if owner is GpuOwner.REALVISXL:
+            await self._wait_comfyui_idle()
+        else:
             await self._drain_and_free_comfyui()
         if owner is not GpuOwner.VOICESTUDIO:
             await self._unload_voicestudio()
@@ -239,9 +241,6 @@ class GlobalGpuLease:
             raise
 
     async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
-        # The next owner evicts competing runtimes while holding the same global lock. Keeping the
-        # current owner warm here also lets the caller durably persist provider metadata after the
-        # inference request returns without racing an unload in this context manager.
         await self._release_lock(close_controller=True)
 
     async def _release_lock(self, *, close_controller: bool) -> None:
