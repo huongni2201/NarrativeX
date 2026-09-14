@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from enum import StrEnum
 from typing import Protocol
@@ -27,7 +26,6 @@ import httpx
 
 from narrativex_worker.config import WorkerSettings
 
-# Stable signed 64-bit advisory-lock key. There is intentionally one GPU ownership domain per DB.
 _GPU_ADVISORY_LOCK_KEY = 5_837_216_904_260_118_219
 
 
@@ -58,8 +56,8 @@ class GpuResidencyController:
     ) -> None:
         self.settings = settings
         self.logger = logging.getLogger("narrativex.worker.gpu-residency")
-        self.timeout_seconds = float(os.getenv("GPU_TRANSITION_TIMEOUT_SECONDS", "600"))
-        self.comfyui_idle_poll_seconds = float(os.getenv("GPU_COMFYUI_IDLE_POLL_SECONDS", "0.5"))
+        self.timeout_seconds = settings.gpu_transition_timeout_seconds
+        self.comfyui_idle_poll_seconds = settings.gpu_comfyui_idle_poll_seconds
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
             timeout=httpx.Timeout(
@@ -73,7 +71,6 @@ class GpuResidencyController:
 
     async def activate(self, owner: GpuOwner) -> None:
         """Evict every competing runtime, then make the requested owner runnable."""
-
         started = time.monotonic()
         if owner is not GpuOwner.QWEN:
             await self._ensure_qwen_sleeping()
@@ -132,10 +129,9 @@ class GpuResidencyController:
     async def _ensure_qwen_sleeping(self) -> None:
         if await self._qwen_sleeping():
             return
-        endpoint = f"{self._qwen_origin}/sleep"
         try:
             response = await self._client.post(
-                endpoint,
+                f"{self._qwen_origin}/sleep",
                 params={"level": "1"},
                 headers=self._qwen_headers(),
             )
@@ -146,9 +142,10 @@ class GpuResidencyController:
     async def _ensure_qwen_awake(self) -> None:
         if not await self._qwen_sleeping():
             return
-        endpoint = f"{self._qwen_origin}/wake_up"
         try:
-            response = await self._client.post(endpoint, headers=self._qwen_headers())
+            response = await self._client.post(
+                f"{self._qwen_origin}/wake_up", headers=self._qwen_headers()
+            )
         except (httpx.TimeoutException, httpx.NetworkError) as exception:
             raise GpuOwnershipError("QWEN_WAKE_UNREACHABLE") from exception
         self._require_success(response, "QWEN_WAKE_FAILED")
@@ -188,10 +185,9 @@ class GpuResidencyController:
             await asyncio.sleep(self.comfyui_idle_poll_seconds)
 
     async def _unload_voicestudio(self) -> None:
-        endpoint = f"{self.settings.voicestudio_base_url.rstrip('/')}/system/flush-memory"
         try:
             response = await self._client.post(
-                endpoint,
+                f"{self.settings.voicestudio_base_url.rstrip('/')}/system/flush-memory",
                 params={"unload_model": "true"},
                 headers=self._voicestudio_headers(),
             )
@@ -243,9 +239,9 @@ class GlobalGpuLease:
             raise
 
     async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
-        # Do not unload the active owner here. The provider must be able to durably persist the
-        # response/prompt id after leaving this context. The next owner evicts competitors while
-        # holding the same global advisory lock, which preserves the one-resident-stack invariant.
+        # The next owner evicts competing runtimes while holding the same global lock. Keeping the
+        # current owner warm here also lets the caller durably persist provider metadata after the
+        # inference request returns without racing an unload in this context manager.
         await self._release_lock(close_controller=True)
 
     async def _release_lock(self, *, close_controller: bool) -> None:
