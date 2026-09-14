@@ -2,9 +2,10 @@
 
 NarrativeX runs Qwen, ComfyUI/RealVisXL and VoiceStudio as separate processes/services. A local
 asyncio semaphore cannot serialize those processes, so every GPU inference boundary acquires one
-PostgreSQL session-level advisory lock before touching CUDA. The same database already owns durable
-worker state, and PostgreSQL automatically releases the lock when a crashed worker loses its
-connection.
+PostgreSQL session-level advisory lock before touching CUDA. Lock acquisition is bounded: workers
+poll ``pg_try_advisory_lock`` until the configured GPU transition deadline instead of blocking a
+database session forever. PostgreSQL still releases an acquired lock automatically if a crashed
+worker loses its connection.
 
 The active owner may remain warm after its request finishes. Before any different owner runs, every
 competing runtime is explicitly asked to release GPU memory: Qwen uses vLLM sleep mode, ComfyUI
@@ -27,6 +28,7 @@ import httpx
 from narrativex_worker.config import WorkerSettings
 
 _GPU_ADVISORY_LOCK_KEY = 5_837_216_904_260_118_219
+_GPU_LOCK_POLL_SECONDS = 0.25
 
 
 class GpuOwner(StrEnum):
@@ -41,6 +43,8 @@ class GpuOwnershipError(RuntimeError):
 
 class _AdvisoryConnection(Protocol):
     async def execute(self, query: str, *args: object) -> str: ...
+
+    async def fetchval(self, query: str, *args: object) -> object: ...
 
     async def close(self) -> None: ...
 
@@ -204,7 +208,7 @@ class GpuResidencyController:
 
 
 class GlobalGpuLease:
-    """Session-level PostgreSQL advisory lock plus residency transition for one GPU owner."""
+    """Bounded PostgreSQL advisory lock plus residency transition for one GPU owner."""
 
     def __init__(
         self,
@@ -218,6 +222,7 @@ class GlobalGpuLease:
         self.controller = controller or GpuResidencyController(settings)
         self._owns_controller = controller is None
         self._connection: _AdvisoryConnection | None = None
+        self._lock_acquired = False
         self.logger = logging.getLogger("narrativex.worker.gpu-ownership")
 
     async def __aenter__(self) -> "GlobalGpuLease":
@@ -225,10 +230,7 @@ class GlobalGpuLease:
         connection = await asyncpg.connect(self.settings.database_url)
         self._connection = connection
         try:
-            await connection.execute(
-                "SELECT pg_advisory_lock($1::bigint)",
-                _GPU_ADVISORY_LOCK_KEY,
-            )
+            await self._acquire_lock(connection)
             self.logger.info(
                 "GPU advisory lock acquired owner=%s waitSeconds=%.3f",
                 self.owner.value,
@@ -243,18 +245,38 @@ class GlobalGpuLease:
     async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
         await self._release_lock(close_controller=True)
 
+    async def _acquire_lock(self, connection: _AdvisoryConnection) -> None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.settings.gpu_transition_timeout_seconds
+        while True:
+            acquired = await connection.fetchval(
+                "SELECT pg_try_advisory_lock($1::bigint)",
+                _GPU_ADVISORY_LOCK_KEY,
+            )
+            if acquired is True:
+                self._lock_acquired = True
+                return
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise GpuOwnershipError("GPU_OWNERSHIP_TIMEOUT")
+            await asyncio.sleep(min(_GPU_LOCK_POLL_SECONDS, remaining))
+
     async def _release_lock(self, *, close_controller: bool) -> None:
         connection = self._connection
         self._connection = None
+        acquired = self._lock_acquired
+        self._lock_acquired = False
         if connection is not None:
             try:
-                await connection.execute(
-                    "SELECT pg_advisory_unlock($1::bigint)",
-                    _GPU_ADVISORY_LOCK_KEY,
-                )
+                if acquired:
+                    await connection.execute(
+                        "SELECT pg_advisory_unlock($1::bigint)",
+                        _GPU_ADVISORY_LOCK_KEY,
+                    )
             finally:
                 await connection.close()
-            self.logger.info("GPU advisory lock released owner=%s", self.owner.value)
+            if acquired:
+                self.logger.info("GPU advisory lock released owner=%s", self.owner.value)
         if close_controller and self._owns_controller:
             await self.controller.aclose()
 
