@@ -4,14 +4,7 @@ import ipaddress
 from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import (
-    AliasChoices,
-    Field,
-    SecretStr,
-    computed_field,
-    field_validator,
-    model_validator,
-)
+from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
@@ -66,12 +59,10 @@ class WorkerSettings(BaseSettings):
         default=1024 * 1024 * 1024, ge=1024, le=2 * 1024 * 1024 * 1024
     )
 
-    # Analysis hard-cuts production to local Qwen. Vertex remains accepted only so old development
-    # fixtures can still be read while the dead adapter/tests are removed in the cleanup follow-up.
-    provider_mode: Literal["disabled", "fake", "qwen", "vertex"] = Field(
+    provider_mode: Literal["disabled", "fake", "qwen"] = Field(
         default="disabled",
         validation_alias=AliasChoices("AI_PROVIDER_MODE"),
-        description="Story-analysis provider adapter mode; production requires qwen",
+        description="Story-analysis provider adapter mode; production requires local Qwen",
     )
     qwen_base_url: str = Field(
         default="http://qwen:8000/v1",
@@ -89,28 +80,7 @@ class WorkerSettings(BaseSettings):
     qwen_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
     qwen_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
 
-    # Legacy Vertex analysis/image fields are intentionally non-production compatibility only.
-    vertex_project_id: str | None = None
-    vertex_location: str = "us-central1"
-    vertex_model: str = "gemini-2.5-flash"
-    vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    vertex_analysis_shard_concurrency: int = Field(default=3, ge=1, le=4)
-    vertex_analysis_shard_target_beats: int = Field(default=12, ge=4, le=20)
-    vertex_analysis_shard_max_beats: int = Field(default=20, ge=8, le=24)
-    vertex_analysis_repair_attempts: int = Field(default=1, ge=0, le=2)
-    vertex_image_model: str = "gemini-2.5-flash-image"
-    vertex_image_location: str = "global"
-    vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
-    vertex_image_service_tier: Literal["standard", "flex"] = "standard"
-    vertex_image_batch_max_items: int = Field(default=50, ge=1, le=1000)
-    vertex_image_batch_location: str = "global"
-    vertex_image_batch_gcs_bucket: str | None = None
-    vertex_image_batch_gcs_prefix: str = "narrativex/image-batches"
-    vertex_image_batch_poll_seconds: float = Field(default=30.0, ge=5.0, le=300.0)
-    vertex_image_batch_http_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
-
-    image_provider_mode: Literal["disabled", "fake", "vertex", "realvisxl"] = Field(
+    image_provider_mode: Literal["disabled", "fake", "realvisxl"] = Field(
         default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
     )
     image_batch_max_items: int = Field(default=1, ge=1, le=16)
@@ -142,6 +112,21 @@ class WorkerSettings(BaseSettings):
     voicestudio_voice_profile_id: str = "default"
     voicestudio_timeout_seconds: float = Field(default=600.0, gt=1, le=3600)
     voicestudio_inference_concurrency: int = Field(default=1, ge=1, le=2)
+
+    gpu_transition_timeout_seconds: float = Field(
+        default=600.0,
+        gt=1,
+        le=3600,
+        validation_alias=AliasChoices("GPU_TRANSITION_TIMEOUT_SECONDS"),
+        description="Maximum time allowed to drain/unload a competing local GPU runtime",
+    )
+    gpu_comfyui_idle_poll_seconds: float = Field(
+        default=0.5,
+        gt=0,
+        le=10,
+        validation_alias=AliasChoices("GPU_COMFYUI_IDLE_POLL_SECONDS"),
+        description="Polling interval while waiting for ComfyUI to become idle before unload",
+    )
 
     project_media_local_dir: str = Field(
         default="/data/narrativex/project-media",
@@ -255,40 +240,12 @@ class WorkerSettings(BaseSettings):
             return f"https://{self.r2_account_id.strip()}.r2.cloudflarestorage.com"
         return None
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def normalized_vertex_image_batch_prefix(self) -> str:
-        """Legacy property retained until the dead Vertex adapter is removed."""
-        return self.vertex_image_batch_gcs_prefix.strip().strip("/")
-
     @model_validator(mode="after")
     def validate_runtime(self) -> "WorkerSettings":
         if self.worker_env.strip().lower() in {"production", "prod"}:
             self._validate_production_runtime()
         if self.qwen_analysis_shard_max_beats < self.qwen_analysis_shard_target_beats:
             raise ValueError("Qwen analysis shard max beats must be >= target beats")
-        if self.vertex_analysis_shard_max_beats < self.vertex_analysis_shard_target_beats:
-            raise ValueError("Vertex analysis shard max beats must be >= target beats")
-        if self.image_provider_mode == "vertex" and not self.vertex_project_id:
-            raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
-        if self.vertex_image_service_tier == "flex":
-            if self.vertex_image_location != "global":
-                raise ValueError("Vertex image Flex PayGo requires VERTEX_IMAGE_LOCATION=global")
-            if self.vertex_image_model == "gemini-2.5-flash-image":
-                raise ValueError(
-                    "gemini-2.5-flash-image does not support Flex PayGo; use the standard tier "
-                    "or Vertex batch inference for the 50% discounted rate"
-                )
-        if self.image_provider_mode == "vertex":
-            if (
-                not self.vertex_image_batch_gcs_bucket
-                or not self.vertex_image_batch_gcs_bucket.strip()
-            ):
-                raise ValueError(
-                    "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when IMAGE_PROVIDER_MODE=vertex"
-                )
-        if not self.normalized_vertex_image_batch_prefix:
-            raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
         return self
 
     def require_voice_reference_r2(self) -> None:
@@ -309,7 +266,7 @@ class WorkerSettings(BaseSettings):
             raise ValueError("Missing voice-reference R2 settings: " + ", ".join(missing))
 
     def _validate_production_runtime(self) -> None:
-        """Prevent a production worker from silently selecting remote/legacy adapters."""
+        """Prevent production from selecting anything outside the local single-GPU stack."""
         errors: list[str] = []
         if self.has_worker_role("analysis") and self.provider_mode != "qwen":
             errors.append("AI_PROVIDER_MODE=qwen is required for production analysis")
