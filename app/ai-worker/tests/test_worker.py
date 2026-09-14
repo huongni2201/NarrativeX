@@ -13,7 +13,6 @@ from narrativex_worker.providers.ports import (
     ProviderOperation,
 )
 from narrativex_worker.providers.qwen_continuity import ContinuityQwenProvider
-from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
     ALLOWED_PROVIDER_TRANSITIONS,
     ClaimedChapterAnalysisJob,
@@ -36,6 +35,8 @@ from narrativex_worker.worker import (
 )
 
 SOURCE_HASH = "a" * 64
+TEST_PROVIDER_KEY = "test-provider"
+TEST_OPERATION_ID = "provider-op-1"
 
 
 def chapter_request(source_text: str = "A short story.") -> ChapterAnalysisRequest:
@@ -65,19 +66,19 @@ def test_worker_settings_defaults() -> None:
 def test_worker_settings_accepts_canonical_provider_mode_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("AI_PROVIDER_MODE", "vertex")
+    monkeypatch.setenv("AI_PROVIDER_MODE", "qwen")
     monkeypatch.delenv("PROVIDER_MODE", raising=False)
 
     settings = worker_settings_without_env_file()
 
-    assert settings.provider_mode == "vertex"
+    assert settings.provider_mode == "qwen"
 
 
-def test_worker_settings_prefers_canonical_provider_mode_env(
+def test_worker_settings_ignores_removed_legacy_provider_mode_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("AI_PROVIDER_MODE", "disabled")
-    monkeypatch.setenv("PROVIDER_MODE", "vertex")
+    monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
+    monkeypatch.setenv("PROVIDER_MODE", "qwen")
 
     settings = worker_settings_without_env_file()
 
@@ -93,15 +94,6 @@ def test_worker_settings_defaults_provider_to_disabled_when_unset(
     settings = worker_settings_without_env_file()
 
     assert settings.provider_mode == "disabled"
-
-
-def test_worker_settings_accepts_legacy_provider_mode_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
-    monkeypatch.setenv("PROVIDER_MODE", "vertex")
-
-    settings = worker_settings_without_env_file()
-
-    assert settings.provider_mode == "vertex"
 
 
 def test_worker_settings_rejects_invalid_provider_mode(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -132,13 +124,6 @@ def test_worker_settings_rejects_concurrency_outside_contract(
 
     with pytest.raises(ValidationError):
         worker_settings_without_env_file()
-
-
-def test_vertex_provider_fails_fast_without_project() -> None:
-    settings = WorkerSettings(provider_mode="vertex", vertex_project_id=None)
-
-    with pytest.raises(VertexProviderError, match="VERTEX_PROJECT_ID is required"):
-        NarrativeXWorker(settings=settings)
 
 
 def test_qwen_mode_selects_local_continuity_provider() -> None:
@@ -204,7 +189,7 @@ def test_provider_operation_state_graph_rejects_illegal_transitions() -> None:
         operation = DurableProviderOperation(
             id=1,
             stage_attempt_id=2,
-            provider_key="vertex",
+            provider_key=TEST_PROVIDER_KEY,
             provider_operation_id=None,
             status=current_status,
             row_version=5,
@@ -225,12 +210,12 @@ def test_provider_request_fingerprint_is_restart_stable() -> None:
         requested_by_user_id="user-1",
         request=chapter_request(),
     )
-    assert provider_request_fingerprint(claimed, "vertex") == provider_request_fingerprint(
-        claimed, "vertex"
-    )
-    assert provider_request_fingerprint(claimed, "vertex") != provider_request_fingerprint(
-        claimed, "other"
-    )
+    assert provider_request_fingerprint(
+        claimed, TEST_PROVIDER_KEY
+    ) == provider_request_fingerprint(claimed, TEST_PROVIDER_KEY)
+    assert provider_request_fingerprint(
+        claimed, TEST_PROVIDER_KEY
+    ) != provider_request_fingerprint(claimed, "other")
 
 
 @pytest.mark.asyncio
@@ -285,7 +270,7 @@ class DurableRepositorySpy:
     ) -> None:
         self.status = status
         self.normalized_result = normalized_result
-        self.submit_id = "vertex-op-1"
+        self.submit_id = TEST_OPERATION_ID
         self.complete_calls = 0
         self.status_history: list[ProviderOperationStatus] = []
         self.fail_complete_once = fail_complete_once
@@ -299,7 +284,7 @@ class DurableRepositorySpy:
         return DurableProviderOperation(
             id=100,
             stage_attempt_id=10,
-            provider_key="vertex",
+            provider_key=TEST_PROVIDER_KEY,
             provider_operation_id=provider_operation_id or self.submit_id,
             status=self.status or ProviderOperationStatus.RESERVED,
             row_version=self.row_version,
@@ -420,7 +405,7 @@ class ProviderSpy:
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
-            "vertex",
+            TEST_PROVIDER_KEY,
             supports_story_analysis=True,
             supports_operation_reconciliation=self.supports_reconciliation,
         )
@@ -431,7 +416,10 @@ class ProviderSpy:
         if self.submit_error:
             raise self.submit_error
         return ProviderOperation(
-            "vertex", "vertex-op-1", ProviderOperationStatus.COMPLETED, completed_result()
+            TEST_PROVIDER_KEY,
+            TEST_OPERATION_ID,
+            ProviderOperationStatus.COMPLETED,
+            completed_result(),
         )
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
@@ -440,8 +428,8 @@ class ProviderSpy:
     async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
         self.reconcile_calls += 1
         return ProviderOperation(
-            "vertex",
-            operation.operation_id or "vertex-op-1",
+            TEST_PROVIDER_KEY,
+            operation.operation_id or TEST_OPERATION_ID,
             ProviderOperationStatus.COMPLETED,
             completed_result(),
         )
@@ -496,7 +484,7 @@ async def test_unknown_restart_without_provider_operation_id_fails_closed() -> N
     durable = DurableProviderOperation(
         id=100,
         stage_attempt_id=10,
-        provider_key="vertex",
+        provider_key=TEST_PROVIDER_KEY,
         provider_operation_id=None,
         status=ProviderOperationStatus.UNKNOWN,
         row_version=0,
@@ -599,8 +587,8 @@ async def test_background_reconciler_suspends_provider_without_reconciliation() 
         DurableProviderOperation(
             id=100,
             stage_attempt_id=10,
-            provider_key="vertex",
-            provider_operation_id="vertex-op-1",
+            provider_key=TEST_PROVIDER_KEY,
+            provider_operation_id=TEST_OPERATION_ID,
             status=ProviderOperationStatus.SUBMITTED,
             row_version=0,
             request_fingerprint="f",
