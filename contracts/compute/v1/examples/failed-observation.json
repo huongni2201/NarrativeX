@@ -1,0 +1,13 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7aa",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab71",
+  "state": "FAILED",
+  "sequence": 4,
+  "observedAt": "2026-09-14T11:42:31Z",
+  "executionHandle": null,
+  "progress": null,
+  "outputs": [],
+  "metrics": {"runtimeMs": 1200},
+  "error": {"code": "INVALID_INPUT", "category": "PERMANENT", "message": "Input audio is not a valid WAV stream", "retryAfterSeconds": null, "details": {}}
+}

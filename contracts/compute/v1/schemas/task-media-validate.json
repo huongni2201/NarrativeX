@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-media-validate.json",
+  "title": "MediaValidateInputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifactRole", "allowedMediaTypes", "decode"],
+  "properties": {
+    "artifactRole": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$"},
+    "allowedMediaTypes": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string"}},
+    "decode": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-audio-align.json",
+  "title": "AudioAlignInputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["script", "language", "audioArtifactRole"],
+  "properties": {
+    "script": {"type": "string", "minLength": 1, "maxLength": 100000},
+    "language": {"type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"},
+    "audioArtifactRole": {"const": "source-audio"}
+  }
+}

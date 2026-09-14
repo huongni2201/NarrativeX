@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: NarrativeX Compute Protocol
+  version: 1.0.0
+servers:
+  - url: https://compute-target.invalid
+security:
+  - machineBearer: []
+paths:
+  /v1/capabilities:
+    get:
+      operationId: getCapabilities
+      responses:
+        "200":
+          description: Worker capabilities
+          content:
+            application/vnd.narrativex.compute-v1+json:
+              schema:
+                $ref: ./schemas/capabilities.json
+  /v1/tasks:
+    post:
+      operationId: submitTask
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, maxLength: 200}
+      requestBody:
+        required: true
+        content:
+          application/vnd.narrativex.compute-v1+json:
+            schema:
+              $ref: ./schemas/compute-task.json
+      responses:
+        "202":
+          description: Accepted or idempotently replayed observation
+          content:
+            application/vnd.narrativex.compute-v1+json:
+              schema:
+                $ref: ./schemas/compute-observation.json
+        "409": {description: Identifier or idempotency-key fingerprint conflict}
+        "422": {description: Unsupported protocol, task schema, executor, model, or revision}
+        "429": {description: Temporary target capacity exhaustion}
+  /v1/tasks/{taskId}/attempts/{attemptId}:
+    get:
+      operationId: getAttempt
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+        - $ref: "#/components/parameters/AttemptId"
+      responses:
+        "200":
+          description: Latest durable execution observation
+          content:
+            application/vnd.narrativex.compute-v1+json:
+              schema:
+                $ref: ./schemas/compute-observation.json
+        "404": {description: Attempt not found}
+  /v1/tasks/{taskId}/attempts/{attemptId}:cancel:
+    post:
+      operationId: cancelAttempt
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+        - $ref: "#/components/parameters/AttemptId"
+      responses:
+        "202":
+          description: Cancellation requested or terminal observation replayed
+          content:
+            application/vnd.narrativex.compute-v1+json:
+              schema:
+                $ref: ./schemas/compute-observation.json
+        "404": {description: Attempt not found}
+  /internal/v1/compute-events:
+    post:
+      operationId: ingestComputeObservation
+      description: Backend-owned callback endpoint; callbacks optimize delivery but reconciliation remains authoritative.
+      requestBody:
+        required: true
+        content:
+          application/vnd.narrativex.compute-v1+json:
+            schema:
+              $ref: ./schemas/compute-observation.json
+      responses:
+        "204": {description: New, duplicate, or older observation safely acknowledged}
+        "409": {description: Task and attempt identity mismatch}
+components:
+  securitySchemes:
+    machineBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-machine-credential
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    AttemptId:
+      name: attemptId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}

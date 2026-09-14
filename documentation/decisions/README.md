@@ -82,6 +82,10 @@ This directory records decisions that affect more than one feature or change a p
    persists a 48 kHz mono WAV master and force-aligns the known Vietnamese script with WhisperX on
    the staged RTX 4060 8 GB runtime.
 
+28. **[ADR-0028: Backend control plane and domain-agnostic GPU execution plane](./ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md)**
+   Spring Boot becomes the sole domain/lifecycle control plane. A replacement `gpu-worker`
+   executes closed, versioned compute tasks without NarrativeX database or domain access.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.
@@ -94,6 +98,9 @@ This directory records decisions that affect more than one feature or change a p
 - ADR-0024 extends ADR-0014 for continuity-aware regeneration/render reuse and extends ADR-0020 for durable analysis checkpoints. It does not move provider credentials or local render execution into the renderer.
 - ADR-0025 supersedes the Vertex Gemini Chapter-analysis and production API image portions of ADR-0003/ADR-0008 and defines the staged local Qwen/RealVisXL direction.
 - ADR-0027 refines ADR-0025 for the VoiceStudio-only TTS engine and WhisperX post-TTS alignment boundary. VieNeu has no production or fallback path.
+- ADR-0028 supersedes direct PostgreSQL polling by Python workers in ADR-0020 and relocates the
+  ADR-0027 executors behind the Compute Protocol. Until each vertical-slice cut-over gate passes,
+  direct polling remains AS-IS legacy behavior rather than target architecture.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs; historical text remains rationale/history and is not an AS-IS contract.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 

@@ -1,6 +1,6 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0020 defines the PostgreSQL-only MVP runtime, ADR-0021 defines the Gemini Web Desktop boundary, ADR-0022 defines R2 voice-only storage plus PROJECT/ACCOUNT voice-reference scope, and ADR-0023 defines source-anchored visual timing.
+The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0028 defines the target backend control-plane/domain-agnostic GPU execution-plane boundary; [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) is its versioned wire contract. The migration remains partial until its per-slice cut-over gates pass.
 
 NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, ADR-0021 defines the Desktop Gemini Web execution boundary, ADR-0022 limits R2 to account voice-reference/custom-voice storage, and ADR-0023 makes narration-aligned source ranges the production timing model.
 
@@ -35,7 +35,10 @@ A newer ADR wins only within the scope it explicitly supersedes.
 3. Electron renderer owns UI only; native capabilities belong to Electron main behind a narrow preload bridge.
 4. Desktop starts with a stable installation-scoped guest identity; Google is the only end-user account sign-in provider.
 5. PostgreSQL is authoritative for durable business/domain/policy/job/lease/artifact metadata, server sessions and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime.
-6. Python workers poll/claim durable PostgreSQL queue rows directly; do not document Redis, broker, `LISTEN`, or `NOTIFY` as a current queue dependency.
+6. Legacy Python workers currently poll/claim durable PostgreSQL queue rows directly. ADR-0028
+   replaces that ownership slice-by-slice with backend-push Compute Protocol tasks; never describe
+   the replacement as implemented before its cut-over gate passes. Neither architecture uses Redis
+   or a broker as an application-state authority.
 7. Desktop project media is local-first under `<userData>/projects/<projectId>` and mapped by `project.manifest.json`.
 8. Absolute Desktop filesystem paths are never durable backend identifiers.
 9. Final FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main.

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/compute-task.json",
+  "title": "ComputeTask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion", "taskId", "attemptId", "idempotencyKey", "requestFingerprint", "task", "model", "constraints", "inputs", "artifacts"],
+  "properties": {
+    "protocolVersion": {"const": "1.0"},
+    "taskId": {"type": "string", "format": "uuid"},
+    "attemptId": {"type": "string", "format": "uuid"},
+    "idempotencyKey": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9:._-]+$"},
+    "requestFingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "schemaVersion"],
+      "properties": {
+        "type": {"type": "string", "enum": ["audio.synthesize", "audio.align", "image.generate", "media.validate"]},
+        "schemaVersion": {"const": "1.0"}
+      }
+    },
+    "model": {"$ref": "model-ref.json"},
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deadline", "maxRuntimeSeconds"],
+      "properties": {
+        "deadline": {"type": "string", "format": "date-time"},
+        "maxRuntimeSeconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+      }
+    },
+    "inputs": {
+      "oneOf": [
+        {"$ref": "task-audio-synthesize.json"},
+        {"$ref": "task-audio-align.json"},
+        {"$ref": "task-image-generate.json"},
+        {"$ref": "task-media-validate.json"}
+      ]
+    },
+    "artifacts": {"type": "array", "maxItems": 32, "items": {"$ref": "artifact-ref.json"}}
+  }
+}
