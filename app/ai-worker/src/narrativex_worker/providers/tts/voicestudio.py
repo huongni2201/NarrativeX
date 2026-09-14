@@ -70,11 +70,26 @@ class VoiceStudioTtsEngine:
 
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
         self._validate_request(request)
-        reference = request.reference_audio_path or self._temporary_references.get(request.voice_id)
-        started = asyncio.get_running_loop().time()
         async with self._inference_gate:
             async with gpu_lease(self.settings, GpuOwner.VOICESTUDIO):
-                response = await self._request_audio(request, reference)
+                return await self._synthesize_owned(request)
+
+    async def synthesize_batch(self, requests: list[TtsRequest]) -> list[SynthesizedSegment]:
+        # The public VoiceStudio contract remains segment-oriented, but one NarrativeX narration
+        # batch owns the GPU once. This keeps the TTS singleton warm across adjacent segments and
+        # prevents repeated Qwen/ComfyUI eviction between every segment on an 8 GB GPU.
+        if not requests:
+            return []
+        for request in requests:
+            self._validate_request(request)
+        async with self._inference_gate:
+            async with gpu_lease(self.settings, GpuOwner.VOICESTUDIO):
+                return [await self._synthesize_owned(request) for request in requests]
+
+    async def _synthesize_owned(self, request: TtsRequest) -> SynthesizedSegment:
+        reference = request.reference_audio_path or self._temporary_references.get(request.voice_id)
+        started = asyncio.get_running_loop().time()
+        response = await self._request_audio(request, reference)
         pcm = await self._wav_to_pcm(response.content)
         self.logger.info(
             "VoiceStudio synthesis completed request=%s segment=%s durationSeconds=%.3f",
@@ -88,11 +103,6 @@ class VoiceStudioTtsEngine:
             sample_rate_hz=48_000,
             channels=1,
         )
-
-    async def synthesize_batch(self, requests: list[TtsRequest]) -> list[SynthesizedSegment]:
-        # VoiceStudio's stable public contract is segment-oriented. Sequential calls reuse the
-        # service's warm singleton while avoiding a request fan-out that exceeds an 8 GB GPU.
-        return [await self.synthesize(request) for request in requests]
 
     async def enroll_reference_voice(self, request_id: str, reference_audio_path: Path) -> str:
         if not reference_audio_path.is_file():
