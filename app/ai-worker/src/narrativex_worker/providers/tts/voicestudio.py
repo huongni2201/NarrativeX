@@ -8,9 +8,11 @@ import logging
 import re
 import wave
 from pathlib import Path
+
 import httpx
 
 from narrativex_worker.config import WorkerSettings
+from narrativex_worker.gpu_ownership import GpuOwner, gpu_lease
 from narrativex_worker.narration.models import SynthesizedSegment
 from narrativex_worker.narration.providers import (
     TtsExecutionSemantics,
@@ -71,7 +73,8 @@ class VoiceStudioTtsEngine:
         reference = request.reference_audio_path or self._temporary_references.get(request.voice_id)
         started = asyncio.get_running_loop().time()
         async with self._inference_gate:
-            response = await self._request_audio(request, reference)
+            async with gpu_lease(self.settings, GpuOwner.VOICESTUDIO):
+                response = await self._request_audio(request, reference)
         pcm = await self._wav_to_pcm(response.content)
         self.logger.info(
             "VoiceStudio synthesis completed request=%s segment=%s durationSeconds=%.3f",
