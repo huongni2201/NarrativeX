@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 from typing import Any
 
 import httpx
@@ -71,11 +72,13 @@ class QwenClient:
         )
 
         try:
-            if self._client is not None:
-                response = await self._client.post(endpoint, json=payload, headers=headers, timeout=timeout)
-            else:
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(endpoint, json=payload, headers=headers)
+            response = await self._post_with_cancellation(
+                endpoint=endpoint,
+                payload=payload,
+                headers=headers,
+                timeout=timeout,
+                cancel=cancel,
+            )
             if response.status_code != 200:
                 raise QwenClientError(
                     f"Qwen endpoint returned HTTP {response.status_code}: {response.text[:200]}"
@@ -91,6 +94,49 @@ class QwenClient:
         content = choices[0].get("message", {}).get("content", "")
         response_id = data.get("id")
         return content, response_id
+
+    async def _post_with_cancellation(
+        self,
+        *,
+        endpoint: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        timeout: httpx.Timeout,
+        cancel: asyncio.Event | None,
+    ) -> httpx.Response:
+        request = asyncio.create_task(
+            self._post(endpoint=endpoint, payload=payload, headers=headers, timeout=timeout)
+        )
+        if cancel is None:
+            return await request
+
+        cancellation = asyncio.create_task(cancel.wait())
+        done, _ = await asyncio.wait(
+            (request, cancellation), return_when=asyncio.FIRST_COMPLETED
+        )
+        if cancellation in done:
+            request.cancel()
+            with suppress(asyncio.CancelledError):
+                await request
+            raise asyncio.CancelledError
+
+        cancellation.cancel()
+        with suppress(asyncio.CancelledError):
+            await cancellation
+        return await request
+
+    async def _post(
+        self,
+        *,
+        endpoint: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        timeout: httpx.Timeout,
+    ) -> httpx.Response:
+        if self._client is not None:
+            return await self._client.post(endpoint, json=payload, headers=headers, timeout=timeout)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            return await client.post(endpoint, json=payload, headers=headers)
 
 
 __all__ = ["QwenClient", "QwenClientError"]

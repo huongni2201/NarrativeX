@@ -20,12 +20,10 @@ from narrativex_gpu_worker.application.errors import AmbiguousOutcomeError
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext
 from narrativex_gpu_worker.contracts import (
-    ArtifactReadAccess,
     ArtifactWriteAccess,
     AudioFormat,
     AudioSynthesizeInputs,
     ComputeTask,
-    InputArtifactRef,
     ModelRef,
     OutputArtifactTarget,
     ProducedArtifact,
@@ -83,7 +81,13 @@ def create_mock_voice_client() -> tuple[httpx.AsyncClient, list[dict[str, Any]]]
 
     async def handler(request: httpx.Request) -> httpx.Response:
         requests_log.append({"method": request.method, "url": str(request.url)})
-        return httpx.Response(200, content=b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00data\x00\x00\x00\x00")
+        return httpx.Response(
+            200,
+            content=(
+                b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00"
+                b"data\x00\x00\x00\x00"
+            ),
+        )
 
     transport = httpx.MockTransport(handler)
     client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000")

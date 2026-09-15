@@ -18,11 +18,9 @@ from narrativex_gpu_worker.application.errors import MissingDurableContextError
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext
 from narrativex_gpu_worker.contracts import (
-    ArtifactReadAccess,
     ArtifactWriteAccess,
     ComputeTask,
     ImageGenerateInputs,
-    InputArtifactRef,
     ModelRef,
     OutputArtifactTarget,
     ProducedArtifact,
@@ -129,7 +127,11 @@ async def test_comfyui_executor_enforces_durable_context(image_task: ComputeTask
         await executor.execute(
             image_task,
             cancel,
-            context=ExecutionContext(existing_execution_handle=None, save_submitting=None, save_handle=None),
+            context=ExecutionContext(
+                existing_execution_handle=None,
+                save_submitting=None,
+                save_handle=None,
+            ),
         )
     assert len(requests_log) == 0
 

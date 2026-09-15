@@ -31,6 +31,12 @@ python -m pytest
 python -m ruff check .
 python -m mypy src
 
+# Generation service
+cd ../generation-service
+python -m pytest
+python -m ruff check .
+python -m mypy src
+
 # Desktop
 cd ../desktop
 npm ci
@@ -45,7 +51,7 @@ Provider integrations must use deterministic fakes or mocked adapters in ordinar
 
 Read `AGENTS.md` for domain, Desktop, storage and runtime verification rules. Read `documentation/CURRENT_STATUS.md` before using older authentication or deployment instructions.
 
-For generation-service changes, also run the commands in `app/generation-service/README.md` and `python scripts/check_compute_contracts.py` from the repository root. The full local gate does not currently include this service.
+For generation-service changes, also run `python scripts/check_compute_contracts.py` from the repository root.
 
 For docs-only changes, run `python scripts/check-docs-drift.py` and `git diff --check`, and verify edited local links. Code tests and runtime UI checks are required when implementation changes; prose-only updates do not require starting Electron. The full provider-independent gate remains required before pushing or merging.
 

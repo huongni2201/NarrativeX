@@ -139,12 +139,15 @@ class SqliteExecutionJournalAdapter:
                 connection.execute(
                     """UPDATE execution_attempts
                        SET submission_state = 'SUBMITTED'
-                       WHERE state = 'RUNNING' AND execution_handle IS NOT NULL AND execution_handle != ''"""
+                       WHERE state = 'RUNNING'
+                         AND execution_handle IS NOT NULL
+                         AND execution_handle != ''"""
                 )
                 connection.execute(
                     """UPDATE execution_attempts
                        SET submission_state = 'UNKNOWN'
-                       WHERE state = 'RUNNING' AND (execution_handle IS NULL OR execution_handle = '')"""
+                       WHERE state = 'RUNNING'
+                         AND (execution_handle IS NULL OR execution_handle = '')"""
                 )
                 connection.execute(
                     """UPDATE execution_attempts
@@ -347,7 +350,8 @@ class SqliteExecutionJournalAdapter:
             updated_obs = observation.model_copy(update={"execution_handle": execution_handle})
             connection.execute(
                 """UPDATE execution_attempts
-                   SET execution_handle = ?, submission_state = ?, observation_json = ?, updated_at = ?
+                   SET execution_handle = ?, submission_state = ?, observation_json = ?,
+                       updated_at = ?
                    WHERE task_id = ? AND attempt_id = ?""",
                 (
                     execution_handle,

@@ -52,7 +52,8 @@ class VoiceStudioExecutor:
             and context.existing_execution_handle
         ):
             raise AmbiguousOutcomeError(
-                "VoiceStudio does not support resuming from execution handle without lookup/dedup capability"
+                "VoiceStudio does not support resuming from execution handle without "
+                "lookup/dedup capability"
             )
 
         if context and context.save_submitting:

@@ -68,6 +68,7 @@ def main() -> int:
 
     backend = ROOT / "app" / "backend-service"
     worker = ROOT / "app" / "ai-worker"
+    generation_service = ROOT / "app" / "generation-service"
     desktop = ROOT / "app" / "desktop"
     windows = os.name == "nt"
 
@@ -83,6 +84,9 @@ def main() -> int:
         Step("AI worker tests", worker, [python, "-m", "pytest"]),
         Step("AI worker lint", worker, [python, "-m", "ruff", "check", "src", "tests"]),
         Step("AI worker type-check", worker, [python, "-m", "mypy", "src"]),
+        Step("Generation service tests", generation_service, [python, "-m", "pytest"]),
+        Step("Generation service lint", generation_service, [python, "-m", "ruff", "check", "src", "tests"]),
+        Step("Generation service type-check", generation_service, [python, "-m", "mypy", "src"]),
         Step("Desktop tests/type-check/build", desktop, [npm, "run", "check"]),
     ]
 

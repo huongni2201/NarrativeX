@@ -1,12 +1,16 @@
-from datetime import UTC, datetime, timedelta
 import asyncio
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
 from narrativex_gpu_worker.adapters.executors import ExecutorCatalog
 from narrativex_gpu_worker.application.errors import ExecutorNotSupportedError
-from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput, ExecutorPort
+from narrativex_gpu_worker.application.ports.execution import (
+    ExecutionContext,
+    ExecutionOutput,
+    ExecutorPort,
+)
 from narrativex_gpu_worker.contracts import (
     AudioFormat,
     AudioSynthesizeInputs,

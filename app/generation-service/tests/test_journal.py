@@ -195,7 +195,8 @@ async def test_journal_migration_from_legacy_schema(
         ).model_dump_json(by_alias=True)
 
         conn.execute(
-            """INSERT INTO execution_attempts VALUES (?, ?, ?, ?, ?, ?, 'ACCEPTED', 0, 0, NULL, ?)""",
+            """INSERT INTO execution_attempts VALUES
+               (?, ?, ?, ?, ?, ?, 'ACCEPTED', 0, 0, NULL, ?)""",
             (
                 str(compute_task.task_id),
                 str(compute_task.attempt_id),
@@ -207,7 +208,8 @@ async def test_journal_migration_from_legacy_schema(
             ),
         )
         conn.execute(
-            """INSERT INTO execution_attempts VALUES (?, ?, ?, ?, ?, ?, 'RUNNING', 1, 0, 'handle-xyz', ?)""",
+            """INSERT INTO execution_attempts VALUES
+               (?, ?, ?, ?, ?, ?, 'RUNNING', 1, 0, 'handle-xyz', ?)""",
             (
                 str(task_running_with_handle.task_id),
                 str(task_running_with_handle.attempt_id),
@@ -219,7 +221,8 @@ async def test_journal_migration_from_legacy_schema(
             ),
         )
         conn.execute(
-            """INSERT INTO execution_attempts VALUES (?, ?, ?, ?, ?, ?, 'RUNNING', 1, 0, NULL, ?)""",
+            """INSERT INTO execution_attempts VALUES
+               (?, ?, ?, ?, ?, ?, 'RUNNING', 1, 0, NULL, ?)""",
             (
                 str(task_running_no_handle.task_id),
                 str(task_running_no_handle.attempt_id),
@@ -260,4 +263,3 @@ async def test_journal_migration_from_legacy_schema(
         ).fetchall()
         for t_id, a_id, corr in rows:
             assert corr == f"{t_id}:{a_id}"
-

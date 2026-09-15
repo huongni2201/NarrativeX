@@ -90,6 +90,37 @@ jobs:
       - name: Mypy
         run: python -m mypy src
 
+  generation-service:
+    name: Generation service checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/generation-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: app/generation-service/pyproject.toml
+
+      - name: Install service and CI dependencies
+        run: >-
+          python -m pip install --upgrade pip &&
+          python -m pip install -e ".[dev]"
+
+      - name: Tests
+        run: python -m pytest
+
+      - name: Ruff
+        run: python -m ruff check src tests
+
+      - name: Mypy
+        run: python -m mypy src
+
   desktop:
     name: Desktop check
     runs-on: ubuntu-latest

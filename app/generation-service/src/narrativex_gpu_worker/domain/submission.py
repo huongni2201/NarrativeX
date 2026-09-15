@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class SubmissionState(str, Enum):
+class SubmissionState(StrEnum):
     """Internal lifecycle checkpoint for tracking external engine interactions.
 
     These states are internal execution checkpoints, separate from external wire
