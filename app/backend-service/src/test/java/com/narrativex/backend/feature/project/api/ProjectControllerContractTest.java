@@ -75,6 +75,7 @@ class ProjectControllerContractTest {
     assertTrue(responseEntity.getBody().success());
     assertEquals(projectId, responseEntity.getBody().data().content().getFirst().id());
     verify(listProjectsUseCase).execute(new ProjectListQuery(null, "cursor-token", 100));
+    verify(listProjectsUseCase).execute(new ProjectListQuery("cursor-token", 100));
   }
 
   @Test

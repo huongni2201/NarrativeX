@@ -10,15 +10,10 @@ public interface MediaGenerationItemMapper extends NarrativeXMyBatisMapper {
 
   MediaGenerationItemRow findById(@Param("id") UUID id);
 
-  MediaGenerationItemRow findOwned(@Param("userId") String userId, @Param("id") UUID id);
-
-  List<MediaGenerationItemRow> findByJobOwned(
-      @Param("userId") String userId, @Param("jobId") UUID jobId);
+  List<MediaGenerationItemRow> findByJobId(@Param("jobId") UUID jobId);
 
   int review(
-      @Param("userId") String userId,
       @Param("id") UUID id,
       @Param("rowVersion") long rowVersion,
-      @Param("decision") String decision,
-      @Param("reviewerId") String reviewerId);
+      @Param("decision") String decision);
 }

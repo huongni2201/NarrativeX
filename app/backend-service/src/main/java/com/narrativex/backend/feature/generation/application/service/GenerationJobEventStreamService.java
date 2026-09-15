@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.service;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -19,12 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Streams owner-scoped generation-job snapshots to Desktop clients.
- *
- * <p>PostgreSQL remains the authoritative status source because Python workers update generation
- * state directly in the database. The server watches only jobs with active subscribers and pushes
- * changes over SSE, which removes high-frequency polling from every Desktop renderer without
- * introducing Redis as a second source of truth.
+ * Streams generation-job snapshots to Desktop clients.
  */
 @Slf4j
 @Service
@@ -33,20 +27,18 @@ public class GenerationJobEventStreamService {
   private static final long EMITTER_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
   private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(15);
 
-  private final CurrentUserId currentUserId;
   private final GenerationJobRepository generationJobRepository;
   private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<Subscription>> subscriptions =
       new ConcurrentHashMap<>();
 
   public SseEmitter subscribe(UUID jobId) {
-    String ownerId = currentUserId.get();
     GenerationJob job =
         generationJobRepository
-            .findByJobIdAndOwner(jobId, ownerId)
+            .findByJobId(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Job not found"));
 
     SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT_MILLIS);
-    Subscription subscription = new Subscription(ownerId, emitter);
+    Subscription subscription = new Subscription(emitter);
     subscriptions.computeIfAbsent(jobId, ignored -> new CopyOnWriteArrayList<>()).add(subscription);
 
     emitter.onCompletion(() -> remove(jobId, subscription));
@@ -57,7 +49,7 @@ public class GenerationJobEventStreamService {
         });
     emitter.onError(ignored -> remove(jobId, subscription));
 
-    sendSnapshot(jobId, subscription, job, snapshotFor(jobId, ownerId, job));
+    sendSnapshot(jobId, subscription, job, snapshotFor(jobId, job));
     return emitter;
   }
 
@@ -76,22 +68,15 @@ public class GenerationJobEventStreamService {
       return;
     }
 
-    String ownerId = jobSubscriptions.getFirst().ownerId();
-    var current = generationJobRepository.findByJobIdAndOwner(jobId, ownerId);
+    var current = generationJobRepository.findByJobId(jobId);
     if (current.isEmpty()) {
       completeAll(jobId, jobSubscriptions);
       return;
     }
 
     GenerationJob job = current.get();
-    JobResponse snapshot = snapshotFor(jobId, ownerId, job);
+    JobResponse snapshot = snapshotFor(jobId, job);
     for (Subscription subscription : jobSubscriptions) {
-      if (!ownerId.equals(subscription.ownerId())) {
-        remove(jobId, subscription);
-        subscription.emitter().completeWithError(new IllegalStateException("Job owner changed"));
-        continue;
-      }
-
       if (!snapshot.equals(subscription.lastSnapshot())) {
         sendSnapshot(jobId, subscription, job, snapshot);
       } else if (Duration.between(subscription.lastSentAt(), Instant.now())
@@ -102,9 +87,9 @@ public class GenerationJobEventStreamService {
     }
   }
 
-  private JobResponse snapshotFor(UUID jobId, String ownerId, GenerationJob job) {
+  private JobResponse snapshotFor(UUID jobId, GenerationJob job) {
     var analysisProgress =
-        generationJobRepository.findAnalysisProgressByJobIdAndOwner(jobId, ownerId).orElse(null);
+        generationJobRepository.findAnalysisProgressByJobId(jobId).orElse(null);
     return JobResponse.fromWithAnalysisProgress(job, analysisProgress);
   }
 
@@ -120,22 +105,23 @@ public class GenerationJobEventStreamService {
                   .reconnectTime(1_500L)
                   .data(snapshot));
       subscription.markSent(snapshot);
-      if (job.getStatus().isTerminal()) {
+      if (!job.getStatus().isActive()) {
         remove(jobId, subscription);
         subscription.emitter().complete();
       }
     } catch (IOException | IllegalStateException exception) {
       remove(jobId, subscription);
-      log.debug("Generation SSE subscriber disconnected for jobId={}", jobId);
+      subscription.emitter().completeWithError(exception);
     }
   }
 
   private void sendHeartbeat(UUID jobId, Subscription subscription) {
     try {
-      subscription.emitter().send(SseEmitter.event().name("heartbeat").comment("keep-alive"));
+      subscription.emitter().send(SseEmitter.event().comment("heartbeat"));
       subscription.markHeartbeat();
     } catch (IOException | IllegalStateException exception) {
       remove(jobId, subscription);
+      subscription.emitter().completeWithError(exception);
     }
   }
 
@@ -148,27 +134,35 @@ public class GenerationJobEventStreamService {
 
   private void remove(UUID jobId, Subscription subscription) {
     var jobSubscriptions = subscriptions.get(jobId);
-    if (jobSubscriptions == null) return;
+    if (jobSubscriptions == null) {
+      return;
+    }
     jobSubscriptions.remove(subscription);
-    if (jobSubscriptions.isEmpty()) subscriptions.remove(jobId, jobSubscriptions);
+    if (jobSubscriptions.isEmpty()) {
+      subscriptions.remove(jobId, jobSubscriptions);
+    }
   }
 
-  static String eventId(GenerationJob job, JobResponse snapshot) {
-    return job.getStatus().name()
+  private static String eventId(GenerationJob job, JobResponse snapshot) {
+    return job.getId()
+        + ":"
+        + snapshot.status()
         + ':'
-        + job.getProgress()
+        + snapshot.progress()
         + ':'
-        + (job.getCurrentStep() == null ? "" : job.getCurrentStep())
+        + value(snapshot.currentStep())
         + ':'
-        + job.getRowVersion()
+        + value(snapshot.errorCode())
         + ':'
-        + value(snapshot.phase())
+        + value(snapshot.analysisProgress() == null ? null : snapshot.analysisProgress().status())
         + ':'
-        + value(snapshot.completedShards())
+        + value(snapshot.analysisProgress() == null ? null : snapshot.analysisProgress().progress())
         + ':'
-        + value(snapshot.totalShards())
+        + value(snapshot.mediaPlanId())
         + ':'
-        + value(snapshot.reusedShards())
+        + value(snapshot.mediaPlanRevision())
+        + ':'
+        + value(snapshot.regenerationPlanId())
         + ':'
         + value(snapshot.repairCount())
         + ':'
@@ -180,18 +174,12 @@ public class GenerationJobEventStreamService {
   }
 
   private static final class Subscription {
-    private final String ownerId;
     private final SseEmitter emitter;
     private volatile JobResponse lastSnapshot;
     private volatile Instant lastSentAt = Instant.EPOCH;
 
-    private Subscription(String ownerId, SseEmitter emitter) {
-      this.ownerId = ownerId;
+    private Subscription(SseEmitter emitter) {
       this.emitter = emitter;
-    }
-
-    String ownerId() {
-      return ownerId;
     }
 
     SseEmitter emitter() {

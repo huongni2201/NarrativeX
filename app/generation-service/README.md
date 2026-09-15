@@ -43,7 +43,6 @@ bootstrap.py    composition root; the only place that wires concrete adapters
 
 Provider, runtime and model revisions are selected at the adapter boundary through
 `ExecutorCatalogPort`. The application service only sees the executor port, so replacing a
-provider or runtime does not change lifecycle, replay, recovery or HTTP code. The old
-`domain.models` and `runtime` modules remain import-compatible shims while vertical slices migrate;
-there is intentionally no top-level `executors` package. New code should import from `contracts`,
-`application`, and `adapters`.
+provider or runtime does not change lifecycle, replay, recovery or HTTP code. Legacy modules
+and shims (`runtime/`, `api/`) have been completely eliminated. All code strictly imports from
+`contracts`, `domain`, `application`, and `adapters`.

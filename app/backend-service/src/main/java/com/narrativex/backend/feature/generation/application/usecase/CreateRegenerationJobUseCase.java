@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
@@ -35,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateRegenerationJobUseCase {
   private static final String STAGE_NAME = "SHOT_IMAGE_REGENERATE";
 
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final ChapterContinuityRepository continuityRepository;
@@ -45,8 +43,8 @@ public class CreateRegenerationJobUseCase {
   private final MediaGenerationItemRepository mediaGenerationItemRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final StageAttemptRepository stageAttemptRepository;
-  private final UserQuotaAccess userQuotaAccess;
   private final ImageGenerationCatalog imageGenerationCatalog;
+  private final NarrativeXLimitsProperties limits;
 
   @Transactional
   public GenerationJob execute(
@@ -54,11 +52,10 @@ public class CreateRegenerationJobUseCase {
       UUID chapterId,
       UUID regenerationPlanId,
       String idempotencyHeader) {
-    String userId = currentUserId.get();
     String idempotencyKey = CreateMediaJobUseCase.requireIdempotencyKey(idempotencyHeader);
-    var project = projectAccess.findOwnedProject(projectId, userId);
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
+    var project = projectAccess.findProject(projectId);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
       GenerationJob job = existing.get();
       boolean sameScope =
@@ -76,7 +73,7 @@ public class CreateRegenerationJobUseCase {
       return job;
     }
 
-    var chapter = chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, userId);
+    var chapter = chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId);
     var regenerationPlan =
         continuityRepository
             .findRegenerationPlan(projectId, chapterId, regenerationPlanId)
@@ -110,24 +107,15 @@ public class CreateRegenerationJobUseCase {
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(chapterId)
-            .flatMap(
-                internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
+            .flatMap(generationJobRepository::findById)
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       throw new GenerationAdmissionDeniedException(
           "MEDIA_JOB_ACTIVE", "A media generation job is already active for this chapter.");
     }
 
-    var quota =
-        userQuotaAccess
-            .findCurrentQuota(userId)
-            .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "ENTITLEMENT_DENIED", "No active plan is available."));
-    generationJobRepository.acquireImageCapacityLock(userId);
-    if (generationJobRepository.countActiveImageJobs(userId)
-        >= quota.maxConcurrentExpensiveJobs()) {
+    generationJobRepository.acquireImageCapacityLock();
+    if (generationJobRepository.countActiveImageJobs() >= limits.getMaxConcurrentExpensiveJobs()) {
       throw new GenerationAdmissionDeniedException(
           "CAPACITY_EXHAUSTED", "Image generation capacity is exhausted.");
     }
@@ -152,8 +140,7 @@ public class CreateRegenerationJobUseCase {
                 mediaPlan,
                 ResourceClass.PROVIDER_BATCH,
                 project.getSourceLanguage(),
-                idempotencyKey,
-                userId));
+                idempotencyKey));
     continuityRepository.bindRegenerationJob(job.getId(), regenerationPlan.id());
     chapterMediaHeadRepository.setCurrent(chapterId, job.getId());
 

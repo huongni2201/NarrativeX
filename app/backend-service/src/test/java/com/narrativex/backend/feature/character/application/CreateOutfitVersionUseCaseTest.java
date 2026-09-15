@@ -32,6 +32,7 @@ class CreateOutfitVersionUseCaseTest {
   @Test
   void locksCharacterBeforeAllocatingNextVersion() {
     when(characterRepository.findOwnedByIdForUpdate(CHARACTER_ID, "owner"))
+    when(characterRepository.findByIdForUpdate(CHARACTER_ID))
         .thenReturn(Optional.of(character()));
     when(outfitVersionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
     when(outfitVersionRepository.save(any(OutfitVersion.class)))
@@ -39,18 +40,23 @@ class CreateOutfitVersionUseCaseTest {
     CurrentUserId currentUserId = () -> "owner";
     CreateOutfitVersionUseCase useCase =
         new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository, currentUserId);
+        new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository);
 
     OutfitVersion response =
         useCase.execute(
             new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt", "owner"));
+            new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt", null));
 
     assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findOwnedByIdForUpdate(CHARACTER_ID, "owner");
     verify(characterRepository, never()).findOwnedById(CHARACTER_ID, "owner");
+    verify(characterRepository).findByIdForUpdate(CHARACTER_ID);
+    verify(characterRepository, never()).findById(CHARACTER_ID);
   }
 
   private static Character character() {
     return Character.rehydrate(
         CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+        CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }

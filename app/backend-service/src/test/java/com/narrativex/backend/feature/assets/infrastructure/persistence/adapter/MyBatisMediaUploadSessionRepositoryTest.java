@@ -29,6 +29,7 @@ class MyBatisMediaUploadSessionRepositoryTest {
     MediaUploadSessionRow winner = row(command);
     when(mapper.insert(command)).thenReturn(0);
     when(mapper.findByIdempotencyKey(ACCOUNT, KEY)).thenReturn(winner);
+    when(mapper.findByIdempotencyKey(KEY)).thenReturn(winner);
 
     var result = new MyBatisMediaUploadSessionRepository(mapper).create(command);
 
@@ -43,6 +44,7 @@ class MyBatisMediaUploadSessionRepositoryTest {
     winner.setExpectedSize(command.expectedSize() + 1);
     when(mapper.insert(command)).thenReturn(0);
     when(mapper.findByIdempotencyKey(ACCOUNT, KEY)).thenReturn(winner);
+    when(mapper.findByIdempotencyKey(KEY)).thenReturn(winner);
 
     assertThatThrownBy(() -> new MyBatisMediaUploadSessionRepository(mapper).create(command))
         .isInstanceOf(ResourceConflictException.class)

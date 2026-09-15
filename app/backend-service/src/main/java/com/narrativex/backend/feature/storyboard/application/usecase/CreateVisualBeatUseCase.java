@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateVisualBeatUseCase {
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final StoryboardRepository storyboardRepository;
@@ -30,8 +28,8 @@ public class CreateVisualBeatUseCase {
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(
-        projectId, chapter.getStoryVersionId(), currentUserId.get());
+    storyVersionAccess.requireStoryVersion(
+        projectId, chapter.getStoryVersionId());
 
     var scene =
         storyboardRepository

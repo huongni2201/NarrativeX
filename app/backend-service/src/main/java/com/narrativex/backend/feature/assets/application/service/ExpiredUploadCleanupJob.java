@@ -27,6 +27,7 @@ public class ExpiredUploadCleanupJob {
     for (var upload : expired) {
       try {
         finalization.rejectExpired(upload.accountId(), upload.id());
+        finalization.rejectExpired(upload.id());
       } catch (RuntimeException exception) {
         // A later scan retries the short database transition. Object deletion is handled
         // separately by MediaStorageCleanupJob after the rejection has committed.

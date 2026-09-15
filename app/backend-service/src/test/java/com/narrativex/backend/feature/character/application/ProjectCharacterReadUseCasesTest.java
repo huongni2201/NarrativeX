@@ -37,11 +37,14 @@ class ProjectCharacterReadUseCasesTest {
   @Test
   void listRejectsProjectOutsideCurrentOwner() {
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(false);
+    when(repository.projectExists(PROJECT_ID)).thenReturn(false);
     ListProjectCharactersUseCase useCase =
         new ListProjectCharactersUseCase(repository, currentUserId);
+        new ListProjectCharactersUseCase(repository);
 
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, null, 20));
     verify(repository).projectOwnedBy(PROJECT_ID, "owner");
+    verify(repository).projectExists(PROJECT_ID);
   }
 
   @Test
@@ -49,9 +52,12 @@ class ProjectCharacterReadUseCasesTest {
     ProjectCharacterReadModel model = model();
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
     when(repository.findByProject(PROJECT_ID, "owner", null, 20))
+    when(repository.projectExists(PROJECT_ID)).thenReturn(true);
+    when(repository.findByProject(PROJECT_ID, null, 20))
         .thenReturn(new CursorPage<>(List.of(model), null, 20, false));
     ListProjectCharactersUseCase useCase =
         new ListProjectCharactersUseCase(repository, currentUserId);
+        new ListProjectCharactersUseCase(repository);
 
     CursorPage<ProjectCharacterReadModel> page = useCase.execute(PROJECT_ID, null, 20);
 
@@ -64,8 +70,11 @@ class ProjectCharacterReadUseCasesTest {
   void detailRejectsCharacterOutsideProject() {
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
     when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner")).thenReturn(Optional.empty());
+    when(repository.projectExists(PROJECT_ID)).thenReturn(true);
+    when(repository.findDetail(PROJECT_ID, CHARACTER_ID)).thenReturn(Optional.empty());
     GetProjectCharacterDetailUseCase useCase =
         new GetProjectCharacterDetailUseCase(repository, currentUserId);
+        new GetProjectCharacterDetailUseCase(repository);
 
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, CHARACTER_ID));
   }
@@ -75,8 +84,11 @@ class ProjectCharacterReadUseCasesTest {
     ProjectCharacterReadModel model = model();
     when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
     when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner")).thenReturn(Optional.of(model));
+    when(repository.projectExists(PROJECT_ID)).thenReturn(true);
+    when(repository.findDetail(PROJECT_ID, CHARACTER_ID)).thenReturn(Optional.of(model));
     GetProjectCharacterDetailUseCase useCase =
         new GetProjectCharacterDetailUseCase(repository, currentUserId);
+        new GetProjectCharacterDetailUseCase(repository);
 
     ProjectCharacterReadModel result = useCase.execute(PROJECT_ID, CHARACTER_ID);
 

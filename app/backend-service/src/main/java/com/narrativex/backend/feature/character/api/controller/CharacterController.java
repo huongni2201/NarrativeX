@@ -63,8 +63,7 @@ public class CharacterController {
       @Valid @RequestBody CreateCharacterRequest request) {
     var character =
         createCharacterUseCase.execute(
-            new CreateCharacterCommand(
-                request.workspaceId(), request.canonicalName(), request.aliases(), null));
+            new CreateCharacterCommand(request.canonicalName(), request.aliases()));
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.success("Character created", CharacterSummaryResponse.from(character)));
   }
@@ -97,7 +96,7 @@ public class CharacterController {
     getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     var version =
         submitCharacterVersionForReviewUseCase.execute(
-            new ChangeCharacterVersionStatusCommand(versionId, null));
+            new ChangeCharacterVersionStatusCommand(versionId));
     return ResponseEntity.ok(
         ApiResponse.success(
             "Character version submitted for review", CharacterVersionResponse.from(version)));
@@ -109,7 +108,7 @@ public class CharacterController {
     getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     var version =
         lockCharacterVersionUseCase.execute(
-            new ChangeCharacterVersionStatusCommand(versionId, null));
+            new ChangeCharacterVersionStatusCommand(versionId));
     return ResponseEntity.ok(
         ApiResponse.success("Character version locked", CharacterVersionResponse.from(version)));
   }

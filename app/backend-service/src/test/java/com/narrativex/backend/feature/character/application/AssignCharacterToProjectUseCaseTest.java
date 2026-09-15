@@ -56,6 +56,7 @@ class AssignCharacterToProjectUseCaseTest {
     assertEquals(characterId, response.getCharacterId());
     assertEquals(projectId, response.getProjectId());
     verify(projectAccess).findOwnedProject(projectId, "owner");
+    verify(projectAccess).findProject(projectId);
     verify(projectCharacterRepository).save(any(ProjectCharacter.class));
   }
 
@@ -233,12 +234,14 @@ class AssignCharacterToProjectUseCaseTest {
         projectCharacterRepository,
         projectAccess,
         currentUserId);
+        projectAccess);
   }
 
   private void stubOwnedProjectAndCharacter(UUID projectId, UUID characterId) {
     Character character =
         Character.rehydrate(
             characterId, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+            characterId, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
     Project project =
         Project.rehydrate(
             projectId,
@@ -253,6 +256,8 @@ class AssignCharacterToProjectUseCaseTest {
             null);
     when(projectAccess.findOwnedProject(projectId, "owner")).thenReturn(project);
     when(characterRepository.findOwnedById(characterId, "owner"))
+    when(projectAccess.findProject(projectId)).thenReturn(project);
+    when(characterRepository.findById(characterId))
         .thenReturn(Optional.of(character));
   }
 

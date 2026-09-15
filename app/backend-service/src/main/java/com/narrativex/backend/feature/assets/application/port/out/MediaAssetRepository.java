@@ -7,7 +7,6 @@ import java.util.UUID;
 /** Persistence boundary for project-owned media only. */
 public interface MediaAssetRepository {
   CursorPage<MediaAssetView> list(
-      String accountId,
       UUID projectId,
       String type,
       String status,
@@ -15,11 +14,11 @@ public interface MediaAssetRepository {
       String cursor,
       int limit);
 
-  MediaAssetView createLocalAsset(String accountId, CreateLocalMediaAsset command);
+  MediaAssetView createLocalAsset(CreateLocalMediaAsset command);
 
-  MediaAssetView findOwned(String accountId, UUID projectId, UUID id);
+  MediaAssetView findById(UUID projectId, UUID id);
 
-  void delete(String accountId, UUID projectId, UUID id);
+  void delete(UUID projectId, UUID id);
 
   record CreateLocalMediaAsset(
       UUID proposedId,

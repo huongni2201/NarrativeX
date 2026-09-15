@@ -67,6 +67,9 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     jdbc.update("DELETE FROM media_upload_sessions WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM media_validation_jobs WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM voice_reference_assets WHERE account_id = ?", ACCOUNT);
+    jdbc.update("DELETE FROM media_upload_sessions");
+    jdbc.update("DELETE FROM media_validation_jobs");
+    jdbc.update("DELETE FROM voice_reference_assets");
   }
 
   @Test
@@ -97,11 +100,13 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
               count(
                   "SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ? AND status = 'VALIDATING'",
                   ACCOUNT))
+                  "SELECT COUNT(*) FROM voice_reference_assets WHERE status = 'VALIDATING'"))
           .isEqualTo(1);
       assertThat(
               count(
                   "SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ? AND status IN ('PENDING_UPLOAD', 'UPLOADING')",
                   ACCOUNT))
+                  "SELECT COUNT(*) FROM voice_reference_assets WHERE status IN ('PENDING_UPLOAD', 'UPLOADING')"))
           .isZero();
     } finally {
       executor.shutdownNow();
@@ -115,11 +120,14 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
 
     UploadFinalizeView first =
         finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
+        finalization.finalizeVerifiedObject(session.id(), storedObject);
     UploadFinalizeView retry =
         finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
+        finalization.finalizeVerifiedObject(session.id(), storedObject);
 
     assertThat(retry.mediaAssetId()).isEqualTo(first.mediaAssetId());
     assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ?", ACCOUNT))
+    assertThat(count("SELECT COUNT(*) FROM voice_reference_assets"))
         .isEqualTo(1);
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks")).isZero();
   }
@@ -144,11 +152,13 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
 
       assertThat(first.mediaAssetId()).isEqualTo(second.mediaAssetId());
       assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ?", ACCOUNT))
+      assertThat(count("SELECT COUNT(*) FROM voice_reference_assets"))
           .isEqualTo(1);
       assertThat(
               count(
                   "SELECT COUNT(*) FROM media_upload_sessions WHERE account_id = ? AND status = 'VALIDATING'",
                   ACCOUNT))
+                  "SELECT COUNT(*) FROM media_upload_sessions WHERE status = 'VALIDATING'"))
           .isEqualTo(2);
       assertThat(
               count(
@@ -184,6 +194,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
       CyclicBarrier start, UUID sessionId, StoredObject storedObject) throws Exception {
     start.await();
     return finalization.finalizeVerifiedObject(ACCOUNT, sessionId, storedObject);
+    return finalization.finalizeVerifiedObject(sessionId, storedObject);
   }
 
   private UploadSession createSession() {
@@ -198,6 +209,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
             128,
             SHA,
             "voices/" + ACCOUNT + "/" + id,
+            "voices/" + id,
             null,
             Instant.now().plusSeconds(900)));
   }

@@ -26,7 +26,6 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
   @Override
   @Transactional(readOnly = true)
   public CursorPage<MediaAssetView> list(
-      String accountId,
       UUID projectId,
       String type,
       String status,
@@ -37,7 +36,6 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     MediaAssetCursor key = MediaAssetCursorCodec.decode(cursor);
     List<MediaAssetRow> rows =
         mapper.findPage(
-            accountId,
             projectId,
             normalizeOptional(type),
             normalizeOptional(status),
@@ -62,7 +60,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
 
   @Override
   @Transactional
-  public MediaAssetView createLocalAsset(String accountId, CreateLocalMediaAsset command) {
+  public MediaAssetView createLocalAsset(CreateLocalMediaAsset command) {
     if (!List.of("AUDIO", "IMAGE", "VIDEO").contains(command.type())) {
       throw new IllegalArgumentException("Project asset type must be AUDIO, IMAGE, or VIDEO");
     }
@@ -76,7 +74,6 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     }
     MediaAssetRow row = new MediaAssetRow();
     row.setId(command.proposedId() == null ? UUID.randomUUID() : command.proposedId());
-    row.setAccountId(accountId);
     row.setProjectId(command.projectId());
     row.setAssetType(command.type());
     row.setOriginalFilename(command.originalFilename());
@@ -85,20 +82,20 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     row.setSha256(command.sha256().toLowerCase(Locale.ROOT));
     row.setDurationMs(command.durationMs());
     mapper.insertLocal(row);
-    return requireOwned(accountId, command.projectId(), row.getId());
+    return requireById(command.projectId(), row.getId());
   }
 
   @Override
   @Transactional(readOnly = true)
-  public MediaAssetView findOwned(String accountId, UUID projectId, UUID id) {
-    return toView(requireOwnedRow(accountId, projectId, id));
+  public MediaAssetView findById(UUID projectId, UUID id) {
+    return toView(requireByIdRow(projectId, id));
   }
 
   @Override
   @Transactional
-  public void delete(String accountId, UUID projectId, UUID id) {
-    requireOwnedRow(accountId, projectId, id);
-    if (mapper.softDelete(accountId, projectId, id) != 1) {
+  public void delete(UUID projectId, UUID id) {
+    requireByIdRow(projectId, id);
+    if (mapper.softDelete(projectId, id) != 1) {
       throw new OptimisticLockingFailureException(
           "Media asset " + id + " was modified concurrently or is still referenced");
     }
@@ -106,8 +103,8 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<MediaAssetSummary> findOwnedSummary(String ownerId, UUID assetId) {
-    MediaAssetRow row = mapper.findOwnedByAccount(ownerId, assetId);
+  public Optional<MediaAssetSummary> findSummary(UUID assetId) {
+    MediaAssetRow row = mapper.findSummaryById(assetId);
     if (row == null) return Optional.empty();
     return Optional.of(
         new MediaAssetSummary(
@@ -118,14 +115,14 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
             row.getDetectedContentType()));
   }
 
-  private MediaAssetRow requireOwnedRow(String accountId, UUID projectId, UUID id) {
-    MediaAssetRow row = mapper.findOwned(accountId, projectId, id);
+  private MediaAssetRow requireByIdRow(UUID projectId, UUID id) {
+    MediaAssetRow row = mapper.findById(projectId, id);
     if (row == null) throw new ResourceNotFoundException("Project asset not found");
     return row;
   }
 
-  private MediaAssetView requireOwned(String accountId, UUID projectId, UUID id) {
-    return toView(requireOwnedRow(accountId, projectId, id));
+  private MediaAssetView requireById(UUID projectId, UUID id) {
+    return toView(requireByIdRow(projectId, id));
   }
 
   private static MediaAssetView toView(MediaAssetRow row) {

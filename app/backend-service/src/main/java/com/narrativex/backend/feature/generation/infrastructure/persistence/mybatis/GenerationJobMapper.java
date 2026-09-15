@@ -12,36 +12,39 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
 
   GenerationJobRow findById(@Param("id") UUID id);
 
-  GenerationJobRow findByIdAndOwner(@Param("id") UUID id, @Param("ownerId") String ownerId);
+  GenerationJobRow findByJobId(@Param("jobId") UUID jobId);
 
-  GenerationJobRow findByJobIdAndOwner(
-      @Param("jobId") UUID jobId, @Param("ownerId") String ownerId);
+  AnalysisProgressRow findAnalysisProgressByJobId(@Param("jobId") UUID jobId);
 
-  AnalysisProgressRow findAnalysisProgressByJobIdAndOwner(
-      @Param("jobId") UUID jobId, @Param("ownerId") String ownerId);
-
-  GenerationJobRow findByIdempotencyKey(
-      @Param("idempotencyKey") String idempotencyKey, @Param("ownerId") String ownerId);
+  GenerationJobRow findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
 
   GenerationJobRow findLatestByIdempotencyFamily(
-      @Param("baseIdempotencyKey") String baseIdempotencyKey, @Param("ownerId") String ownerId);
+      @Param("baseIdempotencyKey") String baseIdempotencyKey);
 
-  Integer acquireIdempotencyLock(
-      @Param("idempotencyKey") String idempotencyKey, @Param("ownerId") String ownerId);
+  Integer acquireIdempotencyLock(@Param("idempotencyKey") String idempotencyKey);
 
-  @Select(
-      "SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(CONCAT('image-capacity:', #{ownerId}), 0))")
-  Integer acquireImageCapacityLock(@Param("ownerId") String ownerId);
+  @Select("SELECT 1 FROM pg_advisory_xact_lock(hashtextextended('image-capacity', 0))")
+  Integer acquireImageCapacityLock();
+
+  @Select("SELECT 1 FROM pg_advisory_xact_lock(hashtextextended('analysis-capacity', 0))")
+  Integer acquireAnalysisCapacityLock();
 
   @Select(
       """
       SELECT COUNT(*)::int
         FROM generation_jobs
-       WHERE requested_by_user_id = #{ownerId}
-         AND job_type = 'CHAPTER_GENERATE'
+       WHERE job_type = 'CHAPTER_GENERATE'
          AND production_mode = 'IMAGE_MOTION'
          AND resource_class = 'PROVIDER_BATCH'
          AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
       """)
-  int countActiveImageJobs(@Param("ownerId") String ownerId);
+  int countActiveImageJobs();
+
+  @Select(
+      """
+      SELECT COUNT(*)::int
+        FROM generation_jobs
+       WHERE status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
+      """)
+  int countActiveJobs();
 }

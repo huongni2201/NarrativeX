@@ -2,20 +2,32 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from narrativex_gpu_worker.application.ports.execution import ExecutionOutput
-from narrativex_gpu_worker.contracts import ComputeTask, ExecutionMetrics, ModelRef
+from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
+from narrativex_gpu_worker.contracts import (
+    ComputeTask,
+    ExecutionMetrics,
+    ModelRef,
+    request_fingerprint,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
 def task_payload() -> dict[str, Any]:
     source = ROOT / "contracts" / "compute" / "v1" / "examples" / "audio-synthesize-task.json"
-    return json.loads(source.read_text(encoding="utf-8"))
+    payload: dict[str, Any] = json.loads(source.read_text(encoding="utf-8"))
+    # Set future deadline for live runtime tests
+    future = datetime.now(UTC) + timedelta(hours=2)
+    payload["constraints"]["deadline"] = future.isoformat().replace("+00:00", "Z")
+    task = ComputeTask.model_validate(payload)
+    payload["requestFingerprint"] = request_fingerprint(task)
+    return payload
 
 
 @pytest.fixture
@@ -33,16 +45,23 @@ class FakeExecutor:
         self.gate = gate
         self.failure = failure
         self.calls = 0
+        self.last_context: ExecutionContext | None = None
 
-    async def execute(self, task: ComputeTask, cancel: asyncio.Event) -> ExecutionOutput:
+    async def execute(
+        self,
+        task: ComputeTask,
+        cancel: asyncio.Event,
+        context: ExecutionContext | None = None,
+    ) -> ExecutionOutput:
         self.calls += 1
+        self.last_context = context
         if self.gate is not None:
             while not self.gate.is_set() and not cancel.is_set():
                 await asyncio.sleep(0)
         if self.failure is not None:
             raise self.failure
         return ExecutionOutput(
-            metrics=ExecutionMetrics(runtimeMs=1), execution_handle="opaque-test-handle"
+            metrics=ExecutionMetrics(runtime_ms=1), execution_handle="opaque-test-handle"
         )
 
 

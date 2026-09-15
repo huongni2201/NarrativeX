@@ -8,10 +8,12 @@ SQLite, HTTP or provider implementations themselves.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fastapi import FastAPI
 
-from narrativex_gpu_worker.adapters.executors import ExecutorRegistry
+from narrativex_gpu_worker.adapters.executors import ExecutorCatalog
+from narrativex_gpu_worker.adapters.inbound.http import AppState, create_app as create_http_app
 from narrativex_gpu_worker.adapters.persistence import SqliteExecutionJournalAdapter
-from narrativex_gpu_worker.application.ports.outbound import ExecutorCatalogPort
+from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
 from narrativex_gpu_worker.config import WorkerSettings
 
@@ -22,16 +24,11 @@ class ApplicationComponents:
     executor_catalog: ExecutorCatalogPort
     execution: ExecutionApplicationService
 
-    @property
-    def registry(self) -> ExecutorCatalogPort:
-        """Compatibility alias for callers that still call it a registry."""
-        return self.executor_catalog
-
 
 def build_application(
-    settings: WorkerSettings, registry: ExecutorCatalogPort | None = None
+    settings: WorkerSettings, executor_catalog: ExecutorCatalogPort | None = None
 ) -> ApplicationComponents:
-    catalog = registry or ExecutorRegistry()
+    catalog = executor_catalog or ExecutorCatalog()
     journal = SqliteExecutionJournalAdapter(settings.journal_file)
     execution = ExecutionApplicationService(
         journal=journal,
@@ -39,3 +36,18 @@ def build_application(
         max_concurrency=settings.max_concurrent_tasks,
     )
     return ApplicationComponents(settings=settings, executor_catalog=catalog, execution=execution)
+
+
+def create_app(
+    settings: WorkerSettings, executor_catalog: ExecutorCatalogPort | None = None
+) -> FastAPI:
+    components = build_application(settings, executor_catalog)
+    state = AppState(
+        settings=components.settings,
+        executor_catalog=components.executor_catalog,
+        execution=components.execution,
+    )
+    return create_http_app(state)
+
+
+__all__ = ["ApplicationComponents", "build_application", "create_app"]

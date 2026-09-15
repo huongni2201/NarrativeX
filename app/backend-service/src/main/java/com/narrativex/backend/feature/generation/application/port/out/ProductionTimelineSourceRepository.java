@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ProductionTimelineSourceRepository {
-  List<ChapterSource> findChapters(UUID projectId, String ownerId);
+  List<ChapterSource> findChapters(UUID projectId);
 
-  List<BeatSource> findBeats(UUID projectId, String ownerId);
+  List<BeatSource> findBeats(UUID projectId);
 
   record ChapterSource(
       UUID storyVersionId,

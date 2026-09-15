@@ -39,9 +39,11 @@ class DeleteChapterUseCaseTest {
     when(chapterRepository.findById(CHAPTER_ID)).thenReturn(Optional.of(chapter));
 
     new DeleteChapterUseCase(currentUserId, storyVersionAccess, chapterRepository)
+    new DeleteChapterUseCase(storyVersionAccess, chapterRepository)
         .execute(PROJECT_ID, CHAPTER_ID);
 
     verify(storyVersionAccess).requireOwnedStoryVersion(PROJECT_ID, STORY_VERSION_ID, "owner-1");
+    verify(storyVersionAccess).requireStoryVersion(PROJECT_ID, STORY_VERSION_ID);
     verify(chapterRepository).deleteById(CHAPTER_ID);
   }
 }

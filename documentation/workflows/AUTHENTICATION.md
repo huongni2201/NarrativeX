@@ -1,5 +1,7 @@
 # Authentication and Ownership Workflow
 
+> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 ## Purpose
 
 Let NarrativeX Desktop open directly into a usable workspace, keep guest ownership stable across application and server-session restarts, then require Google OIDC only when the user invokes account-bound or paid production actions. Authentication remains server-managed and business modules obtain caller identity through application ports.

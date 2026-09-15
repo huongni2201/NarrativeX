@@ -29,6 +29,7 @@ class GetFinalArtifactByJobUseCaseTest {
   private final FinalArtifactRepository repository = mock(FinalArtifactRepository.class);
   private final GetFinalArtifactByJobUseCase useCase =
       new GetFinalArtifactByJobUseCase(currentUserId, projectAccess, repository);
+      new GetFinalArtifactByJobUseCase(projectAccess, repository);
 
   @Test
   void returnsReadyArtifactAfterVerifyingProjectOwnership() {
@@ -39,6 +40,7 @@ class GetFinalArtifactByJobUseCaseTest {
     assertEquals(artifact, useCase.execute(JOB_ID));
 
     verify(projectAccess).findOwnedProject(PROJECT_ID, "owner-1");
+    verify(projectAccess).findProject(PROJECT_ID);
   }
 
   @Test
@@ -48,6 +50,7 @@ class GetFinalArtifactByJobUseCaseTest {
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(JOB_ID));
 
     verifyNoInteractions(projectAccess, currentUserId);
+    verifyNoInteractions(projectAccess);
   }
 
   private static FinalArtifactView artifact(Long id, UUID projectId) {

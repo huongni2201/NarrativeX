@@ -4,7 +4,11 @@ import hashlib
 
 import httpx
 
-from narrativex_gpu_worker.contracts import ArtifactRef
+from narrativex_gpu_worker.contracts import (
+    InputArtifactRef,
+    OutputArtifactTarget,
+    ProducedArtifact,
+)
 
 
 class ArtifactIntegrityError(ValueError):
@@ -18,7 +22,7 @@ class HttpArtifactAdapter:
         self._client = client
         self._max_artifact_bytes = max_artifact_bytes
 
-    async def download(self, reference: ArtifactRef) -> bytes:
+    async def download(self, reference: InputArtifactRef) -> bytes:
         if reference.access.method != "GET":
             raise ArtifactIntegrityError("input artifact does not grant GET access")
         if reference.size_bytes > self._max_artifact_bytes:
@@ -43,20 +47,27 @@ class HttpArtifactAdapter:
             raise ArtifactIntegrityError("artifact integrity check failed")
         return b"".join(chunks)
 
-    async def upload(self, reference: ArtifactRef, content: bytes) -> None:
-        if reference.access.method != "PUT":
+    async def upload(self, target: OutputArtifactTarget, content: bytes) -> ProducedArtifact:
+        if target.access.method != "PUT":
             raise ArtifactIntegrityError("output artifact does not grant PUT access")
-        if len(content) != reference.size_bytes or len(content) > self._max_artifact_bytes:
-            raise ArtifactIntegrityError("output artifact size does not match reference")
-        if hashlib.sha256(content).hexdigest() != reference.sha256:
-            raise ArtifactIntegrityError("output artifact digest does not match reference")
+        if len(content) > self._max_artifact_bytes:
+            raise ArtifactIntegrityError("output artifact exceeds worker limit")
+        size_bytes = len(content)
+        sha256 = hashlib.sha256(content).hexdigest()
         response = await self._client.put(
-            str(reference.access.url),
-            headers=reference.access.headers,
+            str(target.access.url),
+            headers=target.access.headers,
             content=content,
             follow_redirects=False,
         )
         response.raise_for_status()
+        return ProducedArtifact(
+            artifact_id=target.artifact_id,
+            role=target.role,
+            media_type=target.media_type,
+            size_bytes=size_bytes,
+            sha256=sha256,
+        )
 
 
-ArtifactClient = HttpArtifactAdapter
+__all__ = ["ArtifactIntegrityError", "HttpArtifactAdapter"]

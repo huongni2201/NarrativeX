@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.BeatSource;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.ChapterSource;
@@ -22,24 +21,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class GetProductionTimelineUseCase {
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ProductionTimelineSourceRepository sourceRepository;
 
   @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public ProductionTimelineView execute(UUID projectId) {
-    return executeOwned(projectId, currentUserId.get());
-  }
-
-  ProductionTimelineView executeOwned(UUID projectId, String ownerId) {
-    projectAccess.findOwnedProject(projectId, ownerId);
-    List<ChapterSource> chapterSources = sourceRepository.findChapters(projectId, ownerId);
+    projectAccess.findProject(projectId);
+    List<ChapterSource> chapterSources = sourceRepository.findChapters(projectId);
     if (chapterSources.isEmpty()) {
       return new ProductionTimelineView(projectId, null, 0L, "16:9", false, List.of(), List.of());
     }
 
     UUID storyVersionId = chapterSources.getFirst().storyVersionId();
-    List<BeatSource> beatSources = sourceRepository.findBeats(projectId, ownerId);
+    List<BeatSource> beatSources = sourceRepository.findBeats(projectId);
     Map<UUID, List<BeatSource>> beatsByChapter = new LinkedHashMap<>();
     for (BeatSource beat : beatSources) {
       beatsByChapter.computeIfAbsent(beat.chapterId(), ignored -> new ArrayList<>()).add(beat);

@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
 import com.narrativex.backend.feature.generation.application.query.ContinuityView;
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ReviewContinuityIssuesUseCase {
-  private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final ChapterContinuityRepository continuityRepository;
   private final ContinuityIssueCodec issueCodec;
@@ -25,8 +23,7 @@ public class ReviewContinuityIssuesUseCase {
   @Transactional
   public ContinuityView execute(
       UUID projectId, UUID chapterId, UUID planId, int reportRevision, List<String> issueIds) {
-    String userId = currentUserId.get();
-    chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, userId);
+    chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId);
     var current =
         continuityRepository
             .findCurrent(projectId, chapterId)
@@ -54,7 +51,7 @@ public class ReviewContinuityIssuesUseCase {
     String status = remaining.isEmpty() ? "PASS" : "NEEDS_REVIEW";
     int nextRevision = continuityRepository.nextReportRevision(planId);
     continuityRepository.appendHumanReport(
-        planId, nextRevision, status, issueCodec.encodeRaw(remaining), userId);
+        planId, nextRevision, status, issueCodec.encodeRaw(remaining));
 
     return new ContinuityView(
         current.planId(),

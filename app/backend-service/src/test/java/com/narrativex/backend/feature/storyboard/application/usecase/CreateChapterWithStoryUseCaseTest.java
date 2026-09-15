@@ -39,6 +39,7 @@ class CreateChapterWithStoryUseCaseTest {
   private final CreateChapterWithStoryUseCase useCase =
       new CreateChapterWithStoryUseCase(
           currentUserId, projectAccess, storyVersionAccess, createChapter, chapters, idempotency);
+          projectAccess, storyVersionAccess, createChapter, chapters, idempotency);
 
   private static final UUID RESERVATION_ID = UuidV7.random();
   private static final UUID PROJECT_ID = UuidV7.random();
@@ -51,6 +52,7 @@ class CreateChapterWithStoryUseCaseTest {
     doThrow(new ResourceNotFoundException("Project not found"))
         .when(projectAccess)
         .findOwnedProjectForUpdate(PROJECT_ID, "owner");
+        .findProjectForUpdate(PROJECT_ID);
 
     assertThrows(
         ResourceNotFoundException.class,
@@ -60,6 +62,7 @@ class CreateChapterWithStoryUseCaseTest {
                     PROJECT_ID, null, null, "Chapter", "Text", "key-missing-project")));
 
     verify(idempotency, never()).reserve(anyString(), eq(PROJECT_ID), anyString(), anyString());
+    verify(idempotency, never()).reserve(eq(PROJECT_ID), anyString(), anyString());
   }
 
   @Test
@@ -77,8 +80,10 @@ class CreateChapterWithStoryUseCaseTest {
             Instant.EPOCH);
     when(currentUserId.get()).thenReturn("owner");
     when(storyVersionAccess.resolveOrCreateStoryVersion(PROJECT_ID, "owner", "Text"))
+    when(storyVersionAccess.resolveOrCreateStoryVersion(PROJECT_ID, "Text"))
         .thenReturn(STORY_ID);
     when(idempotency.reserve(anyString(), eq(PROJECT_ID), eq("key-1"), anyString()))
+    when(idempotency.reserve(eq(PROJECT_ID), eq("key-1"), anyString()))
         .thenAnswer(
             invocation ->
                 Optional.of(
@@ -88,6 +93,7 @@ class CreateChapterWithStoryUseCaseTest {
                         PROJECT_ID,
                         "key-1",
                         (String) invocation.getArgument(3),
+                        (String) invocation.getArgument(2),
                         null)));
     when(chapters.findMaxOrderIndexByStoryVersionId(STORY_ID)).thenReturn(-1);
     when(createChapter.execute(any())).thenReturn(ApiResponse.success("created", response));
@@ -111,6 +117,7 @@ class CreateChapterWithStoryUseCaseTest {
         Chapter.rehydrate(CHAPTER_ID, 0L, STORY_ID, 0, "Chapter", "Text", "a".repeat(64));
     when(currentUserId.get()).thenReturn("owner");
     when(idempotency.reserve(anyString(), eq(PROJECT_ID), eq("key-1"), anyString()))
+    when(idempotency.reserve(eq(PROJECT_ID), eq("key-1"), anyString()))
         .thenAnswer(
             invocation ->
                 Optional.of(
@@ -120,6 +127,7 @@ class CreateChapterWithStoryUseCaseTest {
                         PROJECT_ID,
                         "key-1",
                         (String) invocation.getArgument(3),
+                        (String) invocation.getArgument(2),
                         CHAPTER_ID)));
     when(chapters.findById(CHAPTER_ID)).thenReturn(Optional.of(chapter));
 

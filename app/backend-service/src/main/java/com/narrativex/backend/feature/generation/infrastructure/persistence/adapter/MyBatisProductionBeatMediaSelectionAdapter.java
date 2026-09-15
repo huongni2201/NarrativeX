@@ -16,8 +16,8 @@ public class MyBatisProductionBeatMediaSelectionAdapter
 
   @Override
   public Optional<SelectableMediaAsset> findSelectableAsset(
-      UUID projectId, String ownerId, UUID mediaAssetId) {
-    var row = mapper.findSelectableAsset(projectId, ownerId, mediaAssetId);
+      UUID projectId, UUID mediaAssetId) {
+    var row = mapper.findSelectableAsset(projectId, mediaAssetId);
     if (row == null) return Optional.empty();
     return Optional.of(
         new SelectableMediaAsset(

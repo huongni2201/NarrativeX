@@ -18,10 +18,10 @@ public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess
 
   @Override
   @Transactional(propagation = Propagation.MANDATORY)
-  public ChapterAnalysisSource requireOwnedForAnalysisLocked(
-      UUID projectId, UUID chapterId, String userId) {
-    chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
+  public ChapterAnalysisSource requireForAnalysisLocked(
+      UUID projectId, UUID chapterId) {
+    chapterAnalysisSnapshotRepository.requireByProject(projectId, chapterId);
     storyboardRevisionAccess.lockChapter(chapterId);
-    return chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
+    return chapterAnalysisSnapshotRepository.requireByProject(projectId, chapterId);
   }
 }

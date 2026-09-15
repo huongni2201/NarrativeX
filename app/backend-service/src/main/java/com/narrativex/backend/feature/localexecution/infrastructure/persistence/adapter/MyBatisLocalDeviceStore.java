@@ -17,8 +17,8 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
   private final LocalDeviceMapper mapper;
 
   @Override
-  public void createPairingCode(String userId, String codeHash, Instant expiresAt) {
-    mapper.insertPairingCode(userId, codeHash, expiresAt);
+  public void createPairingCode(String codeHash, Instant expiresAt) {
+    mapper.insertPairingCode(codeHash, expiresAt);
   }
 
   @Override
@@ -28,20 +28,19 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
         .map(
             value ->
                 new PairingCodeRecord(
-                    value.id(), value.userId(), value.expiresAt(), value.consumedAt()));
+                    value.id(), value.expiresAt(), value.consumedAt()));
   }
 
   @Override
   public void createDevice(
       UUID deviceId,
-      String userId,
       String name,
       String platform,
       String agentVersion,
       String tokenHash,
       Instant now,
       List<String> capabilities) {
-    mapper.insertDevice(deviceId, userId, name, platform, agentVersion, tokenHash, now);
+    mapper.insertDevice(deviceId, name, platform, agentVersion, tokenHash, now);
     replaceCapabilities(deviceId, capabilities);
   }
 
@@ -49,7 +48,7 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
   public Optional<DeviceRecord> findByTokenHash(String tokenHash) {
     DeviceRow row = mapper.findByTokenHash(tokenHash);
     return Optional.ofNullable(row)
-        .map(value -> new DeviceRecord(value.id(), value.userId(), value.revokedAt()));
+        .map(value -> new DeviceRecord(value.id(), value.revokedAt()));
   }
 
   @Override
@@ -65,8 +64,8 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
   }
 
   @Override
-  public List<LocalDeviceView> listByUser(String userId, Instant onlineThreshold) {
-    return mapper.listByUser(userId, onlineThreshold).stream()
+  public List<LocalDeviceView> list(Instant onlineThreshold) {
+    return mapper.list(onlineThreshold).stream()
         .map(
             row ->
                 new LocalDeviceView(

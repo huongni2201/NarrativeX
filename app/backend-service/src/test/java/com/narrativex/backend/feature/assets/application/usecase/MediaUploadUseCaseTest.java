@@ -60,14 +60,17 @@ class MediaUploadUseCaseTest {
             new MediaUploadFinalizationService(sessions, voiceReferences, cleanupTasks));
     lenient()
         .when(voiceReferences.createOrReuse(any(), any(CreateVoiceReference.class)))
+        .when(voiceReferences.createOrReuse(any(CreateVoiceReference.class)))
         .thenAnswer(
             invocation ->
                 new VoiceReferenceAsset(
                     invocation
                         .<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
+                        .<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(0)
                         .proposedId(),
                     invocation
                         .<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(1)
+                        .<VoiceReferenceAssetRepository.CreateVoiceReference>getArgument(0)
                         .storageKey(),
                     "voice.wav",
                     "audio/wav",
@@ -78,6 +81,7 @@ class MediaUploadUseCaseTest {
 
   @Test
   void createIntentGeneratesAccountScopedVoiceStorageKeyAndPersistsSessionBeforeReturningUrl() {
+  void createIntentGeneratesVoiceStorageKeyAndPersistsSessionBeforeReturningUrl() {
     CreateUploadIntentCommand request = request();
     when(sessions.create(any()))
         .thenAnswer(invocation -> session(invocation.getArgument(0, CreateUploadSession.class)));
@@ -92,6 +96,7 @@ class MediaUploadUseCaseTest {
     UploadIntentView response = useCase.createIntent(request, "retry-1");
 
     assertThat(response.storageKey()).startsWith("voices/account-a/");
+    assertThat(response.storageKey()).startsWith("voices/uploads/");
     assertThat(response.storageKey()).doesNotContain(request.expectedSha256());
     assertThat(response.uploadUrl()).isEqualTo("https://upload.example.test/signed");
     verify(sessions).create(any());
@@ -125,6 +130,7 @@ class MediaUploadUseCaseTest {
   void sameIdempotencyKeyReturnsExistingIntentWithoutCreatingAnotherSession() {
     UploadSession existing = session(UUID.randomUUID(), "PENDING_UPLOAD", null);
     when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+    when(sessions.findByIdempotencyKey("retry-1")).thenReturn(Optional.of(existing));
     when(objectStorage.createUpload(any()))
         .thenReturn(
             new PresignedUpload(existing.storageKey(), URI.create("https://signed"), EXPIRES_AT));
@@ -139,6 +145,7 @@ class MediaUploadUseCaseTest {
   void readyIdempotentSessionReturnsStatusWithoutSigningAnotherUploadUrl() {
     UploadSession existing = session(UUID.randomUUID(), "READY", UUID.randomUUID());
     when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+    when(sessions.findByIdempotencyKey("retry-1")).thenReturn(Optional.of(existing));
 
     UploadIntentView response = useCase.createIntent(request(), "retry-1");
 
@@ -152,6 +159,7 @@ class MediaUploadUseCaseTest {
   void rejectedIdempotentSessionCannotBeSignedAgain() {
     UploadSession existing = session(UUID.randomUUID(), "REJECTED", null);
     when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+    when(sessions.findByIdempotencyKey("retry-1")).thenReturn(Optional.of(existing));
 
     assertThatThrownBy(() -> useCase.createIntent(request(), "retry-1"))
         .isInstanceOf(ResourceConflictException.class);
@@ -163,6 +171,7 @@ class MediaUploadUseCaseTest {
     UploadSession existing =
         session(UUID.randomUUID(), "PENDING_UPLOAD", null, Instant.now().minusSeconds(1));
     when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+    when(sessions.findByIdempotencyKey("retry-1")).thenReturn(Optional.of(existing));
 
     assertThatThrownBy(() -> useCase.createIntent(request(), "retry-1"))
         .isInstanceOf(ResourceConflictException.class);
@@ -175,12 +184,15 @@ class MediaUploadUseCaseTest {
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findSnapshot(sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findForUpdate(sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
                 session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     UUID assetId = UUID.randomUUID();
     when(voiceReferences.createOrReuse(any(), any()))
+    when(voiceReferences.createOrReuse(any()))
         .thenReturn(
             new VoiceReferenceAsset(
                 assetId,
@@ -191,6 +203,7 @@ class MediaUploadUseCaseTest {
                 SHA,
                 "VALIDATING"));
     when(sessions.markValidating(ACCOUNT, sessionId, assetId)).thenReturn(true);
+    when(sessions.markValidating(sessionId, assetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
@@ -198,6 +211,8 @@ class MediaUploadUseCaseTest {
     assertThat(response.mediaAssetId()).isEqualTo(assetId);
     verify(voiceReferences).createOrReuse(any(), any());
     verify(sessions).markValidating(ACCOUNT, sessionId, assetId);
+    verify(voiceReferences).createOrReuse(any());
+    verify(sessions).markValidating(sessionId, assetId);
   }
 
   @Test
@@ -207,27 +222,33 @@ class MediaUploadUseCaseTest {
     UUID existingAssetId = UUID.randomUUID();
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findSnapshot(sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findForUpdate(sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
                 session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     when(voiceReferences.createOrReuse(any(), any()))
+    when(voiceReferences.createOrReuse(any()))
         .thenReturn(
             new VoiceReferenceAsset(
                 existingAssetId,
                 "voices/account-a/existing",
+                "voices/uploads/existing",
                 session.originalFilename(),
                 session.contentType(),
                 session.expectedSize(),
                 SHA,
                 "READY"));
     when(sessions.markReady(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
+    when(sessions.markReady(sessionId, existingAssetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
     verify(voiceReferences).createOrReuse(any(), any());
+    verify(voiceReferences).createOrReuse(any());
     verify(cleanupTasks).enqueue(any(), org.mockito.ArgumentMatchers.eq("DUPLICATE_UPLOAD"), any());
   }
 
@@ -237,12 +258,15 @@ class MediaUploadUseCaseTest {
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findSnapshot(sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findForUpdate(sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
                 session.storageKey(), session.expectedSize(), "audio/wav; charset=binary", SHA));
     UUID assetId = UUID.randomUUID();
     when(voiceReferences.createOrReuse(any(), any()))
+    when(voiceReferences.createOrReuse(any()))
         .thenReturn(
             new VoiceReferenceAsset(
                 assetId,
@@ -253,6 +277,7 @@ class MediaUploadUseCaseTest {
                 SHA,
                 "VALIDATING"));
     when(sessions.markValidating(ACCOUNT, sessionId, assetId)).thenReturn(true);
+    when(sessions.markValidating(sessionId, assetId)).thenReturn(true);
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("VALIDATING");
@@ -264,6 +289,8 @@ class MediaUploadUseCaseTest {
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findSnapshot(sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findForUpdate(sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
@@ -272,20 +299,25 @@ class MediaUploadUseCaseTest {
                 session.contentType(),
                 "b".repeat(64)));
     when(sessions.markRejected(ACCOUNT, sessionId)).thenReturn(true);
+    when(sessions.markRejected(sessionId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("REJECTED");
     verify(sessions).markRejected(ACCOUNT, sessionId);
+    verify(sessions).markRejected(sessionId);
     verify(cleanupTasks)
         .enqueue(any(), org.mockito.ArgumentMatchers.eq("UPLOAD_VERIFICATION_FAILED"), any());
     verify(voiceReferences, never()).createOrReuse(any(), any());
+    verify(voiceReferences, never()).createOrReuse(any());
   }
 
   @Test
   void finalizeDoesNotAllowAnotherAccountToSeeTheSession() {
+  void finalizeThrowsNotFoundWhenSessionDoesNotExist() {
     UUID sessionId = UUID.randomUUID();
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.empty());
+    when(sessions.findSnapshot(sessionId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> useCase.finalizeUpload(sessionId))
         .isInstanceOf(ResourceNotFoundException.class);
@@ -310,6 +342,7 @@ class MediaUploadUseCaseTest {
         128,
         SHA,
         "voices/account-a/" + id,
+        "voices/uploads/" + id,
         "retry-1",
         status,
         expiresAt,

@@ -17,9 +17,9 @@ public class MyBatisChapterCreationIdempotencyAdapter
 
   @Override
   public Optional<Reservation> reserve(
-      String ownerId, UUID projectId, String idempotencyKey, String requestFingerprint) {
+      UUID projectId, String idempotencyKey, String requestFingerprint) {
     ChapterCreationIdempotencyRow row =
-        mapper.reserve(UuidV7.random(), ownerId, projectId, idempotencyKey, requestFingerprint);
+        mapper.reserve(UuidV7.random(), projectId, idempotencyKey, requestFingerprint);
     return Optional.ofNullable(row).map(MyBatisChapterCreationIdempotencyAdapter::toReservation);
   }
 
@@ -31,7 +31,6 @@ public class MyBatisChapterCreationIdempotencyAdapter
   private static Reservation toReservation(ChapterCreationIdempotencyRow row) {
     return new Reservation(
         row.getId(),
-        row.getOwnerId(),
         row.getProjectId(),
         row.getIdempotencyKey(),
         row.getRequestFingerprint(),

@@ -3,10 +3,29 @@
   "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7ac",
   "attemptId": "0199b862-1025-78be-bd71-c6969b74ab73",
   "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7ac:1",
-  "requestFingerprint": "52f000f9fa26e3a0b00b6b6a4330b35570fcd8e819d8f9f9afe11fd5e51d31a5",
-  "task": {"type": "image.generate", "schemaVersion": "1.0"},
-  "model": {"executor": "comfyui", "model": "realvisxl", "revision": "5.0"},
-  "constraints": {"deadline": "2026-09-14T12:00:00Z", "maxRuntimeSeconds": 900},
-  "inputs": {"prompt": "A cinematic forest at dawn", "negativePrompt": "text, watermark", "width": 1024, "height": 576, "seed": 42},
-  "artifacts": []
+  "requestFingerprint": "d9aedc4d5028abfa63b0f2fb37e99469dde5079caf07c602a2e2bf3c8be79d45",
+  "task": {
+    "type": "image.generate",
+    "schemaVersion": "1.0"
+  },
+  "model": {
+    "executor": "comfyui",
+    "model": "realvisxl",
+    "revision": "5.0"
+  },
+  "constraints": {
+    "deadline": "2026-09-14T12:00:00Z",
+    "maxRuntimeSeconds": 900
+  },
+  "inputs": {
+    "prompt": "A cinematic forest at dawn",
+    "negativePrompt": "text, watermark",
+    "width": 1024,
+    "height": 576,
+    "seed": 42
+  },
+  "artifacts": {
+    "inputs": [],
+    "outputs": []
+  }
 }

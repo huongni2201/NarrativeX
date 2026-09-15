@@ -1,8 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
-import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -25,21 +23,18 @@ public class GetChapterWorkspaceUseCase {
   @Value("${narrativex.generation.media-enabled:false}")
   private boolean mediaGenerationEnabled;
 
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
   private final MediaStorageAccess mediaStorageAccess;
-  private final UserQuotaAccess userQuotaAccess;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(UUID projectId, UUID chapterId) {
-    String userId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), userId);
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
 
     var snapshot = chapterWorkspaceReadRepository.get(projectId, chapterId);
     var analysis = snapshot.analysis();
@@ -92,15 +87,10 @@ public class GetChapterWorkspaceUseCase {
             visualPlanningCompleted,
             snapshot.visualBeatCount(),
             visualJobRunning);
-    boolean narrationEntitled =
-        userQuotaAccess
-            .findCurrentQuota(userId)
-            .map(quota -> quota.features().narrationEnabled())
-            .orElse(false);
-    String audioGenerationBlockReason = narrationEntitled ? null : "NARRATION_NOT_ENTITLED";
+    boolean narrationEntitled = true;
+    String audioGenerationBlockReason = null;
     boolean canGenerateAudio =
-        narrationEntitled
-            && !chapter.getSourceText().isBlank()
+        !chapter.getSourceText().isBlank()
             && !"READY".equals(audio.status())
             && !isActive(audio.status());
     boolean hasCurrentMediaPlan =

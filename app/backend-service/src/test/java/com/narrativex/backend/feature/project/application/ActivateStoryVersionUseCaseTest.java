@@ -41,6 +41,7 @@ class ActivateStoryVersionUseCaseTest {
     StoryVersion current = story(STORY_10, 1, StoryVersionStatus.ACTIVE);
     StoryVersion next = story(STORY_11, 2, StoryVersionStatus.DRAFT);
     when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project);
+    when(projectAccess.findProjectForUpdate(PROJECT_ID)).thenReturn(project);
     when(storyVersionRepository.findByIdAndProjectId(STORY_11, PROJECT_ID))
         .thenReturn(Optional.of(next));
     when(storyVersionRepository.findActiveByProjectId(PROJECT_ID)).thenReturn(Optional.of(current));
@@ -52,6 +53,7 @@ class ActivateStoryVersionUseCaseTest {
     ActivateStoryVersionUseCase useCase =
         new ActivateStoryVersionUseCase(
             projectAccess, projectRepository, storyVersionRepository, currentUserId);
+            projectAccess, projectRepository, storyVersionRepository);
     StoryVersion response = useCase.execute(PROJECT_ID, STORY_11);
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
@@ -59,6 +61,7 @@ class ActivateStoryVersionUseCaseTest {
     assertEquals(ProjectStatus.ACTIVE, project.getStatus());
     InOrder order = inOrder(projectAccess, storyVersionRepository, projectRepository);
     order.verify(projectAccess).findOwnedProjectForUpdate(PROJECT_ID, "owner");
+    order.verify(projectAccess).findProjectForUpdate(PROJECT_ID);
     order.verify(storyVersionRepository).findByIdAndProjectId(STORY_11, PROJECT_ID);
     order.verify(storyVersionRepository).findActiveByProjectId(PROJECT_ID);
     order.verify(storyVersionRepository).saveAndFlush(current);
@@ -71,6 +74,7 @@ class ActivateStoryVersionUseCaseTest {
     Project project = project();
     StoryVersion active = story(STORY_10, 1, StoryVersionStatus.ACTIVE);
     when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project);
+    when(projectAccess.findProjectForUpdate(PROJECT_ID)).thenReturn(project);
     when(storyVersionRepository.findByIdAndProjectId(STORY_10, PROJECT_ID))
         .thenReturn(Optional.of(active));
     when(storyVersionRepository.findActiveByProjectId(PROJECT_ID)).thenReturn(Optional.of(active));
@@ -78,6 +82,7 @@ class ActivateStoryVersionUseCaseTest {
     ActivateStoryVersionUseCase useCase =
         new ActivateStoryVersionUseCase(
             projectAccess, projectRepository, storyVersionRepository, currentUserId);
+            projectAccess, projectRepository, storyVersionRepository);
     StoryVersion response = useCase.execute(PROJECT_ID, STORY_10);
     assertEquals(StoryVersionStatus.ACTIVE, response.getStatus());
     assertEquals(ProjectStatus.ACTIVE, project.getStatus());

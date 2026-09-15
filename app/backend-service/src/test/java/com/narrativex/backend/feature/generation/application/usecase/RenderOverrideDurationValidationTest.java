@@ -24,6 +24,7 @@ class RenderOverrideDurationValidationTest {
         mock(ProductionBeatMediaSelectionRepository.class);
     UpdateProductionBeatMediaUseCase useCase =
         new UpdateProductionBeatMediaUseCase(currentUserId, timelineUseCase, repository);
+        new UpdateProductionBeatMediaUseCase(timelineUseCase, repository);
 
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -56,10 +57,12 @@ class RenderOverrideDurationValidationTest {
 
     when(currentUserId.get()).thenReturn("owner");
     when(timelineUseCase.executeOwned(projectId, "owner"))
+    when(timelineUseCase.execute(projectId))
         .thenReturn(
             new ProductionTimelineView(
                 projectId, UUID.randomUUID(), 10_000L, "16:9", true, List.of(), List.of(beat)));
     when(repository.findSelectableAsset(projectId, "owner", assetId))
+    when(repository.findSelectableAsset(projectId, assetId))
         .thenReturn(
             Optional.of(new SelectableMediaAsset(assetId, "VIDEO", 8_000L, 100L, "a".repeat(64))));
 

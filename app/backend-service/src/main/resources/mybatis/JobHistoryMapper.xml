@@ -31,7 +31,7 @@
                CASE WHEN j.status IN ('COMPLETED', 'FAILED', 'CANCELED') THEN j.updated_at END AS completed_at
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
-         WHERE j.requested_by_user_id = #{userId}
+         WHERE p.archived_at IS NULL
         <if test="cursorUpdatedAt != null">
            AND (j.created_at &lt; #{cursorUpdatedAt}
                 OR (j.created_at = #{cursorUpdatedAt} AND j.id &lt; #{cursorId}))

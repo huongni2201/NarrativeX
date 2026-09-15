@@ -39,13 +39,16 @@ class LockCharacterVersionUseCaseTest {
   void rejectsLockWhenIdentityReferenceIsMissing() {
     var version = reviewVersion();
     when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+    when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(List.of());
     var useCase =
         new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
+        new LockCharacterVersionUseCase(versionRepository, referenceRepository);
 
     assertThatThrownBy(
             () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null)))
+            () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID)))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("IDENTITY");
 
@@ -56,17 +59,21 @@ class LockCharacterVersionUseCaseTest {
   void locksReviewedVersionWhenIdentityReferenceExists() {
     var version = reviewVersion();
     when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+    when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID))
         .thenReturn(List.of(new CharacterVersionReference(IDENTITY_ASSET_ID, "IDENTITY", 0)));
     when(versionRepository.save(version)).thenReturn(version);
     var useCase =
         new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
+        new LockCharacterVersionUseCase(versionRepository, referenceRepository);
 
     var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null));
+    var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID));
 
     assertThat(locked.getStatus()).isEqualTo(CharacterVersionStatus.LOCKED);
     assertThat(locked.getLockedBy()).isEqualTo("owner");
+    assertThat(locked.getLockedAt()).isNotNull();
     verify(versionRepository).save(version);
   }
 

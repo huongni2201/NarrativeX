@@ -22,28 +22,26 @@
 
     <insert id="insert" parameterType="com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository$CreateUploadSession">
         INSERT INTO media_upload_sessions
-            (id, account_id, asset_type, filename, content_type, expected_size,
+            (id, asset_type, filename, content_type, expected_size,
              expected_sha256, storage_key, idempotency_key, status, expires_at)
         VALUES
-            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, #{originalFilename}, #{contentType}, #{expectedSize},
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{assetType}, #{originalFilename}, #{contentType}, #{expectedSize},
              #{expectedSha256}, #{storageKey}, #{idempotencyKey}, 'PENDING_UPLOAD', #{expiresAt})
-        ON CONFLICT (account_id, idempotency_key) DO NOTHING
+        ON CONFLICT (idempotency_key) DO NOTHING
     </insert>
 
-    <select id="findOwnedSnapshot" resultMap="mediaUploadSessionRow">
+    <select id="findSnapshot" resultMap="mediaUploadSessionRow">
         SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
                storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
           FROM media_upload_sessions
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND account_id = #{accountId}
     </select>
 
-    <select id="findOwnedForUpdate" resultMap="mediaUploadSessionRow">
+    <select id="findForUpdate" resultMap="mediaUploadSessionRow">
         SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
                storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
           FROM media_upload_sessions
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND account_id = #{accountId}
          FOR UPDATE
     </select>
 
@@ -51,15 +49,13 @@
         SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
                storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
           FROM media_upload_sessions
-         WHERE account_id = #{accountId}
-           AND idempotency_key = #{idempotencyKey}
+         WHERE idempotency_key = #{idempotencyKey}
     </select>
 
     <update id="markValidating">
         UPDATE media_upload_sessions
            SET status = 'VALIDATING', media_asset_id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND account_id = #{accountId}
            AND status = 'PENDING_UPLOAD'
     </update>
 
@@ -67,7 +63,6 @@
         UPDATE media_upload_sessions
            SET status = 'REJECTED'
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND account_id = #{accountId}
            AND status = 'PENDING_UPLOAD'
     </update>
 
@@ -75,12 +70,11 @@
         UPDATE media_upload_sessions
            SET status = 'READY', media_asset_id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
-           AND account_id = #{accountId}
            AND status IN ('PENDING_UPLOAD', 'VALIDATING')
     </update>
 
     <select id="findExpiredPending" resultType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.ExpiredUploadRow">
-        SELECT id, account_id AS accountId, storage_key AS storageKey
+        SELECT id, storage_key AS storageKey
           FROM media_upload_sessions
          WHERE status = 'PENDING_UPLOAD'
            AND expires_at &lt; CURRENT_TIMESTAMP
@@ -93,9 +87,10 @@
           FROM media_upload_sessions session
          WHERE session.status = 'REJECTED'
            AND NOT EXISTS (
-               SELECT 1
-                 FROM media_storage_cleanup_tasks cleanup
-                WHERE cleanup.storage_key = session.storage_key
+                 SELECT 1
+                   FROM media_upload_sessions other
+                  WHERE other.storage_key = session.storage_key
+                    AND other.status &lt;&gt; 'REJECTED'
            )
          ORDER BY session.created_at ASC, session.id ASC
          LIMIT #{limit}

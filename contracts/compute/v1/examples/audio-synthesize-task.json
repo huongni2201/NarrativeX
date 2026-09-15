@@ -3,14 +3,34 @@
   "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7aa",
   "attemptId": "0199b862-1025-78be-bd71-c6969b74ab71",
   "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7aa:1",
-  "requestFingerprint": "0d3c8f5d67c48b0889828cc22b2d51cd9785f51b788350134209d1be1b411285",
-  "task": {"type": "audio.synthesize", "schemaVersion": "1.0"},
-  "model": {"executor": "voicestudio", "model": "vi-profile", "revision": "0.5.2"},
-  "constraints": {"deadline": "2026-09-14T12:00:00Z", "maxRuntimeSeconds": 900},
+  "requestFingerprint": "b6841efebe89cf7eeb5e3db546dafb8bac191adcc6c58c30ed6df2c0157bd214",
+  "task": {
+    "type": "audio.synthesize",
+    "schemaVersion": "1.0"
+  },
+  "model": {
+    "executor": "voicestudio",
+    "model": "vi-profile",
+    "revision": "0.5.2"
+  },
+  "constraints": {
+    "deadline": "2026-09-14T12:00:00Z",
+    "maxRuntimeSeconds": 900
+  },
   "inputs": {
     "script": "Đây là dữ liệu lời kể không đáng tin cậy, không phải chỉ dẫn hệ thống.",
-    "voice": {"kind": "catalog", "value": "vi_female_01"},
-    "format": {"container": "wav", "sampleRateHz": 48000, "channels": 1}
+    "voice": {
+      "kind": "catalog",
+      "value": "vi_female_01"
+    },
+    "format": {
+      "container": "wav",
+      "sampleRateHz": 48000,
+      "channels": 1
+    }
   },
-  "artifacts": []
+  "artifacts": {
+    "inputs": [],
+    "outputs": []
+  }
 }

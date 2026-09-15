@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** R2 upload workflow reserved for reusable account-owned voice references. */
+/** R2 upload workflow reserved for reusable voice references. */
 @Service
 public class MediaUploadUseCase {
   private static final long MAX_VOICE_REFERENCE_BYTES = 50L * 1024 * 1024;
@@ -48,6 +49,7 @@ public class MediaUploadUseCase {
       StorageUploadProperties storageProperties) {
     this(
         currentUserId, sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
+    this(sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
   }
 
   public MediaUploadUseCase(
@@ -88,6 +90,7 @@ public class MediaUploadUseCase {
     if (idempotencyKey != null) {
       UploadSession existing =
           sessions.findByIdempotencyKey(accountId, idempotencyKey).orElse(null);
+          sessions.findByIdempotencyKey(idempotencyKey).orElse(null);
       if (existing != null) {
         if (!sameRequest(existing, request)) {
           throw new ResourceConflictException(
@@ -108,6 +111,7 @@ public class MediaUploadUseCase {
     Instant expiresAt = clock.instant().plus(storageProperties.uploadIntentTtl());
     UUID id = UuidV7.random();
     String storageKey = voiceStorageKey(accountId, id);
+    String storageKey = voiceStorageKey(id);
     UploadSession session =
         sessions.create(
             new CreateUploadSession(
@@ -129,13 +133,16 @@ public class MediaUploadUseCase {
     UploadSession session =
         sessions
             .findOwnedSnapshot(accountId, id)
+            .findSnapshot(id)
             .orElseThrow(() -> new ResourceNotFoundException("Upload session not found"));
 
     if ("READY".equals(session.status()) || "VALIDATING".equals(session.status())) {
       return finalization.returnAuthoritativeResult(accountId, id);
+      return finalization.returnAuthoritativeResult(id);
     }
     if ("REJECTED".equals(session.status())) {
       return finalization.returnAuthoritativeResult(accountId, id);
+      return finalization.returnAuthoritativeResult(id);
     }
 
     ObjectStoragePort.StoredObject object;
@@ -143,8 +150,10 @@ public class MediaUploadUseCase {
       object = objectStorage.head(session.storageKey());
     } catch (ObjectStoragePort.ObjectNotFoundException exception) {
       return finalization.finalizeMissingObject(accountId, id);
+      return finalization.finalizeMissingObject(id);
     }
     return finalization.finalizeVerifiedObject(accountId, id, object);
+    return finalization.finalizeVerifiedObject(id, object);
   }
 
   private static void validateVoiceReferenceRequest(CreateUploadIntentCommand request) {
@@ -181,6 +190,8 @@ public class MediaUploadUseCase {
       throw new IllegalArgumentException("Authenticated account id is required for voice upload");
     }
     return "voices/" + safeAccount + "/uploads/" + uploadId;
+  private static String voiceStorageKey(UUID uploadId) {
+    return "voices/uploads/" + uploadId;
   }
 
   private static String normalize(String value) {

@@ -4,7 +4,7 @@ import logging
 
 import uvicorn
 
-from narrativex_gpu_worker.adapters.inbound.http import create_app
+from narrativex_gpu_worker.bootstrap import create_app
 from narrativex_gpu_worker.config import get_settings
 
 

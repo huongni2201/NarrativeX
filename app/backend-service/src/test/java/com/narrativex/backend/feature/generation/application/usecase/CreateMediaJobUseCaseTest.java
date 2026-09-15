@@ -2,13 +2,11 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -21,6 +19,7 @@ import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationIt
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
@@ -44,7 +43,6 @@ class CreateMediaJobUseCaseTest {
   private static final UUID CHAPTER_ID = UUID.randomUUID();
   private static final UUID ACTIVE_INTERNAL_JOB_ID = UUID.randomUUID();
 
-  @Mock private CurrentUserId currentUserId;
   @Mock private ProjectAccess projectAccess;
   @Mock private ChapterAnalysisSourceAccess chapterSourceAccess;
   @Mock private MediaPlanningSourceAccess mediaPlanningSourceAccess;
@@ -54,8 +52,8 @@ class CreateMediaJobUseCaseTest {
   @Mock private MediaGenerationItemRepository mediaGenerationItemRepository;
   @Mock private GenerationOutboxRepository generationOutboxRepository;
   @Mock private StageAttemptRepository stageAttemptRepository;
-  @Mock private UserQuotaAccess userQuotaAccess;
   @Mock private ImageGenerationCatalog imageGenerationCatalog;
+  @Mock private NarrativeXLimitsProperties limits;
   @Mock private GenerationJob activeJob;
   @Mock private GenerationJob existingJob;
   @Mock private MediaGenerationItem existingItem;
@@ -92,8 +90,7 @@ class CreateMediaJobUseCaseTest {
 
   @Test
   void rejectsExistingIdempotencyKeyFromDifferentOperation() {
-    when(currentUserId.get()).thenReturn("owner-1");
-    when(generationJobRepository.findByIdempotencyKey("shared-key", "owner-1"))
+    when(generationJobRepository.findByIdempotencyKey("shared-key"))
         .thenReturn(Optional.of(existingJob));
     when(existingJob.getType()).thenReturn(JobType.RENDER_PROJECT);
 
@@ -110,8 +107,7 @@ class CreateMediaJobUseCaseTest {
 
   @Test
   void rejectsExistingMediaJobFromDifferentProjectOrChapter() {
-    when(currentUserId.get()).thenReturn("owner-1");
-    when(generationJobRepository.findByIdempotencyKey("shared-media-key", "owner-1"))
+    when(generationJobRepository.findByIdempotencyKey("shared-media-key"))
         .thenReturn(Optional.of(existingJob));
     when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
     when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
@@ -136,14 +132,14 @@ class CreateMediaJobUseCaseTest {
   @Test
   void rejectsExistingMediaJobWhenRequestFingerprintChanged() {
     UUID existingInternalJobId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner-1");
-    when(generationJobRepository.findByIdempotencyKey("same-scope-key", "owner-1"))
+    when(generationJobRepository.findByIdempotencyKey("same-scope-key"))
         .thenReturn(Optional.of(existingJob));
     when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
     when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
     when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
+    when(existingJob.getProductionMode()).thenReturn(ProductionMode.IMAGE_MOTION);
     when(existingJob.getId()).thenReturn(existingInternalJobId);
-    when(mediaGenerationItemRepository.findByJobOwned("owner-1", existingInternalJobId))
+    when(mediaGenerationItemRepository.findByJobId(existingInternalJobId))
         .thenReturn(List.of(existingItem));
     when(existingItem.getMediaPlanId()).thenReturn(UUID.randomUUID());
     when(existingItem.getVisualBeatId()).thenReturn(UUID.randomUUID());
@@ -168,14 +164,14 @@ class CreateMediaJobUseCaseTest {
   @Test
   void rejectsExistingMediaJobWhenItHasNoFingerprintItems() {
     UUID existingInternalJobId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner-1");
-    when(generationJobRepository.findByIdempotencyKey("empty-media-key", "owner-1"))
+    when(generationJobRepository.findByIdempotencyKey("empty-media-key"))
         .thenReturn(Optional.of(existingJob));
     when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
     when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
     when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
+    when(existingJob.getProductionMode()).thenReturn(ProductionMode.IMAGE_MOTION);
     when(existingJob.getId()).thenReturn(existingInternalJobId);
-    when(mediaGenerationItemRepository.findByJobOwned("owner-1", existingInternalJobId))
+    when(mediaGenerationItemRepository.findByJobId(existingInternalJobId))
         .thenReturn(List.of());
 
     CreateMediaJobCommand command =
@@ -217,14 +213,14 @@ class CreateMediaJobUseCaseTest {
                 + ":API");
     String itemFingerprint = sha256(requestFingerprint + ":" + mediaPlanId + ":" + visualBeatId);
 
-    when(currentUserId.get()).thenReturn("owner-1");
-    when(generationJobRepository.findByIdempotencyKey("valid-replay-key", "owner-1"))
+    when(generationJobRepository.findByIdempotencyKey("valid-replay-key"))
         .thenReturn(Optional.of(existingJob));
     when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
     when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
     when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
+    when(existingJob.getProductionMode()).thenReturn(ProductionMode.IMAGE_MOTION);
     when(existingJob.getId()).thenReturn(existingInternalJobId);
-    when(mediaGenerationItemRepository.findByJobOwned("owner-1", existingInternalJobId))
+    when(mediaGenerationItemRepository.findByJobId(existingInternalJobId))
         .thenReturn(List.of(existingItem));
     when(existingItem.getMediaPlanId()).thenReturn(mediaPlanId);
     when(existingItem.getVisualBeatId()).thenReturn(visualBeatId);
@@ -236,12 +232,11 @@ class CreateMediaJobUseCaseTest {
 
   @Test
   void rejectsDifferentSubmissionWhileChapterMediaJobIsActiveBeforeAdmission() {
-    when(currentUserId.get()).thenReturn("owner-1");
-    when(generationJobRepository.findByIdempotencyKey("intent-2", "owner-1"))
+    when(generationJobRepository.findByIdempotencyKey("intent-2"))
         .thenReturn(Optional.empty());
     when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID))
         .thenReturn(Optional.of(ACTIVE_INTERNAL_JOB_ID));
-    when(generationJobRepository.findByIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1"))
+    when(generationJobRepository.findById(ACTIVE_INTERNAL_JOB_ID))
         .thenReturn(Optional.of(activeJob));
     when(activeJob.getStatus()).thenReturn(JobStatus.RUNNING);
     CreateMediaJobCommand command =
@@ -252,14 +247,12 @@ class CreateMediaJobUseCaseTest {
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .hasMessageContaining("already active");
 
-    verify(generationJobRepository).findByIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
-    verify(generationJobRepository, never()).findByJobIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
+    verify(generationJobRepository).findById(ACTIVE_INTERNAL_JOB_ID);
     verifyNoInteractions(
         mediaPlanningSourceAccess,
         createMediaPlanUseCase,
         generationOutboxRepository,
         stageAttemptRepository,
-        userQuotaAccess,
         imageGenerationCatalog);
   }
 

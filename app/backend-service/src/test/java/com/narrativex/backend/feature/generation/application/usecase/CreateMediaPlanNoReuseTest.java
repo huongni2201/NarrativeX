@@ -61,6 +61,7 @@ class CreateMediaPlanNoReuseTest {
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
+    when(chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId))
         .thenReturn(
             new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
     when(mediaPlanningSourceAccess.requireCurrent(chapterId))

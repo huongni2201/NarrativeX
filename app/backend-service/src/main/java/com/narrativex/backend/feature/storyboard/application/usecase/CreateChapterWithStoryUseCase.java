@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -23,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateChapterWithStoryUseCase {
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final StoryVersionAccess storyVersionAccess;
   private final CreateChapterUseCase createChapterUseCase;
@@ -33,14 +31,13 @@ public class CreateChapterWithStoryUseCase {
   @Transactional
   public ApiResponse<ChapterResponse> execute(CreateChapterWithStoryCommand command) {
     requireIdempotencyKey(command.idempotencyKey());
-    String ownerId = currentUserId.get();
     // Reserve only after the parent exists and is locked, so the FK cannot fail for a
     // missing or concurrently deleted project before the request reaches domain validation.
-    projectAccess.findOwnedProjectForUpdate(command.projectId(), ownerId);
+    projectAccess.findProjectForUpdate(command.projectId());
     String fingerprint = fingerprint(command);
     var reservation =
         idempotencyRepository
-            .reserve(ownerId, command.projectId(), command.idempotencyKey(), fingerprint)
+            .reserve(command.projectId(), command.idempotencyKey(), fingerprint)
             .orElseThrow(() -> new IllegalStateException("Chapter creation reservation was lost"));
     if (!fingerprint.equals(reservation.requestFingerprint())) {
       throw new ResourceConflictException(
@@ -55,7 +52,7 @@ public class CreateChapterWithStoryUseCase {
       return ApiResponse.success("Chapter already created", existing);
     }
 
-    UUID storyVersionId = resolveStoryVersionId(command, ownerId);
+    UUID storyVersionId = resolveStoryVersionId(command);
     int orderIndex =
         command.orderIndex() != null
             ? command.orderIndex()
@@ -74,14 +71,14 @@ public class CreateChapterWithStoryUseCase {
     return response;
   }
 
-  private UUID resolveStoryVersionId(CreateChapterWithStoryCommand command, String ownerId) {
+  private UUID resolveStoryVersionId(CreateChapterWithStoryCommand command) {
     if (command.storyVersionId() != null) {
-      storyVersionAccess.requireOwnedStoryVersion(
-          command.projectId(), command.storyVersionId(), ownerId);
+      storyVersionAccess.requireStoryVersion(
+          command.projectId(), command.storyVersionId());
       return command.storyVersionId();
     }
     return storyVersionAccess.resolveOrCreateStoryVersion(
-        command.projectId(), ownerId, command.sourceText());
+        command.projectId(), command.sourceText());
   }
 
   private static void requireIdempotencyKey(String value) {

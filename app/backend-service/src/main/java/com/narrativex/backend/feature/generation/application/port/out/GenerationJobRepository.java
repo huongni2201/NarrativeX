@@ -8,19 +8,23 @@ import java.util.UUID;
 public interface GenerationJobRepository {
   GenerationJob save(GenerationJob job);
 
-  Optional<GenerationJob> findByIdAndOwner(UUID id, String ownerId);
+  Optional<GenerationJob> findById(UUID id);
 
-  Optional<GenerationJob> findByJobIdAndOwner(UUID jobId, String ownerId);
+  Optional<GenerationJob> findByJobId(UUID jobId);
 
-  Optional<AnalysisProgress> findAnalysisProgressByJobIdAndOwner(UUID jobId, String ownerId);
+  Optional<AnalysisProgress> findAnalysisProgressByJobId(UUID jobId);
 
-  Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId);
+  Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey);
 
-  Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey, String ownerId);
+  Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey);
 
-  void acquireIdempotencyLock(String idempotencyKey, String ownerId);
+  void acquireIdempotencyLock(String idempotencyKey);
 
-  void acquireImageCapacityLock(String ownerId);
+  void acquireImageCapacityLock();
 
-  int countActiveImageJobs(String ownerId);
+  void acquireAnalysisCapacityLock();
+
+  int countActiveImageJobs();
+
+  int countActiveJobs();
 }

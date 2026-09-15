@@ -40,6 +40,7 @@ class CharacterPersistenceMissingRowTest {
     UUID id = UUID.randomUUID();
     Character value =
         Character.rehydrate(id, 3L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+        Character.rehydrate(id, 3L, "Mina", List.of(), CharacterStatus.ACTIVE);
     when(rowMapper.row(any(Character.class), any(CharacterMyBatisRowMapper.InstantPair.class)))
         .thenReturn(new CharacterRow());
     when(mapper.findCharacter(id)).thenReturn(null);

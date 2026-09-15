@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
@@ -32,6 +33,7 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
   @Test
   void chapterAdvisoryLockMapsItsIntegerSentinel() {
     UUID chapterId = insertChapter("owner-lock");
+    UUID chapterId = insertChapter();
     new TransactionTemplate(transactionManager)
         .executeWithoutResult(status -> storyboardRevisionAccess.lockChapter(chapterId));
   }
@@ -39,6 +41,8 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
   @Test
   void returnsSnapshotOnlyForTheRequestedOwnedProjectScope() {
     UUID chapterId = insertChapter("owner-a");
+  void returnsSnapshotOnlyForTheRequestedProjectScope() {
+    UUID chapterId = insertChapter();
     UUID projectId =
         jdbcTemplate.queryForObject(
             "SELECT sv.project_id FROM chapters c JOIN story_versions sv ON sv.id = c.story_version_id WHERE c.id = ?",
@@ -48,6 +52,7 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
 
     ChapterAnalysisSource snapshot =
         repository.requireOwnedByProject(projectId, chapterId, "owner-a");
+    ChapterAnalysisSource snapshot = repository.requireByProject(projectId, chapterId);
 
     assertEquals(chapterId, snapshot.chapterId());
     assertEquals("source", snapshot.sourceText());
@@ -59,22 +64,28 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         () ->
             repository.requireOwnedByProject(
                 com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
+        () -> repository.requireByProject(UuidV7.random(), chapterId));
   }
 
   private UUID insertChapter(String ownerId) {
     String suffix = com.narrativex.backend.feature.common.uuid.UuidV7.random().toString();
+  private UUID insertChapter() {
+    String suffix = UuidV7.random().toString();
     UUID projectId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
               (name, owner_id, status, source_language, narration_language, metadata_language,
+              (name, status, source_language, narration_language, metadata_language,
                image_aspect_ratio, image_quality_tier)
             VALUES (?, ?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
+            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
             RETURNING id
             """,
             UUID.class,
             "Analysis scope " + suffix,
             ownerId);
+            "Analysis scope " + suffix);
     UUID storyVersionId =
         jdbcTemplate.queryForObject(
             """

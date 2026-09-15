@@ -4,43 +4,42 @@
 
 The repository itself is the current implementation source of truth. Keep architecture decisions in `documentation/decisions/`, implementation-facing architecture and codebase guidance under `documentation/`, and update those documents whenever behavior or boundaries change. Do not reference the removed `NARRATIVEX_PROJECT_SPEC_V1_7.md`; it was intentionally retired after the implementation diverged from that snapshot.
 
-## Non-negotiable domain rules
+## Read by task
 
-- PostgreSQL is authoritative for durable business state, durable queues, server-managed HTTP sessions, and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime. Python workers discover and claim work by polling durable PostgreSQL tables; do not add a broker/cache without a measured need and an explicit ADR.
-- Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
-- Story text, prompts, references, and provider output are untrusted data. Enforce prompt-injection boundaries, schema validation, provider/media safety handling, and output review at the relevant boundary; StoryVersion itself does not carry a moderation state. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
-- Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.
-- Character is a reusable User/Workspace-owned identity, never a Project-owned duplicate.
-- Project participation is modeled through ProjectCharacter.
-- Character identity is versioned through immutable CharacterVersion snapshots.
-- Outfit/age/hairstyle/injury/story-state changes belong to CharacterAppearance/OutfitVersion, not a new Character.
-- Scene/VisualBeat AI context must resolve participating characters only. Locked `CharacterVersion`, approved assets, render versions, and provider snapshots are immutable.
-- Persist provider reservation/outbox state before external submission. Ambiguous outcomes become `UNKNOWN` and must reconcile before retry; never blind-resubmit.
-- Expensive operations require an `OperationPlan`, non-monetary capacity/export reservation, account abuse checks, entitlement checks, idempotency, and usage attribution. Monetary billing, credit accounting and provider-pricing estimates are retired; token usage remains diagnostic telemetry.
-- Server-side entitlement is authoritative for watermark, quality, export, concurrency, and quota rules.
-- Real-person references require explicit consent, tenant isolation, restricted retention, and deletion handling.
-- `app/desktop` is the only editor client. Do not recreate `app/frontend-web` or add a parallel browser editor without an explicit ADR.
-- Desktop renderer code uses real APIs only. Mock data is limited to isolated tests/fixtures and must never be selected by application runtime configuration.
-- User identity comes from Spring Security `SecurityContextHolder`; application APIs must not accept identity through `X-User-Id` or equivalent client-controlled headers.
-- End-user authentication is Google OAuth only. Desktop starts OAuth in the system browser, receives a one-time handoff through `narrativex://auth/callback`, then establishes a server-managed `NX_SESSION`. Google access/refresh tokens must never enter Electron.
-- Local device tokens are separate machine credentials for heartbeat/render APIs and must not be confused with user OAuth/session credentials.
-- Frontend/renderer styling MUST use centralized design tokens and semantic CSS variables. Ad-hoc hardcoded visual values should be avoided when an existing semantic token is available.
+- Start with [current status](documentation/CURRENT_STATUS.md) and the [documentation map](documentation/README.md). Code, migrations and tests establish implementation facts; accepted ADRs establish direction. Report disagreement instead of assuming a migration is complete.
+- For backend/compute changes, read ADR-0028, ADR-0029, ADR-0031 and `documentation/COMPUTE_PROTOCOL.md`.
+- For identity, ownership or runtime-limit changes, read ADR-0030. Earlier account/session/quota rules are superseded in that scope.
+- For schema changes, read `documentation/architecture/flyway-baseline-policy.md`.
+- For Desktop styling, read `.agents/rules/frontend-styling.md`; for browser verification, read `.agents/rules/playwright-testing.md` and the completion gate below.
+- Run checks according to `CONTRIBUTING.md`.
 
-## Runtime and deployment boundaries
+## Domain and execution rules
 
-- Electron renderer owns UI/routing/editor state only; unrestricted Node.js/process/filesystem access stays out of the renderer.
-- Electron main owns native filesystem access, protected credentials, system-browser/deep-link handling, backend session transport and local FFmpeg/ffprobe execution.
-- Desktop project bytes are local-first and represented to the backend through stable IDs/checksums plus opaque project-relative artifact keys, never absolute local filesystem paths.
-- Production Compose has no web frontend, Caddy, or Redis service. PostgreSQL is the only application state service required by the MVP runtime.
-- HTTPS ingress is external to the single `docker-compose.yml`; set `NARRATIVEX_PUBLIC_BASE_URL` to the externally provided HTTPS origin for production OAuth and API traffic.
+- Keep Spring Boot a modular monolith and the authority for business state, admission, durable jobs, leases and artifact metadata in PostgreSQL. Add a broker, cache or business microservice only with measured need and an ADR.
+- Follow ADR-0030: one local installation, Project as the business boundary, no synthetic user/account/session identity. Provider secrets and machine execution credentials remain separate runtime concerns.
+- Character remains a reusable identity with ProjectCharacter participation and immutable CharacterVersion snapshots. Appearance/outfit changes do not create a new Character. Resolve only participating characters for Scene/VisualBeat context.
+- Treat story text, prompts, references and provider output as untrusted. Validate schemas and enforce prompt-injection/media-safety boundaries. Real-person references require explicit consent, restricted retention and deletion handling; do not add blanket story-rights checkboxes.
+- Plan visuals from duration, semantic complexity and reuse/delta. Preserve source provenance and narration as the production master clock; provisional timing cannot make a render ready.
+- Preserve locked character versions, approved assets, provider snapshots and render snapshots.
+- Persist operation/submission intent before external I/O. Ambiguous outcomes remain UNKNOWN until reconciled; never blind-resubmit.
+- Expensive work requires backend admission, OperationPlan where applicable, runtime capacity limits, idempotency and diagnostic usage attribution. Do not restore monetary billing or per-user entitlements retired by ADR-0030.
+- Keep backend domain free of provider SDKs. GPU execution adapters own provider/media dependencies; `app/generation-service` must not access the business database or orchestrate business jobs. Legacy `app/ai-worker` polling remains migration context, not the new worker contract.
+
+## Desktop and storage boundaries
+
+- `app/desktop` is the only editor. Renderer owns UI/routing/editor state and uses real APIs; deterministic fake providers/data belong only in isolated tests/fixtures.
+- Electron main owns filesystem/process access, protected provider/device credentials, backend transport and final FFmpeg/ffprobe execution through a narrow typed preload bridge.
+- Project bytes are local-first. Backend identities use stable IDs/checksums and opaque project-relative artifact keys, never absolute machine paths. Final video persistence is metadata-only.
+- Use centralized design tokens and semantic CSS variables for renderer styling.
+- Treat Compose and environment templates as migration-sensitive: verify their current contents before claiming deployment readiness. See `documentation/CURRENT_STATUS.md` for known drift.
 
 ## Change discipline
 
-- Preserve existing user changes in the worktree.
-- Keep feature ownership clear: backend domain must not import provider SDKs; adapters belong in infrastructure/integration layers; the Python worker owns AI/media runtime dependencies.
-- Add or update tests with behavior changes. Prefer deterministic fake providers in tests; never report fake provider success as production health.
-- Update the relevant Markdown document and an ADR when a cross-cutting architectural decision changes.
-- Run the narrowest relevant checks locally, then the repository verification commands documented in `CONTRIBUTING.md`.
+- Preserve existing worktree changes; inspect current files before editing. Do not reset or stage unrelated work.
+- Add or update tests for behavior changes. Never report fake-provider success as production health.
+- Update the smallest relevant current document. Cross-cutting boundary changes require an ADR; synchronizing docs with an existing accepted ADR does not require a duplicate decision.
+- Keep IMPLEMENTED, PARTIAL, TARGET and DEFERRED explicit. An accepted decision is not proof of completed implementation.
+- For docs-only edits, check links, migration inventory and docs drift. Runtime code changes require the relevant checks and the full gate before merge; report unavailable or failing checks honestly.
 
 ## Mandatory Desktop UI Verification
 

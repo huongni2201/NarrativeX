@@ -13,6 +13,7 @@ from narrativex_gpu_worker.domain.execution_attempt import (
     ExecutionAttempt,
     InvalidExecutionTransition,
 )
+from narrativex_gpu_worker.domain.submission import SubmissionState
 
 
 class SqliteExecutionJournalAdapter:
@@ -48,7 +49,43 @@ class SqliteExecutionJournalAdapter:
         async with self._lock:
             await asyncio.to_thread(self._update_sync, observation)
 
-    async def recoverable(self) -> list[ComputeTask]:
+    async def request_cancel(self, task_id: UUID, attempt_id: UUID) -> bool:
+        async with self._lock:
+            return await asyncio.to_thread(self._request_cancel_sync, task_id, attempt_id)
+
+    async def is_cancel_requested(self, task_id: UUID, attempt_id: UUID) -> bool:
+        return await asyncio.to_thread(self._is_cancel_requested_sync, task_id, attempt_id)
+
+    async def save_execution_handle(
+        self, task_id: UUID, attempt_id: UUID, execution_handle: str
+    ) -> None:
+        async with self._lock:
+            await asyncio.to_thread(
+                self._save_execution_handle_sync, task_id, attempt_id, execution_handle
+            )
+
+    async def mark_submitting(self, task_id: UUID, attempt_id: UUID) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._mark_submitting_sync, task_id, attempt_id)
+
+    async def mark_submitted(
+        self, task_id: UUID, attempt_id: UUID, execution_handle: str
+    ) -> None:
+        async with self._lock:
+            await asyncio.to_thread(
+                self._mark_submitted_sync, task_id, attempt_id, execution_handle
+            )
+
+    async def mark_unknown(self, task_id: UUID, attempt_id: UUID) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._mark_unknown_sync, task_id, attempt_id)
+
+    async def load_submission_state(
+        self, task_id: UUID, attempt_id: UUID
+    ) -> SubmissionState | None:
+        return await asyncio.to_thread(self._load_submission_state_sync, task_id, attempt_id)
+
+    async def recoverable(self) -> list[tuple[ComputeTask, bool, str | None, SubmissionState]]:
         return await asyncio.to_thread(self._recoverable_sync)
 
     def _connect(self) -> sqlite3.Connection:
@@ -70,10 +107,58 @@ class SqliteExecutionJournalAdapter:
                     observation_json TEXT NOT NULL,
                     state TEXT NOT NULL,
                     sequence INTEGER NOT NULL,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    execution_handle TEXT,
+                    submission_state TEXT NOT NULL DEFAULT 'NOT_SUBMITTED',
+                    correlation_key TEXT,
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (task_id, attempt_id)
                 )
                 """
+            )
+            # Ensure columns exist if table was created by an older version
+            pragma = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(execution_attempts)").fetchall()
+            }
+            if "cancel_requested" not in pragma:
+                connection.execute(
+                    "ALTER TABLE execution_attempts "
+                    "ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0"
+                )
+            if "execution_handle" not in pragma:
+                connection.execute(
+                    "ALTER TABLE execution_attempts ADD COLUMN execution_handle TEXT"
+                )
+            if "submission_state" not in pragma:
+                connection.execute(
+                    "ALTER TABLE execution_attempts "
+                    "ADD COLUMN submission_state TEXT NOT NULL DEFAULT 'NOT_SUBMITTED'"
+                )
+                # Migrate existing rows safely
+                connection.execute(
+                    """UPDATE execution_attempts
+                       SET submission_state = 'SUBMITTED'
+                       WHERE state = 'RUNNING' AND execution_handle IS NOT NULL AND execution_handle != ''"""
+                )
+                connection.execute(
+                    """UPDATE execution_attempts
+                       SET submission_state = 'UNKNOWN'
+                       WHERE state = 'RUNNING' AND (execution_handle IS NULL OR execution_handle = '')"""
+                )
+                connection.execute(
+                    """UPDATE execution_attempts
+                       SET submission_state = 'NOT_SUBMITTED'
+                       WHERE state = 'ACCEPTED'"""
+                )
+            if "correlation_key" not in pragma:
+                connection.execute(
+                    "ALTER TABLE execution_attempts ADD COLUMN correlation_key TEXT"
+                )
+            connection.execute(
+                """UPDATE execution_attempts
+                   SET correlation_key = task_id || ':' || attempt_id
+                   WHERE correlation_key IS NULL"""
             )
 
     def _save_accepted_sync(self, task: ComputeTask) -> tuple[ComputeObservation, bool]:
@@ -93,7 +178,7 @@ class SqliteExecutionJournalAdapter:
             existing = connection.execute(
                 """SELECT task_id, attempt_id, idempotency_key, request_fingerprint,
                           observation_json FROM execution_attempts
-                   WHERE (task_id = ? AND attempt_id = ?) OR idempotency_key = ?""",
+                    WHERE (task_id = ? AND attempt_id = ?) OR idempotency_key = ?""",
                 (str(task.task_id), str(task.attempt_id), task.idempotency_key),
             ).fetchone()
             if existing is not None:
@@ -115,9 +200,10 @@ class SqliteExecutionJournalAdapter:
                 return stored_observation, False
             connection.execute(
                 """INSERT INTO execution_attempts
-                   (task_id, attempt_id, idempotency_key, request_fingerprint, task_json,
-                    observation_json, state, sequence, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (task_id, attempt_id, idempotency_key, request_fingerprint, task_json,
+                     observation_json, state, sequence, cancel_requested,
+                     execution_handle, submission_state, correlation_key, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)""",
                 (
                     str(task.task_id),
                     str(task.attempt_id),
@@ -127,6 +213,8 @@ class SqliteExecutionJournalAdapter:
                     observation_json,
                     accepted.state.value,
                     accepted.sequence,
+                    SubmissionState.NOT_SUBMITTED.value,
+                    f"{task.task_id}:{task.attempt_id}",
                     accepted.observed_at.isoformat(),
                 ),
             )
@@ -173,7 +261,7 @@ class SqliteExecutionJournalAdapter:
     def _update_sync(self, observation: ComputeObservation) -> None:
         with self._connect() as connection:
             current = connection.execute(
-                """SELECT idempotency_key, request_fingerprint, state, sequence
+                """SELECT idempotency_key, request_fingerprint, state, sequence, execution_handle
                    FROM execution_attempts WHERE task_id = ? AND attempt_id = ?""",
                 (str(observation.task_id), str(observation.attempt_id)),
             ).fetchone()
@@ -193,25 +281,134 @@ class SqliteExecutionJournalAdapter:
                 raise ValueError(str(exc)) from exc
             if not changed:
                 return
+            handle = observation.execution_handle or current["execution_handle"]
             connection.execute(
-                """UPDATE execution_attempts SET observation_json = ?, state = ?, sequence = ?,
-                   updated_at = ? WHERE task_id = ? AND attempt_id = ?""",
+                """UPDATE execution_attempts
+                   SET observation_json = ?, state = ?, sequence = ?, execution_handle = ?,
+                       updated_at = ?
+                   WHERE task_id = ? AND attempt_id = ?""",
                 (
                     observation.model_dump_json(by_alias=True),
                     observation.state.value,
                     observation.sequence,
+                    handle,
                     observation.observed_at.isoformat(),
                     str(observation.task_id),
                     str(observation.attempt_id),
                 ),
             )
 
-    def _recoverable_sync(self) -> list[ComputeTask]:
+    def _request_cancel_sync(self, task_id: UUID, attempt_id: UUID) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """UPDATE execution_attempts
+                   SET cancel_requested = 1, updated_at = ?
+                   WHERE task_id = ? AND attempt_id = ?
+                     AND state NOT IN ('SUCCEEDED', 'FAILED', 'CANCELED')""",
+                (datetime.now(UTC).isoformat(), str(task_id), str(attempt_id)),
+            )
+            return cursor.rowcount > 0
+
+    def _is_cancel_requested_sync(self, task_id: UUID, attempt_id: UUID) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                """SELECT cancel_requested FROM execution_attempts
+                   WHERE task_id = ? AND attempt_id = ?""",
+                (str(task_id), str(attempt_id)),
+            ).fetchone()
+            return bool(row["cancel_requested"]) if row is not None else False
+
+    def _mark_submitting_sync(self, task_id: UUID, attempt_id: UUID) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """UPDATE execution_attempts
+                   SET submission_state = ?, updated_at = ?
+                   WHERE task_id = ? AND attempt_id = ?""",
+                (
+                    SubmissionState.SUBMITTING.value,
+                    datetime.now(UTC).isoformat(),
+                    str(task_id),
+                    str(attempt_id),
+                ),
+            )
+
+    def _mark_submitted_sync(
+        self, task_id: UUID, attempt_id: UUID, execution_handle: str
+    ) -> None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """SELECT observation_json FROM execution_attempts
+                   WHERE task_id = ? AND attempt_id = ?""",
+                (str(task_id), str(attempt_id)),
+            ).fetchone()
+            if row is None:
+                return
+            observation = ComputeObservation.model_validate_json(row["observation_json"])
+            updated_obs = observation.model_copy(update={"execution_handle": execution_handle})
+            connection.execute(
+                """UPDATE execution_attempts
+                   SET execution_handle = ?, submission_state = ?, observation_json = ?, updated_at = ?
+                   WHERE task_id = ? AND attempt_id = ?""",
+                (
+                    execution_handle,
+                    SubmissionState.SUBMITTED.value,
+                    updated_obs.model_dump_json(by_alias=True),
+                    datetime.now(UTC).isoformat(),
+                    str(task_id),
+                    str(attempt_id),
+                ),
+            )
+
+    def _mark_unknown_sync(self, task_id: UUID, attempt_id: UUID) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """UPDATE execution_attempts
+                   SET submission_state = ?, updated_at = ?
+                   WHERE task_id = ? AND attempt_id = ?""",
+                (
+                    SubmissionState.UNKNOWN.value,
+                    datetime.now(UTC).isoformat(),
+                    str(task_id),
+                    str(attempt_id),
+                ),
+            )
+
+    def _load_submission_state_sync(
+        self, task_id: UUID, attempt_id: UUID
+    ) -> SubmissionState | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """SELECT submission_state FROM execution_attempts
+                   WHERE task_id = ? AND attempt_id = ?""",
+                (str(task_id), str(attempt_id)),
+            ).fetchone()
+            if row is None or not row["submission_state"]:
+                return None
+            return SubmissionState(row["submission_state"])
+
+    def _save_execution_handle_sync(
+        self, task_id: UUID, attempt_id: UUID, execution_handle: str
+    ) -> None:
+        self._mark_submitted_sync(task_id, attempt_id, execution_handle)
+
+    def _recoverable_sync(self) -> list[tuple[ComputeTask, bool, str | None, SubmissionState]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT task_json FROM execution_attempts WHERE state IN ('ACCEPTED', 'RUNNING')"
+                """SELECT task_json, cancel_requested, execution_handle, submission_state
+                   FROM execution_attempts
+                   WHERE state IN ('ACCEPTED', 'RUNNING')"""
             ).fetchall()
-        return [ComputeTask.model_validate_json(row["task_json"]) for row in rows]
+        return [
+            (
+                ComputeTask.model_validate_json(row["task_json"]),
+                bool(row["cancel_requested"]),
+                row["execution_handle"],
+                SubmissionState(row["submission_state"])
+                if row["submission_state"]
+                else SubmissionState.NOT_SUBMITTED,
+            )
+            for row in rows
+        ]
 
 
-ExecutionJournal = SqliteExecutionJournalAdapter
+__all__ = ["SqliteExecutionJournalAdapter"]

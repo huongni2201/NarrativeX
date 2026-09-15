@@ -48,6 +48,7 @@ class ProjectGenerationControllerContractTest {
             "vi-VN",
             "chapter-analysis:7:11:hash",
             "user-1");
+            "chapter-analysis:7:11:hash");
     when(useCase.execute(new EnqueueStoryAnalysisCommand(projectId, chapterId))).thenReturn(job);
     ProjectGenerationController controller =
         new ProjectGenerationController(
@@ -58,8 +59,10 @@ class ProjectGenerationControllerContractTest {
             visualBeatPromptContext,
             prepareUseCase,
             objectMapper);
+            voicePreviewResultUseCase);
 
     var response = controller.analyzeChapter(projectId, chapterId);
+    var response = controller.analyzeChapter(projectId, chapterId, null, null);
 
     assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
     assertEquals(job.getJobId(), response.getBody().data().jobId());

@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.common.domain.exception.DomainValidationEx
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.sql.SQLException;
@@ -30,6 +31,13 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class ApiExceptionHandler {
   private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
+
+  @ExceptionHandler(InvalidDeviceCredentialsException.class)
+  ResponseEntity<ErrorResponse> handleInvalidDeviceCredentials(
+      InvalidDeviceCredentialsException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, exception.getMessage(), request);
+  }
 
   @ExceptionHandler(DomainValidationException.class)
   ResponseEntity<ErrorResponse> handleDomainValidation(

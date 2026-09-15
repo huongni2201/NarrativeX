@@ -34,6 +34,7 @@ class CreateStoryVersionUseCaseTest {
   @Test
   void locksProjectBeforeAllocatingNextVersion() {
     when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project());
+    when(projectAccess.findProjectForUpdate(PROJECT_ID)).thenReturn(project());
     when(storyVersionRepository.findMaxVersionNumberByProjectId(PROJECT_ID)).thenReturn(3);
     when(storyVersionRepository.save(any(StoryVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -41,14 +42,18 @@ class CreateStoryVersionUseCaseTest {
     CreateStoryVersionUseCase useCase =
         new CreateStoryVersionUseCase(
             projectAccess, storyVersionRepository, currentUserId, new NarrativeXLimitsProperties());
+            projectAccess, storyVersionRepository, new NarrativeXLimitsProperties());
 
     StoryVersion response =
         useCase.execute(new CreateStoryVersionCommand(PROJECT_ID, "story", "vi-VN", "owner"));
+        useCase.execute(new CreateStoryVersionCommand(PROJECT_ID, "story", "vi-VN"));
 
     assertEquals(4, response.getVersionNumber());
     assertEquals(StoryVersionStatus.DRAFT, response.getStatus());
     verify(projectAccess).findOwnedProjectForUpdate(PROJECT_ID, "owner");
     verify(projectAccess, never()).findOwnedProject(PROJECT_ID, "owner");
+    verify(projectAccess).findProjectForUpdate(PROJECT_ID);
+    verify(projectAccess, never()).findProject(PROJECT_ID);
   }
 
   private static Project project() {

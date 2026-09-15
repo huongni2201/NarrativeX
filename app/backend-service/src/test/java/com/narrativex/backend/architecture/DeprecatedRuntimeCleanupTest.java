@@ -15,16 +15,16 @@ class DeprecatedRuntimeCleanupTest {
 
   @Test
   void finalArtifactBaselineDoesNotRetainRemoteFinalVideoFields() throws IOException {
-    String v4 = read("V4__narration_notifications_and_artifacts.sql");
-    String v7 = read("V7__indexes.sql");
-    String finalArtifacts = tableDefinition(v4, "final_artifacts");
+    String v3 = read("V3__narration_and_artifacts.sql");
+    String v6 = read("V6__indexes.sql");
+    String finalArtifacts = tableDefinition(v3, "final_artifacts");
 
     assertThat(finalArtifacts)
         .doesNotContain("storage_provider")
         .doesNotContain("external_file_id")
         .doesNotContain("web_view_link")
         .doesNotContain("DEFAULT 'R2'");
-    assertThat(v7).doesNotContain("idx_final_artifacts_external_file_id");
+    assertThat(v6).doesNotContain("idx_final_artifacts_external_file_id");
   }
 
   @Test
@@ -53,8 +53,8 @@ class DeprecatedRuntimeCleanupTest {
                 .toList())
         .doesNotContain("executionTarget", "maxAuthorizedCost");
 
-    String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
-    assertThat(v5).doesNotContain("execution_target").doesNotContain("'CLOUD'");
+    String v4 = read("V4__catalog_generation_and_render_snapshots.sql");
+    assertThat(v4).doesNotContain("execution_target").doesNotContain("'CLOUD'");
   }
 
   @Test

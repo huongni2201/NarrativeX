@@ -56,7 +56,7 @@ public class LocalDeviceController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Device paired successfully",
-            new PairDeviceResponse(paired.deviceId(), paired.deviceToken(), paired.userId())));
+            new PairDeviceResponse(paired.deviceId(), paired.deviceToken())));
   }
 
   @PostMapping("/heartbeat")
@@ -82,7 +82,7 @@ public class LocalDeviceController {
 
   public record PairingCodeResponse(String code, Instant expiresAt) {}
 
-  public record PairDeviceResponse(UUID deviceId, String deviceToken, String userId) {}
+  public record PairDeviceResponse(UUID deviceId, String deviceToken) {}
 
   public record LocalDeviceResponse(
       UUID id,

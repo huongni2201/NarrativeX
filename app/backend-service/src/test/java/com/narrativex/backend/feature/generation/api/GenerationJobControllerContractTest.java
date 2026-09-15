@@ -74,6 +74,7 @@ class GenerationJobControllerContractTest {
     assertEquals(reportId, response.continuityReportId());
     assertEquals("continuity-v1", response.pipelineVersion());
     verify(useCase).executeWithProgress(new GetGenerationJobQuery(jobId, null));
+    verify(useCase).executeWithProgress(new GetGenerationJobQuery(jobId));
   }
 
   @Test
@@ -105,6 +106,7 @@ class GenerationJobControllerContractTest {
             "vi-VN",
             "chapter-analysis:test",
             "owner");
+            "chapter-analysis:test");
 
     JobResponse response = JobResponse.from(job);
 

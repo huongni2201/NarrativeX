@@ -25,7 +25,7 @@ class ProjectRenderProfilePersistenceContractTest {
   void migrationDefinesCompatibleV2AndV3ProfileBoundary() throws Exception {
     String sql =
         Files.readString(
-            Path.of("src/main/resources/db/migration/V16__render_profile_watermark_policy.sql"));
+            Path.of("src/main/resources/db/migration/V4__catalog_generation_and_render_snapshots.sql"));
 
     assertTrue(sql.contains("IN (2, 3)"));
     assertTrue(sql.contains("ck_project_render_profile_v3_watermark"));

@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterContentImportResponse;
@@ -19,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ImportChapterContentUseCase {
-  private final CurrentUserId currentUserId;
   private final ChapterRepository chapterRepository;
   private final StoryVersionAccess storyVersionAccess;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
@@ -30,18 +28,17 @@ public class ImportChapterContentUseCase {
   public ApiResponse<ChapterContentImportResponse> execute(ImportChapterContentCommand command) {
     UUID projectId = command.projectId();
     UUID chapterId = command.chapterId();
-    String userId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), userId);
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
     storyboardRevisionAccess.lockChapter(chapterId);
     chapter =
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), userId);
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
     validateSourceSize(command.content());
     var normalized = sourceHasher.normalizeAndHash(command.content());
     if (command.title() != null && !command.title().isBlank()) chapter.rename(command.title());

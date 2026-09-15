@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
+import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProjectRenderInputSnapshotRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -47,7 +46,6 @@ public class CreateProjectRenderUseCase {
   private static final String PROJECT_RENDER_CAPABILITY = "PROJECT_RENDER";
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 512;
 
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final GetProductionTimelineUseCase getProductionTimelineUseCase;
   private final GenerationJobRepository generationJobRepository;
@@ -55,8 +53,7 @@ public class CreateProjectRenderUseCase {
   private final OperationPlanRepository operationPlanRepository;
   private final ProjectRenderInputSnapshotRepository projectRenderInputSnapshotRepository;
   private final StageAttemptRepository stageAttemptRepository;
-  private final QuotaReservation quotaReservation;
-  private final UserQuotaAccess userQuotaAccess;
+  private final NarrativeXLimitsProperties limits;
   private final LocalDeviceAccess localDeviceAccess;
 
   @Transactional
@@ -67,15 +64,14 @@ public class CreateProjectRenderUseCase {
   @Transactional
   public GenerationJob executeWithPreCreateMutation(
       CreateProjectRenderCommand command, Runnable preCreateMutation) {
-    String userId = currentUserId.get();
-    var project = projectAccess.findOwnedProject(command.projectId(), userId);
+    var project = projectAccess.findProject(command.projectId());
 
     // Request identity must not depend on mutable timeline state. Resolve a replay
     // before checking device health, source readiness, entitlement or quota.
     String requestFingerprint = requestFingerprint(command);
     String idempotencyKey = idempotencyKey(command, requestFingerprint);
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
       GenerationJob existingJob = existing.get();
       if (existingJob.getType() != JobType.RENDER_PROJECT
@@ -89,10 +85,10 @@ public class CreateProjectRenderUseCase {
     }
 
     preCreateMutation.run();
-    validateLocalDevice(userId, command.localDeviceId());
+    validateLocalDevice(command.localDeviceId());
 
     ProductionTimelineView sourceTimeline =
-        getProductionTimelineUseCase.executeOwned(command.projectId(), userId);
+        getProductionTimelineUseCase.execute(command.projectId());
     if (!sourceTimeline.readyForRender()) {
       throw new GenerationAdmissionDeniedException(
           "PROJECT_RENDER_INPUT_NOT_READY",
@@ -100,26 +96,14 @@ public class CreateProjectRenderUseCase {
     }
     ProductionTimelineView timeline = applyBeatOverrides(sourceTimeline, command.beatOverrides());
 
-    var quota =
-        userQuotaAccess
-            .findCurrentQuota(userId)
-            .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "ENTITLEMENT_DENIED", "No active plan."));
-    if (!qualityAllowed(command.resolution(), quota.maxVideoQuality())) {
-      throw new GenerationAdmissionDeniedException(
-          "ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
+    if (!limits.isRenderEnabled()) {
+      throw new FeatureNotAvailableException("Project render is not enabled.");
     }
-
-    var reservation =
-        quotaReservation
-            .reserveLongformExport(
-                userId, quota.maxConcurrentExpensiveJobs(), quota.maxLongformExportsMonth())
-            .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "QUOTA_LIMIT", "Project render concurrency or export quota is exhausted."));
+    generationJobRepository.acquireAnalysisCapacityLock();
+    if (generationJobRepository.countActiveJobs() >= limits.getMaxConcurrentExpensiveJobs()) {
+      throw new GenerationAdmissionDeniedException(
+          "CAPACITY_LIMIT", "Project render concurrency limit is exhausted.");
+    }
 
     GenerationJob job =
         generationJobRepository.save(
@@ -134,7 +118,6 @@ public class CreateProjectRenderUseCase {
                 0,
                 "QUEUED",
                 null,
-                userId,
                 timeline.storyVersionId(),
                 null,
                 null,
@@ -152,13 +135,12 @@ public class CreateProjectRenderUseCase {
         command.localDeviceId(),
         command.fps(),
         command.subtitlesEnabled(),
-        quota.watermarkRequired());
+        false);
 
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
                 command.projectId(), operationType(command.resolution(), command.format())));
-    quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), LOCAL_STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
@@ -175,13 +157,13 @@ public class CreateProjectRenderUseCase {
     return job;
   }
 
-  private void validateLocalDevice(String userId, UUID localDeviceId) {
+  private void validateLocalDevice(UUID localDeviceId) {
     if (localDeviceId == null) {
       throw new GenerationAdmissionDeniedException(
           "LOCAL_DEVICE_REQUIRED", "Project render requires a paired Desktop device.");
     }
     try {
-      localDeviceAccess.requireEligibleOwnedDevice(userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
+      localDeviceAccess.requireEligibleDevice(localDeviceId, PROJECT_RENDER_CAPABILITY);
     } catch (IllegalArgumentException | IllegalStateException exception) {
       throw new GenerationAdmissionDeniedException(
           "LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
@@ -429,25 +411,5 @@ public class CreateProjectRenderUseCase {
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
     }
-  }
-
-  private static boolean qualityAllowed(String requestedResolution, String maximumQuality) {
-    if (maximumQuality == null || maximumQuality.isBlank()) return false;
-    int requested =
-        switch (requestedResolution.toLowerCase(Locale.ROOT)) {
-          case "720p" -> 1;
-          case "1080p" -> 3;
-          case "1440p" -> 4;
-          default -> Integer.MAX_VALUE;
-        };
-    int maximum =
-        switch (maximumQuality.toUpperCase(Locale.ROOT)) {
-          case "DRAFT", "720P" -> 1;
-          case "STANDARD" -> 2;
-          case "HIGH", "1080P" -> 3;
-          case "ULTRA", "1440P", "2K", "QHD" -> 4;
-          default -> 0;
-        };
-    return maximum >= requested;
   }
 }

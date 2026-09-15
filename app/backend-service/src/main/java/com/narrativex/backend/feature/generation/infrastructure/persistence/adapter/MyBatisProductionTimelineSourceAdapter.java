@@ -13,8 +13,8 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
   private final ProductionTimelineMapper mapper;
 
   @Override
-  public List<ChapterSource> findChapters(UUID projectId, String ownerId) {
-    return mapper.findChapters(projectId, ownerId).stream()
+  public List<ChapterSource> findChapters(UUID projectId) {
+    return mapper.findChapters(projectId).stream()
         .map(
             row ->
                 new ChapterSource(
@@ -43,8 +43,8 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
   }
 
   @Override
-  public List<BeatSource> findBeats(UUID projectId, String ownerId) {
-    return mapper.findBeats(projectId, ownerId).stream()
+  public List<BeatSource> findBeats(UUID projectId) {
+    return mapper.findBeats(projectId).stream()
         .map(
             row ->
                 new BeatSource(
@@ -66,6 +66,7 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
                     row.getSourceDurationMs(),
                     row.getFitMode(),
                     row.getTrimStartMs(),
+                    row.getMediaSelectionActive(),
                     row.isMediaSelectionActive(),
                     row.getStorageKey(),
                     row.getSizeBytes(),

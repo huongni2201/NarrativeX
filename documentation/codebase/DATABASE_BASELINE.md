@@ -1,5 +1,7 @@
 # NarrativeX Database Baseline
 
+> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 ## Authority
 
 PostgreSQL is the authoritative business/control-state store. The backend owns Flyway and the relational schema.
@@ -12,16 +14,15 @@ Until the first production schema is frozen, schema changes should be folded int
 
 | Migration | Responsibility |
 |---|---|
-| `V1__identity_and_access.sql` | identity, Desktop auth, sessions and local-device state |
-| `V2__project_story_and_planning.sql` | Projects, Stories, Chapters, Storyboard/Scene/VisualBeat entities and final MediaPlan shape |
-| `V3__generation_quota_and_media.sql` | durable jobs/provider operations, non-monetary capacity/export quota reservations, final project MediaAsset schema and account voice-reference assets |
-| `V4__narration_notifications_and_artifacts.sql` | final narration/alignment contracts, notifications/outbox and artifact metadata |
-| `V5__catalog_generation_and_render_snapshots.sql` | catalogs, voice-reference upload lifecycle, media generation/lineage, continuity/checkpoints, regeneration plans, Storyboard generation snapshots and immutable project-render snapshots |
-| `V6__database_logic_and_triggers.sql` | immutable-state guards, non-monetary quota settlement, completion notifications and generation events |
-| `V7__indexes.sql` | all current query/access-path and partial/unique indexes |
-| `V8__seed_catalog.sql` | deterministic plan/style/voice catalog seed data |
+| `V1__project_story_and_planning.sql` | Projects, Stories, Chapters, Storyboard/Scene/VisualBeat entities and final MediaPlan shape |
+| `V2__generation_and_media.sql` | durable jobs/provider operations, final project MediaAsset schema and voice-reference assets |
+| `V3__narration_and_artifacts.sql` | final narration/alignment contracts, artifact metadata |
+| `V4__catalog_generation_and_render_snapshots.sql` | catalogs, voice-reference upload lifecycle, media generation/lineage, continuity/checkpoints, regeneration plans, Storyboard generation snapshots and immutable project-render snapshots |
+| `V5__database_logic_and_triggers.sql` | immutable-state guards, database functions and generation events |
+| `V6__indexes.sql` | all current query/access-path and partial/unique indexes |
+| `V7__seed_catalog.sql` | deterministic catalog seed data |
 
-A clean database applies **V1 → V8** and is already at the current schema. There are no V9+ cleanup migrations in the pre-production baseline.
+A clean database applies **V1 → V7** and is already at the current schema. There are no V9+ cleanup migrations in the pre-production baseline.
 
 In particular, the baseline does **not** create monetary provider-operation fields and later null/drop them; it does not create image/regeneration pricing fields and later remove them; it does not create `storage_mode`, `media_asset_checksums`, or `local_media_materializations` and later delete them. Those retired shapes simply do not exist in a fresh database.
 
@@ -67,7 +68,7 @@ The production timeline may expose a derived `cameraMovement` value for render e
 
 ## Media preview identity
 
-`visual_beats.preview_media_asset_id` is the canonical generated/default preview identity and references `media_assets`. V2 defines VisualBeat; V3 adds the pointer once the referenced final `media_assets` table exists. This is an ordering dependency inside the baseline, not a compatibility migration followed by a cleanup migration.
+`visual_beats.preview_media_asset_id` is the canonical generated/default preview identity and references `media_assets`. V1 defines VisualBeat; V2 adds the pointer once the referenced final `media_assets` table exists. This is an ordering dependency inside the baseline, not a compatibility migration followed by a cleanup migration.
 
 ## Continuity and regeneration
 
@@ -127,9 +128,9 @@ Stage names such as `SHOT_IMAGE_GENERATE`, `SHOT_IMAGE_REGENERATE` and `RENDER_P
 - keep the canonical baseline small and organized by ownership/domain;
 - create each table directly in its current shape whenever dependency ordering allows it;
 - do not preserve a migration whose only role is to rename/drop/rewrite schema introduced by another baseline migration;
-- fold new pre-production columns, constraints, triggers and indexes into V1–V8 and recreate development/test databases;
+- fold new pre-production columns, constraints, triggers and indexes into V1–V7 and recreate development/test databases;
 - use later migration files only for genuine dependency ordering that cannot be expressed in an earlier owning migration, not as historical compatibility patches;
-- keep sample/application data out of Flyway except deterministic catalog seed data in V8;
+- keep sample/application data out of Flyway except deterministic catalog seed data in V7;
 - before the first production release, a baseline rewrite intentionally invalidates existing development Flyway checksums and requires a clean database/reset;
 - after the first production release, stop rewriting applied migrations and use append-only forward migrations.
 

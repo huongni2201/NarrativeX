@@ -1,3 +1,3 @@
-from .registry import ExecutorRegistry
+from .catalog import ExecutorCatalog
 
-__all__ = ["ExecutorRegistry"]
+__all__ = ["ExecutorCatalog"]

@@ -65,7 +65,7 @@ def test_invalid_digest_is_rejected() -> None:
     task = contracts.load_json(
         ROOT / "contracts" / "compute" / "v1" / "examples" / "audio-align-task.json"
     )
-    task["artifacts"][0]["sha256"] = "not-a-digest"
+    task["artifacts"]["inputs"][0]["sha256"] = "not-a-digest"
     with pytest.raises(contracts.ContractError, match="pattern"):
         contracts.validate_task(task)
 

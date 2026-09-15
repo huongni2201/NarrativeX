@@ -1,41 +1,52 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterContinuityMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ContinuityBeatLineageRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.CurrentContinuityRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.RegenerationPlanRow;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
 public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContinuityRepository {
+  private static final TypeReference<List<UUID>> UUID_LIST_TYPE = new TypeReference<>() {};
+
   private final ChapterContinuityMapper mapper;
   private final ObjectMapper objectMapper;
 
   @Override
   public Optional<CurrentContinuity> findCurrent(UUID projectId, UUID chapterId) {
     CurrentContinuityRow row = mapper.findCurrent(projectId, chapterId);
-    return row == null
-        ? Optional.empty()
-        : Optional.of(
-            new CurrentContinuity(
-                row.getPlanId(),
-                row.getPlanRevision(),
-                row.getSourceHash(),
-                row.getReportStatus(),
-                row.getReportRevision(),
-                row.getIssuesJson()));
+    if (row == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new CurrentContinuity(
+            row.getPlanId(),
+            row.getPlanRevision(),
+            row.getSourceHash(),
+            row.getReportStatus(),
+            row.getReportRevision(),
+            row.getIssuesJson()));
   }
 
   @Override
   public List<BeatLineage> findBeatLineage(UUID planId) {
-    return mapper.findBeatLineage(planId).stream()
+    List<ContinuityBeatLineageRow> rows = mapper.findBeatLineage(planId);
+    if (rows == null || rows.isEmpty()) {
+      return List.of();
+    }
+    return rows.stream()
         .map(
             row ->
                 new BeatLineage(
@@ -49,21 +60,18 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
 
   @Override
   public RegenerationPlan saveRegenerationPlan(RegenerationPlan plan) {
-    int inserted =
-        mapper.insertRegenerationPlan(
-            plan.id(),
-            plan.projectId(),
-            plan.chapterId(),
-            plan.continuityPlanId(),
-            plan.sourceHash(),
-            writeUuidList(plan.requestedBeatIds()),
-            writeUuidList(plan.affectedBeatIds()),
-            writeUuidList(plan.reusableBeatIds()),
-            plan.reason(),
-            plan.expiresAt(),
-            plan.inputFingerprint(),
-            plan.createdBy());
-    if (inserted == 1) return plan;
+    mapper.insertRegenerationPlan(
+        plan.id(),
+        plan.projectId(),
+        plan.chapterId(),
+        plan.continuityPlanId(),
+        plan.sourceHash(),
+        writeUuidList(plan.requestedBeatIds()),
+        writeUuidList(plan.affectedBeatIds()),
+        writeUuidList(plan.reusableBeatIds()),
+        plan.reason(),
+        plan.expiresAt(),
+        plan.inputFingerprint());
     return findRegenerationPlanByFingerprint(
             plan.projectId(), plan.chapterId(), plan.inputFingerprint())
         .orElseThrow(
@@ -114,8 +122,8 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
 
   @Override
   public void appendHumanReport(
-      UUID continuityPlanId, int revision, String status, String issuesJson, String reviewedBy) {
-    if (mapper.insertHumanReport(continuityPlanId, revision, status, issuesJson, reviewedBy) != 1) {
+      UUID continuityPlanId, int revision, String status, String issuesJson) {
+    if (mapper.insertHumanReport(continuityPlanId, revision, status, issuesJson) != 1) {
       throw new IllegalStateException("Continuity report revision was not persisted");
     }
   }
@@ -132,24 +140,26 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
         readUuidList(row.getReusableBeatIdsJson()),
         row.getReason(),
         row.getExpiresAt(),
-        row.getInputFingerprint(),
-        row.getCreatedBy());
+        row.getInputFingerprint());
   }
 
   private String writeUuidList(List<UUID> values) {
     try {
-      return objectMapper.writeValueAsString(values.stream().map(UUID::toString).toList());
+      return objectMapper.writeValueAsString(values == null ? List.of() : values);
     } catch (Exception exception) {
-      throw new IllegalStateException("Could not serialize regeneration beat ids", exception);
+      throw new IllegalStateException("Failed to serialize UUID list", exception);
     }
   }
 
-  private List<UUID> readUuidList(String value) {
+  private List<UUID> readUuidList(String rawJson) {
+    if (rawJson == null || rawJson.isBlank()) {
+      return List.of();
+    }
     try {
-      String[] ids = objectMapper.readValue(value, String[].class);
-      return Arrays.stream(ids).map(UUID::fromString).toList();
+      List<UUID> decoded = objectMapper.readValue(rawJson, UUID_LIST_TYPE);
+      return decoded == null ? List.of() : Collections.unmodifiableList(decoded);
     } catch (Exception exception) {
-      throw new IllegalStateException("Could not parse regeneration beat ids", exception);
+      throw new IllegalStateException("Failed to deserialize UUID list", exception);
     }
   }
 }

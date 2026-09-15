@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterDocumentTextExtractor;
@@ -25,7 +24,6 @@ public class BatchImportChaptersUseCase {
   private static final int MAX_FILE_BYTES = 10 * 1024 * 1024;
   private static final int MAX_CHAPTERS_PER_IMPORT = 100;
 
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final ChapterDocumentTextExtractor documentTextExtractor;
@@ -53,9 +51,9 @@ public class BatchImportChaptersUseCase {
     String extracted = documentTextExtractor.extract(fileName, contentType, content);
     if (storyVersionId == null) {
       storyVersionId =
-          storyVersionAccess.resolveOrCreateStoryVersion(projectId, currentUserId.get(), extracted);
+          storyVersionAccess.resolveOrCreateStoryVersion(projectId, extracted);
     } else {
-      storyVersionAccess.requireOwnedStoryVersion(projectId, storyVersionId, currentUserId.get());
+      storyVersionAccess.requireStoryVersion(projectId, storyVersionId);
     }
     var drafts = splitter.split(extracted, fileName);
     if (drafts.size() > MAX_CHAPTERS_PER_IMPORT) {

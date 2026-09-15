@@ -5,5 +5,5 @@ import com.narrativex.backend.feature.generation.application.query.JobHistoryVie
 import java.util.List;
 
 public interface JobHistoryQueryRepository {
-  List<JobHistoryView> list(String userId, UuidCursorKey cursor, int fetchLimit);
+  List<JobHistoryView> list(UuidCursorKey cursor, int fetchLimit);
 }

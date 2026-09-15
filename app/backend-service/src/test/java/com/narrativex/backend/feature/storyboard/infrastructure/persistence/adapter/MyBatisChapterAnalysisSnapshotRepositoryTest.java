@@ -26,14 +26,18 @@ class MyBatisChapterAnalysisSnapshotRepositoryTest {
   @Test
   void rejectsMissingOwnedChapterAsNotFound() {
     when(mapper.findOwned(PROJECT_ID, CHAPTER_ID, "user-1")).thenReturn(null);
+  void rejectsMissingChapterAsNotFound() {
+    when(mapper.findByProject(PROJECT_ID, CHAPTER_ID)).thenReturn(null);
 
     assertThrows(
         ResourceNotFoundException.class,
         () -> repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1"));
+        () -> repository.requireByProject(PROJECT_ID, CHAPTER_ID));
   }
 
   @Test
   void mapsOwnedChapterToCurrentAnalysisSource() {
+  void mapsChapterToCurrentAnalysisSource() {
     var row = new ChapterAnalysisSnapshotRow();
     UUID snapshotId = UuidV7.random();
     UUID storyVersionId = UuidV7.random();
@@ -43,8 +47,10 @@ class MyBatisChapterAnalysisSnapshotRepositoryTest {
     row.setSourceHash("a".repeat(64));
     row.setSourceText("Chapter source");
     when(mapper.findOwned(PROJECT_ID, CHAPTER_ID, "user-1")).thenReturn(row);
+    when(mapper.findByProject(PROJECT_ID, CHAPTER_ID)).thenReturn(row);
 
     var source = repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
+    var source = repository.requireByProject(PROJECT_ID, CHAPTER_ID);
 
     assertEquals(snapshotId, source.chapterId());
     assertEquals(storyVersionId, source.storyVersionId());

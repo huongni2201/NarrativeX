@@ -96,7 +96,7 @@ public class GenerationDatabaseEventListener {
           objectMapper.readValue(payload, DatabaseGenerationEvent.class);
       streamService.publish(
           new GenerationRealtimeEvent(
-              event.eventId(), event.userId(), event.projectId(), event.job()));
+              event.eventId(), event.projectId(), event.job()));
     } catch (Exception exception) {
       log.warn("Ignoring malformed generation SSE event", exception);
     }
@@ -111,5 +111,5 @@ public class GenerationDatabaseEventListener {
   }
 
   private record DatabaseGenerationEvent(
-      String eventId, String userId, UUID projectId, JobResponse job) {}
+      String eventId, UUID projectId, JobResponse job) {}
 }

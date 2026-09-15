@@ -7,7 +7,6 @@ import org.apache.ibatis.annotations.Param;
 public interface ChapterCreationIdempotencyMapper extends NarrativeXMyBatisMapper {
   ChapterCreationIdempotencyRow reserve(
       @Param("id") UUID id,
-      @Param("ownerId") String ownerId,
       @Param("projectId") UUID projectId,
       @Param("idempotencyKey") String idempotencyKey,
       @Param("requestFingerprint") String requestFingerprint);

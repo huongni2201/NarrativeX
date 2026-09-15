@@ -27,7 +27,7 @@ public interface ChapterContinuityRepository {
   int nextReportRevision(UUID continuityPlanId);
 
   void appendHumanReport(
-      UUID continuityPlanId, int revision, String status, String issuesJson, String reviewedBy);
+      UUID continuityPlanId, int revision, String status, String issuesJson);
 
   record CurrentContinuity(
       UUID planId,
@@ -58,8 +58,7 @@ public interface ChapterContinuityRepository {
       List<UUID> reusableBeatIds,
       String reason,
       Instant expiresAt,
-      String inputFingerprint,
-      String createdBy) {
+      String inputFingerprint) {
     public RegenerationPlan {
       requestedBeatIds = List.copyOf(requestedBeatIds);
       affectedBeatIds = List.copyOf(affectedBeatIds);

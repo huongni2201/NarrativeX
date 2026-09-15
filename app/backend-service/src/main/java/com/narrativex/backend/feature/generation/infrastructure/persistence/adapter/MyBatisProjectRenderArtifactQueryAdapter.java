@@ -15,9 +15,8 @@ public class MyBatisProjectRenderArtifactQueryAdapter
   private final ProjectRenderArtifactMapper mapper;
 
   @Override
-  public Optional<ProjectRenderArtifactView> findByJobId(
-      UUID projectId, UUID jobId, String ownerId) {
-    var row = mapper.findByJobId(projectId, jobId, ownerId);
+  public Optional<ProjectRenderArtifactView> findByJobId(UUID projectId, UUID jobId) {
+    var row = mapper.findByJobId(projectId, jobId);
     if (row == null) return Optional.empty();
     return Optional.of(
         new ProjectRenderArtifactView(

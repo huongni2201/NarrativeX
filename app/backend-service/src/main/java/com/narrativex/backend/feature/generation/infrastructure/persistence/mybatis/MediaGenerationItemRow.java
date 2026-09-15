@@ -28,7 +28,6 @@ public class MediaGenerationItemRow {
   private String errorCode;
   private String errorDetailRef;
   private MediaGenerationReviewStatus reviewStatus;
-  private String reviewedByUserId;
   private Instant reviewedAt;
   private Instant createdAt;
   private Instant updatedAt;

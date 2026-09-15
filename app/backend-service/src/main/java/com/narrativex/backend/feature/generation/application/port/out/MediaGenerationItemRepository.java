@@ -8,9 +8,9 @@ import java.util.UUID;
 public interface MediaGenerationItemRepository {
   MediaGenerationItem save(MediaGenerationItem item);
 
-  Optional<MediaGenerationItem> findOwned(String userId, UUID itemId);
+  Optional<MediaGenerationItem> findById(UUID itemId);
 
-  List<MediaGenerationItem> findByJobOwned(String userId, UUID jobId);
+  List<MediaGenerationItem> findByJobId(UUID jobId);
 
-  boolean review(String userId, UUID itemId, long rowVersion, String decision);
+  boolean review(UUID itemId, long rowVersion, String decision);
 }

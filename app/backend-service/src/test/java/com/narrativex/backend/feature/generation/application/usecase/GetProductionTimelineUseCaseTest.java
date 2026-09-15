@@ -21,15 +21,19 @@ class GetProductionTimelineUseCaseTest {
       mock(ProductionTimelineSourceRepository.class);
   private final GetProductionTimelineUseCase useCase =
       new GetProductionTimelineUseCase(currentUserId, projectAccess, sourceRepository);
+      new GetProductionTimelineUseCase(projectAccess, sourceRepository);
 
   @Test
   void returnsEmptyTimelineForProjectWithoutChapters() {
     UUID projectId = UUID.randomUUID();
     when(sourceRepository.findChapters(projectId, "owner")).thenReturn(List.of());
+    when(sourceRepository.findChapters(projectId)).thenReturn(List.of());
 
     var timeline = useCase.executeOwned(projectId, "owner");
+    var timeline = useCase.execute(projectId);
 
     verify(projectAccess).findOwnedProject(projectId, "owner");
+    verify(projectAccess).findProject(projectId);
     assertThat(timeline.projectId()).isEqualTo(projectId);
     assertThat(timeline.storyVersionId()).isNull();
     assertThat(timeline.totalDurationMs()).isZero();
@@ -45,14 +49,17 @@ class GetProductionTimelineUseCaseTest {
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     when(sourceRepository.findChapters(projectId, "owner"))
+    when(sourceRepository.findChapters(projectId))
         .thenReturn(List.of(chapter(storyVersionId, chapterId, 10_000L, 2)));
     when(sourceRepository.findBeats(projectId, "owner"))
+    when(sourceRepository.findBeats(projectId))
         .thenReturn(
             List.of(
                 beatWithText(chapterId, 0, 0, 0, 40, "b".repeat(64)),
                 beatWithText(chapterId, 0, 1, 40, 100, "c".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
+    var timeline = useCase.execute(projectId);
 
     assertThat(timeline.beats())
         .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
@@ -76,8 +83,10 @@ class GetProductionTimelineUseCaseTest {
         """;
 
     when(sourceRepository.findChapters(projectId, "owner"))
+    when(sourceRepository.findChapters(projectId))
         .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, words, 3)));
     when(sourceRepository.findBeats(projectId, "owner"))
+    when(sourceRepository.findBeats(projectId))
         .thenReturn(
             List.of(
                 beatWithText(chapterId, 0, 0, 0, 40, "b".repeat(64)),
@@ -85,6 +94,7 @@ class GetProductionTimelineUseCaseTest {
                 beatWithText(chapterId, 0, 2, 70, 100, "d".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
+    var timeline = useCase.execute(projectId);
 
     assertThat(timeline.readyForRender()).isTrue();
     assertThat(timeline.beats())
@@ -106,17 +116,20 @@ class GetProductionTimelineUseCaseTest {
         """;
 
     when(sourceRepository.findChapters(projectId, "owner"))
+    when(sourceRepository.findChapters(projectId))
         .thenReturn(
             List.of(
                 chapterWithAlignment(
                     storyVersionId, chapterId, 10_000L, incompleteWords, 2)));
     when(sourceRepository.findBeats(projectId, "owner"))
+    when(sourceRepository.findBeats(projectId))
         .thenReturn(
             List.of(
                 beatWithText(chapterId, 0, 0, 0, 40, "b".repeat(64)),
                 beatWithText(chapterId, 0, 1, 60, 100, "c".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
+    var timeline = useCase.execute(projectId);
 
     assertThat(timeline.beats()).hasSize(2);
     assertThat(timeline.beats().getFirst().startMs()).isZero();
@@ -138,12 +151,15 @@ class GetProductionTimelineUseCaseTest {
         ]
         """;
     when(sourceRepository.findChapters(projectId, "owner"))
+    when(sourceRepository.findChapters(projectId))
         .thenReturn(List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, words, 2)));
     BeatSource ready = beatWithText(chapterId, 0, 0, 0, 40, "b".repeat(64));
     BeatSource missing = beatWithText(chapterId, 0, 1, 40, 100, null, false);
     when(sourceRepository.findBeats(projectId, "owner")).thenReturn(List.of(ready, missing));
+    when(sourceRepository.findBeats(projectId)).thenReturn(List.of(ready, missing));
 
     var timeline = useCase.executeOwned(projectId, "owner");
+    var timeline = useCase.execute(projectId);
 
     assertThat(timeline.totalDurationMs()).isEqualTo(10_000L);
     assertThat(timeline.beats()).hasSize(2);

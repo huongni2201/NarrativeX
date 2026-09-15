@@ -6,9 +6,7 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface ProductionTimelineMapper extends NarrativeXMyBatisMapper {
-  List<ProductionTimelineChapterRow> findChapters(
-      @Param("projectId") UUID projectId, @Param("ownerId") String ownerId);
+  List<ProductionTimelineChapterRow> findChapters(@Param("projectId") UUID projectId);
 
-  List<ProductionTimelineBeatRow> findBeats(
-      @Param("projectId") UUID projectId, @Param("ownerId") String ownerId);
+  List<ProductionTimelineBeatRow> findBeats(@Param("projectId") UUID projectId);
 }

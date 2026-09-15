@@ -193,19 +193,33 @@ def validate_task(task: dict[str, Any]) -> None:
 
 
 def canonical_request_fingerprint(task: dict[str, Any]) -> str:
-    artifacts = [
+    artifacts_inputs = [
         {
             key: artifact[key]
             for key in ("artifactId", "role", "mediaType", "sizeBytes", "sha256")
         }
-        for artifact in task["artifacts"]
+        for artifact in task["artifacts"].get("inputs", [])
+    ]
+    artifacts_outputs = [
+        {
+            key: target[key]
+            for key in ("artifactId", "role", "mediaType")
+        }
+        for target in task["artifacts"].get("outputs", [])
     ]
     semantic_payload = {
         "protocolVersion": task["protocolVersion"],
         "task": task["task"],
         "model": task["model"],
+        "constraints": {
+            "deadline": task["constraints"]["deadline"],
+            "maxRuntimeSeconds": task["constraints"]["maxRuntimeSeconds"],
+        },
         "inputs": task["inputs"],
-        "artifacts": artifacts,
+        "artifacts": {
+            "inputs": artifacts_inputs,
+            "outputs": artifacts_outputs,
+        },
     }
     canonical = json.dumps(
         semantic_payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
@@ -225,6 +239,8 @@ def validate_observation(observation: dict[str, Any]) -> None:
 def check_all() -> list[str]:
     checked: list[str] = []
     for path in sorted(SCHEMA_ROOT.glob("*.json")):
+        if path.name == "artifact-ref.json":
+            continue
         schema = load_json(path)
         if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
             raise ContractError(f"{path}: schema draft must be 2020-12")

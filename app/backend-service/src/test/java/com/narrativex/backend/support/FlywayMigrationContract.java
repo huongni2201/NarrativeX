@@ -15,14 +15,13 @@ public final class FlywayMigrationContract {
   private static final Pattern VERSIONED_MIGRATION = Pattern.compile("V(\\d+)__.*\\.sql");
   private static final List<String> CANONICAL_MIGRATIONS =
       List.of(
-          "V1__identity_and_access.sql",
-          "V2__project_story_and_planning.sql",
-          "V3__generation_quota_and_media.sql",
-          "V4__narration_notifications_and_artifacts.sql",
-          "V5__catalog_generation_and_render_snapshots.sql",
-          "V6__database_logic_and_triggers.sql",
-          "V7__indexes.sql",
-          "V8__seed_catalog.sql");
+          "V1__project_story_and_planning.sql",
+          "V2__generation_and_media.sql",
+          "V3__narration_and_artifacts.sql",
+          "V4__catalog_generation_and_render_snapshots.sql",
+          "V5__database_logic_and_triggers.sql",
+          "V6__indexes.sql",
+          "V7__seed_catalog.sql");
 
   private FlywayMigrationContract() {}
 

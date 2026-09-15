@@ -37,6 +37,7 @@ class DeleteProjectCharacterUseCaseTest {
 
     assertEquals(ProjectCharacterStatus.REMOVED, assignment.getStatus());
     verify(projectAccess).findOwnedProject(projectId, "owner");
+    verify(projectAccess).findProject(projectId);
     verify(projectCharacterRepository).save(assignment);
   }
 
@@ -55,6 +56,7 @@ class DeleteProjectCharacterUseCaseTest {
     CurrentUserId currentUserId = () -> "owner";
     return new DeleteProjectCharacterUseCase(
         projectCharacterRepository, projectAccess, currentUserId);
+        projectCharacterRepository, projectAccess);
   }
 
   private static ProjectCharacter activeAssignment(UUID projectId, UUID characterId) {

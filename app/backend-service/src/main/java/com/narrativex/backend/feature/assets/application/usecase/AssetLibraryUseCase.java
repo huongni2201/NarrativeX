@@ -25,6 +25,8 @@ public class AssetLibraryUseCase {
     String ownerId = currentUserId.get();
     projectAccess.findOwnedProject(projectId, ownerId);
     return repository.list(ownerId, projectId, type, status, search, cursor, limit);
+    projectAccess.findProject(projectId);
+    return repository.list(projectId, type, status, search, cursor, limit);
   }
 
   @Transactional(readOnly = true)
@@ -32,6 +34,8 @@ public class AssetLibraryUseCase {
     String ownerId = currentUserId.get();
     projectAccess.findOwnedProject(projectId, ownerId);
     return repository.findOwned(ownerId, projectId, id);
+    projectAccess.findProject(projectId);
+    return repository.findById(projectId, id);
   }
 
   @Transactional
@@ -45,6 +49,7 @@ public class AssetLibraryUseCase {
       Long durationMs) {
     String ownerId = currentUserId.get();
     projectAccess.findOwnedProject(projectId, ownerId);
+    projectAccess.findProject(projectId);
     return repository.createLocalAsset(
         ownerId,
         new CreateLocalMediaAsset(
@@ -63,5 +68,7 @@ public class AssetLibraryUseCase {
     String ownerId = currentUserId.get();
     projectAccess.findOwnedProject(projectId, ownerId);
     repository.delete(ownerId, projectId, id);
+    projectAccess.findProject(projectId);
+    repository.delete(projectId, id);
   }
 }

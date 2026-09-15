@@ -22,6 +22,7 @@ class GetProductionTimelineAlignedTimingTest {
         mock(ProductionTimelineSourceRepository.class);
     GetProductionTimelineUseCase useCase =
         new GetProductionTimelineUseCase(currentUserId, projectAccess, sourceRepository);
+        new GetProductionTimelineUseCase(projectAccess, sourceRepository);
 
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
@@ -35,6 +36,7 @@ class GetProductionTimelineAlignedTimingTest {
         """;
 
     when(sourceRepository.findChapters(projectId, "owner"))
+    when(sourceRepository.findChapters(projectId))
         .thenReturn(
             List.of(
                 new ChapterSource(
@@ -60,12 +62,14 @@ class GetProductionTimelineAlignedTimingTest {
                     2,
                     2)));
     when(sourceRepository.findBeats(projectId, "owner"))
+    when(sourceRepository.findBeats(projectId))
         .thenReturn(
             List.of(
                 beat(chapterId, 0, 0, 50),
                 beat(chapterId, 1, 50, 100)));
 
     var timeline = useCase.executeOwned(projectId, "owner");
+    var timeline = useCase.execute(projectId);
 
     assertThat(timeline.readyForRender()).isTrue();
     assertThat(timeline.beats())

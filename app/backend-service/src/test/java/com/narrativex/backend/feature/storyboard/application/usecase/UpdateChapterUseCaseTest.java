@@ -51,6 +51,7 @@ class UpdateChapterUseCaseTest {
     doThrow(new ResourceNotFoundException("Story version not found"))
         .when(storyVersionAccess)
         .requireOwnedStoryVersion(PROJECT_ID, STORY_VERSION_ID, "user-b");
+        .requireStoryVersion(PROJECT_ID, STORY_VERSION_ID);
 
     assertThrows(
         ResourceNotFoundException.class,

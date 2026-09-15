@@ -92,6 +92,9 @@ This directory records decisions that affect more than one feature or change a p
 30. **[ADR-0030: Single-User Local-First Architecture](./ADR-0030-single-user-local-first-architecture.md)**
    Elimination of all application identity, accounts, authentication, authorization, sessions, and multi-tenant quotas in favor of a single-user local-first architecture.
 
+31. **[ADR-0031: Durable submission checkpointing and safe worker recovery semantics](./ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md)**
+   Internal submission checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`), journal-before-I/O, and safe worker recovery without blind resubmission.
+
 ## Supersession rules
 
 - ADR-0030 supersedes ADR-0004, ADR-0011, and the user-quota portions of ADR-0025, establishing NarrativeX as a single-user local-first application without identity, account, or authentication models.
