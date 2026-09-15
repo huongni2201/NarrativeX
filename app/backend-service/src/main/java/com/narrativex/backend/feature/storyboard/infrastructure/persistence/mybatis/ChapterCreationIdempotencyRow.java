@@ -11,7 +11,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ChapterCreationIdempotencyRow {
   private UUID id;
-  private String ownerId;
   private UUID projectId;
   private String idempotencyKey;
   private String requestFingerprint;

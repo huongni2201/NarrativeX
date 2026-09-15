@@ -31,6 +31,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   @Test
   void savesReloadsUpdatesAndPreservesAuditTimestamps() {
     Project saved = repository.save(newProject("owner-a"));
+    Project saved = repository.save(newProject());
     assertNotNull(saved.getId());
 
     Instant createdAt = timestamp("created_at", saved.getId());
@@ -39,6 +40,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     assertNotNull(updatedAt);
 
     Project reloaded = repository.findOwnedById(saved.getId(), "owner-a").orElseThrow();
+    Project reloaded = repository.findById(saved.getId()).orElseThrow();
     assertEquals(saved.getId(), reloaded.getId());
     assertEquals("owner-a", reloaded.getOwnerId());
     assertEquals(ProjectStatus.DRAFT, reloaded.getStatus());
@@ -49,6 +51,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     assertTrue(timestamp("updated_at", archived.getId()).compareTo(createdAt) >= 0);
     assertEquals(1L, archived.getRowVersion());
     assertTrue(repository.findOwnedById(archived.getId(), "owner-a").isEmpty());
+    assertTrue(repository.findById(archived.getId()).isEmpty());
   }
 
   @Test
@@ -56,6 +59,9 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     Project saved = repository.save(newProject("owner-b"));
     Project first = repository.findOwnedById(saved.getId(), "owner-b").orElseThrow();
     Project stale = repository.findOwnedById(saved.getId(), "owner-b").orElseThrow();
+    Project saved = repository.save(newProject());
+    Project first = repository.findById(saved.getId()).orElseThrow();
+    Project stale = repository.findById(saved.getId()).orElseThrow();
 
     first.archive();
     repository.save(first);
@@ -70,14 +76,22 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     repository.save(newProject(owner));
     repository.save(newProject(owner));
     repository.save(newProject(owner));
+  void stableCursorPagination() {
+    repository.save(newProject());
+    repository.save(newProject());
+    repository.save(newProject());
 
     CursorPage<Project> firstPage = repository.findActiveByOwnerId(owner, null, 2);
     assertEquals(2, firstPage.content().size());
+    CursorPage<Project> firstPage = repository.findActive(null, 2);
+    assertTrue(firstPage.content().size() >= 2);
     assertTrue(firstPage.hasNext());
 
     CursorPage<Project> secondPage =
         repository.findActiveByOwnerId(owner, firstPage.nextCursor(), 2);
     assertEquals(1, secondPage.content().size());
+    CursorPage<Project> secondPage = repository.findActive(firstPage.nextCursor(), 2);
+    assertTrue(secondPage.content().size() >= 1);
     assertEquals(
         0,
         firstPage.content().stream()
@@ -88,6 +102,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   }
 
   private Project newProject(String ownerId) {
+  private Project newProject() {
     return Project.create(
         "Project " + com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         ownerId,

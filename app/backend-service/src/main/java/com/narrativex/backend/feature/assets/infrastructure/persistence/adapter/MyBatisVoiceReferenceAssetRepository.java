@@ -18,13 +18,13 @@ public class MyBatisVoiceReferenceAssetRepository implements VoiceReferenceAsset
 
   @Override
   @Transactional
-  public VoiceReferenceAsset createOrReuse(String accountId, CreateVoiceReference command) {
+  public VoiceReferenceAsset createOrReuse(CreateVoiceReference command) {
     String checksum = command.sha256().toLowerCase(Locale.ROOT);
-    VoiceReferenceAssetRow existing = mapper.findByChecksum(accountId, checksum);
+    VoiceReferenceAssetRow existing = mapper.findByChecksum(checksum);
     if (existing != null) return existing.toDomain();
 
-    mapper.insert(accountId, command, checksum);
-    VoiceReferenceAssetRow claimed = mapper.findByChecksum(accountId, checksum);
+    mapper.insert(command, checksum);
+    VoiceReferenceAssetRow claimed = mapper.findByChecksum(checksum);
     if (claimed == null) {
       throw new IllegalStateException("Voice reference checksum claim disappeared");
     }
@@ -33,15 +33,15 @@ public class MyBatisVoiceReferenceAssetRepository implements VoiceReferenceAsset
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<VoiceReferenceAsset> findOwned(String accountId, UUID id) {
-    return Optional.ofNullable(mapper.findOwned(accountId, id))
+  public Optional<VoiceReferenceAsset> findById(UUID id) {
+    return Optional.ofNullable(mapper.findById(id))
         .map(VoiceReferenceAssetRow::toDomain);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public List<VoiceReferenceAsset> listOwned(String accountId) {
-    return mapper.listOwned(accountId).stream().map(VoiceReferenceAssetRow::toDomain).toList();
+  public List<VoiceReferenceAsset> list() {
+    return mapper.list().stream().map(VoiceReferenceAssetRow::toDomain).toList();
   }
 
   @Override

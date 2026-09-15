@@ -14,7 +14,7 @@
     "observedAt": {"type": "string", "format": "date-time"},
     "executionHandle": {"type": ["string", "null"], "maxLength": 512},
     "progress": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-    "outputs": {"type": "array", "maxItems": 32, "items": {"$ref": "artifact-ref.json"}},
+    "outputs": {"type": "array", "maxItems": 32, "items": {"$ref": "produced-artifact.json"}},
     "metrics": {
       "type": "object",
       "additionalProperties": false,

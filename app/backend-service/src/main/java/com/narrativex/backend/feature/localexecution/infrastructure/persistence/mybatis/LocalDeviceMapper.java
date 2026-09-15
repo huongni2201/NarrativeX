@@ -8,7 +8,6 @@ import org.apache.ibatis.annotations.Param;
 
 public interface LocalDeviceMapper extends NarrativeXMyBatisMapper {
   int insertPairingCode(
-      @Param("userId") String userId,
       @Param("codeHash") String codeHash,
       @Param("expiresAt") Instant expiresAt);
 
@@ -16,7 +15,6 @@ public interface LocalDeviceMapper extends NarrativeXMyBatisMapper {
 
   int insertDevice(
       @Param("id") UUID id,
-      @Param("userId") String userId,
       @Param("name") String name,
       @Param("platform") String platform,
       @Param("agentVersion") String agentVersion,
@@ -34,6 +32,5 @@ public interface LocalDeviceMapper extends NarrativeXMyBatisMapper {
 
   List<String> listCapabilities(@Param("deviceId") UUID deviceId);
 
-  List<DeviceListRow> listByUser(
-      @Param("userId") String userId, @Param("onlineThreshold") Instant onlineThreshold);
+  List<DeviceListRow> list(@Param("onlineThreshold") Instant onlineThreshold);
 }

@@ -1,10 +1,10 @@
 package com.narrativex.backend.feature.localexecution.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalDeviceStore;
 import com.narrativex.backend.feature.localexecution.application.query.LocalDeviceView;
+import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +27,6 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
   private static final SecureRandom RANDOM = new SecureRandom();
   private static final char[] PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
 
-  private final CurrentUserId currentUserId;
   private final LocalDeviceStore store;
 
   @Transactional
@@ -36,7 +34,7 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
     Instant now = Instant.now();
     String code = generatePairingCode();
     Instant expiresAt = now.plus(PAIRING_TTL);
-    store.createPairingCode(currentUserId.get(), sha256(code), expiresAt);
+    store.createPairingCode(sha256(code), expiresAt);
     return new PairingCode(code, expiresAt);
   }
 
@@ -47,21 +45,20 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
     var pairing =
         store
             .consumePairingCode(sha256(normalizePairingCode(command.pairingCode())), now)
-            .orElseThrow(() -> new BadCredentialsException("Pairing code is invalid or expired"));
+            .orElseThrow(() -> new InvalidDeviceCredentialsException("Pairing code is invalid or expired"));
 
     UUID deviceId = UuidV7.random();
     String deviceToken = generateDeviceToken();
     List<String> capabilities = normalizeCapabilities(command.capabilities());
     store.createDevice(
         deviceId,
-        pairing.userId(),
         command.name().trim(),
         command.platform().trim(),
         command.agentVersion().trim(),
         sha256(deviceToken),
         now,
         capabilities);
-    return new PairedDevice(deviceId, deviceToken, pairing.userId());
+    return new PairedDevice(deviceId, deviceToken);
   }
 
   @Transactional
@@ -77,17 +74,15 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
 
   @Override
   @Transactional(readOnly = true)
-  public void requireEligibleOwnedDevice(String userId, UUID deviceId, String capability) {
-    if (userId == null || userId.isBlank())
-      throw new IllegalArgumentException("userId is required");
+  public void requireEligibleDevice(UUID deviceId, String capability) {
     if (deviceId == null) throw new IllegalArgumentException("deviceId is required");
     String requiredCapability = normalizeCapability(capability);
     LocalDeviceView device =
-        store.listByUser(userId, Instant.now().minus(ONLINE_WINDOW)).stream()
+        store.list(Instant.now().minus(ONLINE_WINDOW)).stream()
             .filter(candidate -> candidate.id().equals(deviceId))
             .findFirst()
             .orElseThrow(
-                () -> new IllegalArgumentException("Local device is not owned by the user"));
+                () -> new IllegalArgumentException("Local device not found"));
     if (!device.online()) {
       throw new IllegalStateException("Local device is offline");
     }
@@ -101,26 +96,26 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
   @Transactional(readOnly = true)
   public AuthenticatedDevice authenticate(String deviceToken, String requiredCapability) {
     if (deviceToken == null || deviceToken.isBlank()) {
-      throw new BadCredentialsException("Device token is required");
+      throw new InvalidDeviceCredentialsException("Device token is required");
     }
     var device =
         store
             .findByTokenHash(sha256(deviceToken.trim()))
             .filter(row -> row.revokedAt() == null)
-            .orElseThrow(() -> new BadCredentialsException("Device token is invalid"));
+            .orElseThrow(() -> new InvalidDeviceCredentialsException("Device token is invalid"));
     if (requiredCapability != null && !requiredCapability.isBlank()) {
       String normalized = normalizeCapability(requiredCapability);
       if (!store.listCapabilities(device.id()).contains(normalized)) {
-        throw new BadCredentialsException(
+        throw new InvalidDeviceCredentialsException(
             "Device does not advertise required capability " + normalized);
       }
     }
-    return new AuthenticatedDevice(device.id(), device.userId());
+    return new AuthenticatedDevice(device.id());
   }
 
   @Transactional(readOnly = true)
   public List<LocalDeviceView> list() {
-    return store.listByUser(currentUserId.get(), Instant.now().minus(ONLINE_WINDOW));
+    return store.list(Instant.now().minus(ONLINE_WINDOW));
   }
 
   private static void validatePairCommand(PairDeviceCommand command) {
@@ -192,5 +187,5 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
 
   public record HeartbeatCommand(String agentVersion, List<String> capabilities) {}
 
-  public record PairedDevice(UUID deviceId, String deviceToken, String userId) {}
+  public record PairedDevice(UUID deviceId, String deviceToken) {}
 }

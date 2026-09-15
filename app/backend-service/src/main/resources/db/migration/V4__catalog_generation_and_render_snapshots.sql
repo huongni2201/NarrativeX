@@ -2,7 +2,7 @@
 -- continuity/checkpoints, selective regeneration, storyboard generation, and immutable render snapshots.
 
 -- -----------------------------------------------------------------------------
--- Catalog read models and account voice-reference upload lifecycle
+-- Catalog read models and upload lifecycle
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE style_presets (
@@ -15,7 +15,6 @@ CREATE TABLE style_presets (
     negative_prompt TEXT,
     tags_json JSONB NOT NULL DEFAULT '[]'::jsonb,
     config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_by VARCHAR(128) REFERENCES auth_users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
@@ -41,7 +40,6 @@ CREATE TABLE voice_catalog (
 
 CREATE TABLE media_upload_sessions (
     id UUID PRIMARY KEY,
-    account_id VARCHAR(128) NOT NULL,
     asset_type VARCHAR(16) NOT NULL,
     filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(160) NOT NULL,
@@ -58,7 +56,7 @@ CREATE TABLE media_upload_sessions (
     CONSTRAINT ck_media_upload_sessions_sha256 CHECK (expected_sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_media_upload_sessions_status CHECK (status IN ('PENDING_UPLOAD', 'VALIDATING', 'READY', 'REJECTED')),
     CONSTRAINT uk_media_upload_sessions_storage_key UNIQUE (storage_key),
-    CONSTRAINT uk_media_upload_sessions_idempotency UNIQUE (account_id, idempotency_key)
+    CONSTRAINT uk_media_upload_sessions_idempotency UNIQUE (idempotency_key)
 );
 
 CREATE TABLE media_storage_cleanup_tasks (
@@ -93,7 +91,6 @@ CREATE TABLE media_generation_items (
     error_code VARCHAR(80),
     error_detail_ref VARCHAR(160),
     review_status VARCHAR(24) NOT NULL DEFAULT 'NOT_READY',
-    reviewed_by_user_id VARCHAR(128),
     reviewed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -104,16 +101,15 @@ CREATE TABLE media_generation_items (
     CONSTRAINT ck_media_generation_items_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
     CONSTRAINT ck_media_generation_items_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64,128}$'),
     CONSTRAINT ck_media_generation_items_review_fields CHECK (
-        (review_status IN ('NOT_READY', 'NEEDS_REVIEW') AND reviewed_by_user_id IS NULL AND reviewed_at IS NULL)
+        (review_status IN ('NOT_READY', 'NEEDS_REVIEW') AND reviewed_at IS NULL)
         OR
-        (review_status IN ('APPROVED', 'REJECTED') AND reviewed_by_user_id IS NOT NULL AND reviewed_at IS NOT NULL)
+        (review_status IN ('APPROVED', 'REJECTED') AND reviewed_at IS NOT NULL)
     )
 );
 
 CREATE TABLE media_asset_lineage (
     id UUID PRIMARY KEY,
     media_asset_id UUID NOT NULL REFERENCES media_assets(id),
-    account_id VARCHAR(128) NOT NULL,
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
     visual_beat_id UUID NOT NULL REFERENCES visual_beats(id),
@@ -236,17 +232,12 @@ CREATE TABLE continuity_reports (
     status VARCHAR(24) NOT NULL,
     issues_json JSONB NOT NULL DEFAULT '[]'::jsonb,
     origin VARCHAR(24) NOT NULL DEFAULT 'DETERMINISTIC',
-    reviewed_by VARCHAR(128),
     reviewed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_continuity_report_revision UNIQUE (plan_id, revision),
     CONSTRAINT ck_continuity_report_status CHECK (status IN ('PASS', 'NEEDS_REVIEW')),
     CONSTRAINT ck_continuity_report_origin CHECK (origin IN ('DETERMINISTIC', 'SEMANTIC', 'HUMAN')),
-    CONSTRAINT ck_continuity_report_issues_array CHECK (jsonb_typeof(issues_json) = 'array'),
-    CONSTRAINT ck_continuity_report_review_consistency CHECK (
-        (reviewed_by IS NULL AND reviewed_at IS NULL)
-        OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)
-    )
+    CONSTRAINT ck_continuity_report_issues_array CHECK (jsonb_typeof(issues_json) = 'array')
 );
 
 CREATE TABLE analysis_checkpoints (
@@ -292,7 +283,6 @@ CREATE TABLE regeneration_plans (
     reason VARCHAR(512) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     input_fingerprint VARCHAR(64) NOT NULL,
-    created_by VARCHAR(128) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_regeneration_plan_fingerprint UNIQUE (project_id, chapter_id, input_fingerprint),
     CONSTRAINT uq_regeneration_plan_scope UNIQUE (id, project_id, chapter_id),
@@ -311,7 +301,7 @@ ALTER TABLE generation_jobs
     FOREIGN KEY (regeneration_plan_id) REFERENCES regeneration_plans(id);
 
 -- -----------------------------------------------------------------------------
--- Project render snapshots and Desktop execution assignment
+-- Project render snapshots
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE project_render_input_snapshots (
@@ -324,7 +314,6 @@ CREATE TABLE project_render_input_snapshots (
     total_duration_ms BIGINT NOT NULL CHECK (total_duration_ms > 0),
     chapter_count INTEGER NOT NULL CHECK (chapter_count > 0),
     beat_count INTEGER NOT NULL CHECK (beat_count > 0),
-    assigned_local_device_id UUID NOT NULL REFERENCES local_devices(id),
     render_profile_json JSONB NOT NULL DEFAULT '{
       "schemaVersion": 3,
       "rendererVersion": "project-image-motion-v3-composition",

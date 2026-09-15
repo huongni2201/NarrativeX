@@ -5,7 +5,6 @@
 <mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCreationIdempotencyMapper">
     <resultMap id="row" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCreationIdempotencyRow">
         <id property="id" column="id" />
-        <result property="ownerId" column="owner_id" />
         <result property="projectId" column="project_id" />
         <result property="idempotencyKey" column="idempotency_key" />
         <result property="requestFingerprint" column="request_fingerprint" />
@@ -13,12 +12,12 @@
     </resultMap>
     <select id="reserve" resultMap="row" affectData="true">
         INSERT INTO chapter_creation_idempotency (
-            id, owner_id, project_id, idempotency_key, request_fingerprint
+            id, project_id, idempotency_key, request_fingerprint
         ) VALUES (
-            #{id}, #{ownerId}, #{projectId}, #{idempotencyKey}, #{requestFingerprint}
-        ) ON CONFLICT (owner_id, project_id, idempotency_key)
+            #{id}, #{projectId}, #{idempotencyKey}, #{requestFingerprint}
+        ) ON CONFLICT (project_id, idempotency_key)
             DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
-        RETURNING id, owner_id, project_id, idempotency_key, request_fingerprint, chapter_id
+        RETURNING id, project_id, idempotency_key, request_fingerprint, chapter_id
     </select>
     <update id="complete">
         UPDATE chapter_creation_idempotency

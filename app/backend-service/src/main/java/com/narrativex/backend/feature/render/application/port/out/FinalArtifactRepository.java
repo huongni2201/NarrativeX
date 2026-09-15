@@ -5,6 +5,7 @@ import java.util.Optional;
 
 public interface FinalArtifactRepository {
   FinalArtifactView findOwned(Long artifactId, String ownerId);
+  FinalArtifactView findById(Long artifactId);
 
   Optional<FinalArtifactView> findByGenerationJobId(String jobId);
 }

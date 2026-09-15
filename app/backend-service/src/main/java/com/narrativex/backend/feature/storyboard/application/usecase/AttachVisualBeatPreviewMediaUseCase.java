@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class AttachVisualBeatPreviewMediaUseCase {
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final StoryboardRepository storyboardRepository;
@@ -34,12 +32,11 @@ public class AttachVisualBeatPreviewMediaUseCase {
       long expectedRowVersion,
       UUID mediaAssetId) {
     storyboardRevisionAccess.lockChapter(chapterId);
-    String ownerId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), ownerId);
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
 
     var scene =
         storyboardRepository
@@ -58,7 +55,7 @@ public class AttachVisualBeatPreviewMediaUseCase {
 
     var asset =
         mediaAssetAccess
-            .findOwnedSummary(ownerId, mediaAssetId)
+            .findSummary(mediaAssetId)
             .orElseThrow(() -> new ResourceNotFoundException("Preview media asset not found"));
     String contentType =
         asset.detectedContentType() == null ? asset.contentType() : asset.detectedContentType();

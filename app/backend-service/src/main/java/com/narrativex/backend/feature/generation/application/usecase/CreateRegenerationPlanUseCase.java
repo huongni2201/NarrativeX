@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
@@ -33,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateRegenerationPlanUseCase {
   private static final long PLAN_TTL_MINUTES = 15;
 
-  private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final ChapterContinuityRepository continuityRepository;
   private final ContinuityIssueCodec issueCodec;
@@ -46,8 +44,7 @@ public class CreateRegenerationPlanUseCase {
       UUID expectedPlanId,
       List<UUID> requestedBeatIds,
       String reason) {
-    String userId = currentUserId.get();
-    var chapter = chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, userId);
+    var chapter = chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId);
     var current =
         continuityRepository
             .findCurrent(projectId, chapterId)
@@ -59,24 +56,29 @@ public class CreateRegenerationPlanUseCase {
         || !current.sourceHash().equals(chapter.sourceHash())) {
       throw new ResourceConflictException("CONTINUITY_INPUT_STALE");
     }
-    if (issueCodec.decode(current.issuesJson()).stream()
-        .anyMatch(issue -> "BLOCKING".equals(issue.severity()))) {
-      throw new ResourceConflictException("CONTINUITY_CONFLICT");
-    }
 
-    var lineage = continuityRepository.findBeatLineage(current.planId());
-    if (lineage.isEmpty()) {
-      throw new GenerationAdmissionDeniedException(
-          "CONTINUITY_NOT_READY", "The current continuity plan has no beat lineage.");
+    if (requestedBeatIds == null || requestedBeatIds.isEmpty()) {
+      throw new IllegalArgumentException("At least one visual beat id is required for regeneration.");
     }
     LinkedHashSet<UUID> requested = new LinkedHashSet<>(requestedBeatIds);
-    if (requested.isEmpty()) {
-      throw new IllegalArgumentException("At least one visual beat is required for regeneration");
+
+    List<BeatLineage> lineage = continuityRepository.findBeatLineage(current.planId());
+    if (lineage.isEmpty()) {
+      throw new GenerationAdmissionDeniedException(
+          "CONTINUITY_NOT_READY", "No lineage states exist for the current continuity plan.");
     }
-    Set<UUID> knownBeatIds =
+
+    Set<UUID> knownBeats =
         lineage.stream().map(BeatLineage::visualBeatId).collect(Collectors.toSet());
-    if (!knownBeatIds.containsAll(requested)) {
+    if (!knownBeats.containsAll(requested)) {
       throw new ResourceConflictException("CONTINUITY_INPUT_STALE");
+    }
+
+    var issues = issueCodec.decode(current.issuesJson());
+    boolean hasBlockingIssues =
+        issues.stream().anyMatch(issue -> !"WARNING".equals(issue.severity()));
+    if (hasBlockingIssues) {
+      throw new ResourceConflictException("CONTINUITY_CONFLICT");
     }
 
     LinkedHashSet<UUID> affected = resolveAffected(lineage, requested);
@@ -85,10 +87,9 @@ public class CreateRegenerationPlanUseCase {
             .map(BeatLineage::visualBeatId)
             .filter(id -> !affected.contains(id))
             .toList();
+
     var imageProfile = imageGenerationCatalog.resolve();
     String normalizedReason = reason == null ? "" : reason.trim();
-    if (normalizedReason.isEmpty()) throw new IllegalArgumentException("reason must not be blank");
-
     String fingerprint =
         fingerprint(
             current.planId(),
@@ -116,8 +117,7 @@ public class CreateRegenerationPlanUseCase {
                 reusable,
                 normalizedReason,
                 Instant.now().plus(PLAN_TTL_MINUTES, ChronoUnit.MINUTES),
-                fingerprint,
-                userId)));
+                fingerprint)));
   }
 
   private static LinkedHashSet<UUID> resolveAffected(
@@ -159,26 +159,22 @@ public class CreateRegenerationPlanUseCase {
         dependencies.add(beat.visualBeatId() + "@" + beat.semanticHash());
       }
     }
-    String value =
-        planId
-            + "|"
-            + sourceHash
-            + "|requested="
-            + requested
-            + "|affected="
-            + dependencies
-            + "|reason="
-            + reason
-            + "|provider="
-            + providerKey
-            + "|model="
-            + modelKey;
+    String payload =
+        String.join(
+            ":",
+            planId.toString(),
+            sourceHash,
+            String.join(",", requested.stream().map(UUID::toString).sorted().toList()),
+            String.join(";", dependencies),
+            providerKey,
+            modelKey,
+            reason);
     try {
-      return HexFormat.of()
-          .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-    } catch (java.security.NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is unavailable", exception);
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hash);
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to compute regeneration plan fingerprint", exception);
     }
   }
 }

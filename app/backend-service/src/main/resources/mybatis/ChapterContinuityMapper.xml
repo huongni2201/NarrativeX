@@ -36,7 +36,6 @@
         <result property="reason" column="reason" />
         <result property="expiresAt" column="expires_at" />
         <result property="inputFingerprint" column="input_fingerprint" />
-        <result property="createdBy" column="created_by" />
     </resultMap>
 
     <resultMap id="mediaGenerationSettingsRow"
@@ -97,11 +96,11 @@
         INSERT INTO regeneration_plans
           (id, project_id, chapter_id, continuity_plan_id, source_hash,
            requested_beat_ids_json, affected_beat_ids_json, reusable_beat_ids_json,
-           reason, expires_at, input_fingerprint, created_by)
+           reason, expires_at, input_fingerprint)
         VALUES
           (#{id}, #{projectId}, #{chapterId}, #{continuityPlanId}, #{sourceHash},
            #{requestedBeatIdsJson}::jsonb, #{affectedBeatIdsJson}::jsonb,
-           #{reusableBeatIdsJson}::jsonb, #{reason}, #{expiresAt}, #{inputFingerprint}, #{createdBy})
+           #{reusableBeatIdsJson}::jsonb, #{reason}, #{expiresAt}, #{inputFingerprint})
         ON CONFLICT (project_id, chapter_id, input_fingerprint) DO NOTHING
     </insert>
 
@@ -110,7 +109,7 @@
                requested_beat_ids_json::text AS requested_beat_ids_json,
                affected_beat_ids_json::text AS affected_beat_ids_json,
                reusable_beat_ids_json::text AS reusable_beat_ids_json,
-               reason, expires_at, input_fingerprint, created_by
+               reason, expires_at, input_fingerprint
           FROM regeneration_plans
          WHERE project_id = #{projectId}
            AND chapter_id = #{chapterId}
@@ -123,7 +122,7 @@
                requested_beat_ids_json::text AS requested_beat_ids_json,
                affected_beat_ids_json::text AS affected_beat_ids_json,
                reusable_beat_ids_json::text AS reusable_beat_ids_json,
-               reason, expires_at, input_fingerprint, created_by
+               reason, expires_at, input_fingerprint
           FROM regeneration_plans
          WHERE project_id = #{projectId}
            AND chapter_id = #{chapterId}
@@ -180,9 +179,9 @@
 
     <insert id="insertHumanReport">
         INSERT INTO continuity_reports
-          (plan_id, revision, status, issues_json, origin, reviewed_by, reviewed_at)
+          (plan_id, revision, status, issues_json, origin, reviewed_at)
         VALUES
           (#{continuityPlanId}, #{revision}, #{status}, #{issuesJson}::jsonb,
-           'HUMAN', #{reviewedBy}, CURRENT_TIMESTAMP)
+           'HUMAN', CURRENT_TIMESTAMP)
     </insert>
 </mapper>

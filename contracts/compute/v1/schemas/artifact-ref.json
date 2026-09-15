@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/artifact-ref.json",
+  "title": "DeprecatedArtifactRef",
+  "description": "Deprecated. Use input-artifact-ref.json, output-artifact-target.json, or produced-artifact.json.",
+  "deprecated": true
+}

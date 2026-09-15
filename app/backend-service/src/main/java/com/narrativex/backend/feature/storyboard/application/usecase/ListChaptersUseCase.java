@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -15,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ListChaptersUseCase {
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
 
@@ -25,7 +23,7 @@ public class ListChaptersUseCase {
     if (limit < 1 || limit > 100) {
       throw new DomainValidationException("limit must be between 1 and 100");
     }
-    storyVersionAccess.requireOwnedStoryVersion(projectId, storyVersionId, currentUserId.get());
+    storyVersionAccess.requireStoryVersion(projectId, storyVersionId);
     CursorPage<ChapterSummaryResponse> chapters =
         chapterRepository
             .findPageByStoryVersionId(storyVersionId, cursor, limit)

@@ -23,9 +23,7 @@ class InvalidExecutionTransition(ValueError):
     """Raised when an observation violates the attempt lifecycle."""
 
 
-TERMINAL_STATES = frozenset(
-    {AttemptState.SUCCEEDED, AttemptState.FAILED, AttemptState.CANCELED}
-)
+TERMINAL_STATES = frozenset({AttemptState.SUCCEEDED, AttemptState.FAILED, AttemptState.CANCELED})
 
 
 @dataclass(frozen=True, slots=True)

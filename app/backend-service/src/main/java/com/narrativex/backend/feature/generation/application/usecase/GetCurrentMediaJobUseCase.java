@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.api.response.CurrentMediaJobResponse;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
@@ -14,15 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class GetCurrentMediaJobUseCase {
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterMediaHeadRepository chapterMediaHeadRepository;
   private final GenerationJobRepository generationJobRepository;
 
   @Transactional(readOnly = true)
   public CurrentMediaJobResponse execute(UUID projectId, UUID chapterId) {
-    String userId = currentUserId.get();
-    projectAccess.findOwnedProject(projectId, userId);
+    projectAccess.findProject(projectId);
 
     var internalJobId = chapterMediaHeadRepository.findCurrentJobId(chapterId);
     if (internalJobId.isEmpty()) {
@@ -31,7 +28,7 @@ public class GetCurrentMediaJobUseCase {
 
     var job =
         generationJobRepository
-            .findByIdAndOwner(internalJobId.get(), userId)
+            .findById(internalJobId.get())
             .orElseThrow(() -> new ResourceNotFoundException("Current media job not found"));
     if (!projectId.equals(job.getProjectId()) || !chapterId.equals(job.getChapterId())) {
       throw new ResourceNotFoundException("Current media job not found");

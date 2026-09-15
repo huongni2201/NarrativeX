@@ -24,6 +24,7 @@ public class GetFinalArtifactByJobUseCase {
             .orElseThrow(() -> new ResourceNotFoundException("Final artifact not found"));
 
     projectAccess.findOwnedProject(artifact.projectId(), currentUserId.get());
+    projectAccess.findProject(artifact.projectId());
     return artifact;
   }
 }

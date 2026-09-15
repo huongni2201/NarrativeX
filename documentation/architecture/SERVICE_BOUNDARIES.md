@@ -1,5 +1,7 @@
 # NarrativeX Service and Module Boundaries — V1.12
 
+> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 NarrativeX uses one Spring Boot modular monolith, separately executed Python worker roles and one Electron Desktop editor. These are ownership boundaries, not microservices for their own sake.
 
 ## Desktop renderer

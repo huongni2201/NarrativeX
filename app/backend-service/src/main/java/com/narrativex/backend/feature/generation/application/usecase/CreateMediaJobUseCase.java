@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
@@ -35,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateMediaJobUseCase {
   private static final String STAGE_NAME = "SHOT_IMAGE_GENERATE";
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 512;
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
@@ -45,12 +43,11 @@ public class CreateMediaJobUseCase {
   private final MediaGenerationItemRepository mediaGenerationItemRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final StageAttemptRepository stageAttemptRepository;
-  private final UserQuotaAccess userQuotaAccess;
   private final ImageGenerationCatalog imageGenerationCatalog;
+  private final NarrativeXLimitsProperties limits;
 
   @Transactional
   public GenerationJob execute(CreateMediaJobCommand command) {
-    String userId = currentUserId.get();
     if (!"IMAGE_MOTION".equals(command.productionMode())
         || !"IMAGE".equals(normalizeVisualMode(command.visualGenerationMode()))) {
       throw new GenerationAdmissionDeniedException(
@@ -61,12 +58,12 @@ public class CreateMediaJobUseCase {
     String imageProvider = normalizeImageProvider(command.imageProvider());
     String idempotencyKey = requireIdempotencyKey(command.idempotencyKey());
     String requestFingerprint = fingerprint(command, imageProvider);
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
       GenerationJob existingJob = existing.get();
       validateReplayScope(existingJob, command);
-      var existingItems = mediaGenerationItemRepository.findByJobOwned(userId, existingJob.getId());
+      var existingItems = mediaGenerationItemRepository.findByJobId(existingJob.getId());
       if (existingItems.isEmpty()
           || existingItems.stream()
               .anyMatch(
@@ -79,15 +76,14 @@ public class CreateMediaJobUseCase {
       return existingJob;
     }
 
-    var project = projectAccess.findOwnedProject(command.projectId(), userId);
+    var project = projectAccess.findProject(command.projectId());
     var chapter =
-        chapterSourceAccess.requireOwnedForAnalysisLocked(
-            command.projectId(), command.chapterId(), userId);
+        chapterSourceAccess.requireForAnalysisLocked(
+            command.projectId(), command.chapterId());
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(command.chapterId())
-            .flatMap(
-                internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
+            .flatMap(generationJobRepository::findById)
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       throw new GenerationAdmissionDeniedException(
@@ -97,16 +93,8 @@ public class CreateMediaJobUseCase {
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
     var imageProfile = imageGenerationCatalog.resolve();
-    var quota =
-        userQuotaAccess
-            .findCurrentQuota(userId)
-            .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "ENTITLEMENT_DENIED", "No active plan is available."));
-    generationJobRepository.acquireImageCapacityLock(userId);
-    if (generationJobRepository.countActiveImageJobs(userId)
-        >= quota.maxConcurrentExpensiveJobs()) {
+    generationJobRepository.acquireImageCapacityLock();
+    if (generationJobRepository.countActiveImageJobs() >= limits.getMaxConcurrentExpensiveJobs()) {
       throw new GenerationAdmissionDeniedException(
           "CAPACITY_EXHAUSTED", "Image generation capacity is exhausted.");
     }
@@ -130,8 +118,7 @@ public class CreateMediaJobUseCase {
                 plan,
                 ResourceClass.PROVIDER_BATCH,
                 project.getSourceLanguage(),
-                idempotencyKey,
-                userId));
+                idempotencyKey));
     chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
 
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
@@ -169,65 +156,70 @@ public class CreateMediaJobUseCase {
     String normalized = value.trim();
     if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
       throw new GenerationAdmissionDeniedException(
-          "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 512 characters.");
+          "IDEMPOTENCY_CONFLICT", "Idempotency-Key exceeds max supported length.");
     }
     return normalized;
   }
 
-  private static void validateReplayScope(
-      GenerationJob existingJob, CreateMediaJobCommand command) {
-    if (existingJob.getType() != JobType.CHAPTER_GENERATE
-        || !command.projectId().equals(existingJob.getProjectId())
-        || !command.chapterId().equals(existingJob.getChapterId())) {
+  static String fingerprint(CreateMediaJobCommand command, String imageProvider) {
+    String visualMode = normalizeVisualMode(command.visualGenerationMode());
+    String payload =
+        String.join(
+            ":",
+            command.projectId().toString(),
+            command.chapterId().toString(),
+            command.productionMode(),
+            visualMode,
+            imageProvider,
+            command.aspectRatio(),
+            command.imageStyle() == null ? "" : command.imageStyle().name());
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hash);
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to compute idempotency request fingerprint", exception);
+    }
+  }
+
+  static String itemFingerprint(String requestFingerprint, UUID mediaPlanId, UUID visualBeatId) {
+    String payload = requestFingerprint + ":" + mediaPlanId + ":" + visualBeatId;
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hash);
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to compute item request fingerprint", exception);
+    }
+  }
+
+  private static void validateReplayScope(GenerationJob job, CreateMediaJobCommand command) {
+    String visualMode = normalizeVisualMode(command.visualGenerationMode());
+    String imageProvider = normalizeImageProvider(command.imageProvider());
+    if (job.getType() != JobType.CHAPTER_GENERATE
+        || !job.getProjectId().equals(command.projectId())
+        || job.getChapterId() == null
+        || !job.getChapterId().equals(command.chapterId())
+        || job.getProductionMode() == null
+        || !job.getProductionMode().name().equals(command.productionMode())
+        || (job.getAnalysisVisualGenerationMode() != null
+            && !job.getAnalysisVisualGenerationMode().equals(visualMode))
+        || (job.getAnalysisImageProvider() != null
+            && !job.getAnalysisImageProvider().equals(imageProvider))) {
       throw idempotencyConflict();
     }
   }
 
   private static GenerationAdmissionDeniedException idempotencyConflict() {
     return new GenerationAdmissionDeniedException(
-        "IDEMPOTENCY_CONFLICT", "The Idempotency-Key is already bound to a different request.");
+        "IDEMPOTENCY_CONFLICT", "Idempotency-Key is already bound to a different request payload.");
   }
 
-  private static String normalizeVisualMode(String value) {
-    return value == null || value.isBlank() ? "IMAGE" : value;
+  private static String normalizeVisualMode(String visualMode) {
+    return visualMode == null || visualMode.isBlank() ? "IMAGE" : visualMode.trim();
   }
 
-  private static String normalizeImageProvider(String value) {
-    if (value == null || value.isBlank()) return "API";
-    if (!"API".equals(value)) {
-      throw new GenerationAdmissionDeniedException(
-          "UNSUPPORTED_MEDIA_STRATEGY", "Unsupported image generation provider: " + value);
-    }
-    return value;
-  }
-
-  private static String fingerprint(CreateMediaJobCommand command, String imageProvider) {
-    return sha256(
-        command.projectId()
-            + ":"
-            + command.chapterId()
-            + ":"
-            + command.productionMode()
-            + ":"
-            + command.aspectRatio()
-            + ":"
-            + command.imageStyle()
-            + ":"
-            + imageProvider);
-  }
-
-  private static String itemFingerprint(
-      String jobRequestFingerprint, UUID mediaPlanId, UUID visualBeatId) {
-    return sha256(jobRequestFingerprint + ":" + mediaPlanId + ":" + visualBeatId);
-  }
-
-  private static String sha256(String value) {
-    try {
-      return HexFormat.of()
-          .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-    } catch (java.security.NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is unavailable", exception);
-    }
+  private static String normalizeImageProvider(String provider) {
+    return provider == null || provider.isBlank() ? "API" : provider.trim();
   }
 }

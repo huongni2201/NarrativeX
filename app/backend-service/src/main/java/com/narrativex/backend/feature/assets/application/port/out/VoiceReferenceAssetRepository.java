@@ -4,13 +4,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Account-scoped R2 voice-reference metadata. Voice references are never project media. */
+/** Voice-reference metadata. */
 public interface VoiceReferenceAssetRepository {
-  VoiceReferenceAsset createOrReuse(String accountId, CreateVoiceReference command);
+  VoiceReferenceAsset createOrReuse(CreateVoiceReference command);
 
-  Optional<VoiceReferenceAsset> findOwned(String accountId, UUID id);
+  Optional<VoiceReferenceAsset> findById(UUID id);
 
-  List<VoiceReferenceAsset> listOwned(String accountId);
+  List<VoiceReferenceAsset> list();
 
   boolean isReferencedByReadyAsset(String storageKey);
 

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/artifact-write-access.json",
+  "title": "ArtifactWriteAccess",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["method", "url", "expiresAt", "headers"],
+  "properties": {
+    "method": {"const": "PUT"},
+    "url": {"type": "string", "format": "uri", "pattern": "^https?://"},
+    "expiresAt": {"type": "string", "format": "date-time"},
+    "headers": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "propertyNames": {"pattern": "^[A-Za-z0-9-]+$"}
+    }
+  }
+}

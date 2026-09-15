@@ -47,6 +47,10 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
             + " narration_language, metadata_language, image_aspect_ratio, image_quality_tier)"
             + " VALUES (?, 'P1003', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN',"
             + " 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language,"
+            + " narration_language, metadata_language, image_aspect_ratio)"
+            + " VALUES (?, 'P1003', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN',"
+            + " 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_ID);
   }
 

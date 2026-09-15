@@ -22,6 +22,7 @@ class GetChapterContinuityUseCaseTest {
     var continuityRepository = mock(ChapterContinuityRepository.class);
     var useCase =
         new GetChapterContinuityUseCase(currentUserId, projectAccess, continuityRepository);
+    var useCase = new GetChapterContinuityUseCase(projectAccess, continuityRepository);
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     UUID planId = UUID.randomUUID();
@@ -34,6 +35,7 @@ class GetChapterContinuityUseCaseTest {
 
     assertThat(useCase.execute(projectId, chapterId)).isEqualTo(ContinuityView.from(current));
     verify(projectAccess).findOwnedProject(projectId, "user-1");
+    verify(projectAccess).findProject(projectId);
     verify(continuityRepository).findCurrent(projectId, chapterId);
   }
 }

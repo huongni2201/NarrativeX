@@ -1,23 +1,24 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
-import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
+import com.narrativex.backend.feature.generation.application.model.NarrationOperation;
+import com.narrativex.backend.feature.generation.application.model.NarrationRequest;
+import com.narrativex.backend.feature.generation.application.port.in.VoiceCatalogAccess;
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
+import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
+import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationOperationRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VoiceReferenceAssetAccess;
 import com.narrativex.backend.feature.generation.application.service.NarrationAdmissionService;
 import com.narrativex.backend.feature.generation.application.service.NarrationRequestFingerprint;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
-import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
-import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -29,7 +30,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,11 +41,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 @RequiredArgsConstructor
 public class GenerateChapterNarrationUseCase {
-  private static final String STAGE_NAME = "NARRATION_TTS";
+  private static final String STAGE_NAME = "NARRATION_GENERATE";
   private static final String SEGMENTATION_VERSION = "sentence-v1";
   private static final String PREVIEW_HASH_DOMAIN = "NARRATIVEX_VOICE_PREVIEW\u0000";
 
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final GenerationJobRepository generationJobRepository;
@@ -56,17 +55,15 @@ public class GenerateChapterNarrationUseCase {
   private final NarrationOperationRepository narrationOperationRepository;
   private final NarrationAdmissionService admissionService;
   private final NarrationRequestFingerprint fingerprintService;
-  private final QuotaReservation quotaReservation;
   private final VoiceReferenceAssetAccess voiceReferenceAssetAccess;
   private final VoiceCatalogAccess voiceCatalogAccess;
 
   @Transactional
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
-    String userId = currentUserId.get();
     var chapter =
-        chapterSourceAccess.requireOwnedForAnalysisLocked(
-            command.projectId(), command.chapterId(), userId);
-    var project = projectAccess.findOwnedProject(command.projectId(), userId);
+        chapterSourceAccess.requireForAnalysisLocked(
+            command.projectId(), command.chapterId());
+    var project = projectAccess.findProject(command.projectId());
 
     String sourceText = command.preview() ? command.previewText() : chapter.sourceText();
     if (sourceText == null || sourceText.isBlank()) {
@@ -76,7 +73,7 @@ public class GenerateChapterNarrationUseCase {
 
     var voiceCapabilities = resolveVoiceCapabilities(command.voiceId());
     validateSpeakingRate(command, voiceCapabilities);
-    validateVoiceReferenceAsset(userId, command, voiceCapabilities);
+    validateVoiceReferenceAsset(command, voiceCapabilities);
 
     String fingerprint =
         fingerprintService.calculate(
@@ -92,8 +89,8 @@ public class GenerateChapterNarrationUseCase {
     String baseIdempotencyKey = familyPrefix + fingerprint;
     boolean forceRegenerate = !command.preview() && command.forceRegenerate();
 
-    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
-    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
+    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey);
+    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey);
     String idempotencyKey = baseIdempotencyKey;
     if (baseJob.isPresent()) {
       GenerationJob existing = baseJob.get();
@@ -101,7 +98,7 @@ public class GenerateChapterNarrationUseCase {
         return existing;
       }
       var latest =
-          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey);
       if (latest.isPresent()
           && !canStartAnotherAttempt(latest.get().getStatus(), forceRegenerate)) {
         return latest.get();
@@ -113,7 +110,7 @@ public class GenerateChapterNarrationUseCase {
           idempotencyKey);
     }
 
-    var admission = admissionService.admit(userId);
+    admissionService.admit();
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(
@@ -146,7 +143,6 @@ public class GenerateChapterNarrationUseCase {
                 0,
                 "QUEUED",
                 null,
-                userId,
                 chapter.storyVersionId(),
                 command.chapterId(),
                 null,
@@ -156,7 +152,6 @@ public class GenerateChapterNarrationUseCase {
                 project.getSourceLanguage(),
                 idempotencyKey));
 
-    quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     StageAttempt stageAttempt =
         stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
@@ -226,7 +221,6 @@ public class GenerateChapterNarrationUseCase {
   }
 
   private void validateVoiceReferenceAsset(
-      String userId,
       GenerateChapterNarrationCommand command,
       VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
     if (command.voiceReference() == null) return;
@@ -235,7 +229,7 @@ public class GenerateChapterNarrationUseCase {
           "Selected narration voice does not support uploaded voice references");
     }
     var asset =
-        voiceReferenceAssetAccess.findOwned(userId, command.projectId(), command.voiceReference());
+        voiceReferenceAssetAccess.find(command.projectId(), command.voiceReference());
     if (!"READY".equals(asset.status())) {
       throw new IllegalArgumentException("Voice reference asset must be READY");
     }
@@ -249,30 +243,20 @@ public class GenerateChapterNarrationUseCase {
       throw new IllegalArgumentException(
           "Account voice reference asset is missing R2 storage metadata");
     }
-    if (asset.scope() == VoiceReferenceScope.PROJECT && asset.storageKey() != null) {
-      throw new IllegalArgumentException("Project voice reference must remain device-local");
-    }
-    if (!isSupportedVoiceReferenceContentType(asset.contentType())) {
-      throw new IllegalArgumentException("Voice reference upload must be an MP3 or WAV file");
-    }
-  }
-
-  private static boolean isSupportedVoiceReferenceContentType(String contentType) {
-    if (contentType == null) return false;
-    return "audio/mpeg".equalsIgnoreCase(contentType)
-        || "audio/mp3".equalsIgnoreCase(contentType)
-        || "audio/wav".equalsIgnoreCase(contentType)
-        || "audio/x-wav".equalsIgnoreCase(contentType);
   }
 
   private static String previewSourceHash(String sourceText) {
     try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256")
-              .digest((PREVIEW_HASH_DOMAIN + sourceText).getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(digest);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      digest.update(PREVIEW_HASH_DOMAIN.getBytes(StandardCharsets.UTF_8));
+      byte[] hash = digest.digest(sourceText.getBytes(StandardCharsets.UTF_8));
+      StringBuilder builder = new StringBuilder(hash.length * 2);
+      for (byte b : hash) {
+        builder.append(String.format("%02x", b));
+      }
+      return builder.toString();
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 not available", e);
     }
   }
 }

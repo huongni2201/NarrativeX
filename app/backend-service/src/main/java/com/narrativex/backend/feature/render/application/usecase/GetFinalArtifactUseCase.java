@@ -16,5 +16,6 @@ public class GetFinalArtifactUseCase {
   @Transactional(readOnly = true)
   public FinalArtifactView execute(Long artifactId) {
     return repository.findOwned(artifactId, currentUserId.get());
+    return repository.findById(artifactId);
   }
 }

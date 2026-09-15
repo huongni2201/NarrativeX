@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository.SelectableMediaAsset;
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateProductionBeatMediaUseCase {
-  private final CurrentUserId currentUserId;
   private final GetProductionTimelineUseCase getProductionTimelineUseCase;
   private final ProductionBeatMediaSelectionRepository repository;
 
@@ -28,10 +26,9 @@ public class UpdateProductionBeatMediaUseCase {
       UUID mediaAssetId,
       BeatMediaFitMode fitMode,
       long trimStartMs) {
-    String ownerId = currentUserId.get();
-    ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
+    ProductionTimelineView timeline = getProductionTimelineUseCase.execute(projectId);
     ProductionTimelineView.Beat beat = requireBeat(timeline, visualBeatId);
-    SelectableMediaAsset asset = requireSelectableAsset(projectId, ownerId, mediaAssetId);
+    SelectableMediaAsset asset = requireSelectableAsset(projectId, mediaAssetId);
     BeatMediaFitMode normalizedFitMode = fitMode == null ? BeatMediaFitMode.TRIM : fitMode;
     validateSelection(beat.durationMs(), asset, normalizedFitMode, trimStartMs);
     repository.upsert(projectId, visualBeatId, mediaAssetId, normalizedFitMode, trimStartMs);
@@ -50,8 +47,7 @@ public class UpdateProductionBeatMediaUseCase {
       return;
     }
 
-    String ownerId = currentUserId.get();
-    ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
+    ProductionTimelineView timeline = getProductionTimelineUseCase.execute(projectId);
     List<PendingMediaUpdate> pending = new ArrayList<>();
 
     for (RenderBeatOverride override : overrides) {
@@ -60,7 +56,7 @@ public class UpdateProductionBeatMediaUseCase {
       if (beat.mediaAssetId() == null) {
         throw invalid("Auto Edit cannot fit a beat without a selected media asset.");
       }
-      SelectableMediaAsset asset = requireSelectableAsset(projectId, ownerId, beat.mediaAssetId());
+      SelectableMediaAsset asset = requireSelectableAsset(projectId, beat.mediaAssetId());
       BeatMediaFitMode fitMode =
           override.fitMode() == null
               ? currentFitMode(beat)
@@ -87,21 +83,20 @@ public class UpdateProductionBeatMediaUseCase {
 
   @Transactional
   public void clear(UUID projectId, UUID visualBeatId) {
-    String ownerId = currentUserId.get();
-    ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
+    ProductionTimelineView timeline = getProductionTimelineUseCase.execute(projectId);
     requireBeat(timeline, visualBeatId);
     repository.clear(projectId, visualBeatId);
   }
 
   private SelectableMediaAsset requireSelectableAsset(
-      UUID projectId, String ownerId, UUID mediaAssetId) {
+      UUID projectId, UUID mediaAssetId) {
     return repository
-        .findSelectableAsset(projectId, ownerId, mediaAssetId)
+        .findSelectableAsset(projectId, mediaAssetId)
         .orElseThrow(
             () ->
                 new GenerationAdmissionDeniedException(
                     "INVALID_BEAT_MEDIA_SELECTION",
-                    "The selected image/video asset is not READY, unavailable in this project, or does not belong to this account."));
+                    "The selected image/video asset is not READY or unavailable in this project."));
   }
 
   private static ProductionTimelineView.Beat requireBeat(

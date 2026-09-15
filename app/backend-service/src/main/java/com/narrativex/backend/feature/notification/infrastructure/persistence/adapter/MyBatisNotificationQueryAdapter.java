@@ -15,26 +15,26 @@ public class MyBatisNotificationQueryAdapter implements NotificationQueryReposit
   private final NotificationMapper mapper;
 
   @Override
-  public List<NotificationView> list(String userId, boolean unreadOnly, int limit) {
-    return mapper.list(userId, unreadOnly, limit).stream()
+  public List<NotificationView> list(boolean unreadOnly, int limit) {
+    return mapper.list(unreadOnly, limit).stream()
         .map(MyBatisNotificationQueryAdapter::toView)
         .toList();
   }
 
   @Override
-  public int unreadCount(String userId) {
-    return mapper.unreadCount(userId);
+  public int unreadCount() {
+    return mapper.unreadCount();
   }
 
   @Override
-  public Optional<NotificationView> markRead(String userId, Long notificationId) {
-    NotificationRow row = mapper.markRead(userId, notificationId);
+  public Optional<NotificationView> markRead(Long notificationId) {
+    NotificationRow row = mapper.markRead(notificationId);
     return Optional.ofNullable(row).map(MyBatisNotificationQueryAdapter::toView);
   }
 
   @Override
-  public int markAllRead(String userId) {
-    return mapper.markAllRead(userId);
+  public int markAllRead() {
+    return mapper.markAllRead();
   }
 
   private static NotificationView toView(NotificationRow row) {

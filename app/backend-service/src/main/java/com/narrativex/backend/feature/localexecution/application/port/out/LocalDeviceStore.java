@@ -7,13 +7,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface LocalDeviceStore {
-  void createPairingCode(String userId, String codeHash, Instant expiresAt);
+  void createPairingCode(String codeHash, Instant expiresAt);
 
   Optional<PairingCodeRecord> consumePairingCode(String codeHash, Instant now);
 
   void createDevice(
       UUID deviceId,
-      String userId,
       String name,
       String platform,
       String agentVersion,
@@ -27,9 +26,9 @@ public interface LocalDeviceStore {
 
   List<String> listCapabilities(UUID deviceId);
 
-  List<LocalDeviceView> listByUser(String userId, Instant onlineThreshold);
+  List<LocalDeviceView> list(Instant onlineThreshold);
 
-  record PairingCodeRecord(long id, String userId, Instant expiresAt, Instant consumedAt) {}
+  record PairingCodeRecord(long id, Instant expiresAt, Instant consumedAt) {}
 
-  record DeviceRecord(UUID id, String userId, Instant revokedAt) {}
+  record DeviceRecord(UUID id, Instant revokedAt) {}
 }

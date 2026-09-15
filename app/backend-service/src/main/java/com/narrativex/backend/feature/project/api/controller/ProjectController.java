@@ -58,6 +58,7 @@ public class ProjectController {
     CursorPage<ProjectResponse> page =
         listProjectsUseCase
             .execute(new ProjectListQuery(null, cursor, limit))
+            .execute(new ProjectListQuery(cursor, limit))
             .map(ProjectResponse::from);
     return ResponseEntity.ok(ApiResponse.success("Projects retrieved successfully", page));
   }
@@ -129,9 +130,8 @@ public class ProjectController {
             request.sourceLanguage(),
             request.narrationLanguage(),
             request.metadataLanguage(),
-            request.imageAspectRatio(),
-            null);
-    log.debug("Creating project for authenticated principal");
+            request.imageAspectRatio());
+    log.debug("Creating project");
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
             ApiResponse.success(
@@ -143,7 +143,7 @@ public class ProjectController {
   public ResponseEntity<ApiResponse<StoryVersionResponse>> createStory(
       @PathVariable UUID projectId, @Valid @RequestBody CreateStoryVersionRequest request) {
     var command =
-        new CreateStoryVersionCommand(projectId, request.content(), request.sourceLanguage(), null);
+        new CreateStoryVersionCommand(projectId, request.content(), request.sourceLanguage());
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
             ApiResponse.success(

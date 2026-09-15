@@ -26,6 +26,7 @@ class CharacterAggregateTest {
     Character character =
         Character.rehydrate(
             characterId, 0L, "owner", null, "Mina", java.util.List.of("M"), CharacterStatus.ACTIVE);
+            characterId, 0L, "Mina", java.util.List.of("M"), CharacterStatus.ACTIVE);
 
     ProjectCharacter first =
         ProjectCharacter.assign(
@@ -136,6 +137,7 @@ class CharacterAggregateTest {
         InvalidProjectCharacterTransitionException.class, () -> assignment.pinVersion(version));
     version.submitForReview();
     version.lock("owner");
+    version.lock();
     assignment.pinVersion(version);
 
     assertEquals(versionId, assignment.getPinnedCharacterVersionId());

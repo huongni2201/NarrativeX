@@ -39,6 +39,7 @@ class GetCurrentMediaJobUseCaseTest {
   void returnsNoCurrentJobWhenChapterHasNoMediaHead() {
     when(currentUserId.get()).thenReturn(OWNER_ID);
     when(projectAccess.findOwnedProject(PROJECT_ID, OWNER_ID)).thenReturn(mock(Project.class));
+    when(projectAccess.findProject(PROJECT_ID)).thenReturn(mock(Project.class));
     when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID)).thenReturn(Optional.empty());
 
     var result = useCase.execute(PROJECT_ID, CHAPTER_ID);
@@ -52,9 +53,11 @@ class GetCurrentMediaJobUseCaseTest {
     GenerationJob job = mock(GenerationJob.class);
     when(currentUserId.get()).thenReturn(OWNER_ID);
     when(projectAccess.findOwnedProject(PROJECT_ID, OWNER_ID)).thenReturn(mock(Project.class));
+    when(projectAccess.findProject(PROJECT_ID)).thenReturn(mock(Project.class));
     when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID))
         .thenReturn(Optional.of(INTERNAL_JOB_ID));
     when(generationJobRepository.findByIdAndOwner(INTERNAL_JOB_ID, OWNER_ID))
+    when(generationJobRepository.findById(INTERNAL_JOB_ID))
         .thenReturn(Optional.of(job));
     when(job.getProjectId()).thenReturn(PROJECT_ID);
     when(job.getChapterId()).thenReturn(CHAPTER_ID);
@@ -65,5 +68,6 @@ class GetCurrentMediaJobUseCaseTest {
     assertThat(result.jobId()).isEqualTo(PUBLIC_JOB_ID);
     verify(generationJobRepository).findByIdAndOwner(INTERNAL_JOB_ID, OWNER_ID);
     verify(generationJobRepository, never()).findByJobIdAndOwner(INTERNAL_JOB_ID, OWNER_ID);
+    verify(generationJobRepository).findById(INTERNAL_JOB_ID);
   }
 }

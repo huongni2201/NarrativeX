@@ -15,10 +15,9 @@ public class MyBatisJobHistoryQueryAdapter implements JobHistoryQueryRepository 
   private final JobHistoryMapper mapper;
 
   @Override
-  public List<JobHistoryView> list(String userId, UuidCursorKey cursor, int fetchLimit) {
+  public List<JobHistoryView> list(UuidCursorKey cursor, int fetchLimit) {
     return mapper
         .list(
-            userId,
             cursor == null ? null : cursor.updatedAt(),
             cursor == null ? null : cursor.id(),
             fetchLimit)

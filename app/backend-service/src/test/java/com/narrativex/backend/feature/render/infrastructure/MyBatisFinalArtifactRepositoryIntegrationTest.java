@@ -37,8 +37,10 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
             + " CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, owner_id, status, source_language, narration_language,"
+        "INSERT INTO projects (id, name, status, source_language, narration_language,"
             + " metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Artifact"
             + " project', 'artifact-owner', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9',"
+            + " project', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9',"
             + " 'STANDARD') ON CONFLICT (id) DO NOTHING",
         PROJECT_ID);
     jdbcTemplate.update(
@@ -56,8 +58,10 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
             + " resource_class, progress, requested_by_user_id) VALUES (?, ?, ?, ?,"
+            + " resource_class, progress) VALUES (?, ?, ?, ?,"
             + " 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER',"
             + " 100, 'artifact-owner') ON CONFLICT (id) DO NOTHING",
+            + " 100) ON CONFLICT (id) DO NOTHING",
         GENERATION_JOB_ID,
         UUID.fromString(JOB_ID),
         PROJECT_ID,
@@ -87,6 +91,9 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
   void returnsReadyArtifactOnlyForItsOwner() {
     assertThat(repository.findOwned(ARTIFACT_ID, "artifact-owner").status()).isEqualTo("READY");
     assertThatThrownBy(() -> repository.findOwned(ARTIFACT_ID, "wrong-owner"))
+  void returnsReadyArtifactById() {
+    assertThat(repository.findById(ARTIFACT_ID).status()).isEqualTo("READY");
+    assertThatThrownBy(() -> repository.findById(99999L))
         .isInstanceOf(ResourceNotFoundException.class);
   }
 

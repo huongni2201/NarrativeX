@@ -5,8 +5,7 @@ import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScop
 import java.util.UUID;
 
 public interface VoiceReferenceAssetAccess {
-  VoiceReferenceAsset findOwned(
-      String accountId, UUID projectId, VoiceReferenceSelection selection);
+  VoiceReferenceAsset find(UUID projectId, VoiceReferenceSelection selection);
 
   record VoiceReferenceAsset(
       VoiceReferenceScope scope,

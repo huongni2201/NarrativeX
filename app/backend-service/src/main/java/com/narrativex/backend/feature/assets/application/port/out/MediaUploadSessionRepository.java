@@ -8,29 +8,28 @@ import java.util.UUID;
 public interface MediaUploadSessionRepository {
   UploadSession create(CreateUploadSession command);
 
-  Optional<UploadSession> findOwnedSnapshot(String accountId, UUID id);
+  Optional<UploadSession> findSnapshot(UUID id);
 
-  Optional<UploadSession> findOwnedForUpdate(String accountId, UUID id);
+  Optional<UploadSession> findForUpdate(UUID id);
 
-  Optional<UploadSession> findByIdempotencyKey(String accountId, String idempotencyKey);
+  Optional<UploadSession> findByIdempotencyKey(String idempotencyKey);
 
-  boolean markValidating(String accountId, UUID id, UUID mediaAssetId);
+  boolean markValidating(UUID id, UUID mediaAssetId);
 
-  boolean markReady(String accountId, UUID id, UUID mediaAssetId);
+  boolean markReady(UUID id, UUID mediaAssetId);
 
-  boolean markRejected(String accountId, UUID id);
+  boolean markRejected(UUID id);
 
   List<ExpiredUpload> findExpiredPending(int limit);
 
   List<RejectedUpload> findRejectedForCleanup(int limit);
 
-  record ExpiredUpload(UUID id, String accountId, String storageKey) {}
+  record ExpiredUpload(UUID id, String storageKey) {}
 
   record RejectedUpload(UUID id, String storageKey) {}
 
   record CreateUploadSession(
       UUID id,
-      String accountId,
       String assetType,
       String originalFilename,
       String contentType,

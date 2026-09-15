@@ -26,7 +26,7 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
   public UploadSession create(CreateUploadSession command) {
     int inserted = mapper.insert(command);
     if (inserted == 1) {
-      return findOwnedSnapshot(command.accountId(), command.id())
+      return findSnapshot(command.id())
           .orElseThrow(() -> new IllegalStateException("Upload session disappeared after insert"));
     }
     if (command.idempotencyKey() == null) {
@@ -34,7 +34,7 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
           "Upload session insert was skipped without an idempotency key");
     }
     UploadSession winner =
-        findByIdempotencyKey(command.accountId(), command.idempotencyKey())
+        findByIdempotencyKey(command.idempotencyKey())
             .orElseThrow(
                 () ->
                     new IllegalStateException(
@@ -47,36 +47,36 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<UploadSession> findOwnedSnapshot(String accountId, UUID id) {
-    return Optional.ofNullable(mapper.findOwnedSnapshot(accountId, id)).map(this::toSession);
+  public Optional<UploadSession> findSnapshot(UUID id) {
+    return Optional.ofNullable(mapper.findSnapshot(id)).map(this::toSession);
   }
 
   @Override
   @Transactional(propagation = Propagation.MANDATORY)
-  public Optional<UploadSession> findOwnedForUpdate(String accountId, UUID id) {
-    return Optional.ofNullable(mapper.findOwnedForUpdate(accountId, id)).map(this::toSession);
+  public Optional<UploadSession> findForUpdate(UUID id) {
+    return Optional.ofNullable(mapper.findForUpdate(id)).map(this::toSession);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<UploadSession> findByIdempotencyKey(String accountId, String idempotencyKey) {
-    return Optional.ofNullable(mapper.findByIdempotencyKey(accountId, idempotencyKey))
+  public Optional<UploadSession> findByIdempotencyKey(String idempotencyKey) {
+    return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey))
         .map(this::toSession);
   }
 
   @Override
-  public boolean markValidating(String accountId, UUID id, UUID mediaAssetId) {
-    return mapper.markValidating(accountId, id, mediaAssetId) == 1;
+  public boolean markValidating(UUID id, UUID mediaAssetId) {
+    return mapper.markValidating(id, mediaAssetId) == 1;
   }
 
   @Override
-  public boolean markReady(String accountId, UUID id, UUID mediaAssetId) {
-    return mapper.markReady(accountId, id, mediaAssetId) == 1;
+  public boolean markReady(UUID id, UUID mediaAssetId) {
+    return mapper.markReady(id, mediaAssetId) == 1;
   }
 
   @Override
-  public boolean markRejected(String accountId, UUID id) {
-    return mapper.markRejected(accountId, id) == 1;
+  public boolean markRejected(UUID id) {
+    return mapper.markRejected(id) == 1;
   }
 
   @Override
@@ -85,7 +85,7 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
     if (limit < 1 || limit > 500)
       throw new IllegalArgumentException("limit must be between 1 and 500");
     return mapper.findExpiredPending(limit).stream()
-        .map(row -> new ExpiredUpload(row.getId(), row.getAccountId(), row.getStorageKey()))
+        .map(row -> new ExpiredUpload(row.getId(), row.getStorageKey()))
         .toList();
   }
 

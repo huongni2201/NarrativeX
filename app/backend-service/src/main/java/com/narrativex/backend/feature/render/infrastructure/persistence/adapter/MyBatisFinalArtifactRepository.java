@@ -15,8 +15,8 @@ public class MyBatisFinalArtifactRepository implements FinalArtifactRepository {
   private final FinalArtifactMapper mapper;
 
   @Override
-  public FinalArtifactView findOwned(Long artifactId, String ownerId) {
-    FinalArtifactRow row = mapper.findOwned(artifactId, ownerId);
+  public FinalArtifactView findById(Long artifactId) {
+    FinalArtifactRow row = mapper.findById(artifactId);
     if (row == null) {
       throw new ResourceNotFoundException("Final artifact not found");
     }

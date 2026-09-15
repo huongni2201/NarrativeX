@@ -19,7 +19,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class MyBatisMediaAssetRepositoryTest {
-  private static final String ACCOUNT = "account-1";
   private static final String HASH = "a".repeat(64);
   private final MediaAssetMapper mapper = org.mockito.Mockito.mock(MediaAssetMapper.class);
   private final MyBatisMediaAssetRepository repository = new MyBatisMediaAssetRepository(mapper);
@@ -34,11 +33,11 @@ class MyBatisMediaAssetRepositoryTest {
     MediaAssetRow third =
         row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-30T00:00:00Z"));
     when(mapper.findPage(
-            eq(ACCOUNT), eq(projectId), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
+            eq(projectId), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
         .thenReturn(List.of(first, second, third));
 
     CursorPage<com.narrativex.backend.feature.assets.application.query.MediaAssetView> page =
-        repository.list(ACCOUNT, projectId, null, null, null, null, 2);
+        repository.list(projectId, null, null, null, null, 2);
 
     assertThat(page.content()).extracting("id").containsExactly(first.getId(), second.getId());
     assertThat(page.nextCursor()).isNotBlank();
@@ -50,67 +49,76 @@ class MyBatisMediaAssetRepositoryTest {
     UUID projectId = UUID.randomUUID();
     UUID assetId = UUID.randomUUID();
     when(mapper.insertLocal(any())).thenReturn(assetId);
-    when(mapper.findOwned(eq(ACCOUNT), eq(projectId), any(UUID.class)))
+    when(mapper.findById(eq(projectId), any(UUID.class)))
         .thenAnswer(
             invocation ->
                 row(
-                    invocation.getArgument(2),
+                    invocation.getArgument(1),
                     projectId,
                     "READY",
                     Instant.parse("2026-01-01T00:00:00Z")));
 
-    var created =
+    var view =
         repository.createLocalAsset(
-            ACCOUNT,
             new MediaAssetRepository.CreateLocalMediaAsset(
-                assetId, projectId, "IMAGE", "scene.png", "image/png", 100, HASH, null));
+                assetId,
+                projectId,
+                "IMAGE",
+                "scene.png",
+                "image/png",
+                100,
+                HASH,
+                null));
 
-    assertThat(created.id()).isEqualTo(assetId);
-    verify(mapper).insertLocal(any());
-    verify(mapper).findOwned(ACCOUNT, projectId, assetId);
+    assertThat(view.id()).isEqualTo(assetId);
+    verify(mapper)
+        .insertLocal(
+            org.mockito.ArgumentMatchers.argThat(
+                row ->
+                    row.getProjectId().equals(projectId)
+                        && row.getSha256().equals(HASH)
+                        && "READY".equals(row.getStatus())
+                        && "USER_UPLOAD".equals(row.getOrigin())));
   }
 
   @Test
-  void assetFromAnotherProjectIsNotVisibleToOwnedFind() {
+  void findByIdThrowsWhenMissing() {
     UUID projectId = UUID.randomUUID();
     UUID assetId = UUID.randomUUID();
-    when(mapper.findOwned(ACCOUNT, projectId, assetId)).thenReturn(null);
+    when(mapper.findById(projectId, assetId)).thenReturn(null);
 
-    assertThatThrownBy(() -> repository.findOwned(ACCOUNT, projectId, assetId))
+    assertThatThrownBy(() -> repository.findById(projectId, assetId))
         .isInstanceOf(ResourceNotFoundException.class);
   }
 
   @Test
-  void softDeleteUsesAccountAndProjectGuards() {
+  void deleteDelegatesToMapper() {
     UUID projectId = UUID.randomUUID();
     UUID assetId = UUID.randomUUID();
-    MediaAssetRow ready = row(assetId, projectId, "READY", Instant.parse("2026-01-01T00:00:00Z"));
-    when(mapper.findOwned(ACCOUNT, projectId, assetId)).thenReturn(ready);
-    when(mapper.softDelete(ACCOUNT, projectId, assetId)).thenReturn(1);
+    when(mapper.findById(projectId, assetId))
+        .thenReturn(row(assetId, projectId, "READY", Instant.parse("2026-01-01T00:00:00Z")));
+    when(mapper.softDelete(projectId, assetId)).thenReturn(1);
 
-    repository.delete(ACCOUNT, projectId, assetId);
+    repository.delete(projectId, assetId);
 
-    verify(mapper).softDelete(ACCOUNT, projectId, assetId);
+    verify(mapper).softDelete(projectId, assetId);
   }
 
   private static MediaAssetRow row(UUID id, UUID projectId, String status, Instant createdAt) {
-    MediaAssetRow row =
-        new MediaAssetRow(
-            id,
-            ACCOUNT,
-            "IMAGE",
-            "PROJECT_ASSET",
-            null,
-            "scene.png",
-            "image/png",
-            100,
-            HASH,
-            null,
-            status,
-            createdAt,
-            null,
-            "READY".equals(status) ? createdAt : null);
-    row.setProjectId(projectId);
-    return row;
+    return new MediaAssetRow(
+        id,
+        projectId,
+        "IMAGE",
+        "PROJECT_ASSET",
+        null,
+        "scene.png",
+        "image/png",
+        100,
+        HASH,
+        null,
+        status,
+        createdAt,
+        null,
+        "READY".equals(status) ? createdAt : null);
   }
 }

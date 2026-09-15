@@ -17,15 +17,10 @@ CREATE TABLE narration_requests (
     speaking_rate NUMERIC(8, 4) NOT NULL,
     segmentation_version VARCHAR(64) NOT NULL,
     request_fingerprint VARCHAR(64) NOT NULL,
-    project_voice_reference_asset_id UUID REFERENCES media_assets(id),
-    account_voice_reference_asset_id UUID REFERENCES voice_reference_assets(id),
+    voice_reference_asset_id UUID REFERENCES voice_reference_assets(id),
     CONSTRAINT uk_narration_requests_fingerprint UNIQUE (request_fingerprint),
     CONSTRAINT ck_narration_requests_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_narration_requests_speaking_rate CHECK (speaking_rate > 0),
-    CONSTRAINT ck_narration_requests_single_voice_reference CHECK (
-        project_voice_reference_asset_id IS NULL
-        OR account_voice_reference_asset_id IS NULL
-    )
+    CONSTRAINT ck_narration_requests_speaking_rate CHECK (speaking_rate > 0)
 );
 
 CREATE TABLE narration_operations (
@@ -99,50 +94,59 @@ CREATE TABLE narration_parts (
 
 CREATE TABLE narration_documents (
     id UUID PRIMARY KEY,
-    story_id UUID NOT NULL,
-    document_fingerprint VARCHAR(64) NOT NULL,
+    narration_set_id UUID NOT NULL UNIQUE REFERENCES narration_sets(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    text_content TEXT NOT NULL,
+    content_hash VARCHAR(64) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_narration_documents_fingerprint CHECK (document_fingerprint ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT uk_narration_documents_story_fingerprint UNIQUE (story_id, document_fingerprint)
+    CONSTRAINT ck_narration_documents_hash CHECK (content_hash ~ '^[0-9a-f]{64}$')
 );
 
-CREATE TABLE narration_document_chapters (
-    narration_document_id UUID NOT NULL REFERENCES narration_documents(id) ON DELETE CASCADE,
-    chapter_id UUID NOT NULL,
-    chapter_revision_id UUID NOT NULL,
-    sequence INTEGER NOT NULL,
-    global_text_start INTEGER NOT NULL,
-    global_text_end INTEGER NOT NULL,
-    source_hash VARCHAR(64) NOT NULL,
-    row_version BIGINT NOT NULL,
-    PRIMARY KEY (narration_document_id, sequence),
-    CONSTRAINT ck_narration_document_chapters_sequence CHECK (sequence >= 0),
-    CONSTRAINT ck_narration_document_chapters_offsets CHECK (global_text_start >= 0 AND global_text_end >= global_text_start),
-    CONSTRAINT ck_narration_document_chapters_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_narration_document_chapters_row_version CHECK (row_version >= 0),
-    CONSTRAINT uk_narration_document_chapters_revision UNIQUE (narration_document_id, chapter_revision_id)
+CREATE TABLE narration_audio_tracks (
+    id UUID PRIMARY KEY,
+    narration_set_id UUID NOT NULL UNIQUE REFERENCES narration_sets(id) ON DELETE CASCADE,
+    media_asset_id UUID NOT NULL REFERENCES media_assets(id),
+    format VARCHAR(16) NOT NULL,
+    duration_ms BIGINT NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_narration_audio_tracks_duration CHECK (duration_ms > 0),
+    CONSTRAINT ck_narration_audio_tracks_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE narration_alignment_runs (
     id UUID PRIMARY KEY,
-    narration_document_id UUID NOT NULL REFERENCES narration_documents(id),
-    narration_set_id UUID NOT NULL REFERENCES narration_sets(id),
-    document_fingerprint VARCHAR(64) NOT NULL,
-    narration_fingerprint VARCHAR(64) NOT NULL,
-    provider VARCHAR(128) NOT NULL,
-    provider_version VARCHAR(64) NOT NULL,
+    narration_set_id UUID NOT NULL REFERENCES narration_sets(id) ON DELETE CASCADE,
+    narration_audio_track_id UUID NOT NULL REFERENCES narration_audio_tracks(id) ON DELETE CASCADE,
+    run_fingerprint VARCHAR(64) NOT NULL,
     status VARCHAR(24) NOT NULL,
-    coverage NUMERIC(6, 5) NOT NULL,
-    confidence NUMERIC(6, 5) NOT NULL,
-    spans_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    engine VARCHAR(32) NOT NULL,
+    engine_version VARCHAR(32) NOT NULL,
+    granularity VARCHAR(16) NOT NULL,
+    aligned_words_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_narration_alignment_runs_status CHECK (status IN ('READY', 'LOW_CONFIDENCE', 'INCOMPLETE', 'GAP_DETECTED', 'EXTRA_AUDIO', 'FAILED')),
-    CONSTRAINT ck_narration_alignment_runs_coverage CHECK (coverage >= 0 AND coverage <= 1),
-    CONSTRAINT ck_narration_alignment_runs_confidence CHECK (confidence >= 0 AND confidence <= 1),
-    CONSTRAINT ck_narration_alignment_runs_document_hash CHECK (document_fingerprint ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_narration_alignment_runs_narration_hash CHECK (narration_fingerprint ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_narration_alignment_runs_spans_array CHECK (jsonb_typeof(spans_json) = 'array'),
-    CONSTRAINT uk_narration_alignment_runs_cache UNIQUE (document_fingerprint, narration_fingerprint, provider, provider_version)
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_narration_alignment_runs_status CHECK (status IN ('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED')),
+    CONSTRAINT ck_narration_alignment_runs_granularity CHECK (granularity IN ('WORD', 'SEGMENT')),
+    CONSTRAINT ck_narration_alignment_runs_fingerprint CHECK (run_fingerprint ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT uk_narration_alignment_runs_fingerprint UNIQUE (run_fingerprint)
+);
+
+CREATE TABLE narration_spans (
+    id UUID PRIMARY KEY,
+    narration_alignment_run_id UUID NOT NULL REFERENCES narration_alignment_runs(id) ON DELETE CASCADE,
+    span_index INTEGER NOT NULL,
+    text_start INTEGER NOT NULL,
+    text_end INTEGER NOT NULL,
+    audio_start_ms BIGINT NOT NULL,
+    audio_end_ms BIGINT NOT NULL,
+    confidence NUMERIC(5, 4),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_narration_spans_index CHECK (span_index >= 0),
+    CONSTRAINT ck_narration_spans_text CHECK (text_end > text_start AND text_start >= 0),
+    CONSTRAINT ck_narration_spans_audio CHECK (audio_end_ms >= audio_start_ms AND audio_start_ms >= 0),
+    CONSTRAINT ck_narration_spans_confidence CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+    CONSTRAINT uk_narration_spans_run_index UNIQUE (narration_alignment_run_id, span_index)
 );
 
 ALTER TABLE media_plans
@@ -157,7 +161,6 @@ ALTER TABLE media_plans
 
 CREATE TABLE notifications (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    user_id VARCHAR(128) NOT NULL,
     project_id UUID REFERENCES projects(id),
     event_key VARCHAR(160) NOT NULL UNIQUE,
     type VARCHAR(48) NOT NULL,
@@ -197,7 +200,6 @@ CREATE TABLE render_manifests (
     media_plan_revision INTEGER,
     narration_set_id UUID REFERENCES narration_sets(id),
     narration_alignment_run_id UUID REFERENCES narration_alignment_runs(id),
-    project_owner_id VARCHAR(128),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_render_manifests_fingerprint UNIQUE (render_fingerprint),
     CONSTRAINT ck_render_manifests_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),

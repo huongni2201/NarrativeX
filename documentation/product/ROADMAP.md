@@ -1,5 +1,7 @@
 # NarrativeX — V1.11 Roadmap
 
+> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
 **Current checkpoint:** `main` at `2d7a8a48c2d97cf628215206fcab8d39c9f8beba` (2026-09-13)

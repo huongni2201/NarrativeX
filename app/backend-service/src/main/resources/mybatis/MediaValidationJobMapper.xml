@@ -6,6 +6,7 @@
     <insert id="insertJob">
         INSERT INTO media_validation_jobs
           (id, account_id, media_asset_id, storage_key, declared_type, declared_content_type,
+          (id, media_asset_id, storage_key, declared_type, declared_content_type,
            expected_size_bytes, expected_sha256)
         VALUES
           (#{jobId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},

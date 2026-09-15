@@ -1,5 +1,7 @@
 # NarrativeX
 
+> Migration notice (2026-09-15): read [current status](documentation/CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
 
 The Electron application is the only supported editor client. Spring Boot is the authoritative control plane for ownership, policy, durable jobs and metadata. Project media and final rendering are local-first on Desktop.

@@ -8,16 +8,14 @@ import org.apache.ibatis.annotations.Param;
 
 public interface VoiceReferenceAssetMapper extends NarrativeXMyBatisMapper {
   int insert(
-      @Param("accountId") String accountId,
       @Param("command") CreateVoiceReference command,
       @Param("checksum") String checksum);
 
-  VoiceReferenceAssetRow findOwned(@Param("accountId") String accountId, @Param("id") UUID id);
+  VoiceReferenceAssetRow findById(@Param("id") UUID id);
 
-  VoiceReferenceAssetRow findByChecksum(
-      @Param("accountId") String accountId, @Param("sha256") String sha256);
+  VoiceReferenceAssetRow findByChecksum(@Param("sha256") String sha256);
 
-  List<VoiceReferenceAssetRow> listOwned(@Param("accountId") String accountId);
+  List<VoiceReferenceAssetRow> list();
 
   boolean isReferencedByReadyAsset(@Param("storageKey") String storageKey);
 }

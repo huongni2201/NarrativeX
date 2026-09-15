@@ -45,10 +45,12 @@ class GenerationDurablePersistenceIntegrationTest extends PostgreSqlIntegrationT
     assertInstanceOf(GenerationOutboxPersistenceAdapter.class, generationOutboxRepository);
 
     UUID projectId = insertProject("generation-durable-owner");
+    UUID projectId = insertProject();
     GenerationJob job =
         generationJobRepository.save(
             GenerationJob.create(
                 projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT, "owner"));
+                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
 
     OperationPlan persistedPlan =
         operationPlanRepository.save(OperationPlan.create(projectId, "CHAPTER_ANALYZE"));
@@ -76,16 +78,20 @@ class GenerationDurablePersistenceIntegrationTest extends PostgreSqlIntegrationT
   }
 
   private UUID insertProject(String ownerId) {
+  private UUID insertProject() {
     return jdbcTemplate.queryForObject(
         """
         INSERT INTO projects
           (name, owner_id, status, source_language, narration_language, metadata_language,
+          (name, status, source_language, narration_language, metadata_language,
            image_aspect_ratio, image_quality_tier)
         VALUES (?, ?, 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')
+        VALUES (?, 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')
         RETURNING id
         """,
         UUID.class,
         "Generation durable test " + com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         ownerId);
+        "Generation durable test " + com.narrativex.backend.feature.common.uuid.UuidV7.random());
   }
 }

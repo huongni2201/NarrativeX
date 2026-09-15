@@ -1,5 +1,7 @@
 # NarrativeX Current Codebase Map — V1.12
 
+> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 **Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 ## Runtime layout
@@ -120,19 +122,18 @@ source_anchor
 ## Flyway baseline
 
 ```text
-V1__identity_and_access.sql
-V2__project_story_and_planning.sql
-V3__generation_quota_and_media.sql
-V4__narration_notifications_and_artifacts.sql
-V5__catalog_generation_and_render_snapshots.sql
-V6__database_logic_and_triggers.sql
-V7__indexes.sql
-V8__seed_catalog.sql
+V1__project_story_and_planning.sql
+V2__generation_and_media.sql
+V3__narration_and_artifacts.sql
+V4__catalog_generation_and_render_snapshots.sql
+V5__database_logic_and_triggers.sql
+V6__indexes.sql
+V7__seed_catalog.sql
 ```
 
-A clean pre-production database applies **V1 → V8** only. The former V9–V18 patch sequence has been folded into the owning baseline migrations, so new databases are created directly in the final schema shape instead of creating legacy columns/tables and later altering or dropping them. Continuity/checkpoints, regeneration, storyboard-generation snapshots, render continuity provenance and render-profile watermark policy are owned directly by V2/V5/V6/V7 as appropriate. Monetary image/regeneration pricing metadata and legacy credit accounting are not created by the baseline.
+A clean pre-production database applies **V1 → V7** only. The former V9–V18 patch sequence has been folded into the owning baseline migrations, so new databases are created directly in the final schema shape instead of creating legacy columns/tables and later altering or dropping them. Continuity/checkpoints, regeneration, storyboard-generation snapshots, render continuity provenance and render-profile watermark policy are owned directly by the corresponding schema, logic and index migrations. Monetary image/regeneration pricing metadata and legacy credit accounting are not created by the baseline.
 
-This rewrite is allowed because NarrativeX has not frozen a production migration history yet. At the first production deployment, the accepted V1–V8 history becomes immutable and subsequent schema evolution is append-only.
+This rewrite is allowed because NarrativeX has not frozen a production migration history yet. At the first production deployment, the accepted V1–V7 history becomes immutable and subsequent schema evolution is append-only.
 
 ## Production mode contract
 

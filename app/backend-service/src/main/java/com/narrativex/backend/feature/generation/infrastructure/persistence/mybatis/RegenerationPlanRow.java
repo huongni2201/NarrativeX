@@ -17,5 +17,4 @@ public class RegenerationPlanRow {
   private String reason;
   private Instant expiresAt;
   private String inputFingerprint;
-  private String createdBy;
 }

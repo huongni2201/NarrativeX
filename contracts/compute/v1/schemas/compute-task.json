@@ -38,6 +38,22 @@
         {"$ref": "task-media-validate.json"}
       ]
     },
-    "artifacts": {"type": "array", "maxItems": 32, "items": {"$ref": "artifact-ref.json"}}
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputs", "outputs"],
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {"$ref": "input-artifact-ref.json"}
+        },
+        "outputs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {"$ref": "output-artifact-target.json"}
+        }
+      }
+    }
   }
 }

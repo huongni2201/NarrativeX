@@ -23,8 +23,7 @@ public interface ChapterContinuityMapper extends NarrativeXMyBatisMapper {
       @Param("reusableBeatIdsJson") String reusableBeatIdsJson,
       @Param("reason") String reason,
       @Param("expiresAt") Instant expiresAt,
-      @Param("inputFingerprint") String inputFingerprint,
-      @Param("createdBy") String createdBy);
+      @Param("inputFingerprint") String inputFingerprint);
 
   RegenerationPlanRow findRegenerationPlan(
       @Param("projectId") UUID projectId,
@@ -50,6 +49,5 @@ public interface ChapterContinuityMapper extends NarrativeXMyBatisMapper {
       @Param("continuityPlanId") UUID continuityPlanId,
       @Param("revision") int revision,
       @Param("status") String status,
-      @Param("issuesJson") String issuesJson,
-      @Param("reviewedBy") String reviewedBy);
+      @Param("issuesJson") String issuesJson);
 }

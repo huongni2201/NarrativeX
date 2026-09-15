@@ -30,21 +30,21 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
   }
 
   @Override
-  public Optional<MediaGenerationItem> findOwned(String userId, UUID itemId) {
-    return Optional.ofNullable(mapper.findOwned(userId, itemId))
+  public Optional<MediaGenerationItem> findById(UUID itemId) {
+    return Optional.ofNullable(mapper.findById(itemId))
         .map(MyBatisMediaGenerationItemPersistenceAdapter::toDomain);
   }
 
   @Override
-  public List<MediaGenerationItem> findByJobOwned(String userId, UUID jobId) {
-    return mapper.findByJobOwned(userId, jobId).stream()
+  public List<MediaGenerationItem> findByJobId(UUID jobId) {
+    return mapper.findByJobId(jobId).stream()
         .map(MyBatisMediaGenerationItemPersistenceAdapter::toDomain)
         .toList();
   }
 
   @Override
-  public boolean review(String userId, UUID itemId, long rowVersion, String decision) {
-    return mapper.review(userId, itemId, rowVersion, decision, userId) == 1;
+  public boolean review(UUID itemId, long rowVersion, String decision) {
+    return mapper.review(itemId, rowVersion, decision) == 1;
   }
 
   private static MediaGenerationItemRow toRow(MediaGenerationItem item) {
@@ -63,7 +63,6 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
         item.getErrorCode(),
         item.getErrorDetailRef(),
         item.getReviewStatus(),
-        item.getReviewedByUserId(),
         item.getReviewedAt(),
         null,
         null);
@@ -86,7 +85,6 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
         row.getErrorCode(),
         row.getErrorDetailRef(),
         row.getReviewStatus(),
-        row.getReviewedByUserId(),
         row.getReviewedAt());
   }
 }

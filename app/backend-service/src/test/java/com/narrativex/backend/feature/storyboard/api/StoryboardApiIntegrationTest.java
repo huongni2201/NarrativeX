@@ -78,9 +78,11 @@ class StoryboardApiIntegrationTest {
         "INSERT INTO auth_users (id, email, display_name, enabled) VALUES ('seed-user-01', 'test@example.com', 'Test User', true) ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1001', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'P1001', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_1);
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1002', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'P1002', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_2);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE') ON CONFLICT (id) DO NOTHING",

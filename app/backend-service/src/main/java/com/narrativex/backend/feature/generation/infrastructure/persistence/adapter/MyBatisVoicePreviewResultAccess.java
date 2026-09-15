@@ -13,8 +13,8 @@ public class MyBatisVoicePreviewResultAccess implements VoicePreviewResultAccess
   private final NarrationMapper narrationMapper;
 
   @Override
-  public VoicePreviewResult findCompleted(String ownerId, UUID projectId, UUID jobId) {
-    var row = narrationMapper.findCompletedVoicePreview(ownerId, projectId, jobId);
+  public VoicePreviewResult findCompleted(UUID projectId, UUID jobId) {
+    var row = narrationMapper.findCompletedVoicePreview(projectId, jobId);
     if (row == null) {
       throw new ResourceNotFoundException("Completed voice preview not found");
     }

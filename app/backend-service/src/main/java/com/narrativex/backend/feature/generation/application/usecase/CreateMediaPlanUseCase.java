@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.service.MediaPlanSceneResolver;
@@ -22,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
-  private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final MediaPlanRepository mediaPlanRepository;
@@ -30,10 +28,9 @@ public class CreateMediaPlanUseCase {
 
   @Transactional
   public MediaPlan execute(CreateMediaPlanCommand command) {
-    String userId = currentUserId.get();
     var chapter =
-        chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            command.projectId(), command.chapterId(), userId);
+        chapterAnalysisSourceAccess.requireForAnalysisLocked(
+            command.projectId(), command.chapterId());
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     if (planningSource.sourceHash() != null
         && !planningSource.sourceHash().equals(chapter.sourceHash())) {
@@ -98,10 +95,13 @@ public class CreateMediaPlanUseCase {
       boolean usesI2v =
           scene.beats().stream()
               .anyMatch(beat -> beat.motionStrategy() == MotionStrategy.IMAGE_TO_VIDEO);
-      if (usesI2v) plannedI2vSeconds += duration;
-      else basicMotionSeconds += duration;
+      if (usesI2v) {
+        plannedI2vSeconds += duration;
+      } else {
+        basicMotionSeconds += duration;
+      }
     }
     return new MediaWorkload(
-        narrationCharacters, imageGenerateCount, 0, basicMotionSeconds, plannedI2vSeconds);
+        narrationCharacters, imageGenerateCount, basicMotionSeconds, plannedI2vSeconds);
   }
 }

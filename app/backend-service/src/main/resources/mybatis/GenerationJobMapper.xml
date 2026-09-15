@@ -16,7 +16,6 @@
         <result property="progress" column="progress" />
         <result property="currentStep" column="current_step" />
         <result property="errorCode" column="error_code" />
-        <result property="requestedByUserId" column="requested_by_user_id" />
         <result property="storyVersionId" column="story_version_id" />
         <result property="chapterId" column="chapter_id" />
         <result property="chapterRowVersion" column="chapter_row_version" />
@@ -46,7 +45,7 @@
 
     <sql id="columns">
         id, row_version, created_at, updated_at, job_id, project_id, job_type, status,
-        resource_class, progress, current_step, error_code, requested_by_user_id,
+        resource_class, progress, current_step, error_code,
         story_version_id, chapter_id, chapter_row_version, source_hash,
         source_text, source_language, idempotency_key, storyboard_revision_id, media_plan_id,
         media_plan_revision, production_mode, analysis_visual_generation_mode, analysis_image_provider
@@ -54,7 +53,7 @@
 
     <sql id="qualifiedColumns">
         j.id, j.row_version, j.created_at, j.updated_at, j.job_id, j.project_id, j.job_type, j.status,
-        j.resource_class, j.progress, j.current_step, j.error_code, j.requested_by_user_id,
+        j.resource_class, j.progress, j.current_step, j.error_code,
         j.story_version_id, j.chapter_id, j.chapter_row_version, j.source_hash,
         j.source_text, j.source_language, j.idempotency_key, j.storyboard_revision_id, j.media_plan_id,
         j.media_plan_revision, j.production_mode, j.analysis_visual_generation_mode, j.analysis_image_provider
@@ -65,13 +64,13 @@
             resultType="java.util.UUID" affectData="true">
         INSERT INTO generation_jobs
             (job_id, project_id, job_type, status, resource_class, progress, current_step,
-             error_code, requested_by_user_id, story_version_id, chapter_id,
+             error_code, story_version_id, chapter_id,
              chapter_row_version, source_hash, source_text, source_language, idempotency_key,
              storyboard_revision_id, media_plan_id, media_plan_revision, production_mode,
              analysis_visual_generation_mode, analysis_image_provider)
         VALUES
             (#{jobId}, #{projectId}, #{type}, #{status}, #{resourceClass}, #{progress}, #{currentStep},
-             #{errorCode}, #{requestedByUserId}, #{storyVersionId}, #{chapterId},
+             #{errorCode}, #{storyVersionId}, #{chapterId},
              #{chapterRowVersion}, #{sourceHash}, #{sourceText}, #{sourceLanguage}, #{idempotencyKey},
              #{storyboardRevisionId},
              #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
@@ -90,7 +89,6 @@
                progress = #{progress},
                current_step = #{currentStep},
                error_code = #{errorCode},
-               requested_by_user_id = #{requestedByUserId},
                story_version_id = #{storyVersionId},
                chapter_id = #{chapterId},
                chapter_row_version = #{chapterRowVersion},
@@ -116,25 +114,15 @@
          WHERE id = #{id}
     </select>
 
-    <select id="findByIdAndOwner" resultMap="generationJobRow">
-        SELECT <include refid="qualifiedColumns" />
-          FROM generation_jobs j
-          JOIN projects p ON p.id = j.project_id
-         WHERE j.id = #{id}
-           AND p.owner_id = #{ownerId}
-           AND p.archived_at IS NULL
-    </select>
-
-    <select id="findByJobIdAndOwner" resultMap="generationJobRow">
+    <select id="findByJobId" resultMap="generationJobRow">
         SELECT <include refid="qualifiedColumns" />
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
          WHERE j.job_id = #{jobId}
-           AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
     </select>
 
-    <select id="findAnalysisProgressByJobIdAndOwner" resultMap="analysisProgressRow">
+    <select id="findAnalysisProgressByJobId" resultMap="analysisProgressRow">
         SELECT
             CASE
                 WHEN j.status = 'COMPLETED' THEN 'MATERIALIZATION'
@@ -196,7 +184,6 @@
           ) report ON TRUE
          WHERE j.job_id = #{jobId}
            AND j.job_type = 'CHAPTER_ANALYZE'
-           AND p.owner_id = #{ownerId}
            AND p.archived_at IS NULL
     </select>
 
@@ -204,9 +191,6 @@
         SELECT <include refid="columns" />
           FROM generation_jobs
          WHERE idempotency_key = #{idempotencyKey}
-        <if test="ownerId != null">
-           AND requested_by_user_id = #{ownerId}
-        </if>
     </select>
 
     <select id="findLatestByIdempotencyFamily" resultMap="generationJobRow">
@@ -214,20 +198,12 @@
           FROM generation_jobs
          WHERE (idempotency_key = #{baseIdempotencyKey}
                 OR idempotency_key LIKE CONCAT(#{baseIdempotencyKey}, ':retry:%'))
-        <if test="ownerId != null">
-           AND requested_by_user_id = #{ownerId}
-        </if>
          ORDER BY created_at DESC, id DESC
          LIMIT 1
     </select>
 
     <select id="acquireIdempotencyLock" resultType="int">
         SELECT 1
-          FROM pg_advisory_xact_lock(
-            hashtextextended(
-              <choose>
-                <when test="ownerId != null">CONCAT(#{ownerId}, ':', #{idempotencyKey})</when>
-                <otherwise>#{idempotencyKey}</otherwise>
-              </choose>, 0))
+          FROM pg_advisory_xact_lock(hashtextextended(#{idempotencyKey}, 0))
     </select>
 </mapper>

@@ -6,7 +6,6 @@
     <resultMap id="mediaAssetRow" type="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow">
         <id property="id" column="id" javaType="java.util.UUID"
             typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
-        <result property="accountId" column="account_id" />
         <result property="projectId" column="project_id" javaType="java.util.UUID"
             typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
         <result property="assetType" column="asset_type" />
@@ -32,26 +31,24 @@
     </resultMap>
 
     <sql id="columns">
-        id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type,
+        id, project_id, asset_type, origin, storage_key, original_filename, content_type,
         size_bytes, sha256, duration_ms, status, created_at, deleted_at, checksum_verified_at,
         detected_content_type, detected_container, detected_codec, width, height,
         validation_error_code, validation_error_detail, validated_at
     </sql>
 
     <sql id="visiblePredicate">
-        account_id = #{accountId}
-        AND project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+        project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
         AND status &lt;&gt; 'DELETED'
         AND deleted_at IS NULL
     </sql>
 
     <select id="insertLocal" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
         INSERT INTO media_assets
-            (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type,
+            (id, project_id, asset_type, origin, storage_key, original_filename, content_type,
              size_bytes, sha256, duration_ms, status, checksum_verified_at)
         VALUES
             (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
-             #{accountId},
              #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
              #{assetType}, 'USER_UPLOAD', NULL, #{originalFilename}, #{contentType},
              #{sizeBytes}, #{sha256}, #{durationMs}, 'READY', CURRENT_TIMESTAMP)
@@ -80,18 +77,17 @@
          LIMIT #{limit}
     </select>
 
-    <select id="findOwned" resultMap="mediaAssetRow">
+    <select id="findById" resultMap="mediaAssetRow">
         SELECT <include refid="columns" />
           FROM media_assets
          WHERE <include refid="visiblePredicate" />
            AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
     </select>
 
-    <select id="findOwnedByAccount" resultMap="mediaAssetRow">
+    <select id="findSummaryById" resultMap="mediaAssetRow">
         SELECT <include refid="columns" />
           FROM media_assets
-         WHERE account_id = #{accountId}
-           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND status &lt;&gt; 'DELETED'
            AND deleted_at IS NULL
     </select>
@@ -100,8 +96,7 @@
         UPDATE media_assets m
            SET status = 'DELETED',
                deleted_at = CURRENT_TIMESTAMP
-         WHERE m.account_id = #{accountId}
-           AND m.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+         WHERE m.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND m.id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND m.status = 'READY'
            AND m.deleted_at IS NULL

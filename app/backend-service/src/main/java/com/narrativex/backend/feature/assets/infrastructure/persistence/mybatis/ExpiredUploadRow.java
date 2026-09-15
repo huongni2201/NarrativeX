@@ -10,6 +10,5 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ExpiredUploadRow {
   private UUID id;
-  private String accountId;
   private String storageKey;
 }

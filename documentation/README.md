@@ -1,8 +1,10 @@
 # NarrativeX documentation map
 
+> Migration notice (2026-09-15): read [current status](CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0028 defines the target backend control-plane/domain-agnostic GPU execution-plane boundary; [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) is its versioned wire contract. The migration remains partial until its per-slice cut-over gates pass.
 
-NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, ADR-0021 defines the Desktop Gemini Web execution boundary, ADR-0022 limits R2 to account voice-reference/custom-voice storage, and ADR-0023 makes narration-aligned source ranges the production timing model.
+NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google-only account sign-in, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, ADR-0022 limits R2 to account voice-reference/custom-voice storage, and ADR-0023 makes narration-aligned source ranges the production timing model.
 
 ## Navigation
 
@@ -28,26 +30,10 @@ NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron
 
 A newer ADR wins only within the scope it explicitly supersedes.
 
-## Current maintenance rules
+## Maintenance
 
-1. Keep `IMPLEMENTED`, `IMPLEMENTED foundation`, `PARTIAL`, `TARGET` and `DEFERRED` distinct.
-2. `app/desktop` is the only editor client.
-3. Electron renderer owns UI only; native capabilities belong to Electron main behind a narrow preload bridge.
-4. Desktop starts with a stable installation-scoped guest identity; Google is the only end-user account sign-in provider.
-5. PostgreSQL is authoritative for durable business/domain/policy/job/lease/artifact metadata, server sessions and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime.
-6. Legacy Python workers currently poll/claim durable PostgreSQL queue rows directly. ADR-0028
-   replaces that ownership slice-by-slice with backend-push Compute Protocol tasks; never describe
-   the replacement as implemented before its cut-over gate passes. Neither architecture uses Redis
-   or a broker as an application-state authority.
-7. Desktop project media is local-first under `<userData>/projects/<projectId>` and mapped by `project.manifest.json`.
-8. Absolute Desktop filesystem paths are never durable backend identifiers.
-9. Final FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main.
-10. Cloudflare R2 is limited to authenticated account-owned voice-reference/custom-voice assets. Generated project images, generated narration, imported project media and final MP4 bytes do not use R2.
-11. Voice-reference storage is scope-specific: `PROJECT` references remain project-local and resolve through ProjectStorage/manifest; `ACCOUNT` references may use R2 and require account ownership/readiness checks.
-12. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
-13. Narration timing is the master clock. VisualBeat source anchors resolve to deterministic UTF-16 text ranges, and backend timeline reads map those ranges through narration alignment into the production audio clock.
-14. Provisional/fallback beat timing is review-only; final render readiness requires an exact contiguous aligned narration clock.
-15. Production persistence is MyBatis + explicit PostgreSQL SQL.
-16. Flyway V1-V8 form the clean pre-release baseline; V1-V6 separate schema/database responsibilities, V7 owns indexes and V8 owns deterministic catalog seeds; later migrations are append-only V9+ only after the first production deployment.
-17. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.
-18. Gemini Web is a Desktop-main Chrome/CDP path, not a Python worker or browser-editor architecture; keep its prompt wrapper and privileged file commit behind the typed bridge.
+Read [current status](CURRENT_STATUS.md) for ADR-0030 identity/limit migration, compute cut-over and deployment gaps. Apply repository rules from [AGENTS.md](../AGENTS.md); do not copy them into individual docs.
+
+- Update the smallest document owning a behavior. Keep IMPLEMENTED, PARTIAL, TARGET and DEFERRED distinct.
+- Keep historical ADRs and plans as rationale; their old requirements do not override a newer accepted decision in its superseded scope.
+- Verify filenames, links and commands against the working tree. Use [CONTRIBUTING.md](../CONTRIBUTING.md) for validation.

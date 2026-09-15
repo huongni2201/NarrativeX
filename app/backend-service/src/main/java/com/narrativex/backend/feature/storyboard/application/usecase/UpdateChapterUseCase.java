@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -20,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateChapterUseCase {
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
@@ -29,21 +27,20 @@ public class UpdateChapterUseCase {
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(UpdateChapterCommand command) {
-    String userId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.getStoryVersionId(), userId);
+    storyVersionAccess.requireStoryVersion(
+        command.projectId(), chapter.getStoryVersionId());
 
     storyboardRevisionAccess.lockChapter(command.chapterId());
     chapter =
         chapterRepository
             .findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.getStoryVersionId(), userId);
+    storyVersionAccess.requireStoryVersion(
+        command.projectId(), chapter.getStoryVersionId());
     if (chapter.getRowVersion() != command.expectedRowVersion()) {
       throw new ResourceConflictException("Chapter changed since it was loaded");
     }

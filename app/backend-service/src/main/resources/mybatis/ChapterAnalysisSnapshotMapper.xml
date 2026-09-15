@@ -11,7 +11,7 @@
         <result property="sourceText" column="source_text"/>
     </resultMap>
 
-    <select id="findOwned" resultMap="chapterAnalysisSnapshotRow">
+    <select id="findByProject" resultMap="chapterAnalysisSnapshotRow">
         SELECT c.id,
                c.story_version_id,
                c.row_version,
@@ -23,7 +23,6 @@
          WHERE c.id = #{chapterId}
            AND c.deleted_at IS NULL
            AND p.id = #{projectId}
-           AND p.owner_id = #{userId}
            AND p.archived_at IS NULL
     </select>
 </mapper>

@@ -1,5 +1,7 @@
 # NarrativeX Data Flow and Durability Model — V1.12
 
+> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+
 PostgreSQL state determines durable business/execution truth. Desktop owns machine-local project bytes; privileged local execution lives in Electron main.
 
 ## Authority matrix

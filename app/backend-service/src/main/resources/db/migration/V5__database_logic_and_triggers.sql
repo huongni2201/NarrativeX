@@ -1,5 +1,5 @@
 -- NarrativeX pre-release baseline: database functions, immutability guards,
--- capacity/export settlement, notifications, and generation events.
+-- notifications, and generation events.
 
 CREATE OR REPLACE FUNCTION reject_media_plan_update()
 RETURNS TRIGGER AS $$
@@ -10,10 +10,6 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_media_plans_immutable
 BEFORE UPDATE ON media_plans
-FOR EACH ROW EXECUTE FUNCTION reject_media_plan_update();
-
-CREATE TRIGGER trg_media_scene_plans_immutable
-BEFORE UPDATE ON media_scene_plans
 FOR EACH ROW EXECUTE FUNCTION reject_media_plan_update();
 
 CREATE TRIGGER trg_media_beat_plans_immutable
@@ -103,56 +99,6 @@ CREATE TRIGGER trg_regeneration_plans_immutable
 BEFORE UPDATE OR DELETE ON regeneration_plans
 FOR EACH ROW EXECUTE FUNCTION reject_regeneration_plan_mutation();
 
-CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF NEW.status = 'COMPLETED' AND OLD.status IS DISTINCT FROM 'COMPLETED' THEN
-        WITH consumed AS (
-            UPDATE quota_reservations
-               SET status = 'CONSUMED',
-                   finalized_at = CURRENT_TIMESTAMP,
-                   updated_at = CURRENT_TIMESTAMP,
-                   row_version = row_version + 1
-             WHERE generation_job_id = NEW.id
-               AND status = 'RESERVED'
-             RETURNING user_id, period_key, quota_kind, units
-        ), settled AS (
-            SELECT user_id,
-                   period_key,
-                   SUM(CASE WHEN quota_kind = 'LONGFORM_EXPORT' THEN units ELSE 0 END)::integer
-                       AS longform_units
-              FROM consumed
-             GROUP BY user_id, period_key
-        )
-        UPDATE usage_windows uw
-           SET longform_exports = uw.longform_exports + settled.longform_units,
-               row_version = uw.row_version + 1
-          FROM settled
-         WHERE uw.user_id = settled.user_id
-           AND uw.period_key = settled.period_key;
-    ELSIF NEW.status IN ('FAILED', 'CANCELED')
-          AND OLD.status IS DISTINCT FROM NEW.status THEN
-        UPDATE quota_reservations
-           SET status = 'RELEASED',
-               finalized_at = CURRENT_TIMESTAMP,
-               updated_at = CURRENT_TIMESTAMP,
-               row_version = row_version + 1
-         WHERE generation_job_id = NEW.id
-           AND status = 'RESERVED';
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_generation_jobs_finalize_quota
-AFTER UPDATE OF status ON generation_jobs
-FOR EACH ROW
-WHEN (NEW.status IN ('COMPLETED', 'FAILED', 'CANCELED'))
-EXECUTE FUNCTION finalize_quota_reservation_on_job_terminal();
-
 CREATE OR REPLACE FUNCTION create_generation_completion_notification()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -176,14 +122,12 @@ BEGIN
         END IF;
 
         INSERT INTO notifications (
-            user_id,
             project_id,
             event_key,
             type,
             title_key,
             message_key
         ) VALUES (
-            NEW.requested_by_user_id,
             NEW.project_id,
             'generation-job:' || NEW.job_id::text || ':completed',
             notification_type,
@@ -234,7 +178,6 @@ BEGIN
         'narrativex_generation_events',
         json_build_object(
             'eventId', NEW.job_id::text || ':' || NEW.row_version::text,
-            'userId', NEW.requested_by_user_id,
             'projectId', NEW.project_id,
             'job', json_build_object(
                 'jobId', NEW.job_id,
@@ -256,10 +199,7 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_generation_jobs_sse_events
-AFTER INSERT OR UPDATE OF status, progress, current_step, error_code ON generation_jobs
+CREATE TRIGGER trg_generation_jobs_events
+AFTER INSERT OR UPDATE ON generation_jobs
 FOR EACH ROW
 EXECUTE FUNCTION notify_generation_job_change();
-
-COMMENT ON COLUMN project_render_input_snapshots.assigned_local_device_id IS
-    'Paired Desktop device assigned to execute this immutable local project render.';

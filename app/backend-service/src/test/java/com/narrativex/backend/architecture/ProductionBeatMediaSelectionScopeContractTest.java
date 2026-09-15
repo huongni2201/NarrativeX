@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 class ProductionBeatMediaSelectionScopeContractTest {
   private static final Path MEDIA_SCHEMA =
-      Path.of("src/main/resources/db/migration/V3__generation_billing_and_media.sql");
+      Path.of("src/main/resources/db/migration/V2__generation_and_media.sql");
   private static final Path SELECTION_MAPPER =
       Path.of("src/main/resources/mybatis/ProductionBeatMediaSelectionMapper.xml");
 

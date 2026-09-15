@@ -79,6 +79,7 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
   @Test
   void attachesAReadyImageWithoutAProductionTimelineBeat() {
     when(mediaAssetAccess.findOwnedSummary("owner", MEDIA_ASSET_ID))
+    when(mediaAssetAccess.findSummary(MEDIA_ASSET_ID))
         .thenReturn(
             Optional.of(
                 new MediaAssetSummary(MEDIA_ASSET_ID, "IMAGE", "READY", "image/png", "image/png")));
@@ -92,6 +93,7 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
   @Test
   void rejectsMediaThatIsNotAReadyImage() {
     when(mediaAssetAccess.findOwnedSummary("owner", MEDIA_ASSET_ID))
+    when(mediaAssetAccess.findSummary(MEDIA_ASSET_ID))
         .thenReturn(
             Optional.of(
                 new MediaAssetSummary(MEDIA_ASSET_ID, "VIDEO", "READY", "video/mp4", "video/mp4")));

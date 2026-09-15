@@ -30,9 +30,11 @@ class DeleteProjectUseCaseTest {
     UUID projectId = UuidV7.random();
     Project project = project(projectId);
     when(projectRepository.findOwnedByIdForUpdate(projectId, "owner"))
+    when(projectRepository.findByIdForUpdate(projectId))
         .thenReturn(Optional.of(project));
     when(projectRepository.save(project)).thenReturn(project);
     DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository, () -> "owner");
+    DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository);
 
     useCase.execute(projectId);
 
@@ -43,10 +45,13 @@ class DeleteProjectUseCaseTest {
 
   @Test
   void hidesProjectsOutsideCurrentOwnerScope() {
+  void throwsNotFoundWhenProjectDoesNotExist() {
     UUID projectId = UuidV7.random();
     when(projectRepository.findOwnedByIdForUpdate(projectId, "owner")).thenReturn(Optional.empty());
     CurrentUserId currentUserId = () -> "owner";
     DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository, currentUserId);
+    when(projectRepository.findByIdForUpdate(projectId)).thenReturn(Optional.empty());
+    DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository);
 
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(projectId));
 

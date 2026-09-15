@@ -15,3 +15,25 @@ class CapacityError(RuntimeError):
 
 class ExecutorNotSupportedError(LookupError):
     """No ready adapter supports the requested task/model revision."""
+
+
+class DeadlineExceededError(ValueError):
+    """The task deadline has already expired."""
+
+
+class AmbiguousOutcomeError(RuntimeError):
+    """External outcome is ambiguous; blind resubmission is forbidden."""
+
+
+class MissingDurableContextError(RuntimeError):
+    """A remote side-effect executor was invoked without durable persistence callbacks."""
+
+
+__all__ = [
+    "AmbiguousOutcomeError",
+    "CapacityError",
+    "DeadlineExceededError",
+    "ExecutorNotSupportedError",
+    "FingerprintConflictError",
+    "MissingDurableContextError",
+]

@@ -17,10 +17,9 @@ public class VoiceReferenceAssetAccessAdapter implements VoiceReferenceAssetAcce
   private final MediaAssetRepository mediaAssetRepository;
 
   @Override
-  public VoiceReferenceAsset findOwned(
-      String accountId, UUID projectId, VoiceReferenceSelection selection) {
+  public VoiceReferenceAsset find(UUID projectId, VoiceReferenceSelection selection) {
     if (selection.scope() == VoiceReferenceScope.PROJECT) {
-      var asset = mediaAssetRepository.findOwned(accountId, projectId, selection.assetId());
+      var asset = mediaAssetRepository.findById(projectId, selection.assetId());
       if (!"AUDIO".equals(asset.type())) {
         throw new ResourceNotFoundException("Project voice reference asset not found");
       }
@@ -36,9 +35,9 @@ public class VoiceReferenceAssetAccessAdapter implements VoiceReferenceAssetAcce
 
     var asset =
         voiceReferenceAssetRepository
-            .findOwned(accountId, selection.assetId())
+            .findById(selection.assetId())
             .orElseThrow(
-                () -> new ResourceNotFoundException("Account voice reference asset not found"));
+                () -> new ResourceNotFoundException("Voice reference asset not found"));
     return new VoiceReferenceAsset(
         VoiceReferenceScope.ACCOUNT,
         asset.id(),

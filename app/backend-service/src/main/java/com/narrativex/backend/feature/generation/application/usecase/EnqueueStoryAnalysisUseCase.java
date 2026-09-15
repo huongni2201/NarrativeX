@@ -1,13 +1,11 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -30,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class EnqueueStoryAnalysisUseCase {
   private static final String STAGE_NAME = "CHAPTER_ANALYSIS";
 
-  private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
@@ -39,14 +36,12 @@ public class EnqueueStoryAnalysisUseCase {
   private final StageAttemptRepository stageAttemptRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final ChapterAnalysisAdmissionService admissionService;
-  private final QuotaReservation quotaReservation;
 
   @Transactional
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
-    String userId = currentUserId.get();
     var chapter =
-        chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            command.projectId(), command.chapterId(), userId);
+        chapterAnalysisSourceAccess.requireForAnalysisLocked(
+            command.projectId(), command.chapterId());
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
@@ -57,8 +52,8 @@ public class EnqueueStoryAnalysisUseCase {
     String baseIdempotencyKey =
         clientKey == null ? derivedFamily : "chapter-analysis:command:" + clientKey;
 
-    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
-    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
+    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey);
+    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey);
     String idempotencyKey = baseIdempotencyKey;
     if (baseJob.isPresent()) {
       GenerationJob existing = baseJob.get();
@@ -70,7 +65,7 @@ public class EnqueueStoryAnalysisUseCase {
         return existing;
       }
       var latest =
-          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey);
       if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
         return latest.get();
       }
@@ -81,9 +76,9 @@ public class EnqueueStoryAnalysisUseCase {
           idempotencyKey);
     }
 
-    var project = projectAccess.findOwnedProject(command.projectId(), userId);
+    var project = projectAccess.findProject(command.projectId());
     String analysisLanguage = project.getSourceLanguage();
-    var admission = admissionService.admit(userId);
+    admissionService.admit();
 
     UUID storyboardRevisionId =
         storyboardRevisionAccess.createDraft(
@@ -105,10 +100,8 @@ public class EnqueueStoryAnalysisUseCase {
                 analysisLanguage,
                 idempotencyKey,
                 command.visualGenerationMode(),
-                command.imageProvider(),
-                userId));
+                command.imageProvider()));
 
-    quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);

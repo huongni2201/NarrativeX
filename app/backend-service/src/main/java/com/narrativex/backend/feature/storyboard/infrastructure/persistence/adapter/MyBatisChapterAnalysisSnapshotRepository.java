@@ -15,9 +15,8 @@ public class MyBatisChapterAnalysisSnapshotRepository implements ChapterAnalysis
   private final ChapterAnalysisSnapshotMapper mapper;
 
   @Override
-  public ChapterAnalysisSource requireOwnedByProject(
-      UUID projectId, UUID chapterId, String userId) {
-    ChapterAnalysisSnapshotRow row = mapper.findOwned(projectId, chapterId, userId);
+  public ChapterAnalysisSource requireByProject(UUID projectId, UUID chapterId) {
+    ChapterAnalysisSnapshotRow row = mapper.findByProject(projectId, chapterId);
     if (row == null) {
       throw new ResourceNotFoundException("Chapter not found");
     }

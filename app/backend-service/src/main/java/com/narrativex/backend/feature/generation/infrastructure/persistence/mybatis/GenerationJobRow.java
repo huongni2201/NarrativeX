@@ -28,7 +28,6 @@ public class GenerationJobRow {
   private int progress;
   private String currentStep;
   private String errorCode;
-  private String requestedByUserId;
   private UUID storyVersionId;
   private UUID chapterId;
   private Long chapterRowVersion;

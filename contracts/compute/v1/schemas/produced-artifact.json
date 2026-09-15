@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/produced-artifact.json",
+  "title": "ProducedArtifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifactId", "role", "mediaType", "sizeBytes", "sha256"],
+  "properties": {
+    "artifactId": {"type": "string", "format": "uuid"},
+    "role": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$"},
+    "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
+    "sizeBytes": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

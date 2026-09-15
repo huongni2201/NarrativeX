@@ -12,12 +12,12 @@ from fastapi.responses import JSONResponse
 from narrativex_gpu_worker import __version__
 from narrativex_gpu_worker.application.errors import (
     CapacityError,
+    DeadlineExceededError,
     ExecutorNotSupportedError,
     FingerprintConflictError,
 )
-from narrativex_gpu_worker.application.ports.outbound import ExecutorCatalogPort
+from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
-from narrativex_gpu_worker.bootstrap import ApplicationComponents, build_application
 from narrativex_gpu_worker.config import WorkerSettings
 from narrativex_gpu_worker.contracts import (
     ComputeObservation,
@@ -29,34 +29,19 @@ from narrativex_gpu_worker.contracts import (
 MEDIA_TYPE = "application/vnd.narrativex.compute-v1+json"
 
 
+class ProtocolJSONResponse(JSONResponse):
+    media_type = MEDIA_TYPE
+
+
 @dataclass(frozen=True, slots=True)
 class AppState:
     settings: WorkerSettings
     executor_catalog: ExecutorCatalogPort
     execution: ExecutionApplicationService
 
-    @property
-    def registry(self) -> ExecutorCatalogPort:
-        return self.executor_catalog
 
-    @property
-    def runtime(self) -> ExecutionApplicationService:
-        return self.execution
-
-    @classmethod
-    def from_components(cls, components: ApplicationComponents) -> AppState:
-        return cls(
-            settings=components.settings,
-            executor_catalog=components.executor_catalog,
-            execution=components.execution,
-        )
-
-
-def create_app(
-    settings: WorkerSettings, registry: ExecutorCatalogPort | None = None
-) -> FastAPI:
-    components = build_application(settings, registry)
-    state = AppState.from_components(components)
+def create_app(state: AppState) -> FastAPI:
+    settings = state.settings
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -99,13 +84,29 @@ def create_app(
                 return JSONResponse(
                     status_code=413, content={"detail": "Request body is too large"}
                 )
+
+        chunks: list[bytes] = []
+        total = 0
+        async for chunk in request.stream():
+            total += len(chunk)
+            if total > settings.max_request_bytes:
+                return JSONResponse(
+                    status_code=413, content={"detail": "Request body is too large"}
+                )
+            chunks.append(chunk)
+        request._body = b"".join(chunks)
         return await call_next(request)
 
     @app.get("/healthz", include_in_schema=False)
     async def health() -> dict[str, str]:
         return {"status": "UP"}
 
-    @app.get("/v1/capabilities", response_model=WorkerCapabilities, dependencies=protected)
+    @app.get(
+        "/v1/capabilities",
+        response_model=WorkerCapabilities,
+        response_class=ProtocolJSONResponse,
+        dependencies=protected,
+    )
     async def capabilities() -> WorkerCapabilities:
         return WorkerCapabilities(
             protocol_versions=["1.0"],
@@ -121,20 +122,29 @@ def create_app(
     @app.post(
         "/v1/tasks",
         response_model=ComputeObservation,
+        response_class=ProtocolJSONResponse,
         status_code=status.HTTP_202_ACCEPTED,
         dependencies=protected,
     )
     async def submit(
-        task: ComputeTask, idempotency_key: str = Header(alias="Idempotency-Key")
+        request: Request,
+        task: ComputeTask,
+        idempotency_key: str = Header(alias="Idempotency-Key"),
     ) -> ComputeObservation:
+        content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if content_type != MEDIA_TYPE:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"Content-Type must be {MEDIA_TYPE}",
+            )
         if idempotency_key != task.idempotency_key:
             raise HTTPException(status_code=409, detail="Idempotency key does not match body")
         try:
             return await state.execution.submit(task)
         except FingerprintConflictError as exc:
             raise HTTPException(status_code=409, detail="Fingerprint conflict") from exc
-        except ExecutorNotSupportedError as exc:
-            raise HTTPException(status_code=422, detail="Unsupported task or model") from exc
+        except (ExecutorNotSupportedError, DeadlineExceededError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except CapacityError as exc:
             raise HTTPException(
                 status_code=429,
@@ -145,6 +155,7 @@ def create_app(
     @app.get(
         "/v1/tasks/{task_id}/attempts/{attempt_id}",
         response_model=ComputeObservation,
+        response_class=ProtocolJSONResponse,
         dependencies=protected,
     )
     async def get_attempt(task_id: UUID, attempt_id: UUID) -> ComputeObservation:
@@ -156,6 +167,7 @@ def create_app(
     @app.post(
         "/v1/tasks/{task_id}/attempts/{attempt_id}:cancel",
         response_model=ComputeObservation,
+        response_class=ProtocolJSONResponse,
         status_code=status.HTTP_202_ACCEPTED,
         dependencies=protected,
     )
@@ -166,3 +178,6 @@ def create_app(
         return observation
 
     return app
+
+
+__all__ = ["MEDIA_TYPE", "AppState", "create_app"]

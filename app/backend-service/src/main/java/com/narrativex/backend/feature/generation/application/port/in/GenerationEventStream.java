@@ -5,6 +5,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public interface GenerationEventStream {
   SseEmitter connect(String userId);
+  SseEmitter connect();
 
   void publish(GenerationRealtimeEvent event);
 }

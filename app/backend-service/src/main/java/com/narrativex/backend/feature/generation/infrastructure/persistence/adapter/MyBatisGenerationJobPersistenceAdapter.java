@@ -41,50 +41,58 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
-  public Optional<GenerationJob> findByIdAndOwner(UUID id, String ownerId) {
-    return Optional.ofNullable(mapper.findByIdAndOwner(id, ownerId))
+  public Optional<GenerationJob> findById(UUID id) {
+    return Optional.ofNullable(mapper.findById(id))
         .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<GenerationJob> findByJobIdAndOwner(UUID jobId, String ownerId) {
-    return Optional.ofNullable(mapper.findByJobIdAndOwner(jobId, ownerId))
+  public Optional<GenerationJob> findByJobId(UUID jobId) {
+    return Optional.ofNullable(mapper.findByJobId(jobId))
         .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<AnalysisProgress> findAnalysisProgressByJobIdAndOwner(
-      UUID jobId, String ownerId) {
-    return Optional.ofNullable(mapper.findAnalysisProgressByJobIdAndOwner(jobId, ownerId))
+  public Optional<AnalysisProgress> findAnalysisProgressByJobId(UUID jobId) {
+    return Optional.ofNullable(mapper.findAnalysisProgressByJobId(jobId))
         .map(MyBatisGenerationJobPersistenceAdapter::toAnalysisProgress);
   }
 
   @Override
-  public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId) {
-    return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey, ownerId))
+  public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
+    return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey))
         .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<GenerationJob> findLatestByIdempotencyFamily(
-      String baseIdempotencyKey, String ownerId) {
-    return Optional.ofNullable(mapper.findLatestByIdempotencyFamily(baseIdempotencyKey, ownerId))
+  public Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey) {
+    return Optional.ofNullable(mapper.findLatestByIdempotencyFamily(baseIdempotencyKey))
         .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
   }
 
   @Override
-  public void acquireIdempotencyLock(String idempotencyKey, String ownerId) {
-    mapper.acquireIdempotencyLock(idempotencyKey, ownerId);
+  public void acquireIdempotencyLock(String idempotencyKey) {
+    mapper.acquireIdempotencyLock(idempotencyKey);
   }
 
   @Override
-  public void acquireImageCapacityLock(String ownerId) {
-    mapper.acquireImageCapacityLock(ownerId);
+  public void acquireImageCapacityLock() {
+    mapper.acquireImageCapacityLock();
   }
 
   @Override
-  public int countActiveImageJobs(String ownerId) {
-    return mapper.countActiveImageJobs(ownerId);
+  public void acquireAnalysisCapacityLock() {
+    mapper.acquireAnalysisCapacityLock();
+  }
+
+  @Override
+  public int countActiveImageJobs() {
+    return mapper.countActiveImageJobs();
+  }
+
+  @Override
+  public int countActiveJobs() {
+    return mapper.countActiveJobs();
   }
 
   private GenerationJob requireInserted(UUID id) {
@@ -119,7 +127,6 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         job.getProgress(),
         job.getCurrentStep(),
         job.getErrorCode(),
-        job.getRequestedByUserId(),
         job.getStoryVersionId(),
         job.getChapterId(),
         job.getChapterRowVersion(),
@@ -147,7 +154,6 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         row.getProgress(),
         row.getCurrentStep(),
         row.getErrorCode(),
-        row.getRequestedByUserId(),
         row.getStoryVersionId(),
         row.getChapterId(),
         row.getStoryboardRevisionId(),

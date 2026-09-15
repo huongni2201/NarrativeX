@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
@@ -19,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateChapterUseCase {
-  private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final ChapterSourceHasher sourceHasher;
@@ -27,9 +25,8 @@ public class CreateChapterUseCase {
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(CreateChapterCommand command) {
-    String ownerId = currentUserId.get();
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), command.storyVersionId(), ownerId);
+    storyVersionAccess.requireStoryVersion(
+        command.projectId(), command.storyVersionId());
     validateSourceSize(command.sourceText());
     if (chapterRepository.existsByStoryVersionIdAndOrderIndex(
         command.storyVersionId(), command.orderIndex())) {

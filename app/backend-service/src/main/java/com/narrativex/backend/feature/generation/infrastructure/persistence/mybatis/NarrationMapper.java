@@ -13,7 +13,6 @@ public interface NarrationMapper extends NarrativeXMyBatisMapper {
   int insertOperation(NarrationOperationRow row);
 
   VoicePreviewResultRow findCompletedVoicePreview(
-      @Param("ownerId") String ownerId,
       @Param("projectId") UUID projectId,
       @Param("jobId") UUID jobId);
 }

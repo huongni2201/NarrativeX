@@ -21,6 +21,7 @@
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
     <select id="findOwned" resultMap="finalArtifactRow">
+    <select id="findById" resultMap="finalArtifactRow">
         SELECT fa.id, fa.project_id, fa.chapter_id, fa.artifact_type, fa.render_fingerprint,
                fa.storage_key,
                fa.mime_type, fa.size_bytes, fa.checksum_sha256, fa.duration_ms,

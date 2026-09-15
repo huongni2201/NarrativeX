@@ -58,7 +58,6 @@
       FROM story_versions sv
       JOIN projects p ON p.id = sv.project_id
      WHERE p.id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-       AND p.owner_id = #{ownerId}
        AND p.archived_at IS NULL
        AND sv.status IN ('ACTIVE', 'DRAFT')
      ORDER BY CASE WHEN sv.status = 'ACTIVE' THEN 0 ELSE 1 END,

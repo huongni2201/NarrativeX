@@ -5,8 +5,8 @@
 <mapper namespace="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalDeviceMapper">
 
   <insert id="insertPairingCode">
-    INSERT INTO local_device_pairing_codes (user_id, code_hash, expires_at)
-    VALUES (#{userId}, #{codeHash}, #{expiresAt})
+    INSERT INTO local_device_pairing_codes (code_hash, expires_at)
+    VALUES (#{codeHash}, #{expiresAt})
   </insert>
 
   <select id="consumePairingCode"
@@ -17,22 +17,22 @@
     WHERE code_hash = #{codeHash}
       AND consumed_at IS NULL
       AND expires_at &gt; #{now}
-    RETURNING id, user_id AS userId, expires_at AS expiresAt, consumed_at AS consumedAt
+    RETURNING id, expires_at AS expiresAt, consumed_at AS consumedAt
   </select>
 
   <insert id="insertDevice">
     INSERT INTO local_devices (
-      id, user_id, name, platform, agent_version, token_hash,
+      id, name, platform, agent_version, token_hash,
       last_seen_at, created_at, updated_at
     ) VALUES (
-      #{id}, #{userId}, #{name}, #{platform}, #{agentVersion}, #{tokenHash},
+      #{id}, #{name}, #{platform}, #{agentVersion}, #{tokenHash},
       #{now}, #{now}, #{now}
     )
   </insert>
 
   <select id="findByTokenHash"
           resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.DeviceRow">
-    SELECT id, user_id AS userId, revoked_at AS revokedAt
+    SELECT id, revoked_at AS revokedAt
     FROM local_devices
     WHERE token_hash = #{tokenHash}
   </select>
@@ -63,7 +63,7 @@
     ORDER BY capability
   </select>
 
-  <select id="listByUser"
+  <select id="list"
           resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.DeviceListRow">
     SELECT id,
            name,
@@ -72,8 +72,7 @@
            last_seen_at AS lastSeenAt,
            (revoked_at IS NULL AND last_seen_at &gt;= #{onlineThreshold}) AS online
     FROM local_devices
-    WHERE user_id = #{userId}
-      AND revoked_at IS NULL
+    WHERE revoked_at IS NULL
     ORDER BY created_at DESC
   </select>
 </mapper>

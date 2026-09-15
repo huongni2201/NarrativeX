@@ -44,6 +44,7 @@ class CharacterVersionReferencesUseCaseTest {
   @Test
   void rejectsReferenceMutationAfterCharacterVersionIsLocked() {
     when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+    when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
     var useCase = setUseCase();
 
@@ -63,8 +64,10 @@ class CharacterVersionReferencesUseCaseTest {
   @Test
   void rejectsNonReadyOrNonImageAssets() {
     when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+    when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
     when(mediaAssetAccess.findOwnedSummary("owner", IDENTITY_ASSET))
+    when(mediaAssetAccess.findSummary(IDENTITY_ASSET))
         .thenReturn(Optional.of(asset(IDENTITY_ASSET, "VIDEO", "READY", "video/mp4")));
     var useCase = setUseCase();
 
@@ -84,10 +87,13 @@ class CharacterVersionReferencesUseCaseTest {
   @Test
   void requiresHighestPriorityReferenceToBeIdentityAndPersistsSortedReferences() {
     when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
+    when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
     when(mediaAssetAccess.findOwnedSummary("owner", IDENTITY_ASSET))
+    when(mediaAssetAccess.findSummary(IDENTITY_ASSET))
         .thenReturn(Optional.of(asset(IDENTITY_ASSET, "IMAGE", "READY", "image/png")));
     when(mediaAssetAccess.findOwnedSummary("owner", PROFILE_ASSET))
+    when(mediaAssetAccess.findSummary(PROFILE_ASSET))
         .thenReturn(Optional.of(asset(PROFILE_ASSET, "IMAGE", "READY", "image/jpeg")));
     var useCase = setUseCase();
 
@@ -125,11 +131,13 @@ class CharacterVersionReferencesUseCaseTest {
   void readsReferencesOnlyThroughOwnedCharacterVersion() {
     var expected = List.of(new CharacterVersionReference(IDENTITY_ASSET, "IDENTITY", 0));
     when(versionRepository.findOwnedById(VERSION_ID, "owner"))
+    when(versionRepository.findById(VERSION_ID))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(expected);
     var useCase =
         new GetCharacterVersionReferencesUseCase(
             currentUserId, versionRepository, referenceRepository);
+            versionRepository, referenceRepository);
 
     assertThat(useCase.execute(CHARACTER_ID, VERSION_ID)).isEqualTo(expected);
     verify(referenceRepository).findByVersionId(VERSION_ID);
@@ -138,6 +146,7 @@ class CharacterVersionReferencesUseCaseTest {
   private SetCharacterVersionReferencesUseCase setUseCase() {
     return new SetCharacterVersionReferencesUseCase(
         currentUserId, versionRepository, referenceRepository, mediaAssetAccess);
+        versionRepository, referenceRepository, mediaAssetAccess);
   }
 
   private static CharacterVersion version(CharacterVersionStatus status) {
@@ -151,6 +160,7 @@ class CharacterVersionReferencesUseCaseTest {
         status,
         status == CharacterVersionStatus.LOCKED ? Instant.parse("2026-08-23T00:00:00Z") : null,
         status == CharacterVersionStatus.LOCKED ? "owner" : null);
+        status == CharacterVersionStatus.LOCKED ? Instant.parse("2026-08-23T00:00:00Z") : null);
   }
 
   private static MediaAssetSummary asset(UUID id, String type, String status, String contentType) {

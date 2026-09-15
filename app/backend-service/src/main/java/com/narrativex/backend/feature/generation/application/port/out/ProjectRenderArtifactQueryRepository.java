@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface ProjectRenderArtifactQueryRepository {
   Optional<ProjectRenderArtifactView> findByJobId(UUID projectId, UUID jobId, String ownerId);
+  Optional<ProjectRenderArtifactView> findByJobId(UUID projectId, UUID jobId);
 }

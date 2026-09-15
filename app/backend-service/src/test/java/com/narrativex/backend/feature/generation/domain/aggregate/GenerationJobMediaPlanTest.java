@@ -44,6 +44,7 @@ class GenerationJobMediaPlanTest {
             "en",
             "chapter-generate:" + chapterId + ":4",
             "user-1");
+            "chapter-generate:" + chapterId + ":4");
 
     assertThat(job.getChapterId()).isEqualTo(chapterId);
     assertThat(job.getChapterRowVersion()).isEqualTo(8L);

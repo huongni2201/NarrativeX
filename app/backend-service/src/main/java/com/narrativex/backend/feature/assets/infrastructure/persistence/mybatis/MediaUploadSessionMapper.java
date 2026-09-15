@@ -9,26 +9,21 @@ import org.apache.ibatis.annotations.Param;
 public interface MediaUploadSessionMapper extends NarrativeXMyBatisMapper {
   int insert(CreateUploadSession command);
 
-  MediaUploadSessionRow findOwnedSnapshot(
-      @Param("accountId") String accountId, @Param("id") UUID id);
+  MediaUploadSessionRow findSnapshot(@Param("id") UUID id);
 
-  MediaUploadSessionRow findOwnedForUpdate(
-      @Param("accountId") String accountId, @Param("id") UUID id);
+  MediaUploadSessionRow findForUpdate(@Param("id") UUID id);
 
-  MediaUploadSessionRow findByIdempotencyKey(
-      @Param("accountId") String accountId, @Param("idempotencyKey") String idempotencyKey);
+  MediaUploadSessionRow findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
 
   int markValidating(
-      @Param("accountId") String accountId,
       @Param("id") UUID id,
       @Param("mediaAssetId") UUID mediaAssetId);
 
   int markReady(
-      @Param("accountId") String accountId,
       @Param("id") UUID id,
       @Param("mediaAssetId") UUID mediaAssetId);
 
-  int markRejected(@Param("accountId") String accountId, @Param("id") UUID id);
+  int markRejected(@Param("id") UUID id);
 
   List<ExpiredUploadRow> findExpiredPending(@Param("limit") int limit);
 

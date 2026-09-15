@@ -70,10 +70,12 @@ class GenerateChapterNarrationUseCaseTest {
 
     when(currentUserId.get()).thenReturn(ownerId);
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, ownerId))
+    when(chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId))
         .thenReturn(
             new ChapterAnalysisSource(
                 chapterId, storyVersionId, 7L, "a".repeat(64), "Narration source text"));
     when(projectAccess.findOwnedProject(projectId, ownerId)).thenReturn(project);
+    when(projectAccess.findProject(projectId)).thenReturn(project);
     when(project.getSourceLanguage()).thenReturn("vi");
     when(voiceCatalogAccess.findVoice("voicestudio-disabled")).thenReturn(Optional.empty());
 
