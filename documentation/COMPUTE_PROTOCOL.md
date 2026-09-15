@@ -11,7 +11,7 @@ The backend is the control plane. It owns domain interpretation, admission, enti
 capacity checks, `GenerationJob`, `StageAttempt`, `ProviderOperation`, retries, reconciliation,
 idempotency, outbox state, artifact publication, and all NarrativeX database writes.
 
-`gpu-worker` is a domain-agnostic execution plane. It accepts a fully materialized compute task,
+`generation-service` is a domain-agnostic execution plane. It accepts a fully materialized compute task,
 invokes an executor, stages output artifacts, and reports observations. It must not:
 
 - receive or infer `Project`, `Chapter`, `Scene`, `VisualBeat`, character, workspace, or user IDs;
@@ -279,7 +279,7 @@ execution-local and contains no NarrativeX domain data.
 - Authenticate each target using a separate machine credential; prefer mTLS for remote targets and
   bind local workers to loopback/private interfaces. Rotate credentials independently of users.
 - Authorize callback events to one target identity and reject task/attempt mismatches.
-- Never pass `DATABASE_URL` or NarrativeX service credentials to `gpu-worker`.
+- Never pass `DATABASE_URL` or NarrativeX service credentials to `generation-service`.
 - Enforce request size, artifact size, media type, checksum, decompression, runtime, output count,
   concurrency, and model allow-list limits before execution.
 - Redact prompt/input content, signed artifact URLs, voice references, provider bodies, and execution

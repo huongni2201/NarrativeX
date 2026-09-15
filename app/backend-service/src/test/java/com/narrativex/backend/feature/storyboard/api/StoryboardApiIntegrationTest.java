@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.storyboard.api;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -203,7 +202,6 @@ class StoryboardApiIntegrationTest {
                     + "/visual-beats/"
                     + BEAT_1
                     + "/preview-media")
-                .with(csrf())
                 .header("If-Match", "\"0\"")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"mediaAssetId\":\"" + PREVIEW_MEDIA_ASSET + "\"}"))

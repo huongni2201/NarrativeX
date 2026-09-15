@@ -143,7 +143,7 @@ public class GenerationJobEventStreamService {
     }
   }
 
-  private static String eventId(GenerationJob job, JobResponse snapshot) {
+  static String eventId(GenerationJob job, JobResponse snapshot) {
     return job.getId()
         + ":"
         + snapshot.status()
@@ -154,15 +154,13 @@ public class GenerationJobEventStreamService {
         + ':'
         + value(snapshot.errorCode())
         + ':'
-        + value(snapshot.analysisProgress() == null ? null : snapshot.analysisProgress().status())
+        + value(snapshot.phase())
         + ':'
-        + value(snapshot.analysisProgress() == null ? null : snapshot.analysisProgress().progress())
+        + value(snapshot.completedShards())
         + ':'
         + value(snapshot.mediaPlanId())
         + ':'
         + value(snapshot.mediaPlanRevision())
-        + ':'
-        + value(snapshot.regenerationPlanId())
         + ':'
         + value(snapshot.repairCount())
         + ':'

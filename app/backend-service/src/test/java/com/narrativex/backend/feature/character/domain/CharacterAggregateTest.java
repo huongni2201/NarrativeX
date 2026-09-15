@@ -25,7 +25,6 @@ class CharacterAggregateTest {
     UUID project2Id = UuidV7.random();
     Character character =
         Character.rehydrate(
-            characterId, 0L, "owner", null, "Mina", java.util.List.of("M"), CharacterStatus.ACTIVE);
             characterId, 0L, "Mina", java.util.List.of("M"), CharacterStatus.ACTIVE);
 
     ProjectCharacter first =
@@ -120,7 +119,6 @@ class CharacterAggregateTest {
             "bible",
             "prompt",
             CharacterVersionStatus.DRAFT,
-            null,
             null);
     ProjectCharacter assignment =
         ProjectCharacter.assign(
@@ -136,7 +134,6 @@ class CharacterAggregateTest {
     assertThrows(
         InvalidProjectCharacterTransitionException.class, () -> assignment.pinVersion(version));
     version.submitForReview();
-    version.lock("owner");
     version.lock();
     assignment.pinVersion(version);
 

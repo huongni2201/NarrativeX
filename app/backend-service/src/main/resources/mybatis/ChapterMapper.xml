@@ -19,12 +19,14 @@
         <result property="generationProgress" column="generation_progress" />
         <result property="sourceStoryVersionId" column="source_story_version_id" />
         <result property="inheritedSnapshotHash" column="inherited_snapshot_hash" />
+        <result property="currentStoryboardRevisionId" column="current_storyboard_revision_id" />
     </resultMap>
 
     <sql id="columns">
         id, row_version, created_at, updated_at, deleted_at, story_version_id, order_index,
         title, source_text, source_hash, status, estimated_duration_ms,
-        generation_progress, source_story_version_id, inherited_snapshot_hash
+        generation_progress, source_story_version_id, inherited_snapshot_hash,
+        current_storyboard_revision_id
     </sql>
 
     <select id="insert"
@@ -34,12 +36,14 @@
         INSERT INTO chapters (
             row_version, created_at, updated_at, story_version_id, order_index,
             title, source_text, source_hash, status, estimated_duration_ms,
-            generation_progress, source_story_version_id, inherited_snapshot_hash
+            generation_progress, source_story_version_id, inherited_snapshot_hash,
+            current_storyboard_revision_id
         )
         VALUES (
             #{rowVersion}, #{createdAt}, #{updatedAt}, #{storyVersionId}, #{orderIndex},
             #{title}, #{sourceText}, #{sourceHash}, #{status}, #{estimatedDurationMs},
-            #{generationProgress}, #{sourceStoryVersionId}, #{inheritedSnapshotHash}
+            #{generationProgress}, #{sourceStoryVersionId}, #{inheritedSnapshotHash},
+            #{currentStoryboardRevisionId}
         )
         RETURNING id
     </select>
@@ -47,16 +51,17 @@
     <update id="update"
             parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow">
         UPDATE chapters
-           SET story_version_id = #{storyVersionId},
-               order_index = #{orderIndex},
-               title = #{title},
-               source_text = #{sourceText},
-               source_hash = #{sourceHash},
-               updated_at = #{updatedAt},
-               row_version = row_version + 1
-         WHERE id = #{id}
-           AND row_version = #{rowVersion}
-           AND deleted_at IS NULL
+            SET story_version_id = #{storyVersionId},
+                order_index = #{orderIndex},
+                title = #{title},
+                source_text = #{sourceText},
+                source_hash = #{sourceHash},
+                current_storyboard_revision_id = #{currentStoryboardRevisionId},
+                updated_at = #{updatedAt},
+                row_version = row_version + 1
+          WHERE id = #{id}
+            AND row_version = #{rowVersion}
+            AND deleted_at IS NULL
     </update>
 
     <update id="clearChapterCreationIdempotency">

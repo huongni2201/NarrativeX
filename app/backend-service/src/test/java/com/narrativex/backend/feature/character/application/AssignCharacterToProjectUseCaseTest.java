@@ -10,7 +10,6 @@ import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.AssignCharacterToProjectCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
@@ -55,7 +54,6 @@ class AssignCharacterToProjectUseCaseTest {
 
     assertEquals(characterId, response.getCharacterId());
     assertEquals(projectId, response.getProjectId());
-    verify(projectAccess).findOwnedProject(projectId, "owner");
     verify(projectAccess).findProject(projectId);
     verify(projectCharacterRepository).save(any(ProjectCharacter.class));
   }
@@ -227,35 +225,28 @@ class AssignCharacterToProjectUseCaseTest {
   }
 
   private AssignCharacterToProjectUseCase newUseCase() {
-    CurrentUserId currentUserId = () -> "owner";
     return new AssignCharacterToProjectUseCase(
         characterRepository,
         versionRepository,
         projectCharacterRepository,
-        projectAccess,
-        currentUserId);
         projectAccess);
   }
 
   private void stubOwnedProjectAndCharacter(UUID projectId, UUID characterId) {
     Character character =
         Character.rehydrate(
-            characterId, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
             characterId, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
     Project project =
         Project.rehydrate(
             projectId,
             0L,
             "Story",
-            "owner",
             ProjectStatus.DRAFT,
             "vi-VN",
             "vi-VN",
             "vi-VN",
             AspectRatio.RATIO_16_9,
             null);
-    when(projectAccess.findOwnedProject(projectId, "owner")).thenReturn(project);
-    when(characterRepository.findOwnedById(characterId, "owner"))
     when(projectAccess.findProject(projectId)).thenReturn(project);
     when(characterRepository.findById(characterId))
         .thenReturn(Optional.of(character));

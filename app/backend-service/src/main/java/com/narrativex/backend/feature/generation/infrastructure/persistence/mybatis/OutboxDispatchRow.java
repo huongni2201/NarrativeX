@@ -7,4 +7,5 @@ import lombok.Setter;
 @Setter
 public class OutboxDispatchRow {
   private long id;
+  private String aggregateId;
 }

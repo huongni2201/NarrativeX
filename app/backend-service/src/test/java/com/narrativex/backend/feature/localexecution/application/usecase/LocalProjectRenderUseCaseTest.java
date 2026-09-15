@@ -23,7 +23,6 @@ class LocalProjectRenderUseCaseTest {
   void claimRequiresProjectRenderCapabilityAndUsesDeviceScopedWorkerLease() {
     UUID deviceId = UUID.randomUUID();
     when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
-        .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId, "user-1"));
         .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId));
     when(store.claimNext(eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90)))
         .thenReturn(Optional.empty());
@@ -40,7 +39,6 @@ class LocalProjectRenderUseCaseTest {
     UUID jobId = UUID.randomUUID();
     UUID leaseToken = UUID.randomUUID();
     when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
-        .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId, "user-1"));
         .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId));
     when(store.updateProgress(jobId, deviceId, "desktop:" + deviceId, leaseToken, 40, "RENDERING"))
         .thenReturn(false);
@@ -69,7 +67,6 @@ class LocalProjectRenderUseCaseTest {
             1080,
             30);
     when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
-        .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId, "user-1"));
         .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId));
 
     useCase.complete("device-token", jobId, leaseToken, result);
@@ -98,7 +95,6 @@ class LocalProjectRenderUseCaseTest {
     UUID jobId = UUID.randomUUID();
     UUID leaseToken = UUID.randomUUID();
     when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
-        .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId, "user-1"));
         .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId));
     when(store.cancel(jobId, deviceId, "desktop:" + deviceId, leaseToken)).thenReturn(false);
 
@@ -109,3 +105,4 @@ class LocalProjectRenderUseCaseTest {
     verify(store).cancel(jobId, deviceId, "desktop:" + deviceId, leaseToken);
   }
 }
+

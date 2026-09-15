@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.CreateOutfitVersionCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.OutfitVersionRepository;
@@ -31,32 +30,26 @@ class CreateOutfitVersionUseCaseTest {
 
   @Test
   void locksCharacterBeforeAllocatingNextVersion() {
-    when(characterRepository.findOwnedByIdForUpdate(CHARACTER_ID, "owner"))
     when(characterRepository.findByIdForUpdate(CHARACTER_ID))
         .thenReturn(Optional.of(character()));
     when(outfitVersionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
     when(outfitVersionRepository.save(any(OutfitVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
-    CurrentUserId currentUserId = () -> "owner";
     CreateOutfitVersionUseCase useCase =
-        new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository, currentUserId);
         new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository);
 
     OutfitVersion response =
         useCase.execute(
-            new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt", "owner"));
-            new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt", null));
+            new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt"));
 
     assertEquals(4, response.getVersionNumber());
-    verify(characterRepository).findOwnedByIdForUpdate(CHARACTER_ID, "owner");
-    verify(characterRepository, never()).findOwnedById(CHARACTER_ID, "owner");
     verify(characterRepository).findByIdForUpdate(CHARACTER_ID);
     verify(characterRepository, never()).findById(CHARACTER_ID);
   }
 
   private static Character character() {
     return Character.rehydrate(
-        CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
         CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }
+

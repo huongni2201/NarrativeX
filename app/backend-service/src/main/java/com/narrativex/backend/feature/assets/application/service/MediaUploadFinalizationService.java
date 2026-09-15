@@ -49,70 +49,51 @@ public class MediaUploadFinalizationService {
   }
 
   @Transactional
-  public UploadFinalizeView finalizeVerifiedObject(
-      String accountId, UUID sessionId, StoredObject storedObject) {
-    return finalizeLocked(accountId, sessionId, storedObject);
   public UploadFinalizeView finalizeVerifiedObject(UUID sessionId, StoredObject storedObject) {
     return finalizeLocked(sessionId, storedObject);
   }
 
   @Transactional
-  public UploadFinalizeView finalizeMissingObject(String accountId, UUID sessionId) {
-    return finalizeLocked(accountId, sessionId, null);
   public UploadFinalizeView finalizeMissingObject(UUID sessionId) {
     return finalizeLocked(sessionId, null);
   }
 
   @Transactional
-  public UploadFinalizeView returnAuthoritativeResult(String accountId, UUID sessionId) {
-    return finalizeLocked(accountId, sessionId, null);
   public UploadFinalizeView returnAuthoritativeResult(UUID sessionId) {
     return finalizeLocked(sessionId, null);
   }
 
   @Transactional
-  public void rejectExpired(String accountId, UUID sessionId) {
-    UploadSession locked = requireOwnedForUpdate(accountId, sessionId);
   public void rejectExpired(UUID sessionId) {
     UploadSession locked = requireForUpdate(sessionId);
     if ("PENDING_UPLOAD".equals(locked.status())
         && locked.expiresAt().isBefore(Instant.now(clock))) {
-      rejectAndScheduleCleanup(accountId, locked, "EXPIRED_UPLOAD");
       rejectAndScheduleCleanup(locked, "EXPIRED_UPLOAD");
     }
   }
 
-  private UploadFinalizeView finalizeLocked(
-      String accountId, UUID sessionId, StoredObject storedObject) {
-    UploadSession locked = requireOwnedForUpdate(accountId, sessionId);
   private UploadFinalizeView finalizeLocked(UUID sessionId, StoredObject storedObject) {
     UploadSession locked = requireForUpdate(sessionId);
     return switch (locked.status()) {
       case "READY", "VALIDATING" -> authoritativeView(locked);
       case "REJECTED" -> rejectedView(locked);
-      case "PENDING_UPLOAD" -> finalizePending(accountId, locked, storedObject);
       case "PENDING_UPLOAD" -> finalizePending(locked, storedObject);
       default ->
           throw new IllegalStateException("Unsupported upload session status: " + locked.status());
     };
   }
 
-  private UploadFinalizeView finalizePending(
-      String accountId, UploadSession locked, StoredObject storedObject) {
   private UploadFinalizeView finalizePending(UploadSession locked, StoredObject storedObject) {
     if (locked.expiresAt().isBefore(Instant.now(clock))) {
-      return rejectAndScheduleCleanup(accountId, locked, "EXPIRED_UPLOAD");
       return rejectAndScheduleCleanup(locked, "EXPIRED_UPLOAD");
     }
     if (storedObject == null || !matches(locked, storedObject)) {
-      return rejectAndScheduleCleanup(accountId, locked, "UPLOAD_VERIFICATION_FAILED");
       return rejectAndScheduleCleanup(locked, "UPLOAD_VERIFICATION_FAILED");
     }
 
     String checksum = storedObject.sha256().toLowerCase(Locale.ROOT);
     VoiceReferenceAsset canonical =
         voiceReferences.createOrReuse(
-            accountId,
             new CreateVoiceReference(
                 UuidV7.random(),
                 locked.storageKey(),
@@ -124,26 +105,22 @@ public class MediaUploadFinalizationService {
       scheduleCleanup(locked.storageKey(), "DUPLICATE_UPLOAD");
     }
     if ("READY".equals(canonical.status())) {
-      if (!sessions.markReady(accountId, locked.id(), canonical.id())) {
       if (!sessions.markReady(locked.id(), canonical.id())) {
         throw new ResourceConflictException("Upload finalization state changed unexpectedly");
       }
       return new UploadFinalizeView(locked.id(), "READY", canonical.id());
     }
     if ("REJECTED".equals(canonical.status())) {
-      if (!sessions.markRejected(accountId, locked.id())) {
       if (!sessions.markRejected(locked.id())) {
         throw new ResourceConflictException("Upload finalization state changed unexpectedly");
       }
       return rejectedView(locked);
     }
-    markSessionValidating(accountId, locked, canonical.id());
     markSessionValidating(locked, canonical.id());
     if (validationJobs != null) {
       validationJobs.enqueue(
           new ValidationRequest(
               canonical.id(),
-              accountId,
               canonical.storageKey(),
               "AUDIO",
               canonical.contentType(),
@@ -153,9 +130,6 @@ public class MediaUploadFinalizationService {
     return new UploadFinalizeView(locked.id(), "VALIDATING", canonical.id());
   }
 
-  private UploadFinalizeView rejectAndScheduleCleanup(
-      String accountId, UploadSession locked, String reason) {
-    if (!sessions.markRejected(accountId, locked.id())) {
   private UploadFinalizeView rejectAndScheduleCleanup(UploadSession locked, String reason) {
     if (!sessions.markRejected(locked.id())) {
       throw new ResourceConflictException("Upload finalization state changed unexpectedly");
@@ -164,8 +138,6 @@ public class MediaUploadFinalizationService {
     return rejectedView(locked);
   }
 
-  private void markSessionValidating(String accountId, UploadSession locked, UUID assetId) {
-    if (!sessions.markValidating(accountId, locked.id(), assetId)) {
   private void markSessionValidating(UploadSession locked, UUID assetId) {
     if (!sessions.markValidating(locked.id(), assetId)) {
       throw new ResourceConflictException("Upload finalization state changed unexpectedly");
@@ -176,10 +148,8 @@ public class MediaUploadFinalizationService {
     cleanupTasks.enqueue(storageKey, reason, Instant.now(clock));
   }
 
-  private UploadSession requireOwnedForUpdate(String accountId, UUID sessionId) {
   private UploadSession requireForUpdate(UUID sessionId) {
     return sessions
-        .findOwnedForUpdate(accountId, sessionId)
         .findForUpdate(sessionId)
         .orElseThrow(() -> new ResourceNotFoundException("Upload session not found"));
   }

@@ -1,10 +1,10 @@
 # ADR-0011: Google OAuth-only identity with Desktop system-browser handoff
 
-**Status:** Accepted  
-**Date:** 2026-08-24  
-**Updated:** 2026-08-26 — guest-first Desktop entry, in-place sign-in gate and OAuth failure handoff
+**Status:** Superseded by ADR-0030
+**Date:** 2026-08-24
+**Updated:** 2026-08-26 — guest-first Desktop entry, in-place sign-in gate and OAuth failure handoff; Superseded: 2026-09-15
 
-**Supersedes:** password-authentication behavior described by earlier runtime documentation. The Spring Security server-managed session model remains authoritative.
+> **Historical rationale only:** Google OAuth and guest installation identity architecture described below was superseded by ADR-0030 and is not part of the current NarrativeX runtime. NarrativeX is a single-user local-first application without account login, authentication gates, or session models.
 
 ## Context
 

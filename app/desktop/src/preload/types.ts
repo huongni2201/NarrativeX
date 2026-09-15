@@ -192,11 +192,6 @@ export interface NarrativeXDesktopBridge {
     subscribe(path: string, handlers: DesktopSseHandlers): () => void;
     uploadVoiceReference(): Promise<VoiceReferenceUploadResult | null>;
   };
-  auth: {
-    login(): Promise<void>;
-    logout(): Promise<DesktopApiResponse>;
-    onCallback(listener: (response: DesktopApiResponse) => void): () => void;
-  };
   preferences: {
     bindUser(userId: string): Promise<DesktopPreferences>;
     get(): Promise<DesktopPreferences>;

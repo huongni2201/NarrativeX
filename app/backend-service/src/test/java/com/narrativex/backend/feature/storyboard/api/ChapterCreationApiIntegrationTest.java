@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.storyboard.api;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -63,7 +62,6 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
     mockMvc
         .perform(
             post("/api/v1/projects/" + PROJECT_ID + "/chapters")
-                .with(csrf())
                 .header("Idempotency-Key", "chapter-create-1003")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(request))
@@ -75,7 +73,6 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
     mockMvc
         .perform(
             post("/api/v1/projects/" + PROJECT_ID + "/chapters")
-                .with(csrf())
                 .header("Idempotency-Key", "chapter-create-1003")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(request))
@@ -102,7 +99,6 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
     mockMvc
         .perform(
             post("/api/v1/projects/" + MISSING_PROJECT_ID + "/chapters")
-                .with(csrf())
                 .header("Idempotency-Key", "chapter-create-missing-project")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(

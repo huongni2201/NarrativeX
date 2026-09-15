@@ -61,7 +61,6 @@ class ProjectStoryVersionLifecycleTest {
         id,
         0L,
         "Project",
-        "owner",
         ProjectStatus.DRAFT,
         "vi-VN",
         "vi-VN",

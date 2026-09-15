@@ -1,4 +1,6 @@
-# NarrativeX AI Worker Codebase
+# NarrativeX AI Worker Codebase (Legacy Migration Residue)
+
+> **Migration notice (2026-09-15):** `app/ai-worker` is a **temporary legacy migration component** scheduled for complete deletion once vertical slices (narration, image, validation) cut over to `app/generation-service` per ADR-0028. Do not treat this direct-polling service as target architecture.
 
 ## Authority
 

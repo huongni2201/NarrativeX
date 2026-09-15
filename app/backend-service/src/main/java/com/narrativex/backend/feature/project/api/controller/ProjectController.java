@@ -57,7 +57,6 @@ public class ProjectController {
       @RequestParam(required = false) String cursor, @RequestParam(defaultValue = "20") int limit) {
     CursorPage<ProjectResponse> page =
         listProjectsUseCase
-            .execute(new ProjectListQuery(null, cursor, limit))
             .execute(new ProjectListQuery(cursor, limit))
             .map(ProjectResponse::from);
     return ResponseEntity.ok(ApiResponse.success("Projects retrieved successfully", page));

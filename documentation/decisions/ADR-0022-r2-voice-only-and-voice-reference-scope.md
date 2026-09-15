@@ -1,7 +1,9 @@
 # ADR-0022: R2 voice-only storage and explicit voice-reference scope
 
-**Status:** Accepted  
-**Date:** 2026-08-31
+**Status:** Partially Superseded by ADR-0030
+**Date:** 2026-08-31 (updated: 2026-09-15)
+
+> **Migration notice (2026-09-15):** ADR-0030 supersedes the `ACCOUNT` voice-reference model. In the single-user local-first architecture, reusable voice assets transition to `GLOBAL_LOCAL` / `PROJECT` local storage rather than account-scoped cloud storage. The local project media boundaries described below remain active.
 
 ## Context
 

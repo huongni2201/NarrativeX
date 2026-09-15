@@ -27,7 +27,6 @@ public class GenerationJobController {
   @GetMapping("/{jobId}")
   public ResponseEntity<ApiResponse<JobResponse>> get(@PathVariable UUID jobId) {
     var details =
-        getGenerationJobUseCase.executeWithProgress(new GetGenerationJobQuery(jobId, null));
         getGenerationJobUseCase.executeWithProgress(new GetGenerationJobQuery(jobId));
     return ResponseEntity.ok(
         ApiResponse.success(

@@ -1,8 +1,6 @@
 # NarrativeX System Architecture — V1.12
 
-> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
-
-NarrativeX is Desktop-only at the editor boundary. Spring Boot is the durable control plane; Electron main owns privileged local project-media and final-render execution.
+NarrativeX is Desktop-only at the editor boundary, single-user local-first, and project-first. Spring Boot is the durable control plane; `generation-service` is the domain-agnostic compute execution plane; Electron main owns privileged local project-media and final-render execution.
 
 ## Topology
 
@@ -12,38 +10,43 @@ Electron Desktop
       |
   preload  -> narrow typed capabilities
       |
-  main     -> auth transport / native files / ProjectStorage /
-              Chrome-CDP web providers / FFmpeg-ffprobe
+  main     -> native files / ProjectStorage / FFmpeg-ffprobe / local render
       |
-      +------------------------------+
-      |                              |
-Spring Boot Backend             Local project workspace
-  -> PostgreSQL                   -> images/audio/video
-  -> Python workers               -> PROJECT voice refs
-                                  -> work/cache
-                                  -> final MP4
+      v HTTP / REST + SSE
+Spring Boot Backend
+  |  \
+  |   \-> PostgreSQL (authoritative control/business state, Flyway V1-V7)
+  |
+  +-> Compute Protocol v1 (HTTP)
+        |
+        v
+  generation-service
+        |
+        +-> VoiceStudio (TTS)
+        +-> WhisperX (forced alignment)
+        +-> ComfyUI (RealVisXL image generation)
+        +-> media validation
+        +-> SQLite execution journal (local crash recovery)
 
-Cloudflare R2
-  -> ACCOUNT voice references/custom voices only
+Legacy migration path — scheduled for removal:
+  app/ai-worker (temporary legacy worker directly polling PostgreSQL)
 ```
 
-Redis is not part of the MVP runtime. Workers discover durable work from PostgreSQL.
+Redis and browser-based editors are removed.
 
 ## Backend authority
 
-Backend owns guest/account ownership, Google-only authentication policy, Projects/Chapters/storyboard/production choices, non-monetary capacity/export quotas and admission, durable generation/provider state, voice-reference scope validation, local-device render leases, stable media identity/checksums/lineage, final-artifact metadata and Flyway schema.
+Backend owns Projects/Chapters/storyboard/production choices, non-monetary system capacity limits, durable generation/provider state, voice-reference scope validation, local-device render leases, stable media identity/checksums/lineage, final-artifact metadata and Flyway schema.
 
-It does not own absolute Desktop paths, final-video bytes or a monetary billing/credit/pricing ledger.
+Per ADR-0030, there is no application User, Account, Authentication, Authorization, Session, or Tenant identity model. It does not own absolute Desktop paths, final-video bytes or a monetary billing/credit/pricing ledger.
 
 ## Electron main
 
-Electron main owns native filesystem and hashing, ProjectStorage/ProjectCatalog and manifest integrity, Gemini Web/browser automation, local device credentials, FFmpeg/ffprobe, render journal/cache and final MP4 playback/export.
+Electron main owns native filesystem and hashing, ProjectStorage/ProjectCatalog and manifest integrity, local device credentials, FFmpeg/ffprobe, render journal/cache and final MP4 playback/export.
 
-## Python workers
+## Compute execution plane (`generation-service`)
 
-Current worker roles are `analysis`, `narration`, `media-validation` and `image-generation`.
-
-Workers do not execute final project rendering and do not host a current video/I2V provider role. Analysis materialization resolves VisualBeat source anchors to deterministic UTF-16 text ranges; production text-to-audio mapping is owned by the backend timeline path.
+`app/generation-service` is the target domain-agnostic execution plane under ADR-0028/ADR-0029. It accepts closed compute tasks over HTTP, tracks submission checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`) in a local SQLite journal, and dispatches to executor adapters (VoiceStudio, WhisperX, ComfyUI, media validation). It has zero access to the NarrativeX business database or project filesystem.
 
 ## Project-media boundary
 
@@ -51,14 +54,14 @@ Workers do not execute final project rendering and do not host a current video/I
 Generated images                 -> project-local media -> Desktop ProjectStorage
 Generated narration              -> project-local media -> Desktop ProjectStorage
 Imported media                   -> Desktop ProjectStorage
-PROJECT voice reference          -> project-local media / project.manifest.json
+PROJECT voice reference          -> Desktop ProjectStorage / project.manifest.json
+GLOBAL_LOCAL voice reference     -> local application voice library
 Render work/cache                -> Desktop project workspace/work
 Final MP4                        -> Desktop project workspace/artifacts
-ACCOUNT voice reference/custom voice -> Cloudflare R2
 Metadata                         -> PostgreSQL
 ```
 
-R2 is not used as generated-project-media transport, fallback or dual write.
+Project bytes are strictly local. The backend coordinates metadata but does not store, proxy or serve final video bytes.
 
 ## Production timing
 
@@ -70,13 +73,13 @@ VisualBeat source_anchor
   -> production beat audio clock
 ```
 
-Complete persisted exact audio spans may remain compatibility input. Provisional fallback timing is Editor-review only and never satisfies final render readiness.
+Narration alignment is the timing authority. Complete persisted exact audio spans may remain compatibility input. Provisional fallback timing is Editor-review only and never satisfies final render readiness.
 
 ## Final render
 
 ```text
 backend admits project render
-  -> reserve non-monetary capacity/export quota
+  -> reserve non-monetary capacity quota
   -> eligible paired Desktop assigned
   -> device claims lease
   -> preflight runtime/disk/assets
@@ -92,12 +95,13 @@ There is no cloud/server final-render executor, no server Chapter-render pipelin
 
 ## Database baseline
 
-The pre-production Flyway baseline is exactly V1–V8. The former V9–V18 patch sequence has been folded into the owning baseline migrations. After first production deployment, applied migrations become immutable and subsequent changes are append-only starting at V9.
+The pre-production Flyway baseline is clean and squashed into **V1–V7**. The former patch sequences have been folded into the owning baseline migrations. After first production deployment, applied migrations become immutable and subsequent changes are append-only starting at V8.
 
 ## Remaining hardening
 
-- packaged build/signing/auto-update and protocol/OAuth coverage;
+- complete generation-service cutover and delete legacy `app/ai-worker`;
+- packaged build/signing/auto-update;
 - richer crash/restart render resume behavior;
 - adaptive narration-driven scene/beat planning;
 - richer asset reuse/reframe/edit lineage;
-- richer provider execution telemetry and operational evidence.
+- provider execution telemetry and operational evidence.

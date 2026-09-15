@@ -1,35 +1,37 @@
 # NarrativeX V1.12 Baseline Implementation Traceability
 
-This matrix maps maintained documentation to implementation checkpoint `main` / `b1457f38a169ccc59a5789c9f40207db275cc06f` (2026-09-12). The versioned V1.11 project spec remains the last formal spec cut, but current code, accepted ADRs, maintained workflow/product docs, migrations and tests are authoritative for AS-IS claims that changed after that cut.
+This matrix maps maintained documentation to implementation checkpoint `main` / `b1457f38a169ccc59a5789c9f40207db275cc06f` (2026-09-12). The versioned V1.12 project spec ([`NARRATIVEX_PROJECT_SPEC_V1_12.md`](source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md)) is the canonical specification. Current code, accepted ADRs, maintained workflow/product docs, migrations and tests are authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
 | Desktop-only editor client | `app/desktop`; former web client absent | IMPLEMENTED |
-| Secure Electron boundary | context-isolated, no-Node-integration BrowserWindow + narrow preload/main capabilities; Chromium renderer sandbox currently disabled for startup compatibility | IMPLEMENTED foundation with documented trade-off |
-| Stable Desktop guest identity | Electron secure installation credential + backend `desktop_guest_installations` / guest session service | IMPLEMENTED |
-| Guest-first free workspace | backend guest allowlists + Desktop guest bootstrap | IMPLEMENTED foundation |
-| Google-only account sign-in | system-browser OIDC + one-time Desktop handoff/exchange | IMPLEMENTED foundation |
-| In-context auth gate | `AUTHENTICATION_REQUIRED` + Desktop LoginModal without route loss | IMPLEMENTED foundation |
-| Guest ownership transfer | auth use case transfers eligible guest-owned workspace metadata on Google exchange | IMPLEMENTED foundation |
+| Secure Electron boundary | context-isolated, no-Node-integration BrowserWindow + narrow preload/main capabilities | IMPLEMENTED foundation |
+| Single-user workspace | direct boot into workspace without login gates or modals (ADR-0030) | IMPLEMENTED |
+| No application authentication | no User, Account, Session, OAuth or CSRF security filter chain (ADR-0030) | IMPLEMENTED |
+| No account/session persistence | no `NX_SESSION`, Spring Session JDBC tables or token cookies | IMPLEMENTED |
+| No user-scoped domain ownership | `Project` is the highest business boundary; no `ownerId` / `userId` threading | IMPLEMENTED |
+| Runtime capacity limits | system capacity reservations limit concurrent expensive work | IMPLEMENTED foundation |
+| Generation-service protocol boundary | Compute Protocol v1 JSON Schemas (`contracts/compute/v1/`) | IMPLEMENTED |
+| Generation-service DB isolation | `app/generation-service` has no access to PostgreSQL business DB or domain IDs | IMPLEMENTED |
+| Submission checkpoint/recovery | SQLite journal records `NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN` (ADR-0031) | IMPLEMENTED |
 | Project/Chapter authoring | backend commands/use cases/MyBatis + Desktop React Query flows | IMPLEMENTED foundation |
-| Chapter Analyze | durable admission + worker execution | IMPLEMENTED |
-| Owner-scoped generation status stream | authenticated job SSE snapshots with Desktop reconnect and watchdog fallback | IMPLEMENTED foundation |
+| Chapter Analyze | durable admission + compute task execution | IMPLEMENTED |
 | Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
 | ProviderOperation reconciliation | durable provider lifecycle with UNKNOWN-before-resubmit discipline | IMPLEMENTED foundation |
 | Non-monetary provider usage telemetry | provider adapters retain diagnostic usage without monetary pricing/cost contracts | IMPLEMENTED foundation |
 | Monetary billing/credit/quota runtime | billing repositories, pricing enforcement and credit settlement are outside the current runtime contract | REMOVED |
 | MyBatis-only production persistence | backend production adapters use MyBatis + explicit PostgreSQL SQL | IMPLEMENTED |
-| Flyway baseline policy | pre-production patch history is folded into the owning migrations; clean databases apply only V1–V8 and create the final schema directly | IMPLEMENTED |
+| Flyway baseline policy | clean databases apply only V1–V7 and create the final schema directly | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
 | Generated narration | VoiceStudio headless provider + WhisperX alignment + project-local WAV persistence/Desktop materialization | IMPLEMENTED foundation |
 | Local audio import | native import/registration with USER_PROVIDED_AUDIO guard | IMPLEMENTED foundation |
-| PROJECT voice-reference storage | project MediaAsset + ProjectStorage/manifest; no R2 storage key | IMPLEMENTED foundation |
-| ACCOUNT voice-reference storage | account-owned READY voice-reference asset + `voices/...` R2 namespace | IMPLEMENTED foundation |
-| Voice-reference scope validation | backend validates PROJECT versus ACCOUNT storage semantics before narration admission | IMPLEMENTED |
+| PROJECT voice-reference storage | project MediaAsset + ProjectStorage/manifest | IMPLEMENTED foundation |
+| GLOBAL_LOCAL voice-reference storage | local reusable voice library in Desktop storage | IMPLEMENTED foundation |
+| Voice-reference scope validation | backend validates PROJECT versus GLOBAL_LOCAL storage semantics before narration admission | IMPLEMENTED |
 | Vertex image generation | queue/provider/review flow + project-local result/materialization | IMPLEMENTED foundation |
 | Gemini Web Desktop generation | Chrome/CDP automation, backend prompt context, local asset commit | IMPLEMENTED foundation |
-| Local-first project media | generated/imported project image/video/audio bytes live in project-local storage; R2 is not project-media transport | IMPLEMENTED foundation |
+| Local-first project media | generated/imported project image/video/audio bytes live in project-local storage | IMPLEMENTED foundation |
 | Native local asset registration | two-phase main-process inspect/hash + backend stable registration + manifest commit | IMPLEMENTED foundation |
 | VisualBeat source anchoring | analysis/source anchor resolves to deterministic UTF-16 `textStart/textEnd` | IMPLEMENTED foundation |
 | Backend text-to-audio mapping | `NarrationTextClockMapper` maps VisualBeat text ranges through narration alignment | IMPLEMENTED foundation |
@@ -62,7 +64,7 @@ This matrix maps maintained documentation to implementation checkpoint `main` / 
 
 ## Current non-claims
 
-NarrativeX has implemented foundations for guest-first Desktop use, local-first project media, explicit PROJECT/ACCOUNT voice-reference storage, source-anchored VisualBeat timing, Storyboard-backed production timelines, exact narration render admission, editable beat media selection, local render preflight, render journals/cache, real-time job updates, Auto Edit planning and render subtitle snapshots.
+NarrativeX has implemented foundations for single-user local-first Desktop use, local-first project media, explicit PROJECT/GLOBAL_LOCAL voice-reference storage, source-anchored VisualBeat timing, Storyboard-backed production timelines, exact narration render admission, editable beat media selection, local render preflight, render journals/cache, real-time job updates, Auto Edit planning and render subtitle snapshots.
 
 NarrativeX does **not** claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, or unrestricted manual timeline retiming. Monetary billing/credit/quota accounting is intentionally not a current-runtime capability rather than an incomplete implementation claim.
 
@@ -70,9 +72,9 @@ NarrativeX does **not** claim production-complete packaging/signing/auto-update,
 
 1. PostgreSQL is durable business/control authority and stores final-artifact metadata only.
 2. Desktop/project-local storage owns accepted project image/video/audio bytes.
-3. R2 is limited to reusable authenticated ACCOUNT voice-reference/custom-voice assets.
-4. PROJECT voice references remain project-local and resolve through stable asset identity + `project.manifest.json` integrity metadata.
-5. Generated project images and narration are not uploaded to R2 as transport, fallback or dual write.
+3. PROJECT voice references remain project-local and resolve through stable asset identity + `project.manifest.json` integrity metadata.
+4. GLOBAL_LOCAL voice references live in local application storage.
+5. Generated project images and narration are not uploaded to remote object storage as transport, fallback or dual write.
 6. Absolute local paths are not persisted as backend identities.
 7. Final MP4 remains in the project artifact workspace unless an explicit export/publish action copies it elsewhere.
 8. Backend and Python workers do not store, stream or proxy final MP4 bytes.
@@ -91,7 +93,5 @@ NarrativeX does **not** claim production-complete packaging/signing/auto-update,
 10. Provider `UNKNOWN` reconciles before external provider resubmission.
 11. Final rendering is backend-assigned and lease-controlled but executed only in Electron main.
 12. FFmpeg final project rendering never runs in unrestricted renderer code or Python AI workers.
-13. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
-14. Google remains the only end-user account sign-in provider.
-15. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
-16. SSE is a best-effort status transport; PostgreSQL job rows remain durable authority.
+13. Backend coordinates durable lifecycle and dispatches domain-agnostic compute tasks to `generation-service`.
+14. SSE is a best-effort status transport; PostgreSQL job rows remain durable authority.

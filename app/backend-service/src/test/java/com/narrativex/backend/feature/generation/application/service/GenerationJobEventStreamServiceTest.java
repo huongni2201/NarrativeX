@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
@@ -25,18 +24,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class GenerationJobEventStreamServiceTest {
-  private static final String OWNER_ID = "owner-1";
-
-  @Mock private CurrentUserId currentUserId;
   @Mock private GenerationJobRepository generationJobRepository;
   @InjectMocks private GenerationJobEventStreamService service;
 
   @Test
-  void rejectsSubscriptionWhenJobIsNotOwned() {
   void rejectsSubscriptionWhenJobNotFound() {
     UUID jobId = UuidV7.random();
-    when(currentUserId.get()).thenReturn(OWNER_ID);
-    when(generationJobRepository.findByJobIdAndOwner(jobId, OWNER_ID)).thenReturn(Optional.empty());
     when(generationJobRepository.findByJobId(jobId)).thenReturn(Optional.empty());
 
     assertThrows(ResourceNotFoundException.class, () -> service.subscribe(jobId));
@@ -50,11 +43,8 @@ class GenerationJobEventStreamServiceTest {
     GenerationJob running = job(jobId, projectId, JobStatus.RUNNING, 25, 0L);
     GenerationJob completed = job(jobId, projectId, JobStatus.COMPLETED, 100, 1L);
 
-    when(currentUserId.get()).thenReturn(OWNER_ID);
-    when(generationJobRepository.findByJobIdAndOwner(jobId, OWNER_ID))
     when(generationJobRepository.findByJobId(jobId))
         .thenReturn(Optional.of(running), Optional.of(completed));
-    when(generationJobRepository.findAnalysisProgressByJobIdAndOwner(jobId, OWNER_ID))
     when(generationJobRepository.findAnalysisProgressByJobId(jobId))
         .thenReturn(Optional.empty());
 
@@ -95,7 +85,6 @@ class GenerationJobEventStreamServiceTest {
         progress,
         status == JobStatus.COMPLETED ? "DONE" : "ANALYZING",
         null,
-        OWNER_ID,
         null,
         null,
         null,
@@ -106,3 +95,4 @@ class GenerationJobEventStreamServiceTest {
         null);
   }
 }
+

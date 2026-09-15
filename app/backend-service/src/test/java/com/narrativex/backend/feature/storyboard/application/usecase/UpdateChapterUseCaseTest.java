@@ -7,7 +7,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
@@ -28,17 +27,15 @@ class UpdateChapterUseCaseTest {
   private static final UUID CHAPTER_ID = UuidV7.random();
   private static final UUID STORY_VERSION_ID = UuidV7.random();
 
-  @Mock private CurrentUserId currentUserId;
   @Mock private StoryVersionAccess storyVersionAccess;
   @Mock private ChapterRepository chapterRepository;
   @Mock private StoryboardRevisionAccess storyboardRevisionAccess;
   @Mock private ChapterSourceHasher sourceHasher;
 
   @Test
-  void rejectsUnauthorizedChapterBeforeAcquiringSerializationLock() {
+  void rejectsNonexistentChapterBeforeAcquiringSerializationLock() {
     var useCase =
         new UpdateChapterUseCase(
-            currentUserId,
             storyVersionAccess,
             chapterRepository,
             storyboardRevisionAccess,
@@ -46,11 +43,9 @@ class UpdateChapterUseCaseTest {
             new NarrativeXLimitsProperties());
     var chapter =
         Chapter.rehydrate(CHAPTER_ID, 2L, STORY_VERSION_ID, 0, "Chapter", "source", SOURCE_HASH);
-    when(currentUserId.get()).thenReturn("user-b");
     when(chapterRepository.findById(CHAPTER_ID)).thenReturn(java.util.Optional.of(chapter));
     doThrow(new ResourceNotFoundException("Story version not found"))
         .when(storyVersionAccess)
-        .requireOwnedStoryVersion(PROJECT_ID, STORY_VERSION_ID, "user-b");
         .requireStoryVersion(PROJECT_ID, STORY_VERSION_ID);
 
     assertThrows(

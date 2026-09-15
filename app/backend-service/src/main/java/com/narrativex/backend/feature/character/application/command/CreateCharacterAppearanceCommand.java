@@ -11,5 +11,4 @@ public record CreateCharacterAppearanceCommand(
     String injury,
     String wardrobeContext,
     String appearancePrompt,
-    UUID outfitVersionId,
-    String ownerId) {}
+    UUID outfitVersionId) {}

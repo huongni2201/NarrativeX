@@ -5,7 +5,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
 import com.narrativex.backend.feature.generation.application.query.ContinuityView;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
@@ -17,11 +16,8 @@ class GetChapterContinuityUseCaseTest {
 
   @Test
   void readsContinuityWithoutAcquiringChapterWriteLock() {
-    var currentUserId = mock(CurrentUserId.class);
     var projectAccess = mock(ProjectAccess.class);
     var continuityRepository = mock(ChapterContinuityRepository.class);
-    var useCase =
-        new GetChapterContinuityUseCase(currentUserId, projectAccess, continuityRepository);
     var useCase = new GetChapterContinuityUseCase(projectAccess, continuityRepository);
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -30,12 +26,11 @@ class GetChapterContinuityUseCaseTest {
         new ChapterContinuityRepository.CurrentContinuity(
             planId, 2, "a".repeat(64), "PASS", 3, "[]");
 
-    when(currentUserId.get()).thenReturn("user-1");
     when(continuityRepository.findCurrent(projectId, chapterId)).thenReturn(Optional.of(current));
 
     assertThat(useCase.execute(projectId, chapterId)).isEqualTo(ContinuityView.from(current));
-    verify(projectAccess).findOwnedProject(projectId, "user-1");
     verify(projectAccess).findProject(projectId);
     verify(continuityRepository).findCurrent(projectId, chapterId);
   }
 }
+

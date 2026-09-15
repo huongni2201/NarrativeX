@@ -1,8 +1,6 @@
 # NarrativeX Service and Module Boundaries — V1.12
 
-> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
-
-NarrativeX uses one Spring Boot modular monolith, separately executed Python worker roles and one Electron Desktop editor. These are ownership boundaries, not microservices for their own sake.
+NarrativeX uses one Spring Boot modular monolith as control plane, `generation-service` as domain-agnostic compute execution plane, and one Electron Desktop editor. These are ownership boundaries, not microservices for their own sake.
 
 ## Desktop renderer
 
@@ -10,53 +8,48 @@ Owns presentation only: routes/screens, React Query state, editor/timeline draft
 
 ## Preload
 
-Exposes narrow task-specific capabilities. Never expose arbitrary Node.js, filesystem, environment or process primitives.
+Exposes narrow task-specific capabilities. Never exposes arbitrary Node.js, filesystem, environment or process primitives.
 
 ## Electron main
 
 Owns privileged Desktop behavior:
 
-- guest credential and backend session transport;
-- Google OAuth/deep-link handling;
 - native file/folder selection and hashing;
 - ProjectStorage/ProjectCatalog and local manifest;
 - backup/restore/storage verification;
-- Chrome/CDP web-provider automation for supported image/video generation workflows;
-- protected local-device identity;
-- render assignment/claim/lease/progress/failure/completion;
+- local device identity and render lease claim;
+- render assignment/progress/failure/completion;
 - FFmpeg/ffprobe, render journal/cache and final-artifact operations.
 
 ## Backend
 
-| Area | Responsibility |
+| Boundary / Feature | Responsibility |
 |---|---|
-| auth/account | guest continuity, Google-linked account, server session, ownership transfer |
-| project/storyboard | Project/Chapter/Scene/VisualBeat source and review state |
-| assets | stable MediaAsset identity/checksums/storage mode/lineage |
-| voice references | PROJECT/ACCOUNT scope validation and account voice catalog ownership/readiness |
-| generation | admission, GenerationJob/StageAttempt/ProviderOperation, MediaPlan where applicable |
-| production timeline | source-range/narration alignment mapping + exact render-readiness + explicit beat media selection |
-| local execution | device enrollment, assignment, claim/lease/progress/terminal state |
-| render metadata | immutable project render snapshots + FinalArtifact metadata |
-| notification | durable user notification state |
-| common | shared primitives/API envelopes only |
+| `project` | Project/Chapter source, authoring and workspace hierarchy |
+| `storyboard` | Scene/VisualBeat source anchors, review state and visual directions |
+| `character` | Character, CharacterVersion snapshots, ProjectCharacter participation |
+| `assets` | Stable MediaAsset identity, checksums, lineage, project media metadata |
+| `generation` | Admission, GenerationJob, StageAttempt, ProviderOperation, capacity limits |
+| `compute` | Compute task materialization, dispatch to generation-service, callback reconciliation |
+| `render` | Immutable project render snapshots, lease assignment, FinalArtifact metadata |
+| `local execution` | Device enrollment, assignment, heartbeat and capability tracking |
+| `catalog` | System profiles, voice catalogs and style references |
+| `runtime configuration` | Application settings, GPU target configuration, provider credentials |
+| `common` | Shared primitives, error handling and API envelopes |
 
-The backend never persists absolute Desktop project paths and never stores/proxies final MP4 bytes.
+The backend never persists absolute Desktop project paths and never stores or proxies final MP4 bytes. Per ADR-0030, caller identity is not threaded through business use cases.
 
-## Python worker
+## Compute execution plane (`generation-service`)
 
-Current roles:
+Owns domain-agnostic compute execution under ADR-0028/ADR-0029:
 
-```text
-analysis
-narration
-media-validation
-image-generation
-```
+- `contracts/compute/v1/` task processing;
+- execution adapters: VoiceStudio, WhisperX, ComfyUI, media validation;
+- local SQLite execution journal (`.runtime/execution_journal.sqlite3`) for crash recovery (ADR-0031);
+- artifact download/upload via opaque capability URLs;
+- zero business DB access and zero domain entity awareness.
 
-Workers own provider mechanics, validation and durable claim/reconciliation. Analysis/materialization resolves VisualBeat source anchors to deterministic UTF-16 source ranges. Narration owns audio/alignment generation. The backend production-timeline layer owns source-range-to-audio mapping.
-
-Workers do not execute final project renders and do not host a current VIDEO/I2V provider role.
+Legacy `app/ai-worker` directly polling PostgreSQL is a temporary migration implementation scheduled for removal.
 
 ## Storage boundaries
 
@@ -64,19 +57,18 @@ Workers do not execute final project renders and do not host a current VIDEO/I2V
 Generated project image/audio        -> project-local media -> Desktop ProjectStorage
 Imported project image/audio/video   -> Desktop ProjectStorage
 PROJECT voice reference              -> project-local media / project.manifest.json
+GLOBAL_LOCAL voice reference         -> local application voice library
 Render work/cache                    -> Desktop workspace/work
 Final MP4                            -> Desktop workspace/artifacts
-ACCOUNT voice reference/custom voice -> Cloudflare R2
 Business/job/artifact metadata       -> PostgreSQL
 ```
 
-R2 is not a transport layer for generated project images/narration and is not final-video storage. PROJECT voice references never require R2 storage metadata.
+Project working media stays local. The backend coordinates metadata but does not serve media bytes.
 
 ## Timing boundary
 
 ```text
-AI worker: source_anchor -> UTF-16 textStart/textEnd
-Narration: source/alignment spans + authoritative encoded audio duration
+Generation-service: WhisperX forced alignment -> timestamp spans
 Backend: text ranges + narration alignment -> production beat audio clock
 Desktop: consume backend-authorized timeline for preview/render
 ```
@@ -89,4 +81,4 @@ The only final project render executor is Electron main under backend authorizat
 
 ## Persistence
 
-Production persistence uses MyBatis + explicit PostgreSQL SQL. Flyway V1–V8 is the clean pre-production baseline. After first production deployment, future changes become append-only.
+Production persistence uses MyBatis + explicit PostgreSQL SQL. Flyway **V1–V7** is the clean pre-production baseline. After first production deployment, future changes become append-only starting at V8.

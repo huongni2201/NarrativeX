@@ -4,7 +4,7 @@ Image generation produces immutable image MediaAssets for VisualBeats. Narrative
 
 ## Admission and editor flow
 
-Desktop generation is an account/provider-consuming action. Guests may prepare project/chapter state, but the backend requires an authenticated user before AI analysis/generation admission.
+Per ADR-0030, image generation operates without user authentication or account gates. Desktop initiates generation within the active project workspace, and backend admission verifies capacity limits and OperationPlan prerequisites.
 
 Current Desktop foundation:
 
@@ -230,13 +230,13 @@ A user may also replace a beat with imported media. Image-only camera/motion con
 
 ## Storage boundary
 
-Generated and imported project media stays local. Cloudflare R2 is reserved for authenticated account-owned voice-reference/custom-voice assets; generated image results are not uploaded to R2 as transport or durability storage.
+Generated and imported project media stays local. Per ADR-0030, voice references are also local-first (`PROJECT` or `GLOBAL_LOCAL`); generated image results and media assets remain within the local project storage boundary.
 
-Backend download URLs for worker-generated images are short-lived capability URLs into the shared project-local media root. They exist only to let the authenticated Desktop workflow materialize and verify the same local bytes without exposing absolute filesystem paths.
+Backend download URLs for worker-generated images are short-lived capability URLs into the shared project-local media root. They exist only to let the Desktop workflow materialize and verify local bytes without exposing absolute filesystem paths.
 
 ## Client upload note
 
-Do not carry forward browser-era R2 CORS instructions as the Desktop import architecture. Desktop native project imports use Electron main + backend stable asset registration + ProjectStorage. Voice-reference upload is the only retained direct R2 upload workflow.
+Desktop native project imports use Electron main + backend stable asset registration + ProjectStorage. Browser-era remote S3/R2 direct upload workflows have been retired.
 
 ## Conditional visual anchors
 

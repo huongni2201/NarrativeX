@@ -9,7 +9,6 @@ import type {
   DesktopVoice,
 } from "@narrativex/client-contracts";
 import { assetsApi, type AssetLibraryScope } from "../../assets/api/assets.api";
-import { useCurrentUserQuery } from "../../auth/queries/auth.queries";
 import { chaptersApi } from "../../chapters/api/chapters.api";
 import { charactersApi } from "../../characters/api/characters.api";
 import { presetsApi } from "../../presets/api/presets.api";
@@ -42,10 +41,9 @@ type WorkspaceQueryRequirements = Readonly<{
 const CATALOG_STALE_TIME_MS = 5 * 60 * 1000;
 
 export const assetLibraryQueryKey = (
-  userId: string,
   projectId: string,
   scope: AssetLibraryScope,
-) => ["assets", "library", userId, projectId, scope] as const;
+) => ["assets", "library", projectId, scope] as const;
 
 const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
@@ -135,14 +133,12 @@ const emptyWorkspace: DesktopWorkspaceState = {
 };
 
 export function useProjectWorkspace(projectId: string | null, screen: ActivityId) {
-  const currentUser = useCurrentUserQuery();
   const projectQuery = useProjectQuery(projectId);
   const enabled = Boolean(projectId);
   const projectAvailable = enabled && projectQuery.isSuccess;
   const requirements = QUERY_REQUIREMENTS[screen];
   const hasAssets = requirements.assetScope !== null;
   const assetScope = requirements.assetScope ?? "all";
-  const currentUserId = currentUser.data?.id;
 
   const timelineQuery = useQuery({
     queryKey: ["projects", projectId, "timeline"],
@@ -158,12 +154,11 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
   });
   const assetsQuery = useQuery({
     queryKey: assetLibraryQueryKey(
-      currentUserId ?? "anonymous",
       projectId ?? "none",
       assetScope,
     ),
     queryFn: () => assetsApi.listAll(projectId as string, assetScope),
-    enabled: projectAvailable && hasAssets && Boolean(currentUserId),
+    enabled: projectAvailable && hasAssets,
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],

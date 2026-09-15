@@ -1,11 +1,12 @@
 # NarrativeX — Project Source of Truth V1.11
 
-> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+> **Status: Historical / Superseded by V1.12** (see [`NARRATIVEX_PROJECT_SPEC_V1_12.md`](./NARRATIVEX_PROJECT_SPEC_V1_12.md)).
+> ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute architecture under ADR-0028/0029 supersedes older worker-polling descriptions.
 
-**Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 2026-08-31  
-**Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`  
+**Status:** Historical baseline (superseded by V1.12)
+**Effective date:** 2026-08-31 (superseded: 2026-09-15)
+**Repository:** `huongni2201/NarrativeX`
+**Docs-sync implementation checkpoint:** `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
 **Primary product boundary:** Electron Desktop editor + backend-authoritative control plane + Desktop local-first project media/render
 
 ---

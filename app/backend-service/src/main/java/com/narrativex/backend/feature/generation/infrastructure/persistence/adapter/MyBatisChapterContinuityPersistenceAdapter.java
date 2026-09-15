@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;

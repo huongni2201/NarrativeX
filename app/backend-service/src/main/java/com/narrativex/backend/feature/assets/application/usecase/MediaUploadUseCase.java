@@ -11,7 +11,6 @@ import com.narrativex.backend.feature.assets.application.query.UploadFinalizeVie
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
 import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
 import com.narrativex.backend.feature.assets.configuration.StorageUploadProperties;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
@@ -25,7 +24,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** R2 upload workflow reserved for reusable account-owned voice references. */
 /** R2 upload workflow reserved for reusable voice references. */
 @Service
 public class MediaUploadUseCase {
@@ -33,7 +31,6 @@ public class MediaUploadUseCase {
   private static final Map<String, String> ALLOWED_VOICE_CONTENT_TYPES =
       Map.of("audio/mpeg", "mp3", "audio/wav", "wav", "audio/x-wav", "wav");
 
-  private final CurrentUserId currentUserId;
   private final MediaUploadSessionRepository sessions;
   private final ObjectStoragePort objectStorage;
   private final MediaUploadFinalizationService finalization;
@@ -42,23 +39,18 @@ public class MediaUploadUseCase {
 
   @Autowired
   public MediaUploadUseCase(
-      CurrentUserId currentUserId,
       MediaUploadSessionRepository sessions,
       ObjectStoragePort objectStorage,
       MediaUploadFinalizationService finalization,
       StorageUploadProperties storageProperties) {
-    this(
-        currentUserId, sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
     this(sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
   }
 
   public MediaUploadUseCase(
-      CurrentUserId currentUserId,
       MediaUploadSessionRepository sessions,
       ObjectStoragePort objectStorage,
       MediaUploadFinalizationService finalization) {
     this(
-        currentUserId,
         sessions,
         objectStorage,
         finalization,
@@ -67,13 +59,11 @@ public class MediaUploadUseCase {
   }
 
   MediaUploadUseCase(
-      CurrentUserId currentUserId,
       MediaUploadSessionRepository sessions,
       ObjectStoragePort objectStorage,
       MediaUploadFinalizationService finalization,
       StorageUploadProperties storageProperties,
       Clock clock) {
-    this.currentUserId = currentUserId;
     this.sessions = sessions;
     this.objectStorage = objectStorage;
     this.finalization = finalization;
@@ -84,12 +74,10 @@ public class MediaUploadUseCase {
   @Transactional
   public UploadIntentView createIntent(
       CreateUploadIntentCommand request, String requestedIdempotencyKey) {
-    String accountId = currentUserId.get();
     validateVoiceReferenceRequest(request);
     String idempotencyKey = normalizeIdempotencyKey(requestedIdempotencyKey);
     if (idempotencyKey != null) {
       UploadSession existing =
-          sessions.findByIdempotencyKey(accountId, idempotencyKey).orElse(null);
           sessions.findByIdempotencyKey(idempotencyKey).orElse(null);
       if (existing != null) {
         if (!sameRequest(existing, request)) {
@@ -110,13 +98,11 @@ public class MediaUploadUseCase {
 
     Instant expiresAt = clock.instant().plus(storageProperties.uploadIntentTtl());
     UUID id = UuidV7.random();
-    String storageKey = voiceStorageKey(accountId, id);
     String storageKey = voiceStorageKey(id);
     UploadSession session =
         sessions.create(
             new CreateUploadSession(
                 id,
-                accountId,
                 "AUDIO",
                 request.originalFilename().trim(),
                 normalize(request.contentType()),
@@ -129,19 +115,15 @@ public class MediaUploadUseCase {
   }
 
   public UploadFinalizeView finalizeUpload(UUID id) {
-    String accountId = currentUserId.get();
     UploadSession session =
         sessions
-            .findOwnedSnapshot(accountId, id)
             .findSnapshot(id)
             .orElseThrow(() -> new ResourceNotFoundException("Upload session not found"));
 
     if ("READY".equals(session.status()) || "VALIDATING".equals(session.status())) {
-      return finalization.returnAuthoritativeResult(accountId, id);
       return finalization.returnAuthoritativeResult(id);
     }
     if ("REJECTED".equals(session.status())) {
-      return finalization.returnAuthoritativeResult(accountId, id);
       return finalization.returnAuthoritativeResult(id);
     }
 
@@ -149,10 +131,8 @@ public class MediaUploadUseCase {
     try {
       object = objectStorage.head(session.storageKey());
     } catch (ObjectStoragePort.ObjectNotFoundException exception) {
-      return finalization.finalizeMissingObject(accountId, id);
       return finalization.finalizeMissingObject(id);
     }
-    return finalization.finalizeVerifiedObject(accountId, id, object);
     return finalization.finalizeVerifiedObject(id, object);
   }
 
@@ -183,13 +163,6 @@ public class MediaUploadUseCase {
     }
   }
 
-  private static String voiceStorageKey(String accountId, UUID uploadId) {
-    String safeAccount =
-        accountId == null ? "unknown" : accountId.trim().replaceAll("[^A-Za-z0-9._-]", "_");
-    if (safeAccount.isBlank()) {
-      throw new IllegalArgumentException("Authenticated account id is required for voice upload");
-    }
-    return "voices/" + safeAccount + "/uploads/" + uploadId;
   private static String voiceStorageKey(UUID uploadId) {
     return "voices/uploads/" + uploadId;
   }

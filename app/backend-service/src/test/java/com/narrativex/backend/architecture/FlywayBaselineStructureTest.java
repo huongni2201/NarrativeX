@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Verifies the pre-release PostgreSQL baseline is cleanly separated by responsibility. */
 /** Verifies the pre-release single-user PostgreSQL baseline is cleanly separated by responsibility. */
 class FlywayBaselineStructureTest {
   @Test
@@ -18,14 +17,6 @@ class FlywayBaselineStructureTest {
         FlywayMigrationContract.canonicalMigrationNames(),
         FlywayMigrationContract.discoverMigrationNames());
 
-    String v1 = read("V1__identity_and_access.sql");
-    String v2 = read("V2__project_story_and_planning.sql");
-    String v3 = read("V3__generation_quota_and_media.sql");
-    String v4 = read("V4__narration_notifications_and_artifacts.sql");
-    String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
-    String v6 = read("V6__database_logic_and_triggers.sql");
-    String v7 = read("V7__indexes.sql");
-    String v8 = read("V8__seed_catalog.sql");
     String v1 = read("V1__project_story_and_planning.sql");
     String v2 = read("V2__generation_and_media.sql");
     String v3 = read("V3__narration_and_artifacts.sql");
@@ -34,23 +25,14 @@ class FlywayBaselineStructureTest {
     String v6 = read("V6__indexes.sql");
     String v7 = read("V7__seed_catalog.sql");
 
-    for (String schema : new String[] {v1, v2, v3, v4, v5, v6}) {
     for (String schema : new String[] {v1, v2, v3, v4, v5}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     }
     assertFalse(v6.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
     assertFalse(v7.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
-    assertFalse(v8.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
-    assertFalse(v8.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
-    assertFalse(v8.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
     assertFalse(v7.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v7.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
 
-    assertTrue(v1.contains("CREATE TABLE auth_users"));
-    assertTrue(v1.contains("CREATE TABLE desktop_guest_installations"));
-    assertTrue(v1.contains("CREATE TABLE desktop_auth_handoffs"));
-    assertTrue(v1.contains("CREATE TABLE SPRING_SESSION"));
-    assertTrue(v1.contains("CREATE TABLE local_devices"));
     // V1 - Project, Story, Characters, Storyboard
     assertTrue(v1.contains("CREATE TABLE projects"));
     assertTrue(v1.contains("CREATE TABLE project_favorites"));
@@ -66,23 +48,16 @@ class FlywayBaselineStructureTest {
     assertTrue(v1.contains("reuse_source_visual_beat_id UUID"));
     assertTrue(v1.contains("ck_visual_beats_visual_direction_json_object"));
     assertTrue(v1.contains("CHECK (production_mode = 'IMAGE_MOTION')"));
-
-    assertTrue(v2.contains("CREATE TABLE projects"));
-    assertTrue(v2.contains("CREATE TABLE story_versions"));
-    assertTrue(v2.contains("CREATE TABLE scenes"));
-    assertTrue(v2.contains("CREATE TABLE media_plans"));
-    assertTrue(v2.contains("reuse_source_visual_beat_id UUID"));
-    assertTrue(v2.contains("ck_visual_beats_visual_direction_json_object"));
-    assertTrue(v2.contains("CHECK (production_mode = 'IMAGE_MOTION')"));
-    assertFalse(v2.contains("preview_asset_id"));
-    assertFalse(v2.contains("estimated_cost"));
-    assertFalse(v2.contains("pricing_snapshot_json"));
-    assertFalse(v2.contains("pricing_fingerprint"));
-    String visualBeats = table(v2, "visual_beats", "visual_beat_characters");
+    assertFalse(v1.contains("preview_asset_id"));
+    assertFalse(v1.contains("estimated_cost"));
+    assertFalse(v1.contains("pricing_snapshot_json"));
+    assertFalse(v1.contains("pricing_fingerprint"));
+    String visualBeats = table(v1, "visual_beats", "visual_beat_characters");
     assertFalse(visualBeats.contains("camera_angle"));
     assertFalse(visualBeats.contains("camera_movement VARCHAR"));
     assertFalse(visualBeats.contains("audio_start_ms BIGINT"));
-    assertFalse(v2.contains("HYBRID_LOCAL_I2V"));
+    assertFalse(v1.contains("HYBRID_LOCAL_I2V"));
+
     // V2 - Generation and Media
     assertTrue(v2.contains("CREATE TABLE generation_jobs"));
     assertTrue(v2.contains("idempotency_key VARCHAR(512)"));
@@ -94,26 +69,15 @@ class FlywayBaselineStructureTest {
     assertTrue(v2.contains("CREATE TABLE production_beat_media_selections"));
     assertTrue(v2.contains("ADD COLUMN preview_media_asset_id UUID"));
     assertTrue(v2.contains("REFERENCES media_assets(id) ON DELETE SET NULL"));
+    assertFalse(v2.contains("STORY_ANALYZE"));
+    assertFalse(v2.contains("HYBRID_LOCAL_I2V"));
+    assertFalse(v2.contains("PAUSED_COST_LIMIT"));
+    assertFalse(v2.contains("billed_to_user_id"));
+    assertFalse(v2.contains("monthly_credits"));
+    assertFalse(v2.contains("credits_used"));
+    assertFalse(v2.contains("actual_cost"));
+    assertFalse(v2.contains("billing_currency"));
 
-    assertTrue(v3.contains("CREATE TABLE generation_jobs"));
-    assertTrue(v3.contains("idempotency_key VARCHAR(512)"));
-    assertTrue(v3.contains("analysis_visual_generation_mode VARCHAR(16)"));
-    assertTrue(v3.contains("analysis_image_provider VARCHAR(32)"));
-    assertTrue(v3.contains("ck_generation_jobs_analysis_preferences_consistent"));
-    assertTrue(v3.contains("CREATE TABLE plan_entitlements"));
-    assertTrue(v3.contains("CREATE TABLE voice_reference_assets"));
-    assertTrue(v3.contains("CREATE TABLE production_beat_media_selections"));
-    assertFalse(v3.contains("DROP COLUMN preview_asset_id"));
-    assertTrue(v3.contains("ADD COLUMN preview_media_asset_id UUID"));
-    assertTrue(v3.contains("REFERENCES media_assets(id) ON DELETE SET NULL"));
-    assertFalse(v3.contains("STORY_ANALYZE"));
-    assertFalse(v3.contains("HYBRID_LOCAL_I2V"));
-    assertFalse(v3.contains("PAUSED_COST_LIMIT"));
-    assertFalse(v3.contains("billed_to_user_id"));
-    assertFalse(v3.contains("monthly_credits"));
-    assertFalse(v3.contains("credits_used"));
-    assertFalse(v3.contains("actual_cost"));
-    assertFalse(v3.contains("billing_currency"));
     // V3 - Narration and Artifacts
     assertTrue(v3.contains("CREATE TABLE narration_requests"));
     assertTrue(v3.contains("speaking_rate NUMERIC(8, 4) NOT NULL"));
@@ -125,23 +89,8 @@ class FlywayBaselineStructureTest {
     assertTrue(v3.contains("CREATE TABLE outbox_events"));
     assertTrue(v3.contains("CREATE TABLE render_manifests"));
     assertTrue(v3.contains("CREATE TABLE final_artifacts"));
+    assertFalse(v3.contains("CREATE TABLE short_clip_requests"));
 
-    assertTrue(v4.contains("CREATE TABLE narration_requests"));
-    assertTrue(v4.contains("speaking_rate NUMERIC(8, 4) NOT NULL"));
-    assertTrue(v4.contains("project_voice_reference_asset_id UUID REFERENCES media_assets(id)"));
-    assertTrue(
-        v4.contains(
-            "account_voice_reference_asset_id UUID REFERENCES voice_reference_assets(id)"));
-    assertTrue(v4.contains("ck_narration_requests_single_voice_reference"));
-    assertFalse(v4.contains("\n    voice_reference_asset_id UUID REFERENCES media_assets(id),"));
-    assertTrue(v4.contains("CREATE TABLE narration_alignments"));
-    assertTrue(v4.contains("words_json JSONB NOT NULL"));
-    assertTrue(v4.contains("ck_narration_alignments_words_array"));
-    String narrationAlignments = table(v4, "narration_alignments", "narration_sets");
-    assertFalse(narrationAlignments.contains("spans_json"));
-    assertTrue(v4.contains("CREATE TABLE notifications"));
-    assertTrue(v4.contains("CREATE TABLE final_artifacts"));
-    assertFalse(v4.contains("CREATE TABLE short_clip_requests"));
     // V4 - Catalog, Snapshots, Lineage
     assertTrue(v4.contains("CREATE TABLE style_presets"));
     assertTrue(v4.contains("CREATE TABLE voice_catalog"));
@@ -154,62 +103,36 @@ class FlywayBaselineStructureTest {
     assertTrue(v4.contains("subtitle_text TEXT NOT NULL DEFAULT ''"));
     assertTrue(v4.contains("subtitle_words_json JSONB"));
     assertTrue(v4.contains("ck_project_render_subtitle_words_array"));
+    assertFalse(v4.contains("subtitle_spans_json"));
+    assertTrue(v4.contains("media_selection_active BOOLEAN NOT NULL DEFAULT FALSE"));
+    assertFalse(v4.contains("estimated_cost"));
+    assertFalse(v4.contains("currency VARCHAR(3)"));
 
-    assertTrue(v5.contains("CREATE TABLE voice_catalog"));
-    assertTrue(v5.contains("CREATE TABLE project_render_input_snapshots"));
-    assertTrue(v5.contains("CREATE TABLE chapter_continuity_plans"));
-    assertTrue(v5.contains("CREATE TABLE regeneration_plans"));
-    assertTrue(v5.contains("CREATE TABLE storyboard_generation_batches"));
-    assertTrue(v5.contains("subtitle_text TEXT NOT NULL DEFAULT ''"));
-    assertTrue(v5.contains("subtitle_words_json JSONB"));
-    assertTrue(v5.contains("ck_project_render_subtitle_words_array"));
-    assertFalse(v5.contains("subtitle_spans_json"));
-    assertTrue(v5.contains("media_selection_active BOOLEAN NOT NULL DEFAULT FALSE"));
-    assertFalse(v5.contains("estimated_cost"));
-    assertFalse(v5.contains("currency VARCHAR(3)"));
     // V5 - Database logic & triggers
     assertTrue(v5.contains("CREATE TRIGGER trg_media_plans_immutable"));
     assertTrue(v5.contains("CREATE TRIGGER trg_generation_jobs_notify_completion"));
     assertTrue(v5.contains("CREATE TRIGGER trg_generation_jobs_events"));
+    assertFalse(v5.contains("finalize_quota_reservation_on_job_terminal"));
+    assertFalse(v5.contains("trg_generation_jobs_finalize_quota"));
+    assertFalse(v5.contains("CHAPTER_RENDER"));
 
-    assertTrue(
-        v6.contains("CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal"));
-    assertTrue(v6.contains("CREATE TRIGGER trg_generation_jobs_finalize_quota"));
-    assertTrue(v6.contains("NEW.job_type = 'RENDER_PROJECT'"));
-    assertFalse(v6.contains("CREATE TABLE voice_reference_assets"));
-    assertFalse(v6.contains("ADD COLUMN account_voice_reference_asset_id"));
-    assertFalse(v6.contains("DROP COLUMN storage_mode"));
-    assertFalse(v6.contains("DROP TABLE media_asset_checksums"));
-    assertFalse(v6.contains("CHAPTER_RENDER"));
     // V6 - Indexes
     assertTrue(v6.contains("CREATE INDEX idx_projects_status"));
     assertTrue(v6.contains("CREATE UNIQUE INDEX uq_generation_jobs_idempotency_key"));
     assertTrue(v6.contains("CREATE INDEX idx_narration_requests_voice_reference"));
+    assertTrue(v6.contains("CREATE INDEX idx_production_beat_media_selection_asset"));
+    assertTrue(v6.contains("CREATE INDEX idx_generation_jobs_chapter_workspace_lookup"));
+    assertFalse(v6.contains("idx_visual_beats_audio_range"));
+    assertFalse(v6.contains("short_clip_requests"));
 
-    assertTrue(v7.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
-    assertTrue(v7.contains("CREATE INDEX idx_production_beat_media_selection_asset"));
-    assertTrue(v7.contains("CREATE INDEX idx_generation_jobs_chapter_workspace_lookup"));
-    assertFalse(v7.contains("idx_visual_beats_audio_range"));
-    assertFalse(v7.contains("short_clip_requests"));
     // V7 - Seeds
     assertTrue(v7.contains("'VOICESTUDIO'"));
     assertFalse(v7.contains("'VIENEU'"));
     assertTrue(v7.contains("\"supportsSpeakingRate\":true"));
     assertTrue(v7.contains("\"outputFormat\":\"wav\""));
+    assertFalse(v7.contains("monthly_credits"));
+    assertFalse(v7.contains("payAsYouGo"));
 
-    assertTrue(v8.contains("'VOICESTUDIO'"));
-    assertFalse(v8.contains("'VIENEU'"));
-    assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
-    assertFalse(v8.contains("\"supportsSpeakingRate\":false"));
-    assertTrue(v8.contains("\"outputFormat\":\"wav\""));
-    assertTrue(v8.contains("(1, 'NORMAL', 1"));
-    assertTrue(v8.contains("(3, 'PRO', 1"));
-    assertTrue(v8.contains("(11, 'ULTRA', 1"));
-    assertFalse(v8.matches("(?s).*\\(\\d+, 'STANDARD', \\d+,.*"));
-    assertFalse(v8.contains("monthly_credits"));
-    assertFalse(v8.contains("payAsYouGo"));
-
-    String allSchema = v1 + v2 + v3 + v4 + v5 + v6;
     // Negative architecture assertions across entire migration baseline
     String allSchema = v1 + v2 + v3 + v4 + v5 + v6 + v7;
     assertFalse(allSchema.contains("auth_users"));
@@ -238,11 +161,8 @@ class FlywayBaselineStructureTest {
 
   @Test
   void storyVersionsDeclareCurrentLifecycleStates() throws IOException {
-    String v2 = read("V2__project_story_and_planning.sql");
     String v1 = read("V1__project_story_and_planning.sql");
     String storyVersions =
-        v2.substring(
-            v2.indexOf("CREATE TABLE story_versions"), v2.indexOf("CREATE TABLE chapters"));
         v1.substring(
             v1.indexOf("CREATE TABLE story_versions"), v1.indexOf("CREATE TABLE chapters"));
 
@@ -251,12 +171,8 @@ class FlywayBaselineStructureTest {
 
   @Test
   void renderSnapshotChaptersAllowMissingMediaPlan() throws IOException {
-    String v5 = read("V5__catalog_generation_and_render_snapshots.sql");
     String v4 = read("V4__catalog_generation_and_render_snapshots.sql");
     String chapters =
-        v5.substring(
-            v5.indexOf("CREATE TABLE project_render_input_chapters"),
-            v5.indexOf("CREATE TABLE project_render_input_beats"));
         v4.substring(
             v4.indexOf("CREATE TABLE project_render_input_chapters"),
             v4.indexOf("CREATE TABLE project_render_input_beats"));

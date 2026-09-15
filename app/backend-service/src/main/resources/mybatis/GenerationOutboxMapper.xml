@@ -6,6 +6,7 @@
     <resultMap id="outboxDispatchRow"
                type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow">
         <id property="id" column="id"/>
+        <result property="aggregateId" column="aggregate_id"/>
     </resultMap>
 
     <insert id="enqueue"
@@ -47,7 +48,7 @@
            SET available_at = CURRENT_TIMESTAMP + (#{reservationMillis} * INTERVAL '1 millisecond')
           FROM candidates
          WHERE event.id = candidates.id
-        RETURNING event.id
+        RETURNING event.id, event.aggregate_id
     </select>
 
     <update id="markPublished">

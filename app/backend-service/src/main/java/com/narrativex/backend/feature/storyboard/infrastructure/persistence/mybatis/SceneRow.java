@@ -11,6 +11,8 @@ public class SceneRow {
   private UUID id;
   private long rowVersion;
   private UUID chapterId;
+  private UUID storyboardRevisionId;
+  private UUID projectId;
   private int orderIndex;
   private String title;
   private String narration;

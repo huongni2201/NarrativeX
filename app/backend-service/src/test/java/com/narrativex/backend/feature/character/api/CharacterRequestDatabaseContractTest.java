@@ -16,14 +16,9 @@ class CharacterRequestDatabaseContractTest {
   @Test
   void createCharacterRejectsValuesLongerThanDatabaseColumns() {
     CreateCharacterRequest request =
-        new CreateCharacterRequest("w".repeat(129), "n".repeat(161), List.of());
         new CreateCharacterRequest("n".repeat(161), List.of());
 
     var violations = validator.validate(request);
-
-    assertTrue(
-        violations.stream()
-            .anyMatch(violation -> violation.getPropertyPath().toString().equals("workspaceId")));
     assertTrue(
         violations.stream()
             .anyMatch(violation -> violation.getPropertyPath().toString().equals("canonicalName")));

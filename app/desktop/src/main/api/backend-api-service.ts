@@ -1,5 +1,4 @@
 import type { Session } from "electron";
-import type { GuestDeviceIdentity } from "../auth/guest-device-identity";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
 const ALLOWED_REQUEST_HEADERS = new Set([
@@ -12,7 +11,6 @@ const ALLOWED_REQUEST_HEADERS = new Set([
   "idempotency-key",
 ]);
 const MAX_TIMEOUT_MS = 120_000;
-const GUEST_SESSION_PATH = "/api/v1/auth/desktop/guest";
 
 export interface DesktopApiRequest {
   path: string;
@@ -35,36 +33,17 @@ export interface DesktopSseEvent {
   retry: number | null;
 }
 
-export interface GuestIdentityProvider {
-  loadOrCreate(): Promise<GuestDeviceIdentity>;
-}
-
-let defaultGuestIdentityStorePromise: Promise<GuestIdentityProvider> | undefined;
-
-async function defaultGuestIdentityStore(): Promise<GuestIdentityProvider> {
-  defaultGuestIdentityStorePromise ??= import("../auth/guest-device-identity")
-    .then(({ GuestDeviceIdentityStore }) => new GuestDeviceIdentityStore())
-    .catch((error) => {
-      defaultGuestIdentityStorePromise = undefined;
-      throw error;
-    });
-  return defaultGuestIdentityStorePromise;
-}
-
-const defaultGuestIdentityProvider: GuestIdentityProvider = {
-  async loadOrCreate() {
-    return (await defaultGuestIdentityStore()).loadOrCreate();
-  },
-};
-
 export class DesktopBackendApiService {
   private readonly backendOrigin: string;
+  private readonly backendBaseUrl: string;
+  private readonly browserSession: Session;
 
   constructor(
-    private readonly backendBaseUrl: string,
-    private readonly browserSession: Session,
-    private readonly guestIdentity: GuestIdentityProvider = defaultGuestIdentityProvider,
+    backendBaseUrl: string,
+    browserSession: Session,
   ) {
+    this.backendBaseUrl = backendBaseUrl;
+    this.browserSession = browserSession;
     this.backendOrigin = new URL(backendBaseUrl).origin;
   }
 
@@ -88,13 +67,7 @@ export class DesktopBackendApiService {
       headers.set(name, value);
     }
 
-    let body = input.body;
-    if (url.pathname === GUEST_SESSION_PATH) {
-      if (method !== "POST") throw new Error("Desktop guest session requires POST.");
-      const identity = await this.guestIdentity.loadOrCreate();
-      headers.set("Content-Type", "application/json");
-      body = JSON.stringify({ deviceId: identity.deviceId, secret: identity.secret });
-    }
+    const body = input.body;
 
     const controller = new AbortController();
     const timeout = setTimeout(

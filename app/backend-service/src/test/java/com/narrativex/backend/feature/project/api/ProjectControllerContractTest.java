@@ -74,7 +74,6 @@ class ProjectControllerContractTest {
     assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
     assertTrue(responseEntity.getBody().success());
     assertEquals(projectId, responseEntity.getBody().data().content().getFirst().id());
-    verify(listProjectsUseCase).execute(new ProjectListQuery(null, "cursor-token", 100));
     verify(listProjectsUseCase).execute(new ProjectListQuery("cursor-token", 100));
   }
 
@@ -129,7 +128,6 @@ class ProjectControllerContractTest {
         id,
         rowVersion,
         "Story",
-        "owner",
         ProjectStatus.DRAFT,
         "vi-VN",
         "vi-VN",

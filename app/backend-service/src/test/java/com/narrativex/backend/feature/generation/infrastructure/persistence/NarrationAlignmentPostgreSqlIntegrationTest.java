@@ -65,15 +65,8 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
   @BeforeEach
   void seed() {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES (?, ?, 'Alignment', true)",
-        OWNER,
-        OWNER + "@example.com");
         "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Alignment', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')",
         PROJECT_ID);
-    jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Alignment', '', ?, 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')",
-        PROJECT_ID,
-        OWNER);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Xin chào', 'vi-VN', 'ACTIVE')",
         STORY_ID,
@@ -107,24 +100,20 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
         SOURCE_HASH,
         wordsJson());
     jdbcTemplate.update(
-        "INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id, story_version_id) VALUES (?, ?, ?, 'RENDER_PROJECT', 'QUEUED', 'CPU_RENDER', 0, ?, ?)",
         "INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, story_version_id) VALUES (?, ?, ?, 'RENDER_PROJECT', 'QUEUED', 'CPU_RENDER', 0, ?)",
         GENERATION_JOB_ID,
         GENERATION_JOB_ID,
         PROJECT_ID,
-        OWNER,
         STORY_ID);
     jdbcTemplate.update(
-        "INSERT INTO local_devices (id, user_id, name, platform, agent_version, token_hash, last_seen_at) VALUES (?, ?, 'CI Desktop', 'test', '1.0', ?, CURRENT_TIMESTAMP)",
+        "INSERT INTO local_devices (id, name, platform, agent_version, token_hash, last_seen_at) VALUES (?, 'CI Desktop', 'test', '1.0', ?, CURRENT_TIMESTAMP)",
         LOCAL_DEVICE_ID,
-        OWNER,
         "d".repeat(64));
   }
 
   @Test
   void workerAlignmentFlowsThroughTimelineIntoRenderSnapshot() {
     ProductionTimelineChapterRow row =
-        productionTimelineMapper.findChapters(PROJECT_ID, OWNER).getFirst();
         productionTimelineMapper.findChapters(PROJECT_ID).getFirst();
 
     assertThat(row.getNarrationAlignmentId()).isEqualTo(ALIGNMENT_ID);
@@ -148,7 +137,6 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
                 "1080p",
                 "mp4",
                 LOCAL_DEVICE_ID,
-                null,
                 1,
                 1,
                 "{\"schemaVersion\":2}"))

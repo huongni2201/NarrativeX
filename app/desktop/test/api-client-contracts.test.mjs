@@ -5,7 +5,6 @@ import {
   apiRequest,
   DesktopApiError,
   DesktopApiProtocolError,
-  resetApiSessionState,
 } from "../src/renderer/api/client.ts";
 import { parseCursorPage } from "../src/renderer/api/pagination.ts";
 import { projectsApi } from "../src/renderer/features/projects/api/projects.api.ts";
@@ -59,17 +58,8 @@ test("desktop project api has no backend dashboard synchronization feed", () => 
 
 test("apiCommand accepts ApiResponse<Void> when data is omitted", async () => {
   await withApiTransport(async (input) => {
-    if (input.path === "/api/v1/auth/csrf") {
-      return ok({
-        success: true,
-        message: "CSRF token issued",
-        data: { token: "csrf-token", headerName: "X-CSRF-TOKEN" },
-        timestamp,
-      });
-    }
     if (input.path === "/api/v1/test-command") {
       assert.equal(input.method, "POST");
-      assert.equal(input.headers["x-csrf-token"], "csrf-token");
       return ok({
         success: true,
         message: "Command completed",
@@ -82,56 +72,14 @@ test("apiCommand accepts ApiResponse<Void> when data is omitted", async () => {
   });
 });
 
-test("projects api deletes a project through the owner-scoped endpoint", async () => {
+test("projects api deletes a project through the endpoint", async () => {
   await withApiTransport(async (input) => {
-    if (input.path === "/api/v1/auth/csrf") {
-      return ok({
-        success: true,
-        message: "CSRF token issued",
-        data: { token: "csrf-token", headerName: "X-CSRF-TOKEN" },
-        timestamp,
-      });
-    }
     assert.equal(input.path, "/api/v1/projects/project%2Fwith%2Fslashes");
     assert.equal(input.method, "DELETE");
-    assert.equal(input.headers["x-csrf-token"], "csrf-token");
     return { status: 204, statusText: "No Content", bodyText: "" };
   }, async () => {
     await projectsApi.remove("project/with/slashes");
   });
-});
-
-test("resetting api session state reloads CSRF for the next mutation", async () => {
-  let csrfRequests = 0;
-  const mutationTokens = [];
-
-  await withApiTransport(async (input) => {
-    if (input.path === "/api/v1/auth/csrf") {
-      csrfRequests += 1;
-      return ok({
-        success: true,
-        message: "CSRF token issued",
-        data: { token: `csrf-${csrfRequests}`, headerName: "X-CSRF-TOKEN" },
-        timestamp,
-      });
-    }
-    if (input.path === "/api/v1/test-command") {
-      mutationTokens.push(input.headers["x-csrf-token"]);
-      return ok({
-        success: true,
-        message: "Command completed",
-        timestamp,
-      });
-    }
-    throw new Error(`Unexpected request ${input.path}`);
-  }, async () => {
-    await apiCommand("/api/v1/test-command", { method: "POST" });
-    resetApiSessionState();
-    await apiCommand("/api/v1/test-command", { method: "POST" });
-  });
-
-  assert.equal(csrfRequests, 2);
-  assert.deepEqual(mutationTokens, ["csrf-1", "csrf-2"]);
 });
 
 test("apiRequest still requires data for data-bearing endpoints", async () => {
@@ -190,7 +138,6 @@ test("api errors preserve backend code, correlation id and field violations", as
 
 async function withApiTransport(request, run) {
   const previousWindow = globalThis.window;
-  resetApiSessionState();
   globalThis.window = {
     narrativex: {
       api: { request },
@@ -200,7 +147,6 @@ async function withApiTransport(request, run) {
   try {
     await run();
   } finally {
-    resetApiSessionState();
     if (previousWindow === undefined) {
       delete globalThis.window;
     } else {

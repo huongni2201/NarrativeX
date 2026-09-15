@@ -22,21 +22,6 @@ const bridge: NarrativeXDesktopBridge = {
     uploadVoiceReference: () =>
       ipcRenderer.invoke("desktop:api:upload-voice-reference") as Promise<VoiceReferenceUploadResult | null>,
   },
-  auth: {
-    login: () => ipcRenderer.invoke("desktop:auth:login"),
-    logout: () => ipcRenderer.invoke("desktop:auth:logout") as Promise<DesktopApiResponse>,
-    onCallback: (listener: (response: DesktopApiResponse) => void) => {
-      const handler = (_event: IpcRendererEvent, response: DesktopApiResponse) => listener(response);
-      ipcRenderer.on("desktop:auth:callback", handler);
-      void ipcRenderer
-        .invoke("desktop:auth:consume-pending")
-        .then((response: unknown) => {
-          if (isDesktopApiResponse(response)) listener(response);
-        })
-        .catch(() => undefined);
-      return () => ipcRenderer.removeListener("desktop:auth:callback", handler);
-    },
-  },
   preferences: {
     bindUser: (userId: string) => ipcRenderer.invoke("desktop:preferences:bind-user", userId),
     get: () => ipcRenderer.invoke("desktop:preferences:get"),

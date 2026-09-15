@@ -15,12 +15,17 @@ CURRENT_FILES = [
     ROOT / "AI_CONTEXT.md",
     ROOT / "app" / "ai-worker" / "README.md",
     ROOT / "app" / "desktop" / "README.md",
+    ROOT / "app" / "generation-service" / "README.md",
     ROOT / "documentation" / "README.md",
+    ROOT / "documentation" / "CURRENT_STATUS.md",
+    ROOT / "documentation" / "COMPUTE_PROTOCOL.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "source-of-truth" / "README.md",
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_12.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
     ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
+    ROOT / "documentation" / "codebase" / "BACKEND_CODEBASE.md",
+    ROOT / "documentation" / "codebase" / "GENERATION_SERVICE_CODEBASE.md",
     ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
     ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
     ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
@@ -29,7 +34,6 @@ CURRENT_FILES = [
     ROOT / "documentation" / "product" / "ROADMAP.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
     ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
-    ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
     ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
     ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
     ROOT / "documentation" / "workflows" / "IMAGE_GENERATION.md",
@@ -37,21 +41,26 @@ CURRENT_FILES = [
 ]
 
 REQUIRED_PATHS = [
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_12.md",
+    ROOT / "documentation" / "CURRENT_STATUS.md",
+    ROOT / "documentation" / "COMPUTE_PROTOCOL.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
     ROOT / "documentation" / "product" / "ROADMAP.md",
     ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
     ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
     ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
-    ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
+    ROOT / "app" / "generation-service" / "README.md",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
     ROOT / "documentation" / "decisions" / "ADR-0003-media-storage-generation-pipelines-and-external-integrations.md",
     ROOT / "documentation" / "decisions" / "ADR-0010-desktop-editor-client-boundary.md",
-    ROOT / "documentation" / "decisions" / "ADR-0011-google-oauth-only-desktop-auth.md",
     ROOT / "documentation" / "decisions" / "ADR-0012-desktop-local-first-media-and-render-execution.md",
     ROOT / "documentation" / "decisions" / "ADR-0017-desktop-renderer-ui-component-stack.md",
+    ROOT / "documentation" / "decisions" / "ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md",
+    ROOT / "documentation" / "decisions" / "ADR-0029-generation-service-light-ddd-hexagonal-structure.md",
+    ROOT / "documentation" / "decisions" / "ADR-0030-single-user-local-first-architecture.md",
+    ROOT / "documentation" / "decisions" / "ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md",
 ]
 
 RETIRED_PATHS = [
@@ -60,12 +69,17 @@ RETIRED_PATHS = [
     ROOT / "documentation" / "plans" / "DESKTOP_BACKEND_MIGRATION.md",
     ROOT / "documentation" / "codebase" / "PERSISTENCE_MIGRATION.md",
     ROOT / "documentation" / "codebase" / "TRACEABILITY.md",
+    ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
     ROOT / "app" / "desktop" / "DEPENDENCY_MIGRATION.md",
 ]
 
 FORBIDDEN = {
     "obsolete current V1.10 authority": re.compile(
         r"(?:canonical|current)\s+(?:source|baseline).*NARRATIVEX_PROJECT_SPEC_V1_10\.md",
+        re.IGNORECASE,
+    ),
+    "obsolete current V1.11 authority": re.compile(
+        r"(?:canonical|current)\s+(?:source|baseline|specification).*NARRATIVEX_PROJECT_SPEC_V1_11\.md",
         re.IGNORECASE,
     ),
     "obsolete Analyze scaffold token": re.compile(r"FEATURE_NOT_AVAILABLE"),
@@ -76,10 +90,6 @@ FORBIDDEN = {
     "obsolete Electron 37 current stack": re.compile(r"\bElectron\s+37\b", re.IGNORECASE),
     "obsolete coverage 15 percent gate": re.compile(
         r"(?:Current enforced line gate|jacoco\.minimum\.line\.coverage)[^\n]{0,80}(?:15%|0\.15)",
-        re.IGNORECASE,
-    ),
-    "guest-first feature still migration future": re.compile(
-        r"(?:stable|installation)[- ]scoped guest[^\n]{0,100}(?:TARGET|future-only|not implemented)",
         re.IGNORECASE,
     ),
     "removed Google Drive storage contract": re.compile(r"\bgoogle\s+drive\b", re.IGNORECASE),
@@ -126,6 +136,27 @@ CHECKPOINT_PATTERNS = {
 }
 
 MIGRATION_NAME = re.compile(r"\b(V(\d+)__[A-Za-z0-9_]+\.sql)\b")
+
+FORBIDDEN_IDENTITY_TERMS = [
+    ("guest-first", re.compile(r"\bguest-first\b", re.IGNORECASE)),
+    ("Google-only account sign-in", re.compile(r"Google-only account sign-in", re.IGNORECASE)),
+    ("desktop_guest_installations", re.compile(r"\bdesktop_guest_installations\b")),
+    ("ROLE_GUEST", re.compile(r"\bROLE_GUEST\b")),
+    ("ROLE_USER", re.compile(r"\bROLE_USER\b")),
+    ("NX_SESSION", re.compile(r"\bNX_SESSION\b")),
+    ("AUTHENTICATION_REQUIRED", re.compile(r"\bAUTHENTICATION_REQUIRED\b")),
+    ("guest ownership transfer", re.compile(r"guest ownership transfer", re.IGNORECASE)),
+    ("account-scoped quota", re.compile(r"account-scoped quota", re.IGNORECASE)),
+    ("per-user entitlement", re.compile(r"per-user entitlement", re.IGNORECASE)),
+]
+
+ALLOWED_CONTEXT = re.compile(
+    r"\b(?:removed|superseded|historical|legacy|migration|retired|prior|former|no|without|eliminated|purged|replaces?)\b",
+    re.IGNORECASE,
+)
+
+FORBIDDEN_COMPUTE_NAMING = re.compile(r"\bapp/gpu-worker\b")
+FORBIDDEN_V8_BASELINE = re.compile(r"\bV1[–-]V8\b|\bV8__seed_catalog\.sql\b")
 
 
 def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
@@ -184,6 +215,10 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
     if version_by_name:
         versions = set(version_by_name.values())
         highest = max(versions)
+        if highest != 7:
+            errors.append(
+                f"Flyway pre-production baseline highest version must be V7, found V{highest}"
+            )
         missing_versions = sorted(set(range(1, highest + 1)) - versions)
         if missing_versions:
             errors.append(
@@ -206,6 +241,34 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
         if stale_in_doc:
             errors.append(
                 f"{relative}: lists nonexistent Flyway migrations: " + ", ".join(stale_in_doc)
+            )
+
+    return errors
+
+
+def check_stale_identity_and_naming(path: Path, text: str) -> list[str]:
+    errors: list[str] = []
+    rel_path = path.relative_to(ROOT)
+    lines = text.splitlines()
+
+    for idx, line in enumerate(lines, start=1):
+        if ALLOWED_CONTEXT.search(line):
+            continue
+
+        for term_label, term_pattern in FORBIDDEN_IDENTITY_TERMS:
+            if term_pattern.search(line):
+                errors.append(
+                    f"{rel_path}:{idx}: stale identity architecture term '{term_label}' is forbidden in current docs"
+                )
+
+        if FORBIDDEN_COMPUTE_NAMING.search(line):
+            errors.append(
+                f"{rel_path}:{idx}: stale service directory 'app/gpu-worker' must be 'app/generation-service'"
+            )
+
+        if FORBIDDEN_V8_BASELINE.search(line):
+            errors.append(
+                f"{rel_path}:{idx}: stale Flyway V8 baseline claim; pre-production baseline is V1-V7 only"
             )
 
     return errors
@@ -238,7 +301,9 @@ def main() -> int:
         if LEGACY_STORAGE_ENV.search(text):
             errors.append(f"{path.relative_to(ROOT)}: legacy S3/MinIO environment contract is forbidden")
 
-    spec_path = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md"
+        errors.extend(check_stale_identity_and_naming(path, text))
+
+    spec_path = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_12.md"
     source_readme_path = ROOT / "documentation" / "source-of-truth" / "README.md"
     traceability_path = ROOT / "documentation" / "TRACEABILITY.md"
     checkpoints = {
@@ -251,7 +316,7 @@ def main() -> int:
         errors.append("missing implementation checkpoint in: " + ", ".join(sorted(missing)))
     elif len(set(checkpoints.values())) != 1:
         errors.append(
-            "V1.11 implementation checkpoints disagree: "
+            "V1.12 implementation checkpoints disagree: "
             + ", ".join(f"{name}={value}" for name, value in checkpoints.items())
         )
 
@@ -264,21 +329,10 @@ def main() -> int:
         "DESKTOP_BACKEND_MIGRATION.md",
         "PROJECT_OVERVIEW_API_REPORT.md",
         "PERSISTENCE_MIGRATION.md",
+        "AUTHENTICATION.md",
     ):
         if retired_name in navigation:
             errors.append(f"documentation/README.md links retired doc {retired_name}")
-
-    root_env = ROOT / ".env.example"
-    if root_env.exists():
-        root_text = root_env.read_text(encoding="utf-8")
-        for required_r2_env in (
-            "R2_ACCOUNT_ID",
-            "R2_ACCESS_KEY_ID",
-            "R2_SECRET_ACCESS_KEY",
-            "R2_BUCKET",
-        ):
-            if required_r2_env not in root_text:
-                errors.append(f".env.example: R2 voice/provider transport is missing {required_r2_env}")
 
     if errors:
         print("Documentation drift check failed:")

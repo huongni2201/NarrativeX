@@ -1,36 +1,31 @@
-# NarrativeX — V1.11 Roadmap
+# NarrativeX — V1.12 Roadmap
 
-> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`
+**Planning rule:** dependency order, not fixed-date commitment.
+**Current checkpoint:** `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
 
-**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Planning rule:** dependency order, not fixed-date commitment.  
-**Current checkpoint:** `main` at `2d7a8a48c2d97cf628215206fcab8d39c9f8beba` (2026-09-13)
+The browser→Desktop, authentication/account and monetary billing/credit migrations are no longer active roadmap tracks. Desktop is already the only editor client, NarrativeX is a single-user local-first application per ADR-0030, MyBatis is the production persistence path, provider execution carries no monetary accounting contract, and system capacity limits replace per-user quotas. Remaining work is compute execution-plane cutover, product reliability, and release hardening.
 
-The browser→Desktop, JPA/JDBC→MyBatis and monetary billing/credit migrations are no longer roadmap tracks. Desktop is already the only editor client, MyBatis is the production persistence path, provider execution no longer carries a monetary accounting contract, and non-monetary capacity/export quota is part of the current runtime foundation. Remaining work is product/reliability/release work.
+## Track 0 — Compute execution-plane cutover — IN PROGRESS
 
-The compute execution-plane replacement is now an active architecture track. Its protocol and
-domain-agnostic worker foundation are implemented in the migration branch, while backend dispatch,
-vertical-slice cut-over and legacy-worker deletion are not yet implemented. Track status must follow
-[`docs/plans/20260914-compute-execution-plane-migration.md`](../../docs/plans/20260914-compute-execution-plane-migration.md)
-and ADR-0028 rather than being inferred from the presence of `app/gpu-worker`.
+Build on the `app/generation-service` scaffold and Compute Protocol v1:
 
-## Track 0 — Compute execution-plane replacement — IN PROGRESS
+- complete backend compute control-plane persistence, task materialization, and attempt mapping;
+- cut narration over first (VoiceStudio TTS + WhisperX forced alignment);
+- cut image generation over next (ComfyUI RealVisXL adapter);
+- move domain-neutral media validation to `generation-service`;
+- support interchangeable local RTX 4060 and remote GPU execution targets;
+- implement artifact capability transport with SHA-256 integrity verification;
+- delete `app/ai-worker` after parity, recovery, rollback and dependency gates pass.
 
-- add the backend compute control-plane module and durable attempt mapping;
-- cut narration over first, then image generation and media validation;
-- move remaining domain orchestration/materialization into backend use cases;
-- deploy one worker implementation to local and remote GPU targets;
-- remove `app/ai-worker` only after parity, recovery, rollback and dependency gates pass.
-
-**Done when:** backend owns all durable business transitions, both target classes pass the same
-Compute Protocol suite, and no production path or deployment reference depends on `app/ai-worker`.
+**Done when:** backend owns all durable business transitions, local and remote GPU targets pass the Compute Protocol test suite, and `app/ai-worker` is completely removed.
 
 ## Current implemented foundations
 
 ```text
-Desktop guest-first workspace
+Desktop single-user local workspace
   -> project/chapter authoring
-  -> analyze / API image / Gemini Web image / narration workflows
+  -> analyze / generation / narration workflows
   -> local asset registration/materialization
   -> production timeline + beat media selection
   -> Auto Edit planning with narration-aware fit/motion decisions
@@ -42,24 +37,21 @@ Desktop guest-first workspace
   -> backup/restore/storage tooling
 ```
 
-Google remains the only account sign-in provider. Guest identity is an installation-scoped ownership/session mechanism, not a second login provider.
-
 ## Track A — Production Desktop release — HIGH
 
 - lock production packaging dependencies and installer reproducibility;
 - code signing and release identity;
 - auto-update strategy and rollback behavior;
-- packaged `narrativex://` protocol registration tests;
-- packaged system-browser OAuth integration tests;
 - Windows install/upgrade/uninstall data-preservation tests;
 - verify bundled FFmpeg/ffprobe across supported machines;
+- runtime configuration and provider setting UX;
 - define crash-reporting/diagnostic collection without leaking local paths or secrets.
 
-**Done when:** a clean supported Windows machine can install, authenticate, open/create a project, render/export, upgrade and recover without developer tooling.
+**Done when:** a clean supported Windows machine can install, boot directly into the workspace, create/render/export a project, upgrade and recover without developer tooling.
 
 ## Track B — Local execution recovery and long-form reliability — HIGH
 
-Current foundations already include render journals, unfinished-job discovery, segment cache, preflight, lease heartbeat and cancellation.
+Current foundations include render journals, unfinished-job discovery, segment cache, preflight, lease heartbeat and cancellation.
 
 Remaining:
 
@@ -85,7 +77,7 @@ Remaining:
 - dirty-state/save/error/retry semantics for production mutations;
 - keyboard shortcuts and accessible focus behavior for dense editor workflows.
 
-Real-time generation status delivery and reload recovery are implemented foundations: Desktop subscribes to owner-scoped SSE snapshots and keeps a slow GET watchdog for stream/network interruption. Durable job state remains PostgreSQL-authoritative.
+Real-time generation status delivery and reload recovery are implemented foundations: Desktop subscribes to SSE snapshots with fallback watchdog. Durable job state remains PostgreSQL-authoritative.
 
 ## Track D — Adaptive scene planning and continuity — HIGH
 
@@ -113,8 +105,7 @@ Remaining:
 - lineage-aware reframe/edit operations;
 - imported user video as a first-class selectable beat medium;
 - affected-scope regeneration after source/character/style changes;
-- local missing/corrupt asset repair UX;
-- optional cross-device/shared-media workflows only when a real sharing requirement exists.
+- local missing/corrupt asset repair UX.
 
 ## Track F — Narration/audio production completion — MEDIUM
 
@@ -122,7 +113,8 @@ Remaining:
 - complete multi-part user audio alignment/slicing behavior needed by production render;
 - expose alignment diagnostics and correction UX;
 - preserve `USER_PROVIDED_AUDIO` as an explicit TTS bypass;
-- keep narration timing authoritative for visual duration.
+- keep narration timing authoritative for visual duration;
+- transition custom voice profiles to local voice library (`GLOBAL_LOCAL`).
 
 ## Track G — Provider operation reliability and observability — MEDIUM
 
@@ -135,21 +127,19 @@ Remaining:
 ## Track H — Operational hardening — MEDIUM
 
 - production backup/restore evidence for backend PostgreSQL state;
-- retention/cleanup policy for remote account-owned voice assets and local generated/render work;
-- structured observability/correlation across Desktop, backend and worker;
+- retention/cleanup policy for local generated/render work;
+- structured observability/correlation across Desktop, backend and generation-service;
 - SSRF/upload/media validation hardening where external resources are accepted;
-- security review for guest credential lifecycle, ownership transfer and logout/resume behavior;
 - local quality gate that remains useful when GitHub Actions is unavailable.
 
 ## Fast-follow / deferred
 
 - any future provider-side/local I2V runtime only after an explicit architecture decision defines its provider, storage and execution boundaries; the removed Wan/Python path is not a deferred runtime to harden;
-- provider-neutral publish/upload from an explicitly exported local final artifact;
-- richer collaborative/cross-device workflows after single-device reliability is proven.
+- provider-neutral publish/upload from an explicitly exported local final artifact.
 
 ## Acceptance scenarios
 
-**Guest-first authoring:** a new installation resumes the same guest-owned workspace across session restarts, allows free authoring, then signs in with Google only when a gated operation is invoked without losing the active editor context.
+**Single-user workspace authoring:** a new installation opens directly into the workspace, allows free authoring and project management without login prompts or network auth dependencies.
 
 **Desktop generated-media path:** backend-authorized generation produces accepted media identity, Desktop materializes/registers required bytes locally, and local render resolves asset IDs/checksums without persisting absolute paths.
 
@@ -161,4 +151,4 @@ Remaining:
 
 **Local render recovery:** an assigned device renders with FFmpeg under a lease, journals progress, survives/reports interruption safely and never double-finalizes after recovery.
 
-**Packaged release:** an installed production build can authenticate, use the editor and render with bundled/native capabilities without relying on Vite, source checkout or developer-only environment assumptions.
+**Packaged release:** an installed production build can boot, use the editor and render with bundled/native capabilities without relying on Vite, source checkout or developer-only environment assumptions.

@@ -6,26 +6,22 @@
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.1.
 - Persistence: MyBatis + explicit PostgreSQL SQL is the sole production application persistence path; Flyway owns schema evolution.
-- Runtime state: Spring Session JDBC, one-time Desktop OAuth handoffs, durable generation/outbox state and worker claims all use PostgreSQL. Redis is not required by the MVP runtime.
-- Architecture: modular monolith with extraction-oriented feature boundaries plus separate Python asynchronous provider/media workers.
+- Runtime state: durable generation/outbox state, compute task mapping, and worker leases all use PostgreSQL. Redis is not required.
+- Architecture: modular monolith with extraction-oriented feature boundaries plus domain-agnostic compute execution plane (`app/generation-service`).
 
 ## Feature/dependency rules
 
 A business feature owns its API, application, domain and infrastructure vertical slice. Cross-feature dependencies use explicit application contracts/ports rather than importing another feature's infrastructure. Domain objects do not call repositories, storage SDKs, provider SDKs or worker runtimes directly.
 
-## Authentication and ownership
+## Single-user application boundary
 
-NarrativeX Desktop is guest-first.
+Per ADR-0030:
 
-- `desktop_guest_installations` maps a stable Desktop installation to an internal guest owner and stores only the installation-secret hash.
-- The guest principal is not a password/OAuth login provider; it exists for ownership/session continuity.
-- Google OIDC remains the only end-user account sign-in provider.
-- `NX_SESSION` is persisted through Spring Session JDBC in PostgreSQL.
-- Desktop OAuth handoffs store only a hash of the random handoff code, expire after 90 seconds and are atomically consumed from PostgreSQL.
-- Free guest mutations are explicit backend security allowlists.
-- Account/provider-consuming operations require `ROLE_USER` and return `AUTHENTICATION_REQUIRED` to a guest.
-- Desktop one-time exchange transfers eligible guest-owned workspace metadata to the Google account before switching session identity.
-- Business modules obtain caller identity through auth application ports rather than reading Spring Security directly.
+- **Project is the highest business boundary.**
+- NarrativeX is a single-user local-first desktop application.
+- No caller identity (`userId`, `accountId`, `ownerId`) is threaded through business use cases or domain models.
+- There are no application users, accounts, authentication gates, session cookies (`NX_SESSION`), or guest ownership transfers.
+- External provider credentials and machine tokens are runtime configuration concerns, not application identity.
 
 ## Chapter source and analysis boundary
 
@@ -34,42 +30,40 @@ NarrativeX Desktop is guest-first.
 ```text
 persisted Chapter source
   -> lock/reload authoritative source snapshot
-  -> ownership + idempotency + entitlement/capacity admission
+  -> idempotency + capacity admission
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
-  -> commit + outbox finalization
-  -> worker polls/claims durable PostgreSQL job
-  -> rowVersion/sourceHash stale guard
+  -> commit + compute task dispatch
   -> Character/Location/Scene/VisualBeat materialization
 ```
 
 Project creation remains metadata-only. AI/media work is explicit.
 
-## Durable generation model
+## Durable generation & compute model
 
 ```text
 OperationPlan
     -> GenerationJob
         -> StageAttempt
-            -> ProviderOperation
+            -> ComputeTask (dispatched to generation-service)
 ```
 
-Provider requests require durable lifecycle state. Ambiguous external acceptance uses `UNKNOWN` reconciliation rather than blind resubmission. Provider calls stay outside long business transactions. The runtime does not persist provider pricing snapshots, monetary operation estimates, user credit balances or a separate billing owner on generation jobs.
+The backend compute module coordinates execution:
 
-Generation/media outbox rows are persisted transactionally with admitted work. Because workers consume the durable PostgreSQL queue tables directly, the outbox dispatcher only finalizes pending bookkeeping rows after commit; it does not publish to Redis, `NOTIFY`, or another broker. A failed acknowledgement remains `PENDING` and becomes claimable after its reservation timeout.
+- **Task Materialization (`IMPLEMENTED` foundation):** Translates domain context into closed versioned compute tasks (`contracts/compute/v1/`).
+- **Attempt Mapping (`IMPLEMENTED` foundation):** Correlates `StageAttempt` with compute task execution and attempt counters.
+- **Dispatch (`PARTIAL`):** Submits tasks to `generation-service` via HTTP POST.
+- **Callback / Reconciliation (`PARTIAL`):** Handles completion/failure observations and reconciles ambiguous states.
+- **Artifact Capability Coordination (`PARTIAL`):** Generates time-limited capability URLs and verifies SHA-256 digests.
+
+Ambiguous external acceptance uses `UNKNOWN` reconciliation rather than blind resubmission (ADR-0031). Provider calls stay outside long business transactions. The runtime does not persist provider pricing snapshots, monetary operation estimates, user credit balances or billing owners.
 
 ## Project media identity
 
-The backend owns stable media identity/metadata, not Desktop absolute file paths. Project media is project-local; Cloudflare R2 is restricted to authenticated reusable ACCOUNT voice-reference/custom-voice assets rather than generated-project-media transport or fallback storage.
+The backend owns stable media identity/metadata, not Desktop absolute file paths. Project media is project-local; Cloudflare R2 is not used for project media. Reusable voice assets are managed locally (`GLOBAL_LOCAL` / `PROJECT`).
 
 ## Production timeline and local render
 
 Narration/alignment is the timing authority. Explicit beat media selections and backend render admission are durable state; Electron main resolves project-relative media paths and executes FFmpeg under the assigned lease. Final MP4 bytes remain local while the backend stores final-artifact metadata only.
-
-## API/capability foundations
-
-Current backend surfaces include auth guest bootstrap/current-user/CSRF/Google Desktop auth; project/story/chapter CRUD and direct chapter analysis; storyboard and character/location reads; generation estimate/enqueue/history, current media-head lookup and owner-scoped SSE events; narration/import/alignment and voice-preview jobs/results; production timeline/media selection and atomic Auto Edit render admission; local asset/materialization metadata; local-device/render execution; final-artifact/notification/quota/catalog reads.
-
-Endpoint availability does not imply every future UI interaction is complete; use `documentation/TRACEABILITY.md` and `documentation/product/FEATURE_CATALOG.md` for current status.
 
 ## Persistence and Flyway
 
@@ -78,26 +72,25 @@ Production application code uses MyBatis + explicit SQL with dedicated row model
 Current pre-release baseline:
 
 ```text
-V1__identity_and_access.sql
-V2__project_story_and_planning.sql
-V3__generation_quota_and_media.sql
-V4__narration_notifications_and_artifacts.sql
-V5__catalog_generation_and_render_snapshots.sql
-V6__database_logic_and_triggers.sql
-V7__indexes.sql
-V8__seed_catalog.sql
+V1__project_story_and_planning.sql
+V2__generation_and_media.sql
+V3__narration_and_artifacts.sql
+V4__catalog_generation_and_render_snapshots.sql
+V5__database_logic_and_triggers.sql
+V6__indexes.sql
+V7__seed_catalog.sql
 ```
 
-V1-V6 separate schema/database logic by responsibility, V7 contains the index/invariant set, and V8 contains deterministic system/catalog seeds. Continuity/checkpoints, regeneration plans, storyboard-generation snapshots, render continuity provenance and watermark policy are already folded into the owning V1-V8 migrations; there is no V9+ cleanup chain in the current pre-production baseline. Render subtitle fields are created directly with project render snapshots; the Chapter Workspace covering lookup is part of V7; the VoiceStudio default profile is seeded with speaking-rate support and WAV output, and narration requests persist a positive `speaking_rate`. Translation/content-variant schema is absent.
+V1-V5 separate schema/database logic by responsibility, V6 contains the index/invariant set, and V7 contains deterministic system/catalog seeds. Continuity/checkpoints, regeneration plans, storyboard-generation snapshots, render continuity provenance and watermark policy are folded into the owning V1-V7 migrations; there is no V8+ patch chain in the current pre-production baseline.
 
-Because no production database has adopted this history yet, the baseline can still be reorganized for clarity and disposable development/test databases should be recreated after checksum/version changes. The baseline becomes immutable at the first production deployment; future changes after that point must be append-only starting at V9.
+Because no production database has adopted this history yet, the baseline can still be reorganized for clarity and disposable development/test databases should be recreated after checksum/version changes. The baseline becomes immutable at the first production deployment; future changes after that point must be append-only starting at V8.
 
 ## Quality/concurrency rules
 
 - Domain code remains framework-free.
 - Mutable writes use expected-version/state predicates where concurrency matters.
 - Zero affected rows for a guarded mutation becomes a conflict rather than silent success.
-- Provider submission uses persisted fences and `UNKNOWN` reconciliation before any ambiguous resubmission.
+- Compute submission uses persisted fences and `UNKNOWN` reconciliation before any ambiguous resubmission.
 - PostgreSQL/Testcontainers is required for PostgreSQL-specific locking/migration/transaction behavior.
 - Architecture tests protect MyBatis/schema/client boundaries.
 - JaCoCo's current bundle line floor comes from `pom.xml`, not from a hardcoded historical measurement in this document.

@@ -102,6 +102,6 @@ public class CreateMediaPlanUseCase {
       }
     }
     return new MediaWorkload(
-        narrationCharacters, imageGenerateCount, basicMotionSeconds, plannedI2vSeconds);
+        narrationCharacters, imageGenerateCount, 0, basicMotionSeconds, plannedI2vSeconds);
   }
 }

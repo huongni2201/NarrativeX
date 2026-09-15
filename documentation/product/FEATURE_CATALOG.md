@@ -1,22 +1,28 @@
-# NarrativeX — Current Feature Catalog (V1.11)
+# NarrativeX — Current Feature Catalog (V1.12)
 
 Current code, Flyway migrations and automated tests decide factual AS-IS claims. Accepted ADRs refine cross-cutting architecture. Roadmap intent must not be presented as implemented runtime.
 
 | Feature | Status | Current direction |
 |---|---|---|
-| Stable installation guest identity | IMPLEMENTED | guest ownership/session continuity |
-| Google-only account sign-in | IMPLEMENTED | system browser + one-time Desktop handoff |
+| Single-user local-first workspace | IMPLEMENTED | Direct workspace boot, Project-level boundary (ADR-0030) |
+| Authentication/account runtime | REMOVED | No User, Account, Session, OAuth or login gates |
+| Per-user quota/entitlement | REMOVED | Monetary billing, user credits and per-user quotas retired |
+| Runtime capacity limits | IMPLEMENTED foundation | System capacity reservations with terminal settlement |
 | Project/Chapter authoring | IMPLEMENTED foundation | backend-authoritative persistence + Desktop UI |
 | Chapter Analyze | IMPLEMENTED | durable job/provider lifecycle |
 | Character/Location continuity | IMPLEMENTED foundation | richer review/reference locking remains partial |
 | Scene / VisualBeat storyboard | IMPLEMENTED foundation | review + generation preparation |
-| `IMAGE` visual intent | IMPLEMENTED | API/worker and Gemini Web image workflows |
+| `IMAGE` visual intent | IMPLEMENTED | backend/generation-service image workflows |
 | `VIDEO` visual intent | IMPLEMENTED foundation | retained in Analyze Chapter for web/browser video-generation workflows |
 | Python/Wan video provider | REMOVED | do not restore as implicit VIDEO/final-render fallback |
 | VoiceStudio narration | IMPLEMENTED foundation | segmented headless TTS persists a project-local WAV master |
 | User-provided narration | IMPLEMENTED foundation | native import + logical audio clock |
-| Vertex image generation | IMPLEMENTED foundation | durable provider operation + local media result |
-| Gemini Web image generation | IMPLEMENTED foundation | Electron Chrome/CDP + local commit |
+| Compute Protocol v1 | IMPLEMENTED | JSON Schema contracts in `contracts/compute/v1/` |
+| Generation-service scaffold | IMPLEMENTED foundation | Hexagonal FastAPI execution plane (`app/generation-service`) |
+| Backend compute dispatch | PARTIAL | control plane task submission, durable mapping & callbacks |
+| Narration cutover | TARGET | VoiceStudio & WhisperX execution migration to generation-service |
+| Image cutover | TARGET | ComfyUI execution migration to generation-service |
+| Legacy ai-worker removal | TARGET | scheduled for deletion after parity gates pass |
 | Native local media import | IMPLEMENTED foundation | image/audio/video via Electron main |
 | Persisted beat media selection | IMPLEMENTED foundation | effective image/video production source |
 | Mixed image/video timeline | IMPLEMENTED foundation | video trim/fill semantics remain richer than image controls |
@@ -32,11 +38,9 @@ Current code, Flyway migrations and automated tests decide factual AS-IS claims.
 | Cloud/server final render | REMOVED | no fallback executor |
 | Server-side Chapter render pipeline | REMOVED | project render is the supported final-render path |
 | Generated project media via R2 | REMOVED | images/narration are project-local |
-| R2 voice-reference/custom-voice storage | IMPLEMENTED foundation | only current R2 responsibility |
+| Account-scoped voice storage in R2 | REMOVED | voice assets transition to local storage (`PROJECT` / `GLOBAL_LOCAL`) |
 | MyBatis production persistence | IMPLEMENTED | explicit PostgreSQL SQL |
-| Flyway clean pre-production baseline | IMPLEMENTED | clean DB applies squashed V1–V8 final schema directly; former V9–V18 patch history is folded away |
-| Monetary billing / credit runtime | REMOVED | no monetary estimates, pricing snapshots, credit balances, billing owner or cost-limit status |
-| Non-monetary capacity/export quota | IMPLEMENTED foundation | `CAPACITY` and `LONGFORM_EXPORT` reservations with exactly-once terminal settlement |
+| Flyway clean pre-production baseline | IMPLEMENTED | clean DB applies squashed V1–V7 final schema directly |
 | Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | reconcile/fence before external resubmission |
 | Non-monetary provider usage telemetry | IMPLEMENTED foundation | diagnostic usage where providers expose it; not a pricing/accounting contract |
 | Adaptive VisualScenePlanner | TARGET | narration-driven adaptive scene/beat planning |
@@ -51,13 +55,14 @@ Current code, Flyway migrations and automated tests decide factual AS-IS claims.
 Generated project images        -> project-local media -> Desktop ProjectStorage
 Generated narration             -> project-local media -> Desktop ProjectStorage
 Imported image/audio/video      -> Desktop ProjectStorage
+PROJECT voice reference         -> Desktop ProjectStorage / manifest
+GLOBAL_LOCAL voice reference    -> local application voice library
 Render work/cache               -> Desktop project workspace/work
 Final MP4                       -> Desktop project workspace/artifacts
-ACCOUNT voice reference/custom voice -> Cloudflare R2
 Business/job/artifact metadata  -> PostgreSQL
 ```
 
-R2 is not generated-project-media transport, fallback storage or final-video storage.
+Project media stays local. The backend does not serve media bytes.
 
 ## Rendering contract
 
@@ -77,7 +82,7 @@ Do not claim a cloud/server fallback or remote final-video store.
 
 Provider usage telemetry is operational diagnostics only. The current runtime does not expose monetary cost calculation, user credit balances, provider-pricing catalogs, pricing snapshots or reservation/refund accounting in currency.
 
-Quota enforcement remains non-monetary: capacity reservations limit concurrent expensive work and long-form export reservations enforce period export limits. Terminal job transitions consume/release those reservations and settle export units exactly once.
+Resource limit enforcement is non-monetary: system capacity reservations limit concurrent expensive work. Terminal job transitions consume/release those reservations and settle export units exactly once.
 
 ## VIDEO contract
 

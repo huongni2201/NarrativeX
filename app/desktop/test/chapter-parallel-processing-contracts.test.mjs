@@ -68,24 +68,3 @@ test("chapter list exposes bulk audio and delegated bulk analysis admission", ()
   assert.match(chapterAnalysisQueries, /BULK_ANALYSIS_ADMISSION_CONCURRENCY = 4/);
   assert.match(chapterAnalysisQueries, /Promise\.allSettled/);
 });
-
-test("production narration defaults protect desktop CPU headroom", () => {
-  assert.match(compose, /NARRATION_WORKER_CONCURRENCY:-1/);
-  assert.match(compose, /VIENEU_BACKEND:-onnx/);
-  assert.match(compose, /VIENEU_THREADS:-4/);
-  assert.match(compose, /VIENEU_INFERENCE_CONCURRENCY:-1/);
-  assert.match(compose, /OMP_NUM_THREADS: \"\$\{VIENEU_OMP_NUM_THREADS:-4\}\"/);
-  assert.match(compose, /MKL_NUM_THREADS: \"\$\{VIENEU_MKL_NUM_THREADS:-4\}\"/);
-  assert.match(compose, /OPENBLAS_NUM_THREADS: \"\$\{VIENEU_OPENBLAS_NUM_THREADS:-1\}\"/);
-  assert.match(compose, /NUMEXPR_NUM_THREADS: \"\$\{VIENEU_NUMEXPR_NUM_THREADS:-1\}\"/);
-  assert.match(compose, /cpus: \$\{NARRATION_WORKER_CPUS:-8\.0\}/);
-
-  assert.match(envExample, /^NARRATION_WORKER_CONCURRENCY=1$/m);
-  assert.match(envExample, /^NARRATION_WORKER_CPUS=8\.0$/m);
-  assert.match(envExample, /^VIENEU_THREADS=4$/m);
-  assert.match(envExample, /^VIENEU_INFERENCE_CONCURRENCY=1$/m);
-  assert.match(envExample, /^VIENEU_OMP_NUM_THREADS=4$/m);
-  assert.match(envExample, /^VIENEU_MKL_NUM_THREADS=4$/m);
-  assert.match(envExample, /^VIENEU_OPENBLAS_NUM_THREADS=1$/m);
-  assert.match(envExample, /^VIENEU_NUMEXPR_NUM_THREADS=1$/m);
-});

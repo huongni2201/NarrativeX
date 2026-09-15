@@ -30,15 +30,13 @@ persisted source
   -> local project media store
 ```
 
-The generic `TtsProvider` orchestration contract remains, but production contains only
-`VoiceStudioTtsEngine`. VoiceStudio is a persistent service; NarrativeX does not import its engine
-packages, depend on its Desktop UI, or start a model process per sentence.
+The generic `TtsProvider` orchestration contract remains, but production contains only `VoiceStudioTtsEngine`. VoiceStudio is a persistent service; NarrativeX does not import its engine packages, depend on its Desktop UI, or start a model process per sentence.
 
-Narration admission checks the authenticated account entitlement and reserves concurrent capacity. It has no monetary estimator, pricing snapshot or local/external pricing branch. Source text, project ownership and voice capabilities are validated by the generation use case before admission.
+Narration admission checks system capacity limits and reserves concurrent capacity. It has no monetary estimator, pricing snapshot or local/external pricing branch. Source text and voice capabilities are validated by the generation use case before admission.
 
 ## Batch admission and capacity errors
 
-Each chapter request owns its transaction. If capacity is exhausted after one or more chapters were accepted, batch narration stops and returns those accepted jobs. If no chapter was accepted, `CAPACITY_LIMIT` is returned as HTTP 409. Other admission failures, including `ENTITLEMENT_DENIED`, are propagated even after partial acceptance. The API preserves `CAPACITY_LIMIT` rather than falling back to a generic conflict code.
+Each chapter request owns its transaction. If capacity is exhausted after one or more chapters were accepted, batch narration stops and returns those accepted jobs. If no chapter was accepted, `CAPACITY_LIMIT` is returned as HTTP 409. The API preserves `CAPACITY_LIMIT` rather than falling back to a generic conflict code.
 
 ## Desktop generated-audio workflow
 
@@ -55,7 +53,7 @@ Voice references are explicit scope-bearing selections:
 ```text
 VoiceReferenceScope
   PROJECT
-  ACCOUNT
+  GLOBAL_LOCAL
 ```
 
 ### PROJECT voice reference
@@ -68,31 +66,30 @@ Desktop native picker / existing project AUDIO asset
   -> ProjectStorage commit
   -> project.manifest.json relative path + size + SHA-256
   -> narration request selects { scope: PROJECT, assetId }
-  -> worker resolves the immutable project manifest entry
+  -> executor resolves the immutable project manifest entry
   -> size/checksum verification
   -> temporary VoiceStudio reference input
 ```
 
-A PROJECT reference must not carry an R2 storage key. Missing, stale, unsafe or corrupt manifest data fails closed.
+Missing, stale, unsafe or corrupt manifest data fails closed.
 
-### ACCOUNT voice reference
+### GLOBAL_LOCAL voice reference
 
-An ACCOUNT reference is a reusable authenticated account asset stored in R2.
+A GLOBAL_LOCAL reference is a reusable local asset stored in the application's reusable voice library.
 
 ```text
-Desktop native picker (MP3/WAV)
-  -> checksum + authenticated voice-reference upload intent
-  -> account-scoped R2 key: voices/<account>/...
-  -> durable validation
-  -> READY account VoiceReferenceAsset
-  -> narration request selects { scope: ACCOUNT, assetId }
-  -> authorized worker downloads only when selected
+Desktop native picker (MP3/WAV) / Voice Library manager
+  -> checksum + registration into local voice library
+  -> durable validation & metadata in local database
+  -> READY VoiceReferenceAsset
+  -> narration request selects { scope: GLOBAL_LOCAL, assetId }
+  -> executor loads from local voice library
   -> temporary VoiceStudio reference input
 ```
 
-ACCOUNT references require ownership, READY state, valid size/SHA-256 and R2 storage metadata.
+GLOBAL_LOCAL references require READY state and valid size/SHA-256 integrity metadata.
 
-R2 is reserved for reusable account-owned voice-reference/custom-voice files. Generated narration, generated images, imported project media, PROJECT voice references and final render artifacts do not use R2.
+Generated narration, generated images, imported project media, PROJECT voice references and final render artifacts live in local project media.
 
 ## User-provided audio import
 
@@ -106,8 +103,6 @@ Electron native picker
   -> manifest relative path + size + SHA-256
   -> narration/alignment metadata
 ```
-
-Do not upload project audio to R2 solely so local FFmpeg can consume it.
 
 ## Logical audio clock
 
@@ -135,7 +130,7 @@ VisualBeat textStart/textEnd
   -> exact VisualBeat audio clock
 ```
 
-The narration worker does not own production VisualBeat text-to-audio mapping. Complete persisted beat audio spans may remain compatibility input; provisional fallback timing is review-only and does not make a Chapter render-ready.
+The compute executor does not own production VisualBeat text-to-audio mapping. Complete persisted beat audio spans may remain compatibility input; provisional fallback timing is review-only and does not make a Chapter render-ready.
 
 ## Local render integration
 
@@ -154,20 +149,20 @@ local narration input
 
 Render execution remains backend-assigned and lease-controlled. Final MP4 playback/export reads the local artifact directly.
 
-Generation status delivery is real-time-first: authenticated SSE carries job snapshots, Electron main reconnects the stream, and a slow GET watchdog covers missed events. PostgreSQL remains durable authority.
+Generation status delivery is real-time-first: SSE carries job snapshots, Electron main reconnects the stream, and a slow GET watchdog covers missed events. PostgreSQL remains durable authority.
 
-## Cost behavior
+## Resource behavior
 
 For a `USER_PROVIDED_AUDIO` covered scope:
 
 - TTS character workload = 0;
-- no TTS provider operation/reservation for that narration scope;
+- no TTS compute task/reservation for that narration scope;
 - validation/alignment/image/render work may still be accounted separately.
 
 ## Storage contract
 
 ```text
-ACCOUNT voice/reference audio    -> account-scoped R2
+GLOBAL_LOCAL voice reference     -> local application voice library
 PROJECT voice/reference audio    -> local project media
 Generated narration              -> local project media
 Accepted imported audio          -> local project media
@@ -177,10 +172,6 @@ Final MP4                        -> local project artifacts
 Metadata/job/artifact state      -> PostgreSQL
 ```
 
-There is no project-media R2 fallback, dual write or legacy R2 read path in the pre-deployment hard cutover.
-
 ## Operational diagnostics
 
 Narration job creation is logged in prepared/committed phases. PostgreSQL remains authoritative for whether the job, `NARRATION_TTS` stage attempt and narration operation exist.
-
-Workers verify their database identity at startup and poll/claim durable PostgreSQL work directly. No Redis or notification channel is required for narration queue discovery.

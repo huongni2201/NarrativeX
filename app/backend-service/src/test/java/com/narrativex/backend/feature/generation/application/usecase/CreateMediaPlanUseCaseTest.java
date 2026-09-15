@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
@@ -36,7 +35,6 @@ class CreateMediaPlanUseCaseTest {
 
   @Test
   void pinsLockedChapterSnapshotAndResolvesCurrentExecutionStrategy() {
-    var currentUserId = mock(CurrentUserId.class);
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
@@ -51,7 +49,6 @@ class CreateMediaPlanUseCaseTest {
             objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
-            currentUserId,
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
@@ -66,8 +63,6 @@ class CreateMediaPlanUseCaseTest {
     UUID assignmentId = UuidV7.random();
     UUID characterId = UuidV7.random();
 
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
     when(chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId))
         .thenReturn(
             new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
@@ -136,7 +131,6 @@ class CreateMediaPlanUseCaseTest {
 
   @Test
   void imageMotionDoesNotRequireUnwiredNarrationSetPointers() {
-    var currentUserId = mock(CurrentUserId.class);
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
@@ -150,7 +144,6 @@ class CreateMediaPlanUseCaseTest {
             objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
-            currentUserId,
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
@@ -162,8 +155,6 @@ class CreateMediaPlanUseCaseTest {
     UUID sceneId = UuidV7.random();
     UUID beatId = UuidV7.random();
 
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
     when(chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId))
         .thenReturn(
             new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
@@ -204,3 +195,4 @@ class CreateMediaPlanUseCaseTest {
         .isEqualTo("{\"characters\":[]}");
   }
 }
+

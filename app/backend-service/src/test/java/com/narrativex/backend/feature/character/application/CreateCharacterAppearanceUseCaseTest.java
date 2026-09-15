@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterAppearanceCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterAppearanceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
@@ -42,35 +41,26 @@ class CreateCharacterAppearanceUseCaseTest {
 
   @BeforeEach
   void setUp() {
-    CurrentUserId currentUserId = () -> "owner";
     useCase =
         new CreateCharacterAppearanceUseCase(
             characterRepository,
             appearanceRepository,
             outfitVersionRepository,
-            projectAccess,
-            currentUserId);
-    when(characterRepository.findOwnedById(CHARACTER_ID, "owner"))
             projectAccess);
     when(characterRepository.findById(CHARACTER_ID))
         .thenReturn(Optional.of(character(CHARACTER_ID)));
   }
 
   @Test
-  void verifiesProjectOwnershipBeforeSavingAppearance() {
-    when(projectAccess.findOwnedProject(PROJECT_ID, "owner"))
   void verifiesProjectExistsBeforeSavingAppearance() {
     when(projectAccess.findProject(PROJECT_ID))
         .thenThrow(new ResourceNotFoundException("Project not found"));
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(command(PROJECT_ID, null)));
     verify(appearanceRepository, never()).save(any());
-    verify(outfitVersionRepository, never()).findOwnedById(any(), any());
     verify(outfitVersionRepository, never()).findById(any());
   }
 
   @Test
-  void rejectsAnOutfitVersionThatIsNotOwnedByTheCurrentUser() {
-    when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner")).thenReturn(Optional.empty());
   void rejectsAnOutfitVersionThatDoesNotExist() {
     when(outfitVersionRepository.findById(OUTFIT_ID)).thenReturn(Optional.empty());
     assertThrows(
@@ -80,7 +70,6 @@ class CreateCharacterAppearanceUseCaseTest {
 
   @Test
   void rejectsAnOutfitVersionBelongingToAnotherCharacter() {
-    when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner"))
     when(outfitVersionRepository.findById(OUTFIT_ID))
         .thenReturn(Optional.of(outfit(OUTFIT_ID, OTHER_CHARACTER_ID)));
     assertThrows(
@@ -89,14 +78,10 @@ class CreateCharacterAppearanceUseCaseTest {
   }
 
   @Test
-  void savesOnlyAfterAllOptionalReferencesPassOwnershipChecks() {
-    when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner"))
   void savesOnlyAfterAllOptionalReferencesPassValidation() {
     when(outfitVersionRepository.findById(OUTFIT_ID))
         .thenReturn(Optional.of(outfit(OUTFIT_ID, CHARACTER_ID)));
     useCase.execute(command(PROJECT_ID, OUTFIT_ID));
-    verify(projectAccess).findOwnedProject(PROJECT_ID, "owner");
-    verify(outfitVersionRepository).findOwnedById(OUTFIT_ID, "owner");
     verify(projectAccess).findProject(PROJECT_ID);
     verify(outfitVersionRepository).findById(OUTFIT_ID);
     verify(appearanceRepository).save(any());
@@ -105,8 +90,6 @@ class CreateCharacterAppearanceUseCaseTest {
   @Test
   void doesNotResolveOptionalReferencesWhenTheyAreAbsent() {
     useCase.execute(command(null, null));
-    verify(projectAccess, never()).findOwnedProject(any(), any());
-    verify(outfitVersionRepository, never()).findOwnedById(any(), any());
     verify(projectAccess, never()).findProject(any());
     verify(outfitVersionRepository, never()).findById(any());
     verify(appearanceRepository).save(any());
@@ -122,14 +105,11 @@ class CreateCharacterAppearanceUseCaseTest {
         null,
         "travel clothes",
         "prompt",
-        outfitVersionId,
-        "owner");
-        null);
+        outfitVersionId);
   }
 
   private static Character character(UUID id) {
     return Character.rehydrate(
-        id, 0L, "owner", null, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
         id, 0L, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
   }
 
@@ -138,3 +118,4 @@ class CreateCharacterAppearanceUseCaseTest {
         id, 0L, characterId, 1, "Travel", null, "prompt", OutfitVersionStatus.DRAFT);
   }
 }
+

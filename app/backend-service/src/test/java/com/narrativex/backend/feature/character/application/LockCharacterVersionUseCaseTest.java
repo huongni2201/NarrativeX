@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.ChangeCharacterVersionStatusCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
@@ -33,21 +32,16 @@ class LockCharacterVersionUseCaseTest {
   @Mock private CharacterVersionRepository versionRepository;
   @Mock private CharacterVersionReferenceRepository referenceRepository;
 
-  private final CurrentUserId currentUserId = () -> "owner";
-
   @Test
   void rejectsLockWhenIdentityReferenceIsMissing() {
     var version = reviewVersion();
-    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
     when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(List.of());
     var useCase =
-        new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
         new LockCharacterVersionUseCase(versionRepository, referenceRepository);
 
     assertThatThrownBy(
-            () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null)))
             () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID)))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("IDENTITY");
@@ -58,21 +52,17 @@ class LockCharacterVersionUseCaseTest {
   @Test
   void locksReviewedVersionWhenIdentityReferenceExists() {
     var version = reviewVersion();
-    when(versionRepository.findOwnedByIdForUpdate(VERSION_ID, "owner"))
     when(versionRepository.findByIdForUpdate(VERSION_ID))
         .thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID))
         .thenReturn(List.of(new CharacterVersionReference(IDENTITY_ASSET_ID, "IDENTITY", 0)));
     when(versionRepository.save(version)).thenReturn(version);
     var useCase =
-        new LockCharacterVersionUseCase(versionRepository, referenceRepository, currentUserId);
         new LockCharacterVersionUseCase(versionRepository, referenceRepository);
 
-    var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID, null));
     var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID));
 
     assertThat(locked.getStatus()).isEqualTo(CharacterVersionStatus.LOCKED);
-    assertThat(locked.getLockedBy()).isEqualTo("owner");
     assertThat(locked.getLockedAt()).isNotNull();
     verify(versionRepository).save(version);
   }
@@ -86,7 +76,7 @@ class LockCharacterVersionUseCaseTest {
         "character bible",
         "character visual prompt",
         CharacterVersionStatus.REVIEW,
-        null,
         null);
   }
 }
+
