@@ -130,8 +130,6 @@ test("chapter analysis preserves one idempotency key across transport retries", 
 
 test("compose only uses strict file mounts for files that still exist at runtime", () => {
   const compose = source("docker-compose.yml");
-  assert.equal((compose.match(/create_host_path: false/g) ?? []).length, 1);
-  assert.match(compose, /source: \$\{GCP_SERVICE_ACCOUNT_FILE:[^\n]+\}[\s\S]*?create_host_path: false/);
   assert.doesNotMatch(compose, /VIENEU_REFERENCE_AUDIO_FILE/);
   assert.doesNotMatch(compose, /\/run\/narrativex\/voices\/reference\.wav/);
 });

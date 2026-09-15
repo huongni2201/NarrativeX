@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
@@ -26,14 +25,12 @@ class DeleteProjectUseCaseTest {
   @Mock private ProjectRepository projectRepository;
 
   @Test
-  void archivesOwnedProjectUnderRowLock() {
+  void archivesProjectUnderRowLock() {
     UUID projectId = UuidV7.random();
     Project project = project(projectId);
-    when(projectRepository.findOwnedByIdForUpdate(projectId, "owner"))
     when(projectRepository.findByIdForUpdate(projectId))
         .thenReturn(Optional.of(project));
     when(projectRepository.save(project)).thenReturn(project);
-    DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository, () -> "owner");
     DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository);
 
     useCase.execute(projectId);
@@ -44,12 +41,8 @@ class DeleteProjectUseCaseTest {
   }
 
   @Test
-  void hidesProjectsOutsideCurrentOwnerScope() {
   void throwsNotFoundWhenProjectDoesNotExist() {
     UUID projectId = UuidV7.random();
-    when(projectRepository.findOwnedByIdForUpdate(projectId, "owner")).thenReturn(Optional.empty());
-    CurrentUserId currentUserId = () -> "owner";
-    DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository, currentUserId);
     when(projectRepository.findByIdForUpdate(projectId)).thenReturn(Optional.empty());
     DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository);
 
@@ -63,7 +56,6 @@ class DeleteProjectUseCaseTest {
         id,
         0L,
         "Project",
-        "owner",
         ProjectStatus.DRAFT,
         "vi-VN",
         "vi-VN",

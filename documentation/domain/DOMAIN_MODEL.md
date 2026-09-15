@@ -1,8 +1,8 @@
-# NarrativeX V1.11 — Domain Model
+# NarrativeX V1.12 — Domain Model
 
-> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
+> Read [current status](../CURRENT_STATUS.md) first. Project is the root business boundary per ADR-0030 (no User/Account/Session/Quota). Compute execution transitions to `app/generation-service` per ADR-0028/ADR-0029.
 
-**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
+**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`
 
 ## Aggregate / authority model
 

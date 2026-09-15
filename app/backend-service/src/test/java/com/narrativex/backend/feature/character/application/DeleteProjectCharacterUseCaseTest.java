@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.feature.character.application.usecase.DeleteProjectCharacterUseCase;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
@@ -36,7 +35,6 @@ class DeleteProjectCharacterUseCaseTest {
     newUseCase().execute(projectId, characterId);
 
     assertEquals(ProjectCharacterStatus.REMOVED, assignment.getStatus());
-    verify(projectAccess).findOwnedProject(projectId, "owner");
     verify(projectAccess).findProject(projectId);
     verify(projectCharacterRepository).save(assignment);
   }
@@ -53,9 +51,7 @@ class DeleteProjectCharacterUseCaseTest {
   }
 
   private DeleteProjectCharacterUseCase newUseCase() {
-    CurrentUserId currentUserId = () -> "owner";
     return new DeleteProjectCharacterUseCase(
-        projectCharacterRepository, projectAccess, currentUserId);
         projectCharacterRepository, projectAccess);
   }
 
@@ -74,3 +70,4 @@ class DeleteProjectCharacterUseCaseTest {
         ProjectCharacterStatus.ACTIVE);
   }
 }
+

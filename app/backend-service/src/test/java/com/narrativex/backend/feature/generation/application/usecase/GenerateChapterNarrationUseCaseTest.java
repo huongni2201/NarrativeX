@@ -6,7 +6,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -14,7 +13,6 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.NarrationOperationRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VoiceReferenceAssetAccess;
 import com.narrativex.backend.feature.generation.application.service.NarrationAdmissionService;
@@ -49,9 +47,7 @@ class GenerateChapterNarrationUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
-    String ownerId = "owner";
 
-    CurrentUserId currentUserId = mock(CurrentUserId.class);
     ProjectAccess projectAccess = mock(ProjectAccess.class);
     ChapterAnalysisSourceAccess chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     GenerationJobRepository generationJobRepository = mock(GenerationJobRepository.class);
@@ -63,25 +59,20 @@ class GenerateChapterNarrationUseCaseTest {
         mock(NarrationOperationRepository.class);
     NarrationAdmissionService admissionService = mock(NarrationAdmissionService.class);
     NarrationRequestFingerprint fingerprintService = mock(NarrationRequestFingerprint.class);
-    QuotaReservation quotaReservation = mock(QuotaReservation.class);
     VoiceReferenceAssetAccess voiceReferenceAssetAccess = mock(VoiceReferenceAssetAccess.class);
     VoiceCatalogAccess voiceCatalogAccess = mock(VoiceCatalogAccess.class);
     Project project = mock(Project.class);
 
-    when(currentUserId.get()).thenReturn(ownerId);
-    when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, ownerId))
     when(chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId))
         .thenReturn(
             new ChapterAnalysisSource(
                 chapterId, storyVersionId, 7L, "a".repeat(64), "Narration source text"));
-    when(projectAccess.findOwnedProject(projectId, ownerId)).thenReturn(project);
     when(projectAccess.findProject(projectId)).thenReturn(project);
     when(project.getSourceLanguage()).thenReturn("vi");
     when(voiceCatalogAccess.findVoice("voicestudio-disabled")).thenReturn(Optional.empty());
 
     var useCase =
         new GenerateChapterNarrationUseCase(
-            currentUserId,
             projectAccess,
             chapterSourceAccess,
             generationJobRepository,
@@ -92,7 +83,6 @@ class GenerateChapterNarrationUseCaseTest {
             narrationOperationRepository,
             admissionService,
             fingerprintService,
-            quotaReservation,
             voiceReferenceAssetAccess,
             voiceCatalogAccess);
 
@@ -106,7 +96,6 @@ class GenerateChapterNarrationUseCaseTest {
 
     verifyNoInteractions(
         admissionService,
-        quotaReservation,
         generationJobRepository,
         generationOutboxRepository,
         operationPlanRepository,
@@ -117,3 +106,4 @@ class GenerateChapterNarrationUseCaseTest {
         voiceReferenceAssetAccess);
   }
 }
+

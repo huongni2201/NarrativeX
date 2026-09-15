@@ -10,14 +10,11 @@ import org.junit.jupiter.api.Test;
 class RenderSnapshotResolutionMigrationTest {
   @Test
   void renderSnapshotAllowsQhd1440p() throws IOException {
-    String v5 =
     String v4 =
         Files.readString(
-            FlywayMigrationContract.migration("V5__catalog_generation_and_render_snapshots.sql"));
             FlywayMigrationContract.migration("V4__catalog_generation_and_render_snapshots.sql"));
 
     assertTrue(
-        v5.contains(
         v4.contains(
             "CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p', '1440p'))"));
   }

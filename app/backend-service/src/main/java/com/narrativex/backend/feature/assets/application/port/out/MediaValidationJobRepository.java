@@ -7,7 +7,6 @@ public interface MediaValidationJobRepository {
 
   record ValidationRequest(
       UUID mediaAssetId,
-      String accountId,
       String storageKey,
       String declaredType,
       String declaredContentType,

@@ -45,21 +45,7 @@ test("features only use renderer/api for shared transport primitives", () => {
   assert.deepEqual(violations, []);
 });
 
-test("StoryboardScreen delegates Gemini queue persistence and transitions to feature modules", () => {
-  const screenPath = join(featuresRoot, "storyboard", "screens", "StoryboardScreen.tsx");
-  const source = readFileSync(screenPath, "utf8");
-
-  assert.doesNotMatch(source, /\blocalStorage\.(?:getItem|setItem|removeItem)\s*\(/);
-  assert.doesNotMatch(source, /function geminiQueueStorageKey\s*\(/);
-  assert.doesNotMatch(source, /function uniqueIds\s*\(/);
-  assert.match(source, /loadGeminiQueue/);
-  assert.match(source, /saveGeminiQueue/);
-  assert.match(source, /reconcileQueue/);
-  assert.match(source, /markQueueBeatCompleted/);
-  assert.match(source, /markQueueBeatSkipped/);
-});
-
-test("Storyboard delegates media and Gemini transport workflows to feature queries", () => {
+test("Storyboard delegates media transport workflows to feature queries", () => {
   const storyboardRoot = join(featuresRoot, "storyboard");
   const screenPath = join(storyboardRoot, "screens", "StoryboardScreen.tsx");
   const gridPath = join(storyboardRoot, "components", "VisualBeatGrid.tsx");
@@ -68,7 +54,6 @@ test("Storyboard delegates media and Gemini transport workflows to feature queri
 
   assert.doesNotMatch(source, /import\s+\{\s*assetsApi\s*\}/);
   assert.doesNotMatch(source, /import\s+\{\s*productionApi\s*\}/);
-  assert.doesNotMatch(source, /\bstoryboardApi\.geminiContext\s*\(/);
   assert.doesNotMatch(source, /\bassetsApi\.registerLocal\s*\(/);
   assert.doesNotMatch(source, /\bproductionApi\.updateBeatMedia\s*\(/);
   assert.match(source, /useStoryboardMediaMutations/);
@@ -82,7 +67,6 @@ test("StoryboardScreen composes focused presentation components", () => {
     "StoryboardHeader.tsx",
     "StoryboardNavigator.tsx",
     "VisualBeatGrid.tsx",
-    "GeminiQueueBanner.tsx",
   ];
 
   for (const component of requiredComponents) {
@@ -97,8 +81,6 @@ test("StoryboardScreen composes focused presentation components", () => {
   assert.match(source, /<StoryboardHeader\b/);
   assert.match(source, /<StoryboardNavigator\b/);
   assert.match(source, /<VisualBeatGrid\b/);
-  assert.match(source, /<GeminiQueueBanner\b/);
-  assert.doesNotMatch(source, /function GeminiQueuePanel\s*\(/);
   assert.doesNotMatch(source, /function VisualBeatCard\s*\(/);
   assert.doesNotMatch(source, /function BeatImagePreview\s*\(/);
 });
@@ -139,8 +121,7 @@ test("CharactersScreen delegates generation and queue workflows to feature queri
 
   assert.doesNotMatch(source, /import\s+\{[^}]*\buseQueryClient\b[^}]*\}\s+from\s+["']@tanstack\/react-query["']/s);
   assert.doesNotMatch(source, /import\s+\{\s*charactersApi\s*\}/);
-  assert.doesNotMatch(source, /generateCharacterIdentityReference\s*\(/);
-  assert.match(source, /useCharacterGeminiQueue/);
+  assert.match(source, /useCharacterPortrait/);
 });
 
 test("ChaptersScreen delegates analysis mutation polling and invalidation to chapter queries", () => {

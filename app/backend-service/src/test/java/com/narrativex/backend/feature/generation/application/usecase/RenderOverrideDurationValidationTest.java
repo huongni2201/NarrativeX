@@ -4,7 +4,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository.SelectableMediaAsset;
@@ -18,12 +17,10 @@ import org.junit.jupiter.api.Test;
 class RenderOverrideDurationValidationTest {
   @Test
   void trimValidationUsesOverriddenBeatDuration() {
-    CurrentUserId currentUserId = mock(CurrentUserId.class);
     GetProductionTimelineUseCase timelineUseCase = mock(GetProductionTimelineUseCase.class);
     ProductionBeatMediaSelectionRepository repository =
         mock(ProductionBeatMediaSelectionRepository.class);
     UpdateProductionBeatMediaUseCase useCase =
-        new UpdateProductionBeatMediaUseCase(currentUserId, timelineUseCase, repository);
         new UpdateProductionBeatMediaUseCase(timelineUseCase, repository);
 
     UUID projectId = UUID.randomUUID();
@@ -55,13 +52,10 @@ class RenderOverrideDurationValidationTest {
             10_000L,
             true);
 
-    when(currentUserId.get()).thenReturn("owner");
-    when(timelineUseCase.executeOwned(projectId, "owner"))
     when(timelineUseCase.execute(projectId))
         .thenReturn(
             new ProductionTimelineView(
                 projectId, UUID.randomUUID(), 10_000L, "16:9", true, List.of(), List.of(beat)));
-    when(repository.findSelectableAsset(projectId, "owner", assetId))
     when(repository.findSelectableAsset(projectId, assetId))
         .thenReturn(
             Optional.of(new SelectableMediaAsset(assetId, "VIDEO", 8_000L, 100L, "a".repeat(64))));
@@ -72,3 +66,4 @@ class RenderOverrideDurationValidationTest {
     verify(repository).upsert(projectId, beatId, assetId, BeatMediaFitMode.TRIM, 0L);
   }
 }
+

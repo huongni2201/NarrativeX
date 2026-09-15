@@ -47,7 +47,6 @@ class GenerationJobControllerContractTest {
             40,
             "ANALYZING",
             null,
-            "owner",
             null,
             null,
             null,
@@ -73,7 +72,6 @@ class GenerationJobControllerContractTest {
     assertEquals(1, response.repairCount());
     assertEquals(reportId, response.continuityReportId());
     assertEquals("continuity-v1", response.pipelineVersion());
-    verify(useCase).executeWithProgress(new GetGenerationJobQuery(jobId, null));
     verify(useCase).executeWithProgress(new GetGenerationJobQuery(jobId));
   }
 
@@ -104,8 +102,6 @@ class GenerationJobControllerContractTest {
             "source-hash",
             "source text",
             "vi-VN",
-            "chapter-analysis:test",
-            "owner");
             "chapter-analysis:test");
 
     JobResponse response = JobResponse.from(job);

@@ -20,5 +20,7 @@ public interface StoryboardMapper extends NarrativeXMyBatisMapper {
 
   UUID insertVisualBeat(VisualBeatRow row);
 
+  UUID insertScene(SceneRow row);
+
   int updateVisualBeat(VisualBeatRow row);
 }

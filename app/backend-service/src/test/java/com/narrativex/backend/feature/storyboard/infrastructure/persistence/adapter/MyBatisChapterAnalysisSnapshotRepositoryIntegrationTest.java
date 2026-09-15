@@ -32,15 +32,12 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
 
   @Test
   void chapterAdvisoryLockMapsItsIntegerSentinel() {
-    UUID chapterId = insertChapter("owner-lock");
     UUID chapterId = insertChapter();
     new TransactionTemplate(transactionManager)
         .executeWithoutResult(status -> storyboardRevisionAccess.lockChapter(chapterId));
   }
 
   @Test
-  void returnsSnapshotOnlyForTheRequestedOwnedProjectScope() {
-    UUID chapterId = insertChapter("owner-a");
   void returnsSnapshotOnlyForTheRequestedProjectScope() {
     UUID chapterId = insertChapter();
     UUID projectId =
@@ -50,41 +47,27 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
             chapterId);
     var repository = new MyBatisChapterAnalysisSnapshotRepository(mapper);
 
-    ChapterAnalysisSource snapshot =
-        repository.requireOwnedByProject(projectId, chapterId, "owner-a");
     ChapterAnalysisSource snapshot = repository.requireByProject(projectId, chapterId);
 
     assertEquals(chapterId, snapshot.chapterId());
     assertEquals("source", snapshot.sourceText());
     assertThrows(
         ResourceNotFoundException.class,
-        () -> repository.requireOwnedByProject(projectId, chapterId, "owner-b"));
-    assertThrows(
-        ResourceNotFoundException.class,
-        () ->
-            repository.requireOwnedByProject(
-                com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
         () -> repository.requireByProject(UuidV7.random(), chapterId));
   }
 
-  private UUID insertChapter(String ownerId) {
-    String suffix = com.narrativex.backend.feature.common.uuid.UuidV7.random().toString();
   private UUID insertChapter() {
     String suffix = UuidV7.random().toString();
     UUID projectId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
-              (name, owner_id, status, source_language, narration_language, metadata_language,
               (name, status, source_language, narration_language, metadata_language,
                image_aspect_ratio, image_quality_tier)
-            VALUES (?, ?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
             VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
             RETURNING id
             """,
             UUID.class,
-            "Analysis scope " + suffix,
-            ownerId);
             "Analysis scope " + suffix);
     UUID storyVersionId =
         jdbcTemplate.queryForObject(

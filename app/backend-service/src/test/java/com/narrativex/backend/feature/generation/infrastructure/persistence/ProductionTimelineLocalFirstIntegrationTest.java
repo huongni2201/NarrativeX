@@ -70,8 +70,6 @@ class ProductionTimelineLocalFirstIntegrationTest {
 
   @Test
   void returnsPreviewMediaWithoutMediaPlan() {
-    var chapters = mapper.findChapters(PROJECT_ID, OWNER);
-    var beats = mapper.findBeats(PROJECT_ID, OWNER);
     var chapters = mapper.findChapters(PROJECT_ID);
     var beats = mapper.findBeats(PROJECT_ID);
 
@@ -97,7 +95,6 @@ class ProductionTimelineLocalFirstIntegrationTest {
   void manualOverrideWinsOverPreview() {
     selectOverride(BEAT_A, OVERRIDE, 500L);
 
-    var overridden = mapper.findBeats(PROJECT_ID, OWNER).get(0);
     var overridden = mapper.findBeats(PROJECT_ID).get(0);
 
     assertThat(overridden.getMediaAssetId()).isEqualTo(OVERRIDE);
@@ -111,7 +108,6 @@ class ProductionTimelineLocalFirstIntegrationTest {
     selectOverride(BEAT_A, OVERRIDE, 500L);
     clearOverride(BEAT_A);
 
-    var reset = mapper.findBeats(PROJECT_ID, OWNER).get(0);
     var reset = mapper.findBeats(PROJECT_ID).get(0);
 
     assertThat(reset.getMediaAssetId()).isEqualTo(PREVIEW_A);
@@ -122,15 +118,8 @@ class ProductionTimelineLocalFirstIntegrationTest {
 
   private void seedProjectGraph() {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES (?, ?, 'Local First', true) ON CONFLICT (id) DO NOTHING",
-        OWNER,
-        OWNER + "@example.com");
         "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Local first', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
         PROJECT_ID);
-    jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Local first', '', ?, 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
-        PROJECT_ID,
-        OWNER);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Story', 'vi-VN', 'ACTIVE') ON CONFLICT (id) DO NOTHING",
         STORY_ID,
@@ -214,10 +203,8 @@ class ProductionTimelineLocalFirstIntegrationTest {
       long sizeBytes,
       String checksumSeed) {
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, ?, ?, ?, 'USER_UPLOAD', NULL, ?, ?, ?, repeat(?, 64), ?, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
         "INSERT INTO media_assets (id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES (?, ?, ?, 'USER_UPLOAD', NULL, ?, ?, ?, repeat(?, 64), ?, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
         id,
-        OWNER,
         PROJECT_ID,
         assetType,
         filename,

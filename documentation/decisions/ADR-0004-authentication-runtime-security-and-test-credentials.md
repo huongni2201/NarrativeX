@@ -1,9 +1,11 @@
 # ADR-0004: Authentication, runtime security and test credentials
 
-- Status: Accepted
-- Date: 2026-08-18 (consolidated and updated: 2026-08-22)
+- Status: Superseded by ADR-0030
+- Date: 2026-08-18 (consolidated and updated: 2026-08-22; superseded: 2026-09-15)
 - Scope: Backend user identity, Spring Security server-managed session persistence, Redis session storage, abuse limiting, frontend security boundaries, and secret scanning.
 - Consolidated from: former ADR-0004 and ADR-0013.
+
+> **Historical rationale only:** The authentication, account, and session architecture described below was superseded by ADR-0030 and is not part of the current NarrativeX runtime. NarrativeX is a single-user local-first application with no application User, Account, Authentication, Authorization, Session, or Tenant models.
 
 ## Context
 

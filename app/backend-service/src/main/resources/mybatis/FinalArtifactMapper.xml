@@ -20,16 +20,13 @@
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
-    <select id="findOwned" resultMap="finalArtifactRow">
     <select id="findById" resultMap="finalArtifactRow">
         SELECT fa.id, fa.project_id, fa.chapter_id, fa.artifact_type, fa.render_fingerprint,
                fa.storage_key,
                fa.mime_type, fa.size_bytes, fa.checksum_sha256, fa.duration_ms,
                fa.width, fa.height, fa.status, fa.created_at, fa.updated_at
           FROM final_artifacts fa
-          JOIN projects p ON p.id = fa.project_id
          WHERE fa.id = #{artifactId}
-           AND p.owner_id = #{ownerId}
            AND fa.status = 'READY'
     </select>
 

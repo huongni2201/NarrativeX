@@ -42,8 +42,6 @@ class GenerationJobMediaPlanTest {
             plan,
             ResourceClass.GPU_HEAVY,
             "en",
-            "chapter-generate:" + chapterId + ":4",
-            "user-1");
             "chapter-generate:" + chapterId + ":4");
 
     assertThat(job.getChapterId()).isEqualTo(chapterId);

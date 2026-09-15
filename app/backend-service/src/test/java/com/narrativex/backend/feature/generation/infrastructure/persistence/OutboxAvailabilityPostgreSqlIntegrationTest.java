@@ -80,7 +80,6 @@ class OutboxAvailabilityPostgreSqlIntegrationTest {
     ValidationRequest request =
         new ValidationRequest(
             mediaAssetId,
-            "outbox-owner",
             "local/uploads/test.png",
             "IMAGE",
             "image/png",

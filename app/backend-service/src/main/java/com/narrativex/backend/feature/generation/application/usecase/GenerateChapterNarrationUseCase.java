@@ -2,9 +2,6 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
-import com.narrativex.backend.feature.generation.application.model.NarrationOperation;
-import com.narrativex.backend.feature.generation.application.model.NarrationRequest;
-import com.narrativex.backend.feature.generation.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;

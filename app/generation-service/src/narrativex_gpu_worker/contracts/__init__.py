@@ -31,6 +31,7 @@ from .task import (
     TaskConstraints,
     TaskDescriptor,
     TaskInputs,
+    TextGenerateInputs,
     VoiceSelection,
 )
 
@@ -60,6 +61,7 @@ __all__ = [
     "TaskConstraints",
     "TaskDescriptor",
     "TaskInputs",
+    "TextGenerateInputs",
     "VoiceSelection",
     "WorkerCapabilities",
     "WorkerLimits",

@@ -15,7 +15,7 @@ class NarrationRuntimeContractTest {
 
   @Test
   void outboxAvailabilityDefaultsToNowForProducersThatOmitIt() throws IOException {
-    String migration = resource("db/migration/V4__narration_notifications_and_artifacts.sql");
+    String migration = resource("db/migration/V3__narration_and_artifacts.sql");
 
     assertTrue(
         migration.contains(

@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess.MediaAssetSummary;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
@@ -32,7 +31,6 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
   private static final UUID BEAT_ID = UUID.randomUUID();
   private static final UUID MEDIA_ASSET_ID = UUID.randomUUID();
 
-  private final CurrentUserId currentUserId = mock(CurrentUserId.class);
   private final StoryVersionAccess storyVersionAccess = mock(StoryVersionAccess.class);
   private final ChapterRepository chapterRepository = mock(ChapterRepository.class);
   private final StoryboardRepository storyboardRepository = mock(StoryboardRepository.class);
@@ -41,7 +39,6 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
   private final MediaAssetAccess mediaAssetAccess = mock(MediaAssetAccess.class);
   private final AttachVisualBeatPreviewMediaUseCase useCase =
       new AttachVisualBeatPreviewMediaUseCase(
-          currentUserId,
           storyVersionAccess,
           chapterRepository,
           storyboardRepository,
@@ -64,7 +61,6 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
             MotionMode.STILL,
             null,
             VisualBeatReviewStatus.NEEDS_REVIEW);
-    when(currentUserId.get()).thenReturn("owner");
     when(chapterRepository.findById(CHAPTER_ID))
         .thenReturn(Optional.of(Chapter.rehydrate(CHAPTER_ID, 0, STORY_VERSION_ID, 0, "Chapter")));
     when(storyboardRepository.findSceneById(SCENE_ID))
@@ -78,7 +74,6 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
 
   @Test
   void attachesAReadyImageWithoutAProductionTimelineBeat() {
-    when(mediaAssetAccess.findOwnedSummary("owner", MEDIA_ASSET_ID))
     when(mediaAssetAccess.findSummary(MEDIA_ASSET_ID))
         .thenReturn(
             Optional.of(
@@ -92,7 +87,6 @@ class AttachVisualBeatPreviewMediaUseCaseTest {
 
   @Test
   void rejectsMediaThatIsNotAReadyImage() {
-    when(mediaAssetAccess.findOwnedSummary("owner", MEDIA_ASSET_ID))
     when(mediaAssetAccess.findSummary(MEDIA_ASSET_ID))
         .thenReturn(
             Optional.of(

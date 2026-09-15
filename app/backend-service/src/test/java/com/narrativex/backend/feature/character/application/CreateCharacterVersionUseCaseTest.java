@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterVersionCommand;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
@@ -31,30 +30,25 @@ class CreateCharacterVersionUseCaseTest {
 
   @Test
   void locksCharacterBeforeAllocatingNextVersion() {
-    when(characterRepository.findOwnedByIdForUpdate(CHARACTER_ID, "owner"))
     when(characterRepository.findByIdForUpdate(CHARACTER_ID))
         .thenReturn(Optional.of(character()));
     when(versionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
     when(versionRepository.save(any(CharacterVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
-    CurrentUserId currentUserId = () -> "owner";
     CreateCharacterVersionUseCase useCase =
-        new CreateCharacterVersionUseCase(characterRepository, versionRepository, currentUserId);
         new CreateCharacterVersionUseCase(characterRepository, versionRepository);
 
     CharacterVersion response =
         useCase.execute(new CreateCharacterVersionCommand(CHARACTER_ID, "bible", "visual prompt"));
 
     assertEquals(4, response.getVersionNumber());
-    verify(characterRepository).findOwnedByIdForUpdate(CHARACTER_ID, "owner");
-    verify(characterRepository, never()).findOwnedById(CHARACTER_ID, "owner");
     verify(characterRepository).findByIdForUpdate(CHARACTER_ID);
     verify(characterRepository, never()).findById(CHARACTER_ID);
   }
 
   private static Character character() {
     return Character.rehydrate(
-        CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
         CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }
+

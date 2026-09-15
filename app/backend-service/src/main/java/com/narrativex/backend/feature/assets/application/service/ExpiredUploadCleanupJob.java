@@ -26,7 +26,6 @@ public class ExpiredUploadCleanupJob {
     List<MediaUploadSessionRepository.ExpiredUpload> expired = sessions.findExpiredPending(100);
     for (var upload : expired) {
       try {
-        finalization.rejectExpired(upload.accountId(), upload.id());
         finalization.rejectExpired(upload.id());
       } catch (RuntimeException exception) {
         // A later scan retries the short database transition. Object deletion is handled

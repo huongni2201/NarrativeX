@@ -1,13 +1,7 @@
 import type { ApiResponse, FieldViolation } from "@narrativex/client-contracts";
-import { requestAuthentication } from "./auth-required-event.ts";
 import { isRecord, isString } from "./guards.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-
-interface CsrfTokenResponse {
-  token: string;
-  headerName: string;
-}
 
 interface DesktopTransportResponse {
   status: number;
@@ -20,8 +14,6 @@ interface ApiErrorDetails {
   correlationId?: string;
   errors?: FieldViolation[];
 }
-
-let csrfTokenPromise: Promise<CsrfTokenResponse> | undefined;
 
 export class DesktopApiError extends Error {
   readonly status: number;
@@ -56,10 +48,6 @@ export class DesktopApiProtocolError extends Error {
   }
 }
 
-export function resetApiSessionState(): void {
-  csrfTokenPromise = undefined;
-}
-
 export function parseApiResponseBody<T>(path: string, bodyText: string): ApiResponse<T> {
   const value = parseJson(bodyText);
   if (
@@ -71,37 +59,6 @@ export function parseApiResponseBody<T>(path: string, bodyText: string): ApiResp
     throw new DesktopApiProtocolError(path);
   }
   return value as unknown as ApiResponse<T>;
-}
-
-function isCsrfTokenResponse(value: unknown): value is CsrfTokenResponse {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<CsrfTokenResponse>;
-  return typeof candidate.token === "string" && typeof candidate.headerName === "string";
-}
-
-async function loadCsrfToken() {
-  const path = "/api/v1/auth/csrf";
-  const response = await desktopRequest(
-    path,
-    { headers: { Accept: "application/json" } },
-    DEFAULT_TIMEOUT_MS,
-  );
-  if (!isSuccessful(response.status)) {
-    throw buildApiError(path, response);
-  }
-  const envelope = parseApiResponseBody<unknown>(path, response.bodyText);
-  if (!hasResponseData(envelope) || !isCsrfTokenResponse(envelope.data)) {
-    throw new DesktopApiProtocolError(path);
-  }
-  return envelope.data;
-}
-
-function csrfToken() {
-  csrfTokenPromise ??= loadCsrfToken().catch((error) => {
-    csrfTokenPromise = undefined;
-    throw error;
-  });
-  return csrfTokenPromise;
 }
 
 export async function apiRequest<T>(
@@ -137,10 +94,6 @@ async function executeApiRequest(
   if (body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-    const token = await csrfToken();
-    headers.set(token.headerName, token.token);
-  }
 
   const response = await desktopRequest(
     path,
@@ -153,12 +106,7 @@ async function executeApiRequest(
   );
 
   if (!isSuccessful(response.status)) {
-    if (response.status === 401 || response.status === 403) resetApiSessionState();
-    const error = buildApiError(path, response);
-    if (error.code === "AUTHENTICATION_REQUIRED") {
-      requestAuthentication(error.message, path);
-    }
-    throw error;
+    throw buildApiError(path, response);
   }
 
   if (response.status === 204) return undefined;

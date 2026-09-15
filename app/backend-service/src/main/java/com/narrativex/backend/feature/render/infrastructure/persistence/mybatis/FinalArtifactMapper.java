@@ -4,8 +4,6 @@ import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.
 import org.apache.ibatis.annotations.Param;
 
 public interface FinalArtifactMapper extends NarrativeXMyBatisMapper {
-  FinalArtifactRow findOwned(
-      @Param("artifactId") Long artifactId, @Param("ownerId") String ownerId);
   FinalArtifactRow findById(@Param("artifactId") Long artifactId);
 
   FinalArtifactRow findByGenerationJobId(@Param("jobId") String jobId);

@@ -3,23 +3,13 @@ package com.narrativex.backend;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.narrativex.backend.feature.auth.infrastructure.security.SecurityContextCurrentUser;
-import org.junit.jupiter.api.Test;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.TestingAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 class DomainFoundationTests {
-
-  @AfterEach
-  void clearSecurityContext() {
-    SecurityContextHolder.clearContext();
-  }
 
   @Test
   void aspectRatioUsesStableUserFacingCode() {
@@ -34,13 +24,5 @@ class DomainFoundationTests {
     story.activate();
 
     assertEquals(StoryVersionStatus.ACTIVE, story.getStatus());
-  }
-
-  @Test
-  void identityComesFromSecurityContext() {
-    SecurityContextHolder.getContext()
-        .setAuthentication(
-            new TestingAuthenticationToken("oidc-subject", "credentials", "ROLE_USER"));
-    assertEquals("oidc-subject", new SecurityContextCurrentUser().get());
   }
 }

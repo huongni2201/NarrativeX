@@ -444,6 +444,87 @@ public final class GenerationJob extends AggregateRoot {
     return analysisImageProvider;
   }
 
+  public GenerationJob markRunning(String step, int progress) {
+    return new GenerationJob(
+        getId(),
+        getRowVersion(),
+        this.jobId,
+        this.projectId,
+        this.type,
+        JobStatus.RUNNING,
+        this.resourceClass,
+        progress,
+        step,
+        null,
+        this.storyVersionId,
+        this.chapterId,
+        this.storyboardRevisionId,
+        this.chapterRowVersion,
+        this.sourceHash,
+        this.sourceText,
+        this.sourceLanguage,
+        this.idempotencyKey,
+        this.mediaPlanId,
+        this.mediaPlanRevision,
+        this.productionMode,
+        this.analysisVisualGenerationMode,
+        this.analysisImageProvider);
+  }
+
+  public GenerationJob markCompleted(String step) {
+    return new GenerationJob(
+        getId(),
+        getRowVersion(),
+        this.jobId,
+        this.projectId,
+        this.type,
+        JobStatus.COMPLETED,
+        this.resourceClass,
+        100,
+        step,
+        null,
+        this.storyVersionId,
+        this.chapterId,
+        this.storyboardRevisionId,
+        this.chapterRowVersion,
+        this.sourceHash,
+        this.sourceText,
+        this.sourceLanguage,
+        this.idempotencyKey,
+        this.mediaPlanId,
+        this.mediaPlanRevision,
+        this.productionMode,
+        this.analysisVisualGenerationMode,
+        this.analysisImageProvider);
+  }
+
+  public GenerationJob markFailed(String errorCode, String step) {
+    return new GenerationJob(
+        getId(),
+        getRowVersion(),
+        this.jobId,
+        this.projectId,
+        this.type,
+        JobStatus.FAILED,
+        this.resourceClass,
+        this.progress,
+        step,
+        errorCode,
+        this.storyVersionId,
+        this.chapterId,
+        this.storyboardRevisionId,
+        this.chapterRowVersion,
+        this.sourceHash,
+        this.sourceText,
+        this.sourceLanguage,
+        this.idempotencyKey,
+        this.mediaPlanId,
+        this.mediaPlanRevision,
+        this.productionMode,
+        this.analysisVisualGenerationMode,
+        this.analysisImageProvider);
+  }
+
   private static void requireCompleteMediaPlanPointer(
       UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
     boolean allNull = mediaPlanId == null && mediaPlanRevision == null && productionMode == null;

@@ -39,7 +39,6 @@ class CharacterPersistenceMissingRowTest {
   void persistedCharacterIsNotReinsertedWhenItsRowDisappeared() {
     UUID id = UUID.randomUUID();
     Character value =
-        Character.rehydrate(id, 3L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
         Character.rehydrate(id, 3L, "Mina", List.of(), CharacterStatus.ACTIVE);
     when(rowMapper.row(any(Character.class), any(CharacterMyBatisRowMapper.InstantPair.class)))
         .thenReturn(new CharacterRow());
@@ -92,7 +91,6 @@ class CharacterPersistenceMissingRowTest {
             "bible",
             "visual prompt",
             CharacterVersionStatus.DRAFT,
-            null,
             null);
     when(rowMapper.row(
             any(CharacterVersion.class), any(CharacterMyBatisRowMapper.InstantPair.class)))

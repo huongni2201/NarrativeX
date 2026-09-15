@@ -5,13 +5,6 @@ import { stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { DesktopBackendApiService, type DesktopApiResponse } from "./api/backend-api-service";
 import { registerBackendSseIpc } from "./api/backend-sse-ipc";
-import { DesktopAuthService } from "./auth/auth-service";
-import { AUTH_CALLBACK_CHANNEL } from "./auth/auth-events";
-import {
-  extractDesktopAuthCode,
-  extractDesktopAuthError,
-  isNarrativeXProtocolUrl,
-} from "./auth/protocol-handler";
 import { LocalExecutionBackendClient } from "./local-execution/backend-client";
 import { loadLocalExecutionConfig } from "./local-execution/config";
 import { DeviceIdentityStore } from "./local-execution/device-identity";
@@ -67,7 +60,6 @@ if (!app.isPackaged) {
 let mainWindow: BrowserWindow | null = null;
 let localExecution: LocalExecutionService | null = null;
 let projectStorage: ProjectStorage | null = null;
-let desktopAuth: DesktopAuthService | null = null;
 let desktopApi: DesktopBackendApiService | null = null;
 let ffmpegRuntime: FfmpegRuntimeStatus = {
   available: false,
@@ -79,72 +71,16 @@ let ffmpegRuntime: FfmpegRuntimeStatus = {
 let renderPreflight: LocalRenderPreflightService | null = null;
 let renderJournals: RenderJournalStore | null = null;
 let remoteAssetMaterializer: RemoteAssetMaterializer | null = null;
-let initialProtocolUrl: string | null = process.argv.find(isNarrativeXProtocolUrl) ?? null;
-let pendingAuthCode: string | null = null;
-let pendingAuthFailure: DesktopApiResponse | null = null;
 const pendingAssetSelections = new SelectionTokenStore<{ sourcePath: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" }>();
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-function authFailureResponse(): DesktopApiResponse {
-  return {
-    status: 401,
-    statusText: "Desktop authentication failed",
-    bodyText: JSON.stringify({
-      success: false,
-      message: "Google authentication failed. Please try again.",
-    }),
-  };
-}
-
-async function exchangeDesktopAuthCode(code: string): Promise<DesktopApiResponse> {
-  if (!desktopAuth) return authFailureResponse();
-  try {
-    return await desktopAuth.exchange(code);
-  } catch {
-    return authFailureResponse();
-  }
-}
-
-function deliverProtocolCode(code: string): void {
-  if (!mainWindow || mainWindow.webContents.isLoading() || !desktopAuth) {
-    pendingAuthCode = code;
-    return;
-  }
-  void exchangeDesktopAuthCode(code).then((result) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, result);
-    }
-  });
-}
-
-function deliverProtocolUrl(value: string): void {
-  const code = extractDesktopAuthCode(value);
-  if (code) {
-    deliverProtocolCode(code);
-    return;
-  }
-  if (!extractDesktopAuthError(value)) return;
-  const response = authFailureResponse();
-  if (!mainWindow || mainWindow.webContents.isLoading() || !desktopAuth) {
-    pendingAuthFailure = response;
-    return;
-  }
-  mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, response);
-}
-
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", (_event, commandLine) => {
-    const url = commandLine.find(isNarrativeXProtocolUrl);
-    if (url) deliverProtocolUrl(url);
+  app.on("second-instance", () => {
     mainWindow?.show();
     mainWindow?.focus();
-  });
-  app.on("open-url", (event, url) => {
-    event.preventDefault();
-    deliverProtocolUrl(url);
   });
 }
 
@@ -290,20 +226,6 @@ function requireMainWindow(): BrowserWindow {
   return mainWindow;
 }
 
-function registerNarrativeXProtocol(): void {
-  // Electron's one-argument registration is correct for packaged apps. In
-  // development, Windows otherwise launches Electron with the callback URL as
-  // the app path (for example, `C:\\Windows\\System32\\narrativex:\\auth\\callback`).
-  if (process.defaultApp && process.argv[1]) {
-    app.setAsDefaultProtocolClient("narrativex", process.execPath, [
-      resolve(process.argv[1]),
-    ]);
-    return;
-  }
-
-  app.setAsDefaultProtocolClient("narrativex");
-}
-
 void app.whenReady().then(async () => {
   app.setAppUserModelId("com.narrativex.desktop");
   Menu.setApplicationMenu(null);
@@ -314,16 +236,10 @@ void app.whenReady().then(async () => {
     app.isPackaged,
     process.env.ELECTRON_RENDERER_URL,
   );
-  registerNarrativeXProtocol();
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => callback(false),
   );
   desktopApi = new DesktopBackendApiService(config.backendBaseUrl, session.defaultSession);
-  desktopAuth = new DesktopAuthService(
-    config.backendBaseUrl,
-    desktopApi,
-    (url) => shell.openExternal(url),
-  );
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
   projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
@@ -354,24 +270,6 @@ void app.whenReady().then(async () => {
     return requireDesktopApi().request(input);
   });
   registerBackendSseIpc(trustPolicy, requireDesktopApi);
-  registerTrustedIpcHandler("desktop:auth:login", trustPolicy, () => {
-    if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
-    pendingAuthCode = null;
-    pendingAuthFailure = null;
-    return desktopAuth.login();
-  });
-  registerTrustedIpcHandler("desktop:auth:logout", trustPolicy, () => {
-    if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
-    return desktopAuth.logout();
-  });
-  registerTrustedIpcHandler("desktop:auth:consume-pending", trustPolicy, () => {
-    const failure = pendingAuthFailure;
-    pendingAuthFailure = null;
-    if (failure) return failure;
-    const code = pendingAuthCode;
-    pendingAuthCode = null;
-    return code ? exchangeDesktopAuthCode(code) : null;
-  });
   registerTrustedIpcHandler("desktop:local-execution:status", trustPolicy, () =>
     requireLocalExecution().status(),
   );
@@ -567,10 +465,6 @@ void app.whenReady().then(async () => {
   });
 
   createWindow();
-  if (initialProtocolUrl) {
-    deliverProtocolUrl(initialProtocolUrl);
-    initialProtocolUrl = null;
-  }
   void localExecution.start().catch((error) => {
     console.error("Failed to initialize local execution", error);
   });
@@ -585,8 +479,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  pendingAuthCode = null;
-  desktopAuth?.clearPendingLogin();
   localExecution?.stop();
 });
 

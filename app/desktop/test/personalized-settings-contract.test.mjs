@@ -14,20 +14,6 @@ test("preload exposes a typed per-user preferences bridge", () => {
   assert.match(preload, /desktop:preferences:reset/);
 });
 
-test("AuthGuard blocks account-scoped children until desktop preferences bind to the current user", () => {
-  const authGuard = source("src", "renderer", "features", "auth", "AuthGuard.tsx");
-  assert.match(authGuard, /boundPreferenceUserId/);
-  assert.match(authGuard, /setBoundPreferenceUserId\(undefined\)/);
-  assert.match(authGuard, /const preferenceUserId = currentUser\.data\.id/);
-  assert.match(
-    authGuard,
-    /window\.narrativex\.preferences\s*\.bindUser\(currentUser\.data\.id\)/,
-  );
-  assert.match(authGuard, /setBoundPreferenceUserId\(preferenceUserId\)/);
-  assert.match(authGuard, /syncingPreferenceIdentity/);
-  assert.match(authGuard, /syncingLocalIdentity\s*\|\|\s*syncingPreferenceIdentity/);
-});
-
 test("personalized preference bootstrap restores and persists native window state", () => {
   const main = source("src", "main", "main.ts");
   const bootstrap = source("src", "main", "preferences", "preferences-bootstrap.ts");

@@ -10,13 +10,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
@@ -36,21 +34,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class EnqueueStoryAnalysisUseCaseTest {
-  private static final String SOURCE_HASH =
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
-  private static final UUID PROJECT_ID = UuidV7.random();
-  private static final UUID CHAPTER_ID = UuidV7.random();
-  private static final UUID STORY_VERSION_ID = UuidV7.random();
-  private static final UUID STORYBOARD_REVISION_ID = UuidV7.random();
-  private static final UUID JOB_ID = UuidV7.random();
-  private static final UUID PLAN_ID = UuidV7.random();
-  private static final long CHAPTER_ROW_VERSION = 2L;
   private static final UUID PROJECT_ID = UUID.fromString("018d4f4e-9f6b-7cb8-bdf4-f89a81e3f890");
   private static final UUID CHAPTER_ID = UUID.fromString("018d4f4e-9f6b-7cb8-bdf4-f89a81e3f891");
   private static final UUID STORY_VERSION_ID =
@@ -71,9 +59,7 @@ class EnqueueStoryAnalysisUseCaseTest {
           + ":"
           + SOURCE_HASH
           + ":IMAGE:API";
-      "chapter-analysis:" + PROJECT_ID + ":" + CHAPTER_ID + ":4:sha256-abc:IMAGE:API";
 
-  @Mock private CurrentUserId currentUserId;
   @Mock private ProjectAccess projectAccess;
   @Mock private ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   @Mock private StoryboardRevisionAccess storyboardRevisionAccess;
@@ -82,12 +68,7 @@ class EnqueueStoryAnalysisUseCaseTest {
   @Mock private StageAttemptRepository stageAttemptRepository;
   @Mock private GenerationOutboxRepository generationOutboxRepository;
   @Mock private ChapterAnalysisAdmissionService admissionService;
-  @Mock private QuotaReservation quotaReservation;
-  @InjectMocks private EnqueueStoryAnalysisUseCase useCase;
 
-  @Test
-  void chapterAnalysisHasADurableJobType() {
-    assertEquals("CHAPTER_ANALYZE", JobType.CHAPTER_ANALYZE.name());
   private EnqueueStoryAnalysisUseCase useCase;
 
   @BeforeEach
@@ -105,6 +86,11 @@ class EnqueueStoryAnalysisUseCaseTest {
   }
 
   @Test
+  void chapterAnalysisHasADurableJobType() {
+    assertEquals("CHAPTER_ANALYZE", JobType.CHAPTER_ANALYZE.name());
+  }
+
+  @Test
   void analysisCommandRequiresAValidProjectAndChapterScope() {
     assertThrows(
         IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(null, CHAPTER_ID));
@@ -116,12 +102,8 @@ class EnqueueStoryAnalysisUseCaseTest {
   void derivesIdempotencyFromTheLockedAuthoritativeSnapshot() {
     var snapshot = snapshot();
     RuntimeException stop = new RuntimeException("stop after idempotency derivation");
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            PROJECT_ID, CHAPTER_ID, "user-1"))
     when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
         .thenReturn(snapshot);
-    doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(IDEMPOTENCY_KEY, "user-1");
     doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(IDEMPOTENCY_KEY);
 
     var thrown =
@@ -131,10 +113,6 @@ class EnqueueStoryAnalysisUseCaseTest {
 
     assertSame(stop, thrown);
     InOrder order = inOrder(chapterAnalysisSourceAccess, generationJobRepository);
-    order
-        .verify(chapterAnalysisSourceAccess)
-        .requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1");
-    order.verify(generationJobRepository).acquireIdempotencyLock(IDEMPOTENCY_KEY, "user-1");
     order.verify(chapterAnalysisSourceAccess).requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID);
     order.verify(generationJobRepository).acquireIdempotencyLock(IDEMPOTENCY_KEY);
   }
@@ -142,28 +120,17 @@ class EnqueueStoryAnalysisUseCaseTest {
   @Test
   void persistsExactlyOneDurableEnqueueBoundaryInOrder() {
     var snapshot = snapshot();
-    var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-09", "CAPACITY", 1);
     var persistedPlan =
         OperationPlan.rehydrate(PLAN_ID, 0L, PROJECT_ID, null, "CHAPTER_ANALYZE");
     var persistedJob = persistedJob(JobStatus.QUEUED);
 
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            PROJECT_ID, CHAPTER_ID, "user-1"))
     when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
         .thenReturn(snapshot);
-    var project =
-        org.mockito.Mockito.mock(
-            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     var project = org.mockito.Mockito.mock(Project.class);
     when(project.getSourceLanguage()).thenReturn("vi-VN");
-    when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
-    when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
     when(projectAccess.findProject(PROJECT_ID)).thenReturn(project);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY))
         .thenReturn(Optional.empty());
-    when(admissionService.admit("user-1"))
-        .thenReturn(new ChapterAnalysisAdmissionService.Admission(reservation));
     when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
         .thenReturn(STORYBOARD_REVISION_ID);
     when(operationPlanRepository.save(org.mockito.ArgumentMatchers.any(OperationPlan.class)))
@@ -178,7 +145,6 @@ class EnqueueStoryAnalysisUseCaseTest {
     verify(operationPlanRepository, times(2))
         .save(org.mockito.ArgumentMatchers.any(OperationPlan.class));
     verify(generationJobRepository).save(org.mockito.ArgumentMatchers.any(GenerationJob.class));
-    verify(quotaReservation).bindToGenerationJob(77L, persistedJob.getId());
     verify(stageAttemptRepository)
         .create(
             org.mockito.ArgumentMatchers.argThat(
@@ -193,24 +159,16 @@ class EnqueueStoryAnalysisUseCaseTest {
   void duplicateEnqueueReturnsExistingJobWithoutCreatingDurableRows() {
     var snapshot = snapshot();
     var existing = persistedJob(JobStatus.QUEUED);
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            PROJECT_ID, CHAPTER_ID, "user-1"))
     when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
         .thenReturn(snapshot);
-    when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY))
         .thenReturn(Optional.of(existing));
 
     assertSame(existing, useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID)));
 
-    verify(admissionService, never()).admit(org.mockito.ArgumentMatchers.any());
     verify(admissionService, never()).admit();
     verify(operationPlanRepository, never()).save(org.mockito.ArgumentMatchers.any());
     verify(generationJobRepository, never()).save(org.mockito.ArgumentMatchers.any());
-    verify(quotaReservation, never())
-        .bindToGenerationJob(
-            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
     verify(stageAttemptRepository, never()).create(org.mockito.ArgumentMatchers.any());
     verify(generationOutboxRepository, never()).enqueue(org.mockito.ArgumentMatchers.any());
   }
@@ -231,12 +189,8 @@ class EnqueueStoryAnalysisUseCaseTest {
             + SOURCE_HASH
             + ":IMAGE:API";
     RuntimeException stop = new RuntimeException("derived new snapshot key");
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            PROJECT_ID, CHAPTER_ID, "user-1"))
     when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
         .thenReturn(newerSnapshot);
-    doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(newerKey, "user-1");
     doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(newerKey);
 
     assertSame(
@@ -244,32 +198,20 @@ class EnqueueStoryAnalysisUseCaseTest {
         assertThrows(
             RuntimeException.class,
             () -> useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID))));
-    verify(generationJobRepository, never()).acquireIdempotencyLock(IDEMPOTENCY_KEY, "user-1");
     verify(generationJobRepository, never()).acquireIdempotencyLock(IDEMPOTENCY_KEY);
   }
 
   @Test
   void failureBeforeOutboxDoesNotInvokeLaterDurableSteps() {
     var snapshot = snapshot();
-    var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-09", "CAPACITY", 1);
     RuntimeException failure = new RuntimeException("generation job insert failed");
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            PROJECT_ID, CHAPTER_ID, "user-1"))
     when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
         .thenReturn(snapshot);
-    var project =
-        org.mockito.Mockito.mock(
-            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     var project = org.mockito.Mockito.mock(Project.class);
     when(project.getSourceLanguage()).thenReturn("vi-VN");
-    when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
-    when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
     when(projectAccess.findProject(PROJECT_ID)).thenReturn(project);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY))
         .thenReturn(Optional.empty());
-    when(admissionService.admit("user-1"))
-        .thenReturn(new ChapterAnalysisAdmissionService.Admission(reservation));
     when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
         .thenReturn(STORYBOARD_REVISION_ID);
     when(operationPlanRepository.save(org.mockito.ArgumentMatchers.any(OperationPlan.class)))
@@ -284,9 +226,6 @@ class EnqueueStoryAnalysisUseCaseTest {
             RuntimeException.class,
             () -> useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID))));
 
-    verify(quotaReservation, never())
-        .bindToGenerationJob(
-            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
     verify(stageAttemptRepository, never()).create(org.mockito.ArgumentMatchers.any());
     verify(generationOutboxRepository, never()).enqueue(org.mockito.ArgumentMatchers.any());
   }
@@ -308,7 +247,6 @@ class EnqueueStoryAnalysisUseCaseTest {
         0,
         "QUEUED",
         null,
-        "user-1",
         STORY_VERSION_ID,
         CHAPTER_ID,
         STORYBOARD_REVISION_ID,
@@ -319,3 +257,4 @@ class EnqueueStoryAnalysisUseCaseTest {
         IDEMPOTENCY_KEY);
   }
 }
+

@@ -34,7 +34,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MediaUploadFinalizationConcurrencyIntegrationTest {
-  private static final String ACCOUNT = "finalize-concurrency-account";
   private static final String SHA = "c".repeat(64);
 
   @Container
@@ -52,7 +51,6 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
-    registry.add("spring.session.jdbc.initialize-schema", () -> "never");
   }
 
   @Autowired private MediaUploadSessionRepository sessions;
@@ -64,9 +62,6 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
   void cleanRows() {
     JdbcTemplate jdbc = new JdbcTemplate(dataSource);
     jdbc.update("DELETE FROM media_storage_cleanup_tasks");
-    jdbc.update("DELETE FROM media_upload_sessions WHERE account_id = ?", ACCOUNT);
-    jdbc.update("DELETE FROM media_validation_jobs WHERE account_id = ?", ACCOUNT);
-    jdbc.update("DELETE FROM voice_reference_assets WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM media_upload_sessions");
     jdbc.update("DELETE FROM media_validation_jobs");
     jdbc.update("DELETE FROM voice_reference_assets");
@@ -98,14 +93,10 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
           .isEqualTo(1);
       assertThat(
               count(
-                  "SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ? AND status = 'VALIDATING'",
-                  ACCOUNT))
                   "SELECT COUNT(*) FROM voice_reference_assets WHERE status = 'VALIDATING'"))
           .isEqualTo(1);
       assertThat(
               count(
-                  "SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ? AND status IN ('PENDING_UPLOAD', 'UPLOADING')",
-                  ACCOUNT))
                   "SELECT COUNT(*) FROM voice_reference_assets WHERE status IN ('PENDING_UPLOAD', 'UPLOADING')"))
           .isZero();
     } finally {
@@ -119,14 +110,11 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     StoredObject storedObject = storedObject(session);
 
     UploadFinalizeView first =
-        finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
         finalization.finalizeVerifiedObject(session.id(), storedObject);
     UploadFinalizeView retry =
-        finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
         finalization.finalizeVerifiedObject(session.id(), storedObject);
 
     assertThat(retry.mediaAssetId()).isEqualTo(first.mediaAssetId());
-    assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ?", ACCOUNT))
     assertThat(count("SELECT COUNT(*) FROM voice_reference_assets"))
         .isEqualTo(1);
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks")).isZero();
@@ -151,13 +139,10 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
       UploadFinalizeView second = results.get(1).get();
 
       assertThat(first.mediaAssetId()).isEqualTo(second.mediaAssetId());
-      assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE account_id = ?", ACCOUNT))
       assertThat(count("SELECT COUNT(*) FROM voice_reference_assets"))
           .isEqualTo(1);
       assertThat(
               count(
-                  "SELECT COUNT(*) FROM media_upload_sessions WHERE account_id = ? AND status = 'VALIDATING'",
-                  ACCOUNT))
                   "SELECT COUNT(*) FROM media_upload_sessions WHERE status = 'VALIDATING'"))
           .isEqualTo(2);
       assertThat(
@@ -175,7 +160,6 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
 
     UploadFinalizeView result =
         finalization.finalizeVerifiedObject(
-            ACCOUNT,
             session.id(),
             new StoredObject(
                 session.storageKey(), session.expectedSize() + 1, session.contentType(), SHA));
@@ -193,7 +177,6 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
   private UploadFinalizeView finalizeAfter(
       CyclicBarrier start, UUID sessionId, StoredObject storedObject) throws Exception {
     start.await();
-    return finalization.finalizeVerifiedObject(ACCOUNT, sessionId, storedObject);
     return finalization.finalizeVerifiedObject(sessionId, storedObject);
   }
 
@@ -202,13 +185,11 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     return sessions.create(
         new CreateUploadSession(
             id,
-            ACCOUNT,
             "AUDIO",
             "voice.wav",
             "audio/wav",
             128,
             SHA,
-            "voices/" + ACCOUNT + "/" + id,
             "voices/" + id,
             null,
             Instant.now().plusSeconds(900)));

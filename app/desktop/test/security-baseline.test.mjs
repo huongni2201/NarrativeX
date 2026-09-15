@@ -12,11 +12,8 @@ test("preload does not depend on unrestricted Node core modules", () => {
   assert.doesNotMatch(preload, /from\s+["']node:/);
 });
 
-test("pending desktop auth callback consumption handles IPC rejection", () => {
-  assert.match(
-    preload,
-    /\.invoke\("desktop:auth:consume-pending"\)[\s\S]*?\.catch\(\(\)\s*=>\s*undefined\)/,
-  );
+test("preload contains no desktop auth IPC channels", () => {
+  assert.doesNotMatch(preload, /desktop:auth:/);
 });
 
 test("renderer defines a restrictive content security policy", () => {

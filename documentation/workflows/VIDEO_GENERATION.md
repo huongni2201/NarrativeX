@@ -1,4 +1,4 @@
-# Video / Motion Media Workflow — V1.11
+# Video / Motion Media Workflow — V1.12
 
 NarrativeX remains image-first. A VisualBeat may use an image or video asset, but optional AI I2V is not required for the core Desktop creator loop.
 
@@ -61,7 +61,7 @@ If/when an I2V operation is authorized:
 
 ```text
 approved VisualBeat + source keyframe/media identity
-  -> capability/cost/entitlement admission
+  -> capability/capacity admission
   -> OperationPlan + reservation
   -> GenerationJob / StageAttempt
   -> ProviderOperation persisted before submit

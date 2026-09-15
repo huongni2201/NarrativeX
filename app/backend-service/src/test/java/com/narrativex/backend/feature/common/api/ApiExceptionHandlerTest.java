@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
 import java.sql.SQLException;
 import java.util.List;
@@ -17,9 +18,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
-import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
@@ -104,15 +102,9 @@ class ApiExceptionHandlerTest {
   }
 
   @Test
-  void securityExceptionsUseExpectedStatusesAndCodes() {
-    ErrorResponse forbidden =
-        body(handler.handleAccessDenied(new AccessDeniedException("internal detail"), request));
   void invalidDeviceCredentialsUsesUnauthorizedStatusAndCode() {
     ErrorResponse unauthorized =
         body(
-            handler.handleUnauthenticated(new BadCredentialsException("internal detail"), request));
-    assertEquals(403, forbidden.status());
-    assertEquals("FORBIDDEN", forbidden.code());
             handler.handleInvalidDeviceCredentials(
                 new InvalidDeviceCredentialsException("internal detail"), request));
     assertEquals(401, unauthorized.status());

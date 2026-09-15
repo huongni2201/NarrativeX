@@ -1,6 +1,6 @@
 # NarrativeX Desktop
 
-NarrativeX Desktop is the only supported NarrativeX editor client. It is built with Electron, React, TypeScript and electron-vite while Spring Boot remains authoritative for users/guests, ownership, project/domain metadata, generation jobs and shared durable state.
+NarrativeX Desktop is the only supported NarrativeX editor client. It is built with Electron, React, TypeScript and electron-vite while Spring Boot remains authoritative for project/domain metadata, generation jobs, leases, and durable artifact state.
 
 ## Runtime boundary
 
@@ -8,38 +8,22 @@ The app is split into three trust zones:
 
 - **Renderer** — React UI, routing, React Query and editor draft state. No Node.js access and no direct ownership of backend session cookies.
 - **Preload** — narrow typed `window.narrativex` bridge with context isolation and no Node integration; Chromium renderer sandboxing is currently disabled for startup compatibility.
-- **Main process** — backend session transport, stable guest credential, system-browser auth, native filesystem/dialogs, ProjectStorage/ProjectCatalog, local device execution, FFmpeg/ffprobe, Gemini Web Chrome/CDP automation and protected clipboard.
+- **Main process** — project bytes, ProjectStorage/ProjectCatalog, local device execution, FFmpeg/ffprobe, Gemini Web Chrome/CDP automation and protected clipboard.
 
 Navigation, window creation, permissions and IPC senders are restricted before privileged operations are accepted.
 
-## Guest-first authentication
+## Single-user local-first workspace
 
-Desktop does not require an account login screen before entering the workspace.
+Per **ADR-0030**, NarrativeX operates as a single-user local-first application. Desktop launches directly into the local project workspace without an account login screen, guest credentials, or session cookies.
 
 ```text
 startup
-  -> reuse GET /api/v1/auth/me session when valid
-  -> otherwise POST /api/v1/auth/desktop/guest
-  -> main injects installation deviceId + protected guest secret
-  -> backend restores/creates the stable ROLE_GUEST identity
+  -> initialize Electron main & preload bridges
+  -> connect directly to local Spring Boot backend (/api/v1/projects)
+  -> load active local project or project catalog
 ```
 
-The guest credential is installation-scoped, stored through Electron secure storage and never exposed to renderer code. It exists for ownership/session continuity; it is not a second end-user login provider.
-
-Google is the only account sign-in provider. Backend-gated account/provider-consuming actions return `AUTHENTICATION_REQUIRED`, causing the renderer to open the LoginModal over the current route.
-
-```text
-LoginModal
-  -> main opens /api/v1/auth/desktop/start in system browser
-  -> Google OIDC
-  -> narrativex://auth/callback?code=...
-  -> main exchanges the one-time code
-  -> backend transfers eligible guest-owned workspace metadata
-  -> ROLE_USER session
-  -> renderer refetches without losing the active project/editor route
-```
-
-Google access/refresh tokens never enter Electron. Guest installation credentials, user session state and local-execution device credentials are separate concepts.
+External AI provider API keys and machine execution credentials are local runtime configurations managed in Desktop Settings, not user identities. Remote OAuth, guest ownership transfers, and synthetic user sessions have been retired.
 
 ## Local project storage
 
@@ -77,18 +61,18 @@ The main process applies the locked Chinese romantic-fantasy manhua series style
 
 The pre-browser-pool single profile is migrated to the current user's Browser 1 through an idempotent, allowlisted migration of known Gemini automation entries. Existing destination data is never overwritten and unknown legacy files are left untouched.
 
-## Personalized Desktop settings
+## Desktop settings
 
-Electron main persists versioned `desktop-preferences.json` data under `userData`, keyed by the stable current NarrativeX user id. Guest and signed-in profiles stay isolated on the same machine.
+Electron main persists versioned `desktop-preferences.json` data under `userData`. Settings are installation-scoped on the local machine.
 
-Personalized settings currently include:
+Desktop settings currently include:
 
 - Character and Storyboard Gemini Web global concurrency;
-- per-user Gemini browser registry metadata;
+- local Gemini browser registry metadata;
 - main-window normal `x/y/width/height` and maximized state;
 - reset Gemini concurrency back to environment defaults while preserving browser profiles;
-- reset the current user's window layout;
-- reset normal personalized settings for only the current user while preserving explicit Gemini browser login/profile data.
+- reset window layout;
+- reset normal desktop settings while preserving explicit Gemini browser login/profile data.
 
 Chrome-owned authentication/session bytes are not stored in `desktop-preferences.json`; they live inside isolated browser profile directories under the Gemini Web local root.
 
@@ -187,7 +171,7 @@ as production health or production media.
 npm run package:win
 ```
 
-Production release work still needs full signing/upgrade/auto-update and packaged OAuth/protocol validation. See `../../documentation/product/ROADMAP.md`.
+Production release work still needs full signing, upgrade/auto-update, and release pipeline validation. See `../../documentation/product/ROADMAP.md`.
 
 ## Architecture rule
 

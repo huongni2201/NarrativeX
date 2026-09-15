@@ -1,11 +1,8 @@
-# NarrativeX GPU worker
+# NarrativeX Generation Service
 
-`gpu-worker` is the domain-agnostic compute execution plane. It accepts versioned compute tasks,
-runs registered executor adapters, stages artifacts, and reports execution observations.
+`generation-service` is the domain-agnostic compute execution plane. It accepts versioned compute tasks, runs registered executor adapters, stages artifacts, and reports execution observations.
 
-It deliberately has no NarrativeX database connection, business aggregate, project workspace, or
-job orchestration. See `../../documentation/COMPUTE_PROTOCOL.md` and
-`../../contracts/compute/v1/openapi.yaml`.
+It deliberately has no NarrativeX database connection, business aggregate, project workspace, or job orchestration. See `../../documentation/COMPUTE_PROTOCOL.md` and `../../contracts/compute/v1/openapi.yaml`.
 
 ## Development
 
@@ -16,14 +13,13 @@ python -m ruff check .
 python -m mypy src
 ```
 
-Set `GPU_WORKER_MACHINE_TOKEN` to a non-empty machine credential and run:
+Set `GENERATION_SERVICE_MACHINE_TOKEN` (or `GPU_WORKER_MACHINE_TOKEN` for backward compatibility) to a non-empty machine credential and run:
 
 ```powershell
 python -m narrativex_gpu_worker
 ```
 
-No executor is production-ready in the initial scaffold. Executor adapters are registered during
-their vertical-slice migrations.
+No executor is production-ready in the initial scaffold. Executor adapters are registered during their vertical-slice migrations.
 
 ## Structure
 
@@ -41,8 +37,4 @@ adapters/
 bootstrap.py    composition root; the only place that wires concrete adapters
 ```
 
-Provider, runtime and model revisions are selected at the adapter boundary through
-`ExecutorCatalogPort`. The application service only sees the executor port, so replacing a
-provider or runtime does not change lifecycle, replay, recovery or HTTP code. Legacy modules
-and shims (`runtime/`, `api/`) have been completely eliminated. All code strictly imports from
-`contracts`, `domain`, `application`, and `adapters`.
+Provider, runtime and model revisions are selected at the adapter boundary through `ExecutorCatalogPort`. The application service only sees the executor port, so replacing a provider or runtime does not change lifecycle, replay, recovery or HTTP code. All code strictly imports from `contracts`, `domain`, `application`, and `adapters`.

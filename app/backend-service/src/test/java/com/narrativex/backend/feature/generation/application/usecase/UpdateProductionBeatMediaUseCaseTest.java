@@ -7,7 +7,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository.SelectableMediaAsset;
@@ -19,13 +18,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class UpdateProductionBeatMediaUseCaseTest {
-  private final CurrentUserId currentUserId = mock(CurrentUserId.class);
   private final GetProductionTimelineUseCase getProductionTimelineUseCase =
       mock(GetProductionTimelineUseCase.class);
   private final ProductionBeatMediaSelectionRepository repository =
       mock(ProductionBeatMediaSelectionRepository.class);
   private final UpdateProductionBeatMediaUseCase useCase =
-      new UpdateProductionBeatMediaUseCase(currentUserId, getProductionTimelineUseCase, repository);
       new UpdateProductionBeatMediaUseCase(getProductionTimelineUseCase, repository);
 
   @Test
@@ -33,11 +30,8 @@ class UpdateProductionBeatMediaUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID visualBeatId = UUID.randomUUID();
     UUID mediaAssetId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner");
-    when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
     when(getProductionTimelineUseCase.execute(projectId))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
-    when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
     when(repository.findSelectableAsset(projectId, mediaAssetId))
         .thenReturn(
             java.util.Optional.of(
@@ -54,11 +48,8 @@ class UpdateProductionBeatMediaUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID visualBeatId = UUID.randomUUID();
     UUID mediaAssetId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner");
-    when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
     when(getProductionTimelineUseCase.execute(projectId))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
-    when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
     when(repository.findSelectableAsset(projectId, mediaAssetId))
         .thenReturn(
             java.util.Optional.of(
@@ -80,11 +71,8 @@ class UpdateProductionBeatMediaUseCaseTest {
     UUID projectId = UUID.randomUUID();
     UUID visualBeatId = UUID.randomUUID();
     UUID mediaAssetId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner");
-    when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
     when(getProductionTimelineUseCase.execute(projectId))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
-    when(repository.findSelectableAsset(projectId, "owner", mediaAssetId))
     when(repository.findSelectableAsset(projectId, mediaAssetId))
         .thenReturn(
             java.util.Optional.of(
@@ -107,8 +95,6 @@ class UpdateProductionBeatMediaUseCaseTest {
     UUID secondBeatId = UUID.randomUUID();
     UUID firstAssetId = UUID.randomUUID();
     UUID secondAssetId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner");
-    when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
     when(getProductionTimelineUseCase.execute(projectId))
         .thenReturn(
             new ProductionTimelineView(
@@ -121,12 +107,10 @@ class UpdateProductionBeatMediaUseCaseTest {
                 List.of(
                     beat(chapterId, firstBeatId, firstAssetId, 0L, 10_000L),
                     beat(chapterId, secondBeatId, secondAssetId, 10_000L, 10_000L))));
-    when(repository.findSelectableAsset(projectId, "owner", firstAssetId))
     when(repository.findSelectableAsset(projectId, firstAssetId))
         .thenReturn(
             java.util.Optional.of(
                 new SelectableMediaAsset(firstAssetId, "VIDEO", 20_000L, 123L, "e".repeat(64))));
-    when(repository.findSelectableAsset(projectId, "owner", secondAssetId))
     when(repository.findSelectableAsset(projectId, secondAssetId))
         .thenReturn(
             java.util.Optional.of(
@@ -150,8 +134,6 @@ class UpdateProductionBeatMediaUseCaseTest {
   void clearValidatesBeatAndDeletesSelection() {
     UUID projectId = UUID.randomUUID();
     UUID visualBeatId = UUID.randomUUID();
-    when(currentUserId.get()).thenReturn("owner");
-    when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
     when(getProductionTimelineUseCase.execute(projectId))
         .thenReturn(timeline(projectId, visualBeatId, 10_000L));
 

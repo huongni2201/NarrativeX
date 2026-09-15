@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.BeatSource;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.ChapterSource;
@@ -16,12 +15,10 @@ import org.junit.jupiter.api.Test;
 class GetProductionTimelineAlignedTimingTest {
   @Test
   void usesMeasuredNarrationWordBoundariesInsteadOfTextWeightFallback() {
-    CurrentUserId currentUserId = mock(CurrentUserId.class);
     ProjectAccess projectAccess = mock(ProjectAccess.class);
     ProductionTimelineSourceRepository sourceRepository =
         mock(ProductionTimelineSourceRepository.class);
     GetProductionTimelineUseCase useCase =
-        new GetProductionTimelineUseCase(currentUserId, projectAccess, sourceRepository);
         new GetProductionTimelineUseCase(projectAccess, sourceRepository);
 
     UUID projectId = UUID.randomUUID();
@@ -35,7 +32,6 @@ class GetProductionTimelineAlignedTimingTest {
         ]
         """;
 
-    when(sourceRepository.findChapters(projectId, "owner"))
     when(sourceRepository.findChapters(projectId))
         .thenReturn(
             List.of(
@@ -61,14 +57,12 @@ class GetProductionTimelineAlignedTimingTest {
                     10_000L,
                     2,
                     2)));
-    when(sourceRepository.findBeats(projectId, "owner"))
     when(sourceRepository.findBeats(projectId))
         .thenReturn(
             List.of(
                 beat(chapterId, 0, 0, 50),
                 beat(chapterId, 1, 50, 100)));
 
-    var timeline = useCase.executeOwned(projectId, "owner");
     var timeline = useCase.execute(projectId);
 
     assertThat(timeline.readyForRender()).isTrue();

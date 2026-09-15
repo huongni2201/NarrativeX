@@ -1,20 +1,19 @@
 # NarrativeX
 
-> Migration notice (2026-09-15): read [current status](documentation/CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
-
 NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
 
-The Electron application is the only supported editor client. Spring Boot is the authoritative control plane for ownership, policy, durable jobs and metadata. Project media and final rendering are local-first on Desktop.
+The Electron application is the only supported editor client. Spring Boot is the authoritative control plane for business state, policy, durable jobs and metadata. Project media and final rendering are local-first on Desktop.
 
 ## Repository map
 
 | Area | Responsibility |
 | --- | --- |
-| `app/desktop` | Electron + React + TypeScript editor; guest bootstrap, local project storage, Gemini Web automation, native capabilities and local FFmpeg execution |
-| `app/backend-service` | Spring Boot modular monolith; auth/ownership, domain metadata, policy, jobs, leases, quotas and Flyway schema |
-| `app/ai-worker` | Python worker; chapter analysis, image generation, narration and media validation |
+| `app/desktop` | Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution |
+| `app/backend-service` | Spring Boot modular monolith; control plane, domain metadata, policy, jobs, leases, system capacity limits and Flyway schema |
+| `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (VoiceStudio, WhisperX, ComfyUI, media validation) |
+| `app/ai-worker` | Legacy Python worker; temporary migration residue polling PostgreSQL directly, scheduled for removal |
 | `packages/client-contracts` | Shared Desktop/backend contracts |
-| `contracts` | Backend ↔ worker payload contracts |
+| `contracts` | Compute Protocol v1 task schemas and payloads |
 | `documentation` | Product, architecture, workflows, current-state maps and ADRs |
 
 ## Runtime topology
@@ -25,40 +24,37 @@ Electron Desktop
       |
   preload  -> narrow typed capability bridge
       |
-  main     -> auth transport / native files / ProjectStorage /
-              Gemini Web Chrome-CDP / FFmpeg-ffprobe / local render
+  main     -> native files / ProjectStorage / FFmpeg-ffprobe / local render
       |
       +------------------------------+
       |                              |
 Spring Boot Backend             Local project workspace
-  -> PostgreSQL                   -> images/audio/video
-  -> Python workers               -> render work/cache
-                                  -> final MP4
+  -> PostgreSQL (control plane)   -> images/audio/video
+  |                               -> render work/cache
+  v Compute Protocol v1           -> final MP4
+generation-service
+  -> local SQLite journal
+  -> execution adapters (VoiceStudio, WhisperX, ComfyUI, validation)
 ```
 
-PostgreSQL is authoritative for durable business/control state. Workers claim durable work from PostgreSQL. Electron local storage owns machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis is not required by the MVP runtime.
+PostgreSQL is authoritative for durable business/control state. The target execution plane receives closed compute tasks over HTTP from `backend-service`. Electron local storage owns machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis and browser editors are removed.
 
-## Guest-first authentication
+## Single-user local-first workspace
 
-NarrativeX opens into a stable installation-scoped guest workspace. Google is the only end-user account sign-in provider. Account/provider-consuming actions are backend-gated; Desktop can open the Google login flow without discarding the active editor context.
-
-Google tokens never enter the renderer. Guest installation credentials, user sessions and local-render device credentials remain separate.
-
-See `documentation/workflows/AUTHENTICATION.md`.
+NarrativeX opens directly into the local workspace per ADR-0030. There is no application User, Account, Authentication, Authorization, Session, or Tenant identity model. Login gates, modals, and user quotas are completely removed. External provider credentials and device execution tokens are local runtime configurations.
 
 ## Local project-media contract
 
 ```text
-Generated project images        -> shared/local project media -> Desktop ProjectStorage
-Generated narration             -> shared/local project media -> Desktop ProjectStorage
+Generated project images        -> project-local media -> Desktop ProjectStorage
+Generated narration             -> project-local media -> Desktop ProjectStorage
 Imported image/audio/video      -> Desktop ProjectStorage
+PROJECT voice reference         -> Desktop ProjectStorage / manifest
+GLOBAL_LOCAL voice reference    -> local application voice library
 Render work/cache               -> Desktop project workspace/work
 Final MP4                       -> Desktop project workspace/artifacts
-Voice reference/custom voice    -> Cloudflare R2 when remote account storage is required
 Business/job/artifact metadata  -> PostgreSQL
 ```
-
-R2 is **not** the project-media store and is not a transport for generated project images, narration or final MP4 files. It is retained only for authenticated account-owned voice-reference/custom-voice assets.
 
 `project.manifest.json` maps stable backend IDs to project-relative paths, sizes and SHA-256 checksums. Absolute machine paths never become durable backend identities.
 
@@ -66,7 +62,7 @@ R2 is **not** the project-media store and is not a transport for generated proje
 
 Analyze Chapter keeps the visual intent explicit:
 
-- `IMAGE` supports backend/API image generation and Gemini Web image generation.
+- `IMAGE` supports backend/generation-service image generation.
 - `VIDEO` remains a supported analysis/editor intent for web/browser-driven video generation workflows.
 - Python workers do not host a video-generation/I2V provider role.
 - Final composition/rendering always uses Electron main + FFmpeg/ffprobe.
@@ -118,9 +114,9 @@ NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 
 ## Database baseline
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V8** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V7** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
 
-At the first production deployment, freeze the accepted baseline and make future schema changes append-only from the next migration version.
+At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V8.
 
 ## Guardrails
 
@@ -129,8 +125,8 @@ At the first production deployment, freeze the accepted baseline and make future
 - A VisualBeat may use image or video media.
 - Do not assume fixed image count or fixed image duration.
 - Reviewed/generated history must not be silently overwritten.
-- Workers and Desktop executors perform only backend-authorized work.
+- Executors perform only backend-authorized work.
 - Final project video bytes stay local.
 
-Canonical product direction: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`.
+Canonical product direction: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`.
 Active remaining work: `documentation/product/ROADMAP.md`.

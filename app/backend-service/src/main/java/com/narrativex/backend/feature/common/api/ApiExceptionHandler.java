@@ -16,8 +16,6 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -203,18 +201,6 @@ public class ApiExceptionHandler {
         correlationId);
   }
 
-  @ExceptionHandler(AccessDeniedException.class)
-  ResponseEntity<ErrorResponse> handleAccessDenied(
-      AccessDeniedException exception, HttpServletRequest request) {
-    return error(HttpStatus.FORBIDDEN, ApiErrorCode.FORBIDDEN, "Access denied.", request);
-  }
-
-  @ExceptionHandler(AuthenticationException.class)
-  ResponseEntity<ErrorResponse> handleUnauthenticated(
-      AuthenticationException exception, HttpServletRequest request) {
-    return error(
-        HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "Authentication is required.", request);
-  }
 
   @ExceptionHandler(AsyncRequestNotUsableException.class)
   void handleDisconnectedClient(

@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
@@ -33,7 +32,6 @@ class CreateMediaPlanNoReuseTest {
 
   @Test
   void alwaysGeneratesFreshImageForEveryVisualBeat() {
-    var currentUserId = mock(CurrentUserId.class);
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
@@ -47,7 +45,6 @@ class CreateMediaPlanNoReuseTest {
             objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
-            currentUserId,
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
@@ -59,8 +56,6 @@ class CreateMediaPlanNoReuseTest {
     UUID firstBeatId = UUID.randomUUID();
     UUID secondBeatId = UUID.randomUUID();
 
-    when(currentUserId.get()).thenReturn("user-1");
-    when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
     when(chapterSourceAccess.requireForAnalysisLocked(projectId, chapterId))
         .thenReturn(
             new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));

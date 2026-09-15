@@ -38,6 +38,9 @@ server:
         max-age: ${NARRATIVEX_SESSION_TIMEOUT:7d}
 
 narrativex:
+  compute:
+    base-url: ${NARRATIVEX_COMPUTE_BASE_URL:http://localhost:8010}
+    machine-token: ${NARRATIVEX_COMPUTE_MACHINE_TOKEN:default-dev-machine-token}
   generation:
     media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
     image:

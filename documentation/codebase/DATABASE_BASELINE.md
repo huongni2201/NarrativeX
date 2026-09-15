@@ -30,11 +30,12 @@ In particular, the baseline does **not** create monetary provider-operation fiel
 
 ```text
 Generated/imported project media       -> project-owned media_assets
-Account custom voice reference         -> voice_reference_assets (R2-backed)
+Project voice reference                -> project MediaAsset / manifest
+Reusable local voice reference         -> local voice library (GLOBAL_LOCAL)
 Final project MP4                       -> Desktop filesystem; backend metadata only
 ```
 
-Project ownership is represented directly by `media_assets.project_id`. There is no persisted project-media storage-mode discriminator. Account-owned custom voice references are intentionally separate from project media.
+Project ownership is represented directly by `media_assets.project_id`. There is no persisted project-media storage-mode discriminator. Reusable voice assets are managed locally rather than scoped to account identity.
 
 `final_artifacts` does not contain remote final-video provider IDs or public web links. Final project-video rows persist identity/checksum/size/duration/video metadata and an opaque local artifact key only.
 
@@ -138,7 +139,7 @@ Stage names such as `SHOT_IMAGE_GENERATE`, `SHOT_IMAGE_REGENERATE` and `RENDER_P
 
 A supported clean PostgreSQL instance must:
 
-1. apply V1 through V8 successfully with no pending migration;
+1. apply V1 through V7 successfully with no pending migration;
 2. contain no V9+ baseline patch requirement;
 3. contain no removed server Chapter-render snapshot tables;
 4. contain no remote final-video artifact fields;

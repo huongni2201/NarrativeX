@@ -17,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class MyBatisMediaUploadSessionRepositoryTest {
-  private static final String ACCOUNT = "account-a";
   private static final String KEY = "retry-1";
   private static final String SHA = "a".repeat(64);
 
@@ -28,7 +27,6 @@ class MyBatisMediaUploadSessionRepositoryTest {
     CreateUploadSession command = command();
     MediaUploadSessionRow winner = row(command);
     when(mapper.insert(command)).thenReturn(0);
-    when(mapper.findByIdempotencyKey(ACCOUNT, KEY)).thenReturn(winner);
     when(mapper.findByIdempotencyKey(KEY)).thenReturn(winner);
 
     var result = new MyBatisMediaUploadSessionRepository(mapper).create(command);
@@ -43,7 +41,6 @@ class MyBatisMediaUploadSessionRepositoryTest {
     MediaUploadSessionRow winner = row(command);
     winner.setExpectedSize(command.expectedSize() + 1);
     when(mapper.insert(command)).thenReturn(0);
-    when(mapper.findByIdempotencyKey(ACCOUNT, KEY)).thenReturn(winner);
     when(mapper.findByIdempotencyKey(KEY)).thenReturn(winner);
 
     assertThatThrownBy(() -> new MyBatisMediaUploadSessionRepository(mapper).create(command))
@@ -55,7 +52,6 @@ class MyBatisMediaUploadSessionRepositoryTest {
     UUID id = UUID.randomUUID();
     return new CreateUploadSession(
         id,
-        ACCOUNT,
         "AUDIO",
         "voice.wav",
         "audio/wav",

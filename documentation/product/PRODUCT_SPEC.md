@@ -1,29 +1,28 @@
-# NarrativeX — Product Specification V1.11
+# NarrativeX — Product Specification V1.12
 
-> Migration notice (2026-09-15): read [current status](../CURRENT_STATUS.md) first. ADR-0030 supersedes older account/guest/session and per-user quota guidance below. Compute migration under ADR-0028 remains partial; older descriptions are not proof of completed cut-over.
-
-**Status:** maintained product contract  
-**Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md)  
+**Status:** maintained product contract
+**Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md)
 **Implementation evidence:** [`../TRACEABILITY.md`](../TRACEABILITY.md)
 
 ## Product definition
 
-NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, guest-first, Chapter-first, review-first, audio-timeline-first, image-first and local-media-first.
+NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, single-user local-first, Chapter-first, review-first, audio-timeline-first, image-first and local-media-first.
 
 Project creation and Chapter saving persist metadata/source only. Analysis, narration/audio processing, image/video generation and final rendering are explicit operations.
 
-## Authentication
+## Workspace & Identity
 
-A new installation opens into a stable guest-owned workspace. Google is the only end-user account sign-in provider. Provider/account-consuming actions are backend-gated and can open Google OIDC without discarding the current editor context.
+NarrativeX boots directly into the local workspace per ADR-0030. There is no user account, login gate, guest installation identity, session cookie, or multi-tenant entitlement model. External provider credentials and GPU target settings are managed through application settings and runtime configuration.
 
 ## Creator foundations
 
 Current foundations include:
 
-- Project/StoryVersion/Chapter authoring and dashboard/favorite flows;
+- Single-user boot directly into workspace;
+- Project/StoryVersion/Chapter authoring and dashboard;
 - durable Chapter Analyze with Character/Location/Scene/VisualBeat materialization;
 - generated narration plus native user-audio import/TTS-bypass foundations;
-- Vertex image generation and Gemini Web image generation;
+- generation-service task execution (VoiceStudio, WhisperX, ComfyUI, media validation);
 - native local image/audio/video registration and ProjectStorage materialization;
 - production timeline with narration-aligned timing and explicit beat media selection;
 - Auto Edit planning, render overrides and immutable subtitle snapshots;
@@ -42,7 +41,7 @@ Project
 
 `VisualGenerationMode` intentionally supports `IMAGE` and `VIDEO`.
 
-- `IMAGE` supports API/worker image generation and Gemini Web generation.
+- `IMAGE` supports backend/generation-service image generation.
 - `VIDEO` remains available in Analyze Chapter and is preserved for web/browser-driven video generation workflows.
 - VIDEO intent does not imply a Python worker video-provider role.
 - The removed Wan/provider-side I2V runtime must not be restored implicitly.
@@ -65,17 +64,18 @@ Narration alignment is the timeline authority. Generated narration is written to
 Generated images                -> project-local media -> Desktop ProjectStorage
 Generated narration             -> project-local media -> Desktop ProjectStorage
 Imported image/audio/video      -> Desktop ProjectStorage
+PROJECT voice reference         -> Desktop ProjectStorage / manifest
+GLOBAL_LOCAL voice reference    -> local application voice library
 Render work/cache               -> Desktop project workspace/work
 Final MP4                       -> Desktop project workspace/artifacts
-Voice reference/custom voice    -> R2 when account-scoped remote storage is required
 Metadata                        -> PostgreSQL
 ```
 
-R2 is not the project-media store and is not a transport for generated project images, generated narration or final video.
+Project bytes live locally. The backend coordinates metadata but does not proxy or host media files.
 
 ## Provider accounting boundary
 
-Monetary billing, credit balances, reservation settlement and user-facing provider-cost accounting are not part of the current runtime contract. Provider execution retains only the non-monetary telemetry needed for diagnostics, such as token usage, while durable provider-operation fencing and UNKNOWN reconciliation remain authoritative for retry safety.
+Monetary billing, credit balances, reservation settlement and user-facing provider-cost accounting are not part of the current runtime contract. System capacity limits enforce concurrent job limits. Provider execution retains only the non-monetary telemetry needed for diagnostics, such as token usage, while durable provider-operation fencing and UNKNOWN reconciliation remain authoritative for retry safety.
 
 ## Final render
 
@@ -96,15 +96,16 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 
 | Capability | Status |
 |---|---|
-| Stable guest identity / guest-first workspace | IMPLEMENTED |
-| Google-only account sign-in | IMPLEMENTED |
+| Single-user local-first workspace | IMPLEMENTED |
+| Authentication / account runtime | REMOVED |
+| Per-user quota / entitlement | REMOVED |
+| Runtime capacity limits | IMPLEMENTED foundation |
 | Chapter analysis | IMPLEMENTED |
 | Character/Location continuity | IMPLEMENTED foundation |
 | Scene/VisualBeat storyboard | IMPLEMENTED foundation |
 | Generated narration + local materialization | IMPLEMENTED foundation |
 | User-provided narration import/TTS bypass | IMPLEMENTED foundation |
-| Vertex image generation | IMPLEMENTED foundation |
-| Gemini Web image generation | IMPLEMENTED foundation |
+| generation-service execution scaffold | IMPLEMENTED foundation |
 | VIDEO visual intent + web/browser video path | IMPLEMENTED foundation / evolving |
 | Native local asset registration | IMPLEMENTED foundation |
 | Mixed image/video production timeline | IMPLEMENTED foundation |
@@ -115,7 +116,6 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Abrupt process/OS render recovery UX | PARTIAL |
 | Adaptive VisualScenePlanner | TARGET |
 | Rich reuse/reframe/edit lineage | DEFERRED fast-follow |
-| Provider-side/local I2V planning runtime | NOT CURRENT RUNTIME |
 | Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation |
 | Non-monetary provider usage telemetry | IMPLEMENTED foundation |
 | Packaging/signing/auto-update | TARGET |
@@ -135,5 +135,5 @@ project source
 
 Provider success alone never completes a media stage. Results must be validated, assigned stable identity/lineage and materialized according to the active local-media contract.
 
-Detailed status inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).  
+Detailed status inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).
 Active remaining work: [ROADMAP.md](ROADMAP.md).

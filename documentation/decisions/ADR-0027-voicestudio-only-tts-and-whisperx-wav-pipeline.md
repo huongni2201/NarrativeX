@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (updated: 2026-09-15 — voice-reference scope refined by ADR-0030 to PROJECT and GLOBAL_LOCAL, removing obsolete ACCOUNT scope)
 
 ## Context
 

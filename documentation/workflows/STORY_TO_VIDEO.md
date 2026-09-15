@@ -1,31 +1,27 @@
-# Story-to-Video Workflow — V1.13
+# Story-to-Video Workflow — V1.12
 
-NarrativeX is Desktop-only at the editor boundary, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
+NarrativeX is Desktop-only at the editor boundary, single-user local-first, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
 
-## Entry and guest behavior
+## Entry and workspace behavior
 
 ```text
-Desktop guest workspace
+Desktop workspace
   -> Create Project       -> durable project metadata
   -> Save/import Chapter  -> persisted source
-  -> edit free workspace state
-
-Gated AI/provider action
-  -> backend requires ROLE_USER
-  -> LoginModal + Google OIDC
-  -> resume same editor route
+  -> edit workspace state
+  -> invoke AI generation / narration / render directly
 ```
 
-The backend remains authoritative for source identity, ownership, policy and job state. Desktop owns local project bytes/native execution only.
+Per ADR-0030, NarrativeX has no user account, login modal, or authentication gate. Desktop boots directly into the project workspace. The backend remains authoritative for source identity, policy and durable job state. Desktop owns local project bytes/native execution.
 
 ## Analysis
 
 ```text
 persisted Chapter
   -> lock/reload authoritative snapshot
-  -> admission + reservation/policy
+  -> admission + capacity limits
   -> GenerationJob / StageAttempt / outbox state
-  -> worker/provider execution
+  -> compute task execution
   -> stale-source guard
   -> Character + Location + Scene + VisualBeat materialization
   -> deterministic VisualBeat source_anchor -> UTF-16 textStart/textEnd
@@ -74,7 +70,7 @@ Image-only camera/motion controls must not be shown as if they apply identically
 
 ```text
 TTS
-  -> VoiceStudio headless API per segment
+  -> generation-service VoiceStudio synthesis
   -> 48 kHz mono WAV master
   -> WhisperX forced alignment against the Vietnamese script
   -> local project media / Desktop materialization
@@ -92,15 +88,15 @@ Audio file boundaries do not define Chapter boundaries.
 Voice-reference selection is explicit:
 
 ```text
-PROJECT -> project-local AUDIO asset / manifest
-ACCOUNT -> reusable account VoiceReferenceAsset in R2
+PROJECT      -> project-local AUDIO asset / manifest
+GLOBAL_LOCAL -> reusable local voice library asset
 ```
 
 ## Media generation and local materialization
 
 ```text
 backend-authorized media work
-  -> provider execution
+  -> compute execution in generation-service
   -> validate bytes/result
   -> stable MediaAsset identity + checksum
   -> project-local generated media
@@ -109,7 +105,7 @@ backend-authorized media work
   -> project.manifest.json resolves local bytes for preview/render
 ```
 
-Project image/video/audio media is local-first. R2 is not production storage or transport for generated project media. R2 is limited to reusable authenticated ACCOUNT voice-reference/custom-voice assets. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
+Project image/video/audio media is local-first. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
 
 ## Production timeline
 
@@ -136,7 +132,7 @@ Manual Editor media selection, reset, fit and trim settings are durable through 
 
 ## Real-time job tracking and subtitles
 
-Generation, narration and local-render jobs expose owner-scoped authenticated SSE snapshots to Desktop. Electron main owns the reconnecting transport; the renderer updates React Query and retains a slow GET watchdog while a job is active. PostgreSQL remains the durable job authority.
+Generation, narration and local-render jobs expose SSE snapshots to Desktop. Electron main owns the reconnecting transport; the renderer updates React Query and retains a slow GET watchdog while a job is active. PostgreSQL remains the durable job authority.
 
 When a render is admitted, narration text and alignment spans are captured in the immutable render input snapshot. Electron main derives renderable cues, writes a UTF-8 `subtitles.srt` file and includes it in the final FFmpeg output when cues are available.
 
@@ -177,12 +173,12 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 
 ## Remaining creator-loop work
 
+- compute execution plane cutover (`generation-service`) and legacy `ai-worker` removal;
 - adaptive narration-driven `VisualScenePlanner` and richer Scene/VisualBeat review;
 - complete multi-part user-audio alignment/slicing behavior for all production scopes;
 - richer media reuse/reframe/edit/regeneration lineage;
 - richer timeline mutation/save/retry UX;
-- richer Auto Edit explanations and manual camera override/review UX;
 - long-form crash/restart recovery and soak reliability;
-- production packaging/signing/auto-update and packaged OAuth/protocol tests.
+- production packaging/signing/auto-update.
 
-See `../product/ROADMAP.md` for active work. Completed migration plans are intentionally historical rather than current-state contracts.
+See `../product/ROADMAP.md` for active work.

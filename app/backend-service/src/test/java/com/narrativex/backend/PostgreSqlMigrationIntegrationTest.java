@@ -311,16 +311,13 @@ class PostgreSqlMigrationIntegrationTest {
         assertDoesNotThrow(
             () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
     assertTrue(
-        assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
         assertDoesNotThrow(() -> notificationMapper.list(true, 5)).isEmpty());
     assertTrue(
         assertDoesNotThrow(
-                () -> productionTimelineMapper.findChapters(missingProjectId, "missing-user"))
                 () -> productionTimelineMapper.findChapters(missingProjectId))
             .isEmpty());
     assertTrue(
         assertDoesNotThrow(
-                () -> productionTimelineMapper.findBeats(missingProjectId, "missing-user"))
                 () -> productionTimelineMapper.findBeats(missingProjectId))
             .isEmpty());
   }

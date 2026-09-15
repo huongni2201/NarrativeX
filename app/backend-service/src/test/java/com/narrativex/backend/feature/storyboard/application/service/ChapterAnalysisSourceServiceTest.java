@@ -36,23 +36,19 @@ class ChapterAnalysisSourceServiceTest {
   void authorizesBeforeLockingAndReadsAuthoritativeSnapshotAfterLock() {
     var snapshot =
         new ChapterAnalysisSource(CHAPTER_ID, STORY_VERSION_ID, 2L, SOURCE_HASH, "latest source");
-    when(chapterAnalysisSnapshotRepository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1"))
     when(chapterAnalysisSnapshotRepository.requireByProject(PROJECT_ID, CHAPTER_ID))
         .thenReturn(snapshot);
 
-    var result = service.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1");
     var result = service.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID);
 
     assertSame(snapshot, result);
     InOrder order = inOrder(storyboardRevisionAccess, chapterAnalysisSnapshotRepository);
     order
         .verify(chapterAnalysisSnapshotRepository)
-        .requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
         .requireByProject(PROJECT_ID, CHAPTER_ID);
     order.verify(storyboardRevisionAccess).lockChapter(CHAPTER_ID);
     order
         .verify(chapterAnalysisSnapshotRepository)
-        .requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
         .requireByProject(PROJECT_ID, CHAPTER_ID);
   }
 
@@ -61,7 +57,6 @@ class ChapterAnalysisSourceServiceTest {
       throws NoSuchMethodException {
     var method =
         ChapterAnalysisSourceService.class.getMethod(
-            "requireOwnedForAnalysisLocked", UUID.class, UUID.class, String.class);
             "requireForAnalysisLocked", UUID.class, UUID.class);
     var transactional = method.getAnnotation(Transactional.class);
 

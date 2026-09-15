@@ -7,7 +7,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
@@ -24,22 +23,18 @@ class GetFinalArtifactByJobUseCaseTest {
   private static final Long ARTIFACT_ID = 9911L;
   private static final String JOB_ID = "00000000-0000-4000-8000-000000009911";
 
-  private final CurrentUserId currentUserId = mock(CurrentUserId.class);
   private final ProjectAccess projectAccess = mock(ProjectAccess.class);
   private final FinalArtifactRepository repository = mock(FinalArtifactRepository.class);
   private final GetFinalArtifactByJobUseCase useCase =
-      new GetFinalArtifactByJobUseCase(currentUserId, projectAccess, repository);
       new GetFinalArtifactByJobUseCase(projectAccess, repository);
 
   @Test
-  void returnsReadyArtifactAfterVerifyingProjectOwnership() {
+  void returnsReadyArtifactAfterVerifyingProject() {
     FinalArtifactView artifact = artifact(ARTIFACT_ID, PROJECT_ID);
-    when(currentUserId.get()).thenReturn("owner-1");
     when(repository.findByGenerationJobId(JOB_ID)).thenReturn(Optional.of(artifact));
 
     assertEquals(artifact, useCase.execute(JOB_ID));
 
-    verify(projectAccess).findOwnedProject(PROJECT_ID, "owner-1");
     verify(projectAccess).findProject(PROJECT_ID);
   }
 
@@ -49,7 +44,6 @@ class GetFinalArtifactByJobUseCaseTest {
 
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(JOB_ID));
 
-    verifyNoInteractions(projectAccess, currentUserId);
     verifyNoInteractions(projectAccess);
   }
 

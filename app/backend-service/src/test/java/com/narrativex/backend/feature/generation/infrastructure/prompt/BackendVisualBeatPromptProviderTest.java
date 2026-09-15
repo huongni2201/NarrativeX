@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.narrativex.backend.feature.generation.api.response.VisualBeatGeminiContextResponse;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
@@ -49,12 +48,12 @@ class BackendVisualBeatPromptProviderTest {
     var storyboardComposer = new StoryboardVisualPromptComposer(composer);
     var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository);
 
-    var geminiComposed =
+    var composed =
         storyboardComposer.compose(
             beat.getVisualIntent(), beat.getVisualDirectionJson(), null, beatContext);
-    var geminiPrompt = VisualBeatGeminiContextResponse.from(beatId, geminiComposed).prompt();
+    var expectedPrompt = VisualPromptText.finalPrompt(composed);
 
-    assertThat(provider.promptFor(projectId, beat)).isEqualTo(geminiPrompt);
+    assertThat(provider.promptFor(projectId, beat)).isEqualTo(expectedPrompt);
   }
 
   @Test

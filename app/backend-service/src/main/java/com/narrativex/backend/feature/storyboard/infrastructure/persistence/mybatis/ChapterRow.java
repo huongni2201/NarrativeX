@@ -30,4 +30,5 @@ public class ChapterRow {
   private int generationProgress;
   private UUID sourceStoryVersionId;
   private String inheritedSnapshotHash;
+  private UUID currentStoryboardRevisionId;
 }
