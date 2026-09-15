@@ -5,6 +5,10 @@ from __future__ import annotations
 import asyncio
 import time
 
+from narrativex_gpu_worker.application.errors import (
+    AmbiguousOutcomeError,
+    MissingDurableContextError,
+)
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
 from narrativex_gpu_worker.contracts import (
@@ -55,10 +59,22 @@ class QwenExecutor:
         if cancel.is_set():
             return ExecutionOutput()
 
+        if context and context.existing_execution_handle:
+            raise AmbiguousOutcomeError(
+                "Qwen does not support resuming from execution handle without "
+                "lookup/dedup capability"
+            )
+        if context is None or context.save_submitting is None or context.save_handle is None:
+            raise MissingDurableContextError(
+                "Durable context with save_submitting and save_handle is required "
+                "for remote side-effect executor"
+            )
+
         start_time = time.perf_counter()
         inputs = task.inputs
         assert isinstance(inputs, TextGenerateInputs)
 
+        await context.save_submitting()
         content, response_id = await self._client.generate(
             prompt=inputs.prompt,
             system_prompt=inputs.system_prompt,
@@ -70,6 +86,10 @@ class QwenExecutor:
             cancel=cancel,
         )
 
+        handle = f"qwen:{response_id}" if response_id else None
+        if handle:
+            await context.save_handle(handle)
+
         runtime_ms = int((time.perf_counter() - start_time) * 1000)
         outputs: list[ProducedArtifact] = []
 
@@ -78,10 +98,6 @@ class QwenExecutor:
             target = task.artifacts.outputs[0]
             produced = await self._artifact_adapter.upload(target, content_bytes)
             outputs.append(produced)
-
-        handle = f"qwen:{response_id}" if response_id else None
-        if context and context.save_handle and handle:
-            await context.save_handle(handle)
 
         return ExecutionOutput(
             outputs=outputs,

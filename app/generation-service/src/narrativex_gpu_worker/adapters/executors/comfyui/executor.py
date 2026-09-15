@@ -64,7 +64,8 @@ class ComfyUIExecutor:
         if prompt_id is None:
             if context is None or context.save_submitting is None or context.save_handle is None:
                 raise MissingDurableContextError(
-                    "Durable context with save_submitting and save_handle is required for remote side-effect executor"
+                    "Durable context with save_submitting and save_handle is required "
+                    "for remote side-effect executor"
                 )
             await context.save_submitting()
             workflow = build_txt2img_workflow(

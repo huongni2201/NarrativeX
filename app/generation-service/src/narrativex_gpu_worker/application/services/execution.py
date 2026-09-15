@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
-
-from typing import Callable
 
 from narrativex_gpu_worker.application.errors import (
     AmbiguousOutcomeError,
@@ -58,7 +57,8 @@ class ExecutionApplicationService:
     async def start(self) -> None:
         await self._journal.initialize()
         now = self._now_fn()
-        for task, cancel_requested, execution_handle, submission_state in await self._journal.recoverable():
+        recoverable = await self._journal.recoverable()
+        for task, cancel_requested, execution_handle, submission_state in recoverable:
             next_seq = await self._next_sequence(task.task_id, task.attempt_id)
             if task.constraints.deadline <= now:
                 failed = self._failure(
@@ -73,7 +73,8 @@ class ExecutionApplicationService:
                 if submission_state.is_ambiguous:
                     await self._journal.mark_unknown(task.task_id, task.attempt_id)
                     LOGGER.warning(
-                        "Recovery found cancel request for ambiguous attempt taskId=%s attemptId=%s; holding without false cancellation",
+                    "Recovery found cancel request for ambiguous attempt taskId=%s "
+                    "attemptId=%s; holding without false cancellation",
                         task.task_id,
                         task.attempt_id,
                     )
@@ -94,7 +95,8 @@ class ExecutionApplicationService:
             elif submission_state.is_ambiguous:
                 await self._journal.mark_unknown(task.task_id, task.attempt_id)
                 LOGGER.warning(
-                    "Recovery found ambiguous attempt taskId=%s attemptId=%s state=%s; holding without blind-resubmit",
+                    "Recovery found ambiguous attempt taskId=%s attemptId=%s state=%s; "
+                    "holding without blind-resubmit",
                     task.task_id,
                     task.attempt_id,
                     submission_state,
@@ -262,7 +264,9 @@ class ExecutionApplicationService:
                         sequence=next_seq,
                     )
                 else:
-                    sub_state = await self._journal.load_submission_state(task.task_id, task.attempt_id)
+                    sub_state = await self._journal.load_submission_state(
+                        task.task_id, task.attempt_id
+                    )
                     if sub_state is not None and sub_state != SubmissionState.NOT_SUBMITTED:
                         await self._journal.mark_unknown(task.task_id, task.attempt_id)
                         completed = self._failure(
