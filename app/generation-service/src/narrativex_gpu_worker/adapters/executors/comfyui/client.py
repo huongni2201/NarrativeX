@@ -6,6 +6,8 @@ from urllib.parse import quote
 
 import httpx
 
+from narrativex_gpu_worker.application.errors import ExecutionCanceledError
+
 
 class ComfyUIClientError(RuntimeError):
     """ComfyUI client operation error."""
@@ -69,7 +71,8 @@ class ComfyUIClient:
                     if record.get("outputs"):
                         return record  # type: ignore[no-any-return]
             await asyncio.sleep(poll_interval)
-        raise asyncio.CancelledError()
+        raise ExecutionCanceledError("ComfyUI execution canceled")
+
 
     async def download_image(
         self, filename: str, subfolder: str = "", folder_type: str = "output"

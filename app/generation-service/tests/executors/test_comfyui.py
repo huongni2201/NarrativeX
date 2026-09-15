@@ -14,7 +14,10 @@ from narrativex_gpu_worker.adapters.executors.comfyui.client import (
     ComfyUIClientError,
 )
 from narrativex_gpu_worker.adapters.executors.comfyui.executor import ComfyUIExecutor
-from narrativex_gpu_worker.application.errors import MissingDurableContextError
+from narrativex_gpu_worker.application.errors import (
+    ExecutionCanceledError,
+    MissingDurableContextError,
+)
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext
 from narrativex_gpu_worker.contracts import (
@@ -246,7 +249,7 @@ async def test_comfyui_client_error_redacts_sensitive_payload() -> None:
     assert "HTTP 500" in str(exc_info.value)
 
 
-async def test_comfyui_executor_cancellation_returns_early(image_task: ComputeTask) -> None:
+async def test_comfyui_executor_cancels_before_submit(image_task: ComputeTask) -> None:
     http_client, requests_log = create_mock_transport()
     artifact_adapter = AsyncMock(spec=ArtifactPort)
     executor = ComfyUIExecutor(
@@ -257,6 +260,58 @@ async def test_comfyui_executor_cancellation_returns_early(image_task: ComputeTa
     cancel = asyncio.Event()
     cancel.set()
 
-    output = await executor.execute(image_task, cancel)
-    assert len(output.outputs) == 0
+    with pytest.raises(ExecutionCanceledError, match="canceled before submit"):
+        await executor.execute(image_task, cancel)
     assert len(requests_log) == 0
+
+
+async def test_comfyui_executor_cancellation_during_poll_records_handle_and_skips_upload(
+    image_task: ComputeTask,
+) -> None:
+    poll_started = asyncio.Event()
+
+    async def cancel_transport_handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/prompt" in url:
+            return httpx.Response(200, json={"prompt_id": "comfy-cancel-123"})
+        if "/history" in url:
+            poll_started.set()
+            return httpx.Response(200, json={})
+        raise AssertionError("unexpected request")
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(cancel_transport_handler),
+        base_url="http://127.0.0.1:8188",
+    )
+    artifact_adapter = AsyncMock(spec=ArtifactPort)
+    executor = ComfyUIExecutor(
+        client=ComfyUIClient(client=client),
+        artifact_adapter=artifact_adapter,
+        ready=True,
+    )
+    cancel = asyncio.Event()
+    recorded_handle: str | None = None
+
+    async def save_submitting() -> None:
+        pass
+
+    async def save_handle(handle: str) -> None:
+        nonlocal recorded_handle
+        recorded_handle = handle
+
+    context = ExecutionContext(
+        save_submitting=save_submitting,
+        save_handle=save_handle,
+        correlation_key="test-comfy",
+    )
+
+    task_coro = asyncio.create_task(executor.execute(image_task, cancel, context))
+    await poll_started.wait()
+    assert recorded_handle == "comfyui:comfy-cancel-123"
+    cancel.set()
+
+    with pytest.raises(ExecutionCanceledError):
+        await task_coro
+
+    artifact_adapter.upload.assert_not_called()
+

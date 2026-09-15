@@ -3,6 +3,7 @@
 from .errors import (
     CapacityError,
     DeadlineExceededError,
+    ExecutionCanceledError,
     ExecutorNotSupportedError,
     FingerprintConflictError,
 )
@@ -12,6 +13,8 @@ __all__ = [
     "CapacityError",
     "DeadlineExceededError",
     "ExecutionApplicationService",
+    "ExecutionCanceledError",
     "ExecutorNotSupportedError",
     "FingerprintConflictError",
 ]
+
