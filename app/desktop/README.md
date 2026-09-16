@@ -82,11 +82,11 @@ Window bounds are validated against currently connected displays before restore.
 
 The editor consumes backend production timeline data and maintains supported local draft edits. Current foundations include:
 
-- narration-aligned beat timing;
+- narration-aligned beat timing; beat start/end/duration are derived from the narration word clock and are not render-editable;
 - explicit beat media selection/replace flow;
 - image/video-aware beat state;
 - probed source duration for imported audio/video;
-- duration/camera/fit draft state where applicable;
+- camera/fit/trim draft state where applicable;
 - narration-aware Auto Edit planning with optional style override;
 - typed undo/redo/reset command history;
 - render submission based on authoritative IDs/production choices rather than local machine paths.
@@ -104,6 +104,7 @@ Current foundations include:
 - preflight for runtime, executor, disk and local asset integrity;
 - progress heartbeat and lease-loss handling;
 - immutable narration subtitle snapshot to local UTF-8 SRT track during render;
+- final ffprobe verification of separate audio/video start clocks and durations against the narration master clock;
 - `COMPLETED`, `CANCELED`, `FAILED` and retryable/stalled behavior where defined;
 - atomic `render.state.json` journaling and unfinished-work discovery;
 - immutable segment cache keyed by input/timeline/renderer/output identity;
@@ -117,62 +118,3 @@ Richer recovery/resume UX after abrupt process/OS failure remains roadmap work.
 ## Configuration
 
 Copy `.env.example` to `.env` for development. `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime defaults/overrides. For personalized Gemini concurrency, a saved user setting takes precedence over the corresponding environment default.
-
-Important values include:
-
-```text
-VITE_API_BASE_URL=http://localhost:8080
-VITE_DESKTOP_PROJECT_RENDER_ENABLED=true
-VITE_DESKTOP_HEARTBEAT_MS=15000
-NARRATIVEX_CHROME_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
-NARRATIVEX_GEMINI_CHARACTER_TAB_COUNT=2
-NARRATIVEX_GEMINI_STORYBOARD_TAB_COUNT=4
-```
-
-Remote backend origins must use HTTPS. Plain HTTP is accepted only for loopback development hosts.
-
-FFmpeg resolution order:
-
-1. `NARRATIVEX_FFMPEG_PATH` / `NARRATIVEX_FFPROBE_PATH`;
-2. packaged `${process.resourcesPath}/ffmpeg` binaries;
-3. `ffmpeg` / `ffprobe` on `PATH`.
-
-## Development
-
-```bash
-npm ci
-npm run check
-npm run dev
-```
-
-`npm run check` verifies dependency-lock expectations, tests, type checks and the production build. Exact dependency versions are authoritative in `package.json` / `package-lock.json` and the dependency verification scripts; a separate dependency-migration document is intentionally not maintained.
-
-For local Desktop development against the Docker backend, use the ignored
-`app/desktop/.env` file (copy `.env.example` if it does not exist) with
-`VITE_API_BASE_URL=http://localhost:8080`, then start the local Compose override
-from the repository root:
-
-```bash
-docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.local.yml up -d --no-build
-```
-
-The local override keeps the backend on the loopback origin and starts all worker
-processes in development mode without external provider execution. The narration
-worker uses a deterministic fake TTS adapter only in this local development mode;
-AI/image jobs remain disabled until the production GCP credential and VieNeu
-reference-audio files are mounted explicitly. Fake provider output must not be used
-as production health or production media.
-
-## Windows packaging
-
-`electron-builder.yml` defines Windows NSIS metadata, application resources, external FFmpeg layout and `narrativex://` protocol registration.
-
-```bash
-npm run package:win
-```
-
-Production release work still needs full signing, upgrade/auto-update, and release pipeline validation. See `../../documentation/product/ROADMAP.md`.
-
-## Architecture rule
-
-`app/desktop` is the only supported editor client. Do not recreate a parallel browser editor without an explicit ADR. Native filesystem integration and local final FFmpeg execution belong in Electron main, never unrestricted renderer code.
