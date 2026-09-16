@@ -99,27 +99,91 @@ def _build_task() -> ComputeTask:
     )
 
 
-async def test_whisperx_client_raises_unavailable_error() -> None:
-    client = WhisperXClient()
-    with pytest.raises(WhisperXClientError, match="not configured or unavailable"):
-        await client.align(b"audio", "xin chao")
+class FakeWhisperXModule:
+    def __init__(self, words: list[dict[str, Any]] | None = None) -> None:
+        self.words = words or [
+            {"word": "xin", "start": 0.10, "end": 0.30, "score": 0.99},
+            {"word": "chào", "start": 0.35, "end": 0.60, "score": 0.98},
+            {"word": "thế", "start": 0.65, "end": 0.80, "score": 0.97},
+            {"word": "giới", "start": 0.82, "end": 1.10, "score": 0.96},
+        ]
+        self.load_model_calls = 0
+
+    def load_audio(self, _path: str) -> list[float]:
+        return [0.0] * 32_000
+
+    def load_align_model(
+        self, *, language_code: str, device: str, model_name: str | None = None
+    ) -> tuple[object, dict[str, str]]:
+        assert language_code == "vi"
+        assert device == "cpu"
+        assert model_name is None
+        self.load_model_calls += 1
+        return object(), {"language": language_code}
+
+    def align(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {"word_segments": self.words}
+
+
+async def test_whisperx_client_returns_canonical_measured_word_clock() -> None:
+    module = FakeWhisperXModule()
+    client = WhisperXClient(device="cpu", whisperx_module=module)
+
+    words = await client.align(b"RIFFfakeWAVaudio", "xin chào thế giới", "vi")
+
+    assert words == [
+        {
+            "index": 0,
+            "textStart": 0,
+            "textEnd": 3,
+            "audioStartMs": 100,
+            "audioEndMs": 300,
+            "confidence": 0.99,
+        },
+        {
+            "index": 1,
+            "textStart": 4,
+            "textEnd": 8,
+            "audioStartMs": 350,
+            "audioEndMs": 600,
+            "confidence": 0.98,
+        },
+        {
+            "index": 2,
+            "textStart": 9,
+            "textEnd": 12,
+            "audioStartMs": 650,
+            "audioEndMs": 800,
+            "confidence": 0.97,
+        },
+        {
+            "index": 3,
+            "textStart": 13,
+            "textEnd": 17,
+            "audioStartMs": 820,
+            "audioEndMs": 1100,
+            "confidence": 0.96,
+        },
+    ]
+    assert module.load_model_calls == 1
+
+
+async def test_whisperx_client_rejects_token_divergence_instead_of_inventing_timing() -> None:
+    module = FakeWhisperXModule(
+        [{"word": "khác", "start": 0.1, "end": 0.4, "score": 0.9}]
+    )
+    client = WhisperXClient(device="cpu", whisperx_module=module)
+
+    with pytest.raises(WhisperXClientError, match="token counts diverged"):
+        await client.align(b"RIFFfakeWAVaudio", "xin chào", "vi")
 
 
 async def test_whisperx_executor_defaults_to_not_ready() -> None:
-    executor = WhisperXExecutor(WhisperXClient(), InMemoryArtifactAdapter())
+    executor = WhisperXExecutor(
+        WhisperXClient(device="cpu", whisperx_module=FakeWhisperXModule()),
+        InMemoryArtifactAdapter(),
+    )
     assert executor.ready is False
-
-
-async def test_whisperx_executor_fails_and_does_not_upload_when_unavailable() -> None:
-    artifact_adapter = InMemoryArtifactAdapter()
-    executor = WhisperXExecutor(WhisperXClient(), artifact_adapter, ready=False)
-    task = _build_task()
-
-    with pytest.raises(WhisperXClientError):
-        await executor.execute(task, asyncio.Event())
-
-    assert len(artifact_adapter.downloaded) == 1
-    assert len(artifact_adapter.uploaded) == 0
 
 
 class FakeWorkingWhisperXClient(WhisperXClient):
@@ -130,7 +194,16 @@ class FakeWorkingWhisperXClient(WhisperXClient):
         language: str = "vi",
         model: str = "large-v3",
     ) -> list[dict[str, Any]]:
-        return [{"word": "test", "start": 0.0, "end": 0.4, "score": 0.99}]
+        return [
+            {
+                "index": 0,
+                "textStart": 0,
+                "textEnd": 3,
+                "audioStartMs": 0,
+                "audioEndMs": 400,
+                "confidence": 0.99,
+            }
+        ]
 
 
 async def test_whisperx_executor_succeeds_with_injected_test_client() -> None:
