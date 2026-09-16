@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.generation.application.command;
 import java.util.Set;
 import java.util.UUID;
 
-/** Render-only edit applied to an immutable render-input snapshot. */
+/** Render-only visual edit applied to an immutable render-input snapshot. */
 public record RenderBeatOverride(
     UUID visualBeatId, Long durationMs, String cameraMovement, String fitMode, Long trimStartMs) {
   private static final Set<String> CAMERA_MOVEMENTS =
@@ -15,8 +15,9 @@ public record RenderBeatOverride(
     if (visualBeatId == null) {
       throw new IllegalArgumentException("visualBeatId must not be null");
     }
-    if (durationMs != null && (durationMs < 1_000 || durationMs > 120_000)) {
-      throw new IllegalArgumentException("durationMs must be between 1000 and 120000");
+    if (durationMs != null) {
+      throw new IllegalArgumentException(
+          "durationMs is derived from narration alignment and cannot be overridden");
     }
     if (cameraMovement != null) {
       cameraMovement = cameraMovement.trim().toUpperCase();
@@ -33,9 +34,9 @@ public record RenderBeatOverride(
     if (trimStartMs != null && trimStartMs < 0) {
       throw new IllegalArgumentException("trimStartMs must be >= 0");
     }
-    if (durationMs == null && cameraMovement == null && fitMode == null && trimStartMs == null) {
+    if (cameraMovement == null && fitMode == null && trimStartMs == null) {
       throw new IllegalArgumentException(
-          "A render beat override must change at least one render parameter");
+          "A render beat override must change at least one visual render parameter");
     }
   }
 

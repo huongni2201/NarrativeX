@@ -41,10 +41,9 @@ export interface UpdateBeatMediaInput {
   trimStartMs?: number;
 }
 
-/** Render-only edit parameters. Media selection itself is persisted through updateBeatMedia. */
+/** Render-only visual treatment. Beat timing is derived from narration alignment and is not editable. */
 export interface ProjectRenderBeatOverride {
   visualBeatId: string;
-  durationMs?: number;
   cameraMovement?: string;
   fitMode?: BeatMediaFitMode;
   trimStartMs?: number;

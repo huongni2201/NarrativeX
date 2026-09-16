@@ -2,22 +2,14 @@ import type { BeatMediaFitMode, ProjectRenderBeatOverride } from "@narrativex/cl
 import { resetTimelineDraft, updateTimelineDraft, type TimelineDraft } from "./timeline-draft.ts";
 
 export type TimelineCommand =
-  | { type: "SET_DURATION"; visualBeatId: string; durationMs: number }
   | { type: "SET_CAMERA"; visualBeatId: string; cameraMovement: string }
   | { type: "SET_FIT"; visualBeatId: string; fitMode: BeatMediaFitMode }
   | { type: "SET_TRIM_START"; visualBeatId: string; trimStartMs: number }
   | { type: "RESET_BEAT"; visualBeatId: string }
   | { type: "RESET_ALL" };
 
-const MIN_DURATION_MS = 250;
-
 export function applyTimelineCommand(draft: TimelineDraft, command: TimelineCommand): TimelineDraft {
   switch (command.type) {
-    case "SET_DURATION":
-      if (!Number.isFinite(command.durationMs) || command.durationMs < MIN_DURATION_MS) {
-        throw new RangeError(`durationMs must be >= ${MIN_DURATION_MS}`);
-      }
-      return updateTimelineDraft(draft, command.visualBeatId, { durationMs: Math.round(command.durationMs) });
     case "SET_CAMERA":
       return updateTimelineDraft(draft, command.visualBeatId, { cameraMovement: required(command.cameraMovement, "cameraMovement") });
     case "SET_FIT":

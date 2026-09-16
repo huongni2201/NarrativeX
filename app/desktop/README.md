@@ -82,11 +82,11 @@ Window bounds are validated against currently connected displays before restore.
 
 The editor consumes backend production timeline data and maintains supported local draft edits. Current foundations include:
 
-- narration-aligned beat timing;
+- narration-aligned beat timing; beat start/end/duration are derived from the narration word clock and are not render-editable;
 - explicit beat media selection/replace flow;
 - image/video-aware beat state;
 - probed source duration for imported audio/video;
-- duration/camera/fit draft state where applicable;
+- camera/fit/trim draft state where applicable;
 - narration-aware Auto Edit planning with optional style override;
 - typed undo/redo/reset command history;
 - render submission based on authoritative IDs/production choices rather than local machine paths.
@@ -104,6 +104,7 @@ Current foundations include:
 - preflight for runtime, executor, disk and local asset integrity;
 - progress heartbeat and lease-loss handling;
 - immutable narration subtitle snapshot to local UTF-8 SRT track during render;
+- final ffprobe verification of separate audio/video start clocks and durations against the narration master clock;
 - `COMPLETED`, `CANCELED`, `FAILED` and retryable/stalled behavior where defined;
 - atomic `render.state.json` journaling and unfinished-work discovery;
 - immutable segment cache keyed by input/timeline/renderer/output identity;

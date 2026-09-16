@@ -20,15 +20,12 @@ class RenderBeatOverrideTest {
   }
 
   @Test
-  void preservesLegacyDurationAndCameraConstructor() {
+  void rejectsManualDurationOverrideBecauseNarrationOwnsTiming() {
     UUID beatId = UUID.randomUUID();
 
-    RenderBeatOverride override = new RenderBeatOverride(beatId, 4_000L, " pan ");
-
-    assertThat(override.durationMs()).isEqualTo(4_000L);
-    assertThat(override.cameraMovement()).isEqualTo("PAN");
-    assertThat(override.fitMode()).isNull();
-    assertThat(override.trimStartMs()).isNull();
+    assertThatThrownBy(() -> new RenderBeatOverride(beatId, 4_000L, " pan "))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("derived from narration alignment");
   }
 
   @Test

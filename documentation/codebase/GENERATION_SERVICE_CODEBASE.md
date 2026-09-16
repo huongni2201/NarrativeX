@@ -39,7 +39,7 @@ app/generation-service/
         executors/
           catalog.py         # Dynamic executor catalog
           voicestudio/       # VoiceStudio TTS executor adapter
-          whisperx/          # WhisperX forced-alignment executor adapter
+          whisperx/          # local WhisperX forced-alignment adapter
           comfyui/           # ComfyUI (RealVisXL) image generation adapter
           media_validation/  # Domain-neutral media validation adapter
         artifacts/
@@ -63,6 +63,6 @@ To prevent blind resubmission and double-execution on external AI engines:
 ## Supported Task Types (Compute Protocol v1)
 
 - `audio.synthesize`: VoiceStudio segment TTS synthesis (`task-audio-synthesize.json`).
-- `audio.align`: WhisperX forced alignment (`task-audio-align.json`).
+- `audio.align`: WhisperX forced alignment (`task-audio-align.json`). The adapter aligns the known script against the exact WAV input, emits deterministic UTF-16 source offsets plus measured millisecond word ranges, caches the align model per language, and fails closed instead of inventing proportional timing when tokens/timestamps cannot be reconciled. Default production executor registration remains part of the active compute-plane cutover; an adapter implementation is not by itself evidence that backend narration has cut over.
 - `image.generate`: ComfyUI RealVisXL image generation (`task-image-generate.json`).
 - `media.validate`: Domain-neutral media integrity validation (`task-media-validate.json`).
