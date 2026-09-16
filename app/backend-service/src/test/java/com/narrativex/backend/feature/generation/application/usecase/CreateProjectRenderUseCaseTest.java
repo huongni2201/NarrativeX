@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class CreateProjectRenderUseCaseTest {
 
   @Test
-  void rejectsDurationOverrideBecauseNarrationOwnsBeatClock() {
+  void visualOverridesPreserveNarrationOwnedBeatClock() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -23,20 +23,14 @@ class CreateProjectRenderUseCaseTest {
     ProductionTimelineView timeline =
         timeline(projectId, storyVersionId, chapterId, firstBeatId, secondBeatId);
 
-    assertThatThrownBy(
-            () ->
-                CreateProjectRenderUseCase.applyBeatOverrides(
-                    timeline,
-                    List.of(new RenderBeatOverride(firstBeatId, 10_000L, null))))
-        .isInstanceOf(GenerationAdmissionDeniedException.class)
-        .satisfies(
-            error ->
-                assertThat(((GenerationAdmissionDeniedException) error).getCode())
-                    .isEqualTo("INVALID_RENDER_OVERRIDE"));
+    ProductionTimelineView adjusted =
+        CreateProjectRenderUseCase.applyBeatOverrides(
+            timeline, List.of(new RenderBeatOverride(firstBeatId, null, "PAN")));
 
-    assertThat(timeline.beats())
+    assertThat(adjusted.beats())
         .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
         .containsExactly(List.of(0L, 30_000L, 30_000L), List.of(30_000L, 60_000L, 30_000L));
+    assertThat(adjusted.beats().getFirst().cameraMovement()).isEqualTo("PAN");
   }
 
   @Test
