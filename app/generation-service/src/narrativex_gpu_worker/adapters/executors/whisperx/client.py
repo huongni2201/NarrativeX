@@ -5,8 +5,9 @@ import importlib
 import re
 import tempfile
 import threading
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 _WORD_PATTERN = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
 
@@ -68,7 +69,9 @@ class WhisperXClient:
             try:
                 audio = whisperx.load_audio(str(wav_path))
             except Exception as exception:
-                raise WhisperXClientError("WhisperX could not decode narration audio") from exception
+                raise WhisperXClientError(
+                    "WhisperX could not decode narration audio"
+                ) from exception
 
         duration_seconds = len(audio) / 16_000
         if duration_seconds <= 0:
