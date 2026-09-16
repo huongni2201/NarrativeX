@@ -12,8 +12,7 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Backend | Java 25, Spring Boot 4.1.1, Actuator | modular monolith, control plane, domain metadata, policy and durable orchestration authority |
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL | sole production application persistence path, including durable jobs, leases, and state CAS |
 | Compute Execution Plane | Python 3.12+, FastAPI 0.141.1, Pydantic 2.13.5, HTTPX 0.28.1, SQLite3, Uvicorn | `app/generation-service`: domain-agnostic Compute Protocol v1 execution plane with Hexagonal adapters and local SQLite execution journal |
-| Legacy Worker (migration only) | Python 3.12+, asyncpg 0.31.0, Pydantic, HTTPX | `app/ai-worker`: temporary legacy migration worker polling PostgreSQL directly, scheduled for removal |
-| Worker media/AI extras | Pillow 12.3.0, WhisperX 3.8.6, torch/torchaudio 2.8.0, NumPy 1.26.4, pydub 0.25.1 | forced alignment, audio normalization, image validation; TTS stays inside VoiceStudio |
+| Compute media/AI extras | Pillow 12.3.0, WhisperX 3.8.6, torch/torchaudio 2.8.0, NumPy 1.26.4 | forced alignment and image validation; TTS stays inside VoiceStudio |
 | Compute contracts | JSON Schema, Pydantic models | `contracts/compute/v1/`: versioned wire contracts for task submission, callbacks, and artifact descriptors |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
 | Narration TTS | VoiceStudio 0.5.2 headless API + WhisperX + user-provided audio | segmented TTS, 48 kHz mono WAV master and forced alignment; narration remains the master clock |

@@ -45,10 +45,7 @@ class CreateMediaPlanNoReuseTest {
             objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
-            chapterSourceAccess,
-            mediaPlanningSourceAccess,
-            mediaPlanRepository,
-            sceneResolver);
+            chapterSourceAccess, mediaPlanningSourceAccess, mediaPlanRepository, sceneResolver);
 
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();

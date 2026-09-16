@@ -30,8 +30,7 @@ class CreateOutfitVersionUseCaseTest {
 
   @Test
   void locksCharacterBeforeAllocatingNextVersion() {
-    when(characterRepository.findByIdForUpdate(CHARACTER_ID))
-        .thenReturn(Optional.of(character()));
+    when(characterRepository.findByIdForUpdate(CHARACTER_ID)).thenReturn(Optional.of(character()));
     when(outfitVersionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
     when(outfitVersionRepository.save(any(OutfitVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -39,8 +38,7 @@ class CreateOutfitVersionUseCaseTest {
         new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository);
 
     OutfitVersion response =
-        useCase.execute(
-            new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt"));
+        useCase.execute(new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt"));
 
     assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findByIdForUpdate(CHARACTER_ID);
@@ -48,8 +46,6 @@ class CreateOutfitVersionUseCaseTest {
   }
 
   private static Character character() {
-    return Character.rehydrate(
-        CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
+    return Character.rehydrate(CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }
-

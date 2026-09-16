@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterContinuityMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ContinuityBeatLineageRow;
@@ -13,6 +11,8 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
@@ -98,7 +98,10 @@ public class MyBatisChapterContinuityPersistenceAdapter implements ChapterContin
         ? Optional.empty()
         : Optional.of(
             new MediaGenerationSettings(
-                row.getAspectRatio(), row.getImageStyle(), row.getProviderKey(), row.getModelKey()));
+                row.getAspectRatio(),
+                row.getImageStyle(),
+                row.getProviderKey(),
+                row.getModelKey()));
   }
 
   @Override

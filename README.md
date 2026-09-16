@@ -11,7 +11,6 @@ The Electron application is the only supported editor client. Spring Boot is the
 | `app/desktop` | Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution |
 | `app/backend-service` | Spring Boot modular monolith; control plane, domain metadata, policy, jobs, leases, system capacity limits and Flyway schema |
 | `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (VoiceStudio, WhisperX, ComfyUI, media validation) |
-| `app/ai-worker` | Legacy Python worker; temporary migration residue polling PostgreSQL directly, scheduled for removal |
 | `packages/client-contracts` | Shared Desktop/backend contracts |
 | `contracts` | Compute Protocol v1 task schemas and payloads |
 | `documentation` | Product, architecture, workflows, current-state maps and ADRs |
@@ -64,7 +63,7 @@ Analyze Chapter keeps the visual intent explicit:
 
 - `IMAGE` supports backend/generation-service image generation.
 - `VIDEO` remains a supported analysis/editor intent for web/browser-driven video generation workflows.
-- Python workers do not host a video-generation/I2V provider role.
+- The generation service does not host a video-generation/I2V provider role.
 - Final composition/rendering always uses Electron main + FFmpeg/ffprobe.
 
 Do not reintroduce Wan or another Python video provider as an implicit fallback for the Desktop render path.
@@ -85,7 +84,7 @@ There is no server/cloud final-render executor and no remote final-video storage
 
 ## Development
 
-Start backend/worker dependencies, then Desktop:
+Start backend/generation-service dependencies, then Desktop:
 
 ```powershell
 docker compose up -d --build

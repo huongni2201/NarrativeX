@@ -11,8 +11,11 @@ public record ArtifactWriteAccessDto(
     @JsonProperty("method") String method,
     @JsonProperty("url") String url,
     @JsonProperty("expiresAt")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
-    Instant expiresAt,
+        @JsonFormat(
+            shape = JsonFormat.Shape.STRING,
+            pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            timezone = "UTC")
+        Instant expiresAt,
     @JsonProperty("headers") Map<String, String> headers) {
 
   public ArtifactWriteAccessDto {

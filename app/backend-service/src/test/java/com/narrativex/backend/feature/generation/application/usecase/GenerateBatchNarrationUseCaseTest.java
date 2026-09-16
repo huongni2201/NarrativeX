@@ -49,7 +49,8 @@ class GenerateBatchNarrationUseCaseTest {
 
     assertSame(
         denial,
-        assertThrows(GenerationAdmissionDeniedException.class, () -> batchUseCase.execute(command())));
+        assertThrows(
+            GenerationAdmissionDeniedException.class, () -> batchUseCase.execute(command())));
     verify(chapterUseCase).execute(any(GenerateChapterNarrationCommand.class));
     verifyNoMoreInteractions(chapterUseCase);
   }
@@ -63,7 +64,8 @@ class GenerateBatchNarrationUseCaseTest {
 
     assertSame(
         denial,
-        assertThrows(GenerationAdmissionDeniedException.class, () -> batchUseCase.execute(command())));
+        assertThrows(
+            GenerationAdmissionDeniedException.class, () -> batchUseCase.execute(command())));
     verify(chapterUseCase, times(2)).execute(any(GenerateChapterNarrationCommand.class));
     verifyNoMoreInteractions(chapterUseCase);
   }

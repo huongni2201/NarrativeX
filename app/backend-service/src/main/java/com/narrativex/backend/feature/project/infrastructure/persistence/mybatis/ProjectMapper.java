@@ -20,7 +20,5 @@ public interface ProjectMapper extends NarrativeXMyBatisMapper {
   List<ProjectRow> findActiveFirstPage(@Param("limit") int limit);
 
   List<ProjectRow> findActiveAfter(
-      @Param("updatedAt") Instant updatedAt,
-      @Param("id") UUID id,
-      @Param("limit") int limit);
+      @Param("updatedAt") Instant updatedAt, @Param("id") UUID id, @Param("limit") int limit);
 }

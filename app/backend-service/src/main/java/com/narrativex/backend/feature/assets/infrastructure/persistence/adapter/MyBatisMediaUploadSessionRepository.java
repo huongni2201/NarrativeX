@@ -60,8 +60,7 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
   @Override
   @Transactional(readOnly = true)
   public Optional<UploadSession> findByIdempotencyKey(String idempotencyKey) {
-    return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey))
-        .map(this::toSession);
+    return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey)).map(this::toSession);
   }
 
   @Override

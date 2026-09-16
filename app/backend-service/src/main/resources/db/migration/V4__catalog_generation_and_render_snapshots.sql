@@ -304,6 +304,32 @@ ALTER TABLE generation_jobs
 -- Project render snapshots
 -- -----------------------------------------------------------------------------
 
+CREATE TABLE local_device_pairing_codes (
+    id BIGSERIAL PRIMARY KEY,
+    code_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE local_devices (
+    id UUID PRIMARY KEY,
+    name VARCHAR(160) NOT NULL,
+    platform VARCHAR(80) NOT NULL,
+    agent_version VARCHAR(64) NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE TABLE local_device_capabilities (
+    device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE CASCADE,
+    capability VARCHAR(64) NOT NULL,
+    PRIMARY KEY (device_id, capability)
+);
+
 CREATE TABLE project_render_input_snapshots (
     generation_job_id UUID PRIMARY KEY REFERENCES generation_jobs(id) ON DELETE CASCADE,
     project_id UUID NOT NULL REFERENCES projects(id),
@@ -312,6 +338,7 @@ CREATE TABLE project_render_input_snapshots (
     render_format VARCHAR(16) NOT NULL,
     aspect_ratio VARCHAR(16) NOT NULL,
     total_duration_ms BIGINT NOT NULL CHECK (total_duration_ms > 0),
+    assigned_local_device_id UUID NOT NULL REFERENCES local_devices(id),
     chapter_count INTEGER NOT NULL CHECK (chapter_count > 0),
     beat_count INTEGER NOT NULL CHECK (beat_count > 0),
     render_profile_json JSONB NOT NULL DEFAULT '{

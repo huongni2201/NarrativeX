@@ -7,8 +7,7 @@ import org.apache.ibatis.annotations.Param;
 
 public interface ProductionBeatMediaSelectionMapper extends NarrativeXMyBatisMapper {
   ProductionBeatSelectableAssetRow findSelectableAsset(
-      @Param("projectId") UUID projectId,
-      @Param("mediaAssetId") UUID mediaAssetId);
+      @Param("projectId") UUID projectId, @Param("mediaAssetId") UUID mediaAssetId);
 
   int upsert(
       @Param("projectId") UUID projectId,

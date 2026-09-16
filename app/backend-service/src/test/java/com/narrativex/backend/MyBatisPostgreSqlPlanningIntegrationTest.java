@@ -1,7 +1,7 @@
 package com.narrativex.backend;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

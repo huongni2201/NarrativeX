@@ -48,8 +48,7 @@ class GetCurrentMediaJobUseCaseTest {
     when(projectAccess.findProject(PROJECT_ID)).thenReturn(mock(Project.class));
     when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID))
         .thenReturn(Optional.of(INTERNAL_JOB_ID));
-    when(generationJobRepository.findById(INTERNAL_JOB_ID))
-        .thenReturn(Optional.of(job));
+    when(generationJobRepository.findById(INTERNAL_JOB_ID)).thenReturn(Optional.of(job));
     when(job.getProjectId()).thenReturn(PROJECT_ID);
     when(job.getChapterId()).thenReturn(CHAPTER_ID);
     when(job.getJobId()).thenReturn(PUBLIC_JOB_ID);
@@ -60,4 +59,3 @@ class GetCurrentMediaJobUseCaseTest {
     verify(generationJobRepository).findById(INTERNAL_JOB_ID);
   }
 }
-

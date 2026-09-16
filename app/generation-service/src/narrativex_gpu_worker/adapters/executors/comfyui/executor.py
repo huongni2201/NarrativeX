@@ -89,7 +89,8 @@ class ComfyUIExecutor:
         if cancel.is_set():
             raise ExecutionCanceledError("ComfyUI execution canceled before artifact upload")
         image_bytes = await self._download_record_image(record)
-
+        if cancel.is_set():
+            raise ExecutionCanceledError("ComfyUI execution canceled before artifact upload")
 
         runtime_ms = int((time.perf_counter() - start_time) * 1000)
         outputs: list[ProducedArtifact] = []

@@ -10,19 +10,14 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
   List<CharacterRow> findActiveFirstPage(@Param("limit") int limit);
 
   List<CharacterRow> findActiveAfter(
-      @Param("updatedAt") Instant updatedAt,
-      @Param("id") UUID id,
-      @Param("limit") int limit);
+      @Param("updatedAt") Instant updatedAt, @Param("id") UUID id, @Param("limit") int limit);
 
   long countActive(@Param("status") String status);
 
-  CharacterRow findActiveById(
-      @Param("id") UUID id,
-      @Param("excludedStatus") String excludedStatus);
+  CharacterRow findActiveById(@Param("id") UUID id, @Param("excludedStatus") String excludedStatus);
 
   CharacterRow findActiveByIdForUpdate(
-      @Param("id") UUID id,
-      @Param("excludedStatus") String excludedStatus);
+      @Param("id") UUID id, @Param("excludedStatus") String excludedStatus);
 
   CharacterRow findCharacter(@Param("id") UUID id);
 
@@ -45,8 +40,7 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
   int maxOutfitVersion(@Param("characterId") UUID characterId);
 
   OutfitVersionRow findActiveOutfit(
-      @Param("id") UUID id,
-      @Param("excludedStatus") String excludedStatus);
+      @Param("id") UUID id, @Param("excludedStatus") String excludedStatus);
 
   OutfitVersionRow findOutfit(@Param("id") UUID id);
 

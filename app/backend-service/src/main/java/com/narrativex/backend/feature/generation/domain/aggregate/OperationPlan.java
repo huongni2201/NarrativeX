@@ -11,11 +11,7 @@ public final class OperationPlan extends AggregateRoot {
   private final String operationType;
 
   private OperationPlan(
-      UUID id,
-      long rowVersion,
-      UUID projectId,
-      UUID generationJobId,
-      String operationType) {
+      UUID id, long rowVersion, UUID projectId, UUID generationJobId, String operationType) {
     super(id, rowVersion);
     this.projectId = Objects.requireNonNull(projectId, "projectId");
     this.generationJobId = generationJobId;
@@ -30,21 +26,13 @@ public final class OperationPlan extends AggregateRoot {
   }
 
   public static OperationPlan rehydrate(
-      UUID id,
-      long rowVersion,
-      UUID projectId,
-      UUID generationJobId,
-      String operationType) {
+      UUID id, long rowVersion, UUID projectId, UUID generationJobId, String operationType) {
     return new OperationPlan(id, rowVersion, projectId, generationJobId, operationType);
   }
 
   public OperationPlan withGenerationJobId(UUID jobId) {
     return new OperationPlan(
-        getId(),
-        getRowVersion(),
-        projectId,
-        Objects.requireNonNull(jobId, "jobId"),
-        operationType);
+        getId(), getRowVersion(), projectId, Objects.requireNonNull(jobId, "jobId"), operationType);
   }
 
   public UUID getProjectId() {

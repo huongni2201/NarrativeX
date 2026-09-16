@@ -6,6 +6,5 @@ import org.apache.ibatis.annotations.Param;
 
 public interface ProjectRenderArtifactMapper extends NarrativeXMyBatisMapper {
   ProjectRenderArtifactRow findByJobId(
-      @Param("projectId") UUID projectId,
-      @Param("jobId") UUID jobId);
+      @Param("projectId") UUID projectId, @Param("jobId") UUID jobId);
 }

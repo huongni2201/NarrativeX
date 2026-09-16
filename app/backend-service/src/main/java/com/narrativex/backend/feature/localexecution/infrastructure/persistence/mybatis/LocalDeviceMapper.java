@@ -7,9 +7,7 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface LocalDeviceMapper extends NarrativeXMyBatisMapper {
-  int insertPairingCode(
-      @Param("codeHash") String codeHash,
-      @Param("expiresAt") Instant expiresAt);
+  int insertPairingCode(@Param("codeHash") String codeHash, @Param("expiresAt") Instant expiresAt);
 
   PairingCodeRow consumePairingCode(@Param("codeHash") String codeHash, @Param("now") Instant now);
 

@@ -36,8 +36,7 @@ public class VoiceReferenceAssetAccessAdapter implements VoiceReferenceAssetAcce
     var asset =
         voiceReferenceAssetRepository
             .findById(selection.assetId())
-            .orElseThrow(
-                () -> new ResourceNotFoundException("Voice reference asset not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Voice reference asset not found"));
     return new VoiceReferenceAsset(
         VoiceReferenceScope.ACCOUNT,
         asset.id(),

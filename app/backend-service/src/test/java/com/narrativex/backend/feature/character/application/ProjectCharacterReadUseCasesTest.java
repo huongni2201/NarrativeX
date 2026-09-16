@@ -34,8 +34,7 @@ class ProjectCharacterReadUseCasesTest {
   @Test
   void listRejectsProjectOutsideCurrentOwner() {
     when(repository.projectExists(PROJECT_ID)).thenReturn(false);
-    ListProjectCharactersUseCase useCase =
-        new ListProjectCharactersUseCase(repository);
+    ListProjectCharactersUseCase useCase = new ListProjectCharactersUseCase(repository);
 
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, null, 20));
     verify(repository).projectExists(PROJECT_ID);
@@ -47,8 +46,7 @@ class ProjectCharacterReadUseCasesTest {
     when(repository.projectExists(PROJECT_ID)).thenReturn(true);
     when(repository.findByProject(PROJECT_ID, null, 20))
         .thenReturn(new CursorPage<>(List.of(model), null, 20, false));
-    ListProjectCharactersUseCase useCase =
-        new ListProjectCharactersUseCase(repository);
+    ListProjectCharactersUseCase useCase = new ListProjectCharactersUseCase(repository);
 
     CursorPage<ProjectCharacterReadModel> page = useCase.execute(PROJECT_ID, null, 20);
 
@@ -61,8 +59,7 @@ class ProjectCharacterReadUseCasesTest {
   void detailRejectsCharacterOutsideProject() {
     when(repository.projectExists(PROJECT_ID)).thenReturn(true);
     when(repository.findDetail(PROJECT_ID, CHARACTER_ID)).thenReturn(Optional.empty());
-    GetProjectCharacterDetailUseCase useCase =
-        new GetProjectCharacterDetailUseCase(repository);
+    GetProjectCharacterDetailUseCase useCase = new GetProjectCharacterDetailUseCase(repository);
 
     assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, CHARACTER_ID));
   }
@@ -72,8 +69,7 @@ class ProjectCharacterReadUseCasesTest {
     ProjectCharacterReadModel model = model();
     when(repository.projectExists(PROJECT_ID)).thenReturn(true);
     when(repository.findDetail(PROJECT_ID, CHARACTER_ID)).thenReturn(Optional.of(model));
-    GetProjectCharacterDetailUseCase useCase =
-        new GetProjectCharacterDetailUseCase(repository);
+    GetProjectCharacterDetailUseCase useCase = new GetProjectCharacterDetailUseCase(repository);
 
     ProjectCharacterReadModel result = useCase.execute(PROJECT_ID, CHARACTER_ID);
 
@@ -104,4 +100,3 @@ class ProjectCharacterReadUseCasesTest {
             "adult", "black hair", null, "default outfit", "appearance prompt"));
   }
 }
-

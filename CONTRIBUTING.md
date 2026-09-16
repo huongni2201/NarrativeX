@@ -25,12 +25,6 @@ For faster iteration, run only the narrow checks relevant to the files being cha
 cd app/backend-service
 ./mvnw.cmd test
 
-# Worker
-cd ../ai-worker
-python -m pytest
-python -m ruff check .
-python -m mypy src
-
 # Generation service
 cd ../generation-service
 python -m pytest

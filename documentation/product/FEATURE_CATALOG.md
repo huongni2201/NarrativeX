@@ -19,10 +19,10 @@ Current code, Flyway migrations and automated tests decide factual AS-IS claims.
 | User-provided narration | IMPLEMENTED foundation | native import + logical audio clock |
 | Compute Protocol v1 | IMPLEMENTED | JSON Schema contracts in `contracts/compute/v1/` |
 | Generation-service scaffold | IMPLEMENTED foundation | Hexagonal FastAPI execution plane (`app/generation-service`) |
-| Backend compute dispatch | PARTIAL | control plane task submission, durable mapping & callbacks |
-| Narration cutover | TARGET | VoiceStudio & WhisperX execution migration to generation-service |
-| Image cutover | TARGET | ComfyUI execution migration to generation-service |
-| Legacy ai-worker removal | TARGET | scheduled for deletion after parity gates pass |
+| Backend compute dispatch | IMPLEMENTED foundation | control plane task submission, artifact verification, durable mapping & callbacks |
+| Narration cutover | IMPLEMENTED foundation | VoiceStudio synthesis + WhisperX forced alignment through generation-service |
+| Image cutover | IMPLEMENTED foundation | ComfyUI/RealVisXL execution with backend-owned artifact materialization |
+| Legacy compute runtime removal | IMPLEMENTED | PostgreSQL-polling runtime, CI job and active configuration removed |
 | Native local media import | IMPLEMENTED foundation | image/audio/video via Electron main |
 | Persisted beat media selection | IMPLEMENTED foundation | effective image/video production source |
 | Mixed image/video timeline | IMPLEMENTED foundation | video trim/fill semantics remain richer than image controls |

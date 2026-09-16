@@ -25,10 +25,7 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
   public Optional<PairingCodeRecord> consumePairingCode(String codeHash, Instant now) {
     var row = mapper.consumePairingCode(codeHash, now);
     return Optional.ofNullable(row)
-        .map(
-            value ->
-                new PairingCodeRecord(
-                    value.id(), value.expiresAt(), value.consumedAt()));
+        .map(value -> new PairingCodeRecord(value.id(), value.expiresAt(), value.consumedAt()));
   }
 
   @Override
@@ -47,8 +44,7 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
   @Override
   public Optional<DeviceRecord> findByTokenHash(String tokenHash) {
     DeviceRow row = mapper.findByTokenHash(tokenHash);
-    return Optional.ofNullable(row)
-        .map(value -> new DeviceRecord(value.id(), value.revokedAt()));
+    return Optional.ofNullable(row).map(value -> new DeviceRecord(value.id(), value.revokedAt()));
   }
 
   @Override

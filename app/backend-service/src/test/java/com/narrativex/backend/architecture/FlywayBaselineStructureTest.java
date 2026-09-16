@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Verifies the pre-release single-user PostgreSQL baseline is cleanly separated by responsibility. */
+/**
+ * Verifies the pre-release single-user PostgreSQL baseline is cleanly separated by responsibility.
+ */
 class FlywayBaselineStructureTest {
   @Test
   void migrationSetStaysCanonicalAndResponsibilitySeparated() throws IOException {
@@ -139,8 +141,8 @@ class FlywayBaselineStructureTest {
     assertFalse(allSchema.contains("SPRING_SESSION"));
     assertFalse(allSchema.contains("desktop_guest_installations"));
     assertFalse(allSchema.contains("desktop_auth_handoffs"));
-    assertFalse(allSchema.contains("local_devices"));
-    assertFalse(allSchema.contains("local_device_pairing_codes"));
+    assertTrue(allSchema.contains("local_devices"));
+    assertTrue(allSchema.contains("local_device_pairing_codes"));
     assertFalse(allSchema.contains("quota_reservations"));
     assertFalse(allSchema.contains("plan_entitlements"));
     assertFalse(allSchema.contains("user_plan_assignments"));
@@ -150,7 +152,7 @@ class FlywayBaselineStructureTest {
     assertFalse(allSchema.contains("account_id"));
     assertFalse(allSchema.contains("project_owner_id"));
     assertFalse(allSchema.contains("reviewed_by_user_id"));
-    assertFalse(allSchema.contains("assigned_local_device_id"));
+    assertTrue(allSchema.contains("assigned_local_device_id"));
     assertFalse(allSchema.contains("VIENEU"));
     assertFalse(allSchema.contains("finalize_quota_reservation_on_job_terminal"));
     assertFalse(allSchema.contains("trg_generation_jobs_finalize_quota"));

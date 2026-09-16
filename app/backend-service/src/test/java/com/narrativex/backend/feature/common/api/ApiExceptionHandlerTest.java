@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.narrativex.backend.feature.common.exception.InvalidDeviceCredentialsException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
-import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
 import java.sql.SQLException;
 import java.util.List;

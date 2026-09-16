@@ -47,8 +47,7 @@ class GenerationDurablePersistenceIntegrationTest extends PostgreSqlIntegrationT
     UUID projectId = insertProject();
     GenerationJob job =
         generationJobRepository.save(
-            GenerationJob.create(
-                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
+            GenerationJob.create(projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
 
     OperationPlan persistedPlan =
         operationPlanRepository.save(OperationPlan.create(projectId, "CHAPTER_ANALYZE"));

@@ -32,8 +32,7 @@ class MyBatisMediaAssetRepositoryTest {
         row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-31T00:00:00Z"));
     MediaAssetRow third =
         row(UUID.randomUUID(), projectId, "READY", Instant.parse("2025-12-30T00:00:00Z"));
-    when(mapper.findPage(
-            eq(projectId), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
+    when(mapper.findPage(eq(projectId), eq(null), eq(null), eq(null), eq(null), eq(null), eq(3)))
         .thenReturn(List.of(first, second, third));
 
     CursorPage<com.narrativex.backend.feature.assets.application.query.MediaAssetView> page =
@@ -61,14 +60,7 @@ class MyBatisMediaAssetRepositoryTest {
     var view =
         repository.createLocalAsset(
             new MediaAssetRepository.CreateLocalMediaAsset(
-                assetId,
-                projectId,
-                "IMAGE",
-                "scene.png",
-                "image/png",
-                100,
-                HASH,
-                null));
+                assetId, projectId, "IMAGE", "scene.png", "image/png", 100, HASH, null));
 
     assertThat(view.id()).isEqualTo(assetId);
     verify(mapper)

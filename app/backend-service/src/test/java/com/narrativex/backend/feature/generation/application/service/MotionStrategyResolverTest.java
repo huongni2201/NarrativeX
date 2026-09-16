@@ -8,8 +8,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import org.junit.jupiter.api.Test;
 
 class MotionStrategyResolverTest {
-  private final MotionStrategyResolver resolver =
-      new MotionStrategyResolver();
+  private final MotionStrategyResolver resolver = new MotionStrategyResolver();
 
   @Test
   void imageMotionNeverEscalatesToI2v() {

@@ -9,6 +9,8 @@ import org.apache.ibatis.annotations.Param;
 public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
   UUID insertLocal(MediaAssetRow row);
 
+  UUID insertGenerated(MediaAssetRow row);
+
   List<MediaAssetRow> findPage(
       @Param("projectId") UUID projectId,
       @Param("type") String type,
@@ -18,13 +20,9 @@ public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
       @Param("cursorId") UUID cursorId,
       @Param("limit") int limit);
 
-  MediaAssetRow findById(
-      @Param("projectId") UUID projectId,
-      @Param("id") UUID id);
+  MediaAssetRow findById(@Param("projectId") UUID projectId, @Param("id") UUID id);
 
   MediaAssetRow findSummaryById(@Param("id") UUID id);
 
-  int softDelete(
-      @Param("projectId") UUID projectId,
-      @Param("id") UUID id);
+  int softDelete(@Param("projectId") UUID projectId, @Param("id") UUID id);
 }

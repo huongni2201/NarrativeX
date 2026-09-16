@@ -226,16 +226,12 @@ class AssignCharacterToProjectUseCaseTest {
 
   private AssignCharacterToProjectUseCase newUseCase() {
     return new AssignCharacterToProjectUseCase(
-        characterRepository,
-        versionRepository,
-        projectCharacterRepository,
-        projectAccess);
+        characterRepository, versionRepository, projectCharacterRepository, projectAccess);
   }
 
   private void stubOwnedProjectAndCharacter(UUID projectId, UUID characterId) {
     Character character =
-        Character.rehydrate(
-            characterId, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
+        Character.rehydrate(characterId, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
     Project project =
         Project.rehydrate(
             projectId,
@@ -248,8 +244,7 @@ class AssignCharacterToProjectUseCaseTest {
             AspectRatio.RATIO_16_9,
             null);
     when(projectAccess.findProject(projectId)).thenReturn(project);
-    when(characterRepository.findById(characterId))
-        .thenReturn(Optional.of(character));
+    when(characterRepository.findById(characterId)).thenReturn(Optional.of(character));
   }
 
   private static AssignCharacterToProjectCommand command(

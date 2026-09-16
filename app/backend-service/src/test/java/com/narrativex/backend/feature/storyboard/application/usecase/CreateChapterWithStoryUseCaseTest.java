@@ -72,18 +72,13 @@ class CreateChapterWithStoryUseCaseTest {
             0L,
             Instant.EPOCH,
             Instant.EPOCH);
-    when(storyVersionAccess.resolveOrCreateStoryVersion(PROJECT_ID, "Text"))
-        .thenReturn(STORY_ID);
+    when(storyVersionAccess.resolveOrCreateStoryVersion(PROJECT_ID, "Text")).thenReturn(STORY_ID);
     when(idempotency.reserve(eq(PROJECT_ID), eq("key-1"), anyString()))
         .thenAnswer(
             invocation ->
                 Optional.of(
                     new ChapterCreationIdempotencyRepository.Reservation(
-                        RESERVATION_ID,
-                        PROJECT_ID,
-                        "key-1",
-                        invocation.getArgument(2),
-                        null)));
+                        RESERVATION_ID, PROJECT_ID, "key-1", invocation.getArgument(2), null)));
     when(chapters.findMaxOrderIndexByStoryVersionId(STORY_ID)).thenReturn(-1);
     when(createChapter.execute(any())).thenReturn(ApiResponse.success("created", response));
 

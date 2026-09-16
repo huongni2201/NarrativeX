@@ -5,7 +5,16 @@ import java.util.Objects;
 import java.util.UUID;
 
 public record NarrationDocument(
-    UUID id, UUID storyId, String documentFingerprint, List<NarrationDocumentChapter> chapters) {
+    UUID id,
+    UUID storyId,
+    String documentFingerprint,
+    List<NarrationDocumentChapter> chapters,
+    String sourceText) {
+  public NarrationDocument(
+      UUID id, UUID storyId, String documentFingerprint, List<NarrationDocumentChapter> chapters) {
+    this(id, storyId, documentFingerprint, chapters, null);
+  }
+
   public NarrationDocument {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(storyId, "storyId");
@@ -18,11 +27,21 @@ public record NarrationDocument(
       if (chapters.get(index).sequence() != index)
         throw new IllegalArgumentException("chapter sequences must be contiguous from zero");
     }
+    if (sourceText != null && sourceText.isBlank()) {
+      throw new IllegalArgumentException("sourceText must not be blank when provided");
+    }
   }
 
   public int selectedTextLength() {
     return chapters.stream()
         .mapToInt(chapter -> chapter.globalTextEnd() - chapter.globalTextStart())
         .sum();
+  }
+
+  public String requireSourceText() {
+    if (sourceText == null || sourceText.isBlank()) {
+      throw new IllegalStateException("Narration document source text is required for alignment");
+    }
+    return sourceText;
   }
 }

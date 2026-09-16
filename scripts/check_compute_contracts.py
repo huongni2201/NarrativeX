@@ -22,6 +22,7 @@ TASK_SCHEMAS = {
     "audio.align": "task-audio-align.json",
     "image.generate": "task-image-generate.json",
     "media.validate": "task-media-validate.json",
+    "text.generate": "task-text-generate.json",
 }
 FORBIDDEN_KEYS = {
     "projectId",

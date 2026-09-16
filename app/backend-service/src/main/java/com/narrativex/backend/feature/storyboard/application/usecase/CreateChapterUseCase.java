@@ -25,8 +25,7 @@ public class CreateChapterUseCase {
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(CreateChapterCommand command) {
-    storyVersionAccess.requireStoryVersion(
-        command.projectId(), command.storyVersionId());
+    storyVersionAccess.requireStoryVersion(command.projectId(), command.storyVersionId());
     validateSourceSize(command.sourceText());
     if (chapterRepository.existsByStoryVersionIdAndOrderIndex(
         command.storyVersionId(), command.orderIndex())) {

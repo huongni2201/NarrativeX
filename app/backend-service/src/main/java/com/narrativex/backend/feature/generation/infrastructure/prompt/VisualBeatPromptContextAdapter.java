@@ -36,7 +36,8 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
   public PreparedVisualBeatPrompt prepare(UUID projectId, UUID chapterId, UUID visualBeatId) {
     var result = prepareMany(projectId, chapterId, List.of(visualBeatId)).get(visualBeatId);
     if (result == null) {
-      throw new ResourceNotFoundException("Visual Beat not found in the current Chapter storyboard");
+      throw new ResourceNotFoundException(
+          "Visual Beat not found in the current Chapter storyboard");
     }
     if (result.hasConflict()) {
       throw new ResourceConflictException(result.conflictMessage());
@@ -95,7 +96,9 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
 
   private static String referenceBudgetConflict(VisualPromptContext context) {
     long requiredIdentityReferences =
-        context.characters().stream().filter(character -> !character.references().isEmpty()).count();
+        context.characters().stream()
+            .filter(character -> !character.references().isEmpty())
+            .count();
     if (requiredIdentityReferences <= MAX_REFERENCE_IMAGES) {
       return null;
     }

@@ -107,8 +107,7 @@ public class CharacterController {
       @PathVariable UUID characterId, @PathVariable UUID versionId) {
     getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     var version =
-        lockCharacterVersionUseCase.execute(
-            new ChangeCharacterVersionStatusCommand(versionId));
+        lockCharacterVersionUseCase.execute(new ChangeCharacterVersionStatusCommand(versionId));
     return ResponseEntity.ok(
         ApiResponse.success("Character version locked", CharacterVersionResponse.from(version)));
   }

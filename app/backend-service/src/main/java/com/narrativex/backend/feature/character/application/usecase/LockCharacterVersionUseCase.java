@@ -33,8 +33,7 @@ public class LockCharacterVersionUseCase {
     }
     version.lock();
     CharacterVersion saved = versionRepository.save(version);
-    log.info(
-        "Locked character version {}", command.characterVersionId());
+    log.info("Locked character version {}", command.characterVersionId());
     return saved;
   }
 }

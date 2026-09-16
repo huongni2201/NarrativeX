@@ -18,7 +18,7 @@ class GenerationOutboxMapperResultMapTest {
       "com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper";
 
   @Test
-  void reserveBatchExplicitlyMapsTheOnlyRequiredDispatchColumn() throws Exception {
+  void reserveBatchMapsTheDispatchIdentityColumns() throws Exception {
     Configuration configuration = new Configuration();
     configuration.setMapUnderscoreToCamelCase(false);
 
@@ -32,6 +32,7 @@ class GenerationOutboxMapperResultMapTest {
         resultMap.getResultMappings().stream()
             .collect(Collectors.toMap(ResultMapping::getProperty, ResultMapping::getColumn));
 
-    assertThat(mappings).containsExactlyInAnyOrderEntriesOf(Map.of("id", "id"));
+    assertThat(mappings)
+        .containsExactlyInAnyOrderEntriesOf(Map.of("id", "id", "aggregateId", "aggregate_id"));
   }
 }

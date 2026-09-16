@@ -9,16 +9,31 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "contracts" / "narration-word-alignment.v1.json"
-PRODUCER = (
+PRODUCER_MARKERS = {
     ROOT
     / "app"
-    / "ai-worker"
+    / "generation-service"
     / "src"
-    / "narrativex_worker"
-    / "narration"
-    / "repository"
-    / "completion.py"
-)
+    / "narrativex_gpu_worker"
+    / "adapters"
+    / "executors"
+    / "whisperx"
+    / "executor.py": "audio.align",
+    ROOT
+    / "app"
+    / "backend-service"
+    / "src"
+    / "main"
+    / "java"
+    / "com"
+    / "narrativex"
+    / "backend"
+    / "feature"
+    / "generation"
+    / "infrastructure"
+    / "compute"
+    / "ComputeNarrationAlignmentAdapter.java": "audio.align",
+}
 CONSUMERS = [
     ROOT
     / "app"
@@ -50,7 +65,15 @@ def main() -> int:
     if contract.get("allowProportionalFallback") is not False:
         errors.append("contract must keep proportional subtitle fallback disabled")
 
-    for path in [PRODUCER, *CONSUMERS]:
+    for path, marker in PRODUCER_MARKERS.items():
+        text = path.read_text(encoding="utf-8")
+        relative = path.relative_to(ROOT)
+        if marker not in text:
+            errors.append(f"{relative}: missing canonical alignment producer marker {marker}")
+        if LEGACY_VERSION in text:
+            errors.append(f"{relative}: legacy alignment version {LEGACY_VERSION} returned")
+
+    for path in CONSUMERS:
         text = path.read_text(encoding="utf-8")
         relative = path.relative_to(ROOT)
         if version not in text:

@@ -52,7 +52,13 @@ async def test_capabilities_returns_protocol_media_type(tmp_path: Path) -> None:
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith(MEDIA_TYPE)
-    assert response.json()["executors"] == []
+    assert {executor["name"] for executor in response.json()["executors"]} == {
+        "comfyui",
+        "media-validator",
+        "qwen",
+        "voicestudio",
+        "whisperx",
+    }
 
 
 async def test_health_endpoint_returns_json(tmp_path: Path) -> None:

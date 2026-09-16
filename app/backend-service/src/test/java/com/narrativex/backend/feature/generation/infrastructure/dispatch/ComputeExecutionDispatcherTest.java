@@ -1,15 +1,21 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.generation.application.model.compute.ArtifactWriteAccessDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
+import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
+import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
+import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -22,7 +28,9 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,11 +38,24 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class ComputeExecutionDispatcherTest {
+  private static final String VALID_ANALYSIS_JSON =
+      "{\"scenes\":[{\"title\":\"Scene\",\"narration\":\"Chapter text content\","
+          + "\"visual_beats\":[{\"title\":\"Beat\",\"visual_intent\":\"A frame\","
+          + "\"source_anchor\":\"Chapter text content\",\"visual_direction\":{"
+          + "\"shot_size\":\"WIDE\",\"camera_angle\":\"EYE_LEVEL\",\"lens_mm\":35,"
+          + "\"focus_target\":\"subject\",\"action_phase\":\"BEFORE\","
+          + "\"subject_placement\":\"center\",\"background\":\"room\","
+          + "\"motivated_light\":\"soft\",\"palette\":\"warm\","
+          + "\"camera_movement\":\"NONE\",\"movement_intensity\":\"SUBTLE\","
+          + "\"crop_safe_area\":\"full\"}}]}]}";
 
   private GenerationJobRepository generationJobRepository;
   private GenerationExecutionPort executionPort;
   private StoryboardMapper storyboardMapper;
   private ChapterMapper chapterMapper;
+  private ComputeArtifactAccess artifactAccess;
+  private MediaAssetRepository mediaAssetRepository;
+  private Map<UUID, OutputArtifactTargetDto> targetsByTask;
   private ComputeExecutionDispatcher dispatcher;
 
   @BeforeEach
@@ -43,9 +64,39 @@ class ComputeExecutionDispatcherTest {
     executionPort = mock(GenerationExecutionPort.class);
     storyboardMapper = mock(StoryboardMapper.class);
     chapterMapper = mock(ChapterMapper.class);
+    artifactAccess = mock(ComputeArtifactAccess.class);
+    mediaAssetRepository = mock(MediaAssetRepository.class);
+    targetsByTask = new HashMap<>();
+    when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
+        .thenReturn(VALID_ANALYSIS_JSON.getBytes());
     dispatcher =
         new ComputeExecutionDispatcher(
-            generationJobRepository, executionPort, storyboardMapper, chapterMapper);
+            generationJobRepository,
+            executionPort,
+            storyboardMapper,
+            chapterMapper,
+            artifactAccess,
+            mediaAssetRepository);
+
+    when(artifactAccess.createOutput(
+            any(UUID.class), any(UUID.class), any(String.class), any(String.class)))
+        .thenAnswer(
+            invocation -> {
+              UUID taskId = invocation.getArgument(0);
+              UUID artifactId = UuidV7.random();
+              OutputArtifactTargetDto target =
+                  new OutputArtifactTargetDto(
+                      artifactId,
+                      invocation.getArgument(2),
+                      invocation.getArgument(3),
+                      new ArtifactWriteAccessDto(
+                          "PUT",
+                          "https://example.test/" + artifactId,
+                          Instant.now().plusSeconds(300),
+                          Map.of()));
+              targetsByTask.put(taskId, target);
+              return target;
+            });
 
     when(executionPort.submitTask(any(ComputeTaskRequest.class)))
         .thenAnswer(
@@ -66,9 +117,14 @@ class ComputeExecutionDispatcherTest {
                     Instant.now(),
                     "handle:123",
                     1.0,
-                    List.of(),
+                    List.of(producedFor(targetsByTask.get(invocation.getArgument(0)))),
                     null,
                     null));
+  }
+
+  private static ProducedArtifactDto producedFor(OutputArtifactTargetDto target) {
+    return new ProducedArtifactDto(
+        target.artifactId(), target.role(), target.mediaType(), 4, "a".repeat(64));
   }
 
   @Test
@@ -98,6 +154,7 @@ class ComputeExecutionDispatcherTest {
     when(storyboardMapper.insertScene(any(SceneRow.class))).thenReturn(UuidV7.random());
     when(storyboardMapper.insertVisualBeat(any(VisualBeatRow.class))).thenReturn(UuidV7.random());
     when(chapterMapper.findById(chapterId)).thenReturn(new ChapterRow());
+    when(chapterMapper.update(any(ChapterRow.class))).thenReturn(1);
 
     dispatcher.dispatchJob(job.getJobId());
 
@@ -118,7 +175,6 @@ class ComputeExecutionDispatcherTest {
 
     when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
     when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
-
     dispatcher.dispatchJob(job.getJobId());
 
     ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
@@ -126,6 +182,116 @@ class ComputeExecutionDispatcherTest {
     GenerationJob finalState = captor.getValue();
     assertEquals(JobStatus.COMPLETED, finalState.getStatus());
     verify(executionPort).submitTask(any(ComputeTaskRequest.class));
+  }
+
+  @Test
+  void doesNotCompleteImageGenerationWithoutProducedArtifact() {
+    UUID projectId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
+
+    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    when(executionPort.queryTask(any(UUID.class), any(UUID.class)))
+        .thenReturn(
+            new ComputeObservationDto(
+                "1.0",
+                job.getJobId(),
+                UuidV7.random(),
+                "SUCCEEDED",
+                1,
+                Instant.now(),
+                "handle:missing",
+                1.0,
+                List.of(),
+                null,
+                null));
+
+    dispatcher.dispatchJob(job.getJobId());
+
+    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
+    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+    GenerationJob finalState = captor.getValue();
+    assertNotEquals(JobStatus.COMPLETED, finalState.getStatus());
+  }
+
+  @Test
+  void doesNotCreateSyntheticStoryboardWhenAnalysisHasNoOutput() {
+    UUID projectId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
+    UUID revisionId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.createChapterAnalysis(
+            projectId,
+            UuidV7.random(),
+            chapterId,
+            revisionId,
+            1L,
+            "a".repeat(64),
+            "Chapter text content",
+            "vi",
+            "key:analysis:missing-output",
+            "IMAGE",
+            "API");
+
+    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
+    when(executionPort.queryTask(any(UUID.class), any(UUID.class)))
+        .thenReturn(
+            new ComputeObservationDto(
+                "1.0",
+                job.getJobId(),
+                UuidV7.random(),
+                "SUCCEEDED",
+                1,
+                Instant.now(),
+                "handle:missing",
+                1.0,
+                List.of(),
+                null,
+                null));
+
+    dispatcher.dispatchJob(job.getJobId());
+
+    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
+    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+    assertNotEquals(JobStatus.COMPLETED, captor.getValue().getStatus());
+    org.mockito.Mockito.verify(storyboardMapper, org.mockito.Mockito.never())
+        .insertScene(any(SceneRow.class));
+  }
+
+  @Test
+  void doesNotCompleteAnalysisWhenProviderPayloadCannotBeMaterialized() {
+    UUID projectId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
+    UUID revisionId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.createChapterAnalysis(
+            projectId,
+            UuidV7.random(),
+            chapterId,
+            revisionId,
+            1L,
+            "a".repeat(64),
+            "Chapter text content",
+            "vi",
+            "key:analysis:invalid-payload",
+            "IMAGE",
+            "API");
+
+    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
+        .thenReturn("{\"characters\":[]}".getBytes());
+
+    dispatcher.dispatchJob(job.getJobId());
+
+    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
+    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+    assertNotEquals(JobStatus.COMPLETED, captor.getValue().getStatus());
+    org.mockito.Mockito.verify(storyboardMapper, org.mockito.Mockito.never())
+        .insertScene(any(SceneRow.class));
   }
 
   @Test
@@ -147,7 +313,7 @@ class ComputeExecutionDispatcherTest {
   }
 
   @Test
-  void handlesExecutionFailureGracefully() {
+  void keepsExecutionOutcomeUnknownWhenDispatchFailsWithoutEvidence() {
     UUID projectId = UuidV7.random();
     GenerationJob job =
         GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
@@ -162,6 +328,25 @@ class ComputeExecutionDispatcherTest {
     ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
     verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
     GenerationJob finalState = captor.getValue();
-    assertEquals(JobStatus.FAILED, finalState.getStatus());
+    assertEquals(JobStatus.UNKNOWN, finalState.getStatus());
+  }
+
+  @Test
+  void keepsJobUnknownWhenComputeOutcomeCannotBeConfirmed() {
+    UUID projectId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
+
+    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    when(executionPort.queryTask(any(UUID.class), any(UUID.class))).thenReturn(null);
+
+    dispatcher.dispatchJob(job.getJobId());
+
+    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
+    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+    GenerationJob finalState = captor.getValue();
+    assertEquals(JobStatus.UNKNOWN, finalState.getStatus());
+    verify(executionPort).submitTask(any(ComputeTaskRequest.class));
   }
 }

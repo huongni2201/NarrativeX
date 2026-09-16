@@ -17,8 +17,7 @@ public class CreateCharacterUseCase {
   @Transactional
   public Character execute(CreateCharacterCommand command) {
     Character character =
-        characterRepository.save(
-            Character.create(command.canonicalName(), command.aliases()));
+        characterRepository.save(Character.create(command.canonicalName(), command.aliases()));
     log.info(
         "Created character id={} (canonicalName='{}')",
         character.getId(),

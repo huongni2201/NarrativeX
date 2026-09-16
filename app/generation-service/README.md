@@ -13,13 +13,23 @@ python -m ruff check .
 python -m mypy src
 ```
 
-Set `GENERATION_SERVICE_MACHINE_TOKEN` (or `GPU_WORKER_MACHINE_TOKEN` for backward compatibility) to a non-empty machine credential and run:
+Set `GENERATION_SERVICE_MACHINE_TOKEN` to a non-empty machine credential and run:
 
 ```powershell
 python -m narrativex_gpu_worker
 ```
 
-No executor is production-ready in the initial scaffold. Executor adapters are registered during their vertical-slice migrations.
+The production bootstrap registers Qwen (`text.generate`), ComfyUI (`image.generate`), VoiceStudio
+(`audio.synthesize`), WhisperX (`audio.align`), and media validation (`media.validate`). Capability
+readiness is advertised per adapter: endpoint-backed adapters require a configured endpoint, the
+VoiceStudio adapter also requires its API key, and WhisperX requires the optional local dependency.
+The service starts with unavailable optional capabilities marked `ready=false`; the backend must
+not dispatch a task until its advertised executor is ready.
+
+Canonical runtime environment names use the `GENERATION_SERVICE_*` namespace. The service accepts
+only protocol tasks and opaque artifact capabilities; it has no PostgreSQL, R2, project-media, or
+business-state configuration. Its durable execution journal is the SQLite file configured by
+`GENERATION_SERVICE_JOURNAL_FILE`.
 
 ## Structure
 

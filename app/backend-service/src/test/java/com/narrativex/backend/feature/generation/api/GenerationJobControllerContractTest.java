@@ -12,6 +12,7 @@ import com.narrativex.backend.feature.generation.api.controller.GenerationJobCon
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobEventStreamService;
+import com.narrativex.backend.feature.generation.application.usecase.CancelGenerationJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetGenerationJobUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
@@ -27,8 +28,9 @@ class GenerationJobControllerContractTest {
   private final GetGenerationJobUseCase useCase = mock(GetGenerationJobUseCase.class);
   private final GenerationJobEventStreamService eventStreamService =
       mock(GenerationJobEventStreamService.class);
+  private final CancelGenerationJobUseCase cancelUseCase = mock(CancelGenerationJobUseCase.class);
   private final GenerationJobController controller =
-      new GenerationJobController(useCase, eventStreamService);
+      new GenerationJobController(useCase, eventStreamService, cancelUseCase);
 
   @Test
   void getMapsPathToQueryAndWrapsDomainResultWithAnalysisProgress() {
@@ -84,6 +86,21 @@ class GenerationJobControllerContractTest {
     assertSame(emitter, controller.events(jobId));
 
     verify(eventStreamService).subscribe(jobId);
+  }
+
+  @Test
+  void cancelDelegatesToCancellationUseCase() {
+    UUID jobId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(
+            UuidV7.random(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
+    when(cancelUseCase.execute(jobId)).thenReturn(job);
+
+    var responseEntity = controller.cancel(jobId);
+
+    assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+    assertEquals(job.getJobId(), responseEntity.getBody().data().jobId());
+    verify(cancelUseCase).execute(jobId);
   }
 
   @Test

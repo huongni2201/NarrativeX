@@ -35,7 +35,7 @@ generation-service (domain-agnostic execution plane)
   -> zero NarrativeX DB/domain access
 ```
 
-Legacy `app/ai-worker` direct polling of PostgreSQL remains temporary migration residue until cutover is complete. Redis and browser editors are removed.
+The PostgreSQL-polling compute runtime has been removed; `generation-service` is the only provider execution plane. Redis and browser editors are removed.
 
 ## Identity & Access contract
 
@@ -87,7 +87,6 @@ At the first production deployment, the accepted V1–V7 migration history becom
 
 ## Primary remaining work
 
-- compute execution plane cutover (`generation-service`) and legacy `ai-worker` removal;
 - production packaging, signing, and auto-update;
 - hardening long-running local execution across abrupt process/OS failure and richer recovery UX;
 - richer timeline/editor review and regeneration workflows;

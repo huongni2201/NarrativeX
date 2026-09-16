@@ -6,6 +6,5 @@ import org.apache.ibatis.annotations.Param;
 
 public interface ChapterAnalysisSnapshotMapper extends NarrativeXMyBatisMapper {
   ChapterAnalysisSnapshotRow findByProject(
-      @Param("projectId") UUID projectId,
-      @Param("chapterId") UUID chapterId);
+      @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
 }

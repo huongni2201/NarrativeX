@@ -14,8 +14,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Finalizes transactional generation/media-validation outbox records after commit and
- * dispatches them to the compute execution plane.
+ * Finalizes transactional generation/media-validation outbox records after commit and dispatches
+ * them to the compute execution plane.
  */
 @Slf4j
 @Component
@@ -53,7 +53,10 @@ public class GenerationOutboxDispatcher {
           try {
             executionDispatcher.dispatchJob(UUID.fromString(row.getAggregateId()));
           } catch (Exception e) {
-            log.warn("Failed to dispatch execution job for outbox row {}: {}", row.getId(), e.getMessage());
+            log.warn(
+                "Failed to dispatch execution job for outbox row {}: {}",
+                row.getId(),
+                e.getMessage());
           }
         }
         int updated = mapper.markPublished(row.getId());

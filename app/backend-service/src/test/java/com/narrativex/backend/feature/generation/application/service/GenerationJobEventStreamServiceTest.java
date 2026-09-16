@@ -45,8 +45,7 @@ class GenerationJobEventStreamServiceTest {
 
     when(generationJobRepository.findByJobId(jobId))
         .thenReturn(Optional.of(running), Optional.of(completed));
-    when(generationJobRepository.findAnalysisProgressByJobId(jobId))
-        .thenReturn(Optional.empty());
+    when(generationJobRepository.findAnalysisProgressByJobId(jobId)).thenReturn(Optional.empty());
 
     service.subscribe(jobId);
     assertEquals(1, service.activeSubscriptionCount());
@@ -95,4 +94,3 @@ class GenerationJobEventStreamServiceTest {
         null);
   }
 }
-

@@ -61,14 +61,7 @@ public final class CharacterVersion extends DomainEntity {
       CharacterVersionStatus status,
       Instant lockedAt) {
     return new CharacterVersion(
-        id,
-        rowVersion,
-        characterId,
-        versionNumber,
-        bible,
-        visualPrompt,
-        status,
-        lockedAt);
+        id, rowVersion, characterId, versionNumber, bible, visualPrompt, status, lockedAt);
   }
 
   public void submitForReview() {

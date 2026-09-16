@@ -23,7 +23,8 @@ class ProductionBeatMediaSelectionScopeContractTest {
     assertFalse(mapper.contains("local_media_materializations"));
     assertFalse(mapper.contains("storage_mode"));
 
-    assertTrue(schema.contains("project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE"));
+    assertTrue(
+        schema.contains("project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE"));
     assertTrue(schema.contains("CREATE TABLE voice_reference_assets"));
     assertFalse(schema.contains("storage_mode"));
     assertFalse(schema.contains("local_media_materializations"));

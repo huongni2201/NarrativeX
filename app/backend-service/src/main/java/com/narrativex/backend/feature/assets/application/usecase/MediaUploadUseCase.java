@@ -77,8 +77,7 @@ public class MediaUploadUseCase {
     validateVoiceReferenceRequest(request);
     String idempotencyKey = normalizeIdempotencyKey(requestedIdempotencyKey);
     if (idempotencyKey != null) {
-      UploadSession existing =
-          sessions.findByIdempotencyKey(idempotencyKey).orElse(null);
+      UploadSession existing = sessions.findByIdempotencyKey(idempotencyKey).orElse(null);
       if (existing != null) {
         if (!sameRequest(existing, request)) {
           throw new ResourceConflictException(

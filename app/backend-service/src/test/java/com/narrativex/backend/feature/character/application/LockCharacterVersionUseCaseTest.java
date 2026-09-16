@@ -35,14 +35,11 @@ class LockCharacterVersionUseCaseTest {
   @Test
   void rejectsLockWhenIdentityReferenceIsMissing() {
     var version = reviewVersion();
-    when(versionRepository.findByIdForUpdate(VERSION_ID))
-        .thenReturn(Optional.of(version));
+    when(versionRepository.findByIdForUpdate(VERSION_ID)).thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(List.of());
-    var useCase =
-        new LockCharacterVersionUseCase(versionRepository, referenceRepository);
+    var useCase = new LockCharacterVersionUseCase(versionRepository, referenceRepository);
 
-    assertThatThrownBy(
-            () -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID)))
+    assertThatThrownBy(() -> useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID)))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("IDENTITY");
 
@@ -52,13 +49,11 @@ class LockCharacterVersionUseCaseTest {
   @Test
   void locksReviewedVersionWhenIdentityReferenceExists() {
     var version = reviewVersion();
-    when(versionRepository.findByIdForUpdate(VERSION_ID))
-        .thenReturn(Optional.of(version));
+    when(versionRepository.findByIdForUpdate(VERSION_ID)).thenReturn(Optional.of(version));
     when(referenceRepository.findByVersionId(VERSION_ID))
         .thenReturn(List.of(new CharacterVersionReference(IDENTITY_ASSET_ID, "IDENTITY", 0)));
     when(versionRepository.save(version)).thenReturn(version);
-    var useCase =
-        new LockCharacterVersionUseCase(versionRepository, referenceRepository);
+    var useCase = new LockCharacterVersionUseCase(versionRepository, referenceRepository);
 
     var locked = useCase.execute(new ChangeCharacterVersionStatusCommand(VERSION_ID));
 
@@ -79,4 +74,3 @@ class LockCharacterVersionUseCaseTest {
         null);
   }
 }
-

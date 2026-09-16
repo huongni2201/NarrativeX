@@ -17,9 +17,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-/**
- * Streams generation-job snapshots to Desktop clients.
- */
+/** Streams generation-job snapshots to Desktop clients. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -88,8 +86,7 @@ public class GenerationJobEventStreamService {
   }
 
   private JobResponse snapshotFor(UUID jobId, GenerationJob job) {
-    var analysisProgress =
-        generationJobRepository.findAnalysisProgressByJobId(jobId).orElse(null);
+    var analysisProgress = generationJobRepository.findAnalysisProgressByJobId(jobId).orElse(null);
     return JobResponse.fromWithAnalysisProgress(job, analysisProgress);
   }
 

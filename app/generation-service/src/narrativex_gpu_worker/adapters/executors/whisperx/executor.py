@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 
+from narrativex_gpu_worker.application.errors import ExecutionCanceledError
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
 from narrativex_gpu_worker.contracts import (
@@ -45,7 +46,7 @@ class WhisperXExecutor:
         context: ExecutionContext | None = None,
     ) -> ExecutionOutput:
         if cancel.is_set():
-            return ExecutionOutput()
+            raise ExecutionCanceledError("WhisperX execution canceled before download")
 
         start_time = time.perf_counter()
         inputs = task.inputs
@@ -59,6 +60,8 @@ class WhisperXExecutor:
             raise ValueError(f"Input audio artifact not found: {inputs.audio_artifact_role}")
 
         audio_bytes = await self._artifact_adapter.download(input_artifact)
+        if cancel.is_set():
+            raise ExecutionCanceledError("WhisperX execution canceled before alignment")
         alignment_data = await self._client.align(
             audio_bytes=audio_bytes,
             script=inputs.script,
@@ -71,6 +74,8 @@ class WhisperXExecutor:
         outputs: list[ProducedArtifact] = []
 
         if task.artifacts.outputs:
+            if cancel.is_set():
+                raise ExecutionCanceledError("WhisperX execution canceled before artifact upload")
             target = task.artifacts.outputs[0]
             produced = await self._artifact_adapter.upload(target, alignment_json)
             outputs.append(produced)

@@ -67,7 +67,6 @@ def main() -> int:
     args = parser.parse_args()
 
     backend = ROOT / "app" / "backend-service"
-    worker = ROOT / "app" / "ai-worker"
     generation_service = ROOT / "app" / "generation-service"
     desktop = ROOT / "app" / "desktop"
     windows = os.name == "nt"
@@ -79,11 +78,16 @@ def main() -> int:
     steps = [
         Step("Secret scan", ROOT, [python, "scripts/check-secrets.py"]),
         Step("Docs drift", ROOT, [python, "scripts/check-docs-drift.py"]),
+        Step("Compute contracts", ROOT, [python, "scripts/check_compute_contracts.py"]),
+        Step(
+            "Narration alignment contract",
+            ROOT,
+            [python, "scripts/check-narration-alignment-contract.py"],
+        ),
+        Step("Legacy runtime residue", ROOT, [python, "scripts/check_legacy_runtime_residue.py"]),
+        Step("Image configuration contract", ROOT, [python, "scripts/check-image-config-contract.py"]),
         Step("Compose config", ROOT, ["docker", "compose", "config", "--no-interpolate"], optional=True),
         Step("Backend verify", backend, [mvnw, "verify"]),
-        Step("AI worker tests", worker, [python, "-m", "pytest"]),
-        Step("AI worker lint", worker, [python, "-m", "ruff", "check", "src", "tests"]),
-        Step("AI worker type-check", worker, [python, "-m", "mypy", "src"]),
         Step("Generation service tests", generation_service, [python, "-m", "pytest"]),
         Step("Generation service lint", generation_service, [python, "-m", "ruff", "check", "src", "tests"]),
         Step("Generation service type-check", generation_service, [python, "-m", "mypy", "src"]),

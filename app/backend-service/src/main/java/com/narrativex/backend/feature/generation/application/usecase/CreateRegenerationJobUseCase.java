@@ -48,10 +48,7 @@ public class CreateRegenerationJobUseCase {
 
   @Transactional
   public GenerationJob execute(
-      UUID projectId,
-      UUID chapterId,
-      UUID regenerationPlanId,
-      String idempotencyHeader) {
+      UUID projectId, UUID chapterId, UUID regenerationPlanId, String idempotencyHeader) {
     String idempotencyKey = CreateMediaJobUseCase.requireIdempotencyKey(idempotencyHeader);
     var project = projectAccess.findProject(projectId);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey);

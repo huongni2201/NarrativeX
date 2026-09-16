@@ -26,8 +26,7 @@ public class StoryboardBeatAccessService implements StoryboardBeatAccess {
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireStoryVersion(
-        projectId, chapter.getStoryVersionId());
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
     var sceneIds =
         storyboardRepository.findScenesByChapterId(chapterId).stream()
             .map(scene -> scene.getId())

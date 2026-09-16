@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import time
 
-from narrativex_gpu_worker.application.errors import AmbiguousOutcomeError
+from narrativex_gpu_worker.application.errors import (
+    AmbiguousOutcomeError,
+    ExecutionCanceledError,
+)
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
 from narrativex_gpu_worker.contracts import (
@@ -45,7 +48,7 @@ class VoiceStudioExecutor:
         context: ExecutionContext | None = None,
     ) -> ExecutionOutput:
         if cancel.is_set():
-            return ExecutionOutput()
+            raise ExecutionCanceledError("VoiceStudio execution canceled before submit")
 
         if (
             context
@@ -71,22 +74,33 @@ class VoiceStudioExecutor:
             if ref_artifact is None:
                 raise ValueError(f"Reference audio artifact not found: {inputs.voice.value}")
             ref_bytes = await self._artifact_adapter.download(ref_artifact)
+            if cancel.is_set():
+                raise ExecutionCanceledError("VoiceStudio execution canceled before synthesis")
             wav_bytes = await self._client.synthesize_reference(
                 text=inputs.script,
                 reference_wav=ref_bytes,
                 model=task.model.model,
+                cancel=cancel,
             )
         else:
             wav_bytes = await self._client.synthesize(
                 text=inputs.script,
                 voice=inputs.voice.value,
                 model=task.model.model,
+                cancel=cancel,
             )
+
+        if cancel.is_set():
+            raise ExecutionCanceledError("VoiceStudio execution canceled before artifact upload")
 
         runtime_ms = int((time.perf_counter() - start_time) * 1000)
         outputs: list[ProducedArtifact] = []
 
         if task.artifacts.outputs:
+            if cancel.is_set():
+                raise ExecutionCanceledError(
+                    "VoiceStudio execution canceled before artifact upload"
+                )
             target = task.artifacts.outputs[0]
             produced = await self._artifact_adapter.upload(target, wav_bytes)
             outputs.append(produced)

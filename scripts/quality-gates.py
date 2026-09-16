@@ -39,6 +39,10 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
         python_gate("docs-drift", "scripts/check-docs-drift.py"),
         python_gate("docs-checkpoint", "scripts/check-docs-checkpoint.py"),
         python_gate("secret-scan", "scripts/check-secrets.py"),
+        python_gate("compute-contracts", "scripts/check_compute_contracts.py"),
+        python_gate("narration-alignment-contract", "scripts/check-narration-alignment-contract.py"),
+        python_gate("legacy-runtime-residue", "scripts/check_legacy_runtime_residue.py"),
+        python_gate("image-config-contract", "scripts/check-image-config-contract.py"),
         Gate("backend-test", (maven, "-B", "test"), ROOT / "app/backend-service"),
         Gate(
             "backend-spotless",
@@ -46,15 +50,29 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
             ROOT / "app/backend-service",
         ),
         python_gate(
-            "worker-pytest",
+            "generation-service-pytest",
             "-m",
             "pytest",
             "--basetemp",
-            str(QUALITY_GATE_TMP),
-            cwd=ROOT / "app/ai-worker",
+            str(QUALITY_GATE_TMP / "generation-service"),
+            cwd=ROOT / "app/generation-service",
         ),
-        python_gate("worker-ruff", "-m", "ruff", "check", ".", cwd=ROOT / "app/ai-worker"),
-        python_gate("worker-mypy", "-m", "mypy", "src", cwd=ROOT / "app/ai-worker"),
+        python_gate(
+            "generation-service-ruff",
+            "-m",
+            "ruff",
+            "check",
+            "src",
+            "tests",
+            cwd=ROOT / "app/generation-service",
+        ),
+        python_gate(
+            "generation-service-mypy",
+            "-m",
+            "mypy",
+            "src",
+            cwd=ROOT / "app/generation-service",
+        ),
     ]
 
     if not skip_install:
@@ -121,6 +139,8 @@ def main() -> int:
         help="reuse the current desktop node_modules instead of running npm ci",
     )
     args = parser.parse_args()
+
+    QUALITY_GATE_TMP.mkdir(parents=True, exist_ok=True)
 
     for gate in gates(args.profile, args.skip_install):
         result = run_gate(gate)

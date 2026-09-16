@@ -86,8 +86,7 @@ public final class GenerationJob extends AggregateRoot {
     this.analysisImageProvider = analysisImageProvider;
   }
 
-  public static GenerationJob create(
-      UUID projectId, JobType type, ResourceClass resourceClass) {
+  public static GenerationJob create(UUID projectId, JobType type, ResourceClass resourceClass) {
     return new GenerationJob(
         null,
         0L,
@@ -506,6 +505,60 @@ public final class GenerationJob extends AggregateRoot {
         this.projectId,
         this.type,
         JobStatus.FAILED,
+        this.resourceClass,
+        this.progress,
+        step,
+        errorCode,
+        this.storyVersionId,
+        this.chapterId,
+        this.storyboardRevisionId,
+        this.chapterRowVersion,
+        this.sourceHash,
+        this.sourceText,
+        this.sourceLanguage,
+        this.idempotencyKey,
+        this.mediaPlanId,
+        this.mediaPlanRevision,
+        this.productionMode,
+        this.analysisVisualGenerationMode,
+        this.analysisImageProvider);
+  }
+
+  public GenerationJob markCanceled(String errorCode, String step) {
+    return new GenerationJob(
+        getId(),
+        getRowVersion(),
+        this.jobId,
+        this.projectId,
+        this.type,
+        JobStatus.CANCELED,
+        this.resourceClass,
+        this.progress,
+        step,
+        errorCode,
+        this.storyVersionId,
+        this.chapterId,
+        this.storyboardRevisionId,
+        this.chapterRowVersion,
+        this.sourceHash,
+        this.sourceText,
+        this.sourceLanguage,
+        this.idempotencyKey,
+        this.mediaPlanId,
+        this.mediaPlanRevision,
+        this.productionMode,
+        this.analysisVisualGenerationMode,
+        this.analysisImageProvider);
+  }
+
+  public GenerationJob markUnknown(String errorCode, String step) {
+    return new GenerationJob(
+        getId(),
+        getRowVersion(),
+        this.jobId,
+        this.projectId,
+        this.type,
+        JobStatus.UNKNOWN,
         this.resourceClass,
         this.progress,
         step,

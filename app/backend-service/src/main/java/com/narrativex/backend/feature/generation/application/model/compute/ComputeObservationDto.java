@@ -15,8 +15,11 @@ public record ComputeObservationDto(
     @JsonProperty("state") String state,
     @JsonProperty("sequence") int sequence,
     @JsonProperty("observedAt")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
-    Instant observedAt,
+        @JsonFormat(
+            shape = JsonFormat.Shape.STRING,
+            pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            timezone = "UTC")
+        Instant observedAt,
     @JsonProperty("executionHandle") String executionHandle,
     @JsonProperty("progress") Double progress,
     @JsonProperty("outputs") List<ProducedArtifactDto> outputs,

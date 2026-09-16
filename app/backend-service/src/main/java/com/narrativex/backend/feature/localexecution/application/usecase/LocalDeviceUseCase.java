@@ -1,10 +1,10 @@
 package com.narrativex.backend.feature.localexecution.application.usecase;
 
+import com.narrativex.backend.feature.common.exception.InvalidDeviceCredentialsException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalDeviceStore;
 import com.narrativex.backend.feature.localexecution.application.query.LocalDeviceView;
-import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -45,7 +45,8 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
     var pairing =
         store
             .consumePairingCode(sha256(normalizePairingCode(command.pairingCode())), now)
-            .orElseThrow(() -> new InvalidDeviceCredentialsException("Pairing code is invalid or expired"));
+            .orElseThrow(
+                () -> new InvalidDeviceCredentialsException("Pairing code is invalid or expired"));
 
     UUID deviceId = UuidV7.random();
     String deviceToken = generateDeviceToken();
@@ -81,8 +82,7 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
         store.list(Instant.now().minus(ONLINE_WINDOW)).stream()
             .filter(candidate -> candidate.id().equals(deviceId))
             .findFirst()
-            .orElseThrow(
-                () -> new IllegalArgumentException("Local device not found"));
+            .orElseThrow(() -> new IllegalArgumentException("Local device not found"));
     if (!device.online()) {
       throw new IllegalStateException("Local device is offline");
     }

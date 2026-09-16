@@ -55,6 +55,18 @@
         RETURNING id
     </select>
 
+    <select id="insertGenerated" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
+        INSERT INTO media_assets
+            (id, project_id, asset_type, origin, storage_key, original_filename, content_type,
+             size_bytes, sha256, duration_ms, status, checksum_verified_at)
+        VALUES
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+             #{projectId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+             #{assetType}, #{origin}, #{storageKey}, #{originalFilename}, #{contentType},
+             #{sizeBytes}, #{sha256}, #{durationMs}, 'READY', CURRENT_TIMESTAMP)
+        RETURNING id
+    </select>
+
     <select id="findPage" resultMap="mediaAssetRow">
         SELECT <include refid="columns" />
           FROM media_assets

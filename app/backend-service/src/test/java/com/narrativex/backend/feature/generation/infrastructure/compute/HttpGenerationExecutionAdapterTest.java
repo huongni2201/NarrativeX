@@ -14,7 +14,6 @@ import com.narrativex.backend.feature.generation.application.model.compute.Submi
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -77,7 +76,8 @@ class HttpGenerationExecutionAdapterTest {
           "observedAt": "2026-09-14T11:00:00Z",
           "outputs": []
         }
-        """.formatted(taskId, attemptId);
+        """
+            .formatted(taskId, attemptId);
 
     HttpResponse<String> response = mock(HttpResponse.class);
     when(response.statusCode()).thenReturn(202);
@@ -159,7 +159,8 @@ class HttpGenerationExecutionAdapterTest {
             }
           ]
         }
-        """.formatted(taskId, attemptId, UUID.randomUUID());
+        """
+            .formatted(taskId, attemptId, UUID.randomUUID());
 
     HttpResponse<String> response = mock(HttpResponse.class);
     when(response.statusCode()).thenReturn(200);
@@ -209,7 +210,8 @@ class HttpGenerationExecutionAdapterTest {
     HttpRequest sent = captor.getValue();
 
     assertThat(sent.uri().toString())
-        .isEqualTo("http://127.0.0.1:8010/v1/tasks/" + taskId + "/attempts/" + attemptId + ":cancel");
+        .isEqualTo(
+            "http://127.0.0.1:8010/v1/tasks/" + taskId + "/attempts/" + attemptId + ":cancel");
     assertThat(sent.method()).isEqualTo("POST");
     assertThat(sent.headers().firstValue("Authorization")).contains("Bearer secret-token-123");
   }

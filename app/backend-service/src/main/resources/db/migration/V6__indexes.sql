@@ -104,6 +104,8 @@ CREATE INDEX idx_notifications_created_id ON notifications (created_at DESC, id 
 CREATE INDEX idx_outbox_pending ON outbox_events (status, available_at);
 
 -- Render manifests, generation snapshots and final artifacts
+CREATE INDEX idx_project_render_input_local_claim
+    ON project_render_input_snapshots (assigned_local_device_id);
 CREATE INDEX idx_render_manifests_chapter_created ON render_manifests (chapter_id, created_at DESC, id DESC);
 CREATE INDEX idx_render_manifests_project_created ON render_manifests (project_id, created_at DESC, id DESC);
 CREATE UNIQUE INDEX uq_final_artifacts_chapter_render_fingerprint
@@ -131,4 +133,3 @@ CREATE UNIQUE INDEX uq_media_generation_items_active
     WHERE execution_status IN ('QUEUED', 'RUNNING', 'VALIDATING', 'READY', 'UNKNOWN');
 CREATE INDEX idx_media_generation_items_job_status ON media_generation_items (generation_job_id, execution_status, item_key);
 CREATE INDEX idx_media_generation_items_beat_newest ON media_generation_items (visual_beat_id, attempt_number DESC, created_at DESC);
-

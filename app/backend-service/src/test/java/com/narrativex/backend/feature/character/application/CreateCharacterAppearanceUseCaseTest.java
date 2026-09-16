@@ -43,10 +43,7 @@ class CreateCharacterAppearanceUseCaseTest {
   void setUp() {
     useCase =
         new CreateCharacterAppearanceUseCase(
-            characterRepository,
-            appearanceRepository,
-            outfitVersionRepository,
-            projectAccess);
+            characterRepository, appearanceRepository, outfitVersionRepository, projectAccess);
     when(characterRepository.findById(CHARACTER_ID))
         .thenReturn(Optional.of(character(CHARACTER_ID)));
   }
@@ -109,8 +106,7 @@ class CreateCharacterAppearanceUseCaseTest {
   }
 
   private static Character character(UUID id) {
-    return Character.rehydrate(
-        id, 0L, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
+    return Character.rehydrate(id, 0L, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
   }
 
   private static OutfitVersion outfit(UUID id, UUID characterId) {
@@ -118,4 +114,3 @@ class CreateCharacterAppearanceUseCaseTest {
         id, 0L, characterId, 1, "Travel", null, "prompt", OutfitVersionStatus.DRAFT);
   }
 }
-

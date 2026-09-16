@@ -147,12 +147,7 @@ class CreateMediaJobUseCaseTest {
 
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
-            PROJECT_ID,
-            CHAPTER_ID,
-            "same-scope-key",
-            "IMAGE_MOTION",
-            "16:9",
-            ImageStyle.CINEMATIC);
+            PROJECT_ID, CHAPTER_ID, "same-scope-key", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
@@ -171,8 +166,7 @@ class CreateMediaJobUseCaseTest {
     when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
     when(existingJob.getProductionMode()).thenReturn(ProductionMode.IMAGE_MOTION);
     when(existingJob.getId()).thenReturn(existingInternalJobId);
-    when(mediaGenerationItemRepository.findByJobId(existingInternalJobId))
-        .thenReturn(List.of());
+    when(mediaGenerationItemRepository.findByJobId(existingInternalJobId)).thenReturn(List.of());
 
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
@@ -203,14 +197,7 @@ class CreateMediaJobUseCaseTest {
             "IMAGE_MOTION",
             "16:9",
             ImageStyle.CINEMATIC);
-    String requestFingerprint =
-        sha256(
-            PROJECT_ID
-                + ":"
-                + CHAPTER_ID
-                + ":IMAGE_MOTION:16:9:"
-                + ImageStyle.CINEMATIC
-                + ":API");
+    String requestFingerprint = CreateMediaJobUseCase.fingerprint(command, "API");
     String itemFingerprint = sha256(requestFingerprint + ":" + mediaPlanId + ":" + visualBeatId);
 
     when(generationJobRepository.findByIdempotencyKey("valid-replay-key"))
@@ -232,8 +219,7 @@ class CreateMediaJobUseCaseTest {
 
   @Test
   void rejectsDifferentSubmissionWhileChapterMediaJobIsActiveBeforeAdmission() {
-    when(generationJobRepository.findByIdempotencyKey("intent-2"))
-        .thenReturn(Optional.empty());
+    when(generationJobRepository.findByIdempotencyKey("intent-2")).thenReturn(Optional.empty());
     when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID))
         .thenReturn(Optional.of(ACTIVE_INTERNAL_JOB_ID));
     when(generationJobRepository.findById(ACTIVE_INTERNAL_JOB_ID))

@@ -79,12 +79,7 @@ class OutboxAvailabilityPostgreSqlIntegrationTest {
     String eventKey = "media-validation:" + mediaAssetId;
     ValidationRequest request =
         new ValidationRequest(
-            mediaAssetId,
-            "local/uploads/test.png",
-            "IMAGE",
-            "image/png",
-            42L,
-            "b".repeat(64));
+            mediaAssetId, "local/uploads/test.png", "IMAGE", "image/png", 42L, "b".repeat(64));
 
     assertThat(mediaValidationJobMapper.insertOutbox(request)).isEqualTo(1);
     assertReadyNow(eventKey);

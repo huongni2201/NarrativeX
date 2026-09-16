@@ -26,6 +26,38 @@ def test_contract_example_is_accepted() -> None:
     assert request_fingerprint(task) == task.request_fingerprint
 
 
+def test_text_generation_contract_is_closed_and_fingerprinted() -> None:
+    payload = {
+        "protocolVersion": "1.0",
+        "taskId": str(uuid4()),
+        "attemptId": str(uuid4()),
+        "idempotencyKey": "compute:text:1",
+        "requestFingerprint": "0" * 64,
+        "task": {"type": "text.generate", "schemaVersion": "1.0"},
+        "model": {
+            "executor": "qwen",
+            "model": "Qwen/Qwen3-8B-AWQ",
+            "revision": "default",
+        },
+        "constraints": {
+            "deadline": "2026-09-20T12:00:00Z",
+            "maxRuntimeSeconds": 900,
+        },
+        "inputs": {
+            "prompt": "Extract characters and visual beats.",
+            "responseFormat": "json_object",
+        },
+        "artifacts": {"inputs": [], "outputs": []},
+    }
+    task = ComputeTask.model_validate(payload)
+    assert task.task.type == "text.generate"
+    assert request_fingerprint(task) != "0" * 64
+
+    payload["inputs"]["sourceText"] = "must stay in backend"
+    with pytest.raises(ValidationError):
+        ComputeTask.model_validate(payload)
+
+
 def test_unknown_fields_are_rejected() -> None:
     payload = task_payload()
     payload["inputs"]["metadata"] = {}

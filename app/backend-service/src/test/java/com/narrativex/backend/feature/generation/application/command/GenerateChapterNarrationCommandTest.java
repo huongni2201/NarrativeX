@@ -46,12 +46,7 @@ class GenerateChapterNarrationCommandTest {
     assertThatThrownBy(
             () ->
                 new GenerateChapterNarrationCommand(
-                    projectId,
-                    chapterId,
-                    "voicestudio-default",
-                    BigDecimal.ONE,
-                    null,
-                    "Giọng mẫu"))
+                    projectId, chapterId, "voicestudio-default", BigDecimal.ONE, null, "Giọng mẫu"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("requires a voice reference");
 

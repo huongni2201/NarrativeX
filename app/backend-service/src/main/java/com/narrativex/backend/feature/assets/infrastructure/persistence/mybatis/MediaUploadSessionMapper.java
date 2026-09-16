@@ -15,13 +15,9 @@ public interface MediaUploadSessionMapper extends NarrativeXMyBatisMapper {
 
   MediaUploadSessionRow findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
 
-  int markValidating(
-      @Param("id") UUID id,
-      @Param("mediaAssetId") UUID mediaAssetId);
+  int markValidating(@Param("id") UUID id, @Param("mediaAssetId") UUID mediaAssetId);
 
-  int markReady(
-      @Param("id") UUID id,
-      @Param("mediaAssetId") UUID mediaAssetId);
+  int markReady(@Param("id") UUID id, @Param("mediaAssetId") UUID mediaAssetId);
 
   int markRejected(@Param("id") UUID id);
 

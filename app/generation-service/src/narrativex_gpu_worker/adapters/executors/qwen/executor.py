@@ -103,7 +103,6 @@ class QwenExecutor:
             produced = await self._artifact_adapter.upload(target, content_bytes)
             outputs.append(produced)
 
-
         return ExecutionOutput(
             outputs=outputs,
             metrics=ExecutionMetrics(runtime_ms=runtime_ms),

@@ -33,15 +33,6 @@ User action / scheduled generation
   -> Desktop receives SSE event / updates editor state
 ```
 
-### Legacy AS-IS path (Migration only)
-
-```text
-backend persists GenerationJob in PostgreSQL
-  -> legacy app/ai-worker polls and claims row from PostgreSQL directly
-  -> worker executes provider logic and writes directly to business database
-```
-*Note: This direct-polling path is legacy migration residue and is being phased out as vertical slices cut over to `generation-service`.*
-
 ## Chapter Analyze
 
 ```text
@@ -121,7 +112,6 @@ Desktop backup/archive tooling operates on manifest-verified project workspaces.
 
 ## Current gaps
 
-- completing compute cutover to `generation-service` and deleting legacy `app/ai-worker`;
 - richer crash/restart local-render resume UX;
 - adaptive narration-driven scene/beat planning;
 - richer media reuse/reframe/edit lineage;

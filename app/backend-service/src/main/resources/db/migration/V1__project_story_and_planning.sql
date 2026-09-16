@@ -187,6 +187,8 @@ CREATE TABLE project_locations (
     project_id UUID NOT NULL REFERENCES projects(id),
     name VARCHAR(160) NOT NULL,
     description TEXT,
+    visual_prompt TEXT,
+    reference_image_url TEXT,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     CONSTRAINT uq_project_locations_project_id_id UNIQUE (project_id, id),
     CONSTRAINT ck_project_locations_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
@@ -201,6 +203,10 @@ CREATE TABLE project_assets (
     name VARCHAR(160) NOT NULL,
     asset_type VARCHAR(32) NOT NULL,
     description TEXT,
+    storage_key VARCHAR(512),
+    url TEXT,
+    mime_type VARCHAR(160),
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     CONSTRAINT uq_project_assets_project_id_id UNIQUE (project_id, id),
     CONSTRAINT ck_project_assets_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
@@ -259,6 +265,8 @@ CREATE TABLE scenes (
     project_location_id UUID,
     order_index INTEGER NOT NULL,
     title VARCHAR(200) NOT NULL,
+    narration TEXT,
+    duration_seconds INTEGER CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
     summary TEXT,
     mood VARCHAR(64),
     lighting VARCHAR(64),
@@ -275,6 +283,7 @@ CREATE TABLE scenes (
 
 CREATE TABLE scene_characters (
     scene_id UUID NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL DEFAULT 0,
     project_character_id UUID NOT NULL REFERENCES project_characters(id),
     PRIMARY KEY (scene_id, project_character_id)
 );
@@ -286,11 +295,17 @@ CREATE TABLE visual_beats (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     scene_id UUID NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
     order_index INTEGER NOT NULL,
+    title VARCHAR(200) NOT NULL DEFAULT '',
+    visual_intent TEXT NOT NULL DEFAULT '',
     beat_type VARCHAR(32) NOT NULL,
     visual_summary TEXT NOT NULL,
     visual_description TEXT NOT NULL,
     visual_direction_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     review_status VARCHAR(24) NOT NULL DEFAULT 'NOT_READY',
+    motion_mode VARCHAR(24) NOT NULL DEFAULT 'STILL',
+    aspect_ratio_override VARCHAR(16),
+    text_start INTEGER,
+    text_end INTEGER,
     audio_duration_ms BIGINT,
     source_anchor_json JSONB NOT NULL,
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
@@ -311,6 +326,7 @@ CREATE TABLE visual_beats (
 CREATE TABLE visual_beat_characters (
     visual_beat_id UUID NOT NULL REFERENCES visual_beats(id) ON DELETE CASCADE,
     project_character_id UUID NOT NULL REFERENCES project_characters(id),
+    role VARCHAR(24) NOT NULL DEFAULT 'SECONDARY',
     PRIMARY KEY (visual_beat_id, project_character_id)
 );
 
@@ -325,16 +341,43 @@ CREATE TABLE media_plans (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     chapter_id UUID NOT NULL REFERENCES chapters(id),
     storyboard_revision_id UUID NOT NULL REFERENCES storyboard_revisions(id),
+    chapter_row_version BIGINT NOT NULL DEFAULT 0,
     revision INTEGER NOT NULL,
     source_hash VARCHAR(64) NOT NULL,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     production_mode VARCHAR(32) NOT NULL,
+    narration_characters BIGINT NOT NULL DEFAULT 0,
+    image_generate_count INTEGER NOT NULL DEFAULT 0,
+    image_edit_count INTEGER NOT NULL DEFAULT 0,
+    basic_motion_seconds INTEGER NOT NULL DEFAULT 0,
+    planned_i2v_seconds INTEGER NOT NULL DEFAULT 0,
+    workflow_version VARCHAR(64),
+    image_aspect_ratio VARCHAR(16),
+    image_provider_key VARCHAR(64),
+    image_model_key VARCHAR(128),
     narration_set_id UUID,
     narration_alignment_run_id UUID,
     CONSTRAINT uk_media_plans_chapter_revision UNIQUE (chapter_id, revision),
     CONSTRAINT uq_media_plans_id_revision_production_mode UNIQUE (id, revision, production_mode),
     CONSTRAINT ck_media_plans_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_media_plans_workload_nonnegative CHECK (
+        narration_characters >= 0
+        AND image_generate_count >= 0
+        AND image_edit_count >= 0
+        AND basic_motion_seconds >= 0
+        AND planned_i2v_seconds >= 0
+    ),
     CONSTRAINT ck_media_plans_production_mode CHECK (production_mode = 'IMAGE_MOTION')
+);
+
+CREATE TABLE media_scene_plans (
+    media_plan_id UUID NOT NULL REFERENCES media_plans(id) ON DELETE CASCADE,
+    scene_index INTEGER NOT NULL CHECK (scene_index >= 0),
+    scene_id UUID NOT NULL,
+    scene_order_index INTEGER NOT NULL CHECK (scene_order_index >= 0),
+    narration TEXT,
+    duration_seconds INTEGER CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
+    PRIMARY KEY (media_plan_id, scene_index)
 );
 
 CREATE TABLE media_beat_plans (
@@ -344,10 +387,26 @@ CREATE TABLE media_beat_plans (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     media_plan_id UUID NOT NULL REFERENCES media_plans(id) ON DELETE CASCADE,
     visual_beat_id UUID NOT NULL REFERENCES visual_beats(id) ON DELETE CASCADE,
+    scene_index INTEGER NOT NULL DEFAULT 0,
+    beat_index INTEGER NOT NULL DEFAULT 0,
+    visual_beat_order_index INTEGER NOT NULL DEFAULT 0,
+    visual_intent TEXT,
+    semantic_motion_mode VARCHAR(32),
+    motion_strategy VARCHAR(32),
+    asset_strategy VARCHAR(32),
+    prompt_template_version VARCHAR(64),
+    prompt_snapshot TEXT,
+    negative_prompt TEXT,
+    audio_start_ms BIGINT,
+    audio_end_ms BIGINT,
+    audio_duration_ms BIGINT,
     reuse_source_visual_beat_id UUID REFERENCES visual_beats(id) ON DELETE SET NULL,
     reuse_type VARCHAR(32) NOT NULL DEFAULT 'NEW',
     generation_mode VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
     camera_movement VARCHAR(32) NOT NULL DEFAULT 'NONE',
+    image_settings_json JSONB,
+    character_snapshot_json JSONB,
+    snapshot_fingerprint VARCHAR(128),
     assigned_prompt TEXT,
     CONSTRAINT uk_media_beat_plans_plan_beat UNIQUE (media_plan_id, visual_beat_id),
     CONSTRAINT ck_media_beat_plans_reuse_type CHECK (reuse_type IN ('NEW', 'REUSE_EXACT', 'REUSE_DELTA')),

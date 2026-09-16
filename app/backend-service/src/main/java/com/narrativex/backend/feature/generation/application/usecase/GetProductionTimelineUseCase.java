@@ -60,7 +60,8 @@ public class GetProductionTimelineUseCase {
       boolean exactTiming = !chapterBeats.isEmpty() && alignedClock.size() == chapterBeats.size();
       long chapterStartMs = cursorMs;
       long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
-      boolean timingRepresentable = chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
+      boolean timingRepresentable =
+          chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
 
       List<ProductionTimelineView.Beat> plannedBeats =
           timingRepresentable

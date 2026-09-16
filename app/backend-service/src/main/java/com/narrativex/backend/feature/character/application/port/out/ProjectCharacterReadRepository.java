@@ -8,8 +8,7 @@ import java.util.UUID;
 public interface ProjectCharacterReadRepository {
   boolean projectExists(UUID projectId);
 
-  CursorPage<ProjectCharacterReadModel> findByProject(
-      UUID projectId, String cursor, int limit);
+  CursorPage<ProjectCharacterReadModel> findByProject(UUID projectId, String cursor, int limit);
 
   Optional<ProjectCharacterReadModel> findDetail(UUID projectId, UUID characterId);
 }

@@ -58,8 +58,7 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
   }
 
   @Override
-  public Optional<ProjectCharacterReadModel> findDetail(
-      UUID projectId, UUID characterId) {
+  public Optional<ProjectCharacterReadModel> findDetail(UUID projectId, UUID characterId) {
     return Optional.ofNullable(mapper.findDetail(projectId, characterId)).map(this::map);
   }
 

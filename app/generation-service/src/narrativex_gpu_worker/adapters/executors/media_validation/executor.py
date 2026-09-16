@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 
+from narrativex_gpu_worker.application.errors import ExecutionCanceledError
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
 from narrativex_gpu_worker.contracts import (
@@ -37,7 +38,7 @@ class MediaValidationExecutor:
         context: ExecutionContext | None = None,
     ) -> ExecutionOutput:
         if cancel.is_set():
-            return ExecutionOutput()
+            raise ExecutionCanceledError("Media validation canceled before download")
 
         start_time = time.perf_counter()
         inputs = task.inputs
@@ -57,6 +58,8 @@ class MediaValidationExecutor:
             )
 
         content = await self._artifact_adapter.download(input_artifact)
+        if cancel.is_set():
+            raise ExecutionCanceledError("Media validation canceled before validation")
         if inputs.decode:
             self._verify_media_content(content, input_artifact.media_type)
 
@@ -70,6 +73,8 @@ class MediaValidationExecutor:
         outputs: list[ProducedArtifact] = []
 
         if task.artifacts.outputs:
+            if cancel.is_set():
+                raise ExecutionCanceledError("Media validation canceled before artifact upload")
             target = task.artifacts.outputs[0]
             produced = await self._artifact_adapter.upload(target, result_bytes)
             outputs.append(produced)

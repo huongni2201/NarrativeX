@@ -27,9 +27,7 @@ public class VoiceReferenceCatalogAdapter implements VoiceReferenceCatalog {
   @Override
   @Transactional(readOnly = true)
   public List<VoiceReferenceView> list() {
-    return repository.list().stream()
-        .map(VoiceReferenceCatalogAdapter::toView)
-        .toList();
+    return repository.list().stream().map(VoiceReferenceCatalogAdapter::toView).toList();
   }
 
   private static VoiceReferenceView toView(VoiceReferenceAsset asset) {

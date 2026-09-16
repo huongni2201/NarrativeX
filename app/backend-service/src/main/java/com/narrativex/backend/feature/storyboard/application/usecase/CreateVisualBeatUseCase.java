@@ -28,8 +28,7 @@ public class CreateVisualBeatUseCase {
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireStoryVersion(
-        projectId, chapter.getStoryVersionId());
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
 
     var scene =
         storyboardRepository

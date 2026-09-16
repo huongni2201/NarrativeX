@@ -113,8 +113,7 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
 
   @Test
   void workerAlignmentFlowsThroughTimelineIntoRenderSnapshot() {
-    ProductionTimelineChapterRow row =
-        productionTimelineMapper.findChapters(PROJECT_ID).getFirst();
+    ProductionTimelineChapterRow row = productionTimelineMapper.findChapters(PROJECT_ID).getFirst();
 
     assertThat(row.getNarrationAlignmentId()).isEqualTo(ALIGNMENT_ID);
     assertThat(row.getSubtitleWordsJson()).contains("audioStartMs");
@@ -122,13 +121,7 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
     ProductionTimelineView.Chapter chapter = snapshotChapter(row);
     ProductionTimelineView timeline =
         new ProductionTimelineView(
-            PROJECT_ID,
-            STORY_ID,
-            1_000L,
-            row.getAspectRatio(),
-            false,
-            List.of(chapter),
-            List.of());
+            PROJECT_ID, STORY_ID, 1_000L, row.getAspectRatio(), false, List.of(chapter), List.of());
 
     assertThat(
             snapshotMapper.insertHeader(

@@ -77,7 +77,7 @@ NarrativeX does **not** claim production-complete packaging/signing/auto-update,
 5. Generated project images and narration are not uploaded to remote object storage as transport, fallback or dual write.
 6. Absolute local paths are not persisted as backend identities.
 7. Final MP4 remains in the project artifact workspace unless an explicit export/publish action copies it elsewhere.
-8. Backend and Python workers do not store, stream or proxy final MP4 bytes.
+8. Backend and generation-service do not store, stream or proxy final MP4 bytes.
 
 ## Execution and timing invariants
 

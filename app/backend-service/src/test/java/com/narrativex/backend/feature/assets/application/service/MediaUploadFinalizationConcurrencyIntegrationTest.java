@@ -91,9 +91,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
                   "SELECT COUNT(*) FROM media_upload_sessions WHERE id = ? AND status = 'VALIDATING'",
                   session.id()))
           .isEqualTo(1);
-      assertThat(
-              count(
-                  "SELECT COUNT(*) FROM voice_reference_assets WHERE status = 'VALIDATING'"))
+      assertThat(count("SELECT COUNT(*) FROM voice_reference_assets WHERE status = 'VALIDATING'"))
           .isEqualTo(1);
       assertThat(
               count(
@@ -109,14 +107,11 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     UploadSession session = createSession();
     StoredObject storedObject = storedObject(session);
 
-    UploadFinalizeView first =
-        finalization.finalizeVerifiedObject(session.id(), storedObject);
-    UploadFinalizeView retry =
-        finalization.finalizeVerifiedObject(session.id(), storedObject);
+    UploadFinalizeView first = finalization.finalizeVerifiedObject(session.id(), storedObject);
+    UploadFinalizeView retry = finalization.finalizeVerifiedObject(session.id(), storedObject);
 
     assertThat(retry.mediaAssetId()).isEqualTo(first.mediaAssetId());
-    assertThat(count("SELECT COUNT(*) FROM voice_reference_assets"))
-        .isEqualTo(1);
+    assertThat(count("SELECT COUNT(*) FROM voice_reference_assets")).isEqualTo(1);
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks")).isZero();
   }
 
@@ -139,11 +134,8 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
       UploadFinalizeView second = results.get(1).get();
 
       assertThat(first.mediaAssetId()).isEqualTo(second.mediaAssetId());
-      assertThat(count("SELECT COUNT(*) FROM voice_reference_assets"))
-          .isEqualTo(1);
-      assertThat(
-              count(
-                  "SELECT COUNT(*) FROM media_upload_sessions WHERE status = 'VALIDATING'"))
+      assertThat(count("SELECT COUNT(*) FROM voice_reference_assets")).isEqualTo(1);
+      assertThat(count("SELECT COUNT(*) FROM media_upload_sessions WHERE status = 'VALIDATING'"))
           .isEqualTo(2);
       assertThat(
               count(

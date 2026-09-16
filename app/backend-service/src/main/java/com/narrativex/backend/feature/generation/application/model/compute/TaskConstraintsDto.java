@@ -6,6 +6,9 @@ import java.time.Instant;
 
 public record TaskConstraintsDto(
     @JsonProperty("deadline")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
-    Instant deadline,
+        @JsonFormat(
+            shape = JsonFormat.Shape.STRING,
+            pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            timezone = "UTC")
+        Instant deadline,
     @JsonProperty("maxRuntimeSeconds") int maxRuntimeSeconds) {}

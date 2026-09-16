@@ -116,8 +116,7 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         chapterId,
         revId);
 
-    jdbcTemplate.update(
-        "INSERT INTO project_favorites (project_id) VALUES (?)", p1.getId());
+    jdbcTemplate.update("INSERT INTO project_favorites (project_id) VALUES (?)", p1.getId());
 
     var rows = dashboardMapper.findDashboardPage(null, null, "NEWEST", 0, 21);
     var counts = dashboardMapper.findDashboardCounts(null);
@@ -137,10 +136,6 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
 
   private Project newProject() {
     return Project.create(
-        "Query project " + UUID.randomUUID(),
-        "vi-VN",
-        "vi-VN",
-        "vi-VN",
-        AspectRatio.RATIO_16_9);
+        "Query project " + UUID.randomUUID(), "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9);
   }
 }

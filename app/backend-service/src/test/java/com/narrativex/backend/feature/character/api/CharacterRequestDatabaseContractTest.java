@@ -15,8 +15,7 @@ class CharacterRequestDatabaseContractTest {
 
   @Test
   void createCharacterRejectsValuesLongerThanDatabaseColumns() {
-    CreateCharacterRequest request =
-        new CreateCharacterRequest("n".repeat(161), List.of());
+    CreateCharacterRequest request = new CreateCharacterRequest("n".repeat(161), List.of());
 
     var violations = validator.validate(request);
     assertTrue(

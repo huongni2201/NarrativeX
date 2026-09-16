@@ -3,9 +3,9 @@ package com.narrativex.backend.feature.common.api;
 import com.narrativex.backend.feature.common.domain.exception.DomainConflictException;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
+import com.narrativex.backend.feature.common.exception.InvalidDeviceCredentialsException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.localexecution.domain.exception.InvalidDeviceCredentialsException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.sql.SQLException;
@@ -200,7 +200,6 @@ public class ApiExceptionHandler {
         request,
         correlationId);
   }
-
 
   @ExceptionHandler(AsyncRequestNotUsableException.class)
   void handleDisconnectedClient(

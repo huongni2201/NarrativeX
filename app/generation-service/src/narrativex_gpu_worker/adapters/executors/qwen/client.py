@@ -13,8 +13,6 @@ from narrativex_gpu_worker.application.errors import ExecutionCanceledError
 
 logger = logging.getLogger(__name__)
 
-
-
 class QwenClientError(RuntimeError):
     """Raised when the LLM provider fails or returns invalid responses."""
 
@@ -122,7 +120,6 @@ class QwenClient:
             with suppress(asyncio.CancelledError):
                 await request
             raise ExecutionCanceledError("Qwen execution canceled")
-
 
         cancellation.cancel()
         with suppress(asyncio.CancelledError):

@@ -26,12 +26,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
   @Override
   @Transactional(readOnly = true)
   public CursorPage<MediaAssetView> list(
-      UUID projectId,
-      String type,
-      String status,
-      String search,
-      String cursor,
-      int limit) {
+      UUID projectId, String type, String status, String search, String cursor, int limit) {
     validateLimit(limit);
     MediaAssetCursor key = MediaAssetCursorCodec.decode(cursor);
     List<MediaAssetRow> rows =
@@ -76,12 +71,48 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
     row.setId(command.proposedId() == null ? UUID.randomUUID() : command.proposedId());
     row.setProjectId(command.projectId());
     row.setAssetType(command.type());
+    row.setOrigin("USER_UPLOAD");
     row.setOriginalFilename(command.originalFilename());
     row.setContentType(command.contentType());
     row.setSizeBytes(command.sizeBytes());
     row.setSha256(command.sha256().toLowerCase(Locale.ROOT));
     row.setDurationMs(command.durationMs());
+    row.setStatus("READY");
     mapper.insertLocal(row);
+    return requireById(command.projectId(), row.getId());
+  }
+
+  @Override
+  @Transactional
+  public MediaAssetView createGeneratedAsset(CreateGeneratedMediaAsset command) {
+    if (!List.of("AUDIO", "IMAGE", "VIDEO").contains(command.type())) {
+      throw new IllegalArgumentException("Generated asset type is invalid");
+    }
+    if (!List.of("TTS_GENERATED", "IMAGE_GENERATED", "VIDEO_GENERATED")
+        .contains(command.origin())) {
+      throw new IllegalArgumentException("Generated asset origin is invalid");
+    }
+    if (command.projectId() == null
+        || command.storageKey() == null
+        || command.storageKey().isBlank()
+        || command.sizeBytes() <= 0
+        || command.sha256() == null
+        || !command.sha256().matches("^[0-9a-fA-F]{64}$")) {
+      throw new IllegalArgumentException("Generated asset metadata is invalid");
+    }
+    MediaAssetRow row = new MediaAssetRow();
+    row.setId(command.proposedId() == null ? UUID.randomUUID() : command.proposedId());
+    row.setProjectId(command.projectId());
+    row.setAssetType(command.type());
+    row.setOrigin(command.origin());
+    row.setStorageKey(command.storageKey());
+    row.setOriginalFilename(command.originalFilename());
+    row.setContentType(command.contentType());
+    row.setSizeBytes(command.sizeBytes());
+    row.setSha256(command.sha256().toLowerCase(Locale.ROOT));
+    row.setDurationMs(command.durationMs());
+    row.setStatus("READY");
+    mapper.insertGenerated(row);
     return requireById(command.projectId(), row.getId());
   }
 

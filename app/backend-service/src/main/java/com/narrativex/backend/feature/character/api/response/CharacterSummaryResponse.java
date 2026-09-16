@@ -6,11 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CharacterSummaryResponse(
-    UUID id,
-    String canonicalName,
-    List<String> aliases,
-    CharacterStatus status,
-    long rowVersion) {
+    UUID id, String canonicalName, List<String> aliases, CharacterStatus status, long rowVersion) {
 
   public static CharacterSummaryResponse from(Character character) {
     return new CharacterSummaryResponse(

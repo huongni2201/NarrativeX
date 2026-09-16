@@ -22,7 +22,7 @@ NarrativeX is an AI-assisted story-to-video production studio.
 5. **Separation of Control and Compute:**
    - `backend-service` (Spring Boot modular monolith) is the authoritative control plane for business state, admission, durable jobs, leases, and artifact metadata in PostgreSQL (ADR-0028).
    - `generation-service` (`app/generation-service`) is the domain-agnostic compute execution plane consuming closed tasks via the Compute Protocol (ADR-0028, ADR-0029).
-   - `app/ai-worker` is temporary legacy migration residue scheduled for full removal after vertical-slice cutover.
+   - `generation-service` is the only provider execution runtime behind the Compute Protocol.
 6. **Local Project Media:** Generated images, narration, imported media, project voice references, render cache, and final MP4 files are stored in Desktop local project storage (`ProjectStorage`) (ADR-0012). The backend stores stable metadata and relative artifact keys, never host filesystem paths or final video bytes.
 7. **System & Runtime Limits:** Non-monetary capacity limits and export reservations protect compute resources. Monetary billing, user credit balances, and per-user quotas are completely retired.
 
@@ -57,9 +57,9 @@ NarrativeX is an AI-assisted story-to-video production studio.
 +-------------------------------------------------------------+
 ```
 
-### Migration Context
+### Execution Context
 
-- **Legacy AI Worker (`app/ai-worker`):** Continues direct PostgreSQL polling temporarily during migration. Once narration, image generation, and validation slices cut over to `generation-service`, `app/ai-worker` will be removed.
+- `generation-service` is the only provider execution runtime; the former PostgreSQL-polling runtime has been removed.
 
 ---
 

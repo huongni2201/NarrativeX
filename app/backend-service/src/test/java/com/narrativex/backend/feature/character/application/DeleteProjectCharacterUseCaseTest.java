@@ -51,8 +51,7 @@ class DeleteProjectCharacterUseCaseTest {
   }
 
   private DeleteProjectCharacterUseCase newUseCase() {
-    return new DeleteProjectCharacterUseCase(
-        projectCharacterRepository, projectAccess);
+    return new DeleteProjectCharacterUseCase(projectCharacterRepository, projectAccess);
   }
 
   private static ProjectCharacter activeAssignment(UUID projectId, UUID characterId) {
@@ -70,4 +69,3 @@ class DeleteProjectCharacterUseCaseTest {
         ProjectCharacterStatus.ACTIVE);
   }
 }
-

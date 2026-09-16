@@ -1,0 +1,32 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7ad",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab74",
+  "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7ad:1",
+  "requestFingerprint": "15263194f09797a4bc2151d1a5bbe1e906b6e3c7a9d3ecd70053c863e7164098",
+  "task": {
+    "type": "text.generate",
+    "schemaVersion": "1.0"
+  },
+  "model": {
+    "executor": "qwen",
+    "model": "Qwen/Qwen3-8B-AWQ",
+    "revision": "default"
+  },
+  "constraints": {
+    "deadline": "2026-09-14T12:00:00Z",
+    "maxRuntimeSeconds": 900
+  },
+  "inputs": {
+    "prompt": "Extract the story entities and visual beats from the supplied chapter text.",
+    "systemPrompt": "Return only the requested JSON document.",
+    "temperature": 0.2,
+    "topP": 0.8,
+    "maxTokens": 16384,
+    "responseFormat": "json_object"
+  },
+  "artifacts": {
+    "inputs": [],
+    "outputs": []
+  }
+}

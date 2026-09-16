@@ -11,10 +11,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
@@ -25,6 +24,7 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
 
+  @Autowired
   public HttpGenerationExecutionAdapter(
       ComputeServiceProperties properties, ObjectMapper objectMapper) {
     this(
@@ -64,8 +64,7 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
       if (response.statusCode() == 202) {
         ComputeObservationDto observation =
             objectMapper.readValue(response.body(), ComputeObservationDto.class);
-        return new SubmitTaskResult(
-            request.taskId(), request.attemptId(), observation.state());
+        return new SubmitTaskResult(request.taskId(), request.attemptId(), observation.state());
       } else {
         throw new ComputeClientException(response.statusCode(), response.body());
       }
@@ -139,7 +138,9 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
       HttpResponse<String> response =
           httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
 
-      if (response.statusCode() != 200 && response.statusCode() != 202 && response.statusCode() != 404) {
+      if (response.statusCode() != 200
+          && response.statusCode() != 202
+          && response.statusCode() != 404) {
         throw new ComputeClientException(response.statusCode(), response.body());
       }
     } catch (IOException e) {

@@ -38,6 +38,7 @@ class AppState:
     settings: WorkerSettings
     executor_catalog: ExecutorCatalogPort
     execution: ExecutionApplicationService
+    close_resources: Callable[[], Awaitable[None]] | None = None
 
 
 def create_app(state: AppState) -> FastAPI:
@@ -50,6 +51,8 @@ def create_app(state: AppState) -> FastAPI:
             yield
         finally:
             await state.execution.stop()
+            if state.close_resources is not None:
+                await state.close_resources()
 
     app = FastAPI(
         title="NarrativeX GPU Worker",

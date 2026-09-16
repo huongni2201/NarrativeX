@@ -60,8 +60,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     UUID projectId = insertProject();
     GenerationJob saved =
         repository.save(
-            GenerationJob.create(
-                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
+            GenerationJob.create(projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
 
     assertNotNull(saved.getId());
     assertEquals(0L, saved.getRowVersion());
@@ -76,8 +75,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     UUID projectId = insertProject();
     GenerationJob saved =
         repository.save(
-            GenerationJob.create(
-                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
+            GenerationJob.create(projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
     GenerationJob running = copyWithStatus(saved, JobStatus.RUNNING);
 
     GenerationJob updated = repository.save(running);
@@ -119,8 +117,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     UUID projectId = insertProject();
     GenerationJob saved =
         repository.save(
-            GenerationJob.create(
-                projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
+            GenerationJob.create(projectId, JobType.CHAPTER_ANALYZE, ResourceClass.CPU_LIGHT));
 
     assertTrue(repository.findByJobId(saved.getJobId()).isPresent());
 
@@ -135,11 +132,9 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     String key = "generation-job-" + com.narrativex.backend.feature.common.uuid.UuidV7.random();
     GenerationJob first = repository.save(jobWithIdempotency(projectId, key));
 
-    assertEquals(
-        first.getId(), repository.findByIdempotencyKey(key).orElseThrow().getId());
+    assertEquals(first.getId(), repository.findByIdempotencyKey(key).orElseThrow().getId());
     assertThrows(
-        DuplicateKeyException.class,
-        () -> repository.save(jobWithIdempotency(projectId, key)));
+        DuplicateKeyException.class, () -> repository.save(jobWithIdempotency(projectId, key)));
   }
 
   @Test

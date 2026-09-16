@@ -73,8 +73,7 @@ public class CreateChapterWithStoryUseCase {
 
   private UUID resolveStoryVersionId(CreateChapterWithStoryCommand command) {
     if (command.storyVersionId() != null) {
-      storyVersionAccess.requireStoryVersion(
-          command.projectId(), command.storyVersionId());
+      storyVersionAccess.requireStoryVersion(command.projectId(), command.storyVersionId());
       return command.storyVersionId();
     }
     return storyVersionAccess.resolveOrCreateStoryVersion(

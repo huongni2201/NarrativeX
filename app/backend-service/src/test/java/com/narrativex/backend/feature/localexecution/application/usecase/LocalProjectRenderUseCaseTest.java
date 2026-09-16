@@ -105,4 +105,3 @@ class LocalProjectRenderUseCaseTest {
     verify(store).cancel(jobId, deviceId, "desktop:" + deviceId, leaseToken);
   }
 }
-

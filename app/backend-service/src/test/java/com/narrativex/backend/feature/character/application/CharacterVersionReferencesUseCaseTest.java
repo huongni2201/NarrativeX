@@ -124,9 +124,7 @@ class CharacterVersionReferencesUseCaseTest {
     when(versionRepository.findById(VERSION_ID))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(expected);
-    var useCase =
-        new GetCharacterVersionReferencesUseCase(
-            versionRepository, referenceRepository);
+    var useCase = new GetCharacterVersionReferencesUseCase(versionRepository, referenceRepository);
 
     assertThat(useCase.execute(CHARACTER_ID, VERSION_ID)).isEqualTo(expected);
     verify(referenceRepository).findByVersionId(VERSION_ID);

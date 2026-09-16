@@ -48,8 +48,7 @@ class ActivateStoryVersionUseCaseTest {
     when(storyVersionRepository.save(any(StoryVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     ActivateStoryVersionUseCase useCase =
-        new ActivateStoryVersionUseCase(
-            projectAccess, projectRepository, storyVersionRepository);
+        new ActivateStoryVersionUseCase(projectAccess, projectRepository, storyVersionRepository);
     StoryVersion response = useCase.execute(PROJECT_ID, STORY_11);
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
@@ -73,8 +72,7 @@ class ActivateStoryVersionUseCaseTest {
         .thenReturn(Optional.of(active));
     when(storyVersionRepository.findActiveByProjectId(PROJECT_ID)).thenReturn(Optional.of(active));
     ActivateStoryVersionUseCase useCase =
-        new ActivateStoryVersionUseCase(
-            projectAccess, projectRepository, storyVersionRepository);
+        new ActivateStoryVersionUseCase(projectAccess, projectRepository, storyVersionRepository);
     StoryVersion response = useCase.execute(PROJECT_ID, STORY_10);
     assertEquals(StoryVersionStatus.ACTIVE, response.getStatus());
     assertEquals(ProjectStatus.ACTIVE, project.getStatus());

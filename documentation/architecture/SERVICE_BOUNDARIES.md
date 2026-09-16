@@ -49,8 +49,6 @@ Owns domain-agnostic compute execution under ADR-0028/ADR-0029:
 - artifact download/upload via opaque capability URLs;
 - zero business DB access and zero domain entity awareness.
 
-Legacy `app/ai-worker` directly polling PostgreSQL is a temporary migration implementation scheduled for removal.
-
 ## Storage boundaries
 
 ```text

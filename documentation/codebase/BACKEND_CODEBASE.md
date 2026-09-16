@@ -6,7 +6,7 @@
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.1.
 - Persistence: MyBatis + explicit PostgreSQL SQL is the sole production application persistence path; Flyway owns schema evolution.
-- Runtime state: durable generation/outbox state, compute task mapping, and worker leases all use PostgreSQL. Redis is not required.
+- Runtime state: durable generation/outbox state, compute task mapping, and execution attempt leases all use PostgreSQL. Redis is not required.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus domain-agnostic compute execution plane (`app/generation-service`).
 
 ## Feature/dependency rules

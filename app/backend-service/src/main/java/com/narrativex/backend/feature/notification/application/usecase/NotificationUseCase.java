@@ -17,8 +17,7 @@ public class NotificationUseCase {
   public NotificationFeed list(boolean unreadOnly, int limit) {
     if (limit < 1 || limit > 100)
       throw new IllegalArgumentException("limit must be between 1 and 100");
-    return new NotificationFeed(
-        repository.unreadCount(), repository.list(unreadOnly, limit));
+    return new NotificationFeed(repository.unreadCount(), repository.list(unreadOnly, limit));
   }
 
   @Transactional

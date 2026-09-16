@@ -43,10 +43,7 @@ class ProjectGenerationControllerContractTest {
     when(useCase.execute(new EnqueueStoryAnalysisCommand(projectId, chapterId))).thenReturn(job);
     ProjectGenerationController controller =
         new ProjectGenerationController(
-            useCase,
-            narrationUseCase,
-            batchNarrationUseCase,
-            voicePreviewResultUseCase);
+            useCase, narrationUseCase, batchNarrationUseCase, voicePreviewResultUseCase);
 
     var response = controller.analyzeChapter(projectId, chapterId, null, null);
 

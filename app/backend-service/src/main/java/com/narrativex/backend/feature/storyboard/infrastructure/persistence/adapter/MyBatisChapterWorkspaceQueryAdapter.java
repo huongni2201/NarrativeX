@@ -83,13 +83,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
   }
 
   private static String progressStatus(
-      int total,
-      int completed,
-      int failed,
-      int running,
-      int queued,
-      int stalled,
-      int unknown) {
+      int total, int completed, int failed, int running, int queued, int stalled, int unknown) {
     if (total == 0) return "NOT_STARTED";
     if (running > 0) return "RUNNING";
     if (queued > 0) return "QUEUED";

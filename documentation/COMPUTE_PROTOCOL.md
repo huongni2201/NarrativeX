@@ -104,10 +104,11 @@ Rules:
 - `constraints.deadline` is validated before `ACCEPTED`. If the deadline is already in the past,
   the worker rejects the task with a validation error (`422 Unprocessable Entity`).
 
-Initial task types are `audio.synthesize`, `audio.align`, `image.generate`, and `media.validate`.
-Add a task type only with schemas, deterministic validation, capability advertisement, tests, and
-documented artifact behavior. FFmpeg GPU work can later use `media.transcode`; chapter analysis is
-not an initial GPU task and remains backend-owned until a domain-neutral compute boundary exists.
+The task types are `audio.synthesize`, `audio.align`, `image.generate`, `media.validate`, and
+`text.generate`. Add a task type only with schemas, deterministic validation, capability
+advertisement, tests, and documented artifact behavior. `text.generate` is the domain-neutral
+Qwen boundary for text generation, including chapter-analysis prompts; the backend retains chapter
+interpretation, validation, and persistence. FFmpeg GPU work can later use `media.transcode`.
 
 ### Artifact Models
 

@@ -3,6 +3,7 @@
 FROM python:3.12-slim
 
 ARG BUILD_SHA=unknown
+ARG GENERATION_SERVICE_EXTRAS=image,narration
 
 WORKDIR /app
 
@@ -23,8 +24,8 @@ RUN addgroup --system appgroup \
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-RUN --mount=type=cache,id=narrativex-gpu-worker-pip,target=/root/.cache/pip,sharing=locked \
-    pip install .
+RUN --mount=type=cache,id=narrativex-generation-service-pip,target=/root/.cache/pip,sharing=locked \
+    pip install ".[${GENERATION_SERVICE_EXTRAS}]"
 
 USER appuser
 EXPOSE 8010

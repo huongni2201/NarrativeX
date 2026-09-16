@@ -22,9 +22,6 @@ app/generation-service/ Python domain-agnostic compute execution plane
                      Local SQLite execution journal (submission checkpoints)
                      Adapters: VoiceStudio, WhisperX, ComfyUI, media validation
 
-app/ai-worker/        Legacy Python worker (migration-only)
-                     temporary direct-polling worker, scheduled for removal
-
 packages/client-contracts/
                      shared typed Desktop/backend contracts
 
@@ -87,11 +84,6 @@ Renderer code does not own arbitrary filesystem paths, provider secrets or FFmpe
 - Zero NarrativeX database access or business domain model knowledge;
 - Durable checkpoint states (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`) for safe crash recovery (ADR-0031).
 
-## Legacy worker (`app/ai-worker`) — Migration only
-
-- Direct PostgreSQL polling worker;
-- Scheduled for complete removal after narration, image, and validation slices cut over to `generation-service`.
-
 ## Storage contract
 
 ```text
@@ -146,7 +138,6 @@ The executable backend/worker/database production mode is currently `IMAGE_MOTIO
 ## Current gaps
 
 ```text
-compute cutover to generation-service & legacy ai-worker deletion
 production packaging / signing / auto-update
 richer abrupt-process render recovery UX
 richer timeline/review/regeneration workflows

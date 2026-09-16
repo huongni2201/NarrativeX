@@ -49,8 +49,7 @@ public class MyBatisProjectRepository implements ProjectRepository {
   @Override
   @Transactional(readOnly = true)
   public Optional<Project> findByIdForUpdate(UUID projectId) {
-    return Optional.ofNullable(mapper.findByIdActiveForUpdate(projectId))
-        .map(ProjectRow::toDomain);
+    return Optional.ofNullable(mapper.findByIdActiveForUpdate(projectId)).map(ProjectRow::toDomain);
   }
 
   @Override

@@ -147,7 +147,6 @@
                     WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
                       AND pbms.visual_beat_id = vb.id
                       AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-                      AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
@@ -158,7 +157,6 @@
                      FROM media_assets ma
                     WHERE ma.id = vb.preview_media_asset_id
                       AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-                      AND ma.account_id = #{ownerId}
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
                       AND ma.asset_type IN ('IMAGE', 'VIDEO')
@@ -236,7 +234,6 @@
          WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND pbms.visual_beat_id = cb.visual_beat_id
            AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-           AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')
@@ -254,7 +251,6 @@
           FROM media_assets ma
          WHERE ma.id = cb.preview_media_asset_id
            AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-           AND ma.account_id = #{ownerId}
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
            AND ma.asset_type IN ('IMAGE', 'VIDEO')

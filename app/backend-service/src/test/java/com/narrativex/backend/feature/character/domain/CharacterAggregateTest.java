@@ -112,14 +112,7 @@ class CharacterAggregateTest {
     UUID projectId = UuidV7.random();
     CharacterVersion version =
         CharacterVersion.rehydrate(
-            versionId,
-            0L,
-            characterId,
-            1,
-            "bible",
-            "prompt",
-            CharacterVersionStatus.DRAFT,
-            null);
+            versionId, 0L, characterId, 1, "bible", "prompt", CharacterVersionStatus.DRAFT, null);
     ProjectCharacter assignment =
         ProjectCharacter.assign(
             projectId,

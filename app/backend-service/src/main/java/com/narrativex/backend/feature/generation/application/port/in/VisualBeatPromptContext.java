@@ -21,9 +21,7 @@ public interface VisualBeatPromptContext {
     Map<UUID, Preparation> results = new LinkedHashMap<>();
     for (UUID visualBeatId : visualBeatIds) {
       try {
-        results.put(
-            visualBeatId,
-            Preparation.ready(prepare(projectId, chapterId, visualBeatId)));
+        results.put(visualBeatId, Preparation.ready(prepare(projectId, chapterId, visualBeatId)));
       } catch (ResourceConflictException conflict) {
         String message =
             conflict.getMessage() == null ? "Generation input conflict" : conflict.getMessage();

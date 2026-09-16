@@ -173,7 +173,7 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 
 ## Remaining creator-loop work
 
-- compute execution plane cutover (`generation-service`) and legacy `ai-worker` removal;
+- compute execution through `generation-service` with backend-owned reconciliation and artifact verification;
 - adaptive narration-driven `VisualScenePlanner` and richer Scene/VisualBeat review;
 - complete multi-part user-audio alignment/slicing behavior for all production scopes;
 - richer media reuse/reframe/edit/regeneration lineage;

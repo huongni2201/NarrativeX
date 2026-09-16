@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.assets.application.usecase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -222,7 +223,7 @@ class MediaUploadUseCaseTest {
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
-    verify(cleanupTasks).enqueue(session.storageKey(), "DUPLICATE_UPLOAD", any());
+    verify(cleanupTasks).enqueue(eq(session.storageKey()), eq("DUPLICATE_UPLOAD"), any());
     verify(sessions).markReady(sessionId, existingAssetId);
   }
 
@@ -263,14 +264,17 @@ class MediaUploadUseCaseTest {
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
-                session.storageKey(), session.expectedSize(), session.contentType(), "b".repeat(64)));
+                session.storageKey(),
+                session.expectedSize(),
+                session.contentType(),
+                "b".repeat(64)));
     when(sessions.markRejected(sessionId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("REJECTED");
     assertThat(response.mediaAssetId()).isNull();
-    verify(cleanupTasks).enqueue(session.storageKey(), "UPLOAD_VERIFICATION_FAILED", any());
+    verify(cleanupTasks).enqueue(eq(session.storageKey()), eq("UPLOAD_VERIFICATION_FAILED"), any());
     verify(sessions).markRejected(sessionId);
     verify(voiceReferences, never()).createOrReuse(any());
   }
@@ -288,7 +292,7 @@ class MediaUploadUseCaseTest {
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("REJECTED");
-    verify(cleanupTasks).enqueue(session.storageKey(), "UPLOAD_VERIFICATION_FAILED", any());
+    verify(cleanupTasks).enqueue(eq(session.storageKey()), eq("UPLOAD_VERIFICATION_FAILED"), any());
   }
 
   @Test
@@ -307,7 +311,7 @@ class MediaUploadUseCaseTest {
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("REJECTED");
-    verify(cleanupTasks).enqueue(session.storageKey(), "EXPIRED_UPLOAD", any());
+    verify(cleanupTasks).enqueue(eq(session.storageKey()), eq("EXPIRED_UPLOAD"), any());
     verify(voiceReferences, never()).createOrReuse(any());
   }
 

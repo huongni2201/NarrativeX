@@ -33,4 +33,3 @@ class GetChapterContinuityUseCaseTest {
     verify(continuityRepository).findCurrent(projectId, chapterId);
   }
 }
-

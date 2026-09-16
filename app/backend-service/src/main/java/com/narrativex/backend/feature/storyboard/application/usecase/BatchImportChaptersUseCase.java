@@ -50,8 +50,7 @@ public class BatchImportChaptersUseCase {
         projectId);
     String extracted = documentTextExtractor.extract(fileName, contentType, content);
     if (storyVersionId == null) {
-      storyVersionId =
-          storyVersionAccess.resolveOrCreateStoryVersion(projectId, extracted);
+      storyVersionId = storyVersionAccess.resolveOrCreateStoryVersion(projectId, extracted);
     } else {
       storyVersionAccess.requireStoryVersion(projectId, storyVersionId);
     }

@@ -7,9 +7,6 @@ x-postgres-environment: &postgres-environment
   DB_USERNAME: ${DB_USERNAME:-narrativex}
   DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
 
-x-worker-database-environment: &worker-database-environment
-  DATABASE_URL: postgresql://${DB_USERNAME:-narrativex}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/${DB_NAME:-narrativex}
-
 x-build-args: &build-args
   BUILD_SHA: ${BUILD_SHA:-local}
 
@@ -50,13 +47,13 @@ services:
       NARRATIVEX_MAX_IMPORT_REQUEST_SIZE: ${NARRATIVEX_MAX_IMPORT_REQUEST_SIZE:-11MB}
       NARRATIVEX_MEDIA_GENERATION_ENABLED: "true"
       NARRATIVEX_IMAGE_PROVIDER_KEY: ${NARRATIVEX_IMAGE_PROVIDER_KEY:-realvisxl}
-      NARRATIVEX_IMAGE_MODEL: ${REALVISXL_CHECKPOINT:?Set REALVISXL_CHECKPOINT in .env}
+      NARRATIVEX_COMPUTE_BASE_URL: http://generation-service:8010
+      NARRATIVEX_COMPUTE_MACHINE_TOKEN: ${GENERATION_SERVICE_MACHINE_TOKEN:?Set GENERATION_SERVICE_MACHINE_TOKEN in .env}
+      NARRATIVEX_COMPUTE_ARTIFACT_BASE_URL: http://backend:8080
+      NARRATIVEX_IMAGE_MODEL: ${NARRATIVEX_IMAGE_MODEL:-realvisxl}
       NARRATIVEX_IMAGE_EXECUTION_MODE: ${NARRATIVEX_IMAGE_EXECUTION_MODE:-batch}
       NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:-15m}
       PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media
-      QWEN_ENABLED: "true"
-      QWEN_RUNTIME: vllm-local
-      QWEN_MODEL: ${QWEN_MODEL:-Qwen/Qwen3-8B-AWQ}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
@@ -71,140 +68,39 @@ services:
     ports: ["127.0.0.1:8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
+      generation-service: { condition: service_healthy }
     networks: [appnet]
 
-  ai-worker:
-    image: ${AI_WORKER_IMAGE:-narrativex-ai-worker}:${BUILD_SHA:-local}
+  generation-service:
+    image: ${GENERATION_SERVICE_IMAGE:-narrativex-generation-service}:${BUILD_SHA:-local}
     build:
-      context: ./app/ai-worker
+      context: ./app/generation-service
       dockerfile: Dockerfile
-      target: worker-image
       args: *build-args
     restart: unless-stopped
     environment:
-      <<: *worker-database-environment
-      WORKER_NAME: narrativex-prod-ai
-      WORKER_ENV: production
-      WORKER_ROLES: analysis,media-validation,image-generation
-      LOG_LEVEL: ${WORKER_LOG_LEVEL:-INFO}
-      BACKEND_URL: http://backend:8080
-      BUILD_SHA: ${BUILD_SHA:-local}
-      POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-1}
-      LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-60}
-      WORKER_CONCURRENCY: ${GENERAL_WORKER_CONCURRENCY:-1}
-      PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media
-      MEDIA_DOWNLOAD_TIMEOUT_SECONDS: ${MEDIA_DOWNLOAD_TIMEOUT_SECONDS:-120}
-      MEDIA_PROBE_TIMEOUT_SECONDS: ${MEDIA_PROBE_TIMEOUT_SECONDS:-30}
-      MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES:-104857600}
-      MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES:-104857600}
-      MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES:-1073741824}
-      GPU_TRANSITION_TIMEOUT_SECONDS: ${GPU_TRANSITION_TIMEOUT_SECONDS:-600}
-      GPU_COMFYUI_IDLE_POLL_SECONDS: ${GPU_COMFYUI_IDLE_POLL_SECONDS:-0.5}
-      AI_PROVIDER_MODE: qwen
-      QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:8000/v1}
-      QWEN_API_KEY: ${QWEN_API_KEY:-}
-      QWEN_MODEL: ${QWEN_MODEL:-Qwen/Qwen3-8B-AWQ}
-      QWEN_TIMEOUT_SECONDS: ${QWEN_TIMEOUT_SECONDS:-600}
-      QWEN_MAX_OUTPUT_TOKENS: ${QWEN_MAX_OUTPUT_TOKENS:-16384}
-      QWEN_ANALYSIS_SHARD_CONCURRENCY: ${QWEN_ANALYSIS_SHARD_CONCURRENCY:-1}
-      QWEN_ANALYSIS_SHARD_TARGET_BEATS: ${QWEN_ANALYSIS_SHARD_TARGET_BEATS:-12}
-      QWEN_ANALYSIS_SHARD_MAX_BEATS: ${QWEN_ANALYSIS_SHARD_MAX_BEATS:-20}
-      QWEN_ANALYSIS_REPAIR_ATTEMPTS: ${QWEN_ANALYSIS_REPAIR_ATTEMPTS:-1}
-      IMAGE_PROVIDER_MODE: realvisxl
-      IMAGE_BATCH_MAX_ITEMS: 1
-      REALVISXL_BASE_URL: ${REALVISXL_BASE_URL:-http://host.docker.internal:8188}
-      REALVISXL_TIMEOUT_SECONDS: ${REALVISXL_TIMEOUT_SECONDS:-120}
-      REALVISXL_REFERENCE_WORKFLOW_PATH: ${REALVISXL_REFERENCE_WORKFLOW_PATH:-}
-      REALVISXL_STEPS: ${REALVISXL_STEPS:-28}
-      REALVISXL_CFG: ${REALVISXL_CFG:-5.5}
-      REALVISXL_SAMPLER: ${REALVISXL_SAMPLER:-dpmpp_2m_sde}
-      REALVISXL_SCHEDULER: ${REALVISXL_SCHEDULER:-karras}
-      REALVISXL_LORA_NAME: ${REALVISXL_LORA_NAME:-}
-      REALVISXL_LORA_STRENGTH: ${REALVISXL_LORA_STRENGTH:-0.65}
-      IMAGE_RECONCILE_MAX_ATTEMPTS: ${IMAGE_RECONCILE_MAX_ATTEMPTS:-5}
-      IMAGE_CIRCUIT_BREAKER_FAILURE_THRESHOLD: ${IMAGE_CIRCUIT_BREAKER_FAILURE_THRESHOLD:-3}
-      IMAGE_CIRCUIT_BREAKER_OPEN_SECONDS: ${IMAGE_CIRCUIT_BREAKER_OPEN_SECONDS:-120}
-      IMAGE_MAX_OUTPUT_BYTES: ${IMAGE_MAX_OUTPUT_BYTES:-15000000}
-      TTS_PROVIDER_MODE: disabled
-      VOICESTUDIO_BASE_URL: http://voicestudio:3900
-      VOICESTUDIO_API_KEY: ${VOICESTUDIO_API_KEY:?Set VOICESTUDIO_API_KEY in .env}
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
-      R2_BUCKET: ${R2_BUCKET:?Set R2_BUCKET in .env}
-      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      GENERATION_SERVICE_HOST: 0.0.0.0
+      GENERATION_SERVICE_PORT: 8010
+      GENERATION_SERVICE_MACHINE_TOKEN: ${GENERATION_SERVICE_MACHINE_TOKEN:?Set GENERATION_SERVICE_MACHINE_TOKEN in .env}
+      GENERATION_SERVICE_JOURNAL_FILE: /var/lib/generation-service/generation-service.sqlite3
+      GENERATION_MAX_CONCURRENCY: ${GENERATION_MAX_CONCURRENCY:-1}
+      GENERATION_SERVICE_MAX_REQUEST_BYTES: ${GENERATION_SERVICE_MAX_REQUEST_BYTES:-1048576}
+      GENERATION_SERVICE_MAX_ARTIFACT_BYTES: ${GENERATION_SERVICE_MAX_ARTIFACT_BYTES:-2147483648}
+      GENERATION_SERVICE_QWEN_BASE_URL: ${GENERATION_SERVICE_QWEN_BASE_URL:-http://host.docker.internal:8000/v1}
+      GENERATION_SERVICE_QWEN_API_KEY: ${GENERATION_SERVICE_QWEN_API_KEY:-}
+      GENERATION_SERVICE_QWEN_TIMEOUT_SECONDS: ${GENERATION_SERVICE_QWEN_TIMEOUT_SECONDS:-600}
+      GENERATION_SERVICE_COMFYUI_BASE_URL: ${GENERATION_SERVICE_COMFYUI_BASE_URL:-http://host.docker.internal:8188}
+      GENERATION_SERVICE_COMFYUI_TIMEOUT_SECONDS: ${GENERATION_SERVICE_COMFYUI_TIMEOUT_SECONDS:-120}
+      GENERATION_SERVICE_VOICESTUDIO_BASE_URL: http://voicestudio:3900
+      GENERATION_SERVICE_VOICESTUDIO_API_KEY: ${GENERATION_SERVICE_VOICESTUDIO_API_KEY:?Set GENERATION_SERVICE_VOICESTUDIO_API_KEY in .env}
+      GENERATION_SERVICE_VOICESTUDIO_TIMEOUT_SECONDS: ${GENERATION_SERVICE_VOICESTUDIO_TIMEOUT_SECONDS:-600}
+      GENERATION_SERVICE_WHISPERX_DEVICE: ${GENERATION_SERVICE_WHISPERX_DEVICE:-cuda}
+      GENERATION_SERVICE_WHISPERX_ALIGN_MODEL_NAME: ${GENERATION_SERVICE_WHISPERX_ALIGN_MODEL_NAME:-}
     volumes:
-      - type: bind
-        source: ${PROJECT_MEDIA_HOST_DIR:?Set PROJECT_MEDIA_HOST_DIR in .env}
-        target: /data/narrativex/project-media
-        bind:
-          create_host_path: true
+      - generation-service-journal:/var/lib/generation-service
+    ports: ["127.0.0.1:8010:8010"]
     depends_on:
-      backend: { condition: service_healthy }
-      postgres: { condition: service_healthy }
-      voicestudio: { condition: service_healthy }
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks: [appnet]
-
-  narration-worker:
-    image: ${NARRATION_WORKER_IMAGE:-narrativex-narration-worker}:${BUILD_SHA:-local}
-    build:
-      context: ./app/ai-worker
-      dockerfile: Dockerfile
-      target: worker-narration
-      args: *build-args
-    restart: unless-stopped
-    cpus: ${NARRATION_WORKER_CPUS:-8.0}
-    environment:
-      <<: *worker-database-environment
-      WORKER_NAME: narrativex-prod-narration
-      WORKER_ENV: production
-      WORKER_ROLES: narration
-      LOG_LEVEL: ${WORKER_LOG_LEVEL:-INFO}
-      BACKEND_URL: http://backend:8080
-      BUILD_SHA: ${BUILD_SHA:-local}
-      POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-1}
-      LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-60}
-      WORKER_CONCURRENCY: ${NARRATION_WORKER_CONCURRENCY:-1}
-      PROJECT_MEDIA_LOCAL_DIR: /data/narrativex/project-media
-      MEDIA_DOWNLOAD_TIMEOUT_SECONDS: ${MEDIA_DOWNLOAD_TIMEOUT_SECONDS:-120}
-      MEDIA_PROBE_TIMEOUT_SECONDS: ${MEDIA_PROBE_TIMEOUT_SECONDS:-30}
-      MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES:-104857600}
-      MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES:-104857600}
-      MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES:-1073741824}
-      GPU_TRANSITION_TIMEOUT_SECONDS: ${GPU_TRANSITION_TIMEOUT_SECONDS:-600}
-      GPU_COMFYUI_IDLE_POLL_SECONDS: ${GPU_COMFYUI_IDLE_POLL_SECONDS:-0.5}
-      AI_PROVIDER_MODE: disabled
-      QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:8000/v1}
-      QWEN_API_KEY: ${QWEN_API_KEY:-}
-      IMAGE_PROVIDER_MODE: disabled
-      REALVISXL_BASE_URL: ${REALVISXL_BASE_URL:-http://host.docker.internal:8188}
-      TTS_PROVIDER_MODE: voicestudio
-      TTS_SEGMENT_BATCH_SIZE: ${TTS_SEGMENT_BATCH_SIZE:-8}
-      VOICESTUDIO_BASE_URL: http://voicestudio:3900
-      VOICESTUDIO_API_KEY: ${VOICESTUDIO_API_KEY:?Set VOICESTUDIO_API_KEY in .env}
-      VOICESTUDIO_MODEL: ${VOICESTUDIO_MODEL:-tts-1}
-      VOICESTUDIO_VOICE_ID: ${VOICESTUDIO_VOICE_ID:-voicestudio-default}
-      VOICESTUDIO_VOICE_PROFILE_ID: ${VOICESTUDIO_VOICE_PROFILE_ID:-default}
-      VOICESTUDIO_TIMEOUT_SECONDS: ${VOICESTUDIO_TIMEOUT_SECONDS:-600}
-      VOICESTUDIO_INFERENCE_CONCURRENCY: ${VOICESTUDIO_INFERENCE_CONCURRENCY:-1}
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in .env}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
-      R2_BUCKET: ${R2_BUCKET:?Set R2_BUCKET in .env}
-      R2_ENDPOINT: ${R2_ENDPOINT:-}
-    volumes:
-      - type: bind
-        source: ${PROJECT_MEDIA_HOST_DIR:?Set PROJECT_MEDIA_HOST_DIR in .env}
-        target: /data/narrativex/project-media
-        bind:
-          create_host_path: true
-      - narration-model-cache:/home/appuser/.cache/huggingface
-    depends_on:
-      backend: { condition: service_healthy }
-      postgres: { condition: service_healthy }
-      voicestudio: { condition: service_healthy }
+      voicestudio: { condition: service_started }
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks: [appnet]
@@ -214,7 +110,7 @@ services:
     restart: unless-stopped
     gpus: all
     environment:
-      OMNIVOICE_API_KEY: ${VOICESTUDIO_API_KEY:?Set VOICESTUDIO_API_KEY in .env}
+      OMNIVOICE_API_KEY: ${GENERATION_SERVICE_VOICESTUDIO_API_KEY:?Set GENERATION_SERVICE_VOICESTUDIO_API_KEY in .env}
       OMNIVOICE_DEVICE: cuda
       OMNIVOICE_SINGLE_ENGINE_RESIDENT: "1"
     volumes:
@@ -227,6 +123,6 @@ networks:
   appnet: { driver: bridge }
 volumes:
   postgres-data:
-  narration-model-cache:
+  generation-service-journal:
   voicestudio-data:
   voicestudio-model-cache:

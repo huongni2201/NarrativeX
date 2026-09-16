@@ -4,21 +4,19 @@
 **Planning rule:** dependency order, not fixed-date commitment.
 **Current checkpoint:** `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
 
-The browser→Desktop, authentication/account and monetary billing/credit migrations are no longer active roadmap tracks. Desktop is already the only editor client, NarrativeX is a single-user local-first application per ADR-0030, MyBatis is the production persistence path, provider execution carries no monetary accounting contract, and system capacity limits replace per-user quotas. Remaining work is compute execution-plane cutover, product reliability, and release hardening.
+The browser→Desktop, authentication/account and monetary billing/credit migrations are no longer active roadmap tracks. Desktop is already the only editor client, NarrativeX is a single-user local-first application per ADR-0030, MyBatis is the production persistence path, provider execution carries no monetary accounting contract, and system capacity limits replace per-user quotas. Remaining work is product reliability and release hardening; the compute execution-plane cutover is complete.
 
-## Track 0 — Compute execution-plane cutover — IN PROGRESS
+## Track 0 — Compute execution-plane cutover — COMPLETE
 
 Build on the `app/generation-service` scaffold and Compute Protocol v1:
 
-- complete backend compute control-plane persistence, task materialization, and attempt mapping;
-- cut narration over first (VoiceStudio TTS + WhisperX forced alignment);
-- cut image generation over next (ComfyUI RealVisXL adapter);
-- move domain-neutral media validation to `generation-service`;
-- support interchangeable local RTX 4060 and remote GPU execution targets;
-- implement artifact capability transport with SHA-256 integrity verification;
-- delete `app/ai-worker` after parity, recovery, rollback and dependency gates pass.
+- backend compute control-plane persistence, task materialization, and attempt mapping;
+- VoiceStudio TTS, WhisperX forced alignment, ComfyUI RealVisXL, and media validation behind the Compute Protocol;
+- artifact capability transport with SHA-256 integrity verification;
+- local and remote GPU execution targets through the same generation-service boundary;
+- legacy PostgreSQL-polling runtime and CI/configuration residue removed.
 
-**Done when:** backend owns all durable business transitions, local and remote GPU targets pass the Compute Protocol test suite, and `app/ai-worker` is completely removed.
+**Done:** backend owns durable business transitions, provider-independent gates pass, and the legacy runtime is absent from the repository.
 
 ## Current implemented foundations
 

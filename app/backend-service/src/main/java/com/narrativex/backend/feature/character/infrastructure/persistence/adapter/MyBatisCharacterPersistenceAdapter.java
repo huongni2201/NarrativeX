@@ -52,8 +52,7 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
 
   @Override
   public Optional<Character> findByIdForUpdate(UUID id) {
-    return Optional.ofNullable(
-            mapper.findActiveByIdForUpdate(id, CharacterStatus.ARCHIVED.name()))
+    return Optional.ofNullable(mapper.findActiveByIdForUpdate(id, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 

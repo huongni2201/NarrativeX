@@ -78,8 +78,7 @@ public class CreateMediaJobUseCase {
 
     var project = projectAccess.findProject(command.projectId());
     var chapter =
-        chapterSourceAccess.requireForAnalysisLocked(
-            command.projectId(), command.chapterId());
+        chapterSourceAccess.requireForAnalysisLocked(command.projectId(), command.chapterId());
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(command.chapterId())
@@ -156,7 +155,8 @@ public class CreateMediaJobUseCase {
     String normalized = value.trim();
     if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
       throw new GenerationAdmissionDeniedException(
-          "IDEMPOTENCY_CONFLICT", "Idempotency-Key exceeds max supported length.");
+          "IDEMPOTENCY_CONFLICT",
+          "Idempotency-Key exceeds max supported length of " + MAX_IDEMPOTENCY_KEY_LENGTH + ".");
     }
     return normalized;
   }
@@ -178,7 +178,8 @@ public class CreateMediaJobUseCase {
       byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
       return HexFormat.of().formatHex(hash);
     } catch (Exception exception) {
-      throw new IllegalStateException("Failed to compute idempotency request fingerprint", exception);
+      throw new IllegalStateException(
+          "Failed to compute idempotency request fingerprint", exception);
     }
   }
 

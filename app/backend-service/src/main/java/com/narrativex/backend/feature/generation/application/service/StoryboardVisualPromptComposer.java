@@ -25,10 +25,6 @@ public final class StoryboardVisualPromptComposer {
       VisualPromptContext context) {
     String safeVisualIntent = VisualPromptSafety.sanitizeSceneDirection(visualIntent);
     return visualPromptComposer.compose(
-        ImageStyle.CINEMATIC_ANIME,
-        safeVisualIntent,
-        visualDirectionJson,
-        aspectRatio,
-        context);
+        ImageStyle.CINEMATIC_ANIME, safeVisualIntent, visualDirectionJson, aspectRatio, context);
   }
 }

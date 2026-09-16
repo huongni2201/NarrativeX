@@ -41,6 +41,9 @@ narrativex:
   compute:
     base-url: ${NARRATIVEX_COMPUTE_BASE_URL:http://localhost:8010}
     machine-token: ${NARRATIVEX_COMPUTE_MACHINE_TOKEN:default-dev-machine-token}
+    artifact-base-url: ${NARRATIVEX_COMPUTE_ARTIFACT_BASE_URL:http://localhost:8080}
+    artifact-ttl: ${NARRATIVEX_COMPUTE_ARTIFACT_TTL:15m}
+    max-artifact-bytes: ${NARRATIVEX_MAX_COMPUTE_ARTIFACT_BYTES:268435456}
   generation:
     media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
     image:

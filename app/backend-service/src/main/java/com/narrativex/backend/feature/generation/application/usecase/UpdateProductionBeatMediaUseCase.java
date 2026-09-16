@@ -88,8 +88,7 @@ public class UpdateProductionBeatMediaUseCase {
     repository.clear(projectId, visualBeatId);
   }
 
-  private SelectableMediaAsset requireSelectableAsset(
-      UUID projectId, UUID mediaAssetId) {
+  private SelectableMediaAsset requireSelectableAsset(UUID projectId, UUID mediaAssetId) {
     return repository
         .findSelectableAsset(projectId, mediaAssetId)
         .orElseThrow(

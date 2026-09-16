@@ -7,9 +7,7 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface VoiceReferenceAssetMapper extends NarrativeXMyBatisMapper {
-  int insert(
-      @Param("command") CreateVoiceReference command,
-      @Param("checksum") String checksum);
+  int insert(@Param("command") CreateVoiceReference command, @Param("checksum") String checksum);
 
   VoiceReferenceAssetRow findById(@Param("id") UUID id);
 

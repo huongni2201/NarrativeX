@@ -105,9 +105,7 @@ class GetProductionTimelineUseCaseTest {
 
     when(sourceRepository.findChapters(projectId))
         .thenReturn(
-            List.of(
-                chapterWithAlignment(
-                    storyVersionId, chapterId, 10_000L, incompleteWords, 2)));
+            List.of(chapterWithAlignment(storyVersionId, chapterId, 10_000L, incompleteWords, 2)));
     when(sourceRepository.findBeats(projectId))
         .thenReturn(
             List.of(
@@ -207,7 +205,8 @@ class GetProductionTimelineUseCaseTest {
       int textStart,
       int textEnd,
       String checksum) {
-    return beatWithText(chapterId, chapterOrderIndex, beatIndex, textStart, textEnd, checksum, true);
+    return beatWithText(
+        chapterId, chapterOrderIndex, beatIndex, textStart, textEnd, checksum, true);
   }
 
   private static BeatSource beatWithText(

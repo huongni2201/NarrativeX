@@ -30,8 +30,7 @@ class CreateCharacterVersionUseCaseTest {
 
   @Test
   void locksCharacterBeforeAllocatingNextVersion() {
-    when(characterRepository.findByIdForUpdate(CHARACTER_ID))
-        .thenReturn(Optional.of(character()));
+    when(characterRepository.findByIdForUpdate(CHARACTER_ID)).thenReturn(Optional.of(character()));
     when(versionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
     when(versionRepository.save(any(CharacterVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -47,8 +46,6 @@ class CreateCharacterVersionUseCaseTest {
   }
 
   private static Character character() {
-    return Character.rehydrate(
-        CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
+    return Character.rehydrate(CHARACTER_ID, 0L, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }
-

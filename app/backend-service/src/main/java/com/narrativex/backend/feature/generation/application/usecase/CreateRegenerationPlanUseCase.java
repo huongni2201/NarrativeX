@@ -58,7 +58,8 @@ public class CreateRegenerationPlanUseCase {
     }
 
     if (requestedBeatIds == null || requestedBeatIds.isEmpty()) {
-      throw new IllegalArgumentException("At least one visual beat id is required for regeneration.");
+      throw new IllegalArgumentException(
+          "At least one visual beat id is required for regeneration.");
     }
     LinkedHashSet<UUID> requested = new LinkedHashSet<>(requestedBeatIds);
 

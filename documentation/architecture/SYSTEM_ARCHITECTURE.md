@@ -27,9 +27,6 @@ Spring Boot Backend
         +-> ComfyUI (RealVisXL image generation)
         +-> media validation
         +-> SQLite execution journal (local crash recovery)
-
-Legacy migration path — scheduled for removal:
-  app/ai-worker (temporary legacy worker directly polling PostgreSQL)
 ```
 
 Redis and browser-based editors are removed.
@@ -99,7 +96,6 @@ The pre-production Flyway baseline is clean and squashed into **V1–V7**. The f
 
 ## Remaining hardening
 
-- complete generation-service cutover and delete legacy `app/ai-worker`;
 - packaged build/signing/auto-update;
 - richer crash/restart render resume behavior;
 - adaptive narration-driven scene/beat planning;

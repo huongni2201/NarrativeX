@@ -5,8 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductionBeatMediaSelectionRepository {
-  Optional<SelectableMediaAsset> findSelectableAsset(
-      UUID projectId, UUID mediaAssetId);
+  Optional<SelectableMediaAsset> findSelectableAsset(UUID projectId, UUID mediaAssetId);
 
   void upsert(
       UUID projectId,

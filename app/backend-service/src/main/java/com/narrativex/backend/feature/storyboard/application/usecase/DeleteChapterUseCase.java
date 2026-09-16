@@ -20,8 +20,7 @@ public class DeleteChapterUseCase {
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireStoryVersion(
-        projectId, chapter.getStoryVersionId());
+    storyVersionAccess.requireStoryVersion(projectId, chapter.getStoryVersionId());
     chapterRepository.deleteById(chapterId);
   }
 }

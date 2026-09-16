@@ -28,8 +28,7 @@ class MyBatisChapterAnalysisSnapshotRepositoryTest {
     when(mapper.findByProject(PROJECT_ID, CHAPTER_ID)).thenReturn(null);
 
     assertThrows(
-        ResourceNotFoundException.class,
-        () -> repository.requireByProject(PROJECT_ID, CHAPTER_ID));
+        ResourceNotFoundException.class, () -> repository.requireByProject(PROJECT_ID, CHAPTER_ID));
   }
 
   @Test

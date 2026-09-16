@@ -5,9 +5,7 @@ import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 public interface NotificationMapper extends NarrativeXMyBatisMapper {
-  List<NotificationRow> list(
-      @Param("unreadOnly") boolean unreadOnly,
-      @Param("limit") int limit);
+  List<NotificationRow> list(@Param("unreadOnly") boolean unreadOnly, @Param("limit") int limit);
 
   int unreadCount();
 

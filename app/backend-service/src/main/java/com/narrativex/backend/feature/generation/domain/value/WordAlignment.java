@@ -1,12 +1,7 @@
 package com.narrativex.backend.feature.generation.domain.value;
 
 public record WordAlignment(
-    int index,
-    int textStart,
-    int textEnd,
-    long audioStartMs,
-    long audioEndMs,
-    double confidence) {
+    int index, int textStart, int textEnd, long audioStartMs, long audioEndMs, double confidence) {
   public WordAlignment {
     if (index < 0) throw new IllegalArgumentException("index must not be negative");
     if (textStart < 0 || textEnd <= textStart)

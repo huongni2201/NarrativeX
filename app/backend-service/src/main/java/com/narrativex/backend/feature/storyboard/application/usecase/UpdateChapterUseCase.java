@@ -31,16 +31,14 @@ public class UpdateChapterUseCase {
         chapterRepository
             .findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireStoryVersion(
-        command.projectId(), chapter.getStoryVersionId());
+    storyVersionAccess.requireStoryVersion(command.projectId(), chapter.getStoryVersionId());
 
     storyboardRevisionAccess.lockChapter(command.chapterId());
     chapter =
         chapterRepository
             .findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireStoryVersion(
-        command.projectId(), chapter.getStoryVersionId());
+    storyVersionAccess.requireStoryVersion(command.projectId(), chapter.getStoryVersionId());
     if (chapter.getRowVersion() != command.expectedRowVersion()) {
       throw new ResourceConflictException("Chapter changed since it was loaded");
     }

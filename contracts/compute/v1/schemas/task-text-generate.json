@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-text-generate.json",
+  "title": "TextGenerateInputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["prompt"],
+  "properties": {
+    "prompt": {"type": "string", "minLength": 1, "maxLength": 500000},
+    "systemPrompt": {"type": ["string", "null"], "maxLength": 50000},
+    "temperature": {"type": "number", "minimum": 0.0, "maximum": 2.0},
+    "topP": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "maxTokens": {"type": "integer", "minimum": 1, "maximum": 65536},
+    "responseFormat": {"type": "string", "enum": ["text", "json_object"]}
+  }
+}

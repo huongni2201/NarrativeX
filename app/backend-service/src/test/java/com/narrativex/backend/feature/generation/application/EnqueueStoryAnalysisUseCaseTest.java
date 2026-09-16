@@ -120,8 +120,7 @@ class EnqueueStoryAnalysisUseCaseTest {
   @Test
   void persistsExactlyOneDurableEnqueueBoundaryInOrder() {
     var snapshot = snapshot();
-    var persistedPlan =
-        OperationPlan.rehydrate(PLAN_ID, 0L, PROJECT_ID, null, "CHAPTER_ANALYZE");
+    var persistedPlan = OperationPlan.rehydrate(PLAN_ID, 0L, PROJECT_ID, null, "CHAPTER_ANALYZE");
     var persistedJob = persistedJob(JobStatus.QUEUED);
 
     when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
@@ -257,4 +256,3 @@ class EnqueueStoryAnalysisUseCaseTest {
         IDEMPOTENCY_KEY);
   }
 }
-

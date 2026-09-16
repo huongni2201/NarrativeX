@@ -138,14 +138,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "media_scene_plans", "scene_id"));
       assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
 
-      assertTrue(tableExists(connection, "desktop_auth_handoffs"));
-      assertTrue(indexExists(connection, "idx_desktop_auth_handoffs_expires_at"));
-      assertTrue(tableExists(connection, "spring_session"));
-      assertTrue(tableExists(connection, "spring_session_attributes"));
-      assertTrue(indexExists(connection, "spring_session_ix1"));
-      assertTrue(indexExists(connection, "spring_session_ix2"));
-      assertTrue(indexExists(connection, "spring_session_ix3"));
-      assertTrue(indexExists(connection, "spring_session_attributes_ix1"));
       assertFalse(tableExists(connection, "auth_users"));
       assertFalse(tableExists(connection, "desktop_auth_handoffs"));
       assertFalse(tableExists(connection, "spring_session"));
@@ -160,11 +152,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
-      assertTrue(tableExists(connection, "desktop_guest_installations"));
-      assertTrue(indexExists(connection, "idx_desktop_guest_installations_last_seen"));
-      assertFalse(tableExists(connection, "local_device_pairing_codes"));
-      assertFalse(tableExists(connection, "local_devices"));
-      assertFalse(tableExists(connection, "local_device_capabilities"));
       assertFalse(tableExists(connection, "desktop_guest_installations"));
       assertFalse(tableExists(connection, "local_media_materializations"));
 
@@ -184,8 +171,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals(
           "uuid",
           columnType(connection, "project_render_input_snapshots", "assigned_local_device_id"));
-      assertFalse(
-          columnExists(connection, "project_render_input_snapshots", "assigned_local_device_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
       assertEquals("YES", columnNullable(connection, "project_render_input_beats", "storage_key"));
@@ -209,7 +194,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(indexExists(connection, "uq_chapters_story_order_active"));
       assertTrue(indexExists(connection, "idx_chapters_deleted_at"));
 
-      assertTrue(tableExists(connection, "plan_entitlements"));
       assertFalse(tableExists(connection, "plan_entitlements"));
       assertFalse(tableExists(connection, "user_plan_assignments"));
       assertFalse(tableExists(connection, "usage_windows"));
@@ -310,16 +294,12 @@ class PostgreSqlMigrationIntegrationTest {
     assertNull(
         assertDoesNotThrow(
             () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
+    assertTrue(assertDoesNotThrow(() -> notificationMapper.list(true, 5)).isEmpty());
     assertTrue(
-        assertDoesNotThrow(() -> notificationMapper.list(true, 5)).isEmpty());
-    assertTrue(
-        assertDoesNotThrow(
-                () -> productionTimelineMapper.findChapters(missingProjectId))
+        assertDoesNotThrow(() -> productionTimelineMapper.findChapters(missingProjectId))
             .isEmpty());
     assertTrue(
-        assertDoesNotThrow(
-                () -> productionTimelineMapper.findBeats(missingProjectId))
-            .isEmpty());
+        assertDoesNotThrow(() -> productionTimelineMapper.findBeats(missingProjectId)).isEmpty());
   }
 
   private static String latestFlywayVersion(Connection connection) throws SQLException {

@@ -16,4 +16,3 @@ public class WebCorsConfiguration implements WebMvcConfigurer {
         .allowCredentials(true);
   }
 }
-

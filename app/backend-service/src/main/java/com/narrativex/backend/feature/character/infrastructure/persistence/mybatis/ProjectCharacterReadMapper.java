@@ -10,8 +10,7 @@ public interface ProjectCharacterReadMapper extends NarrativeXMyBatisMapper {
   boolean projectExists(@Param("projectId") UUID projectId);
 
   List<ProjectCharacterReadRow> findFirstPage(
-      @Param("projectId") UUID projectId,
-      @Param("limit") int limit);
+      @Param("projectId") UUID projectId, @Param("limit") int limit);
 
   List<ProjectCharacterReadRow> findAfter(
       @Param("projectId") UUID projectId,
@@ -20,6 +19,5 @@ public interface ProjectCharacterReadMapper extends NarrativeXMyBatisMapper {
       @Param("limit") int limit);
 
   ProjectCharacterReadRow findDetail(
-      @Param("projectId") UUID projectId,
-      @Param("characterId") UUID characterId);
+      @Param("projectId") UUID projectId, @Param("characterId") UUID characterId);
 }

@@ -1,10 +1,8 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
-import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
-import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
-import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationOperationRepository;
@@ -16,6 +14,8 @@ import com.narrativex.backend.feature.generation.application.service.NarrationAd
 import com.narrativex.backend.feature.generation.application.service.NarrationRequestFingerprint;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
+import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
+import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -58,8 +58,7 @@ public class GenerateChapterNarrationUseCase {
   @Transactional
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
     var chapter =
-        chapterSourceAccess.requireForAnalysisLocked(
-            command.projectId(), command.chapterId());
+        chapterSourceAccess.requireForAnalysisLocked(command.projectId(), command.chapterId());
     var project = projectAccess.findProject(command.projectId());
 
     String sourceText = command.preview() ? command.previewText() : chapter.sourceText();
@@ -94,8 +93,7 @@ public class GenerateChapterNarrationUseCase {
       if (!canStartAnotherAttempt(existing.getStatus(), forceRegenerate)) {
         return existing;
       }
-      var latest =
-          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey);
+      var latest = generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey);
       if (latest.isPresent()
           && !canStartAnotherAttempt(latest.get().getStatus(), forceRegenerate)) {
         return latest.get();
@@ -225,8 +223,7 @@ public class GenerateChapterNarrationUseCase {
       throw new IllegalArgumentException(
           "Selected narration voice does not support uploaded voice references");
     }
-    var asset =
-        voiceReferenceAssetAccess.find(command.projectId(), command.voiceReference());
+    var asset = voiceReferenceAssetAccess.find(command.projectId(), command.voiceReference());
     if (!"READY".equals(asset.status())) {
       throw new IllegalArgumentException("Voice reference asset must be READY");
     }

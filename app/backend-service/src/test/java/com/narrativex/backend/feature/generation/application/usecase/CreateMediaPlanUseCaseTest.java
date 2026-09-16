@@ -49,10 +49,7 @@ class CreateMediaPlanUseCaseTest {
             objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
-            chapterSourceAccess,
-            mediaPlanningSourceAccess,
-            mediaPlanRepository,
-            sceneResolver);
+            chapterSourceAccess, mediaPlanningSourceAccess, mediaPlanRepository, sceneResolver);
 
     UUID projectId = UuidV7.random();
     UUID chapterId = UuidV7.random();
@@ -144,10 +141,7 @@ class CreateMediaPlanUseCaseTest {
             objectMapper);
     var useCase =
         new CreateMediaPlanUseCase(
-            chapterSourceAccess,
-            mediaPlanningSourceAccess,
-            mediaPlanRepository,
-            sceneResolver);
+            chapterSourceAccess, mediaPlanningSourceAccess, mediaPlanRepository, sceneResolver);
 
     UUID projectId = UuidV7.random();
     UUID chapterId = UuidV7.random();
@@ -195,4 +189,3 @@ class CreateMediaPlanUseCaseTest {
         .isEqualTo("{\"characters\":[]}");
   }
 }
-

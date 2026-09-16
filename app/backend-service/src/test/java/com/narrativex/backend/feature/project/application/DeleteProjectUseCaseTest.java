@@ -28,8 +28,7 @@ class DeleteProjectUseCaseTest {
   void archivesProjectUnderRowLock() {
     UUID projectId = UuidV7.random();
     Project project = project(projectId);
-    when(projectRepository.findByIdForUpdate(projectId))
-        .thenReturn(Optional.of(project));
+    when(projectRepository.findByIdForUpdate(projectId)).thenReturn(Optional.of(project));
     when(projectRepository.save(project)).thenReturn(project);
     DeleteProjectUseCase useCase = new DeleteProjectUseCase(projectRepository);
 

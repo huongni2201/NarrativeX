@@ -1,7 +1,8 @@
 package com.narrativex.backend.feature.assets.api.controller;
 
-import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
+import com.narrativex.backend.feature.assets.application.port.in.LocalMediaUploadAccess;
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess.LocalMediaFile;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -18,15 +19,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/local-media")
 public class ProjectLocalMediaController {
-  private final MediaStorageAccess projectLocalMediaAccess;
+  private final LocalMediaUploadAccess localMediaUploadAccess;
 
-  public ProjectLocalMediaController(MediaStorageAccess projectLocalMediaAccess) {
-    this.projectLocalMediaAccess = projectLocalMediaAccess;
+  public ProjectLocalMediaController(LocalMediaUploadAccess localMediaUploadAccess) {
+    this.localMediaUploadAccess = localMediaUploadAccess;
   }
 
   @GetMapping("/{token}")
   public ResponseEntity<Resource> download(@PathVariable String token) {
-    LocalMediaFile file = projectLocalMediaAccess.resolve(token);
+    LocalMediaFile file = localMediaUploadAccess.resolve(token);
     HttpHeaders headers = responseHeaders(file);
     headers.setContentLength(file.sizeBytes());
     return new ResponseEntity<>(file.resource(), headers, HttpStatus.OK);
@@ -34,10 +35,21 @@ public class ProjectLocalMediaController {
 
   @RequestMapping(value = "/{token}", method = RequestMethod.HEAD)
   public ResponseEntity<Void> head(@PathVariable String token) {
-    LocalMediaFile file = projectLocalMediaAccess.resolve(token);
+    LocalMediaFile file = localMediaUploadAccess.resolve(token);
     HttpHeaders headers = responseHeaders(file);
     headers.setContentLength(file.sizeBytes());
     return new ResponseEntity<>(headers, HttpStatus.OK);
+  }
+
+  @RequestMapping(value = "/{token}", method = RequestMethod.PUT)
+  public ResponseEntity<Void> upload(
+      @PathVariable String token,
+      @org.springframework.web.bind.annotation.RequestHeader(HttpHeaders.CONTENT_TYPE)
+          String contentType,
+      HttpServletRequest request)
+      throws java.io.IOException {
+    localMediaUploadAccess.upload(token, request.getInputStream(), contentType);
+    return ResponseEntity.noContent().build();
   }
 
   private static HttpHeaders responseHeaders(LocalMediaFile file) {

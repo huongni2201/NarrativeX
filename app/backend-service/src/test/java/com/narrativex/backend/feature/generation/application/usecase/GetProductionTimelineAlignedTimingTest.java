@@ -58,10 +58,7 @@ class GetProductionTimelineAlignedTimingTest {
                     2,
                     2)));
     when(sourceRepository.findBeats(projectId))
-        .thenReturn(
-            List.of(
-                beat(chapterId, 0, 0, 50),
-                beat(chapterId, 1, 50, 100)));
+        .thenReturn(List.of(beat(chapterId, 0, 0, 50), beat(chapterId, 1, 50, 100)));
 
     var timeline = useCase.execute(projectId);
 

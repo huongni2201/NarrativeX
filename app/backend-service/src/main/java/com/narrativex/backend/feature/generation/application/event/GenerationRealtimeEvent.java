@@ -4,8 +4,7 @@ import com.narrativex.backend.feature.generation.api.response.GenerationEventRes
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import java.util.UUID;
 
-public record GenerationRealtimeEvent(
-    String eventId, UUID projectId, JobResponse job) {
+public record GenerationRealtimeEvent(String eventId, UUID projectId, JobResponse job) {
   public GenerationEventResponse response() {
     return new GenerationEventResponse(eventId, projectId, job);
   }

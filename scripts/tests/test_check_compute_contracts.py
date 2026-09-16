@@ -31,6 +31,11 @@ def test_checked_in_contracts_are_valid() -> None:
     assert "contracts/compute/v1/openapi.yaml" in checked
 
 
+def test_text_generate_example_is_accepted() -> None:
+    path = ROOT / "contracts" / "compute" / "v1" / "examples" / "text-generate-task.json"
+    contracts.validate_task(contracts.load_json(path))
+
+
 @pytest.mark.parametrize(
     ("key", "value"),
     [

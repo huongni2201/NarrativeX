@@ -29,8 +29,7 @@ public class MyBatisCharacterVersionPersistenceAdapter implements CharacterVersi
 
   @Override
   public Optional<CharacterVersion> findByIdForUpdate(UUID id) {
-    return Optional.ofNullable(mapper.findVersionForUpdate(id))
-        .map(rowMapper::toDomain);
+    return Optional.ofNullable(mapper.findVersionForUpdate(id)).map(rowMapper::toDomain);
   }
 
   @Override

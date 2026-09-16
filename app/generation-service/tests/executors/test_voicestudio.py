@@ -16,7 +16,10 @@ from narrativex_gpu_worker.adapters.executors.voicestudio.client import (
 from narrativex_gpu_worker.adapters.executors.voicestudio.executor import (
     VoiceStudioExecutor,
 )
-from narrativex_gpu_worker.application.errors import AmbiguousOutcomeError
+from narrativex_gpu_worker.application.errors import (
+    AmbiguousOutcomeError,
+    ExecutionCanceledError,
+)
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext
 from narrativex_gpu_worker.contracts import (
@@ -196,6 +199,139 @@ async def test_voicestudio_cancellation_returns_early(speech_task: ComputeTask) 
     cancel = asyncio.Event()
     cancel.set()
 
-    output = await executor.execute(speech_task, cancel)
-    assert len(output.outputs) == 0
+    with pytest.raises(ExecutionCanceledError, match="before submit"):
+        await executor.execute(speech_task, cancel)
     assert len(requests_log) == 0
+
+
+async def test_voicestudio_client_cancels_inflight_synthesis() -> None:
+    request_started = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_started.set()
+        await asyncio.Event().wait()
+        return httpx.Response(200, content=b"unreachable")
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000")
+    voice_client = VoiceStudioClient(client=http_client)
+    cancel = asyncio.Event()
+    synthesis = asyncio.create_task(
+        voice_client.synthesize("hello", "vi_female_01", cancel=cancel)
+    )
+
+    await request_started.wait()
+    cancel.set()
+    with pytest.raises(ExecutionCanceledError, match="VoiceStudio execution canceled"):
+        await asyncio.wait_for(synthesis, timeout=0.2)
+    await http_client.aclose()
+
+
+async def test_voicestudio_client_cancels_inflight_reference_synthesis() -> None:
+    request_started = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_started.set()
+        await asyncio.Event().wait()
+        return httpx.Response(200, content=b"unreachable")
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000")
+    voice_client = VoiceStudioClient(client=http_client)
+    cancel = asyncio.Event()
+    synthesis = asyncio.create_task(
+        voice_client.synthesize_reference(b"hello", b"RIFF", cancel=cancel)
+    )
+
+    await request_started.wait()
+    cancel.set()
+    with pytest.raises(ExecutionCanceledError, match="VoiceStudio execution canceled"):
+        await asyncio.wait_for(synthesis, timeout=0.2)
+    await http_client.aclose()
+
+
+async def test_voicestudio_cancel_after_provider_response_skips_upload(
+    speech_task: ComputeTask,
+) -> None:
+    client = AsyncMock(spec=VoiceStudioClient)
+    provider_finished = asyncio.Event()
+    release_provider = asyncio.Event()
+
+    async def synthesize(**_: Any) -> bytes:
+        provider_finished.set()
+        await release_provider.wait()
+        return b"wav"
+
+    client.synthesize.side_effect = synthesize
+    artifact_adapter = AsyncMock(spec=ArtifactPort)
+    executor = VoiceStudioExecutor(client, artifact_adapter, ready=True)
+    cancel = asyncio.Event()
+
+    execution = asyncio.create_task(executor.execute(speech_task, cancel))
+    await provider_finished.wait()
+    cancel.set()
+    release_provider.set()
+    with pytest.raises(ExecutionCanceledError, match="before artifact upload"):
+        await execution
+    artifact_adapter.upload.assert_not_awaited()
+
+
+async def test_voicestudio_outer_task_cancel_propagates_raw_cancelled_error() -> None:
+    request_started = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_started.set()
+        await asyncio.Event().wait()
+        return httpx.Response(200, content=b"unreachable")
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000")
+    voice_client = VoiceStudioClient(client=http_client)
+    synthesis = asyncio.create_task(voice_client.synthesize("hello", "voice"))
+
+    await request_started.wait()
+    synthesis.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(synthesis, timeout=0.2)
+    await http_client.aclose()
+
+
+async def test_voicestudio_cancel_suppresses_provider_cleanup_failure() -> None:
+    request_started = asyncio.Event()
+
+    async def failing_request() -> httpx.Response:
+        request_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError as exc:
+            raise RuntimeError("provider cleanup failure") from exc
+        raise AssertionError("request should be canceled")
+
+    voice_client = VoiceStudioClient()
+    cancel = asyncio.Event()
+    synthesis = asyncio.create_task(voice_client._await_response(failing_request(), cancel))
+
+    await request_started.wait()
+    cancel.set()
+    with pytest.raises(ExecutionCanceledError, match="VoiceStudio execution canceled"):
+        await asyncio.wait_for(synthesis, timeout=0.2)
+
+
+async def test_voicestudio_outer_cancel_preserves_raw_error_when_cleanup_fails() -> None:
+    request_started = asyncio.Event()
+
+    async def failing_request() -> httpx.Response:
+        request_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError as exc:
+            raise RuntimeError("provider cleanup failure") from exc
+        raise AssertionError("request should be canceled")
+
+    voice_client = VoiceStudioClient()
+    synthesis = asyncio.create_task(voice_client._await_response(failing_request(), None))
+
+    await request_started.wait()
+    synthesis.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(synthesis, timeout=0.2)
