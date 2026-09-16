@@ -7,6 +7,10 @@ export interface ProbedVideo {
   fps: number;
   mimeType: "video/mp4";
   sizeBytes: number;
+  videoStartMs: number;
+  videoDurationMs: number;
+  audioStartMs: number;
+  audioDurationMs: number;
 }
 
 export async function probeMediaDuration(
@@ -35,16 +39,85 @@ export async function probeMediaDuration(
 }
 
 export async function probeVideo(ffprobePath: string, filePath: string): Promise<ProbedVideo> {
-  const process = runProcess(ffprobePath, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", filePath]);
+  const process = runProcess(ffprobePath, [
+    "-v",
+    "error",
+    "-print_format",
+    "json",
+    "-show_format",
+    "-show_streams",
+    filePath,
+  ]);
   const result = await process.result;
-  if (result.exitCode !== 0) throw new Error(`ffprobe failed: ${result.stderr.trim() || "unknown error"}`);
-  const payload = JSON.parse(result.stdout) as { format?: { duration?: string; size?: string }; streams?: Array<{ codec_type?: string; width?: number; height?: number; r_frame_rate?: string }> };
-  const stream = payload.streams?.find((candidate) => candidate.codec_type === "video");
-  if (!stream?.width || !stream.height || !stream.r_frame_rate || !payload.format?.duration) throw new Error("ffprobe output is missing required video metadata.");
-  const [numerator, denominator] = stream.r_frame_rate.split("/").map(Number);
+  if (result.exitCode !== 0) {
+    throw new Error(`ffprobe failed: ${result.stderr.trim() || "unknown error"}`);
+  }
+
+  const payload = JSON.parse(result.stdout) as {
+    format?: { duration?: string; size?: string };
+    streams?: Array<{
+      codec_type?: string;
+      width?: number;
+      height?: number;
+      r_frame_rate?: string;
+      start_time?: string;
+      duration?: string;
+    }>;
+  };
+  const video = payload.streams?.find((candidate) => candidate.codec_type === "video");
+  const audio = payload.streams?.find((candidate) => candidate.codec_type === "audio");
+  if (
+    !video?.width ||
+    !video.height ||
+    !video.r_frame_rate ||
+    !payload.format?.duration ||
+    !audio ||
+    video.duration == null ||
+    audio.duration == null
+  ) {
+    throw new Error("ffprobe output is missing required audio/video sync metadata.");
+  }
+
+  const [numerator, denominator] = video.r_frame_rate.split("/").map(Number);
   const fps = denominator ? numerator / denominator : numerator;
-  const durationMs = Math.round(Number(payload.format.duration) * 1000);
+  const durationMs = milliseconds(payload.format.duration);
   const sizeBytes = Number(payload.format.size ?? 0);
-  if (![fps, durationMs, sizeBytes].every(Number.isFinite)) throw new Error("ffprobe returned invalid numeric metadata.");
-  return { durationMs, width: stream.width, height: stream.height, fps, mimeType: "video/mp4", sizeBytes };
+  const videoStartMs = milliseconds(video.start_time ?? "0");
+  const videoDurationMs = milliseconds(video.duration);
+  const audioStartMs = milliseconds(audio.start_time ?? "0");
+  const audioDurationMs = milliseconds(audio.duration);
+
+  if (
+    ![
+      fps,
+      durationMs,
+      sizeBytes,
+      videoStartMs,
+      videoDurationMs,
+      audioStartMs,
+      audioDurationMs,
+    ].every(Number.isFinite)
+  ) {
+    throw new Error("ffprobe returned invalid numeric metadata.");
+  }
+  if (durationMs <= 0 || videoDurationMs <= 0 || audioDurationMs <= 0) {
+    throw new Error("ffprobe returned non-positive media duration metadata.");
+  }
+
+  return {
+    durationMs,
+    width: video.width,
+    height: video.height,
+    fps,
+    mimeType: "video/mp4",
+    sizeBytes,
+    videoStartMs,
+    videoDurationMs,
+    audioStartMs,
+    audioDurationMs,
+  };
+}
+
+function milliseconds(seconds: string): number {
+  return Math.round(Number(seconds) * 1000);
 }
