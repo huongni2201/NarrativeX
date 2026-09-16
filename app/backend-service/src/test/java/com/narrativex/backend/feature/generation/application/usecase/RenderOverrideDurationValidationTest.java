@@ -1,14 +1,14 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository.SelectableMediaAsset;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
-import com.narrativex.backend.feature.generation.domain.enums.BeatMediaFitMode;
+import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 class RenderOverrideDurationValidationTest {
   @Test
-  void trimValidationUsesOverriddenBeatDuration() {
+  void trimValidationUsesNarrationOwnedBeatDuration() {
     GetProductionTimelineUseCase timelineUseCase = mock(GetProductionTimelineUseCase.class);
     ProductionBeatMediaSelectionRepository repository =
         mock(ProductionBeatMediaSelectionRepository.class);
@@ -60,10 +60,11 @@ class RenderOverrideDurationValidationTest {
         .thenReturn(
             Optional.of(new SelectableMediaAsset(assetId, "VIDEO", 8_000L, 100L, "a".repeat(64))));
 
-    useCase.applyRenderOverrides(
-        projectId, List.of(new RenderBeatOverride(beatId, 6_000L, null, "TRIM", 0L)));
-
-    verify(repository).upsert(projectId, beatId, assetId, BeatMediaFitMode.TRIM, 0L);
+    assertThatThrownBy(
+            () ->
+                useCase.applyRenderOverrides(
+                    projectId, List.of(new RenderBeatOverride(beatId, null, null, "TRIM", 0L))))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("shorter than the narration span");
   }
 }
-
