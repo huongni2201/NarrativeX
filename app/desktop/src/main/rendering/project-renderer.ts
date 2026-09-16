@@ -10,6 +10,7 @@ import type { FfmpegRuntimeStatus } from "./ffmpeg-runtime";
 import { RenderExecutionError } from "./render-errors";
 import { buildLocalRenderManifest, renderDimensions } from "./render-manifest";
 import { parseRenderProfile } from "./render-profile";
+import { validateRenderSync } from "./render-sync-validation";
 import { renderSegments, renderWorkingDimensions } from "./segment-renderer";
 import { concatVideo } from "./video-concat";
 import {
@@ -48,6 +49,10 @@ export class ProjectRenderer {
       dimensions.height,
     );
     const manifest = buildLocalRenderManifest(prepared, videoEncoder);
+    const expectedDurationMs = manifest.beats.reduce(
+      (largest, beat) => Math.max(largest, beat.globalEndMs),
+      0,
+    );
     const movingStillBeats = manifest.beats.filter(
       (beat) => beat.mediaType === "IMAGE" && beat.cameraMovement.trim().toUpperCase() !== "NONE",
     );
@@ -100,6 +105,7 @@ export class ProjectRenderer {
       try {
         const finalPath = await this.storage.resolveArtifact(prepared.projectId, prepared.jobId);
         const metadata = await probeVideo(this.runtime.ffprobePath, finalPath);
+        validateRenderSync(metadata, expectedDurationMs, manifest.fps);
         return completion(manifest.renderFingerprint, metadata, await this.storage.artifactEntry(prepared.projectId, prepared.jobId));
       } catch (error) {
         const failure = asRenderFailure("RENDER_COMPLETED_ARTIFACT_INVALID", error);
@@ -113,6 +119,7 @@ export class ProjectRenderer {
       try {
         if (await isFile(finalPath)) {
           const metadata = await probeVideo(this.runtime.ffprobePath, finalPath);
+          validateRenderSync(metadata, expectedDurationMs, manifest.fps);
           if (journal.stage === "VERIFY") {
             journal = await this.journals.advance(journal, "REGISTER");
           }
@@ -183,6 +190,7 @@ export class ProjectRenderer {
       let metadata: Awaited<ReturnType<typeof probeVideo>>;
       try {
         metadata = await probeVideo(this.runtime.ffprobePath, renderedFinalPath);
+        validateRenderSync(metadata, expectedDurationMs, manifest.fps);
       } catch (error) {
         throw asRenderFailure("RENDER_VERIFY_FAILED", error);
       }
