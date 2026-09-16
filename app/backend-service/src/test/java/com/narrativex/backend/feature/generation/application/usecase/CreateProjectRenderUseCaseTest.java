@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class CreateProjectRenderUseCaseTest {
 
   @Test
-  void normalizesDurationOverridesInsideChapterWithoutChangingAudioClock() {
+  void rejectsDurationOverrideBecauseNarrationOwnsBeatClock() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
@@ -23,21 +23,20 @@ class CreateProjectRenderUseCaseTest {
     ProductionTimelineView timeline =
         timeline(projectId, storyVersionId, chapterId, firstBeatId, secondBeatId);
 
-    ProductionTimelineView adjusted =
-        CreateProjectRenderUseCase.applyBeatOverrides(
-            timeline,
-            List.of(
-                new RenderBeatOverride(firstBeatId, 10_000L, null),
-                new RenderBeatOverride(secondBeatId, null, "PAN")));
+    assertThatThrownBy(
+            () ->
+                CreateProjectRenderUseCase.applyBeatOverrides(
+                    timeline,
+                    List.of(new RenderBeatOverride(firstBeatId, 10_000L, null))))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .satisfies(
+            error ->
+                assertThat(((GenerationAdmissionDeniedException) error).getCode())
+                    .isEqualTo("INVALID_RENDER_OVERRIDE"));
 
-    assertThat(adjusted.totalDurationMs()).isEqualTo(60_000L);
-    assertThat(adjusted.chapters().getFirst().startMs()).isZero();
-    assertThat(adjusted.chapters().getFirst().endMs()).isEqualTo(60_000L);
-    assertThat(adjusted.beats())
+    assertThat(timeline.beats())
         .extracting(beat -> List.of(beat.startMs(), beat.endMs(), beat.durationMs()))
-        .containsExactly(List.of(0L, 15_000L, 15_000L), List.of(15_000L, 60_000L, 45_000L));
-    assertThat(adjusted.beats().getFirst().cameraMovement()).isEqualTo("NONE");
-    assertThat(adjusted.beats().get(1).cameraMovement()).isEqualTo("PAN");
+        .containsExactly(List.of(0L, 30_000L, 30_000L), List.of(30_000L, 60_000L, 30_000L));
   }
 
   @Test
@@ -92,7 +91,7 @@ class CreateProjectRenderUseCaseTest {
                 null,
                 localDeviceId,
                 true,
-                List.of(new RenderBeatOverride(firstBeatId, 10_000L, null))));
+                List.of(new RenderBeatOverride(firstBeatId, null, "PAN"))));
 
     assertThat(render720)
         .hasSize(64)
@@ -121,7 +120,7 @@ class CreateProjectRenderUseCaseTest {
     assertThatThrownBy(
             () ->
                 CreateProjectRenderUseCase.applyBeatOverrides(
-                    timeline, List.of(new RenderBeatOverride(UUID.randomUUID(), 5_000L, null))))
+                    timeline, List.of(new RenderBeatOverride(UUID.randomUUID(), null, "PAN"))))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .satisfies(
             error ->
@@ -145,8 +144,8 @@ class CreateProjectRenderUseCaseTest {
                 CreateProjectRenderUseCase.applyBeatOverrides(
                     timeline,
                     List.of(
-                        new RenderBeatOverride(firstBeatId, 5_000L, null),
-                        new RenderBeatOverride(firstBeatId, null, "PAN"))))
+                        new RenderBeatOverride(firstBeatId, null, "PAN"),
+                        new RenderBeatOverride(firstBeatId, null, "TILT"))))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .satisfies(
             error ->
