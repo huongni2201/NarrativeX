@@ -231,9 +231,18 @@ class ImageReconciliationMixin(ImageRepositoryMixin):
                     negative_prompt=row["negative_prompt"],
                     aspect_ratio=ImageAspectRatio(row["image_aspect_ratio"] or "16:9"),
                     provider_key=row["image_provider_key"] or "vertex",
-                    model_key=row["image_model_key"] or self.settings.vertex_image_model,
-                    location=self.settings.vertex_image_batch_location,
+                    model_key=(
+                        row["image_model_key"]
+                        or str(
+                            getattr(self.settings, "vertex_image_model", "imagen-3.0-generate-002")
+                        )
+                    ),
+                    location=str(
+                        getattr(self.settings, "vertex_image_batch_location", "us-central1")
+                    ),
                     max_output_bytes=self.settings.image_max_output_bytes,
+
+
                 ),
             )
             for row in rows

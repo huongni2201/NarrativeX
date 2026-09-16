@@ -254,8 +254,9 @@ class ImageSubmissionMixin(ImageRepositoryMixin):
             operation.id,
             error[:2000],
             operation.row_version,
-            self.settings.vertex_image_unknown_max_age_seconds,
+            self.settings.image_unknown_max_age_seconds,
             operation.worker_id,
             operation.lease_token,
         )
+
         return str(result) == "UPDATE 1"

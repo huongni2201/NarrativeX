@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.gpu_ownership import GpuOwner, gpu_lease
@@ -36,7 +37,8 @@ class GpuOwnedBatchImageProvider:
         recover = getattr(self.inner, "recover_batch", None)
         if recover is None:
             return operation
-        return await recover(operation)
+        return cast(ImageBatchOperation, await recover(operation))
+
 
     async def aclose(self) -> None:
         close = getattr(self.inner, "aclose", None)

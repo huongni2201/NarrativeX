@@ -18,7 +18,7 @@ import os
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
@@ -286,11 +286,13 @@ class RealVisXLBatchImageProvider:
                 raise RealVisXLProviderError("REALVISXL_REFERENCE_WORKFLOW_INVALID") from exception
             if not isinstance(raw, dict):
                 raise RealVisXLProviderError("REALVISXL_REFERENCE_WORKFLOW_INVALID")
-            return _substitute_template(
+            substituted = _substitute_template(
                 raw,
                 _template_values(item, checkpoint, width, height, seed, references),
             )
+            return cast(dict[str, Any], substituted)
         return _default_workflow(item, checkpoint, width, height, seed)
+
 
     async def _upload_references(
         self, references: tuple[ImageReference, ...]
