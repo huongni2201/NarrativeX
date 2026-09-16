@@ -2,10 +2,10 @@ package com.narrativex.backend.feature.generation.api.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
@@ -46,7 +46,8 @@ public record CreateProjectRenderRequest(
 
   public record BeatOverride(
       @NotNull UUID visualBeatId,
-      @Min(1000) @Max(120000) Long durationMs,
+      @Null(message = "durationMs is derived from narration alignment and cannot be overridden")
+          Long durationMs,
       @Pattern(regexp = "NONE|PAN|TILT|PUSH_IN|PULL_OUT|TRACK|ZOOM_IN|ZOOM_OUT|PARALLAX")
           String cameraMovement,
       @Pattern(regexp = "TRIM|LOOP|FREEZE_END|SPEED_ADJUST") String fitMode,
