@@ -11,7 +11,6 @@ export function updateTimelineDraft(
   const { visualBeatId: _currentId, ...currentValues } = current ?? {};
   const next = { visualBeatId, ...currentValues, ...patch };
   if (
-    next.durationMs === undefined &&
     next.cameraMovement === undefined &&
     next.fitMode === undefined &&
     next.trimStartMs === undefined
