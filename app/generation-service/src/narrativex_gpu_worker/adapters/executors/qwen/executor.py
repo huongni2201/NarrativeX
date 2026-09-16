@@ -7,6 +7,7 @@ import time
 
 from narrativex_gpu_worker.application.errors import (
     AmbiguousOutcomeError,
+    ExecutionCanceledError,
     MissingDurableContextError,
 )
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
@@ -57,7 +58,7 @@ class QwenExecutor:
         context: ExecutionContext | None = None,
     ) -> ExecutionOutput:
         if cancel.is_set():
-            return ExecutionOutput()
+            raise ExecutionCanceledError("Qwen execution canceled before submit")
 
         if context and context.existing_execution_handle:
             raise AmbiguousOutcomeError(
@@ -90,6 +91,9 @@ class QwenExecutor:
         if handle:
             await context.save_handle(handle)
 
+        if cancel.is_set():
+            raise ExecutionCanceledError("Qwen execution canceled before artifact upload")
+
         runtime_ms = int((time.perf_counter() - start_time) * 1000)
         outputs: list[ProducedArtifact] = []
 
@@ -98,6 +102,7 @@ class QwenExecutor:
             target = task.artifacts.outputs[0]
             produced = await self._artifact_adapter.upload(target, content_bytes)
             outputs.append(produced)
+
 
         return ExecutionOutput(
             outputs=outputs,

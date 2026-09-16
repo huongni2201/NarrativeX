@@ -9,7 +9,10 @@ from typing import Any
 
 import httpx
 
+from narrativex_gpu_worker.application.errors import ExecutionCanceledError
+
 logger = logging.getLogger(__name__)
+
 
 
 class QwenClientError(RuntimeError):
@@ -118,7 +121,8 @@ class QwenClient:
             request.cancel()
             with suppress(asyncio.CancelledError):
                 await request
-            raise asyncio.CancelledError
+            raise ExecutionCanceledError("Qwen execution canceled")
+
 
         cancellation.cancel()
         with suppress(asyncio.CancelledError):

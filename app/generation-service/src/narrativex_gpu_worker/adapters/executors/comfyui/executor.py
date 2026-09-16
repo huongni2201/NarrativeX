@@ -4,7 +4,10 @@ import asyncio
 import time
 from typing import Any
 
-from narrativex_gpu_worker.application.errors import MissingDurableContextError
+from narrativex_gpu_worker.application.errors import (
+    ExecutionCanceledError,
+    MissingDurableContextError,
+)
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
 from narrativex_gpu_worker.contracts import (
@@ -47,7 +50,7 @@ class ComfyUIExecutor:
         context: ExecutionContext | None = None,
     ) -> ExecutionOutput:
         if cancel.is_set():
-            return ExecutionOutput()
+            raise ExecutionCanceledError("ComfyUI execution canceled before submit")
 
         start_time = time.perf_counter()
         inputs = task.inputs
@@ -83,7 +86,10 @@ class ComfyUIExecutor:
             await context.save_handle(f"comfyui:{prompt_id}")
 
         record = await self._client.poll_history(prompt_id, cancel)
+        if cancel.is_set():
+            raise ExecutionCanceledError("ComfyUI execution canceled before artifact upload")
         image_bytes = await self._download_record_image(record)
+
 
         runtime_ms = int((time.perf_counter() - start_time) * 1000)
         outputs: list[ProducedArtifact] = []

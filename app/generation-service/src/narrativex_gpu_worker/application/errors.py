@@ -29,11 +29,17 @@ class MissingDurableContextError(RuntimeError):
     """A remote side-effect executor was invoked without durable persistence callbacks."""
 
 
+class ExecutionCanceledError(RuntimeError):
+    """Execution was canceled through the domain/user cancellation signal."""
+
+
 __all__ = [
     "AmbiguousOutcomeError",
     "CapacityError",
     "DeadlineExceededError",
+    "ExecutionCanceledError",
     "ExecutorNotSupportedError",
     "FingerprintConflictError",
     "MissingDurableContextError",
 ]
+

@@ -23,6 +23,7 @@ from narrativex_gpu_worker.adapters.persistence.sqlite_execution_journal import 
 )
 from narrativex_gpu_worker.application.errors import (
     AmbiguousOutcomeError,
+    ExecutionCanceledError,
     MissingDurableContextError,
 )
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
@@ -243,7 +244,7 @@ async def test_qwen_executor_requires_durable_context_for_new_submission(
     assert requests_log == []
 
 
-async def test_qwen_executor_cancellation_returns_early(text_task: ComputeTask) -> None:
+async def test_qwen_executor_cancels_before_submit(text_task: ComputeTask) -> None:
     http_client, requests_log = create_mock_qwen_client()
     executor = QwenExecutor(
         client=QwenClient(client=http_client),
@@ -253,8 +254,8 @@ async def test_qwen_executor_cancellation_returns_early(text_task: ComputeTask) 
     cancel = asyncio.Event()
     cancel.set()
 
-    output = await executor.execute(text_task, cancel)
-    assert len(output.outputs) == 0
+    with pytest.raises(ExecutionCanceledError, match="canceled before submit"):
+        await executor.execute(text_task, cancel)
     assert len(requests_log) == 0
 
 
@@ -302,8 +303,57 @@ async def test_qwen_client_cancels_inflight_request() -> None:
     await request_started.wait()
     cancel.set()
 
-    with pytest.raises(asyncio.CancelledError):
+    with pytest.raises(ExecutionCanceledError):
         await asyncio.wait_for(generation, timeout=0.2)
+
+
+async def test_qwen_cancellation_during_request_prevents_artifact_upload(
+    text_task: ComputeTask,
+) -> None:
+    request_started = asyncio.Event()
+
+    async def slow_handler(request: httpx.Request) -> httpx.Response:
+        del request
+        request_started.set()
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(slow_handler),
+        base_url="http://localhost:8000/v1",
+    )
+    artifact_adapter = AsyncMock(spec=ArtifactPort)
+    executor = QwenExecutor(
+        client=QwenClient(client=client),
+        artifact_adapter=artifact_adapter,
+        ready=True,
+    )
+    cancel = asyncio.Event()
+    submitting_called = False
+
+    async def save_submitting() -> None:
+        nonlocal submitting_called
+        submitting_called = True
+
+    async def save_handle(handle: str) -> None:
+        pass
+
+    context = ExecutionContext(
+        save_submitting=save_submitting,
+        save_handle=save_handle,
+        correlation_key="test-key",
+    )
+
+    task_coro = asyncio.create_task(executor.execute(text_task, cancel, context))
+    await request_started.wait()
+    assert submitting_called is True
+    cancel.set()
+
+    with pytest.raises(ExecutionCanceledError):
+        await task_coro
+
+    artifact_adapter.upload.assert_not_called()
+
 
 
 async def test_qwen_client_cancels_inflight_request_when_caller_is_cancelled() -> None:

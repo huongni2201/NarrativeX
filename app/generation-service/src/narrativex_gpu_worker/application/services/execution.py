@@ -10,6 +10,7 @@ from narrativex_gpu_worker.application.errors import (
     AmbiguousOutcomeError,
     CapacityError,
     DeadlineExceededError,
+    ExecutionCanceledError,
     ExecutorNotSupportedError,
     FingerprintConflictError,
     MissingDurableContextError,
@@ -250,8 +251,21 @@ class ExecutionApplicationService:
                     outputs=result.outputs,
                     metrics=result.metrics,
                 )
+            except ExecutionCanceledError:
+                next_seq = await self._next_sequence(task.task_id, task.attempt_id)
+                current_obs = await self._journal.load(task.task_id, task.attempt_id)
+                handle = (current_obs.execution_handle if current_obs else None) or existing_handle
+                completed = ComputeObservation(
+                    task_id=task.task_id,
+                    attempt_id=task.attempt_id,
+                    state=ExecutionState.CANCELED,
+                    sequence=next_seq,
+                    observed_at=self._now_fn(),
+                    execution_handle=handle,
+                )
             except asyncio.CancelledError:
                 raise
+
             except TimeoutError:
                 now = self._now_fn()
                 next_seq = await self._next_sequence(task.task_id, task.attempt_id)
