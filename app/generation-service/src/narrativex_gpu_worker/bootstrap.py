@@ -26,7 +26,12 @@ from narrativex_gpu_worker.adapters.executors.whisperx import WhisperXClient, Wh
 from narrativex_gpu_worker.adapters.inbound.http import AppState
 from narrativex_gpu_worker.adapters.inbound.http import create_app as create_http_app
 from narrativex_gpu_worker.adapters.persistence import SqliteExecutionJournalAdapter
+from narrativex_gpu_worker.adapters.runtime import GpuResidencyManager
 from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
+from narrativex_gpu_worker.application.ports.residency import (
+    NullRuntimeResidency,
+    RuntimeResidencyPort,
+)
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
 from narrativex_gpu_worker.config import WorkerSettings
 
@@ -36,6 +41,7 @@ class ApplicationComponents:
     settings: WorkerSettings
     executor_catalog: ExecutorCatalogPort
     execution: ExecutionApplicationService
+    residency: RuntimeResidencyPort | None = None
     close_resources: Callable[[], Awaitable[None]] | None = None
 
     async def close(self) -> None:
@@ -96,7 +102,9 @@ def build_executor_catalog(
 
 
 def build_application(
-    settings: WorkerSettings, executor_catalog: ExecutorCatalogPort | None = None
+    settings: WorkerSettings,
+    executor_catalog: ExecutorCatalogPort | None = None,
+    residency: RuntimeResidencyPort | None = None,
 ) -> ApplicationComponents:
     client: httpx.AsyncClient | None = None
     if executor_catalog is None:
@@ -104,28 +112,45 @@ def build_application(
         catalog = build_executor_catalog(settings, client)
     else:
         catalog = executor_catalog
+
+    residency_manager: RuntimeResidencyPort
+    if residency is not None:
+        residency_manager = residency
+    elif settings.residency_enabled:
+        residency_manager = GpuResidencyManager(
+            transition_timeout_seconds=settings.residency_transition_timeout_seconds
+        )
+    else:
+        residency_manager = NullRuntimeResidency()
+
     journal = SqliteExecutionJournalAdapter(settings.journal_file)
     execution = ExecutionApplicationService(
         journal=journal,
         executor_catalog=catalog,
         max_concurrency=settings.max_concurrent_tasks,
+        residency=residency_manager,
     )
+
     async def close_resources() -> None:
         if client is not None:
             await client.aclose()
+        await residency_manager.release_all()
 
     return ApplicationComponents(
         settings=settings,
         executor_catalog=catalog,
         execution=execution,
+        residency=residency_manager,
         close_resources=close_resources,
     )
 
 
 def create_app(
-    settings: WorkerSettings, executor_catalog: ExecutorCatalogPort | None = None
+    settings: WorkerSettings,
+    executor_catalog: ExecutorCatalogPort | None = None,
+    residency: RuntimeResidencyPort | None = None,
 ) -> FastAPI:
-    components = build_application(settings, executor_catalog)
+    components = build_application(settings, executor_catalog, residency=residency)
     state = AppState(
         settings=components.settings,
         executor_catalog=components.executor_catalog,

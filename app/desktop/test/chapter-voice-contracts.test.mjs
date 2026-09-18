@@ -113,7 +113,7 @@ test("chapter workspace parser accepts resumable analysis and narration metadata
 
 test("voice tag filtering updates the result set", () => {
   const voices = [
-    { id: "vi", provider: "VIENEU", name: "Ngọc", language: "vi-VN", gender: "FEMALE", sampleUrl: null },
+    { id: "vi", provider: "VOICESTUDIO", name: "Ngọc", language: "vi-VN", gender: "FEMALE", sampleUrl: null },
     { id: "en", provider: "GOOGLE", name: "Alex", language: "en-US", gender: "MALE", sampleUrl: null },
   ];
 
@@ -135,7 +135,7 @@ test("voice selection migrates legacy ids only to the explicit VoiceStudio defau
     { id: "voicestudio-default", provider: "VOICESTUDIO", name: "Default", language: "vi-VN", gender: null, sampleUrl: null },
   ];
 
-  assert.equal(resolveVoiceSelection("vieneu-ngoc-huyen-v2", voices, "voicestudio-default"), "voicestudio-default");
+  assert.equal(resolveVoiceSelection("legacy-voice-v2", voices, "voicestudio-default"), "voicestudio-default");
   assert.equal(resolveVoiceSelection("other", voices, "voicestudio-default"), "other");
   assert.equal(resolveVoiceSelection("missing", [voices[0]], "voicestudio-default"), "");
 });
@@ -161,7 +161,7 @@ test("chapter audio explains when the active plan does not include narration", (
 
 test("chapter audio title keeps the voice used by the generated narration", () => {
   const voices = [
-    { id: "ngoc", provider: "VIENEU", name: "Ngọc Huyền", language: "vi-VN", gender: "FEMALE", sampleUrl: null },
+    { id: "ngoc", provider: "VOICESTUDIO", name: "Ngọc Huyền", language: "vi-VN", gender: "FEMALE", sampleUrl: null },
     { id: "adam", provider: "ELEVENLABS", name: "Adam", language: "en-US", gender: "MALE", sampleUrl: null },
   ];
 

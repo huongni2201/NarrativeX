@@ -103,7 +103,6 @@ class PostgreSqlMigrationIntegrationTest {
           latestFlywayVersion(connection), flyway.info().current().getVersion().getVersion());
       assertEquals(0, flyway.info().pending().length, "repeat migrate must be a no-op");
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
-      assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
 

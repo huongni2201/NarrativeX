@@ -26,6 +26,7 @@ app/generation-service/
           executors.py       # ExecutorCatalogPort
           journal.py         # ExecutionJournalPort
           artifacts.py       # ArtifactAccessPort
+          residency.py       # RuntimeResidencyPort, RuntimeFamily, RuntimeRequirement
         services/
           execution.py       # ExecutionApplicationService (checkpoint & dispatch)
       domain/
@@ -36,11 +37,13 @@ app/generation-service/
           http/              # FastAPI application, routes (/v1/tasks/submit, /health)
         persistence/
           sqlite_execution_journal.py # SQLite journal implementation (ADR-0031)
+        runtime/
+          manager.py         # GpuResidencyManager (host-level VRAM mutual exclusion)
         executors/
           catalog.py         # Dynamic executor catalog
           voicestudio/       # VoiceStudio TTS executor adapter
           whisperx/          # local WhisperX forced-alignment adapter
-          comfyui/           # ComfyUI (RealVisXL) image generation adapter
+          comfyui/           # ComfyUI (RealVisXL / Wan2.1) image & video generation adapter
           media_validation/  # Domain-neutral media validation adapter
         artifacts/
           http.py            # HTTP capability artifact download and upload
@@ -60,9 +63,17 @@ To prevent blind resubmission and double-execution on external AI engines:
 4. `UNKNOWN`: Engine timeout, network drop, or crash during submission. Reconciled before retry.
 5. On crash recovery during startup, all unfinished attempts in SQLite journal are reconciled or aborted safely.
 
+## GPU Model Residency & Mutual Exclusion (ADR-0033)
+
+In single-GPU host deployments (such as remote RTX 3090 with 24GB VRAM):
+- `GpuResidencyManager` arbitrates exclusive access between heavy model runtimes (`COMFYUI_VIDEO`, `COMFYUI_IMAGE`, `QWEN`, `VOICESTUDIO`, `WHISPERX`).
+- Concurrent leases are allowed within non-exclusive families; family transitions require full active lease drainage.
+- Transitions enforce strict timeouts with fail-closed poisoning: if an unloader hangs or VRAM is not reclaimed, the manager poisons itself to prevent cascading host OOM errors.
+
 ## Supported Task Types (Compute Protocol v1)
 
 - `audio.synthesize`: VoiceStudio segment TTS synthesis (`task-audio-synthesize.json`).
-- `audio.align`: WhisperX forced alignment (`task-audio-align.json`). The adapter aligns the known script against the exact WAV input, emits deterministic UTF-16 source offsets plus measured millisecond word ranges, caches the align model per language, and fails closed instead of inventing proportional timing when tokens/timestamps cannot be reconciled. Default production executor registration remains part of the active compute-plane cutover; an adapter implementation is not by itself evidence that backend narration has cut over.
+- `audio.align`: WhisperX forced alignment (`task-audio-align.json`). The adapter aligns the known script against the exact WAV input, emits deterministic UTF-16 source offsets plus measured millisecond word ranges, caches the align model per language, and fails closed instead of inventing proportional timing when tokens/timestamps cannot be reconciled.
 - `image.generate`: ComfyUI RealVisXL image generation (`task-image-generate.json`).
+- `video.generate`: ComfyUI Wan2.1 reference-conditioned short video clip generation (silent stems, ADR-0033).
 - `media.validate`: Domain-neutral media integrity validation (`task-media-validate.json`).

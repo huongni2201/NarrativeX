@@ -118,7 +118,7 @@ class ProductionTimelineLocalFirstIntegrationTest {
 
   private void seedProjectGraph() {
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Local first', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'Local first', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Story', 'vi-VN', 'ACTIVE') ON CONFLICT (id) DO NOTHING",
@@ -137,8 +137,9 @@ class ProductionTimelineLocalFirstIntegrationTest {
         REVISION_ID,
         CHAPTER_ID);
     jdbcTemplate.update(
-        "INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) VALUES (?, ?, ?, 0, 'Scene', 'Narration', 10, 'APPROVED') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO scenes (id, project_id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) VALUES (?, ?, ?, ?, 0, 'Scene', 'Narration', 10, 'APPROVED') ON CONFLICT (id) DO NOTHING",
         SCENE_ID,
+        PROJECT_ID,
         CHAPTER_ID,
         REVISION_ID);
   }

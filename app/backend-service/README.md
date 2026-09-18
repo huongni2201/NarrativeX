@@ -13,15 +13,14 @@ Project creation is metadata-only. Chapter save persists source only. Analysis/n
 - **MyBatis + explicit SQL is the production persistence boundary**
 - MyBatis/explicit-SQL paths cover domain CRUD/query persistence, provider operations, generation jobs/stages/plans, media planning and items, outbox/job history, chapter idempotency, render-input snapshots, chapter media heads, assets, narration, catalogs, local devices and final artifacts
 - MyBatis + explicit SQL is the sole production domain persistence path; JPA and `JdbcTemplate` are absent from production domain code
-- Spring Security + Spring Session JDBC + CSRF + Google OIDC authentication
-- PostgreSQL-backed one-time Desktop OAuth handoffs; raw handoff codes are never persisted
+- Local-first single-user boundary (ADR-0030)
+- Dispatch to isolated GPU worker via HTTP Compute Protocol v1 (ADR-0031 / COMPUTE_PROTOCOL.md)
+- Local media storage adapter backed by project workspace (ADR-0030 / LocalObjectStorageAdapter)
 - Testcontainers/JUnit/JaCoCo
-
-Redis is not required by the MVP backend runtime.
 
 ## Durable authority
 
-PostgreSQL owns authoritative domain/job/plan/usage metadata, server sessions and short-lived OAuth handoff state. Python workers claim durable jobs directly from PostgreSQL using their normal polling/lease queries. Generation/media outbox rows are transactional evidence and are finalized after commit without an external broker. Cloudflare R2 owns durable generated-media transport bytes.
+PostgreSQL owns authoritative business state, durable jobs, admission, operation plans, and project metadata. The backend coordinates GPU workloads through HTTP Compute Protocol v1 without allowing external worker access to PostgreSQL. Generated media bytes are managed locally in the project media directory.
 
 ## MediaPlan authority
 

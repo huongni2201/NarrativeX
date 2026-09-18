@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 public class ProjectLocalMediaAccess implements MediaStorageAccess, LocalMediaUploadAccess {
   private static final String NARRATION_PREFIX = "narration/";
   private static final String PROVIDER_RESULTS_PREFIX = "private/provider-results/";
+  private static final String VOICES_PREFIX = "voices/";
   private static final String PROJECTS_SEGMENT = "projects";
   private static final String PROJECT_ASSETS_SEGMENT = "assets";
 
@@ -38,7 +39,8 @@ public class ProjectLocalMediaAccess implements MediaStorageAccess, LocalMediaUp
   public ProjectLocalMediaAccess(
       @Value("${narrativex.storage.project-media-local-dir:/data/narrativex/project-media}")
           String projectMediaLocalDir,
-      @Value("${narrativex.security.public-base-url:}") String publicBaseUrl) {
+      @Value("${narrativex.public-base-url:${narrativex.security.public-base-url:}}")
+          String publicBaseUrl) {
     this.root = Path.of(projectMediaLocalDir).toAbsolutePath().normalize();
     String normalizedBase = publicBaseUrl == null ? "" : publicBaseUrl.trim();
     if (normalizedBase.isBlank()) normalizedBase = "http://localhost:8080";
@@ -49,6 +51,7 @@ public class ProjectLocalMediaAccess implements MediaStorageAccess, LocalMediaUp
     if (storageKey == null) return false;
     return storageKey.startsWith(NARRATION_PREFIX)
         || storageKey.startsWith(PROVIDER_RESULTS_PREFIX)
+        || storageKey.startsWith(VOICES_PREFIX)
         || isProjectAssetKey(storageKey);
   }
 
@@ -213,6 +216,18 @@ public class ProjectLocalMediaAccess implements MediaStorageAccess, LocalMediaUp
       return Files.readAllBytes(path);
     } catch (IOException exception) {
       throw new IllegalStateException("Project-local media read failed", exception);
+    }
+  }
+
+  public boolean deleteIfExists(String storageKey) {
+    if (!supports(storageKey)) {
+      return false;
+    }
+    Path path = resolvePath(storageKey, false);
+    try {
+      return Files.deleteIfExists(path);
+    } catch (IOException exception) {
+      throw new IllegalStateException("Project-local media delete failed", exception);
     }
   }
 

@@ -215,9 +215,9 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
-              (name, owner_id, status, source_language, narration_language, metadata_language,
-               image_aspect_ratio, image_quality_tier)
-            VALUES (?, 'provider-operation-test', 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
+              (name, status, source_language, narration_language, metadata_language,
+               image_aspect_ratio)
+            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9')
             RETURNING id
             """,
             UUID.class,
@@ -226,9 +226,8 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         jdbcTemplate.queryForObject(
             """
             INSERT INTO generation_jobs
-              (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id)
-            VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0,
-                    'provider-operation-test')
+              (job_id, project_id, job_type, status, resource_class, progress)
+            VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0)
             RETURNING id
             """,
             UUID.class,

@@ -33,9 +33,9 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
   void seedArtifacts() {
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, status, source_language, narration_language,"
-            + " metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Artifact"
-            + " project', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9',"
-            + " 'STANDARD') ON CONFLICT (id) DO NOTHING",
+            + " metadata_language, image_aspect_ratio) VALUES (?, 'Artifact"
+            + " project', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')"
+            + " ON CONFLICT (id) DO NOTHING",
         PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language,"

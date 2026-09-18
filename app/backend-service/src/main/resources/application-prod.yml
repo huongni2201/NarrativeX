@@ -12,17 +12,6 @@ spring:
 server:
   shutdown: graceful
   forward-headers-strategy: framework
-  servlet:
-    session:
-      cookie:
-        name: NX_SESSION
-        http-only: true
-        secure: ${NARRATIVEX_SESSION_COOKIE_SECURE:true}
-        same-site: lax
-
-narrativex:
-  security:
-    local-dev-identity-enabled: false
 
 management:
   endpoints:

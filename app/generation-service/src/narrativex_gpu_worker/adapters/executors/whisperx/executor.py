@@ -7,6 +7,7 @@ import time
 from narrativex_gpu_worker.application.errors import ExecutionCanceledError
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
+from narrativex_gpu_worker.application.ports.residency import RuntimeFamily, RuntimeRequirement
 from narrativex_gpu_worker.contracts import (
     AudioAlignInputs,
     ComputeTask,
@@ -38,6 +39,10 @@ class WhisperXExecutor:
     @property
     def ready(self) -> bool:
         return self._ready
+
+    @property
+    def runtime_requirement(self) -> RuntimeRequirement:
+        return RuntimeRequirement(family=RuntimeFamily.WHISPERX, vram_budget_mb=3072)
 
     async def execute(
         self,

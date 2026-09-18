@@ -9,6 +9,7 @@ from narrativex_gpu_worker.application.errors import (
 )
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
+from narrativex_gpu_worker.application.ports.residency import RuntimeFamily, RuntimeRequirement
 from narrativex_gpu_worker.contracts import (
     AudioSynthesizeInputs,
     ComputeTask,
@@ -40,6 +41,10 @@ class VoiceStudioExecutor:
     @property
     def ready(self) -> bool:
         return self._ready
+
+    @property
+    def runtime_requirement(self) -> RuntimeRequirement:
+        return RuntimeRequirement(family=RuntimeFamily.VOICESTUDIO, vram_budget_mb=4096)
 
     async def execute(
         self,

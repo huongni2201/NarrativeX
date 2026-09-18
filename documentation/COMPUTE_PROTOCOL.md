@@ -301,6 +301,76 @@ execution-local and contains no NarrativeX domain data.
 | Artifact identity/publication | Coordinates and verifies | Downloads/uploads through capabilities |
 | Provider/engine SDKs | Forbidden from domain modules | Executor adapters own them |
 | NarrativeX PostgreSQL | Owns | Forbidden |
+| Single-GPU model residency & arbitration | Unaware | Owns via `GpuResidencyManager` |
+
+## Video Generation Task Draft (`video.generate`)
+
+In alignment with ADR-0033, short-video generation on remote GPU hosts (Wan2.1 via ComfyUI) extends Compute Protocol v1 with the `video.generate` task type:
+
+```json
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b870-0000-7000-8000-000000000001",
+  "attemptId": "0199b870-0000-7000-8000-000000000002",
+  "idempotencyKey": "compute:video:0199b870-0000-7000-8000-000000000001:1",
+  "task": {
+    "type": "video.generate",
+    "schemaVersion": "1.0"
+  },
+  "model": {
+    "executor": "comfyui",
+    "model": "wan2.1-t2v-14b",
+    "revision": "comfyui-v0.3.0"
+  },
+  "constraints": {
+    "deadline": "2026-09-18T12:00:00Z",
+    "maxRuntimeSeconds": 300
+  },
+  "inputs": {
+    "prompt": "Cinematic camera pan across ancient stone ruins at sunset",
+    "negative_prompt": "blurry, low quality, jitter, text, watermark",
+    "duration_seconds": 4.0,
+    "fps": 24,
+    "width": 832,
+    "height": 480,
+    "seed": 42,
+    "conditioning": {
+      "mode": "FIRST_FRAME_I2V",
+      "reference_artifact_role": "reference-image"
+    }
+  },
+  "artifacts": [
+    {
+      "artifactId": "0199b870-0000-7000-8000-000000000003",
+      "role": "reference-image",
+      "mediaType": "image/png",
+      "sizeBytes": 2097152,
+      "sha256": "abcdef...",
+      "access": {
+        "method": "GET",
+        "url": "https://backend.local/artifacts/capability/ref-img",
+        "expiresAt": "2026-09-18T12:15:00Z"
+      }
+    }
+  ],
+  "outputTargets": [
+    {
+      "artifactId": "0199b870-0000-7000-8000-000000000004",
+      "role": "video-clip",
+      "mediaType": "video/mp4",
+      "access": {
+        "method": "PUT",
+        "url": "https://backend.local/artifacts/capability/out-vid",
+        "expiresAt": "2026-09-18T12:15:00Z"
+      }
+    }
+  ]
+}
+```
+
+Key rules for `video.generate`:
+- Outputs are strictly silent visual stems (`video/mp4`). Audio generation, mixing, and timeline assembly remain on the client Desktop via FFmpeg.
+- Single GPU hosts arbitrate `video.generate` through `GpuResidencyManager`, ensuring ComfyUI/Wan2.1 exclusively holds VRAM and drains before switching back to image or TTS runtimes.
 
 ## Compatibility
 

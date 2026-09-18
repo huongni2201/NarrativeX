@@ -50,9 +50,6 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
-    registry.add("spring.session.jdbc.initialize-schema", () -> "never");
-    registry.add("narrativex.security.local-dev-identity-enabled", () -> true);
-    registry.add("narrativex.security.local-user-id", () -> USER_ID);
   }
 
   @Autowired private MockMvc mockMvc;
@@ -61,13 +58,9 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
   @BeforeEach
   void setUp() {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES (?, 'workspace-preview@example.com', 'Workspace Preview', true)",
-        USER_ID);
-    jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) "
-            + "VALUES (?, 'Workspace preview', '', ?, 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')",
-        PROJECT_ID,
-        USER_ID);
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) "
+            + "VALUES (?, 'Workspace preview', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')",
+        PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Text', 'vi-VN', 'ACTIVE')",
         STORY_ID,
@@ -87,16 +80,16 @@ class ChapterWorkspacePreviewMediaIntegrationTest {
         REVISION_ID,
         CHAPTER_ID);
     jdbcTemplate.update(
-        "INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
-            + "VALUES (?, ?, ?, 1, 'Scene', 'Text', 1, 'DRAFT')",
+        "INSERT INTO scenes (id, project_id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
+            + "VALUES (?, ?, ?, ?, 1, 'Scene', 'Text', 1, 'DRAFT')",
         SCENE_ID,
+        PROJECT_ID,
         CHAPTER_ID,
         REVISION_ID);
     jdbcTemplate.update(
-        "INSERT INTO media_assets (id, account_id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, status) "
-            + "VALUES (?, ?, ?, 'IMAGE', 'USER_UPLOAD', NULL, 'preview.png', 'image/png', 1024, repeat('b', 64), 'READY')",
+        "INSERT INTO media_assets (id, project_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, status) "
+            + "VALUES (?, ?, 'IMAGE', 'USER_UPLOAD', NULL, 'preview.png', 'image/png', 1024, repeat('b', 64), 'READY')",
         MEDIA_ASSET_ID,
-        USER_ID,
         PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, preview_media_asset_id) "

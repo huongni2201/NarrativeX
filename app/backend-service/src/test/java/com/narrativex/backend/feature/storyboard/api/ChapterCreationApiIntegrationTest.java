@@ -26,26 +26,12 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
   private static final UUID MISSING_PROJECT_ID =
       UUID.fromString("00000000-0000-4000-8000-000000001004");
 
-  @DynamicPropertySource
-  static void identityProperties(DynamicPropertyRegistry registry) {
-    registry.add("narrativex.security.local-dev-identity-enabled", () -> true);
-    registry.add("narrativex.security.local-user-id", () -> "seed-user-01");
-  }
-
   @Autowired private MockMvc mockMvc;
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @BeforeEach
   void seedProjectWithoutStoryVersion() {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES"
-            + " ('seed-user-01', 'chapter-create@example.com', 'Chapter Creator', true)"
-            + " ON CONFLICT (id) DO NOTHING");
-    jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, owner_id, status, source_language,"
-            + " narration_language, metadata_language, image_aspect_ratio, image_quality_tier)"
-            + " VALUES (?, 'P1003', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN',"
-            + " 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
         "INSERT INTO projects (id, name, description, status, source_language,"
             + " narration_language, metadata_language, image_aspect_ratio)"
             + " VALUES (?, 'P1003', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN',"

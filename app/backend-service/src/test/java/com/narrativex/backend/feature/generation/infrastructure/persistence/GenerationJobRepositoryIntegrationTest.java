@@ -213,8 +213,8 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         """
         INSERT INTO projects
           (name, status, source_language, narration_language, metadata_language,
-           image_aspect_ratio, image_quality_tier)
-        VALUES (?, 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')
+           image_aspect_ratio)
+        VALUES (?, 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')
         RETURNING id
         """,
         UUID.class,
@@ -243,17 +243,29 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             UUID.class,
             storyVersionId,
             sourceHash);
+    UUID revisionId =
+        jdbcTemplate.queryForObject(
+            """
+        INSERT INTO storyboard_revisions
+          (chapter_id, revision_number, source_hash, source_row_version, status)
+        VALUES (?, 1, ?, 0, 'DRAFT')
+        RETURNING id
+        """,
+            UUID.class,
+            chapterId,
+            sourceHash);
     UUID mediaPlanId = com.narrativex.backend.feature.common.uuid.UuidV7.random();
     jdbcTemplate.update(
         """
         INSERT INTO media_plans
-          (id, chapter_id, chapter_row_version, source_hash, production_mode, revision,
+          (id, chapter_id, storyboard_revision_id, chapter_row_version, source_hash, production_mode, revision,
            narration_characters, image_generate_count, image_edit_count, basic_motion_seconds,
            planned_i2v_seconds, created_at)
-        VALUES (?, ?, 0, ?, 'IMAGE_MOTION', 1, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, 0, ?, 'IMAGE_MOTION', 1, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP)
         """,
         mediaPlanId,
         chapterId,
+        revisionId,
         sourceHash);
     return new MediaFixture(storyVersionId, chapterId, sourceHash, mediaPlanId);
   }

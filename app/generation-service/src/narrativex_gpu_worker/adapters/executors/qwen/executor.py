@@ -12,6 +12,7 @@ from narrativex_gpu_worker.application.errors import (
 )
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
+from narrativex_gpu_worker.application.ports.residency import RuntimeFamily, RuntimeRequirement
 from narrativex_gpu_worker.contracts import (
     ComputeTask,
     ExecutionMetrics,
@@ -50,6 +51,10 @@ class QwenExecutor:
     @property
     def ready(self) -> bool:
         return self._ready
+
+    @property
+    def runtime_requirement(self) -> RuntimeRequirement:
+        return RuntimeRequirement(family=RuntimeFamily.QWEN, vram_budget_mb=8192)
 
     async def execute(
         self,

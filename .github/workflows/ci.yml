@@ -38,6 +38,9 @@ jobs:
       - name: Legacy runtime residue
         run: python scripts/check_legacy_runtime_residue.py
 
+      - name: Architecture residue
+        run: python scripts/check_architecture_residue.py
+
       - name: Image configuration contract
         run: python scripts/check-image-config-contract.py
 

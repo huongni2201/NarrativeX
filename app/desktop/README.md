@@ -160,7 +160,7 @@ docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.loca
 The local override keeps the backend on the loopback origin and starts all worker
 processes in development mode without external provider execution. The narration
 worker uses a deterministic fake TTS adapter only in this local development mode;
-AI/image jobs remain disabled until the production GCP credential and VieNeu
+AI/image jobs remain disabled until the production GCP credential and VoiceStudio
 reference-audio files are mounted explicitly. Fake provider output must not be used
 as production health or production media.
 

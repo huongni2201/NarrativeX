@@ -14,10 +14,17 @@ from narrativex_gpu_worker.application.errors import (
     ExecutorNotSupportedError,
     FingerprintConflictError,
     MissingDurableContextError,
+    ResidencyTransitionError,
 )
 from narrativex_gpu_worker.application.ports.execution import ExecutionContext
 from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
 from narrativex_gpu_worker.application.ports.journal import ExecutionJournalPort
+from narrativex_gpu_worker.application.ports.residency import (
+    NullRuntimeResidency,
+    RuntimeFamily,
+    RuntimeRequirement,
+    RuntimeResidencyPort,
+)
 from narrativex_gpu_worker.contracts import (
     ComputeError,
     ComputeObservation,
@@ -39,11 +46,13 @@ class ExecutionApplicationService:
         executor_catalog: ExecutorCatalogPort,
         max_concurrency: int,
         now_fn: Callable[[], datetime] | None = None,
+        residency: RuntimeResidencyPort | None = None,
     ) -> None:
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least one")
         self._journal = journal
         self._executor_catalog = executor_catalog
+        self._residency = residency or NullRuntimeResidency()
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._max_concurrency = max_concurrency
         self._admission_lock = asyncio.Lock()
@@ -228,8 +237,14 @@ class ExecutionApplicationService:
                     correlation_key=f"{task.task_id}:{task.attempt_id}",
                 )
 
+                requirement = getattr(
+                    executor,
+                    "runtime_requirement",
+                    RuntimeRequirement(family=RuntimeFamily.NONE, exclusive=False),
+                )
                 async with asyncio.timeout(effective_timeout):
-                    result = await executor.execute(task, cancellation, context)
+                    async with self._residency.acquire(requirement):
+                        result = await executor.execute(task, cancellation, context)
 
                 state = (
                     ExecutionState.CANCELED
@@ -324,6 +339,21 @@ class ExecutionApplicationService:
                     "EXECUTION_UNAVAILABLE",
                     ErrorCategory.TRANSIENT,
                     str(exc) or "Executor unavailable",
+                    sequence=next_seq,
+                )
+            except ResidencyTransitionError as exc:
+                LOGGER.error(
+                    "Residency transition failed taskId=%s attemptId=%s: %s",
+                    task.task_id,
+                    task.attempt_id,
+                    exc,
+                )
+                next_seq = await self._next_sequence(task.task_id, task.attempt_id)
+                completed = self._failure(
+                    task,
+                    "RESIDENCY_TRANSITION_FAILED",
+                    ErrorCategory.CAPACITY,
+                    str(exc) or "Failed to acquire GPU runtime model residency",
                     sequence=next_seq,
                 )
             except Exception:

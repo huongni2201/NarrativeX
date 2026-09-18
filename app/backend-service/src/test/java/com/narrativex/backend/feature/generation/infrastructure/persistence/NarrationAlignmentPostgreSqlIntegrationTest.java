@@ -65,7 +65,7 @@ class NarrationAlignmentPostgreSqlIntegrationTest {
   @BeforeEach
   void seed() {
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'Alignment', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')",
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'Alignment', '', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')",
         PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Xin chào', 'vi-VN', 'ACTIVE')",

@@ -33,6 +33,10 @@ class ExecutionCanceledError(RuntimeError):
     """Execution was canceled through the domain/user cancellation signal."""
 
 
+class ResidencyTransitionError(RuntimeError):
+    """Failed to transition or release GPU runtime model residency."""
+
+
 __all__ = [
     "AmbiguousOutcomeError",
     "CapacityError",
@@ -41,5 +45,6 @@ __all__ = [
     "ExecutorNotSupportedError",
     "FingerprintConflictError",
     "MissingDurableContextError",
+    "ResidencyTransitionError",
 ]
 

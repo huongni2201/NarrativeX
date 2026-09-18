@@ -93,12 +93,12 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
   private UUID insertStageAttempt() {
     UUID projectId =
         jdbcTemplate.queryForObject(
-            "INSERT INTO projects (name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'transaction-fixture', 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9') RETURNING id",
+            "INSERT INTO projects (name, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9') RETURNING id",
             UUID.class,
             "fixture-" + UuidV7.random());
     UUID jobId =
         jdbcTemplate.queryForObject(
-            "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id) VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, 'transaction-fixture') RETURNING id",
+            "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress) VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0) RETURNING id",
             UUID.class,
             UuidV7.random(),
             projectId);

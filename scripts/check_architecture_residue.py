@@ -16,34 +16,54 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Pattern
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 ROOT = Path(__file__).resolve().parents[1]
 
-# Directories and files ignored during scanning
+# Directories and paths ignored during scanning
 IGNORED_DIRS = {
     ".git",
     ".idea",
     ".vscode",
     "node_modules",
     "target",
+    "target_old",
     "out",
     "dist",
     "__pycache__",
     ".pytest_cache",
     ".ruff_cache",
     ".mypy_cache",
+    ".pytest-tmp-qwen",
+    "docs",  # Historical milestones and plans
+    "history",  # documentation/history
+    "source-of-truth",  # Retired spec snapshots
+    "scripts",  # Check scripts that inspect residue tokens
     "旸ǆ",
     "짹ʦ",
 }
 
-# Historical docs allowlist where retired concepts are documented as superseded
+# Historical docs and negative assertion tests allowlist where retired concepts are tested or documented as superseded
 HISTORICAL_ALLOWLIST = {
-    Path("documentation/decisions/ADR-0004-authentication-runtime-security-and-test-credentials.md"),
-    Path("documentation/decisions/ADR-0011-google-oauth-only-desktop-auth.md"),
-    Path("documentation/decisions/ADR-0022-r2-voice-only-and-voice-reference-scope.md"),
-    Path("documentation/decisions/ADR-0025-durable-monthly-export-quota-settlement.md"),
-    Path("documentation/decisions/ADR-0027-voicestudio-only-tts-and-whisperx-wav-pipeline.md"),
-    Path("documentation/migrations/compute-execution-plane-inventory.md"),
-    Path("docs/plans/20260914-compute-execution-plane-migration.md"),
+    # Historical decisions & audits
+    "documentation/decisions",
+    "documentation/codebase/AUDIT_2026_09_06.md",
+    "documentation/codebase/AUDIT_RECHECK_2026_09_08.md",
+    "documentation/migrations/compute-execution-plane-inventory.md",
+    "documentation/architecture/flyway-baseline-policy.md",
+    "narrativex-post-hard-cutover-gpu-foundation-plan-2026-09-18.md",
+    # Docs documenting negative presence ("no NX_SESSION", etc.)
+    "documentation/TRACEABILITY.md",
+    "documentation/architecture/TECHNOLOGY_STACK.md",
+    "documentation/codebase/BACKEND_CODEBASE.md",
+    # Negative assertion tests verifying retired tables/columns are absent
+    "app/backend-service/src/test/java/com/narrativex/backend/architecture/FlywayBaselineStructureTest.java",
+    "app/backend-service/src/test/java/com/narrativex/backend/PostgreSqlMigrationIntegrationTest.java",
 }
 
 
@@ -107,10 +127,10 @@ def should_skip(path: Path) -> bool:
     rel_parts = path.relative_to(ROOT).parts
     if any(part in IGNORED_DIRS for part in rel_parts):
         return True
-    rel_path = path.relative_to(ROOT)
-    if rel_path in HISTORICAL_ALLOWLIST:
+    posix_path = path.relative_to(ROOT).as_posix()
+    if any(posix_path == allowed or posix_path.startswith(allowed + "/") for allowed in HISTORICAL_ALLOWLIST):
         return True
-    # Skip the scanner itself and test plans
+    # Skip the scanner itself
     if path.resolve() == Path(__file__).resolve():
         return True
     return False

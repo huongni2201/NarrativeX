@@ -63,8 +63,8 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
             """
             INSERT INTO projects
               (name, status, source_language, narration_language, metadata_language,
-               image_aspect_ratio, image_quality_tier)
-            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
+               image_aspect_ratio)
+            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9')
             RETURNING id
             """,
             UUID.class,

@@ -44,8 +44,6 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   static void finalArtifactProperties(DynamicPropertyRegistry registry) {
     registry.add("narrativex.storage.final-video-mode", () -> "local");
     registry.add("narrativex.storage.final-video-local-dir", FINAL_ROOT::toString);
-    registry.add("narrativex.security.local-dev-identity-enabled", () -> true);
-    registry.add("narrativex.security.local-user-id", () -> "seed-user-01");
   }
 
   @Autowired private MockMvc mockMvc;
@@ -53,18 +51,8 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @BeforeEach
   void seedFinalArtifacts() throws Exception {
-    jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES"
-            + " ('seed-user-01', 'render-test@example.com', 'Render Test', true) ON"
-            + " CONFLICT (id) DO NOTHING");
-    jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES"
-            + " ('other-owner', 'other-render@example.com', 'Other Owner', true) ON"
-            + " CONFLICT (id) DO NOTHING");
-    insertProject(PROJECT_ID, "seed-user-01");
-    insertProject(OTHER_PROJECT_ID, "other-owner");
+    insertProject(PROJECT_ID);
     insertStoryAndChapter(STORY_VERSION_ID, PROJECT_ID, CHAPTER_ID);
-    insertStoryAndChapter(OTHER_STORY_VERSION_ID, OTHER_PROJECT_ID, OTHER_CHAPTER_ID);
     insertJob(READY_JOB_ROW_ID, READY_JOB_ID, PROJECT_ID, CHAPTER_ID);
     insertJob(ARCHIVED_JOB_ROW_ID, ARCHIVED_JOB_ID, PROJECT_ID, CHAPTER_ID);
     insertArtifact(
@@ -76,13 +64,6 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
         ARCHIVED_JOB_ROW_ID,
         "ARCHIVED",
         "artifact-9502.mp4");
-    insertArtifact(
-        OTHER_ARTIFACT_ID,
-        OTHER_PROJECT_ID,
-        OTHER_CHAPTER_ID,
-        READY_JOB_ROW_ID,
-        "READY",
-        "artifact-9503.mp4");
     byte[] bytes = new byte[2048];
     IntStream.range(0, bytes.length).forEach(i -> bytes[i] = (byte) (i % 251));
     Files.write(FINAL_ROOT.resolve("artifact-9501.mp4"), bytes);
@@ -94,7 +75,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   }
 
   @Test
-  void unknownJobAndWrongOwnerAreNotVisible() throws Exception {
+  void unknownJobAndMissingArtifactAreNotVisible() throws Exception {
     mockMvc
         .perform(get("/api/v1/artifacts/by-job/" + UNKNOWN_JOB_ID))
         .andExpect(status().isNotFound());
@@ -119,15 +100,14 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
         .andExpect(jsonPath("$.data.downloadUrl").doesNotExist());
   }
 
-  private void insertProject(UUID id, String ownerId) {
+  private void insertProject(UUID id) {
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, owner_id, status, source_language,"
-            + " narration_language, metadata_language, image_aspect_ratio, image_quality_tier)"
-            + " VALUES (?, ?, 'Desc', ?, 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9',"
-            + " 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language,"
+            + " narration_language, metadata_language, image_aspect_ratio)"
+            + " VALUES (?, ?, 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')"
+            + " ON CONFLICT (id) DO NOTHING",
         id,
-        "Render project " + id,
-        ownerId);
+        "Render project " + id);
   }
 
   private void insertStoryAndChapter(UUID storyId, UUID projectId, UUID chapterId) {
@@ -148,8 +128,8 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   private void insertJob(UUID id, UUID jobId, UUID projectId, UUID chapterId) {
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
-            + " resource_class, progress, requested_by_user_id) VALUES (?, ?, ?,"
-            + " ?, 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER', 100, 'seed-user-01')"
+            + " resource_class, progress) VALUES (?, ?, ?,"
+            + " ?, 'RENDER_PROJECT', 'COMPLETED', 'CPU_RENDER', 100)"
             + " ON CONFLICT (id) DO NOTHING",
         id,
         jobId,

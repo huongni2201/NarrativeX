@@ -12,6 +12,8 @@ from narrativex_gpu_worker.contracts import (
     ProducedArtifact,
 )
 
+from .residency import RuntimeRequirement
+
 
 @dataclass(frozen=True, slots=True)
 class ExecutionContext:
@@ -46,6 +48,9 @@ class ExecutorPort(Protocol):
 
     @property
     def ready(self) -> bool: ...
+
+    @property
+    def runtime_requirement(self) -> RuntimeRequirement: ...
 
     async def execute(
         self,

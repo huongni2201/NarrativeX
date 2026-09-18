@@ -96,6 +96,15 @@ class WorkerSettings(BaseSettings):
         default=None,
         validation_alias="GENERATION_SERVICE_WHISPERX_ALIGN_MODEL_NAME",
     )
+    residency_enabled: bool = Field(
+        default=True,
+        validation_alias="GENERATION_SERVICE_RESIDENCY_ENABLED",
+    )
+    residency_transition_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        validation_alias="GENERATION_SERVICE_RESIDENCY_TIMEOUT_SECONDS",
+    )
 
     @property
     def whisperx_available(self) -> bool:

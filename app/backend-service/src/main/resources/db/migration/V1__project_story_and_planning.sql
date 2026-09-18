@@ -297,9 +297,9 @@ CREATE TABLE visual_beats (
     order_index INTEGER NOT NULL,
     title VARCHAR(200) NOT NULL DEFAULT '',
     visual_intent TEXT NOT NULL DEFAULT '',
-    beat_type VARCHAR(32) NOT NULL,
-    visual_summary TEXT NOT NULL,
-    visual_description TEXT NOT NULL,
+    beat_type VARCHAR(32) NOT NULL DEFAULT 'STORY',
+    visual_summary TEXT NOT NULL DEFAULT '',
+    visual_description TEXT NOT NULL DEFAULT '',
     visual_direction_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     review_status VARCHAR(24) NOT NULL DEFAULT 'NOT_READY',
     motion_mode VARCHAR(24) NOT NULL DEFAULT 'STILL',
@@ -307,19 +307,21 @@ CREATE TABLE visual_beats (
     text_start INTEGER,
     text_end INTEGER,
     audio_duration_ms BIGINT,
-    source_anchor_json JSONB NOT NULL,
+    source_anchor_json JSONB,
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT uq_visual_beats_scene_id_id UNIQUE (scene_id, id),
     CONSTRAINT ck_visual_beats_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
     CONSTRAINT ck_visual_beats_visual_direction_json_object CHECK (jsonb_typeof(visual_direction_json) = 'object'),
     CONSTRAINT ck_visual_beats_audio_duration CHECK (audio_duration_ms IS NULL OR audio_duration_ms > 0),
-    CONSTRAINT ck_visual_beats_source_anchor_object CHECK (jsonb_typeof(source_anchor_json) = 'object'),
+    CONSTRAINT ck_visual_beats_source_anchor_object CHECK (source_anchor_json IS NULL OR jsonb_typeof(source_anchor_json) = 'object'),
     CONSTRAINT ck_visual_beats_source_anchor_ranges CHECK (
-        jsonb_typeof(source_anchor_json -> 'textStart') = 'number'
-        AND jsonb_typeof(source_anchor_json -> 'textEnd') = 'number'
-        AND (source_anchor_json ->> 'textStart')::integer >= 0
-        AND (source_anchor_json ->> 'textEnd')::integer > (source_anchor_json ->> 'textStart')::integer
-        AND (source_anchor_json ->> 'sourceHash') ~ '^[0-9a-f]{64}$'
+        source_anchor_json IS NULL OR (
+            jsonb_typeof(source_anchor_json -> 'textStart') = 'number'
+            AND jsonb_typeof(source_anchor_json -> 'textEnd') = 'number'
+            AND (source_anchor_json ->> 'textStart')::integer >= 0
+            AND (source_anchor_json ->> 'textEnd')::integer > (source_anchor_json ->> 'textStart')::integer
+            AND (source_anchor_json ->> 'sourceHash') ~ '^[0-9a-f]{64}$'
+        )
     )
 );
 
