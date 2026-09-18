@@ -2,7 +2,7 @@
 """Architecture residue scanner for NarrativeX.
 
 Enforces ADR-0030 and ADR-0028/0029 by detecting forbidden architectural remnants
-such as auth/account identity, quota/entitlements, R2 object storage, VieNeu TTS,
+such as auth/account identity, quota/entitlements, R2 object storage, VoiceStudio TTS,
 and business database coupling in the generation service.
 """
 
@@ -57,6 +57,8 @@ HISTORICAL_ALLOWLIST = {
     "documentation/migrations/compute-execution-plane-inventory.md",
     "documentation/architecture/flyway-baseline-policy.md",
     "narrativex-post-hard-cutover-gpu-foundation-plan-2026-09-18.md",
+    "NARRATIVEX_VERTEX_3_8_VIENEU_REMOTE_GPU_MIGRATION_PLAN.md",
+    "documentation/codebase/AI_WORKER_CODEBASE.md",
     # Docs documenting negative presence ("no NX_SESSION", etc.)
     "documentation/TRACEABILITY.md",
     "documentation/architecture/TECHNOLOGY_STACK.md",
@@ -105,8 +107,11 @@ FORBIDDEN_RULES: dict[str, list[tuple[str, Pattern[str]]]] = {
         ("R2_ACCESS_KEY_ID", re.compile(r"\bR2_ACCESS_KEY_ID\b")),
         ("R2_SECRET_ACCESS_KEY", re.compile(r"\bR2_SECRET_ACCESS_KEY\b")),
     ],
-    "vieneu_tts": [
-        ("VIENEU", re.compile(r"\b(?:VIENEU|VieNeu|vieneu)\b")),
+    "qwen_runtime": [
+        ("QWEN", re.compile(r"\b(?:QWEN|Qwen|qwen)\b")),
+    ],
+    "voicestudio_runtime": [
+        ("VOICESTUDIO", re.compile(r"\b(?:VOICESTUDIO|VoiceStudio|voicestudio)\b")),
     ],
 }
 

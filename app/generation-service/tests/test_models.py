@@ -22,7 +22,7 @@ from narrativex_gpu_worker.contracts import (
 def test_contract_example_is_accepted() -> None:
     task = ComputeTask.model_validate(task_payload())
     assert task.task.type == "audio.synthesize"
-    assert task.model.executor == "voicestudio"
+    assert task.model.executor == "vieneu"
     assert request_fingerprint(task) == task.request_fingerprint
 
 
@@ -35,8 +35,8 @@ def test_text_generation_contract_is_closed_and_fingerprinted() -> None:
         "requestFingerprint": "0" * 64,
         "task": {"type": "text.generate", "schemaVersion": "1.0"},
         "model": {
-            "executor": "qwen",
-            "model": "Qwen/Qwen3-8B-AWQ",
+            "executor": "text-executor",
+            "model": "mock-text-model",
             "revision": "default",
         },
         "constraints": {

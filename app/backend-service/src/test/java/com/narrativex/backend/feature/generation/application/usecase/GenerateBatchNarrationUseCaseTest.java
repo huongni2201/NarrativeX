@@ -74,7 +74,7 @@ class GenerateBatchNarrationUseCaseTest {
     return new GenerateBatchNarrationCommand(
         UuidV7.random(),
         List.of(UuidV7.random(), UuidV7.random(), UuidV7.random()),
-        "voicestudio-test",
+        "vieneu-test",
         BigDecimal.ONE,
         null);
   }

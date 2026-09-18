@@ -37,7 +37,7 @@ import {
   useVoiceReferenceAsset,
 } from "../queries/voice-media.queries";
 
-const DEFAULT_VOICE_ID = "voicestudio-default";
+const DEFAULT_VOICE_ID = "vieneu-default";
 const DEFAULT_PREVIEW_TEXT =
   "Xin chào, đây là giọng đọc mẫu được tạo từ đoạn giọng tham chiếu bạn vừa tải lên.";
 

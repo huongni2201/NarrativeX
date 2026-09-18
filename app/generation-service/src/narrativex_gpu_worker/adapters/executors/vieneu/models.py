@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
-class VoiceStudioSpeechRequest:
+class VieNeuSpeechRequest:
     text: str
     voice: str
-    language: str | None = None
     speed: float = 1.0
+    temperature: float = 0.7

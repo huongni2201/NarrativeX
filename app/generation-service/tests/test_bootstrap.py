@@ -14,7 +14,7 @@ def test_production_catalog_registers_all_compute_workloads(tmp_path: Path) -> N
     settings = WorkerSettings(
         machine_token=SecretStr("test-machine-token"),
         journal_file=tmp_path / "journal.sqlite3",
-        voicestudio_api_key=SecretStr("voice-key"),
+        vieneu_api_key=SecretStr("vieneu-key"),
     )
     components = build_application(settings)
     try:
@@ -22,13 +22,11 @@ def test_production_catalog_registers_all_compute_workloads(tmp_path: Path) -> N
         assert set(capabilities) == {
             "comfyui",
             "media-validator",
-            "qwen",
-            "voicestudio",
+            "vieneu",
             "whisperx",
         }
-        assert capabilities["qwen"].ready is True
         assert capabilities["comfyui"].ready is True
-        assert capabilities["voicestudio"].ready is True
+        assert capabilities["vieneu"].ready is True
         assert capabilities["whisperx"].ready is settings.whisperx_available
     finally:
         # The production catalog owns one shared HTTP client.

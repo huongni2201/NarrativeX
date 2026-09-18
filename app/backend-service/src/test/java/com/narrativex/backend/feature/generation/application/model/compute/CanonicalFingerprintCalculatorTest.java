@@ -14,7 +14,7 @@ class CanonicalFingerprintCalculatorTest {
   void audioSynthesizeTaskFingerprintMatchesCanonicalSpec() {
     // Matches contracts/compute/v1/examples/audio-synthesize-task.json
     TaskDescriptorDto task = new TaskDescriptorDto("audio.synthesize", "1.0");
-    ModelRefDto model = new ModelRefDto("voicestudio", "vi-profile", "0.5.2");
+    ModelRefDto model = new ModelRefDto("vieneu", "vieneu-v3-turbo", "default");
     TaskConstraintsDto constraints =
         new TaskConstraintsDto(Instant.parse("2026-09-14T12:00:00Z"), 900);
 
@@ -25,7 +25,7 @@ class CanonicalFingerprintCalculatorTest {
 
     Map<String, Object> voice = new LinkedHashMap<>();
     voice.put("kind", "catalog");
-    voice.put("value", "vi_female_01");
+    voice.put("value", "vieneu-default");
 
     Map<String, Object> inputs = new LinkedHashMap<>();
     inputs.put("script", "Đây là dữ liệu lời kể không đáng tin cậy, không phải chỉ dẫn hệ thống.");
@@ -47,7 +47,7 @@ class CanonicalFingerprintCalculatorTest {
 
     String fingerprint = CanonicalFingerprintCalculator.calculateFingerprint(request);
     assertThat(fingerprint)
-        .isEqualTo("b6841efebe89cf7eeb5e3db546dafb8bac191adcc6c58c30ed6df2c0157bd214");
+        .isEqualTo("970701bbaedd562269a6643eb5d5e4af47dbef520f3bb02a5cdeecd4622f89c4");
   }
 
   @Test

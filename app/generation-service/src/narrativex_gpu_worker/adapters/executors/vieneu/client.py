@@ -3,24 +3,25 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable
 from contextlib import suppress
+from typing import Any
 
 import httpx
 
 from narrativex_gpu_worker.application.errors import ExecutionCanceledError
 
 
-class VoiceStudioClientError(RuntimeError):
-    """VoiceStudio HTTP API client error."""
+class VieNeuClientError(RuntimeError):
+    """VieNeu HTTP API client error."""
 
 
-class VoiceStudioClient:
-    """HTTP client for VoiceStudio TTS API."""
+class VieNeuClient:
+    """HTTP client for VieNeu Vietnamese TTS API."""
 
     def __init__(
         self,
-        base_url: str = "http://127.0.0.1:8000",
+        base_url: str = "http://127.0.0.1:8008",
         api_key: str | None = None,
-        timeout: float = 60.0,
+        timeout: float = 300.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -28,13 +29,45 @@ class VoiceStudioClient:
         self.timeout = timeout
         self._client = client
 
+    async def health(self) -> bool:
+        try:
+            if self._client is not None:
+                resp = await self._client.get(f"{self.base_url}/healthz", timeout=5.0)
+            else:
+                async with httpx.AsyncClient(timeout=5.0) as cl:
+                    resp = await cl.get(f"{self.base_url}/healthz")
+            return resp.status_code == 200
+        except Exception:
+            return False
+
+    async def voices(self) -> list[dict[str, Any]]:
+        headers = {"Accept": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        try:
+            if self._client is not None:
+                resp = await self._client.get(
+                    f"{self.base_url}/v1/voices", headers=headers, timeout=self.timeout
+                )
+            else:
+                async with httpx.AsyncClient(timeout=self.timeout) as cl:
+                    resp = await cl.get(f"{self.base_url}/v1/voices", headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+                if isinstance(data, dict) and "voices" in data:
+                    return data["voices"]  # type: ignore[no-any-return]
+            return []
+        except Exception:
+            return []
+
     async def synthesize(
         self,
         text: str,
-        voice: str,
-        model: str = "vi-profile",
-        language: str | None = None,
+        voice: str = "vieneu-default",
         speed: float = 1.0,
+        temperature: float = 0.7,
         cancel: asyncio.Event | None = None,
     ) -> bytes:
         headers = {"Accept": "audio/wav"}
@@ -42,12 +75,13 @@ class VoiceStudioClient:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         payload = {
-            "model": model,
-            "voice": voice,
+            "model": "vieneu-v3-turbo",
             "input": text,
-            "response_format": "wav",
+            "text": text,
+            "voice": voice,
             "speed": speed,
-            "language": language,
+            "temperature": temperature,
+            "response_format": "wav",
         }
 
         if self._client is not None:
@@ -72,8 +106,8 @@ class VoiceStudioClient:
                 )
 
         if response.is_error:
-            raise VoiceStudioClientError(
-                f"VoiceStudio synthesis failed with status {response.status_code}"
+            raise VieNeuClientError(
+                f"VieNeu synthesis failed with status {response.status_code}: {response.text}"
             )
         return response.content
 
@@ -81,9 +115,9 @@ class VoiceStudioClient:
         self,
         text: str,
         reference_wav: bytes,
-        model: str = "vi-profile",
-        language: str | None = None,
+        voice: str = "vieneu-clone",
         speed: float = 1.0,
+        temperature: float = 0.7,
         cancel: asyncio.Event | None = None,
     ) -> bytes:
         headers = {"Accept": "audio/wav"}
@@ -92,10 +126,10 @@ class VoiceStudioClient:
 
         data = {
             "text": text,
-            "language": language or "auto",
+            "voice": voice,
             "speed": str(speed),
-            "engine": model,
-            "stream": "false",
+            "temperature": str(temperature),
+            "model": "vieneu-v3-turbo",
         }
         files = {"ref_audio": ("ref.wav", reference_wav, "audio/wav")}
 
@@ -123,8 +157,9 @@ class VoiceStudioClient:
                 )
 
         if response.is_error:
-            raise VoiceStudioClientError(
-                f"VoiceStudio reference synthesis failed with status {response.status_code}"
+            raise VieNeuClientError(
+                f"VieNeu reference synthesis failed with status {response.status_code}: "
+                f"{response.text}"
             )
         return response.content
 
@@ -148,7 +183,7 @@ class VoiceStudioClient:
                 request_task.cancel()
                 with suppress(asyncio.CancelledError, Exception):
                     await request_task
-                raise ExecutionCanceledError("VoiceStudio execution canceled")
+                raise ExecutionCanceledError("VieNeu execution canceled")
             return await request_task
         except BaseException:
             if not request_task.done():
@@ -164,4 +199,4 @@ class VoiceStudioClient:
                     await cancellation_task
 
 
-__all__ = ["VoiceStudioClient", "VoiceStudioClientError"]
+__all__ = ["VieNeuClient", "VieNeuClientError"]

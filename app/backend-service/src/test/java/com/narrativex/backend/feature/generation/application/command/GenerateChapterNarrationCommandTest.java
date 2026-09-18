@@ -14,7 +14,7 @@ class GenerateChapterNarrationCommandTest {
   void normalNarrationKeepsPreviewDisabled() {
     var command =
         new GenerateChapterNarrationCommand(
-            UUID.randomUUID(), UUID.randomUUID(), "voicestudio-default", BigDecimal.ONE, null);
+            UUID.randomUUID(), UUID.randomUUID(), "vieneu-default", BigDecimal.ONE, null);
 
     assertThat(command.preview()).isFalse();
     assertThat(command.previewText()).isNull();
@@ -28,7 +28,7 @@ class GenerateChapterNarrationCommandTest {
         new GenerateChapterNarrationCommand(
             UUID.randomUUID(),
             UUID.randomUUID(),
-            "voicestudio-default",
+            "vieneu-default",
             BigDecimal.ONE,
             reference,
             "  Xin chào, đây là giọng mẫu.  ");
@@ -46,7 +46,7 @@ class GenerateChapterNarrationCommandTest {
     assertThatThrownBy(
             () ->
                 new GenerateChapterNarrationCommand(
-                    projectId, chapterId, "voicestudio-default", BigDecimal.ONE, null, "Giọng mẫu"))
+                    projectId, chapterId, "vieneu-default", BigDecimal.ONE, null, "Giọng mẫu"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("requires a voice reference");
 
@@ -55,7 +55,7 @@ class GenerateChapterNarrationCommandTest {
                 new GenerateChapterNarrationCommand(
                     projectId,
                     chapterId,
-                    "voicestudio-default",
+                    "vieneu-default",
                     BigDecimal.ONE,
                     new VoiceReferenceSelection(VoiceReferenceScope.ACCOUNT, UUID.randomUUID()),
                     "a".repeat(501)))

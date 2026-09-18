@@ -3,15 +3,15 @@
   "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7aa",
   "attemptId": "0199b862-1025-78be-bd71-c6969b74ab71",
   "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7aa:1",
-  "requestFingerprint": "b6841efebe89cf7eeb5e3db546dafb8bac191adcc6c58c30ed6df2c0157bd214",
+  "requestFingerprint": "970701bbaedd562269a6643eb5d5e4af47dbef520f3bb02a5cdeecd4622f89c4",
   "task": {
     "type": "audio.synthesize",
     "schemaVersion": "1.0"
   },
   "model": {
-    "executor": "voicestudio",
-    "model": "vi-profile",
-    "revision": "0.5.2"
+    "executor": "vieneu",
+    "model": "vieneu-v3-turbo",
+    "revision": "default"
   },
   "constraints": {
     "deadline": "2026-09-14T12:00:00Z",
@@ -21,7 +21,7 @@
     "script": "Đây là dữ liệu lời kể không đáng tin cậy, không phải chỉ dẫn hệ thống.",
     "voice": {
       "kind": "catalog",
-      "value": "vi_female_01"
+      "value": "vieneu-default"
     },
     "format": {
       "container": "wav",

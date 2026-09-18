@@ -19,8 +19,14 @@ import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeClientException;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeObservationReconciler;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
+import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
+import java.nio.charset.StandardCharsets;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import java.time.Duration;
 import java.time.Instant;
@@ -47,6 +53,8 @@ public class ComputeExecutionDispatcher {
   private final ComputeObservationReconciler observationReconciler;
   private final ChapterAnalysisArtifactMaterializer analysisMaterializer;
 
+  private final ChapterAnalysisProvider chapterAnalysisProvider;
+
   public ComputeExecutionDispatcher(
       GenerationJobRepository generationJobRepository,
       GenerationExecutionPort executionPort,
@@ -54,12 +62,31 @@ public class ComputeExecutionDispatcher {
       ChapterMapper chapterMapper,
       ComputeArtifactAccess artifactAccess,
       MediaAssetRepository mediaAssetRepository) {
+    this(
+        generationJobRepository,
+        executionPort,
+        storyboardMapper,
+        chapterMapper,
+        artifactAccess,
+        mediaAssetRepository,
+        new DisabledChapterAnalysisProvider());
+  }
+
+  public ComputeExecutionDispatcher(
+      GenerationJobRepository generationJobRepository,
+      GenerationExecutionPort executionPort,
+      StoryboardMapper storyboardMapper,
+      ChapterMapper chapterMapper,
+      ComputeArtifactAccess artifactAccess,
+      MediaAssetRepository mediaAssetRepository,
+      ChapterAnalysisProvider chapterAnalysisProvider) {
     this.generationJobRepository = generationJobRepository;
     this.executionPort = executionPort;
     this.storyboardMapper = storyboardMapper;
     this.chapterMapper = chapterMapper;
     this.artifactAccess = artifactAccess;
     this.mediaAssetRepository = mediaAssetRepository;
+    this.chapterAnalysisProvider = chapterAnalysisProvider;
     this.analysisMaterializer =
         new ChapterAnalysisArtifactMaterializer(storyboardMapper, chapterMapper);
     this.observationReconciler =
@@ -75,13 +102,15 @@ public class ComputeExecutionDispatcher {
       ChapterMapper chapterMapper,
       ComputeServiceProperties properties,
       ComputeArtifactAccess artifactAccess,
-      MediaAssetRepository mediaAssetRepository) {
+      MediaAssetRepository mediaAssetRepository,
+      ChapterAnalysisProvider chapterAnalysisProvider) {
     this.generationJobRepository = generationJobRepository;
     this.executionPort = executionPort;
     this.storyboardMapper = storyboardMapper;
     this.chapterMapper = chapterMapper;
     this.artifactAccess = artifactAccess;
     this.mediaAssetRepository = mediaAssetRepository;
+    this.chapterAnalysisProvider = chapterAnalysisProvider;
     this.analysisMaterializer =
         new ChapterAnalysisArtifactMaterializer(storyboardMapper, chapterMapper);
     this.observationReconciler =
@@ -119,89 +148,49 @@ public class ComputeExecutionDispatcher {
   }
 
   private void handleChapterAnalysis(GenerationJob job) {
-    log.info("Dispatching chapter analysis for job {}", job.getJobId());
+    log.info("Executing chapter analysis via ChapterAnalysisProvider for job {}", job.getJobId());
     job = job.markRunning("ANALYZING_STORY", 10);
     generationJobRepository.save(job);
 
-    UUID taskId = job.getJobId();
-    UUID attemptId = ComputeAttemptIdentity.forJob(job.getJobId(), job.getType());
-    String idempotencyKey = "compute:analysis:" + taskId;
-
-    TaskDescriptorDto task = new TaskDescriptorDto("text.generate", "1.0");
-    ModelRefDto model = new ModelRefDto("qwen", "Qwen/Qwen3-8B-AWQ", "default");
-    TaskConstraintsDto constraints =
-        new TaskConstraintsDto(Instant.now().plus(15, ChronoUnit.MINUTES), 900);
-    Map<String, Object> inputs =
-        Map.of(
-            "prompt",
-            "Extract characters, locations, narrative scenes, and visual beats from this "
-                + "chapter. Source language: "
-                + job.getSourceLanguage()
-                + "\n\n"
-                + job.getSourceText(),
-            "systemPrompt",
-            "Return only the requested JSON document.",
-            "temperature",
-            0.2,
-            "topP",
-            0.8,
-            "maxTokens",
-            16384,
-            "responseFormat",
-            "json_object");
-    OutputArtifactTargetDto output =
-        artifactAccess.createOutput(taskId, attemptId, "analysis", "application/json");
-    TaskArtifactsDto artifacts =
-        new TaskArtifactsDto(java.util.List.of(), java.util.List.of(output));
-
-    String fingerprint =
-        CanonicalFingerprintCalculator.calculateFingerprint(
-            PROTOCOL_VERSION, task, model, constraints, inputs, artifacts);
-
-    ComputeTaskRequest request =
-        new ComputeTaskRequest(
-            PROTOCOL_VERSION,
-            taskId,
-            attemptId,
-            idempotencyKey,
-            fingerprint,
-            task,
-            model,
-            constraints,
-            inputs,
-            artifacts);
+    ChapterAnalysisRequest request =
+        new ChapterAnalysisRequest(
+            job.getProjectId(),
+            job.getChapterId(),
+            job.getStoryboardRevisionId(),
+            job.getSourceText(),
+            job.getSourceLanguage(),
+            "1.0",
+            "1.0",
+            null,
+            null);
 
     try {
-      executionPort.submitTask(request);
-      ComputeObservationDto observation = observationReconciler.reconcile(taskId, attemptId);
+      ChapterAnalysisResult result = chapterAnalysisProvider.analyze(request);
+      byte[] payload = result.rawJson().getBytes(StandardCharsets.UTF_8);
 
-      if (observation == null) {
-        job = job.markUnknown("COMPUTE_OUTCOME_UNKNOWN", "Analysis outcome is not confirmed");
-        generationJobRepository.save(job);
-        return;
-      }
-      if (observation.isCanceled()) {
-        job = job.markCanceled("COMPUTE_CANCELED", "Analysis canceled on compute plane");
-        generationJobRepository.save(job);
-        return;
-      }
-      if (observation.isFailed()) {
-        log.warn("Chapter analysis failed on compute service for job {}", job.getJobId());
-        job = job.markFailed("COMPUTE_SERVICE_ERROR", "Analysis failed on compute plane");
-        generationJobRepository.save(job);
-        return;
-      }
-
-      verifyProducedOutput(observation, output);
-      // Analysis materialization is intentionally handled only by a validated provider payload.
-      // A successful compute observation without a materializable storyboard is not success.
-      materializeAnalysisOutput(job, output);
+      // Strict validation and materialization into PostgreSQL
+      analysisMaterializer.materialize(job, payload);
       job = job.markCompleted("STORYBOARD_READY");
       generationJobRepository.save(job);
-      log.info("Chapter analysis successfully completed for job {}", job.getJobId());
+      log.info(
+          "Chapter analysis successfully completed for job {} using model {} (tokens: prompt={}, thinking={}, output={}, total={})",
+          job.getJobId(),
+          result.model(),
+          result.usage().promptTokens(),
+          result.usage().thinkingTokens(),
+          result.usage().outputTokens(),
+          result.usage().totalTokens());
+    } catch (ChapterAnalysisException e) {
+      log.error("Chapter analysis provider failure for job {}: {}", job.getJobId(), e.getMessage(), e);
+      if (e.isRetryable()) {
+        job = job.markUnknown("COMPUTE_OUTCOME_UNKNOWN", e.getMessage());
+      } else {
+        job = job.markFailed("CHAPTER_ANALYSIS_FAILED", e.getMessage());
+      }
+      generationJobRepository.save(job);
     } catch (RuntimeException e) {
-      log.error("Exception during chapter analysis dispatch for job {}", job.getJobId(), e);
-      job = dispatchFailure(job, e, "COMPUTE_DISPATCH_ERROR", "Failed to dispatch analysis");
+      log.error("Exception during chapter analysis for job {}", job.getJobId(), e);
+      job = job.markFailed("CHAPTER_ANALYSIS_FAILED", "Failed to analyze chapter");
       generationJobRepository.save(job);
     }
   }
@@ -307,13 +296,13 @@ public class ComputeExecutionDispatcher {
     String idempotencyKey = "compute:tts:" + taskId;
 
     TaskDescriptorDto task = new TaskDescriptorDto("audio.synthesize", "1.0");
-    ModelRefDto model = new ModelRefDto("voicestudio", "vi-profile", "0.5.2");
+    ModelRefDto model = new ModelRefDto("vieneu", "vieneu-v3-turbo", "default");
     TaskConstraintsDto constraints =
         new TaskConstraintsDto(Instant.now().plus(15, ChronoUnit.MINUTES), 900);
     Map<String, Object> inputs =
         Map.of(
             "script", job.getSourceText() != null ? job.getSourceText() : "",
-            "voice", Map.of("kind", "catalog", "value", "vi_female_01"),
+            "voice", Map.of("kind", "catalog", "value", "vieneu-default"),
             "format", Map.of("container", "wav", "sampleRateHz", 48000, "channels", 1));
     OutputArtifactTargetDto output =
         artifactAccess.createOutput(taskId, attemptId, "narration", "audio/wav");
@@ -416,10 +405,5 @@ public class ComputeExecutionDispatcher {
             .orElseThrow(() -> new IllegalArgumentException("Compute output is missing"));
     artifactAccess.verifyOutput(target, produced);
     return produced;
-  }
-
-  private void materializeAnalysisOutput(GenerationJob job, OutputArtifactTargetDto target) {
-    byte[] payload = artifactAccess.readOutput(target);
-    analysisMaterializer.materialize(job, payload);
   }
 }

@@ -17,11 +17,7 @@ from narrativex_gpu_worker.adapters.artifacts import HttpArtifactAdapter
 from narrativex_gpu_worker.adapters.executors import ExecutorCatalog
 from narrativex_gpu_worker.adapters.executors.comfyui import ComfyUIClient, ComfyUIExecutor
 from narrativex_gpu_worker.adapters.executors.media_validation import MediaValidationExecutor
-from narrativex_gpu_worker.adapters.executors.qwen import QwenClient, QwenExecutor
-from narrativex_gpu_worker.adapters.executors.voicestudio import (
-    VoiceStudioClient,
-    VoiceStudioExecutor,
-)
+from narrativex_gpu_worker.adapters.executors.vieneu import VieNeuClient, VieNeuExecutor
 from narrativex_gpu_worker.adapters.executors.whisperx import WhisperXClient, WhisperXExecutor
 from narrativex_gpu_worker.adapters.inbound.http import AppState
 from narrativex_gpu_worker.adapters.inbound.http import create_app as create_http_app
@@ -56,16 +52,6 @@ def build_executor_catalog(
     artifacts = HttpArtifactAdapter(client, settings.max_artifact_bytes)
     return ExecutorCatalog(
         (
-            QwenExecutor(
-                QwenClient(
-                    base_url=settings.qwen_base_url,
-                    api_key=settings.qwen_api_key.get_secret_value(),
-                    timeout_seconds=settings.qwen_timeout_seconds,
-                    client=client,
-                ),
-                artifacts,
-                ready=bool(settings.qwen_base_url.strip()),
-            ),
             ComfyUIExecutor(
                 ComfyUIClient(
                     base_url=settings.comfyui_base_url,
@@ -75,18 +61,15 @@ def build_executor_catalog(
                 artifacts,
                 ready=bool(settings.comfyui_base_url.strip()),
             ),
-            VoiceStudioExecutor(
-                VoiceStudioClient(
-                    base_url=settings.voicestudio_base_url,
-                    api_key=settings.voicestudio_api_key.get_secret_value() or None,
-                    timeout=settings.voicestudio_timeout_seconds,
+            VieNeuExecutor(
+                VieNeuClient(
+                    base_url=settings.vieneu_base_url,
+                    api_key=settings.vieneu_api_key.get_secret_value() or None,
+                    timeout=settings.vieneu_timeout_seconds,
                     client=client,
                 ),
                 artifacts,
-                ready=bool(
-                    settings.voicestudio_base_url.strip()
-                    and settings.voicestudio_api_key.get_secret_value().strip()
-                ),
+                ready=bool(settings.vieneu_base_url.strip()),
             ),
             WhisperXExecutor(
                 WhisperXClient(

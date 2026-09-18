@@ -27,10 +27,10 @@ from narrativex_gpu_worker.contracts import (
 class DummyExecutor(ExecutorPort):
     def __init__(
         self,
-        name: str = "voicestudio",
+        name: str = "vieneu",
         task_types: frozenset[str] = frozenset({"audio.synthesize"}),
         models: tuple[ModelRef, ...] = (
-            ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),
+            ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),
         ),
         ready: bool = True,
     ) -> None:
@@ -65,9 +65,9 @@ class DummyExecutor(ExecutorPort):
 
 
 def _make_task(
-    executor_name: str = "voicestudio",
-    model_name: str = "vi-profile",
-    revision: str = "0.5.2",
+    executor_name: str = "vieneu",
+    model_name: str = "vieneu-v3-turbo",
+    revision: str = "default",
     task_type: str = "audio.synthesize",
 ) -> ComputeTask:
     task_id = uuid4()
@@ -125,7 +125,7 @@ def test_catalog_rejects_unavailable_executor() -> None:
 
 
 def test_catalog_rejects_unsupported_executor_name() -> None:
-    executor = DummyExecutor(name="voicestudio")
+    executor = DummyExecutor(name="vieneu")
     catalog = ExecutorCatalog((executor,))
     with pytest.raises(ExecutorNotSupportedError, match="unavailable"):
         catalog.resolve(_make_task(executor_name="nonexistent"))
@@ -146,7 +146,7 @@ def test_catalog_rejects_unsupported_model_revision() -> None:
 
 
 def test_catalog_capabilities_reports_accurate_state() -> None:
-    e1 = DummyExecutor(name="voicestudio", ready=True)
+    e1 = DummyExecutor(name="vieneu", ready=True)
     e2 = DummyExecutor(
         name="whisperx",
         task_types=frozenset({"audio.align"}),
@@ -157,7 +157,7 @@ def test_catalog_capabilities_reports_accurate_state() -> None:
     caps = {c.name: c for c in catalog.capabilities()}
 
     assert len(caps) == 2
-    assert caps["voicestudio"].ready is True
-    assert caps["voicestudio"].task_types == ["audio.synthesize"]
+    assert caps["vieneu"].ready is True
+    assert caps["vieneu"].task_types == ["audio.synthesize"]
     assert caps["whisperx"].ready is False
     assert caps["whisperx"].task_types == ["audio.align"]

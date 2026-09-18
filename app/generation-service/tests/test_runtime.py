@@ -348,9 +348,9 @@ async def test_runtime_bounds_executor_deadline_exceeded(
 
 
 class StatefulHandleExecutor(ExecutorPort):
-    name = "voicestudio"
+    name = "vieneu"
     task_types = frozenset({"audio.synthesize"})
-    models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+    models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
     ready = True
 
     def __init__(self) -> None:
@@ -430,9 +430,9 @@ async def test_recovery_does_not_blind_resubmit_ambiguous_attempt(
     await journal.mark_submitting(compute_task.task_id, compute_task.attempt_id)
 
     class CountingExecutor:
-        name = "voicestudio"
+        name = "vieneu"
         task_types = frozenset({"audio.synthesize"})
-        models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+        models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
         ready = True
         execute_count = 0
 
@@ -497,9 +497,9 @@ async def test_timeout_after_dispatch_is_ambiguous_permanent(
     compute_task.request_fingerprint = request_fingerprint(compute_task)
 
     class SubmittingThenHangingExecutor:
-        name = "voicestudio"
+        name = "vieneu"
         task_types = frozenset({"audio.synthesize"})
-        models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+        models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
         ready = True
 
         async def execute(self, task, cancel, context=None):
