@@ -40,7 +40,7 @@ PostgreSQL is authoritative for durable business/control state. The target execu
 
 ## Single-user local-first workspace
 
-NarrativeX opens directly into the local workspace per ADR-0030. There is no application User, Account, Authentication, Authorization, Session, or Tenant identity model. Login gates, modals, and user quotas are completely removed. External provider credentials and device execution tokens are local runtime configurations.
+NarrativeX opens directly into the local workspace per ADR-0020. There is no application User, Account, Authentication, Authorization, Session, or Tenant identity model. Login gates, modals, and user quotas are completely removed. External provider credentials and device execution tokens are local runtime configurations.
 
 ## Local project-media contract
 

@@ -41,7 +41,7 @@ Immediately prior to the first production release, the V1–V7 baseline is froze
 
 ## Critical Schema Invariants
 
-1. **Single-User Local-First (ADR-0030)**:
+1. **Single-User Local-First (ADR-0020)**:
    - No uth_users, desktop_guest_installations, desktop_auth_handoffs, sessions, roles, or tenant IDs exist.
    - Project is the root business boundary.
 

@@ -4,6 +4,26 @@
 -- Narration and alignment
 -- -----------------------------------------------------------------------------
 
+CREATE TABLE narration_scripts (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    storyboard_revision_id UUID NOT NULL REFERENCES storyboard_revisions(id) ON DELETE CASCADE,
+    source_hash VARCHAR(64) NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    adaptation_mode VARCHAR(32) NOT NULL DEFAULT 'AUTO',
+    text TEXT NOT NULL,
+    content_hash VARCHAR(64) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
+    CONSTRAINT uk_narration_scripts_chapter_revision_version UNIQUE (chapter_id, storyboard_revision_id, version),
+    CONSTRAINT ck_narration_scripts_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_narration_scripts_content_hash CHECK (content_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_narration_scripts_status CHECK (status IN ('DRAFT', 'READY', 'APPROVED', 'SUPERSEDED')),
+    CONSTRAINT ck_narration_scripts_adaptation_mode CHECK (adaptation_mode IN ('AUTO', 'FAITHFUL', 'BALANCED', 'CINEMATIC'))
+);
+
 CREATE TABLE narration_requests (
     id UUID PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -19,8 +39,11 @@ CREATE TABLE narration_requests (
     request_fingerprint VARCHAR(64) NOT NULL,
     voice_reference_asset_id UUID REFERENCES voice_reference_assets(id),
     project_voice_reference_asset_id UUID REFERENCES media_assets(id),
+    narration_script_id UUID REFERENCES narration_scripts(id) ON DELETE SET NULL,
+    narration_script_hash VARCHAR(64),
     CONSTRAINT uk_narration_requests_fingerprint UNIQUE (request_fingerprint),
     CONSTRAINT ck_narration_requests_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_narration_requests_script_hash CHECK (narration_script_hash IS NULL OR narration_script_hash ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_narration_requests_speaking_rate CHECK (speaking_rate > 0)
 );
 

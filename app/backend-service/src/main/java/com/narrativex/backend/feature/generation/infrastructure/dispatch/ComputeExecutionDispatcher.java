@@ -25,6 +25,9 @@ import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeClientException;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeObservationReconciler;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
+import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import java.nio.charset.StandardCharsets;
@@ -80,6 +83,28 @@ public class ComputeExecutionDispatcher {
       ComputeArtifactAccess artifactAccess,
       MediaAssetRepository mediaAssetRepository,
       ChapterAnalysisProvider chapterAnalysisProvider) {
+    this(
+        generationJobRepository,
+        executionPort,
+        storyboardMapper,
+        chapterMapper,
+        artifactAccess,
+        mediaAssetRepository,
+        chapterAnalysisProvider,
+        null,
+        null);
+  }
+
+  public ComputeExecutionDispatcher(
+      GenerationJobRepository generationJobRepository,
+      GenerationExecutionPort executionPort,
+      StoryboardMapper storyboardMapper,
+      ChapterMapper chapterMapper,
+      ComputeArtifactAccess artifactAccess,
+      MediaAssetRepository mediaAssetRepository,
+      ChapterAnalysisProvider chapterAnalysisProvider,
+      ChapterCanonMapper canonMapper,
+      ChapterCanonReconciliationService canonReconciliationService) {
     this.generationJobRepository = generationJobRepository;
     this.executionPort = executionPort;
     this.storyboardMapper = storyboardMapper;
@@ -88,7 +113,12 @@ public class ComputeExecutionDispatcher {
     this.mediaAssetRepository = mediaAssetRepository;
     this.chapterAnalysisProvider = chapterAnalysisProvider;
     this.analysisMaterializer =
-        new ChapterAnalysisArtifactMaterializer(storyboardMapper, chapterMapper);
+        new ChapterAnalysisArtifactMaterializer(
+            storyboardMapper,
+            chapterMapper,
+            new SourceAnchorResolver(),
+            canonMapper,
+            canonReconciliationService);
     this.observationReconciler =
         new ComputeObservationReconciler(
             executionPort, Duration.ofSeconds(30), Duration.ofMillis(250));
@@ -103,7 +133,9 @@ public class ComputeExecutionDispatcher {
       ComputeServiceProperties properties,
       ComputeArtifactAccess artifactAccess,
       MediaAssetRepository mediaAssetRepository,
-      ChapterAnalysisProvider chapterAnalysisProvider) {
+      ChapterAnalysisProvider chapterAnalysisProvider,
+      ChapterCanonMapper canonMapper,
+      ChapterCanonReconciliationService canonReconciliationService) {
     this.generationJobRepository = generationJobRepository;
     this.executionPort = executionPort;
     this.storyboardMapper = storyboardMapper;
@@ -112,7 +144,12 @@ public class ComputeExecutionDispatcher {
     this.mediaAssetRepository = mediaAssetRepository;
     this.chapterAnalysisProvider = chapterAnalysisProvider;
     this.analysisMaterializer =
-        new ChapterAnalysisArtifactMaterializer(storyboardMapper, chapterMapper);
+        new ChapterAnalysisArtifactMaterializer(
+            storyboardMapper,
+            chapterMapper,
+            new SourceAnchorResolver(),
+            canonMapper,
+            canonReconciliationService);
     this.observationReconciler =
         new ComputeObservationReconciler(
             executionPort,

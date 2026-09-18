@@ -1,4 +1,4 @@
-# ADR-0015: Desktop render lifecycle and capability-scoped IPC
+# ADR-0010: Desktop render lifecycle and capability-scoped IPC
 
 ## Status
 

@@ -14,7 +14,7 @@ Navigation, window creation, permissions and IPC senders are restricted before p
 
 ## Single-user local-first workspace
 
-Per **ADR-0030**, NarrativeX operates as a single-user local-first application. Desktop launches directly into the local project workspace without an account login screen, guest credentials, or session cookies.
+Per **ADR-0020**, NarrativeX operates as a single-user local-first application. Desktop launches directly into the local project workspace without an account login screen, guest credentials, or session cookies.
 
 ```text
 startup

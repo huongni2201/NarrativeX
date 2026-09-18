@@ -1,4 +1,4 @@
-# ADR-0029: Light DDD and Hexagonal structure for the generation service
+# ADR-0019: Light DDD and Hexagonal structure for the generation service
 
 ## Status
 
@@ -51,4 +51,4 @@ worker remains a single deployable execution plane with a small domain core.
 
 - `app/generation-service/README.md`
 - `documentation/COMPUTE_PROTOCOL.md`
-- `documentation/decisions/ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md`
+- `documentation/decisions/ADR-0018-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md`

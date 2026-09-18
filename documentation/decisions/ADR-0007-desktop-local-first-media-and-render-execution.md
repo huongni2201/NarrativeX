@@ -1,4 +1,4 @@
-# ADR-0012: Desktop local-first project media and final render execution
+# ADR-0007: Desktop local-first project media and final render execution
 
 **Status:** Accepted and completed as the only final-render storage model  
 **Date:** 2026-08-24; amended 2026-08-26 and 2026-08-29  
@@ -160,6 +160,6 @@ Richer process/OS-crash recovery/resume and long-duration soak validation remain
 ## Related decisions
 
 - [ADR-0001: System topology, durable execution and persistence](./ADR-0001-system-topology-execution-and-persistence.md)
-- [ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)
-- [ADR-0010: Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)
-- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0011-google-oauth-only-desktop-auth.md)
+- [ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0007-desktop-local-first-media-and-render-execution.md)
+- [ADR-0006: Electron desktop editor client boundary](./ADR-0006-desktop-editor-client-boundary.md)
+- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0020-single-user-local-first-architecture.md)

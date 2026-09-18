@@ -2,7 +2,7 @@
 
 **Planning rule:** dependency order, not fixed-date commitment.
 
-The browser→Desktop, authentication/account and monetary billing/credit migrations are no longer active roadmap tracks. Desktop is already the only editor client, NarrativeX is a single-user local-first application per ADR-0030, MyBatis is the production persistence path, provider execution carries no monetary accounting contract, and system capacity limits replace per-user quotas. Remaining work is product reliability and release hardening; the compute execution-plane cutover is complete.
+The browser→Desktop, authentication/account and monetary billing/credit migrations are no longer active roadmap tracks. Desktop is already the only editor client, NarrativeX is a single-user local-first application per ADR-0020, MyBatis is the production persistence path, provider execution carries no monetary accounting contract, and system capacity limits replace per-user quotas. Remaining work is product reliability and release hardening; the compute execution-plane cutover is complete.
 
 ## Track 0 — Compute execution-plane cutover — COMPLETE
 

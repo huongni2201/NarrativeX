@@ -1,4 +1,4 @@
-# ADR-0026: Snapshot watermark policy for Desktop renders
+# ADR-0017: Snapshot watermark policy for Desktop renders
 
 - Status: Accepted
 - Date: 2026-09-09

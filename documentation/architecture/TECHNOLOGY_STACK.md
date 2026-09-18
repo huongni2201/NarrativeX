@@ -2,7 +2,7 @@
 
 Product specification: [`../product/PRODUCT_SPEC.md`](../product/PRODUCT_SPEC.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the single-user local-first (ADR-0030) and compute execution plane (ADR-0028/0029) refactors.
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the single-user local-first (ADR-0020) and compute execution plane (ADR-0018/0029) refactors.
 
 
 | Layer | Current stack | Current role |
@@ -60,7 +60,7 @@ Current visual timing is source anchored. AI materialization resolves determinis
 
 ## Single-user workspace boundary
 
-NarrativeX is a single-user local-first application per ADR-0030. There is no application user account, session cookie (`NX_SESSION`), Google OAuth, or guest ownership transfer. Project is the top business boundary.
+NarrativeX is a single-user local-first application per ADR-0020. There is no application user account, session cookie (`NX_SESSION`), Google OAuth, or guest ownership transfer. Project is the top business boundary.
 
 ## Persistence status
 

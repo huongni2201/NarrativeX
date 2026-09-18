@@ -12,7 +12,7 @@ Project creation and Chapter saving persist metadata and source text only. Analy
 
 ## Workspace & Identity
 
-NarrativeX boots directly into the local workspace per ADR-0030. There is no user account, login gate, guest installation identity, session cookie, or multi-tenant entitlement model. External provider credentials and GPU target settings are managed through application settings and runtime configuration.
+NarrativeX boots directly into the local workspace per ADR-0020. There is no user account, login gate, guest installation identity, session cookie, or multi-tenant entitlement model. External provider credentials and GPU target settings are managed through application settings and runtime configuration.
 
 ## Creator foundations
 
@@ -93,7 +93,7 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 
 | Feature / Capability | Status | Current direction |
 |---|---|---|
-| Single-user local-first workspace | IMPLEMENTED | Direct workspace boot, Project-level boundary (ADR-0030) |
+| Single-user local-first workspace | IMPLEMENTED | Direct workspace boot, Project-level boundary (ADR-0020) |
 | Authentication / account runtime | REMOVED | No User, Account, Session, OAuth or login gates |
 | Per-user quota / entitlement | REMOVED | Monetary billing, user credits and per-user quotas retired |
 | Runtime capacity limits | IMPLEMENTED foundation | System capacity reservations with terminal settlement |

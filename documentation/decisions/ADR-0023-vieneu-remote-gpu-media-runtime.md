@@ -1,8 +1,12 @@
-# ADR-0035: VieNeu TTS and Media Generation Runtime on Leased Remote RTX 3090
+# ADR-0023: VieNeu TTS and Media Generation Runtime on Leased Remote RTX 3090
 
 ## Status
 
-Accepted (2026-09-18) ? Supersedes ADR-0027
+Accepted (2026-09-18)
+
+## Supersedes
+
+ADR-0027 (VoiceStudio-only TTS and WhisperX-aligned WAV narration)
 
 ## Context
 

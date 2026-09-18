@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Architecture residue scanner for NarrativeX.
 
-Enforces ADR-0030 and ADR-0028/0029 by detecting forbidden architectural remnants
+Enforces ADR-0020 and ADR-0018/0029 by detecting forbidden architectural remnants
 such as auth/account identity, quota/entitlements, R2 object storage, VoiceStudio TTS,
 and business database coupling in the generation service.
 """

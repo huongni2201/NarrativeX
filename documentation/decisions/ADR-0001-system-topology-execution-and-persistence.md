@@ -3,7 +3,7 @@
 - Status: Accepted; amended 2026-09-12 for the squashed V1–V8 baseline, non-monetary quota model and R2 voice-only storage boundary
 - Date: 2026-08-18 (consolidated and updated: 2026-09-12)
 - Scope: Application topology, worker boundary, DDD package boundaries, SQL-first MyBatis persistence, Flyway PostgreSQL baseline, durable provider execution lifecycle and local final-render authority.
-- Consolidated from: former ADR-0001, ADR-0003, ADR-0006, ADR-0008, and ADR-0010.
+- Consolidated from: former ADR-0001, ADR-0003, ADR-0003, ADR-0008, and ADR-0006.
 
 ## Context
 

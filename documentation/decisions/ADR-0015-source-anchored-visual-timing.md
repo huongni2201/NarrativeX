@@ -1,4 +1,4 @@
-# ADR-0023: Source-anchored visual timing derived from narration alignment
+# ADR-0015: Source-anchored visual timing derived from narration alignment
 
 **Status:** Accepted  
 **Date:** 2026-08-31

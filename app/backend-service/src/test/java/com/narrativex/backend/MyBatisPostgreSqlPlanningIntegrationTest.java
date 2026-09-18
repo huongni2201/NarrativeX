@@ -208,6 +208,7 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
     if (type == OffsetDateTime.class) return OffsetDateTime.parse("2025-01-01T00:00:00Z");
     if (type == String.class) return fixtureString(property);
     if (type == BigDecimal.class) return BigDecimal.ONE;
+    if (type == double.class || type == Double.class) return 1.0;
     if (type == boolean.class || type == Boolean.class) return true;
     if (type == int.class || type == Integer.class) return 1;
     if (type == long.class || type == Long.class) return 1L;

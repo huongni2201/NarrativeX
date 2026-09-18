@@ -1,4 +1,4 @@
-# ADR-0030: Single-User Local-First Architecture
+# ADR-0020: Single-User Local-First Architecture
 
 ## Status
 

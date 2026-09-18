@@ -1,4 +1,4 @@
-# ADR-0017: Source-owned Desktop renderer UI component stack
+# ADR-0012: Source-owned Desktop renderer UI component stack
 
 ## Status
 
@@ -85,5 +85,5 @@ renderer shared behavior, typed variants and full control of the final CSS.
 
 ## Related decisions
 
-- [ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)
-- [ADR-0012: Desktop local-first project media and local render execution](./ADR-0012-desktop-local-first-media-and-render-execution.md)
+- [ADR-0006: Establish the Electron desktop editor client boundary](./ADR-0006-desktop-editor-client-boundary.md)
+- [ADR-0007: Desktop local-first project media and local render execution](./ADR-0007-desktop-local-first-media-and-render-execution.md)

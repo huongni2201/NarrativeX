@@ -1,7 +1,7 @@
 # NarrativeX System Architecture
 
 **Status:** maintained architecture contract
-**Authority:** code, migrations, tests, and active ADRs (ADR-0028, ADR-0029, ADR-0030, ADR-0031)
+**Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021)
 
 
 NarrativeX is Desktop-only at the editor boundary, single-user local-first, and project-first. Spring Boot is the durable control plane; `generation-service` is the domain-agnostic compute execution plane; Electron main owns privileged local project-media and final-render execution.
@@ -31,7 +31,7 @@ Spring Boot Backend
         +-> WhisperX (forced alignment)
         +-> ComfyUI (RealVisXL image generation)
         +-> media validation
-        +-> SQLite execution journal (local crash recovery, ADR-0031)
+        +-> SQLite execution journal (local crash recovery, ADR-0021)
 ```
 
 Redis and browser-based editors are removed.
@@ -66,13 +66,13 @@ Modular monolith structured around domain boundaries:
 - `catalog`: System profiles, voice reference catalogs, style presets.
 - `runtime configuration`: Target endpoints, capability limits, operational settings.
 
-Per ADR-0030, caller identity is not threaded through business logic; the backend never persists absolute machine paths and never proxies final MP4 video bytes.
+Per ADR-0020, caller identity is not threaded through business logic; the backend never persists absolute machine paths and never proxies final MP4 video bytes.
 
 ### Generation Service (`app/generation-service`)
-Domain-agnostic GPU execution plane implementing hexagonal architecture (ADR-0028/ADR-0029):
+Domain-agnostic GPU execution plane implementing hexagonal architecture (ADR-0018/ADR-0019):
 - Implements `contracts/compute/v1/` task protocols over HTTP;
 - Workload adapters: VieNeu TTS, WhisperX forced alignment, ComfyUI image generation, media validation;
-- Local SQLite execution journal (`.runtime/execution_journal.sqlite3`) for crash recovery checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`, ADR-0031);
+- Local SQLite execution journal (`.runtime/execution_journal.sqlite3`) for crash recovery checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`, ADR-0021);
 - Artifact capability transport with SHA-256 verification;
 - Zero access to the PostgreSQL business database and zero domain entity awareness.
 
@@ -91,7 +91,7 @@ Domain-agnostic GPU execution plane implementing hexagonal architecture (ADR-002
 | Final MP4 video bytes | Desktop workspace `artifacts/` |
 | Final artifact metadata | PostgreSQL (Spring Boot backend) |
 
-Per ADR-0030, application identity and account ownership models (User, Account, Session, OAuth, Tenant) do not exist.
+Per ADR-0020, application identity and account ownership models (User, Account, Session, OAuth, Tenant) do not exist.
 
 ## Local / Remote Compute Split
 
@@ -108,7 +108,7 @@ User action / scheduled generation
   -> backend validates policy & persists durable intent (PostgreSQL)
   -> backend builds closed ComputeTask (contracts/compute/v1/)
   -> backend submits ComputeTask via HTTP to generation-service
-  -> generation-service records submission state (SQLite journal, ADR-0031)
+  -> generation-service records submission state (SQLite journal, ADR-0021)
   -> generation-service executes task via adapter (VieNeu, WhisperX, ComfyUI, validation)
   -> generation-service notifies backend callback / backend reconciles
   -> backend applies domain state transition in PostgreSQL

@@ -1,4 +1,4 @@
-# ADR-0013: Desktop local-media registration and editor mutations
+# ADR-0008: Desktop local-media registration and editor mutations
 
 ## Status
 

@@ -40,7 +40,7 @@
             current_storyboard_revision_id
         )
         VALUES (
-            #{rowVersion}, #{createdAt}, #{updatedAt}, #{storyVersionId}, #{orderIndex},
+            #{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{storyVersionId}, #{orderIndex},
             #{title}, #{sourceText}, #{sourceHash}, #{status}, #{estimatedDurationMs},
             #{generationProgress}, #{sourceStoryVersionId}, #{inheritedSnapshotHash},
             #{currentStoryboardRevisionId}

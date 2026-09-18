@@ -15,7 +15,7 @@ public class ProjectCharacterRow {
   private UUID projectId;
   private UUID characterId;
   private String role;
-  private int importance;
+  private String importance;
   private String projectAliasesJson;
   private String storyMetadata;
   private String groupsJson;

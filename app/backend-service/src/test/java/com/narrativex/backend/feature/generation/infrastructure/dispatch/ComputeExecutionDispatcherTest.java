@@ -2,12 +2,15 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
@@ -183,7 +186,16 @@ class ComputeExecutionDispatcherTest {
     verify(chapterAnalysisProvider).analyze(any(ChapterAnalysisRequest.class));
     verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
     verify(storyboardMapper).insertScene(any(SceneRow.class));
-    verify(storyboardMapper).insertVisualBeat(any(VisualBeatRow.class));
+
+    ArgumentCaptor<VisualBeatRow> beatCaptor = ArgumentCaptor.forClass(VisualBeatRow.class);
+    verify(storyboardMapper).insertVisualBeat(beatCaptor.capture());
+    VisualBeatRow persistedBeat = beatCaptor.getValue();
+    assertEquals(0, persistedBeat.getTextStart());
+    assertEquals(20, persistedBeat.getTextEnd());
+    assertNotNull(persistedBeat.getSourceAnchorJson());
+    assertTrue(persistedBeat.getSourceAnchorJson().contains("\"textStart\":0"));
+    assertTrue(persistedBeat.getSourceAnchorJson().contains("\"textEnd\":20"));
+    assertTrue(persistedBeat.getSourceAnchorJson().contains("\"sourceHash\":\"" + sourceHash + "\""));
   }
 
   @Test

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-18 (consolidated and updated: 2026-08-22)
 - Scope: Chapter-first workflows, storyboard aggregate boundaries, revision lifecycle, character continuity identities, motion rendering models, and translation lineage.
-- Consolidated from: former ADR-0002, ADR-0005, ADR-0007, ADR-0009, and ADR-0014.
+- Consolidated from: former ADR-0002, ADR-0005, ADR-0004, ADR-0005, and ADR-0009.
 
 ## Context
 

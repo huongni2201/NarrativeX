@@ -40,6 +40,9 @@ CREATE INDEX idx_scenes_project_location ON scenes (project_location_id) WHERE p
 CREATE INDEX idx_scene_characters_project_character ON scene_characters (project_character_id);
 CREATE INDEX idx_visual_beats_scene_review_order ON visual_beats (scene_id, review_status, order_index, id);
 CREATE INDEX idx_visual_beats_preview_media_asset ON visual_beats (preview_media_asset_id) WHERE preview_media_asset_id IS NOT NULL;
+CREATE INDEX idx_story_beats_scene_order ON story_beats (scene_id, order_index, id);
+CREATE INDEX idx_audio_cues_story_beat_order ON audio_cues (story_beat_id, order_index, id);
+CREATE INDEX idx_visual_beats_story_beat_id ON visual_beats (story_beat_id) WHERE story_beat_id IS NOT NULL;
 CREATE INDEX idx_visual_beat_characters_project_character ON visual_beat_characters (project_character_id, visual_beat_id);
 CREATE INDEX idx_chapter_continuity_plans_current ON chapter_continuity_plans (chapter_id, revision DESC);
 CREATE INDEX idx_chapter_continuity_plans_story_source ON chapter_continuity_plans (story_version_id, chapter_id, source_hash);
@@ -96,6 +99,9 @@ CREATE INDEX idx_media_validation_jobs_expired_leases ON media_validation_jobs (
 CREATE INDEX idx_narration_requests_chapter_created ON narration_requests (chapter_id, created_at DESC);
 CREATE INDEX idx_narration_requests_voice_reference ON narration_requests (voice_reference_asset_id)
     WHERE voice_reference_asset_id IS NOT NULL;
+CREATE INDEX idx_narration_requests_script ON narration_requests (narration_script_id)
+    WHERE narration_script_id IS NOT NULL;
+CREATE INDEX idx_narration_scripts_chapter_revision ON narration_scripts (chapter_id, storyboard_revision_id, version);
 CREATE INDEX idx_narration_sets_story_created ON narration_sets (story_id, created_at DESC);
 
 -- Notifications and durable outbox

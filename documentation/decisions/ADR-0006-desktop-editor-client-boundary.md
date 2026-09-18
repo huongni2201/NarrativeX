@@ -1,4 +1,4 @@
-# ADR-0010: Establish the Electron desktop editor client boundary
+# ADR-0006: Establish the Electron desktop editor client boundary
 
 **Status:** Accepted  
 **Date:** 2026-08-24  
@@ -53,7 +53,7 @@ The Chromium renderer sandbox is disabled because it cannot initialize reliably 
 
 Timeline clips use explicit `startMs`/`endMs`; narration timing remains the master clock.
 
-Final project rendering executes only in Electron main under backend assignment/lease control according to ADR-0012. Python workers and backend services do not execute final FFmpeg renders or store/proxy final MP4 bytes.
+Final project rendering executes only in Electron main under backend assignment/lease control according to ADR-0007. Python workers and backend services do not execute final FFmpeg renders or store/proxy final MP4 bytes.
 
 ### Local project media
 
@@ -96,13 +96,13 @@ Process-restart render recovery/resume and several planned editor/review hardeni
 2. Renderer code never gains unrestricted Node.js/filesystem/process access.
 3. Native capabilities cross preload as narrow typed actions.
 4. Backend remains authoritative for ownership, policy, job admission and durable execution state.
-5. Local project bytes and final MP4 artifacts follow ADR-0012.
+5. Local project bytes and final MP4 artifacts follow ADR-0007.
 6. Google user authentication follows ADR-0011.
 7. Final project rendering executes only in Electron main; introducing server/cloud final rendering or final-video byte storage requires a new ADR.
 
 ## Related decisions
 
 - [ADR-0001: System topology, durable execution and persistence](./ADR-0001-system-topology-execution-and-persistence.md)
-- [ADR-0003: Cloud media storage and provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)
-- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0011-google-oauth-only-desktop-auth.md)
-- [ADR-0012: Desktop local-first media and render execution](./ADR-0012-desktop-local-first-media-and-render-execution.md)
+- [ADR-0003: Cloud media storage and provider integrations](./ADR-0007-desktop-local-first-media-and-render-execution.md)
+- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0020-single-user-local-first-architecture.md)
+- [ADR-0007: Desktop local-first media and render execution](./ADR-0007-desktop-local-first-media-and-render-execution.md)

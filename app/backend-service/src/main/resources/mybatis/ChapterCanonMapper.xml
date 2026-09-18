@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper">
+
+  <resultMap id="projectCharacterBindingRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectCharacterBindingRow">
+    <id property="projectCharacterId" column="project_character_id"/>
+    <result property="projectId" column="project_id"/>
+    <result property="characterId" column="character_id"/>
+    <result property="canonicalName" column="canonical_name"/>
+    <result property="characterAliasesJson" column="character_aliases_json"/>
+    <result property="projectAliasesJson" column="project_aliases_json"/>
+    <result property="role" column="role"/>
+    <result property="importance" column="importance"/>
+    <result property="pinnedCharacterVersionId" column="pinned_character_version_id"/>
+    <result property="bible" column="bible"/>
+    <result property="visualPrompt" column="visual_prompt"/>
+    <result property="versionStatus" column="version_status"/>
+    <result property="versionLockedAt" column="version_locked_at"/>
+    <result property="aiName" column="ai_name"/>
+    <result property="aiAliasesJson" column="ai_aliases_json"/>
+  </resultMap>
+
+  <resultMap id="projectLocationBindingRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectLocationBindingRow">
+    <id property="projectLocationId" column="project_location_id"/>
+    <result property="projectId" column="project_id"/>
+    <result property="name" column="name"/>
+    <result property="description" column="description"/>
+    <result property="visualPrompt" column="visual_prompt"/>
+    <result property="aiName" column="ai_name"/>
+    <result property="aiAliasesJson" column="ai_aliases_json"/>
+  </resultMap>
+
+  <resultMap id="projectLocationRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectLocationRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="projectId" column="project_id"/>
+    <result property="name" column="name"/>
+    <result property="description" column="description"/>
+    <result property="visualPrompt" column="visual_prompt"/>
+    <result property="referenceImageUrl" column="reference_image_url"/>
+    <result property="status" column="status"/>
+  </resultMap>
+
+  <resultMap id="sceneCharacterRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneCharacterRow">
+    <id property="sceneId" column="scene_id"/>
+    <id property="projectCharacterId" column="project_character_id"/>
+    <result property="orderIndex" column="order_index"/>
+  </resultMap>
+
+  <resultMap id="visualBeatCharacterRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatCharacterRow">
+    <id property="visualBeatId" column="visual_beat_id"/>
+    <id property="projectCharacterId" column="project_character_id"/>
+    <result property="role" column="role"/>
+  </resultMap>
+
+  <select id="findProjectCharacterBindings" resultMap="projectCharacterBindingRow">
+    SELECT
+        pc.id AS project_character_id,
+        pc.project_id,
+        pc.character_id,
+        c.canonical_name,
+        c.aliases::text AS character_aliases_json,
+        pc.project_aliases::text AS project_aliases_json,
+        pc.role,
+        pc.importance,
+        pc.pinned_character_version_id,
+        cv.bible,
+        cv.visual_prompt,
+        cv.status AS version_status,
+        cv.locked_at AS version_locked_at,
+        cai.ai_name,
+        cai.aliases_json::text AS ai_aliases_json
+    FROM project_characters pc
+    JOIN characters c ON c.id = pc.character_id
+    LEFT JOIN character_versions cv ON cv.id = pc.pinned_character_version_id
+    LEFT JOIN project_character_ai_identities cai ON cai.project_id = pc.project_id AND cai.project_character_id = pc.id
+    WHERE pc.project_id = #{projectId} AND pc.status = 'ACTIVE'
+  </select>
+
+  <select id="findProjectLocationBindings" resultMap="projectLocationBindingRow">
+    SELECT
+        pl.id AS project_location_id,
+        pl.project_id,
+        pl.name,
+        pl.description,
+        pl.visual_prompt,
+        lai.ai_name,
+        lai.aliases_json::text AS ai_aliases_json
+    FROM project_locations pl
+    LEFT JOIN project_location_ai_identities lai ON lai.project_id = pl.project_id AND lai.project_location_id = pl.id
+    WHERE pl.project_id = #{projectId} AND pl.status = 'ACTIVE'
+  </select>
+
+  <select id="insertCharacter" parameterType="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO characters (row_version, created_at, updated_at, canonical_name, aliases, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{canonicalName}, CAST(COALESCE(#{aliasesJson}, '[]') AS jsonb), #{status})
+    RETURNING id
+  </select>
+
+  <select id="insertCharacterVersion" parameterType="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO character_versions (row_version, created_at, updated_at, character_id, version_number, bible, visual_prompt, status, locked_at)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{characterId}, #{versionNumber}, #{bible}, #{visualPrompt}, #{status}, #{lockedAt})
+    RETURNING id
+  </select>
+
+  <select id="maxCharacterVersion" resultType="int">
+    SELECT COALESCE(MAX(version_number), 0) FROM character_versions WHERE character_id = #{characterId}
+  </select>
+
+  <select id="insertProjectCharacter" parameterType="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO project_characters (row_version, created_at, updated_at, project_id, character_id, role, importance, project_aliases, story_metadata, groups_json, pinned_character_version_id, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{projectId}, #{characterId}, #{role}, #{importance}, CAST(COALESCE(#{projectAliasesJson}, '[]') AS jsonb), #{storyMetadata}, CAST(COALESCE(#{groupsJson}, '[]') AS jsonb), #{pinnedCharacterVersionId}, #{status})
+    ON CONFLICT (project_id, character_id) DO NOTHING
+    RETURNING id
+  </select>
+
+  <insert id="upsertProjectCharacterAiIdentity">
+    INSERT INTO project_character_ai_identities (row_version, created_at, updated_at, project_id, project_character_id, ai_name, aliases_json, is_active)
+    VALUES (0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, #{projectId}, #{projectCharacterId}, #{aiName}, CAST(COALESCE(#{aliasesJson}, '[]') AS jsonb), true)
+    ON CONFLICT (project_id, project_character_id)
+    DO UPDATE SET ai_name = #{aiName}, aliases_json = CAST(COALESCE(#{aliasesJson}, '[]') AS jsonb), updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <select id="insertProjectLocation" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectLocationRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO project_locations (row_version, created_at, updated_at, project_id, name, description, visual_prompt, reference_image_url, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{projectId}, #{name}, #{description}, #{visualPrompt}, #{referenceImageUrl}, #{status})
+    RETURNING id
+  </select>
+
+  <insert id="upsertProjectLocationAiIdentity">
+    INSERT INTO project_location_ai_identities (row_version, created_at, updated_at, project_id, project_location_id, ai_name, aliases_json, is_active)
+    VALUES (0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, #{projectId}, #{projectLocationId}, #{aiName}, CAST(#{aliasesJson} AS jsonb), true)
+    ON CONFLICT (project_id, project_location_id)
+    DO UPDATE SET ai_name = #{aiName}, aliases_json = CAST(#{aliasesJson} AS jsonb), updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <insert id="insertSceneCharacter">
+    INSERT INTO scene_characters (scene_id, order_index, project_character_id)
+    VALUES (#{sceneId}, #{orderIndex}, #{projectCharacterId})
+    ON CONFLICT (scene_id, project_character_id) DO NOTHING
+  </insert>
+
+  <insert id="insertVisualBeatCharacter">
+    INSERT INTO visual_beat_characters (visual_beat_id, project_character_id, role)
+    VALUES (#{visualBeatId}, #{projectCharacterId}, #{role})
+    ON CONFLICT (visual_beat_id, project_character_id) DO NOTHING
+  </insert>
+
+  <select id="findSceneCharacters" resultMap="sceneCharacterRow">
+    SELECT scene_id, order_index, project_character_id
+    FROM scene_characters
+    WHERE scene_id = #{sceneId}
+    ORDER BY order_index, project_character_id
+  </select>
+
+  <select id="findVisualBeatCharacters" resultMap="visualBeatCharacterRow">
+    SELECT visual_beat_id, project_character_id, role
+    FROM visual_beat_characters
+    WHERE visual_beat_id = #{visualBeatId}
+    ORDER BY project_character_id
+  </select>
+
+  <select id="findProjectLocations" resultMap="projectLocationRow">
+    SELECT id, row_version, created_at, updated_at, project_id, name, description, visual_prompt, reference_image_url, status
+    FROM project_locations
+    WHERE project_id = #{projectId} AND status = 'ACTIVE'
+    ORDER BY name, id
+  </select>
+
+</mapper>

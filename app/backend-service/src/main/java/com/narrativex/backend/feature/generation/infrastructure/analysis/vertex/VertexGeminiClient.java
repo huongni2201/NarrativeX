@@ -118,13 +118,16 @@ public class VertexGeminiClient {
             + sourceText;
 
     String systemInstruction =
-        "You are the NarrativeX Storyboard Analyzer (promptVersion="
+        "You are the NarrativeX Storyboard and Canon Analyzer (promptVersion="
             + promptVersion
             + ", schemaVersion="
             + schemaVersion
             + "). "
-            + "Analyze the provided chapter text into sequential narrative scenes and precise visual beats adhering strictly to the JSON schema. "
-            + "Every visual beat MUST include an exact verbatim source_anchor present in the chapter text.";
+            + "Extract the narrative canon (characters and locations) and analyze the chapter into sequential scenes and visual beats adhering strictly to the JSON schema. "
+            + "Characters must include stable ai_name, canonical_name, aliases, role (PROTAGONIST, ANTAGONIST, SUPPORTING, EXTRA), importance (PRIMARY, SECONDARY, BACKGROUND), description, and detailed visual_prompt. "
+            + "Locations must include ai_name, name, aliases, description, and visual_prompt. "
+            + "Scenes must reference location_ai_name and character_ai_names. "
+            + "Every visual beat MUST include an exact verbatim source_anchor present in the chapter text, referenced character_ai_names, and detailed visual_direction.";
 
     Map<String, Object> responseSchema = buildStoryboardResponseSchema();
 
@@ -185,6 +188,8 @@ public class VertexGeminiClient {
                 Map.of("type", "STRING"),
                 "source_anchor",
                 Map.of("type", "STRING"),
+                "character_ai_names",
+                Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                 "visual_direction",
                 Map.of(
                     "type",
@@ -206,16 +211,63 @@ public class VertexGeminiClient {
                 Map.of("type", "STRING"),
                 "narration",
                 Map.of("type", "STRING"),
+                "location_ai_name",
+                Map.of("type", "STRING"),
+                "character_ai_names",
+                Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                 "visual_beats",
                 Map.of("type", "ARRAY", "items", visualBeatSchema)));
+
+    Map<String, Object> characterSchema =
+        Map.of(
+            "type",
+            "OBJECT",
+            "required",
+            List.of("ai_name", "canonical_name", "role", "importance", "visual_prompt"),
+            "properties",
+            Map.of(
+                "ai_name", Map.of("type", "STRING"),
+                "canonical_name", Map.of("type", "STRING"),
+                "aliases", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                "role", Map.of("type", "STRING"),
+                "importance", Map.of("type", "STRING"),
+                "description", Map.of("type", "STRING"),
+                "visual_prompt", Map.of("type", "STRING")));
+
+    Map<String, Object> locationSchema =
+        Map.of(
+            "type",
+            "OBJECT",
+            "required",
+            List.of("ai_name", "name", "visual_prompt"),
+            "properties",
+            Map.of(
+                "ai_name", Map.of("type", "STRING"),
+                "name", Map.of("type", "STRING"),
+                "aliases", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                "description", Map.of("type", "STRING"),
+                "visual_prompt", Map.of("type", "STRING")));
+
+    Map<String, Object> canonSchema =
+        Map.of(
+            "type",
+            "OBJECT",
+            "required",
+            List.of("characters", "locations"),
+            "properties",
+            Map.of(
+                "characters", Map.of("type", "ARRAY", "items", characterSchema),
+                "locations", Map.of("type", "ARRAY", "items", locationSchema)));
 
     return Map.of(
         "type",
         "OBJECT",
         "required",
-        List.of("scenes"),
+        List.of("canon", "scenes"),
         "properties",
-        Map.of("scenes", Map.of("type", "ARRAY", "items", sceneSchema)));
+        Map.of(
+            "canon", canonSchema,
+            "scenes", Map.of("type", "ARRAY", "items", sceneSchema)));
   }
 
   private GeneratedAnalysisResponse parseSuccessfulResponse(String responseBody, long runtimeMs) {

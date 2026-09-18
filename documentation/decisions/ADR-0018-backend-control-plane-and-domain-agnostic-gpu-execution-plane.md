@@ -1,4 +1,4 @@
-# ADR-0028: Backend control plane and domain-agnostic GPU execution plane
+# ADR-0018: Backend control plane and domain-agnostic GPU execution plane
 
 ## Status
 
@@ -85,7 +85,7 @@ Image generation, media validation and other compute tasks follow after the cont
 
 ## Supersedes
 
-This ADR supersedes ADR-0020 only where it assigns workers direct PostgreSQL queue polling. PostgreSQL
+This ADR supersedes ADR-0014 only where it assigns workers direct PostgreSQL queue polling. PostgreSQL
 remains the only required durable application-state service; no Redis or broker is introduced.
 
 It supersedes ADR-0027 where VoiceStudio, WhisperX and narration execution are placed inside the
@@ -97,5 +97,5 @@ generation after the corresponding dependency-free cut-over gate is met.
 ## References
 
 - `documentation/COMPUTE_PROTOCOL.md`
-- `documentation/decisions/ADR-0020-postgresql-only-mvp-runtime-state.md`
-- `documentation/decisions/ADR-0027-voicestudio-only-tts-and-whisperx-wav-pipeline.md`
+- `documentation/decisions/ADR-0014-postgresql-only-mvp-runtime-state.md`
+- `documentation/decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md`

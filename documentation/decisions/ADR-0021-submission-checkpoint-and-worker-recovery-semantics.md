@@ -1,4 +1,4 @@
-# ADR-0031: Durable submission checkpointing and safe worker recovery semantics
+# ADR-0021: Durable submission checkpointing and safe worker recovery semantics
 
 ## Status
 
@@ -13,7 +13,7 @@ Previously:
 2. Network timeouts or lost acknowledgements during engine dispatch were caught by generic exception handlers and marked as terminal `FAILED`, even when the external engine might still be actively computing the result.
 3. The worker lacked an explicit, durable record of intent commit prior to initiating external I/O.
 
-In accordance with ADR-0028, the backend control plane owns job orchestration, retry policies, and `ProviderOperation.UNKNOWN` reconciliation. The worker must not blind-resubmit ambiguous tasks, nor may it silently fabricate failure or cancellation states that improperly release backend retry paths.
+In accordance with ADR-0018, the backend control plane owns job orchestration, retry policies, and `ProviderOperation.UNKNOWN` reconciliation. The worker must not blind-resubmit ambiguous tasks, nor may it silently fabricate failure or cancellation states that improperly release backend retry paths.
 
 ## Decision
 

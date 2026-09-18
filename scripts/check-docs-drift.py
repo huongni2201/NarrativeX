@@ -55,14 +55,15 @@ REQUIRED_PATHS = [
     ROOT / "app" / "desktop" / "README.md",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
-    ROOT / "documentation" / "decisions" / "ADR-0003-media-storage-generation-pipelines-and-external-integrations.md",
-    ROOT / "documentation" / "decisions" / "ADR-0010-desktop-editor-client-boundary.md",
-    ROOT / "documentation" / "decisions" / "ADR-0012-desktop-local-first-media-and-render-execution.md",
-    ROOT / "documentation" / "decisions" / "ADR-0017-desktop-renderer-ui-component-stack.md",
-    ROOT / "documentation" / "decisions" / "ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md",
-    ROOT / "documentation" / "decisions" / "ADR-0029-generation-service-light-ddd-hexagonal-structure.md",
-    ROOT / "documentation" / "decisions" / "ADR-0030-single-user-local-first-architecture.md",
-    ROOT / "documentation" / "decisions" / "ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md",
+    ROOT / "documentation" / "decisions" / "ADR-0006-desktop-editor-client-boundary.md",
+    ROOT / "documentation" / "decisions" / "ADR-0007-desktop-local-first-media-and-render-execution.md",
+    ROOT / "documentation" / "decisions" / "ADR-0012-desktop-renderer-ui-component-stack.md",
+    ROOT / "documentation" / "decisions" / "ADR-0018-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md",
+    ROOT / "documentation" / "decisions" / "ADR-0019-generation-service-light-ddd-hexagonal-structure.md",
+    ROOT / "documentation" / "decisions" / "ADR-0020-single-user-local-first-architecture.md",
+    ROOT / "documentation" / "decisions" / "ADR-0021-submission-checkpoint-and-worker-recovery-semantics.md",
+    ROOT / "documentation" / "decisions" / "ADR-0022-vertex-gemini-chapter-analysis.md",
+    ROOT / "documentation" / "decisions" / "ADR-0023-vieneu-remote-gpu-media-runtime.md",
 ]
 
 RETIRED_PATHS = [

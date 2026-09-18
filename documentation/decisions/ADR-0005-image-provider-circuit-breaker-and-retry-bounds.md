@@ -1,4 +1,4 @@
-# ADR-0009: Bounded image-provider retries and circuit breaking
+# ADR-0005: Bounded image-provider retries and circuit breaking
 
 ## Status
 

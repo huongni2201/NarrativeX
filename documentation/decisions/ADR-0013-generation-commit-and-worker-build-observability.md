@@ -1,4 +1,4 @@
-# ADR-0018: Generation commit and worker build observability
+# ADR-0013: Generation commit and worker build observability
 
 ## Status
 
@@ -52,4 +52,4 @@ mismatch, a stale image, and a worker claim/provider failure.
 ## Related Decisions
 
 - ADR-0001: System topology, modular monolith, durable execution and persistence architecture
-- ADR-0007: Architecture guards and pipeline observability
+- ADR-0004: Architecture guards and pipeline observability

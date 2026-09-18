@@ -1,4 +1,4 @@
-# ADR-0016: UUID policy for public and operational identifiers
+# ADR-0011: UUID policy for public and operational identifiers
 
 ## Status
 

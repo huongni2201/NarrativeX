@@ -1,15 +1,291 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper">
-  <resultMap id="scene" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow"><id property="id" column="id"/><result property="rowVersion" column="row_version"/><result property="createdAt" column="created_at"/><result property="updatedAt" column="updated_at"/><result property="chapterId" column="chapter_id"/><result property="storyboardRevisionId" column="storyboard_revision_id"/><result property="projectId" column="project_id"/><result property="orderIndex" column="order_index"/><result property="title" column="title"/><result property="narration" column="narration"/><result property="durationSeconds" column="duration_seconds"/><result property="status" column="status"/></resultMap>
-  <resultMap id="beat" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow"><id property="id" column="id"/><result property="rowVersion" column="row_version"/><result property="createdAt" column="created_at"/><result property="updatedAt" column="updated_at"/><result property="sceneId" column="scene_id"/><result property="orderIndex" column="order_index"/><result property="title" column="title"/><result property="visualIntent" column="visual_intent"/><result property="visualDirectionJson" column="visual_direction_json"/><result property="reviewStatus" column="review_status"/><result property="motionMode" column="motion_mode"/><result property="aspectRatioOverride" column="aspect_ratio_override"/><result property="previewMediaAssetId" column="preview_media_asset_id"/></resultMap>
-  <select id="findCurrentScenes" resultMap="scene">SELECT s.id,s.row_version,s.created_at,s.updated_at,s.chapter_id,s.storyboard_revision_id,s.project_id,s.order_index,s.title,s.narration,s.duration_seconds,s.status FROM scenes s JOIN chapters c ON c.id=s.chapter_id WHERE c.id=#{chapterId} AND c.deleted_at IS NULL AND s.storyboard_revision_id=c.current_storyboard_revision_id ORDER BY s.order_index,s.id</select>
-  <select id="findVisualBeats" resultMap="beat">SELECT id,row_version,created_at,updated_at,scene_id,order_index,title,visual_intent,visual_direction_json,review_status,motion_mode,aspect_ratio_override,preview_media_asset_id FROM visual_beats WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach> ORDER BY scene_id,order_index,id</select>
-  <select id="findScene" resultMap="scene">SELECT id,row_version,created_at,updated_at,chapter_id,storyboard_revision_id,project_id,order_index,title,narration,duration_seconds,status FROM scenes WHERE id=#{id}</select>
-  <select id="findSceneForUpdate" resultMap="scene">SELECT id,row_version,created_at,updated_at,chapter_id,storyboard_revision_id,project_id,order_index,title,narration,duration_seconds,status FROM scenes WHERE id=#{id} AND chapter_id=#{chapterId} FOR UPDATE</select>
-  <select id="findVisualBeat" resultMap="beat">SELECT id,row_version,created_at,updated_at,scene_id,order_index,title,visual_intent,visual_direction_json,review_status,motion_mode,aspect_ratio_override,preview_media_asset_id FROM visual_beats WHERE id=#{id}</select>
-  <select id="maxVisualBeatOrder" resultType="int">SELECT COALESCE(MAX(order_index),-1) FROM visual_beats WHERE scene_id=#{sceneId}</select>
-  <select id="insertVisualBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow" resultType="java.util.UUID" affectData="true">INSERT INTO visual_beats (row_version,created_at,updated_at,scene_id,order_index,title,visual_intent,visual_direction_json,review_status,motion_mode,aspect_ratio_override,preview_media_asset_id) VALUES (#{rowVersion},#{createdAt},#{updatedAt},#{sceneId},#{orderIndex},#{title},#{visualIntent},COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb),#{reviewStatus},#{motionMode},#{aspectRatioOverride},#{previewMediaAssetId}) RETURNING id</select>
-  <select id="insertScene" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow" resultType="java.util.UUID" affectData="true">INSERT INTO scenes (row_version,created_at,updated_at,chapter_id,storyboard_revision_id,project_id,order_index,title,narration,duration_seconds,status) VALUES (#{rowVersion},#{createdAt},#{updatedAt},#{chapterId},#{storyboardRevisionId},#{projectId},#{orderIndex},#{title},#{narration},#{durationSeconds},#{status}) RETURNING id</select>
-  <update id="updateVisualBeat">UPDATE visual_beats SET title=#{title},visual_intent=#{visualIntent},visual_direction_json=COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb),review_status=#{reviewStatus},motion_mode=#{motionMode},aspect_ratio_override=#{aspectRatioOverride},preview_media_asset_id=#{previewMediaAssetId},updated_at=#{updatedAt},row_version=row_version+1 WHERE id=#{id} AND row_version=#{rowVersion}</update>
+
+  <resultMap id="scene" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="chapterId" column="chapter_id"/>
+    <result property="storyboardRevisionId" column="storyboard_revision_id"/>
+    <result property="projectId" column="project_id"/>
+    <result property="projectLocationId" column="project_location_id"/>
+    <result property="orderIndex" column="order_index"/>
+    <result property="title" column="title"/>
+    <result property="narration" column="narration"/>
+    <result property="durationSeconds" column="duration_seconds"/>
+    <result property="locationText" column="location_text"/>
+    <result property="status" column="status"/>
+  </resultMap>
+
+  <resultMap id="storyBeat" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="sceneId" column="scene_id"/>
+    <result property="orderIndex" column="order_index"/>
+    <result property="sourceStart" column="source_start"/>
+    <result property="sourceEnd" column="source_end"/>
+    <result property="sourceAnchorJson" column="source_anchor_json"/>
+    <result property="purpose" column="purpose"/>
+    <result property="summary" column="summary"/>
+    <result property="importance" column="importance"/>
+    <result property="storyFunctionsJson" column="story_functions_json"/>
+    <result property="continuityStateJson" column="continuity_state_json"/>
+  </resultMap>
+
+  <resultMap id="audioCue" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="storyBeatId" column="story_beat_id"/>
+    <result property="orderIndex" column="order_index"/>
+    <result property="cueType" column="cue_type"/>
+    <result property="speakerProjectCharacterId" column="speaker_project_character_id"/>
+    <result property="sourceStart" column="source_start"/>
+    <result property="sourceEnd" column="source_end"/>
+    <result property="sourceAnchorJson" column="source_anchor_json"/>
+    <result property="adaptationAction" column="adaptation_action"/>
+    <result property="adaptedText" column="adapted_text"/>
+    <result property="deliveryHint" column="delivery_hint"/>
+    <result property="narrationTextStart" column="narration_text_start"/>
+    <result property="narrationTextEnd" column="narration_text_end"/>
+    <result property="audioStartMs" column="audio_start_ms"/>
+    <result property="audioEndMs" column="audio_end_ms"/>
+    <result property="status" column="status"/>
+  </resultMap>
+
+  <resultMap id="beat" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="sceneId" column="scene_id"/>
+    <result property="storyBeatId" column="story_beat_id"/>
+    <result property="orderIndex" column="order_index"/>
+    <result property="title" column="title"/>
+    <result property="visualIntent" column="visual_intent"/>
+    <result property="beatType" column="beat_type"/>
+    <result property="visualSummary" column="visual_summary"/>
+    <result property="visualDescription" column="visual_description"/>
+    <result property="visualDirectionJson" column="visual_direction_json"/>
+    <result property="reviewStatus" column="review_status"/>
+    <result property="motionMode" column="motion_mode"/>
+    <result property="relativeWeight" column="relative_weight"/>
+    <result property="visualFocus" column="visual_focus"/>
+    <result property="aspectRatioOverride" column="aspect_ratio_override"/>
+    <result property="previewMediaAssetId" column="preview_media_asset_id"/>
+    <result property="textStart" column="text_start"/>
+    <result property="textEnd" column="text_end"/>
+    <result property="audioDurationMs" column="audio_duration_ms"/>
+    <result property="sourceAnchorJson" column="source_anchor_json"/>
+  </resultMap>
+
+  <resultMap id="narrationScript" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.NarrationScriptRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="chapterId" column="chapter_id"/>
+    <result property="storyboardRevisionId" column="storyboard_revision_id"/>
+    <result property="sourceHash" column="source_hash"/>
+    <result property="version" column="version"/>
+    <result property="adaptationMode" column="adaptation_mode"/>
+    <result property="text" column="text"/>
+    <result property="contentHash" column="content_hash"/>
+    <result property="status" column="status"/>
+  </resultMap>
+
+  <select id="findCurrentScenes" resultMap="scene">
+    SELECT s.id, s.row_version, s.created_at, s.updated_at, s.chapter_id, s.storyboard_revision_id, s.project_id, s.project_location_id, s.order_index, s.title, s.narration, s.duration_seconds, s.location_text, s.status
+    FROM scenes s
+    JOIN chapters c ON c.id = s.chapter_id
+    WHERE c.id = #{chapterId} AND c.deleted_at IS NULL AND s.storyboard_revision_id = c.current_storyboard_revision_id
+    ORDER BY s.order_index, s.id
+  </select>
+
+  <select id="findScene" resultMap="scene">
+    SELECT id, row_version, created_at, updated_at, chapter_id, storyboard_revision_id, project_id, project_location_id, order_index, title, narration, duration_seconds, location_text, status
+    FROM scenes
+    WHERE id = #{id}
+  </select>
+
+  <select id="findSceneForUpdate" resultMap="scene">
+    SELECT id, row_version, created_at, updated_at, chapter_id, storyboard_revision_id, project_id, project_location_id, order_index, title, narration, duration_seconds, location_text, status
+    FROM scenes
+    WHERE id = #{id} AND chapter_id = #{chapterId}
+    FOR UPDATE
+  </select>
+
+  <select id="insertScene" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO scenes (row_version, created_at, updated_at, chapter_id, storyboard_revision_id, project_id, project_location_id, order_index, title, narration, duration_seconds, location_text, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{chapterId}, #{storyboardRevisionId}, #{projectId}, #{projectLocationId}, #{orderIndex}, #{title}, #{narration}, #{durationSeconds}, #{locationText}, #{status})
+    RETURNING id
+  </select>
+
+  <!-- StoryBeat -->
+  <select id="findStoryBeats" resultMap="storyBeat">
+    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json
+    FROM story_beats
+    WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY scene_id, order_index, id
+  </select>
+
+  <select id="findStoryBeat" resultMap="storyBeat">
+    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json
+    FROM story_beats
+    WHERE id = #{id}
+  </select>
+
+  <select id="insertStoryBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO story_beats (row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json, purpose, summary, importance, story_functions_json, continuity_state_json)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{orderIndex}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{purpose}, #{summary}, #{importance}, COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb), COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb))
+    RETURNING id
+  </select>
+
+  <update id="updateStoryBeat">
+    UPDATE story_beats
+    SET order_index = #{orderIndex},
+        source_start = #{sourceStart},
+        source_end = #{sourceEnd},
+        source_anchor_json = #{sourceAnchorJson}::jsonb,
+        purpose = #{purpose},
+        summary = #{summary},
+        importance = #{importance},
+        story_functions_json = COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb),
+        continuity_state_json = COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb),
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <!-- AudioCue -->
+  <select id="findAudioCues" resultMap="audioCue">
+    SELECT id, row_version, created_at, updated_at, story_beat_id, order_index, cue_type, speaker_project_character_id, source_start, source_end, source_anchor_json::text AS source_anchor_json, adaptation_action, adapted_text, delivery_hint, narration_text_start, narration_text_end, audio_start_ms, audio_end_ms, status
+    FROM audio_cues
+    WHERE story_beat_id IN <foreach collection="storyBeatIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY story_beat_id, order_index, id
+  </select>
+
+  <select id="findAudioCue" resultMap="audioCue">
+    SELECT id, row_version, created_at, updated_at, story_beat_id, order_index, cue_type, speaker_project_character_id, source_start, source_end, source_anchor_json::text AS source_anchor_json, adaptation_action, adapted_text, delivery_hint, narration_text_start, narration_text_end, audio_start_ms, audio_end_ms, status
+    FROM audio_cues
+    WHERE id = #{id}
+  </select>
+
+  <select id="insertAudioCue" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO audio_cues (row_version, created_at, updated_at, story_beat_id, order_index, cue_type, speaker_project_character_id, source_start, source_end, source_anchor_json, adaptation_action, adapted_text, delivery_hint, narration_text_start, narration_text_end, audio_start_ms, audio_end_ms, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{storyBeatId}, #{orderIndex}, #{cueType}, #{speakerProjectCharacterId}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{adaptationAction}, #{adaptedText}, #{deliveryHint}, #{narrationTextStart}, #{narrationTextEnd}, #{audioStartMs}, #{audioEndMs}, #{status})
+    RETURNING id
+  </select>
+
+  <update id="updateAudioCue">
+    UPDATE audio_cues
+    SET order_index = #{orderIndex},
+        cue_type = #{cueType},
+        speaker_project_character_id = #{speakerProjectCharacterId},
+        source_start = #{sourceStart},
+        source_end = #{sourceEnd},
+        source_anchor_json = #{sourceAnchorJson}::jsonb,
+        adaptation_action = #{adaptationAction},
+        adapted_text = #{adaptedText},
+        delivery_hint = #{deliveryHint},
+        narration_text_start = #{narrationTextStart},
+        narration_text_end = #{narrationTextEnd},
+        audio_start_ms = #{audioStartMs},
+        audio_end_ms = #{audioEndMs},
+        status = #{status},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <!-- VisualBeat -->
+  <select id="findVisualBeats" resultMap="beat">
+    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
+    FROM visual_beats
+    WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY scene_id, order_index, id
+  </select>
+
+  <select id="findVisualBeat" resultMap="beat">
+    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
+    FROM visual_beats
+    WHERE id = #{id}
+  </select>
+
+  <select id="maxVisualBeatOrder" resultType="int">
+    SELECT COALESCE(MAX(order_index), -1) FROM visual_beats WHERE scene_id = #{sceneId}
+  </select>
+
+  <select id="insertVisualBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO visual_beats (row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{storyBeatId}, #{orderIndex}, #{title}, #{visualIntent}, COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb), #{reviewStatus}, #{motionMode}, COALESCE(CAST(#{relativeWeight} AS numeric), 1.0), COALESCE(#{visualFocus}, 'SPEAKER'), #{aspectRatioOverride}, #{previewMediaAssetId}, #{textStart}, #{textEnd}, #{audioDurationMs}, #{sourceAnchorJson}::jsonb)
+    RETURNING id
+  </select>
+
+  <update id="updateVisualBeat">
+    UPDATE visual_beats
+    SET story_beat_id = #{storyBeatId},
+        order_index = #{orderIndex},
+        title = #{title},
+        visual_intent = #{visualIntent},
+        visual_direction_json = COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb),
+        review_status = #{reviewStatus},
+        motion_mode = #{motionMode},
+        relative_weight = COALESCE(CAST(#{relativeWeight} AS numeric), 1.0),
+        visual_focus = COALESCE(#{visualFocus}, 'SPEAKER'),
+        aspect_ratio_override = #{aspectRatioOverride},
+        preview_media_asset_id = #{previewMediaAssetId},
+        text_start = #{textStart},
+        text_end = #{textEnd},
+        audio_duration_ms = #{audioDurationMs},
+        source_anchor_json = #{sourceAnchorJson}::jsonb,
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <!-- NarrationScript -->
+  <select id="findLatestNarrationScript" resultMap="narrationScript">
+    SELECT id, row_version, created_at, updated_at, chapter_id, storyboard_revision_id, source_hash, version, adaptation_mode, text, content_hash, status
+    FROM narration_scripts
+    WHERE chapter_id = #{chapterId}
+    ORDER BY version DESC, created_at DESC
+    LIMIT 1
+  </select>
+
+  <select id="findNarrationScriptByRevision" resultMap="narrationScript">
+    SELECT id, row_version, created_at, updated_at, chapter_id, storyboard_revision_id, source_hash, version, adaptation_mode, text, content_hash, status
+    FROM narration_scripts
+    WHERE chapter_id = #{chapterId} AND storyboard_revision_id = #{storyboardRevisionId}
+    ORDER BY version DESC
+    LIMIT 1
+  </select>
+
+  <select id="findNarrationScript" resultMap="narrationScript">
+    SELECT id, row_version, created_at, updated_at, chapter_id, storyboard_revision_id, source_hash, version, adaptation_mode, text, content_hash, status
+    FROM narration_scripts
+    WHERE id = #{id}
+  </select>
+
+  <select id="insertNarrationScript" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.NarrationScriptRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO narration_scripts (row_version, created_at, updated_at, chapter_id, storyboard_revision_id, source_hash, version, adaptation_mode, text, content_hash, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{chapterId}, #{storyboardRevisionId}, #{sourceHash}, #{version}, #{adaptationMode}, #{text}, #{contentHash}, #{status})
+    RETURNING id
+  </select>
+
+  <update id="updateNarrationScript">
+    UPDATE narration_scripts
+    SET text = #{text},
+        content_hash = #{contentHash},
+        status = #{status},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
 </mapper>

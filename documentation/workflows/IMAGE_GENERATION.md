@@ -4,7 +4,7 @@ Image generation produces immutable image MediaAssets for VisualBeats. Narrative
 
 ## Admission and editor flow
 
-Per ADR-0030, image generation operates without user authentication or account gates. Desktop initiates generation within the active project workspace, and backend admission verifies capacity limits and OperationPlan prerequisites.
+Per ADR-0020, image generation operates without user authentication or account gates. Desktop initiates generation within the active project workspace, and backend admission verifies capacity limits and OperationPlan prerequisites.
 
 Current Desktop foundation:
 
@@ -230,7 +230,7 @@ A user may also replace a beat with imported media. Image-only camera/motion con
 
 ## Storage boundary
 
-Generated and imported project media stays local. Per ADR-0030, voice references are also local-first (`PROJECT` or `GLOBAL_LOCAL`); generated image results and media assets remain within the local project storage boundary.
+Generated and imported project media stays local. Per ADR-0020, voice references are also local-first (`PROJECT` or `GLOBAL_LOCAL`); generated image results and media assets remain within the local project storage boundary.
 
 Backend download URLs for generation-service-generated images are short-lived capability URLs into the shared project-local media root. They let the Desktop workflow materialize and verify local bytes without exposing absolute filesystem paths.
 

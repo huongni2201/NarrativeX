@@ -1,4 +1,4 @@
-# ADR-0020: PostgreSQL-only MVP runtime state
+# ADR-0014: PostgreSQL-only MVP runtime state
 
 - Status: Accepted
 - Date: 2026-08-26

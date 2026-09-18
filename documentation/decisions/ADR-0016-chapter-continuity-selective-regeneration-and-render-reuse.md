@@ -1,4 +1,4 @@
-# ADR-0024: Chapter continuity, selective regeneration and effective render reuse
+# ADR-0016: Chapter continuity, selective regeneration and effective render reuse
 
 **Status:** Accepted  
 **Date:** 2026-09-05  
@@ -24,7 +24,7 @@ Each deterministic/semantic validation pass produces an append-only continuity r
 
 Provider-facing analysis subcalls use durable PostgreSQL checkpoints keyed by semantic input fingerprints. A completed checkpoint is reusable only for the same scoped semantic input. Ambiguous provider submission remains `UNKNOWN` until reconciliation proves the terminal outcome.
 
-Redis or a separate broker is not introduced for this feature. This extends ADR-0020's PostgreSQL-only runtime decision.
+Redis or a separate broker is not introduced for this feature. This extends ADR-0014's PostgreSQL-only runtime decision.
 
 ### 3. Backend-authoritative selective regeneration
 
@@ -54,7 +54,7 @@ Logical VisualBeat/media IDs and absolute timeline position do not invalidate a 
 
 ### 6. Security and execution boundary
 
-Provider credentials remain outside the renderer. Backend/worker authority for provider work and Desktop main-process authority for local filesystem/FFmpeg execution remain unchanged. Generated project media and final project render bytes stay local according to ADR-0012/ADR-0022.
+Provider credentials remain outside the renderer. Backend/worker authority for provider work and Desktop main-process authority for local filesystem/FFmpeg execution remain unchanged. Generated project media and final project render bytes stay local according to ADR-0007/ADR-0022.
 
 Gemini Web remains a browser-product integration rather than a fake backend provider ledger. PostgreSQL stores authoritative prepared input provenance; a device-local attempt journal exists only to reconcile browser external-side-effect ambiguity. `UNKNOWN` attempts are not blindly resubmitted, and stale late outputs can be retained locally for review without attaching to a newer revision.
 

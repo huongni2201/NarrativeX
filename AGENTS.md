@@ -7,8 +7,8 @@ The repository itself is the current implementation source of truth. Keep archit
 ## Read by task
 
 - Start with [current status](documentation/CURRENT_STATUS.md) and the [documentation map](documentation/README.md). Code, migrations and tests establish implementation facts; accepted ADRs establish direction. Report disagreement instead of assuming a migration is complete.
-- For backend/compute changes, read ADR-0028, ADR-0029, ADR-0031 and `documentation/COMPUTE_PROTOCOL.md`.
-- For identity, ownership or runtime-limit changes, read ADR-0030. Earlier account/session/quota rules are superseded in that scope.
+- For backend/compute changes, read ADR-0018, ADR-0019, ADR-0021 and `documentation/COMPUTE_PROTOCOL.md`.
+- For identity, ownership or runtime-limit changes, read ADR-0020. Earlier account/session/quota rules are superseded in that scope.
 - For schema changes, read `documentation/architecture/DATABASE.md`.
 - For Desktop styling, read `.agents/rules/frontend-styling.md`; for browser verification, read `.agents/rules/playwright-testing.md` and the completion gate below.
 - Run checks according to `CONTRIBUTING.md`.
@@ -16,13 +16,13 @@ The repository itself is the current implementation source of truth. Keep archit
 ## Domain and execution rules
 
 - Keep Spring Boot a modular monolith and the authority for business state, admission, durable jobs, leases and artifact metadata in PostgreSQL. Add a broker, cache or business microservice only with measured need and an ADR.
-- Follow ADR-0030: one local installation, Project as the business boundary, no synthetic user/account/session identity. Provider secrets and machine execution credentials remain separate runtime concerns.
+- Follow ADR-0020: one local installation, Project as the business boundary, no synthetic user/account/session identity. Provider secrets and machine execution credentials remain separate runtime concerns.
 - Character remains a reusable identity with ProjectCharacter participation and immutable CharacterVersion snapshots. Appearance/outfit changes do not create a new Character. Resolve only participating characters for Scene/VisualBeat context.
 - Treat story text, prompts, references and provider output as untrusted. Validate schemas and enforce prompt-injection/media-safety boundaries. Real-person references require explicit consent, restricted retention and deletion handling; do not add blanket story-rights checkboxes.
 - Plan visuals from duration, semantic complexity and reuse/delta. Preserve source provenance and narration as the production master clock; provisional timing cannot make a render ready.
 - Preserve locked character versions, approved assets, provider snapshots and render snapshots.
 - Persist operation/submission intent before external I/O. Ambiguous outcomes remain UNKNOWN until reconciled; never blind-resubmit.
-- Expensive work requires backend admission, OperationPlan where applicable, runtime capacity limits, idempotency and diagnostic usage attribution. Do not restore monetary billing or per-user entitlements retired by ADR-0030.
+- Expensive work requires backend admission, OperationPlan where applicable, runtime capacity limits, idempotency and diagnostic usage attribution. Do not restore monetary billing or per-user entitlements retired by ADR-0020.
 - Keep backend domain free of provider SDKs. GPU execution adapters own provider/media dependencies; `app/generation-service` must not access the business database or orchestrate business jobs.
 
 

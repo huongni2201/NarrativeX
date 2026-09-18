@@ -23,4 +23,34 @@ public interface StoryboardMapper extends NarrativeXMyBatisMapper {
   UUID insertScene(SceneRow row);
 
   int updateVisualBeat(VisualBeatRow row);
+
+  // --- StoryBeat ---
+  List<StoryBeatRow> findStoryBeats(@Param("sceneIds") List<UUID> sceneIds);
+
+  StoryBeatRow findStoryBeat(@Param("id") UUID id);
+
+  UUID insertStoryBeat(StoryBeatRow row);
+
+  int updateStoryBeat(StoryBeatRow row);
+
+  // --- AudioCue ---
+  List<AudioCueRow> findAudioCues(@Param("storyBeatIds") List<UUID> storyBeatIds);
+
+  AudioCueRow findAudioCue(@Param("id") UUID id);
+
+  UUID insertAudioCue(AudioCueRow row);
+
+  int updateAudioCue(AudioCueRow row);
+
+  // --- NarrationScript ---
+  NarrationScriptRow findLatestNarrationScript(@Param("chapterId") UUID chapterId);
+
+  NarrationScriptRow findNarrationScriptByRevision(
+      @Param("chapterId") UUID chapterId, @Param("storyboardRevisionId") UUID storyboardRevisionId);
+
+  NarrationScriptRow findNarrationScript(@Param("id") UUID id);
+
+  UUID insertNarrationScript(NarrationScriptRow row);
+
+  int updateNarrationScript(NarrationScriptRow row);
 }

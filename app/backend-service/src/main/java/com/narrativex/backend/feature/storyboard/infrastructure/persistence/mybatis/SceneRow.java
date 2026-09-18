@@ -17,6 +17,8 @@ public class SceneRow {
   private String title;
   private String narration;
   private Integer durationSeconds;
+  private UUID projectLocationId;
+  private String locationText;
   private String status;
   private Instant createdAt;
   private Instant updatedAt;

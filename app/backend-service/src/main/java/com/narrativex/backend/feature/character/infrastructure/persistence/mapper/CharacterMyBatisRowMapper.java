@@ -75,13 +75,25 @@ public class CharacterMyBatisRowMapper {
   }
 
   public ProjectCharacter toDomain(ProjectCharacterRow row) {
+    int importance = 1;
+    if ("PRIMARY".equalsIgnoreCase(row.getImportance())) {
+      importance = 0;
+    } else if ("BACKGROUND".equalsIgnoreCase(row.getImportance())) {
+      importance = 2;
+    } else if ("SECONDARY".equalsIgnoreCase(row.getImportance())) {
+      importance = 1;
+    } else if (row.getImportance() != null) {
+      try {
+        importance = Integer.parseInt(row.getImportance());
+      } catch (NumberFormatException ignored) {}
+    }
     return ProjectCharacter.rehydrate(
         row.getId(),
         row.getRowVersion(),
         row.getProjectId(),
         row.getCharacterId(),
         row.getRole(),
-        row.getImportance(),
+        importance,
         read(row.getProjectAliasesJson(), STRINGS),
         row.getStoryMetadata(),
         read(row.getGroupsJson(), STRINGS),
@@ -158,7 +170,9 @@ public class CharacterMyBatisRowMapper {
     row.setProjectId(value.getProjectId());
     row.setCharacterId(value.getCharacterId());
     row.setRole(value.getRole());
-    row.setImportance(value.getImportance());
+    String importance =
+        value.getImportance() == 0 ? "PRIMARY" : value.getImportance() == 1 ? "SECONDARY" : "BACKGROUND";
+    row.setImportance(importance);
     row.setProjectAliasesJson(write(value.getProjectAliases()));
     row.setStoryMetadata(value.getStoryMetadata());
     row.setGroupsJson(write(value.getGroups()));

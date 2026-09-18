@@ -13,9 +13,9 @@ Project creation is metadata-only. Chapter save persists source only. Analysis/n
 - **MyBatis + explicit SQL is the production persistence boundary**
 - MyBatis/explicit-SQL paths cover domain CRUD/query persistence, provider operations, generation jobs/stages/plans, media planning and items, outbox/job history, chapter idempotency, render-input snapshots, chapter media heads, assets, narration, catalogs, local devices and final artifacts
 - MyBatis + explicit SQL is the sole production domain persistence path; JPA and `JdbcTemplate` are absent from production domain code
-- Local-first single-user boundary (ADR-0030)
-- Dispatch to isolated GPU worker via HTTP Compute Protocol v1 (ADR-0031 / COMPUTE_PROTOCOL.md)
-- Local media storage adapter backed by project workspace (ADR-0030 / LocalObjectStorageAdapter)
+- Local-first single-user boundary (ADR-0020)
+- Dispatch to isolated GPU worker via HTTP Compute Protocol v1 (ADR-0021 / COMPUTE_PROTOCOL.md)
+- Local media storage adapter backed by project workspace (ADR-0020 / LocalObjectStorageAdapter)
 - Testcontainers/JUnit/JaCoCo
 
 ## Durable authority

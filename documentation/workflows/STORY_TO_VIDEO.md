@@ -1,7 +1,7 @@
 # Story-to-Video Workflow
 
 **Status:** maintained workflow contract
-**Authority:** code, migrations, tests, and active ADRs (ADR-0028, ADR-0029, ADR-0030, ADR-0031)
+**Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021)
 
 
 NarrativeX is Desktop-only at the editor boundary, single-user local-first, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
@@ -16,7 +16,7 @@ Desktop workspace
   -> invoke AI generation / narration / render directly
 ```
 
-Per ADR-0030, NarrativeX has no user account, login modal, or authentication gate. Desktop boots directly into the project workspace. The backend remains authoritative for source identity, policy and durable job state. Desktop owns local project bytes/native execution.
+Per ADR-0020, NarrativeX has no user account, login modal, or authentication gate. Desktop boots directly into the project workspace. The backend remains authoritative for source identity, policy and durable job state. Desktop owns local project bytes/native execution.
 
 ## Chapter-First Continuation & Processing Boundary
 

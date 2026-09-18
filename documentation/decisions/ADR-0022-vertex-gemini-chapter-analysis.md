@@ -1,8 +1,12 @@
-# ADR-0034: Vertex AI Gemini 3.8 Flash for Chapter Analysis Control Plane
+# ADR-0022: Vertex AI Gemini 3.8 Flash for Chapter Analysis Control Plane
 
 ## Status
 
-Accepted (2026-09-18) ? Supersedes ADR-0032
+Accepted (2026-09-18)
+
+## Supersedes
+
+ADR-0032 (Text generation compute boundary)
 
 ## Context
 

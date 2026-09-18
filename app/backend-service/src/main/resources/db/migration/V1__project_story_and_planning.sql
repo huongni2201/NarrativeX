@@ -288,12 +288,75 @@ CREATE TABLE scene_characters (
     PRIMARY KEY (scene_id, project_character_id)
 );
 
+CREATE TABLE story_beats (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    scene_id UUID NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    source_start INTEGER,
+    source_end INTEGER,
+    source_anchor_json JSONB,
+    purpose VARCHAR(64) NOT NULL DEFAULT 'PLOT',
+    summary TEXT NOT NULL DEFAULT '',
+    importance VARCHAR(24) NOT NULL DEFAULT 'NORMAL',
+    story_functions_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    continuity_state_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT uk_story_beats_scene_order UNIQUE (scene_id, order_index),
+    CONSTRAINT uq_story_beats_scene_id_id UNIQUE (scene_id, id),
+    CONSTRAINT ck_story_beats_source_ranges CHECK (source_start IS NULL OR (source_end IS NOT NULL AND source_start >= 0 AND source_end > source_start)),
+    CONSTRAINT ck_story_beats_story_functions_array CHECK (jsonb_typeof(story_functions_json) = 'array'),
+    CONSTRAINT ck_story_beats_continuity_state_object CHECK (jsonb_typeof(continuity_state_json) = 'object'),
+    CONSTRAINT ck_story_beats_source_anchor_object CHECK (source_anchor_json IS NULL OR jsonb_typeof(source_anchor_json) = 'object'),
+    CONSTRAINT ck_story_beats_source_anchor_ranges CHECK (
+        source_anchor_json IS NULL OR (
+            jsonb_typeof(source_anchor_json -> 'textStart') = 'number'
+            AND jsonb_typeof(source_anchor_json -> 'textEnd') = 'number'
+            AND (source_anchor_json ->> 'textStart')::integer >= 0
+            AND (source_anchor_json ->> 'textEnd')::integer > (source_anchor_json ->> 'textStart')::integer
+            AND (source_anchor_json ->> 'sourceHash') ~ '^[0-9a-f]{64}$'
+        )
+    )
+);
+
+CREATE TABLE audio_cues (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    story_beat_id UUID NOT NULL REFERENCES story_beats(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    cue_type VARCHAR(32) NOT NULL DEFAULT 'NARRATOR',
+    speaker_project_character_id UUID REFERENCES project_characters(id) ON DELETE SET NULL,
+    source_start INTEGER,
+    source_end INTEGER,
+    source_anchor_json JSONB,
+    adaptation_action VARCHAR(32) NOT NULL DEFAULT 'KEEP_EXACT',
+    adapted_text TEXT,
+    delivery_hint VARCHAR(200),
+    narration_text_start INTEGER,
+    narration_text_end INTEGER,
+    audio_start_ms BIGINT,
+    audio_end_ms BIGINT,
+    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
+    CONSTRAINT uk_audio_cues_beat_order UNIQUE (story_beat_id, order_index),
+    CONSTRAINT ck_audio_cues_type CHECK (cue_type IN ('NARRATOR', 'DIALOGUE', 'INNER_MONOLOGUE', 'SYSTEM')),
+    CONSTRAINT ck_audio_cues_action CHECK (adaptation_action IN ('KEEP_EXACT', 'LIGHT_EDIT', 'COMPRESS', 'VISUAL_PRIMARY')),
+    CONSTRAINT ck_audio_cues_status CHECK (status IN ('DRAFT', 'READY', 'APPROVED', 'REJECTED')),
+    CONSTRAINT ck_audio_cues_source_ranges CHECK (source_start IS NULL OR (source_end IS NOT NULL AND source_start >= 0 AND source_end > source_start)),
+    CONSTRAINT ck_audio_cues_audio_timing CHECK (audio_start_ms IS NULL OR (audio_end_ms IS NOT NULL AND audio_start_ms >= 0 AND audio_end_ms >= audio_start_ms)),
+    CONSTRAINT ck_audio_cues_narration_text_ranges CHECK (narration_text_start IS NULL OR (narration_text_end IS NOT NULL AND narration_text_start >= 0 AND narration_text_end >= narration_text_start)),
+    CONSTRAINT ck_audio_cues_source_anchor_object CHECK (source_anchor_json IS NULL OR jsonb_typeof(source_anchor_json) = 'object')
+);
+
 CREATE TABLE visual_beats (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     scene_id UUID NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+    story_beat_id UUID REFERENCES story_beats(id) ON DELETE CASCADE,
     order_index INTEGER NOT NULL,
     title VARCHAR(200) NOT NULL DEFAULT '',
     visual_intent TEXT NOT NULL DEFAULT '',
@@ -303,6 +366,8 @@ CREATE TABLE visual_beats (
     visual_direction_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     review_status VARCHAR(24) NOT NULL DEFAULT 'NOT_READY',
     motion_mode VARCHAR(24) NOT NULL DEFAULT 'STILL',
+    relative_weight NUMERIC(6, 3) NOT NULL DEFAULT 1.0,
+    visual_focus VARCHAR(64) NOT NULL DEFAULT 'SPEAKER',
     aspect_ratio_override VARCHAR(16),
     text_start INTEGER,
     text_end INTEGER,
@@ -311,6 +376,7 @@ CREATE TABLE visual_beats (
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT uq_visual_beats_scene_id_id UNIQUE (scene_id, id),
     CONSTRAINT ck_visual_beats_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
+    CONSTRAINT ck_visual_beats_relative_weight CHECK (relative_weight > 0),
     CONSTRAINT ck_visual_beats_visual_direction_json_object CHECK (jsonb_typeof(visual_direction_json) = 'object'),
     CONSTRAINT ck_visual_beats_audio_duration CHECK (audio_duration_ms IS NULL OR audio_duration_ms > 0),
     CONSTRAINT ck_visual_beats_source_anchor_object CHECK (source_anchor_json IS NULL OR jsonb_typeof(source_anchor_json) = 'object'),

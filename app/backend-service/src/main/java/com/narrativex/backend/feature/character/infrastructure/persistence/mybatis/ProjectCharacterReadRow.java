@@ -19,7 +19,7 @@ public class ProjectCharacterReadRow {
   private String aliasesJson;
   private String projectAliasesJson;
   private String role;
-  private int importance;
+  private String importance;
   private String groupsJson;
   private UUID pinnedCharacterVersionId;
   private String status;

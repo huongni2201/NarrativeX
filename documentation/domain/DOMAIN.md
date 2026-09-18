@@ -1,7 +1,7 @@
 # NarrativeX Domain Model and Business Rules
 
 **Status:** maintained domain contract  
-**Authority:** code, migrations, tests, and active ADRs (ADR-0028, ADR-0029, ADR-0030, ADR-0031)
+**Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021)
 
 ## Core Aggregate Structure
 
@@ -32,7 +32,7 @@ FinalArtifact metadata -> immutable final-video metadata; MP4 bytes in Desktop s
 
 ## Business Rules and Invariants
 
-### 1. Project as Business Root (ADR-0030)
+### 1. Project as Business Root (ADR-0020)
 - **BR-01**: Project is the primary business and data boundary. The application boots directly into the local workspace.
 - **BR-02**: There is no synthetic application User, Account, Guest installation, Session, OAuth token, role gate, or tenant isolation model.
 - **BR-03**: Project creation and Chapter edits persist source text and metadata only; they never implicitly trigger expensive AI or render operations.

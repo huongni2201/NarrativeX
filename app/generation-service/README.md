@@ -53,7 +53,7 @@ bootstrap.py    composition root; the only place that wires concrete adapters
 In resource-constrained GPU host environments (such as a single 24GB RTX 3090 host running ComfyUI / VieNeu / WhisperX), `GpuResidencyManager` provides:
 - Strict logical mutual exclusion between generative runtime families (`COMFYUI_IMAGE`, `VIENEU`, `WHISPERX`).
 - Automatic draining of in-flight leases before transitioning runtime families.
-- Architectural framework for loader/unloader lifecycle hooks and VRAM reclamation probes (logical arbitration is implemented; active process lifecycle hooks and VRAM probes are not wired in the current bootstrap).
+- Lifecycle management via `RuntimeProcessSupervisor`, loader/unloader lifecycle hooks, and `GpuVramProbe` wired into `bootstrap.py`; runtime process commands can be configured via environment settings. Production strictness hardening and full Windows worker validation remain in progress.
 - Timeout-bounded fail-closed transitions: if a transition exceeds `GENERATION_SERVICE_RESIDENCY_TRANSITION_TIMEOUT_SECONDS`, the residency manager enters a poisoned state to prevent cascading host crashes.
 - Configurable via `GENERATION_SERVICE_RESIDENCY_ENABLED=true` (enabled by default).
 
