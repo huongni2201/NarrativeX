@@ -1,4 +1,4 @@
 from .catalog import ExecutorCatalog
-from .qwen import QwenExecutor
+from .vieneu import VieNeuExecutor
 
-__all__ = ["ExecutorCatalog", "QwenExecutor"]
+__all__ = ["ExecutorCatalog", "VieNeuExecutor"]

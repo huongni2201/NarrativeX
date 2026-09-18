@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.health.application.port.out;
 
 public interface ProviderHealthSettings {
-  boolean qwenEnabled();
+  boolean vertexGeminiEnabled();
 
-  String runtime();
+  String vertexGeminiModel();
 
-  String model();
+  String vertexGeminiLocation();
 }

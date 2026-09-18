@@ -37,8 +37,8 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
     npm = "npm.cmd" if os.name == "nt" else "npm"
     result = [
         python_gate("docs-drift", "scripts/check-docs-drift.py"),
-        python_gate("docs-checkpoint", "scripts/check-docs-checkpoint.py"),
         python_gate("secret-scan", "scripts/check-secrets.py"),
+        python_gate("architecture-residue", "scripts/check_architecture_residue.py"),
         python_gate("compute-contracts", "scripts/check_compute_contracts.py"),
         python_gate("narration-alignment-contract", "scripts/check-narration-alignment-contract.py"),
         python_gate("legacy-runtime-residue", "scripts/check_legacy_runtime_residue.py"),

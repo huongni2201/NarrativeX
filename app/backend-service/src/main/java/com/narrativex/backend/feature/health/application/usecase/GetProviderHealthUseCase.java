@@ -15,11 +15,11 @@ public class GetProviderHealthUseCase {
   public ApiResponse<ProviderHealthResponse> execute(ProviderHealthQuery query) {
     ProviderHealthResponse response =
         new ProviderHealthResponse(
-            new ProviderHealthResponse.LocalQwenHealth(
-                settings.qwenEnabled() ? "CONFIGURED_NOT_VERIFIED" : "NOT_CONFIGURED",
-                settings.runtime(),
-                settings.model(),
-                false));
+            new ProviderHealthResponse.VertexGeminiHealth(
+                settings.vertexGeminiEnabled() ? "CONFIGURED" : "NOT_CONFIGURED",
+                settings.vertexGeminiModel(),
+                settings.vertexGeminiLocation(),
+                settings.vertexGeminiEnabled()));
     return ApiResponse.success("Provider health retrieved successfully", response);
   }
 }

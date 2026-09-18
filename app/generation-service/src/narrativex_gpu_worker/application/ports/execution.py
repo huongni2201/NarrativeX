@@ -35,7 +35,7 @@ class ExecutionOutput:
 
 
 class ExecutorPort(Protocol):
-    """Driven port implemented by VoiceStudio, ComfyUI, WhisperX, or fakes."""
+    """Driven port implemented by VieNeu, ComfyUI, WhisperX, or fakes."""
 
     @property
     def name(self) -> str: ...

@@ -53,19 +53,6 @@ class WorkerSettings(BaseSettings):
     )
     log_level: str = "INFO"
 
-    qwen_base_url: str = Field(
-        default="http://127.0.0.1:8000/v1",
-        validation_alias="GENERATION_SERVICE_QWEN_BASE_URL",
-    )
-    qwen_api_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias="GENERATION_SERVICE_QWEN_API_KEY",
-    )
-    qwen_timeout_seconds: float = Field(
-        default=600.0,
-        gt=0,
-        validation_alias="GENERATION_SERVICE_QWEN_TIMEOUT_SECONDS",
-    )
     comfyui_base_url: str = Field(
         default="http://127.0.0.1:8188",
         validation_alias="GENERATION_SERVICE_COMFYUI_BASE_URL",
@@ -75,18 +62,18 @@ class WorkerSettings(BaseSettings):
         gt=0,
         validation_alias="GENERATION_SERVICE_COMFYUI_TIMEOUT_SECONDS",
     )
-    voicestudio_base_url: str = Field(
-        default="http://127.0.0.1:3900",
-        validation_alias="GENERATION_SERVICE_VOICESTUDIO_BASE_URL",
+    vieneu_base_url: str = Field(
+        default="http://127.0.0.1:8008",
+        validation_alias="GENERATION_SERVICE_VIENEU_BASE_URL",
     )
-    voicestudio_api_key: SecretStr = Field(
+    vieneu_api_key: SecretStr = Field(
         default=SecretStr(""),
-        validation_alias="GENERATION_SERVICE_VOICESTUDIO_API_KEY",
+        validation_alias="GENERATION_SERVICE_VIENEU_API_KEY",
     )
-    voicestudio_timeout_seconds: float = Field(
-        default=600.0,
+    vieneu_timeout_seconds: float = Field(
+        default=300.0,
         gt=0,
-        validation_alias="GENERATION_SERVICE_VOICESTUDIO_TIMEOUT_SECONDS",
+        validation_alias="GENERATION_SERVICE_VIENEU_TIMEOUT_SECONDS",
     )
     whisperx_device: str = Field(
         default="cuda",
@@ -104,6 +91,27 @@ class WorkerSettings(BaseSettings):
         default=30.0,
         gt=0,
         validation_alias="GENERATION_SERVICE_RESIDENCY_TIMEOUT_SECONDS",
+    )
+    residency_max_vram_idle_mb: int = Field(
+        default=1500,
+        ge=0,
+        validation_alias="GENERATION_SERVICE_RESIDENCY_MAX_VRAM_IDLE_MB",
+    )
+    residency_vram_probe_enabled: bool = Field(
+        default=True,
+        validation_alias="GENERATION_SERVICE_RESIDENCY_VRAM_PROBE_ENABLED",
+    )
+    comfyui_command: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_COMFYUI_COMMAND",
+    )
+    vieneu_command: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_VIENEU_COMMAND",
+    )
+    whisperx_command: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_WHISPERX_COMMAND",
     )
 
     @property

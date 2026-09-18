@@ -1,4 +1,8 @@
-# Story-to-Video Workflow — V1.12
+# Story-to-Video Workflow
+
+**Status:** maintained workflow contract
+**Authority:** code, migrations, tests, and active ADRs (ADR-0028, ADR-0029, ADR-0030, ADR-0031)
+
 
 NarrativeX is Desktop-only at the editor boundary, single-user local-first, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
 
@@ -14,18 +18,44 @@ Desktop workspace
 
 Per ADR-0030, NarrativeX has no user account, login modal, or authentication gate. Desktop boots directly into the project workspace. The backend remains authoritative for source identity, policy and durable job state. Desktop owns local project bytes/native execution.
 
-## Analysis
+## Chapter-First Continuation & Processing Boundary
+
+Chapter is the discrete processing boundary for the entire studio workflow. A project can receive new chapters or edit existing chapters without requiring re-analysis, regeneration, or re-rendering of unaffected chapters:
+
+```text
+Local project workspace
+  -> Create Project (metadata only, no implicit AI work)
+  -> create / edit / reorder Chapter with If-Match concurrency control
+  -> persist Chapter source text & compute sourceHash
+  -> inherit snapshot of Project Bible, locked CharacterVersions, Locations, and Styles
+  -> explicit Chapter Analyze invocation
+  -> affected-scope resolution: only dependent downstream beats/assets are marked OUTDATED
+  -> chapter audio/visual readiness
+  -> include in full project render
+```
+
+- **Analysis API contract**:
+  ```http
+  POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
+  ```
+- **Optimistic concurrency**: Chapter source text, story version relation, ordering, and metadata enforce optimistic locking (`If-Match` / `rowVersion`). A stale update returns `409 CONFLICT` and never silently overwrites newer work.
+- **Snapshot inheritance**: A chapter inherits an immutable snapshot of project continuity rather than a live mutable reference. Existing rendered/approved assets remain reproducible even if project-level settings change later.
+- **Incremental scope**: Affected-scope resolution isolates mutations to dependent VisualBeats, narration spans, and render segments. Unaffected approved snapshots remain untouched and reusable.
+- **Stale-source protection**: Durable enqueue and stage dispatch enforce source-hash checks; if source text changes while a job is running, stale results are rejected.
+
+## Analysis & Storyboard Materialization
 
 ```text
 persisted Chapter
   -> lock/reload authoritative snapshot
   -> admission + capacity limits
   -> GenerationJob / StageAttempt / outbox state
-  -> compute task execution
+  -> Vertex Gemini chapter analysis adapter
   -> stale-source guard
   -> Character + Location + Scene + VisualBeat materialization
   -> deterministic VisualBeat source_anchor -> UTF-16 textStart/textEnd
 ```
+
 
 ## Editor hierarchy and timing
 
@@ -70,7 +100,7 @@ Image-only camera/motion controls must not be shown as if they apply identically
 
 ```text
 TTS
-  -> generation-service VoiceStudio synthesis
+  -> generation-service VieNeu synthesis
   -> 48 kHz mono WAV master
   -> WhisperX forced alignment against the Vietnamese script
   -> local project media / Desktop materialization

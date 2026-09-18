@@ -49,7 +49,8 @@ For generation-service changes, also run `python scripts/check_compute_contracts
 
 For docs-only changes, run `python scripts/check-docs-drift.py` and `git diff --check`, and verify edited local links. Code tests and runtime UI checks are required when implementation changes; prose-only updates do not require starting Electron. The full provider-independent gate remains required before pushing or merging.
 
-For database changes, follow `documentation/architecture/flyway-baseline-policy.md`. Reset a database only when its data has explicitly been confirmed disposable.
+For database changes, follow `documentation/architecture/DATABASE.md`. Reset a database only when its data has explicitly been confirmed disposable.
+
 
 ## Documentation changes
 

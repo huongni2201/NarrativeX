@@ -2,7 +2,7 @@
 """Architecture residue scanner for NarrativeX.
 
 Enforces ADR-0030 and ADR-0028/0029 by detecting forbidden architectural remnants
-such as auth/account identity, quota/entitlements, R2 object storage, VieNeu TTS,
+such as auth/account identity, quota/entitlements, R2 object storage, VoiceStudio TTS,
 and business database coupling in the generation service.
 """
 
@@ -30,6 +30,7 @@ IGNORED_DIRS = {
     ".git",
     ".idea",
     ".vscode",
+    ".runtime",
     "node_modules",
     "target",
     "target_old",
@@ -40,31 +41,23 @@ IGNORED_DIRS = {
     ".ruff_cache",
     ".mypy_cache",
     ".pytest-tmp-qwen",
-    "docs",  # Historical milestones and plans
-    "history",  # documentation/history
-    "source-of-truth",  # Retired spec snapshots
     "scripts",  # Check scripts that inspect residue tokens
-    "旸ǆ",
-    "짹ʦ",
 }
 
 # Historical docs and negative assertion tests allowlist where retired concepts are tested or documented as superseded
 HISTORICAL_ALLOWLIST = {
-    # Historical decisions & audits
+    # Active ADRs which record superseded concepts as architectural history
     "documentation/decisions",
-    "documentation/codebase/AUDIT_2026_09_06.md",
-    "documentation/codebase/AUDIT_RECHECK_2026_09_08.md",
-    "documentation/migrations/compute-execution-plane-inventory.md",
-    "documentation/architecture/flyway-baseline-policy.md",
-    "narrativex-post-hard-cutover-gpu-foundation-plan-2026-09-18.md",
-    # Docs documenting negative presence ("no NX_SESSION", etc.)
-    "documentation/TRACEABILITY.md",
+    # Active documents explicitly recording absent legacy tables/models
     "documentation/architecture/TECHNOLOGY_STACK.md",
-    "documentation/codebase/BACKEND_CODEBASE.md",
+    "documentation/architecture/DATABASE.md",
+    # Branch migration plan
+    "NARRATIVEX_VERTEX_3_8_VIENEU_REMOTE_GPU_MIGRATION_PLAN.md",
     # Negative assertion tests verifying retired tables/columns are absent
     "app/backend-service/src/test/java/com/narrativex/backend/architecture/FlywayBaselineStructureTest.java",
     "app/backend-service/src/test/java/com/narrativex/backend/PostgreSqlMigrationIntegrationTest.java",
 }
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,8 +98,11 @@ FORBIDDEN_RULES: dict[str, list[tuple[str, Pattern[str]]]] = {
         ("R2_ACCESS_KEY_ID", re.compile(r"\bR2_ACCESS_KEY_ID\b")),
         ("R2_SECRET_ACCESS_KEY", re.compile(r"\bR2_SECRET_ACCESS_KEY\b")),
     ],
-    "vieneu_tts": [
-        ("VIENEU", re.compile(r"\b(?:VIENEU|VieNeu|vieneu)\b")),
+    "qwen_runtime": [
+        ("QWEN", re.compile(r"\b(?:QWEN|Qwen|qwen)\b")),
+    ],
+    "voicestudio_runtime": [
+        ("VOICESTUDIO", re.compile(r"\b(?:VOICESTUDIO|VoiceStudio|voicestudio)\b")),
     ],
 }
 

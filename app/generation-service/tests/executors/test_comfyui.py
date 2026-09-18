@@ -315,3 +315,14 @@ async def test_comfyui_executor_cancellation_during_poll_records_handle_and_skip
 
     artifact_adapter.upload.assert_not_called()
 
+
+async def test_comfyui_client_wait_for_completion_fallback_to_history() -> None:
+    http_client, requests_log = create_mock_transport()
+    client = ComfyUIClient(base_url="http://127.0.0.1:8188", client=http_client)
+    cancel = asyncio.Event()
+
+    record = await client.wait_for_completion("comfy-test-123", "test-client", cancel)
+    assert record["status"]["completed"] is True
+    assert any("/history/comfy-test-123" in req["url"] for req in requests_log)
+
+

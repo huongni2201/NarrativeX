@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "models": [
+    {
+      "runtime_family": "COMFYUI_IMAGE",
+      "executor": "comfyui",
+      "model_id": "realvisxl-v50-lightning",
+      "filename": "realvisxlV50_v50LightningBakedvae.safetensors",
+      "target_subpath": "ComfyUI/models/checkpoints",
+      "source_url": "https://huggingface.co/SG161222/RealVisXL_V5.0_Lightning/resolve/main/RealVisXL_V5.0_Lightning.safetensors",
+      "sha256": "4b0fa0efb7548545e85f5e5509dfba10526012e873efee53f3e2b1fa48a044d7",
+      "size_bytes": 6938048672
+    },
+    {
+      "runtime_family": "VIENEU",
+      "executor": "vieneu",
+      "model_id": "vieneu-v3-turbo",
+      "filename": "model.pth",
+      "target_subpath": "models/vieneu",
+      "source_url": "https://huggingface.co/pnn-tech/VieNeu-v3-turbo/resolve/main/model.pth",
+      "sha256": "8f85a2104595874256f183918a2046830704043b44b8ee7ea4a4805e2d19ec59",
+      "size_bytes": 1823490048
+    },
+    {
+      "runtime_family": "WHISPERX",
+      "executor": "whisperx",
+      "model_id": "whisperx-forced-align-vi",
+      "filename": "model.safetensors",
+      "target_subpath": "models/whisperx/vi",
+      "source_url": "https://huggingface.co/nguyenvulebinh/wav2vec2-base-vietnamese-250h/resolve/main/model.safetensors",
+      "sha256": "9b1c7a8d8e23f0512837bc901ef4682079173db4591a27e7161b960b772c5e03",
+      "size_bytes": 377983692
+    }
+  ]
+}

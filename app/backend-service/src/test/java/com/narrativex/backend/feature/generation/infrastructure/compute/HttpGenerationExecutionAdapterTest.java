@@ -59,10 +59,10 @@ class HttpGenerationExecutionAdapterTest {
             attemptId,
             "idemp-key-1",
             "fingerprint-1",
-            new TaskDescriptorDto("text.generate", "1.0"),
-            new ModelRefDto("qwen", "Qwen/Qwen3-8B-AWQ", "default"),
+            new TaskDescriptorDto("image.generate", "1.0"),
+            new ModelRefDto("realvisxl", "realvisxl-checkpoint.safetensors", "default"),
             new TaskConstraintsDto(Instant.parse("2026-09-14T12:00:00Z"), 300),
-            Map.of("prompt", "Hello world"),
+            Map.of("prompt", "A cinematic scene"),
             TaskArtifactsDto.empty());
 
     String acceptedJson =
@@ -115,8 +115,8 @@ class HttpGenerationExecutionAdapterTest {
             UUID.randomUUID(),
             "idemp-key-1",
             "fingerprint-1",
-            new TaskDescriptorDto("text.generate", "1.0"),
-            new ModelRefDto("qwen", "Qwen/Qwen3-8B-AWQ", "default"),
+            new TaskDescriptorDto("image.generate", "1.0"),
+            new ModelRefDto("realvisxl", "realvisxl-checkpoint.safetensors", "default"),
             new TaskConstraintsDto(Instant.parse("2026-09-14T12:00:00Z"), 300),
             Map.of("prompt", "Hello"),
             TaskArtifactsDto.empty());
@@ -147,13 +147,13 @@ class HttpGenerationExecutionAdapterTest {
           "state": "SUCCEEDED",
           "sequence": 5,
           "observedAt": "2026-09-14T11:05:00Z",
-          "executionHandle": "qwen:handle-1",
+          "executionHandle": "realvisxl:handle-1",
           "progress": 1.0,
           "outputs": [
             {
               "artifactId": "%s",
-              "role": "analysis",
-              "mediaType": "application/json",
+              "role": "image",
+              "mediaType": "image/png",
               "sizeBytes": 128,
               "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             }
@@ -175,9 +175,9 @@ class HttpGenerationExecutionAdapterTest {
     assertThat(obs.attemptId()).isEqualTo(attemptId);
     assertThat(obs.state()).isEqualTo("SUCCEEDED");
     assertThat(obs.isSucceeded()).isTrue();
-    assertThat(obs.executionHandle()).isEqualTo("qwen:handle-1");
+    assertThat(obs.executionHandle()).isEqualTo("realvisxl:handle-1");
     assertThat(obs.outputs()).hasSize(1);
-    assertThat(obs.outputs().get(0).role()).isEqualTo("analysis");
+    assertThat(obs.outputs().get(0).role()).isEqualTo("image");
   }
 
   @Test

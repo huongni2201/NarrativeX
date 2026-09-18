@@ -128,8 +128,8 @@ class FlywayBaselineStructureTest {
     assertFalse(v6.contains("short_clip_requests"));
 
     // V7 - Seeds
-    assertTrue(v7.contains("'VOICESTUDIO'"));
-    assertFalse(v7.contains("'VIENEU'"));
+    assertTrue(v7.contains("'VIENEU'"));
+    assertFalse(v7.contains("'VOICESTUDIO'"));
     assertTrue(v7.contains("\"supportsSpeakingRate\":true"));
     assertTrue(v7.contains("\"outputFormat\":\"wav\""));
     assertFalse(v7.contains("monthly_credits"));
@@ -153,7 +153,7 @@ class FlywayBaselineStructureTest {
     assertFalse(allSchema.contains("project_owner_id"));
     assertFalse(allSchema.contains("reviewed_by_user_id"));
     assertTrue(allSchema.contains("assigned_local_device_id"));
-    assertFalse(allSchema.contains("VIENEU"));
+    assertFalse(allSchema.contains("VOICESTUDIO"));
     assertFalse(allSchema.contains("finalize_quota_reservation_on_job_terminal"));
     assertFalse(allSchema.contains("trg_generation_jobs_finalize_quota"));
     assertFalse(allSchema.contains("narrativex_uuid_v7"));

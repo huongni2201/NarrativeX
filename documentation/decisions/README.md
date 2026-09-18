@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory records decisions that affect more than one feature or change a production safety boundary. The canonical V1.12 source-of-truth specification ([`NARRATIVEX_PROJECT_SPEC_V1_12.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md)) remains the product/architecture authority; current code, migrations and tests decide factual AS-IS behavior when derived docs drift.
+This directory records decisions that affect more than one feature or change a production safety boundary. Current code, migrations and automated tests establish factual implementation truth.
 
 ## Decision Classification
 
@@ -34,8 +34,6 @@ Decisions that define the current architecture and implementation boundaries:
   Immutable continuity/checkpoint state, backend-authoritative selective regeneration and segment-cache identity based on effective encoded inputs rather than logical workflow identity.
 - **[ADR-0026: Snapshot watermark policy for Desktop renders](./ADR-0026-immutable-render-watermark-policy.md)**
   Server-authoritative watermark policy captured in immutable render snapshots and enforced by the Desktop FFmpeg renderer.
-- **[ADR-0027: VoiceStudio-only TTS and WhisperX-aligned WAV narration](./ADR-0027-voicestudio-only-tts-and-whisperx-wav-pipeline.md)**
-  VoiceStudio is the sole production TTS engine boundary; NarrativeX synthesizes per segment, persists a 48 kHz mono WAV master and force-aligns Vietnamese script with WhisperX on RTX 4060. Voice reference scope refined to PROJECT and GLOBAL_LOCAL.
 - **[ADR-0028: Backend control plane and domain-agnostic GPU execution plane](./ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md)**
   Spring Boot is the sole domain/lifecycle control plane. A replacement `generation-service` executes closed, versioned compute tasks without NarrativeX database or domain access.
 - **[ADR-0029: Light DDD and Hexagonal structure for the generation service](./ADR-0029-generation-service-light-ddd-hexagonal-structure.md)**
@@ -44,6 +42,10 @@ Decisions that define the current architecture and implementation boundaries:
   Elimination of all application identity, accounts, authentication, authorization, sessions, and multi-tenant quotas in favor of a single-user local-first architecture. Project is the top business boundary.
 - **[ADR-0031: Durable submission checkpointing and safe worker recovery semantics](./ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md)**
   Internal submission checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`), journal-before-I/O, and safe worker recovery without blind resubmission.
+- **[ADR-0034: Vertex AI Gemini 3.8 Flash for Chapter Analysis Control Plane](./ADR-0034-vertex-gemini-chapter-analysis.md)**
+  Direct backend-owned Vertex AI Gemini integration for Chapter Analysis; structured schema enforcement and telemetry; supersedes Qwen (ADR-0032).
+- **[ADR-0035: VieNeu TTS and Media Generation Runtime on Leased Remote RTX 3090](./ADR-0035-vieneu-remote-gpu-media-runtime.md)**
+  VieNeu as the production TTS engine generating 48 kHz mono WAV audio, paired with WhisperX forced alignment on remote GPU; supersedes VoiceStudio (ADR-0027).
 
 ### PARTIALLY SUPERSEDED
 
@@ -51,12 +53,12 @@ Decisions whose core technical decisions remain valid, but specific sections hav
 
 - **[ADR-0001: System topology, modular monolith, durable execution and persistence architecture](./ADR-0001-system-topology-execution-and-persistence.md)**
   *Active:* Spring Boot control plane, MyBatis/PostgreSQL persistence, durable jobs/leases/provider operations.
-  *Superseded:* Worker direct DB polling superseded by ADR-0028; monetary cost authorization superseded by ADR-0030.
+  *Superseded:* Direct worker polling superseded by ADR-0028; monetary cost authorization superseded by ADR-0030.
 - **[ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows](./ADR-0002-storyboard-character-continuity-and-production-workflows.md)**
   *Active:* Chapter-first workflow, reusable Character identity, revision/history rules and VisualBeat/motion models.
   *Superseded:* Historical translation-lineage portion is superseded by the translation-free Chapter source baseline.
 - **[ADR-0008: Production-profile Docker runtime for real machine-local execution](./ADR-0008-real-docker-runtime.md)**
-  *Active:* Backend/worker Docker execution environment for development/testing.
+  *Active:* Backend/worker execution environment for development/testing.
   *Superseded:* Desktop client is no longer part of Docker runtime (ADR-0010).
 - **[ADR-0020: PostgreSQL-only MVP runtime state](./ADR-0020-postgresql-only-mvp-runtime-state.md)**
   *Active:* PostgreSQL as the sole state store (no Redis).
@@ -64,9 +66,9 @@ Decisions whose core technical decisions remain valid, but specific sections hav
 - **[ADR-0022: R2 voice-only storage and explicit voice-reference scope](./ADR-0022-r2-voice-only-and-voice-reference-scope.md)**
   *Active:* Local project media boundaries.
   *Superseded:* `ACCOUNT` voice reference scope superseded by ADR-0030; reusable voices transition to local storage (`GLOBAL_LOCAL` / `PROJECT`).
-- **[ADR-0025: Local Qwen, RealVisXL and staged single-GPU production stack](./ADR-0025-local-ai-production-stack.md)**
-  *Active:* Local Qwen Chapter analysis, staged RTX 4060 execution, RealVisXL ComfyUI adapter, WhisperX/VoiceStudio.
-  *Superseded:* Multi-tenant quota and user entitlement assumptions superseded by ADR-0030 system/runtime capacity limits.
+- **[ADR-0025: Local AI production stack](./ADR-0025-local-ai-production-stack.md)**
+  *Active:* RealVisXL ComfyUI adapter, WhisperX alignment.
+  *Superseded:* Qwen text analysis superseded by ADR-0034; VoiceStudio TTS superseded by ADR-0035; multi-tenant quotas superseded by ADR-0030.
 
 ### SUPERSEDED
 
@@ -78,6 +80,15 @@ Historical rationale only; not part of current runtime:
   Superseded by ADR-0030 (single-user local-first architecture; no user/session/CSRF authentication model).
 - **[ADR-0011: Google OAuth-only identity with Desktop system-browser handoff](./ADR-0011-google-oauth-only-desktop-auth.md)**
   Superseded by ADR-0030 (single-user local-first architecture; no Google OAuth or guest installation identity).
+- **[ADR-0027: VoiceStudio-only TTS and WhisperX-aligned WAV narration](./ADR-0027-voicestudio-only-tts-and-whisperx-wav-pipeline.md)**
+  Superseded by ADR-0035 (VieNeu TTS and remote GPU media runtime).
+- **[ADR-0032: Domain-neutral text generation compute boundary](./ADR-0032-text-generation-compute-boundary.md)**
+  Superseded by ADR-0034 (direct Vertex AI Gemini integration in backend control plane).
+
+### DEFERRED / NOT IMPLEMENTED
+
+- **[ADR-0033: Reference-conditioned GPU video generation and residency boundary](./ADR-0033-reference-conditioned-gpu-video-generation.md)**
+  Video generation (Wan2.1/I2V) is deferred; no active video generation pipeline exists in current production scope.
 
 ### HISTORICAL
 
@@ -85,8 +96,6 @@ Preserved for context on retired subsystems or early integration spikes:
 
 - **[ADR-0005: Deterministic MVP E2E rendering with local final storage](./ADR-0005-deterministic-mvp-e2e-render-storage.md)**
   Early integration spike for server-render verification; final render is now owned by Desktop FFmpeg (ADR-0012).
-- **[ADR-0021: Desktop Gemini Web image generation boundary](./ADR-0021-desktop-gemini-web-image-generation.md)**
-  Historical Desktop-only Gemini Web browser automation boundary. Target production image generation is RealVisXL/ComfyUI per ADR-0025.
 
 ---
 
@@ -98,9 +107,9 @@ Preserved for context on retired subsystems or early integration spikes:
 - ADR-0020 supersedes Redis guidance within the current MVP runtime.
 - ADR-0022 supersedes older docs wherever they describe R2 as generated project image/narration transport.
 - ADR-0023 supersedes older duration-weighted visual timing descriptions.
-- ADR-0025 supersedes Vertex Gemini Chapter-analysis and production API image portions of ADR-0003/ADR-0008.
-- ADR-0027 refines ADR-0025 for VoiceStudio-only TTS and WhisperX post-TTS alignment. VieNeu has no production path.
-- ADR-0028 supersedes direct PostgreSQL polling by workers in ADR-0020 and relocates executors behind the Compute Protocol into `app/generation-service`. Legacy `app/ai-worker` direct polling remains temporary migration residue.
+- ADR-0034 supersedes ADR-0032 and Qwen chapter analysis; backend control plane owns Vertex Gemini integration.
+- ADR-0035 supersedes ADR-0027 and VoiceStudio; VieNeu is the production TTS engine.
+- ADR-0028 supersedes direct PostgreSQL polling by workers in ADR-0020 and relocates executors behind the Compute Protocol into `app/generation-service`.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 

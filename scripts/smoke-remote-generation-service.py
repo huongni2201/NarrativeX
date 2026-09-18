@@ -116,7 +116,7 @@ def run_smoke_test(
 
     if action == "text.generate":
         task_desc = {"type": "text.generate", "schemaVersion": "1.0"}
-        model_ref = {"executor": "qwen", "model": "qwen2.5:7b-instruct", "revision": "v1"}
+        model_ref = {"executor": "text-engine", "model": "generic-instruct", "revision": "v1"}
         inputs = {
             "prompt": "Say hello to NarrativeX remote GPU worker in 5 words.",
             "temperature": 0.2,
@@ -223,9 +223,9 @@ def main() -> int:
     parser.add_argument("--token", default="", help="Worker bearer token if required")
     parser.add_argument(
         "--action",
-        default="text.generate",
-        choices=["text.generate", "media.validate"],
-        help="Task action to test (default: text.generate)",
+        default="media.validate",
+        choices=["media.validate", "text.generate"],
+        help="Task action to test (default: media.validate)",
     )
     parser.add_argument("--timeout", type=float, default=60.0, help="Max wait seconds for task completion")
 

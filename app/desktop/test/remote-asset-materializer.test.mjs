@@ -181,37 +181,52 @@ test("chapter narration materialization resolves the project-local audio through
 });
 
 test("project asset handoff includes project scope and rejects unsafe URLs", async () => {
-  const storage = new ProjectStorage("./.test-remote-materializer");
-  const requestedPaths = [];
-  const materializer = new RemoteAssetMaterializer(
-    storage,
-    backendApi("http://evil.example/image.png", requestedPaths),
-  );
-  await assert.rejects(
-    materializer.materialize({ projectId, assetId: "asset-1" }),
-    /HTTPS outside localhost/i,
-  );
-  assert.deepEqual(requestedPaths, [
-    `/api/v1/assets/asset-1?projectId=${projectId}`,
-    `/api/v1/assets/asset-1/download-url?projectId=${projectId}`,
-  ]);
+  const root = await mkdtemp(join(tmpdir(), "narrativex-test-materializer-"));
+  try {
+    const storage = new ProjectStorage(root);
+    const requestedPaths = [];
+    const materializer = new RemoteAssetMaterializer(
+      storage,
+      backendApi("http://evil.example/image.png", requestedPaths),
+    );
+    await assert.rejects(
+      materializer.materialize({ projectId, assetId: "asset-1" }),
+      /HTTPS outside localhost/i,
+    );
+    assert.deepEqual(requestedPaths, [
+      `/api/v1/assets/asset-1?projectId=${projectId}`,
+      `/api/v1/assets/asset-1/download-url?projectId=${projectId}`,
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("project asset handoff rejects credential-bearing signed URL metadata", async () => {
-  const storage = new ProjectStorage("./.test-remote-materializer");
-  const materializer = new RemoteAssetMaterializer(storage, backendApi("https://user:password@example.com/image.png"));
-  await assert.rejects(materializer.materialize({ projectId, assetId: "asset-1" }), /credentials/i);
+  const root = await mkdtemp(join(tmpdir(), "narrativex-test-materializer-"));
+  try {
+    const storage = new ProjectStorage(root);
+    const materializer = new RemoteAssetMaterializer(storage, backendApi("https://user:password@example.com/image.png"));
+    await assert.rejects(materializer.materialize({ projectId, assetId: "asset-1" }), /credentials/i);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("project materialization rejects path-like identifiers before backend lookup", async () => {
-  let requests = 0;
-  const storage = new ProjectStorage("./.test-remote-materializer");
-  const materializer = new RemoteAssetMaterializer(storage, {
-    async request() {
-      requests += 1;
-      return backendApi("https://example.com/image.png").request({ path: "/unused" });
-    },
-  });
-  await assert.rejects(materializer.materialize({ projectId, assetId: "../outside" }), /unsupported characters/i);
-  assert.equal(requests, 0);
+  const root = await mkdtemp(join(tmpdir(), "narrativex-test-materializer-"));
+  try {
+    let requests = 0;
+    const storage = new ProjectStorage(root);
+    const materializer = new RemoteAssetMaterializer(storage, {
+      async request() {
+        requests += 1;
+        return backendApi("https://example.com/image.png").request({ path: "/unused" });
+      },
+    });
+    await assert.rejects(materializer.materialize({ projectId, assetId: "../outside" }), /unsupported characters/i);
+    assert.equal(requests, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

@@ -1,6 +1,6 @@
 # ADR-0032: Domain-neutral text generation compute boundary
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0034 (2026-09-18)
 **Date:** 2026-09-16
 
 ## Context

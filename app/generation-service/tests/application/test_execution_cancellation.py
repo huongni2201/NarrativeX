@@ -38,9 +38,9 @@ async def wait_for_state(
 
 
 class CanceledExecutor:
-    name = "voicestudio"
+    name = "vieneu"
     task_types = frozenset({"audio.synthesize"})
-    models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+    models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
     ready = True
 
     def __init__(self, message: str = "User requested cancellation") -> None:
@@ -60,9 +60,9 @@ class CanceledExecutor:
 
 
 class ShutdownExecutor:
-    name = "voicestudio"
+    name = "vieneu"
     task_types = frozenset({"audio.synthesize"})
-    models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+    models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
     ready = True
 
     async def execute(
@@ -77,9 +77,9 @@ class ShutdownExecutor:
 
 
 class PreUploadCancelExecutor:
-    name = "voicestudio"
+    name = "vieneu"
     task_types = frozenset({"audio.synthesize"})
-    models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+    models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
     ready = True
 
     def __init__(self) -> None:
@@ -219,9 +219,9 @@ async def test_race_b_cancel_after_succeeded_commit_does_not_reverse_success(
     journal = SqliteExecutionJournalAdapter(tmp_path / "journal.sqlite3")
 
     class FastSuccessExecutor:
-        name = "voicestudio"
+        name = "vieneu"
         task_types = frozenset({"audio.synthesize"})
-        models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+        models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
         ready = True
 
         async def execute(self, task, cancel, context=None):

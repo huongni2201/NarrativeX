@@ -6,28 +6,33 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ConfiguredProviderHealthSettings implements ProviderHealthSettings {
-  private final boolean qwenEnabled;
-  private final String runtime;
-  private final String model;
+  private final boolean vertexGeminiEnabled;
+  private final String vertexGeminiModel;
+  private final String vertexGeminiLocation;
 
   public ConfiguredProviderHealthSettings(
-      @Value("${narrativex.providers.qwen.enabled:false}") boolean qwenEnabled,
-      @Value("${narrativex.providers.qwen.runtime:vllm-local}") String runtime,
-      @Value("${narrativex.providers.qwen.model:Qwen/Qwen3-8B-AWQ}") String model) {
-    this.qwenEnabled = qwenEnabled;
-    this.runtime = runtime;
-    this.model = model;
+      @Value("${narrativex.providers.vertex-gemini.enabled:false}") boolean vertexGeminiEnabled,
+      @Value("${narrativex.providers.vertex-gemini.model:gemini-3.8-flash}")
+          String vertexGeminiModel,
+      @Value("${narrativex.providers.vertex-gemini.location:us-central1}")
+          String vertexGeminiLocation) {
+    this.vertexGeminiEnabled = vertexGeminiEnabled;
+    this.vertexGeminiModel = vertexGeminiModel;
+    this.vertexGeminiLocation = vertexGeminiLocation;
   }
 
-  public boolean qwenEnabled() {
-    return qwenEnabled;
+  @Override
+  public boolean vertexGeminiEnabled() {
+    return vertexGeminiEnabled;
   }
 
-  public String runtime() {
-    return runtime;
+  @Override
+  public String vertexGeminiModel() {
+    return vertexGeminiModel;
   }
 
-  public String model() {
-    return model;
+  @Override
+  public String vertexGeminiLocation() {
+    return vertexGeminiLocation;
   }
 }

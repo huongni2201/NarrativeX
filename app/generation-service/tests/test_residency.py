@@ -37,37 +37,37 @@ async def test_residency_exclusive_family_switch() -> None:
     async def unload_comfyui() -> None:
         events.append("unload:comfyui")
 
-    async def load_qwen() -> None:
-        events.append("load:qwen")
+    async def load_whisperx() -> None:
+        events.append("load:whisperx")
 
     manager = GpuResidencyManager(
         transition_timeout_seconds=5.0,
-        unload_hooks={RuntimeFamily.COMFYUI_VIDEO: unload_comfyui},
-        load_hooks={RuntimeFamily.QWEN: load_qwen},
+        unload_hooks={RuntimeFamily.COMFYUI_IMAGE: unload_comfyui},
+        load_hooks={RuntimeFamily.WHISPERX: load_whisperx},
     )
 
-    req_comfy = RuntimeRequirement(family=RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
-    req_qwen = RuntimeRequirement(family=RuntimeFamily.QWEN, exclusive=True)
+    req_comfy = RuntimeRequirement(family=RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
+    req_whisperx = RuntimeRequirement(family=RuntimeFamily.WHISPERX, exclusive=True)
 
     # Acquire ComfyUI lease
     async with manager.acquire(req_comfy):
-        assert manager.current_family == RuntimeFamily.COMFYUI_VIDEO
+        assert manager.current_family == RuntimeFamily.COMFYUI_IMAGE
         assert manager.active_leases == 1
 
     assert manager.active_leases == 0
-    assert manager.current_family == RuntimeFamily.COMFYUI_VIDEO
+    assert manager.current_family == RuntimeFamily.COMFYUI_IMAGE
 
-    # Acquire Qwen lease (should trigger unload comfyui -> load qwen)
-    async with manager.acquire(req_qwen):
-        assert manager.current_family == RuntimeFamily.QWEN
+    # Acquire WhisperX lease (should trigger unload comfyui -> load whisperx)
+    async with manager.acquire(req_whisperx):
+        assert manager.current_family == RuntimeFamily.WHISPERX
         assert manager.active_leases == 1
 
-    assert events == ["unload:comfyui", "load:qwen"]
+    assert events == ["unload:comfyui", "load:whisperx"]
 
 
 async def test_residency_concurrent_non_exclusive_leases() -> None:
     manager = GpuResidencyManager(transition_timeout_seconds=5.0)
-    req_voice = RuntimeRequirement(family=RuntimeFamily.VOICESTUDIO, exclusive=False)
+    req_voice = RuntimeRequirement(family=RuntimeFamily.VIENEU, exclusive=False)
 
     lease1_held = asyncio.Event()
     lease2_held = asyncio.Event()
@@ -88,7 +88,7 @@ async def test_residency_concurrent_non_exclusive_leases() -> None:
 
     await lease1_held.wait()
     await lease2_held.wait()
-    assert manager.current_family == RuntimeFamily.VOICESTUDIO
+    assert manager.current_family == RuntimeFamily.VIENEU
     assert manager.active_leases == 2
 
     finish.set()
@@ -98,7 +98,7 @@ async def test_residency_concurrent_non_exclusive_leases() -> None:
 
 async def test_residency_exclusive_blocks_concurrent() -> None:
     manager = GpuResidencyManager(transition_timeout_seconds=5.0)
-    req_exclusive = RuntimeRequirement(family=RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
+    req_exclusive = RuntimeRequirement(family=RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
 
     entered_first = asyncio.Event()
     release_first = asyncio.Event()
@@ -134,23 +134,23 @@ async def test_residency_transition_timeout_fails_closed() -> None:
 
     manager = GpuResidencyManager(
         transition_timeout_seconds=0.1,
-        unload_hooks={RuntimeFamily.COMFYUI_VIDEO: hanging_unloader},
+        unload_hooks={RuntimeFamily.COMFYUI_IMAGE: hanging_unloader},
     )
 
-    # First establish COMFYUI_VIDEO
-    req_video = RuntimeRequirement(family=RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
+    # First establish COMFYUI_IMAGE
+    req_video = RuntimeRequirement(family=RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
     async with manager.acquire(req_video):
         pass
 
-    # Next attempt to switch to QWEN; unloader will hang and exceed 0.1s timeout
-    req_qwen = RuntimeRequirement(family=RuntimeFamily.QWEN, exclusive=True)
+    # Next attempt to switch to WHISPERX; unloader will hang and exceed 0.1s timeout
+    req_whisperx = RuntimeRequirement(family=RuntimeFamily.WHISPERX, exclusive=True)
     with pytest.raises(ResidencyTransitionError, match="timed out"):
-        async with manager.acquire(req_qwen):
+        async with manager.acquire(req_whisperx):
             pass
 
     # Manager must now be poisoned and fail-closed
     assert manager.is_poisoned
-    req_voice = RuntimeRequirement(family=RuntimeFamily.VOICESTUDIO, exclusive=False)
+    req_voice = RuntimeRequirement(family=RuntimeFamily.VIENEU, exclusive=False)
     with pytest.raises(ResidencyTransitionError, match="poisoned"):
         async with manager.acquire(req_voice):
             pass
@@ -181,8 +181,8 @@ class FamilyExecutor:
 
 
 async def test_execution_service_with_residency(tmp_path: Path, compute_task: ComputeTask) -> None:
-    exec_a = FamilyExecutor("exec-a", RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
-    exec_b = FamilyExecutor("exec-b", RuntimeFamily.QWEN, exclusive=True)
+    exec_a = FamilyExecutor("exec-a", RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
+    exec_b = FamilyExecutor("exec-b", RuntimeFamily.WHISPERX, exclusive=True)
 
     catalog = ExecutorCatalog((exec_a, exec_b))
     journal = SqliteExecutionJournalAdapter(tmp_path / "journal.sqlite3")
@@ -212,9 +212,9 @@ async def test_execution_service_with_residency(tmp_path: Path, compute_task: Co
                 break
             await asyncio.sleep(0.01)
         assert res is not None and res.state == ExecutionState.SUCCEEDED
-        assert residency.current_family == RuntimeFamily.COMFYUI_VIDEO
+        assert residency.current_family == RuntimeFamily.COMFYUI_IMAGE
 
-        # Submit Task B (requires transition to QWEN)
+        # Submit Task B (requires transition to WHISPERX)
         task_b = deepcopy(compute_task)
         task_b.task_id = uuid4()
         task_b.attempt_id = uuid4()
@@ -232,7 +232,7 @@ async def test_execution_service_with_residency(tmp_path: Path, compute_task: Co
                 break
             await asyncio.sleep(0.01)
         assert res_b is not None and res_b.state == ExecutionState.SUCCEEDED
-        assert residency.current_family == RuntimeFamily.QWEN
+        assert residency.current_family == RuntimeFamily.WHISPERX
         assert exec_a.calls == 1
         assert exec_b.calls == 1
     finally:

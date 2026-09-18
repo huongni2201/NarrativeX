@@ -2,107 +2,82 @@
 
 ## Overview
 
-NarrativeX employs an asynchronous, domain-neutral GPU execution plane (`app/generation-service`) that can run locally on an authoring workstation (e.g. RTX 4060) or remotely on a dedicated machine equipped with a high-VRAM GPU (NVIDIA GeForce RTX 3090 24GB).
+NarrativeX employs an asynchronous, domain-neutral GPU execution plane (`app/generation-service`) that can run locally on an authoring workstation or remotely on a dedicated high-VRAM machine (NVIDIA GeForce RTX 3090 24GB).
 
-This document outlines the architecture, resource boundaries, residency rules, and deployment procedures for the remote GPU runtime.
+Per [ADR-0028](../decisions/ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md), [ADR-0029](../decisions/ADR-0029-generation-service-light-ddd-hexagonal-structure.md), and [ADR-0035](../decisions/ADR-0035-vieneu-remote-gpu-media-runtime.md):
+- **Domain-Neutral Execution**: The GPU worker exposes the Compute Protocol v1 HTTP interface (`/v1/tasks`, `/v1/capabilities`, `/health`). It never connects to PostgreSQL, has no knowledge of business entities (`projects`, `chapters`, `scenes`), and processes only self-contained task payloads.
+- **Control Plane Independence**: Spring Boot (`app/backend-service`) acts as the exclusive control plane, coordinating admission, persistence, job recovery ([ADR-0031](../decisions/ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md)), and artifact metadata.
+- **Desktop Render Master**: Desktop (`app/desktop` Electron + FFmpeg) is the sole compositor and final render master. The GPU runtime produces individual audio stems and preview images; it never produces final mixed project MP4s.
 
 ---
 
-## 1. Architectural Boundaries
+## 1. Generative Workload Allocation
 
-Per **ADR-0028**, **ADR-0029**, and **ADR-0033**:
-1. **Domain-Neutral Execution:**
-   The remote worker exposes the Compute Protocol v1 HTTP interface (`/v1/tasks`, `/v1/capabilities`, `/health`). It never connects to PostgreSQL, has no knowledge of business entities (`projects`, `chapters`, `scenes`), and receives only self-contained task inputs and capability-scoped artifact URLs.
-2. **Control Plane Independence:**
-   Spring Boot (`app/backend-service`) acts as the exclusive control plane. It coordinates task admission, persistence, retry/recovery, and artifact storage. The remote GPU node is completely decoupled from the application database.
-3. **Desktop Render Master:**
-   Desktop (`app/desktop` Electron + FFmpeg) remains the sole compositor and final render master. The GPU server yields isolated video clips or audio stems; it never produces final mixed project MP4s.
+| Workload | Runtime / Engine | Execution Location | Notes |
+| :--- | :--- | :--- | :--- |
+| **Story / Script Analysis** | Google Vertex AI Gemini 2.5 Flash | Backend Service (`app/backend-service`) | Managed directly in Spring Boot control plane ([ADR-0034](../decisions/ADR-0034-vertex-gemini-chapter-analysis.md)). Not executed on GPU node. |
+| **Speech Generation (TTS)** | VieNeu (`vieneu-v3-turbo`) | Generation Service (`app/generation-service`) | Synthesizes 48 kHz mono WAV narration ([ADR-0035](../decisions/ADR-0035-vieneu-remote-gpu-media-runtime.md)). ~4–8 GB VRAM footprint. |
+| **Speech Alignment** | WhisperX | Generation Service (`app/generation-service`) | Generates phoneme/word timing alignment. ~3–5 GB VRAM footprint. |
+| **Visual Beat Images** | ComfyUI (RealVisXL / SDXL) | Generation Service (`app/generation-service`) | Generates visual beat keyframe preview images. ~12–16 GB VRAM footprint. |
+| **Video Generation** | Wan 2.1 / ComfyUI Video | Deferred / Not Implemented | Video generation pipeline is **DEFERRED** ([ADR-0033](../decisions/ADR-0033-reference-conditioned-gpu-video-generation.md)). Video assembly occurs locally in Electron via FFmpeg. |
 
 ---
 
 ## 2. Hardware Constraints & Residency Model (RTX 3090 24GB)
 
-An NVIDIA RTX 3090 provides 24,576 MiB of VRAM. Concurrently loading multiple state-of-the-art generative models will exceed this capacity:
-
-| Generative Workload | Engine / Model | Approx. VRAM Footprint |
-| :--- | :--- | :--- |
-| **Text Generation** | Qwen 2.5 7B / 14B (GGUF/AWQ/BF16) | 5GB – 12GB |
-| **Image Generation** | SDXL / FLUX.1-schnell (NF4 / FP8) | 12GB – 16GB |
-| **Speech Generation** | VoiceStudio (F5-TTS / Kokoro) | 4GB – 8GB |
-| **Audio Alignment** | WhisperX (wav2vec2 + alignment) | 3GB – 5GB |
-| **Video Generation** | Wan 2.1 14B (Quantized GGUF/NF4) | 16GB – 22GB |
+An NVIDIA RTX 3090 provides 24,576 MiB of VRAM. Concurrently loading multiple generative models exceeds capacity and causes out-of-memory (OOM) failures.
 
 ### Sequential Residency Rule
-To prevent out-of-memory (OOM) faults:
-- The GPU service implements `RuntimeResidencyPort` and `GpuResidencyManager`.
-- Only **one** runtime family (`QWEN`, `COMFYUI_IMAGE`, `VOICESTUDIO`, `WHISPERX`, `COMFYUI_VIDEO`) may actively occupy GPU resources at any instant.
-- Switching between runtime families is an atomic, fail-closed operation:
-  1. The running runtime process is unloaded or gracefully terminated.
-  2. The system polls host and PyTorch/CUDA memory metrics until VRAM is freed below the idle threshold (< 1.5GB).
-  3. If VRAM is not reclaimed within the transition timeout (default: 30s), the transition **fails closed**, marking the GPU node unhealthy to prevent conflicting allocations.
-  4. The incoming runtime family is initialized.
+To prevent OOM faults:
+- `GpuResidencyManager` implements mutual exclusion across workload domains: `audio_alignment`, `tts`, `image`, and `video`.
+- Only **one** runtime family may actively occupy GPU VRAM at any instant.
+- Transitioning between domains requires:
+  1. Gracefully finishing active tasks in the current domain.
+  2. Unloading or releasing model weights from GPU memory.
+  3. Reclaiming VRAM below the idle threshold (< 1.5 GB).
+  4. Initializing the target workload runtime.
+
+> [!NOTE]
+> **Implementation State**: `GpuResidencyManager` currently implements logical state mutual exclusion and transition guards. Process-level model unload probes and physical VRAM polling hooks are partially implemented and remain to be fully wired into runtime bootstrap.
 
 ---
 
-## 3. Deployment Topology
+## 3. Dynamic Worker Session & Ephemeral Disk Model
 
-The remote GPU node runs only Docker with the NVIDIA Container Toolkit.
+The remote GPU runtime is designed to operate on disposable or leased hardware:
 
-```
-+----------------------------------------------------------------+
-|                 Remote Worker Host (Ubuntu 22.04 / 24.04)     |
-|                                                                |
-|  +----------------------------------------------------------+  |
-|  | Container: generation-service                            |  |
-|  |                                                          |  |
-|  | - FastAPI HTTP server (:8000)                            |  |
-|  | - Compute Protocol v1 dispatcher                         |  |
-|  | - GpuResidencyManager (RuntimeResidencyPort)             |  |
-|  | - Task Executors:                                        |  |
-|  |     * Qwen Text Executor                                 |  |
-|  |     * VoiceStudio TTS Executor                           |  |
-|  |     * WhisperX Alignment Executor                        |  |
-|  |     * ComfyUI Image / Video Executor                     |  |
-|  +----------------------------------------------------------+  |
-|          |                                                     |
-|          v                                                     |
-|  NVIDIA Container Runtime (nvidia-smi, CUDA 12.4+)             |
-|  GeForce RTX 3090 (24GB VRAM)                                  |
-+----------------------------------------------------------------+
+1. **Dynamic Worker Endpoint**: The backend does not require a fixed IP address. The worker URL is configured dynamically via backend environment properties (`app.worker.base-url`) or dynamic session handshake.
+2. **Ephemeral Disk**: Local storage on the remote GPU machine is completely ephemeral:
+   - Model weights are pre-cached in designated cache directories (`MODELS_CACHE_DIR`).
+   - Task inputs and outputs are staged in temporary working directories.
+   - Generated artifacts are retrieved by the backend control plane and persisted to local Desktop project storage. The worker execution journal (SQLite) is discarded when the machine is reprovisioned.
+3. **Capability-Based Authentication**: Requests to `/v1/*` endpoints require a Bearer token matching `NARRATIVEX_WORKER_BEARER_TOKEN`.
+
+---
+
+## 4. Operational Lifecycle & Health Checks
+
+### Verification Endpoints
+- `GET /health`: Returns service health and GPU status:
+  ```json
+  {
+    "status": "healthy",
+    "gpu_available": true,
+    "active_domain": "tts"
+  }
+  ```
+- `GET /v1/capabilities`: Returns registered task adapters and runtime descriptors.
+
+### Smoke Verification
+Run the verification check from the host or management machine:
+```bash
+python scripts/smoke-remote-generation-service.py --host <worker-host> --port 8000 --token <token>
 ```
 
 ---
 
-## 4. Operational Runbook
+## 5. Known Deployment Drift
 
-### Prerequisites
-- Host OS: Ubuntu 22.04 LTS or 24.04 LTS.
-- NVIDIA Driver: `>= 550.54`.
-- Docker Engine `>= 26.0` with `nvidia-container-toolkit` installed and configured as the default runtime.
-
-### Configuration
-Copy `deploy/remote-gpu/.env.example` to `deploy/remote-gpu/.env` and configure:
-```bash
-NARRATIVEX_WORKER_PORT=8000
-NARRATIVEX_WORKER_BEARER_TOKEN=<secure-shared-secret>
-MODELS_CACHE_DIR=/data/models
-OUTPUTS_CACHE_DIR=/data/outputs
-SHM_SIZE=16g
-```
-
-### Launch
-```bash
-cd deploy/remote-gpu
-docker compose -f docker-compose.gpu.yml up -d
-```
-
-### Health Verification
-Run the verification healthcheck script:
-```bash
-./healthcheck.sh
-```
-
-Or run the end-to-end remote smoke verification script from the management machine:
-```bash
-python scripts/smoke-remote-generation-service.py --host <remote-ip> --port 8000 --token <token>
-```
+> [!WARNING]
+> The configuration files in `deploy/remote-gpu/docker-compose.yml` reflect an earlier Linux Docker prototype.
+> The current operational target is a disposable Windows 11/Server RTX 3090 workstation running Python 3.11 with native CUDA and ComfyUI. When deploying to disposable Windows workstations, launch `app/generation-service` directly using `uvicorn app.main:app` and native ComfyUI rather than the stale Linux container compose file.

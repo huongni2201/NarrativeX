@@ -1,0 +1,13 @@
+﻿{
+  "timestamp": "2026-09-18T21:24:00Z",
+  "pipeline": "Chapter Analyze -> Narration VieNeu -> WhisperX Align -> ComfyUI Scene Images",
+  "baseline_e2e_duration_seconds": 18.5,
+  "test_suites": {
+    "backend_tests_count": 11,
+    "backend_tests_seconds": 4.97,
+    "generation_service_tests_count": 111,
+    "generation_service_tests_seconds": 6.57,
+    "desktop_tests_count": 243,
+    "desktop_tests_seconds": 2.92
+  }
+}

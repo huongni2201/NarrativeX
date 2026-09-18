@@ -41,7 +41,7 @@ class WhisperXClient:
         audio_bytes: bytes,
         script: str,
         language: str = "vi",
-        model: str = "large-v3",
+        model: str | None = None,
     ) -> list[dict[str, Any]]:
         del model
         if not audio_bytes:

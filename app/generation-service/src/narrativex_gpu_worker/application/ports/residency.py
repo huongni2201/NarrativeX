@@ -11,11 +11,9 @@ from typing import Protocol
 
 class RuntimeFamily(StrEnum):
     NONE = "NONE"
-    QWEN = "QWEN"
+    VIENEU = "VIENEU"
     COMFYUI_IMAGE = "COMFYUI_IMAGE"
-    VOICESTUDIO = "VOICESTUDIO"
     WHISPERX = "WHISPERX"
-    COMFYUI_VIDEO = "COMFYUI_VIDEO"
 
 
 @dataclass(frozen=True, slots=True)

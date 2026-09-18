@@ -11,45 +11,48 @@ ROOT = Path(__file__).resolve().parents[1]
 
 CURRENT_FILES = [
     ROOT / "README.md",
-    ROOT / "CONTRIBUTING.md",
+    ROOT / "AGENTS.md",
     ROOT / "AI_CONTEXT.md",
-    ROOT / "app" / "desktop" / "README.md",
-    ROOT / "app" / "generation-service" / "README.md",
+    ROOT / "CONTRIBUTING.md",
     ROOT / "documentation" / "README.md",
     ROOT / "documentation" / "CURRENT_STATUS.md",
     ROOT / "documentation" / "COMPUTE_PROTOCOL.md",
-    ROOT / "documentation" / "TRACEABILITY.md",
-    ROOT / "documentation" / "source-of-truth" / "README.md",
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_12.md",
-    ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
-    ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
-    ROOT / "documentation" / "codebase" / "BACKEND_CODEBASE.md",
-    ROOT / "documentation" / "codebase" / "GENERATION_SERVICE_CODEBASE.md",
-    ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
-    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
-    ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
-    ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
-    ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
-    ROOT / "documentation" / "product" / "ROADMAP.md",
-    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
     ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
+    ROOT / "documentation" / "product" / "ROADMAP.md",
+    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
+    ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
+    ROOT / "documentation" / "architecture" / "DATABASE.md",
+    ROOT / "documentation" / "domain" / "DOMAIN.md",
     ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
     ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
     ROOT / "documentation" / "workflows" / "IMAGE_GENERATION.md",
-    ROOT / "documentation" / "workflows" / "VIDEO_GENERATION.md",
+    ROOT / "documentation" / "operations" / "REMOTE_GPU_RUNTIME.md",
+    ROOT / "app" / "backend-service" / "README.md",
+    ROOT / "app" / "generation-service" / "README.md",
+    ROOT / "app" / "desktop" / "README.md",
 ]
 
 REQUIRED_PATHS = [
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_12.md",
+    ROOT / "README.md",
+    ROOT / "AGENTS.md",
+    ROOT / "AI_CONTEXT.md",
+    ROOT / "CONTRIBUTING.md",
+    ROOT / "documentation" / "README.md",
     ROOT / "documentation" / "CURRENT_STATUS.md",
     ROOT / "documentation" / "COMPUTE_PROTOCOL.md",
-    ROOT / "documentation" / "TRACEABILITY.md",
-    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+    ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
     ROOT / "documentation" / "product" / "ROADMAP.md",
-    ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
-    ROOT / "documentation" / "codebase" / "DESKTOP_RENDERER_STRUCTURE.md",
-    ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
+    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
+    ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
+    ROOT / "documentation" / "architecture" / "DATABASE.md",
+    ROOT / "documentation" / "domain" / "DOMAIN.md",
+    ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
+    ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
+    ROOT / "documentation" / "workflows" / "IMAGE_GENERATION.md",
+    ROOT / "documentation" / "operations" / "REMOTE_GPU_RUNTIME.md",
+    ROOT / "app" / "backend-service" / "README.md",
     ROOT / "app" / "generation-service" / "README.md",
+    ROOT / "app" / "desktop" / "README.md",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
     ROOT / "documentation" / "decisions" / "ADR-0003-media-storage-generation-pipelines-and-external-integrations.md",
@@ -64,12 +67,25 @@ REQUIRED_PATHS = [
 
 RETIRED_PATHS = [
     ROOT / "documentation" / "PROJECT_OVERVIEW_API_REPORT.md",
-    ROOT / "documentation" / "plans" / "DESKTOP_APP_MIGRATION.md",
-    ROOT / "documentation" / "plans" / "DESKTOP_BACKEND_MIGRATION.md",
-    ROOT / "documentation" / "codebase" / "PERSISTENCE_MIGRATION.md",
-    ROOT / "documentation" / "codebase" / "TRACEABILITY.md",
+    ROOT / "documentation" / "TRACEABILITY.md",
+    ROOT / "documentation" / "source-of-truth",
+    ROOT / "documentation" / "codebase",
+    ROOT / "documentation" / "history",
+    ROOT / "documentation" / "plans",
+    ROOT / "documentation" / "migrations",
+    ROOT / "documentation" / "release",
+    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+    ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
+    ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
+    ROOT / "documentation" / "architecture" / "flyway-baseline-policy.md",
+    ROOT / "documentation" / "domain" / "BUSINESS_RULES.md",
+    ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
+    ROOT / "documentation" / "domain" / "GLOSSARY.md",
     ROOT / "documentation" / "workflows" / "AUTHENTICATION.md",
+    ROOT / "documentation" / "workflows" / "CHAPTER_CONTINUATION.md",
+    ROOT / "documentation" / "workflows" / "VIDEO_GENERATION.md",
     ROOT / "app" / "desktop" / "DEPENDENCY_MIGRATION.md",
+    ROOT / "docs",
 ]
 
 FORBIDDEN = {
@@ -79,6 +95,10 @@ FORBIDDEN = {
     ),
     "obsolete current V1.11 authority": re.compile(
         r"(?:canonical|current)\s+(?:source|baseline|specification).*NARRATIVEX_PROJECT_SPEC_V1_11\.md",
+        re.IGNORECASE,
+    ),
+    "obsolete current V1.12 authority": re.compile(
+        r"(?:canonical|current)\s+(?:source|baseline|specification).*NARRATIVEX_PROJECT_SPEC_V1_12\.md",
         re.IGNORECASE,
     ),
     "obsolete Analyze scaffold token": re.compile(r"FEATURE_NOT_AVAILABLE"),
@@ -97,6 +117,11 @@ FORBIDDEN = {
         r"\b(?:FINAL_VIDEO_STORAGE_MODE|FINAL_VIDEO_LOCAL_DIR|render-worker|worker-render)\b",
         re.IGNORECASE,
     ),
+    "stale " + "ai-" + "worker reference": re.compile(r"\bapp/" + r"ai-" + r"worker\b"),
+
+    "stale gpu-worker reference": re.compile(r"\bapp/gpu-worker\b"),
+    "stale traceability reference": re.compile(r"\bTRACEABILITY\.md\b"),
+    "stale persistence migration reference": re.compile(r"\bPERSISTENCE_MIGRATION\.md\b"),
 }
 
 DESKTOP_ONLY_FORBIDDEN = {
@@ -118,21 +143,6 @@ DESKTOP_ONLY_FORBIDDEN = {
 LEGACY_STORAGE_ENV = re.compile(
     r"\b(?:S3_ENDPOINT_URL|S3_BUCKET|S3_REGION|S3_ACCESS_KEY|S3_SECRET_KEY|MINIO_CONSOLE_PORT)\b"
 )
-
-CHECKPOINT_PATTERNS = {
-    "spec": re.compile(
-        r"Docs-sync (?:baseline )?implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`",
-        re.IGNORECASE,
-    ),
-    "readme": re.compile(
-        r"Implementation checkpoint:\s*`[^`]+` at `([0-9a-f]{40})`",
-        re.IGNORECASE,
-    ),
-    "traceability": re.compile(
-        r"implementation checkpoint\s+`[^`]+`\s*/\s*`([0-9a-f]{40})`",
-        re.IGNORECASE,
-    ),
-}
 
 MIGRATION_NAME = re.compile(r"\b(V(\d+)__[A-Za-z0-9_]+\.sql)\b")
 
@@ -156,11 +166,6 @@ ALLOWED_CONTEXT = re.compile(
 
 FORBIDDEN_COMPUTE_NAMING = re.compile(r"\bapp/gpu-worker\b")
 FORBIDDEN_V8_BASELINE = re.compile(r"\bV1[–-]V8\b|\bV8__seed_catalog\.sql\b")
-
-
-def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
-    match = pattern.search(path.read_text(encoding="utf-8"))
-    return match.group(1) if match else None
 
 
 def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bool) -> list[str]:
@@ -225,10 +230,8 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
                 + ", ".join(f"V{version}" for version in missing_versions)
             )
 
-    for doc in (
-        ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
-        ROOT / "documentation" / "codebase" / "DATABASE_BASELINE.md",
-    ):
+    doc = ROOT / "documentation" / "architecture" / "DATABASE.md"
+    if doc.exists():
         documented = documented_migrations(doc)
         missing_from_doc = sorted(actual - documented)
         stale_in_doc = sorted(documented - actual)
@@ -302,36 +305,36 @@ def main() -> int:
 
         errors.extend(check_stale_identity_and_naming(path, text))
 
-    spec_path = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_12.md"
-    source_readme_path = ROOT / "documentation" / "source-of-truth" / "README.md"
-    traceability_path = ROOT / "documentation" / "TRACEABILITY.md"
-    checkpoints = {
-        "spec": checkpoint_sha(spec_path, CHECKPOINT_PATTERNS["spec"]),
-        "readme": checkpoint_sha(source_readme_path, CHECKPOINT_PATTERNS["readme"]),
-        "traceability": checkpoint_sha(traceability_path, CHECKPOINT_PATTERNS["traceability"]),
-    }
-    missing = [name for name, value in checkpoints.items() if value is None]
-    if missing:
-        errors.append("missing implementation checkpoint in: " + ", ".join(sorted(missing)))
-    elif len(set(checkpoints.values())) != 1:
-        errors.append(
-            "V1.12 implementation checkpoints disagree: "
-            + ", ".join(f"{name}={value}" for name, value in checkpoints.items())
-        )
-
     migrations = ROOT / "app" / "backend-service" / "src" / "main" / "resources" / "db" / "migration"
     errors.extend(migration_inventory_errors(migrations))
 
-    navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
-    for retired_name in (
-        "DESKTOP_APP_MIGRATION.md",
-        "DESKTOP_BACKEND_MIGRATION.md",
-        "PROJECT_OVERVIEW_API_REPORT.md",
-        "PERSISTENCE_MIGRATION.md",
-        "AUTHENTICATION.md",
-    ):
-        if retired_name in navigation:
-            errors.append(f"documentation/README.md links retired doc {retired_name}")
+    nav_path = ROOT / "documentation" / "README.md"
+    if nav_path.exists():
+        navigation = nav_path.read_text(encoding="utf-8")
+        for retired_name in (
+            "DESKTOP_APP_MIGRATION.md",
+            "DESKTOP_BACKEND_MIGRATION.md",
+            "PROJECT_OVERVIEW_API_REPORT.md",
+            "PERSISTENCE_MIGRATION.md",
+            "AUTHENTICATION.md",
+            "FEATURE_CATALOG.md",
+            "SERVICE_BOUNDARIES.md",
+            "DATA_FLOW.md",
+            "BUSINESS_RULES.md",
+            "DOMAIN_MODEL.md",
+            "GLOSSARY.md",
+            "CHAPTER_CONTINUATION.md",
+            "VIDEO_GENERATION.md",
+            "TRACEABILITY.md",
+            "DATABASE_BASELINE.md",
+            "flyway-baseline-policy.md",
+            "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+            "NARRATIVEX_PROJECT_SPEC_V1_12.md",
+            "source-of-truth",
+            "codebase",
+        ):
+            if retired_name in navigation:
+                errors.append(f"documentation/README.md links retired doc {retired_name}")
 
     if errors:
         print("Documentation drift check failed:")

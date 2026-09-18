@@ -1,6 +1,11 @@
 spring:
   application:
     name: NarrativeX Backend
+  threads:
+    virtual:
+      enabled: true
+  main:
+    keep-alive: true
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:narrativex}
     username: ${DB_USERNAME:narrativex}
@@ -49,10 +54,17 @@ narrativex:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}
   providers:
-    qwen:
-      enabled: ${QWEN_ENABLED:false}
-      runtime: ${QWEN_RUNTIME:vllm-local}
-      model: ${QWEN_MODEL:Qwen/Qwen3-8B-AWQ}
+    vertex-gemini:
+      enabled: ${VERTEX_GEMINI_ENABLED:false}
+      project-id: ${VERTEX_GEMINI_PROJECT_ID:}
+      location: ${VERTEX_GEMINI_LOCATION:us-central1}
+      model: ${VERTEX_GEMINI_MODEL:gemini-3.8-flash}
+      thinking-level: ${VERTEX_GEMINI_THINKING_LEVEL:HIGH}
+      max-output-tokens: ${VERTEX_GEMINI_MAX_OUTPUT_TOKENS:65536}
+      soft-input-token-limit: ${VERTEX_GEMINI_SOFT_INPUT_TOKEN_LIMIT:800000}
+      timeout-seconds: ${VERTEX_GEMINI_TIMEOUT_SECONDS:900}
+      bearer-token: ${VERTEX_GEMINI_BEARER_TOKEN:}
+      api-key: ${VERTEX_GEMINI_API_KEY:}
   storage:
     upload-intent-ttl: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:15m}
     project-media-local-dir: ${PROJECT_MEDIA_LOCAL_DIR:/data/narrativex/project-media}

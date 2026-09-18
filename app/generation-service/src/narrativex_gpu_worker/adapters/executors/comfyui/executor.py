@@ -84,13 +84,16 @@ class ComfyUIExecutor:
                 height=inputs.height,
                 seed=inputs.seed,
             )
+            client_id = f"narrativex-{str(task.task_id)[:8]}"
             prompt_id = await self._client.submit_prompt(
                 workflow=workflow,
-                client_id=f"narrativex-{str(task.task_id)[:8]}",
+                client_id=client_id,
             )
             await context.save_handle(f"comfyui:{prompt_id}")
+        else:
+            client_id = f"narrativex-{str(task.task_id)[:8]}"
 
-        record = await self._client.poll_history(prompt_id, cancel)
+        record = await self._client.wait_for_completion(prompt_id, client_id, cancel)
         if cancel.is_set():
             raise ExecutionCanceledError("ComfyUI execution canceled before artifact upload")
         image_bytes = await self._download_record_image(record)

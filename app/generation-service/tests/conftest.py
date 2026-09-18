@@ -36,9 +36,9 @@ def compute_task() -> ComputeTask:
 
 
 class FakeExecutor:
-    name = "voicestudio"
+    name = "vieneu"
     task_types = frozenset({"audio.synthesize"})
-    models = (ModelRef(executor="voicestudio", model="vi-profile", revision="0.5.2"),)
+    models = (ModelRef(executor="vieneu", model="vieneu-v3-turbo", revision="default"),)
     ready = True
 
     def __init__(self, gate: asyncio.Event | None = None, failure: Exception | None = None) -> None:

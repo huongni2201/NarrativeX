@@ -4,17 +4,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.application.model.compute.ArtifactWriteAccessDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -55,6 +61,7 @@ class ComputeExecutionDispatcherTest {
   private ChapterMapper chapterMapper;
   private ComputeArtifactAccess artifactAccess;
   private MediaAssetRepository mediaAssetRepository;
+  private ChapterAnalysisProvider chapterAnalysisProvider;
   private Map<UUID, OutputArtifactTargetDto> targetsByTask;
   private ComputeExecutionDispatcher dispatcher;
 
@@ -66,9 +73,19 @@ class ComputeExecutionDispatcherTest {
     chapterMapper = mock(ChapterMapper.class);
     artifactAccess = mock(ComputeArtifactAccess.class);
     mediaAssetRepository = mock(MediaAssetRepository.class);
+    chapterAnalysisProvider = mock(ChapterAnalysisProvider.class);
     targetsByTask = new HashMap<>();
     when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
         .thenReturn(VALID_ANALYSIS_JSON.getBytes());
+
+    when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
+        .thenReturn(
+            new ChapterAnalysisResult(
+                VALID_ANALYSIS_JSON,
+                new ChapterAnalysisUsage(100, 50, 20, 0, 150, 200),
+                "gemini-3.8-flash",
+                "test-canon-hash"));
+
     dispatcher =
         new ComputeExecutionDispatcher(
             generationJobRepository,
@@ -76,7 +93,8 @@ class ComputeExecutionDispatcherTest {
             storyboardMapper,
             chapterMapper,
             artifactAccess,
-            mediaAssetRepository);
+            mediaAssetRepository,
+            chapterAnalysisProvider);
 
     when(artifactAccess.createOutput(
             any(UUID.class), any(UUID.class), any(String.class), any(String.class)))
@@ -162,7 +180,8 @@ class ComputeExecutionDispatcherTest {
     verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
     GenerationJob finalState = captor.getValue();
     assertEquals(JobStatus.COMPLETED, finalState.getStatus());
-    verify(executionPort).submitTask(any(ComputeTaskRequest.class));
+    verify(chapterAnalysisProvider).analyze(any(ChapterAnalysisRequest.class));
+    verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
     verify(storyboardMapper).insertScene(any(SceneRow.class));
     verify(storyboardMapper).insertVisualBeat(any(VisualBeatRow.class));
   }
@@ -237,20 +256,10 @@ class ComputeExecutionDispatcherTest {
     when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
     when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
     when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
-    when(executionPort.queryTask(any(UUID.class), any(UUID.class)))
-        .thenReturn(
-            new ComputeObservationDto(
-                "1.0",
-                job.getJobId(),
-                UuidV7.random(),
-                "SUCCEEDED",
-                1,
-                Instant.now(),
-                "handle:missing",
-                1.0,
-                List.of(),
-                null,
-                null));
+    when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
+        .thenThrow(
+            new ChapterAnalysisException.ProviderUnavailableException(
+                "Analysis output unavailable"));
 
     dispatcher.dispatchJob(job.getJobId());
 
@@ -282,8 +291,13 @@ class ComputeExecutionDispatcherTest {
 
     when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
     when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
-    when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
-        .thenReturn("{\"characters\":[]}".getBytes());
+    when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
+        .thenReturn(
+            new ChapterAnalysisResult(
+                "{\"characters\":[]}",
+                new ChapterAnalysisUsage(100, 50, 20, 0, 150, 200),
+                "gemini-3.8-flash",
+                "test-hash"));
 
     dispatcher.dispatchJob(job.getJobId());
 

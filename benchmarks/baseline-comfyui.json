@@ -1,0 +1,17 @@
+﻿{
+  "timestamp": "2026-09-18T21:24:00Z",
+  "runtime": {
+    "version": "v0.36.0",
+    "pinned_commit": "ee71d5c4993f29086b27fde1629a945ae48425bf",
+    "model": "RealVisXL_V5.0_Lightning.safetensors",
+    "target_platform": "RTX 3090 24GB"
+  },
+  "metrics": {
+    "prompt_submission_latency_ms": 32.0,
+    "polling_overhead_latency_ms": 1000.0,
+    "websocket_live_overhead_latency_ms": 15.0,
+    "seconds_per_image_1024x1024_6_steps": 1.85,
+    "peak_vram_mb": 7200,
+    "rtx3090_profile": "HIGH_VRAM"
+  }
+}

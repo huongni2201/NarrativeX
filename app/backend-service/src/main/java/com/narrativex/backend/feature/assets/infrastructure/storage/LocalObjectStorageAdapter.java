@@ -8,8 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Local filesystem-backed implementation of ObjectStoragePort.
- * Routes private object storage operations to ProjectLocalMediaAccess.
+ * Local filesystem-backed implementation of ObjectStoragePort. Routes private object storage
+ * operations to ProjectLocalMediaAccess.
  */
 @Component
 public class LocalObjectStorageAdapter implements ObjectStoragePort {

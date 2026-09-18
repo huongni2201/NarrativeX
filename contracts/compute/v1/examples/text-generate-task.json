@@ -3,14 +3,14 @@
   "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7ad",
   "attemptId": "0199b862-1025-78be-bd71-c6969b74ab74",
   "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7ad:1",
-  "requestFingerprint": "15263194f09797a4bc2151d1a5bbe1e906b6e3c7a9d3ecd70053c863e7164098",
+  "requestFingerprint": "6af0ff3bb1c60d17022cb95b83d57f0ad66614fec692f43a74688045bbad30c7",
   "task": {
     "type": "text.generate",
     "schemaVersion": "1.0"
   },
   "model": {
-    "executor": "qwen",
-    "model": "Qwen/Qwen3-8B-AWQ",
+    "executor": "text-engine",
+    "model": "text-model-1",
     "revision": "default"
   },
   "constraints": {

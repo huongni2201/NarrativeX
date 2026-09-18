@@ -240,8 +240,7 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.previewScenes[0].previewImageUrl").doesNotExist())
         .andExpect(jsonPath("$.data.capabilities.canGenerateVisuals").value(false))
         .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(false))
-        .andExpect(
-            jsonPath("$.data.capabilities.audioGenerationBlockReason").doesNotExist())
+        .andExpect(jsonPath("$.data.capabilities.audioGenerationBlockReason").doesNotExist())
         .andExpect(jsonPath("$.data.capabilities.canRender").value(false));
 
     mockMvc
@@ -251,8 +250,7 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.capabilities.canAnalyze").value(true))
         .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
         .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(true))
-        .andExpect(
-            jsonPath("$.data.capabilities.audioGenerationBlockReason").doesNotExist())
+        .andExpect(jsonPath("$.data.capabilities.audioGenerationBlockReason").doesNotExist())
         .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"));
   }
 

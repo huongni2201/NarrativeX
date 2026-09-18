@@ -55,8 +55,7 @@ async def test_capabilities_returns_protocol_media_type(tmp_path: Path) -> None:
     assert {executor["name"] for executor in response.json()["executors"]} == {
         "comfyui",
         "media-validator",
-        "qwen",
-        "voicestudio",
+        "vieneu",
         "whisperx",
     }
 
@@ -135,6 +134,8 @@ async def test_submit_rejects_noncanonical_fingerprint(tmp_path: Path) -> None:
 
 async def test_submit_rejects_unsupported_executor(tmp_path: Path) -> None:
     payload = task_payload()
+    payload["model"]["executor"] = "unsupported-executor"
+    payload["requestFingerprint"] = request_fingerprint(ComputeTask.model_validate(payload))
     response = await request(
         create_app(settings(tmp_path)),
         "POST",

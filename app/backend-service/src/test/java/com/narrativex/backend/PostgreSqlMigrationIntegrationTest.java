@@ -219,7 +219,7 @@ class PostgreSqlMigrationIntegrationTest {
               connection.prepareStatement(
                   "SELECT COUNT(*) AS total, "
                       + "COUNT(*) FILTER (WHERE (metadata_json ->> 'supportsSpeakingRate')::boolean) "
-                      + "AS supported FROM voice_catalog WHERE provider = 'VOICESTUDIO' AND enabled = TRUE");
+                      + "AS supported FROM voice_catalog WHERE provider = 'VIENEU' AND enabled = TRUE");
           ResultSet result = statement.executeQuery()) {
         assertTrue(result.next());
         assertTrue(result.getInt("total") > 0);

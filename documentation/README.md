@@ -1,38 +1,32 @@
-# NarrativeX documentation map
+# NarrativeX Documentation Map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md). Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts. ADR-0030 establishes single-user local-first architecture; ADR-0028/0029 define the target backend control-plane/domain-agnostic GPU execution-plane boundary (`generation-service`); [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) is its versioned wire contract; ADR-0031 defines durable submission checkpointing and recovery. The compute migration remains partial until its per-slice cut-over gates pass.
+This directory contains the authoritative architecture, product, domain, workflow, and operational documentation for NarrativeX.
 
-NarrativeX is desktop-only at the editor boundary. ADR-0010 defines the Electron client boundary, ADR-0012 defines Desktop local-first project media/render execution, ADR-0020 defines the PostgreSQL-only MVP runtime, and ADR-0023 makes narration-aligned source ranges the production timing model.
+Current source code, Flyway migrations, and automated tests establish factual implementation truth. Accepted Architecture Decision Records (ADRs) establish architectural direction and safety boundaries.
 
-## Navigation
+## Documentation Structure
 
-| Area | Purpose |
-| --- | --- |
-| [`source-of-truth/`](./source-of-truth/) | Canonical V1.12 product/domain/architecture direction and specifications |
-| [`product/`](./product/) | Product contract, feature catalog and current roadmap |
-| [`domain/`](./domain/) | Domain model, invariants, glossary and business rules |
-| [`architecture/`](./architecture/) | Current topology, boundaries, data flow and technology stack |
-| [`workflows/`](./workflows/) | End-to-end user and production workflows |
-| [`decisions/`](./decisions/) | Classified architecture decision records (ACTIVE, PARTIALLY SUPERSEDED, SUPERSEDED, HISTORICAL) |
-| [`codebase/`](./codebase/) | Current implementation maps, database baseline, generation-service structure, renderer structure and quality policy |
-| [`history/`](./history/) | Preserved historical workflow and specification documentation |
-| [`TRACEABILITY.md`](./TRACEABILITY.md) | Primary capability-to-code/test evidence matrix |
-| [`release/`](./release/) | Local/release quality gates |
+| Directory / File | Description |
+| :--- | :--- |
+| [`CURRENT_STATUS.md`](./CURRENT_STATUS.md) | Navigation index, implementation reality, and migration status |
+| [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) | Compute Protocol v1 wire contract between Backend and Generation Service |
+| [`product/`](./product/) | Product specification (`PRODUCT_SPEC.md`) and project roadmap (`ROADMAP.md`) |
+| [`architecture/`](./architecture/) | System architecture (`SYSTEM_ARCHITECTURE.md`), database design (`DATABASE.md`), and technology stack (`TECHNOLOGY_STACK.md`) |
+| [`domain/`](./domain/) | Core domain model, invariants, business rules, and terminology (`DOMAIN.md`) |
+| [`workflows/`](./workflows/) | End-to-end production pipelines: story-to-video (`STORY_TO_VIDEO.md`), narration audio (`NARRATION_AUDIO.md`), image generation (`IMAGE_GENERATION.md`) |
+| [`operations/`](./operations/) | Operational guides including remote GPU runtime operations (`REMOTE_GPU_RUNTIME.md`) |
+| [`decisions/`](./decisions/) | Architecture Decision Records (ADRs) with classification and supersession rules (`README.md`) |
 
-## Authority order
+## Authority Hierarchy
 
-1. current code + Flyway migrations + automated tests decide factual AS-IS implementation;
-2. accepted ADRs decide intentional cross-cutting architecture boundaries;
-3. the source-of-truth specification defines maintained product/architecture direction;
-4. current roadmap/workflow/codebase docs summarize or plan within those boundaries;
-5. Git history preserves retired migration notes and superseded implementation reports.
+1. **Source Code & Tests**: The working code, database migrations, and automated tests are the primary factual source of truth.
+2. **Accepted ADRs**: Decisions in [`decisions/`](./decisions/) establish cross-cutting boundaries. A newer ADR supersedes an older ADR only within its explicitly defined scope.
+3. **Active Documentation**: Specifications and workflow documents summarize current capabilities and intended design within the bounds established by code and ADRs.
+4. **Git History**: Historical background and superseded migration notes are preserved in Git history rather than dead documentation files.
 
-A newer ADR wins only within the scope it explicitly supersedes.
+## Maintenance Guidelines
 
-## Maintenance
-
-Read [current status](CURRENT_STATUS.md) for ADR-0030 identity/limit migration, compute cut-over and deployment gaps. Apply repository rules from [AGENTS.md](../AGENTS.md); do not copy them into individual docs.
-
-- Update the smallest document owning a behavior. Keep IMPLEMENTED, PARTIAL, TARGET and DEFERRED distinct.
-- Keep historical ADRs and plans as rationale; their old requirements do not override a newer accepted decision in its superseded scope.
-- Verify filenames, links and commands against the working tree. Use [CONTRIBUTING.md](../CONTRIBUTING.md) for validation.
+- When modifying system behavior, update the smallest relevant document that owns that behavior.
+- Distinguish clearly between `IMPLEMENTED`, `PARTIAL`, and `DEFERRED` capabilities.
+- Never document hypothetical features or unapproved designs as implemented.
+- Check links and references using `python -B scripts/check-docs-drift.py`.

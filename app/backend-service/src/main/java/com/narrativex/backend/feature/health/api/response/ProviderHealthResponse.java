@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.health.api.response;
 
-public record ProviderHealthResponse(LocalQwenHealth qwenLocal) {
-  public record LocalQwenHealth(
-      String status, String runtime, String model, boolean externalCallVerified) {}
+public record ProviderHealthResponse(VertexGeminiHealth vertexGemini) {
+  public record VertexGeminiHealth(
+      String status, String model, String location, boolean configured) {}
 }

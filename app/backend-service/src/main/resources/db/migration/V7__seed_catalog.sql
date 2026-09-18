@@ -41,13 +41,13 @@ INSERT INTO voice_catalog (
 )
 VALUES
     (
-        'voicestudio-default',
-        'VOICESTUDIO',
-        'VoiceStudio Default',
+        'vieneu-default',
+        'VIENEU',
+        'VieNeu Default',
         'vi-VN',
         'NEUTRAL',
         NULL,
-        '{"style":"natural","local":true,"profileId":"default","model":"tts-1","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":false,"sampleRateHz":48000,"outputFormat":"wav","executionSemantics":"LOCAL_RETRYABLE"}'::jsonb
+        '{"style":"natural","local":true,"profileId":"default","model":"vieneu-v3-turbo","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":false,"sampleRateHz":48000,"outputFormat":"wav","executionSemantics":"LOCAL_RETRYABLE"}'::jsonb
     )
 ON CONFLICT (id) DO UPDATE
 SET provider = EXCLUDED.provider,

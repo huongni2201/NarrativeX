@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.health.application.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.health.application.port.out.ProviderHealthSettings;
@@ -18,17 +18,17 @@ class GetProviderHealthUseCaseTest {
   @InjectMocks private GetProviderHealthUseCase useCase;
 
   @Test
-  void reportsLocalQwenConfigurationWithoutClaimingLiveInferenceVerification() {
-    when(settings.qwenEnabled()).thenReturn(true);
-    when(settings.runtime()).thenReturn("vllm-local");
-    when(settings.model()).thenReturn("Qwen/Qwen3-8B-AWQ");
+  void reportsVertexGeminiConfiguration() {
+    when(settings.vertexGeminiEnabled()).thenReturn(true);
+    when(settings.vertexGeminiLocation()).thenReturn("us-central1");
+    when(settings.vertexGeminiModel()).thenReturn("gemini-3.8-flash");
 
     var response = useCase.execute(new ProviderHealthQuery());
-    var health = response.data().qwenLocal();
+    var health = response.data().vertexGemini();
 
-    assertEquals("CONFIGURED_NOT_VERIFIED", health.status());
-    assertEquals("vllm-local", health.runtime());
-    assertEquals("Qwen/Qwen3-8B-AWQ", health.model());
-    assertFalse(health.externalCallVerified());
+    assertEquals("CONFIGURED", health.status());
+    assertEquals("us-central1", health.location());
+    assertEquals("gemini-3.8-flash", health.model());
+    assertTrue(health.configured());
   }
 }

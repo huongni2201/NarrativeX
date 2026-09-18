@@ -11,7 +11,7 @@ import java.util.List;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Validates and materializes the canonical Qwen storyboard envelope. */
+/** Validates and materializes the canonical chapter storyboard envelope. */
 final class ChapterAnalysisArtifactMaterializer {
   private static final JsonMapper JSON = JsonMapper.builder().build();
   private static final List<String> REQUIRED_DIRECTION_FIELDS =
