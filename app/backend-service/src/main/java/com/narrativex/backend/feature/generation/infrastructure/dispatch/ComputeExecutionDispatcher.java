@@ -1,9 +1,11 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.generation.application.model.analysis.CanonHashCalculator;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.application.model.compute.CanonicalFingerprintCalculator;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
@@ -14,11 +16,13 @@ import com.narrativex.backend.feature.generation.application.model.compute.TaskA
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
@@ -29,7 +33,9 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adap
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardRevisionRow;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,8 +61,8 @@ public class ComputeExecutionDispatcher {
   private final MediaAssetRepository mediaAssetRepository;
   private final ComputeObservationReconciler observationReconciler;
   private final ChapterAnalysisArtifactMaterializer analysisMaterializer;
-
   private final ChapterAnalysisProvider chapterAnalysisProvider;
+  private final ChapterAnalysisRunRepository analysisRunRepository;
 
   public ComputeExecutionDispatcher(
       GenerationJobRepository generationJobRepository,
@@ -92,6 +98,7 @@ public class ComputeExecutionDispatcher {
         mediaAssetRepository,
         chapterAnalysisProvider,
         null,
+        null,
         null);
   }
 
@@ -105,6 +112,30 @@ public class ComputeExecutionDispatcher {
       ChapterAnalysisProvider chapterAnalysisProvider,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService) {
+    this(
+        generationJobRepository,
+        executionPort,
+        storyboardMapper,
+        chapterMapper,
+        artifactAccess,
+        mediaAssetRepository,
+        chapterAnalysisProvider,
+        canonMapper,
+        canonReconciliationService,
+        null);
+  }
+
+  public ComputeExecutionDispatcher(
+      GenerationJobRepository generationJobRepository,
+      GenerationExecutionPort executionPort,
+      StoryboardMapper storyboardMapper,
+      ChapterMapper chapterMapper,
+      ComputeArtifactAccess artifactAccess,
+      MediaAssetRepository mediaAssetRepository,
+      ChapterAnalysisProvider chapterAnalysisProvider,
+      ChapterCanonMapper canonMapper,
+      ChapterCanonReconciliationService canonReconciliationService,
+      ChapterAnalysisRunRepository analysisRunRepository) {
     this.generationJobRepository = generationJobRepository;
     this.executionPort = executionPort;
     this.storyboardMapper = storyboardMapper;
@@ -112,6 +143,7 @@ public class ComputeExecutionDispatcher {
     this.artifactAccess = artifactAccess;
     this.mediaAssetRepository = mediaAssetRepository;
     this.chapterAnalysisProvider = chapterAnalysisProvider;
+    this.analysisRunRepository = analysisRunRepository;
     this.analysisMaterializer =
         new ChapterAnalysisArtifactMaterializer(
             storyboardMapper,
@@ -135,7 +167,8 @@ public class ComputeExecutionDispatcher {
       MediaAssetRepository mediaAssetRepository,
       ChapterAnalysisProvider chapterAnalysisProvider,
       ChapterCanonMapper canonMapper,
-      ChapterCanonReconciliationService canonReconciliationService) {
+      ChapterCanonReconciliationService canonReconciliationService,
+      @Autowired(required = false) ChapterAnalysisRunRepository analysisRunRepository) {
     this.generationJobRepository = generationJobRepository;
     this.executionPort = executionPort;
     this.storyboardMapper = storyboardMapper;
@@ -143,6 +176,7 @@ public class ComputeExecutionDispatcher {
     this.artifactAccess = artifactAccess;
     this.mediaAssetRepository = mediaAssetRepository;
     this.chapterAnalysisProvider = chapterAnalysisProvider;
+    this.analysisRunRepository = analysisRunRepository;
     this.analysisMaterializer =
         new ChapterAnalysisArtifactMaterializer(
             storyboardMapper,
@@ -207,6 +241,10 @@ public class ComputeExecutionDispatcher {
 
       // Strict validation and materialization into PostgreSQL
       analysisMaterializer.materialize(job, payload);
+
+      // Persist durable chapter analysis telemetry and provenance (ADR-0022)
+      persistAnalysisRun(job, request, result);
+
       job = job.markCompleted("STORYBOARD_READY");
       generationJobRepository.save(job);
       log.info(
@@ -231,6 +269,46 @@ public class ComputeExecutionDispatcher {
       job = job.markFailed("CHAPTER_ANALYSIS_FAILED", "Failed to analyze chapter");
       generationJobRepository.save(job);
     }
+  }
+
+  private void persistAnalysisRun(
+      GenerationJob job, ChapterAnalysisRequest request, ChapterAnalysisResult result) {
+    if (analysisRunRepository == null) {
+      return;
+    }
+    String sourceHash = job.getSourceHash();
+    if (sourceHash == null || sourceHash.isBlank()) {
+      sourceHash =
+          CanonHashCalculator.sha256(job.getSourceText() != null ? job.getSourceText() : "");
+    }
+    UUID storyboardRevisionId = job.getStoryboardRevisionId();
+    if (storyboardRevisionId == null && chapterMapper != null) {
+      ChapterRow chapter = chapterMapper.findById(job.getChapterId());
+      if (chapter != null) {
+        storyboardRevisionId = chapter.getCurrentStoryboardRevisionId();
+      }
+    }
+    ChapterAnalysisUsage usage =
+        result.usage() != null ? result.usage() : ChapterAnalysisUsage.zero();
+    ChapterAnalysisRun run =
+        new ChapterAnalysisRun(
+            null,
+            job.getId(),
+            job.getChapterId(),
+            storyboardRevisionId,
+            sourceHash,
+            result.model(),
+            request.promptVersion() != null ? request.promptVersion() : "1.0",
+            request.schemaVersion() != null ? request.schemaVersion() : "1.0",
+            usage.promptTokens(),
+            usage.outputTokens(),
+            usage.thinkingTokens(),
+            usage.cachedTokens(),
+            usage.totalTokens(),
+            usage.runtimeMs(),
+            result.canonHash(),
+            Instant.now());
+    analysisRunRepository.recordRun(run);
   }
 
   private void handleChapterGenerate(GenerationJob job) {

@@ -4,10 +4,20 @@ export type EditorScope = "beat" | "scene" | "chapter" | "project";
 
 type DesktopChapter = DesktopTimeline["chapters"][number];
 
+export interface EditorStoryBeatGroup {
+  storyBeatId: string | null;
+  beats: DesktopTimelineBeat[];
+  startMs: number;
+  endMs: number;
+  durationMs: number;
+  readyBeatCount: number;
+}
+
 export interface EditorSceneGroup {
   chapterId: string;
   sceneIndex: number;
   beats: DesktopTimelineBeat[];
+  storyBeats: EditorStoryBeatGroup[];
   startMs: number;
   endMs: number;
   durationMs: number;
@@ -96,6 +106,33 @@ export function buildEditorHierarchy(
     });
 }
 
+export function groupStoryBeats(beats: readonly DesktopTimelineBeat[]): EditorStoryBeatGroup[] {
+  const storyBeatGroups: EditorStoryBeatGroup[] = [];
+  let currentGroup: EditorStoryBeatGroup | null = null;
+
+  for (const beat of beats) {
+    const sId = beat.storyBeatId ?? null;
+    if (currentGroup && currentGroup.storyBeatId === sId) {
+      currentGroup.beats.push(beat);
+      currentGroup.endMs = Math.max(currentGroup.endMs, beat.endMs);
+      currentGroup.durationMs = Math.max(0, currentGroup.endMs - currentGroup.startMs);
+      if (beat.assetReady) currentGroup.readyBeatCount++;
+    } else {
+      currentGroup = {
+        storyBeatId: sId,
+        beats: [beat],
+        startMs: beat.startMs,
+        endMs: beat.endMs,
+        durationMs: Math.max(0, beat.endMs - beat.startMs),
+        readyBeatCount: beat.assetReady ? 1 : 0,
+      };
+      storyBeatGroups.push(currentGroup);
+    }
+  }
+
+  return storyBeatGroups;
+}
+
 export function groupScenes(beats: readonly DesktopTimelineBeat[]): EditorSceneGroup[] {
   const scenes = new Map<number, DesktopTimelineBeat[]>();
 
@@ -109,6 +146,7 @@ export function groupScenes(beats: readonly DesktopTimelineBeat[]): EditorSceneG
     .sort(([left], [right]) => left - right)
     .map(([sceneIndex, sceneBeats]) => {
       const sortedBeats = sortEditorBeats(sceneBeats);
+      const storyBeats = groupStoryBeats(sortedBeats);
       const startMs = sortedBeats.reduce(
         (earliest, beat) => Math.min(earliest, beat.startMs),
         sortedBeats[0]?.startMs ?? 0,
@@ -121,6 +159,7 @@ export function groupScenes(beats: readonly DesktopTimelineBeat[]): EditorSceneG
         chapterId: sortedBeats[0]?.chapterId ?? "",
         sceneIndex,
         beats: sortedBeats,
+        storyBeats,
         startMs,
         endMs,
         durationMs: Math.max(0, endMs - startMs),

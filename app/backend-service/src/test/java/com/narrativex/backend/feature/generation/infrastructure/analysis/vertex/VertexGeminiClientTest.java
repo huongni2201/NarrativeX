@@ -132,4 +132,65 @@ class VertexGeminiClientTest {
         ChapterAnalysisException.ValidationException.class,
         () -> client.generateContent("text", "vi", "1.0", "1.0"));
   }
+
+  @Test
+  void generateContentHandlesMissingUsageMetadata() throws Exception {
+    String responseWithoutUsage =
+        "{\n"
+            + "  \"candidates\": [\n"
+            + "    {\n"
+            + "      \"content\": {\n"
+            + "        \"parts\": [{\"text\": \"{\\\"scenes\\\":[]}\"}]\n"
+            + "      }\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    HttpResponse<String> response = mock(HttpResponse.class);
+    when(response.statusCode()).thenReturn(200);
+    when(response.body()).thenReturn(responseWithoutUsage);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(response);
+
+    var result = client.generateContent("text", "vi", "1.0", "1.0");
+    assertNotNull(result);
+    assertEquals(0, result.usage().promptTokens());
+    assertEquals(0, result.usage().outputTokens());
+    assertEquals(0, result.usage().thinkingTokens());
+    assertEquals(0, result.usage().cachedTokens());
+    assertEquals(0, result.usage().totalTokens());
+    assertTrue(result.usage().runtimeMs() >= 0);
+  }
+
+  @Test
+  void generateContentHandlesMissingThinkingAndCachedTokens() throws Exception {
+    String responseWithoutOptionalTokens =
+        "{\n"
+            + "  \"candidates\": [\n"
+            + "    {\n"
+            + "      \"content\": {\n"
+            + "        \"parts\": [{\"text\": \"{\\\"scenes\\\":[]}\"}]\n"
+            + "      }\n"
+            + "    }\n"
+            + "  ],\n"
+            + "  \"usageMetadata\": {\n"
+            + "    \"promptTokenCount\": 500,\n"
+            + "    \"candidatesTokenCount\": 200\n"
+            + "  }\n"
+            + "}";
+
+    HttpResponse<String> response = mock(HttpResponse.class);
+    when(response.statusCode()).thenReturn(200);
+    when(response.body()).thenReturn(responseWithoutOptionalTokens);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(response);
+
+    var result = client.generateContent("text", "vi", "1.0", "1.0");
+    assertNotNull(result);
+    assertEquals(500, result.usage().promptTokens());
+    assertEquals(200, result.usage().outputTokens());
+    assertEquals(0, result.usage().thinkingTokens());
+    assertEquals(0, result.usage().cachedTokens());
+    assertEquals(700, result.usage().totalTokens());
+  }
 }

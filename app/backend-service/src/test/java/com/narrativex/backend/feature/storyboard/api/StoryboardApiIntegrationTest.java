@@ -389,6 +389,17 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.status").value("READY"));
   }
 
+  @Test
+  void testChapterStoryEndpointReturnsHierarchy() throws Exception {
+    mockMvc
+        .perform(get("/api/v1/projects/" + PROJECT_1 + "/chapters/" + CHAPTER_1 + "/story"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.chapterId").value(CHAPTER_1.toString()))
+        .andExpect(jsonPath("$.data.chapterTitle").value("Ch 1"))
+        .andExpect(jsonPath("$.data.scenes[0].id").value(SCENE_1.toString()))
+        .andExpect(jsonPath("$.data.scenes[0].storyBeats[0].visualBeats[0].id").value(BEAT_1.toString()));
+  }
+
   private static UUID testUuid(long suffix) {
     return UUID.fromString("00000000-0000-4000-8000-" + String.format("%012d", suffix));
   }

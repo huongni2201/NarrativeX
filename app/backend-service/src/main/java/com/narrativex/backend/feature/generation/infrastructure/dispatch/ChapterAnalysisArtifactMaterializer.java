@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalyzedCharacter;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalyzedLocation;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanon;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanonParser;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
@@ -224,40 +225,7 @@ public final class ChapterAnalysisArtifactMaterializer {
   }
 
   private static ChapterCanon parseCanon(JsonNode node) {
-    if (node == null || !node.isObject()) {
-      return null;
-    }
-    List<AnalyzedCharacter> characters = new ArrayList<>();
-    JsonNode charArr = node.get("characters");
-    if (charArr != null && charArr.isArray()) {
-      for (JsonNode c : charArr) {
-        String aiName = text(c, "ai_name", text(c, "aiName", null));
-        if (aiName == null || aiName.isBlank()) continue;
-        String canonicalName = text(c, "canonical_name", text(c, "canonicalName", aiName));
-        String description = text(c, "description", "");
-        String visualPrompt = text(c, "visual_prompt", text(c, "visualPrompt", ""));
-        String role = text(c, "role", "SUPPORTING");
-        String importance = text(c, "importance", "SECONDARY");
-        List<String> aliases = parseStringList(c.get("aliases"));
-        characters.add(new AnalyzedCharacter(aiName, canonicalName, aliases, role, importance, description, visualPrompt));
-      }
-    }
-
-    List<AnalyzedLocation> locations = new ArrayList<>();
-    JsonNode locArr = node.get("locations");
-    if (locArr != null && locArr.isArray()) {
-      for (JsonNode l : locArr) {
-        String aiName = text(l, "ai_name", text(l, "aiName", null));
-        if (aiName == null || aiName.isBlank()) continue;
-        String name = text(l, "canonical_name", text(l, "name", aiName));
-        String description = text(l, "description", "");
-        String visualPrompt = text(l, "visual_prompt", text(l, "visualPrompt", ""));
-        List<String> aliases = parseStringList(l.get("aliases"));
-        locations.add(new AnalyzedLocation(aiName, name, aliases, description, visualPrompt));
-      }
-    }
-
-    return new ChapterCanon(characters, locations);
+    return ChapterCanonParser.parse(node);
   }
 
   private static List<String> parseStringList(JsonNode arr) {

@@ -7,6 +7,7 @@ export type RenderFrameRate = 30 | 60;
 export interface DesktopTimelineBeat {
   chapterId: string;
   sceneIndex: number;
+  storyBeatId?: string | null;
   beatIndex: number;
   visualBeatId: string;
   title: string;

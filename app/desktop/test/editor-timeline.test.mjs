@@ -56,6 +56,21 @@ test("editor hierarchy preserves Chapter -> Scene -> Visual Beat ordering", () =
   assert.equal(hierarchy[0].scenes[0].durationMs, 12_000);
 });
 
+test("editor hierarchy groups visual beats by StoryBeat when present", () => {
+  const beatsWithStoryBeat = [
+    { ...beats[3], storyBeatId: "sb-1" }, // beat-1: 0-5s
+    { ...beats[2], storyBeatId: "sb-1" }, // beat-2: 5-12s
+    { ...beats[0], storyBeatId: "sb-2" }, // beat-3: 12-20s
+  ];
+  const hierarchy = buildEditorHierarchy(chapters, beatsWithStoryBeat);
+  const scene0 = hierarchy[0].scenes[0];
+
+  assert.equal(scene0.storyBeats.length, 1);
+  assert.equal(scene0.storyBeats[0].storyBeatId, "sb-1");
+  assert.equal(scene0.storyBeats[0].beats.length, 2);
+  assert.equal(scene0.storyBeats[0].durationMs, 12_000);
+});
+
 test("editor playback orders beats before previous/next navigation", () => {
   assert.deepEqual(
     sortEditorBeats(beats).map((item) => item.visualBeatId),

@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardR
 import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
 import com.narrativex.backend.feature.storyboard.application.usecase.AttachVisualBeatPreviewMediaUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateVisualBeatUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateVisualBeatReviewStatusUseCase;
 import jakarta.validation.Valid;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/projects/{projectId}/chapters/{chapterId}")
 public class StoryboardController {
   private final GetChapterStoryboardUseCase getChapterStoryboardUseCase;
+  private final GetChapterStoryUseCase getChapterStoryUseCase;
   private final CreateVisualBeatUseCase createVisualBeatUseCase;
   private final UpdateVisualBeatReviewStatusUseCase updateVisualBeatReviewStatusUseCase;
   private final AttachVisualBeatPreviewMediaUseCase attachVisualBeatPreviewMediaUseCase;
@@ -41,6 +43,12 @@ public class StoryboardController {
   public ResponseEntity<ApiResponse<ChapterStoryboardResponse>> getStoryboard(
       @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterStoryboardUseCase.execute(projectId, chapterId));
+  }
+
+  @GetMapping("/story")
+  public ResponseEntity<ApiResponse<com.narrativex.backend.feature.storyboard.api.response.ChapterStoryResponse>> getStory(
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
+    return ResponseEntity.ok(getChapterStoryUseCase.execute(projectId, chapterId));
   }
 
   @PostMapping("/scenes/{sceneId}/visual-beats")

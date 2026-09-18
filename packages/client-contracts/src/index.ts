@@ -44,3 +44,22 @@ export type {
   RegenerationPlan,
   VisualGenerationMode,
 } from "./generation";
+export type {
+  AdaptationAction,
+  AudioCueStatus,
+  AudioCueType,
+  CreateAudioCueInput,
+  CreateStoryBeatInput,
+  DesktopAudioCue,
+  DesktopChapterStory,
+  DesktopProductionBeatStatus,
+  DesktopProductionStatus,
+  DesktopStoryBeat,
+  DesktopStoryBeatTiming,
+  DesktopStoryScene,
+  DesktopStoryVisualBeat,
+  StoryBeatReviewStatus,
+  UpdateAudioCueInput,
+  UpdateStoryBeatInput,
+} from "./story";
+

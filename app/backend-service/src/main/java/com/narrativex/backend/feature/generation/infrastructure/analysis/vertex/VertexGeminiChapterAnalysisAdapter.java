@@ -70,8 +70,10 @@ public class VertexGeminiChapterAnalysisAdapter implements ChapterAnalysisProvid
             request.promptVersion(),
             request.schemaVersion());
 
-    // 3. Compute canon fingerprint
-    String canonHash = computeSha256(request.sourceText() + ":" + response.rawJson());
+    // 3. Compute deterministic canon fingerprint (ADR-0022)
+    String canonHash =
+        com.narrativex.backend.feature.generation.application.model.analysis.CanonHashCalculator
+            .computeCanonHash(response.rawJson());
 
     log.info(
         "Chapter analysis completed for chapter {} in {} ms. Tokens: prompt={}, thinking={}, output={}, total={}",
@@ -84,15 +86,5 @@ public class VertexGeminiChapterAnalysisAdapter implements ChapterAnalysisProvid
 
     return new ChapterAnalysisResult(
         response.rawJson(), response.usage(), properties.getModel(), canonHash);
-  }
-
-  private static String computeSha256(String input) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hash);
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 algorithm not available", e);
-    }
   }
 }

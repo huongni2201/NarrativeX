@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisRunMapper">
+    <resultMap id="chapterAnalysisRunMap" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisRunRow">
+        <id property="id" column="id"/>
+        <result property="generationJobId" column="generation_job_id"/>
+        <result property="chapterId" column="chapter_id"/>
+        <result property="storyboardRevisionId" column="storyboard_revision_id"/>
+        <result property="sourceHash" column="source_hash"/>
+        <result property="model" column="model"/>
+        <result property="promptVersion" column="prompt_version"/>
+        <result property="schemaVersion" column="schema_version"/>
+        <result property="promptTokens" column="prompt_tokens"/>
+        <result property="outputTokens" column="output_tokens"/>
+        <result property="thinkingTokens" column="thinking_tokens"/>
+        <result property="cachedTokens" column="cached_tokens"/>
+        <result property="totalTokens" column="total_tokens"/>
+        <result property="runtimeMs" column="runtime_ms"/>
+        <result property="canonHash" column="canon_hash"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO chapter_analysis_runs (
+            id,
+            generation_job_id,
+            chapter_id,
+            storyboard_revision_id,
+            source_hash,
+            model,
+            prompt_version,
+            schema_version,
+            prompt_tokens,
+            output_tokens,
+            thinking_tokens,
+            cached_tokens,
+            total_tokens,
+            runtime_ms,
+            canon_hash,
+            created_at
+        ) VALUES (
+            COALESCE(#{id}, uuidv7()),
+            #{generationJobId},
+            #{chapterId},
+            #{storyboardRevisionId},
+            #{sourceHash},
+            #{model},
+            #{promptVersion},
+            #{schemaVersion},
+            #{promptTokens},
+            #{outputTokens},
+            #{thinkingTokens},
+            #{cachedTokens},
+            #{totalTokens},
+            #{runtimeMs},
+            #{canonHash},
+            COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+        )
+    </insert>
+
+    <select id="findById" resultMap="chapterAnalysisRunMap">
+        SELECT *
+          FROM chapter_analysis_runs
+         WHERE id = #{id}
+    </select>
+
+    <select id="findLatestByChapterId" resultMap="chapterAnalysisRunMap">
+        SELECT *
+          FROM chapter_analysis_runs
+         WHERE chapter_id = #{chapterId}
+      ORDER BY created_at DESC
+         LIMIT 1
+    </select>
+
+    <select id="findByChapterId" resultMap="chapterAnalysisRunMap">
+        SELECT *
+          FROM chapter_analysis_runs
+         WHERE chapter_id = #{chapterId}
+      ORDER BY created_at DESC
+    </select>
+
+    <select id="findByJobId" resultMap="chapterAnalysisRunMap">
+        SELECT *
+          FROM chapter_analysis_runs
+         WHERE generation_job_id = #{generationJobId}
+      ORDER BY created_at DESC
+         LIMIT 1
+    </select>
+</mapper>

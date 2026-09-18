@@ -33,8 +33,10 @@ NarrativeX boots directly into the local workspace per ADR-0020. There is no use
 Project
   -> Chapter
       -> Scene
-          -> VisualBeat
-              -> selected image or video MediaAsset
+          -> StoryBeat
+              -> AudioCue[]
+              -> VisualBeat[]
+                  -> selected image or video MediaAsset
 ```
 
 `VisualGenerationMode` supports `IMAGE` and `VIDEO`.
@@ -98,6 +100,8 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Per-user quota / entitlement | REMOVED | Monetary billing, user credits and per-user quotas retired |
 | Runtime capacity limits | IMPLEMENTED foundation | System capacity reservations with terminal settlement |
 | Project / Chapter authoring | IMPLEMENTED foundation | Backend-authoritative persistence + Desktop UI |
+| StoryBeat semantic authoring | IMPLEMENTED | Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]} (ADR-0024) |
+| Chapter Workspace (4 stages) | IMPLEMENTED | Source, Canon, Story, Production stages with 5-tab inspector |
 | Chapter Analyze | IMPLEMENTED | Durable job/provider lifecycle (Vertex Gemini adapter) |
 | Character / Location continuity | IMPLEMENTED foundation | Richer review/reference locking remains partial |
 | Scene / VisualBeat storyboard | IMPLEMENTED foundation | Review + generation preparation |

@@ -85,6 +85,9 @@ CREATE INDEX idx_operation_plans_generation_job ON operation_plans (generation_j
 CREATE INDEX idx_analysis_checkpoints_resume ON analysis_checkpoints (stage_attempt_id, status, updated_at);
 CREATE INDEX idx_analysis_checkpoints_provider_operation ON analysis_checkpoints (provider_operation_id)
     WHERE provider_operation_id IS NOT NULL;
+CREATE INDEX idx_chapter_analysis_runs_chapter_created ON chapter_analysis_runs (chapter_id, created_at DESC);
+CREATE INDEX idx_chapter_analysis_runs_job ON chapter_analysis_runs (generation_job_id);
+CREATE INDEX idx_chapter_analysis_runs_canon_hash ON chapter_analysis_runs (canon_hash);
 
 -- Media assets, validation and narration
 CREATE INDEX idx_media_assets_status ON media_assets (status, created_at DESC);

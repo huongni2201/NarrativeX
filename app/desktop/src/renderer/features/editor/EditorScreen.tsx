@@ -14,6 +14,7 @@ import { EditorPlaybackSurface } from "./components/EditorPlaybackSurface";
 import { isEditorMutationCurrent } from "./editor-mutation-state";
 import {
   buildEditorHierarchy,
+  groupStoryBeats,
   resolveEditorScopeWindow,
   sortEditorBeats,
   type EditorChapterGroup,
@@ -351,11 +352,19 @@ function filterHierarchy(hierarchy: EditorChapterGroup[], query: string) {
       const sceneBeats = chapterMatches || sceneMatches
         ? scene.beats
         : scene.beats.filter((beat) =>
-            `${beat.title} ${beat.visualIntent} ${beat.cameraMovement} ${beat.mediaType ?? ""} visual beat ${beat.beatIndex + 1}`
+            `${beat.title} ${beat.visualIntent} ${beat.cameraMovement} ${beat.mediaType ?? ""} visual beat ${beat.beatIndex + 1} ${beat.storyBeatId ?? ""}`
               .toLocaleLowerCase()
               .includes(needle),
           );
-      return sceneBeats.length ? [{ ...scene, beats: sceneBeats }] : [];
+      return sceneBeats.length
+        ? [
+            {
+              ...scene,
+              beats: sceneBeats,
+              storyBeats: groupStoryBeats(sceneBeats),
+            },
+          ]
+        : [];
     });
 
     return scenes.length

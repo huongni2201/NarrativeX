@@ -24,10 +24,12 @@ import com.narrativex.backend.feature.generation.application.model.compute.Outpu
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
@@ -65,6 +67,7 @@ class ComputeExecutionDispatcherTest {
   private ComputeArtifactAccess artifactAccess;
   private MediaAssetRepository mediaAssetRepository;
   private ChapterAnalysisProvider chapterAnalysisProvider;
+  private ChapterAnalysisRunRepository analysisRunRepository;
   private Map<UUID, OutputArtifactTargetDto> targetsByTask;
   private ComputeExecutionDispatcher dispatcher;
 
@@ -77,6 +80,7 @@ class ComputeExecutionDispatcherTest {
     artifactAccess = mock(ComputeArtifactAccess.class);
     mediaAssetRepository = mock(MediaAssetRepository.class);
     chapterAnalysisProvider = mock(ChapterAnalysisProvider.class);
+    analysisRunRepository = mock(ChapterAnalysisRunRepository.class);
     targetsByTask = new HashMap<>();
     when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
         .thenReturn(VALID_ANALYSIS_JSON.getBytes());
@@ -97,7 +101,10 @@ class ComputeExecutionDispatcherTest {
             chapterMapper,
             artifactAccess,
             mediaAssetRepository,
-            chapterAnalysisProvider);
+            chapterAnalysisProvider,
+            null,
+            null,
+            analysisRunRepository);
 
     when(artifactAccess.createOutput(
             any(UUID.class), any(UUID.class), any(String.class), any(String.class)))
@@ -196,6 +203,22 @@ class ComputeExecutionDispatcherTest {
     assertTrue(persistedBeat.getSourceAnchorJson().contains("\"textStart\":0"));
     assertTrue(persistedBeat.getSourceAnchorJson().contains("\"textEnd\":20"));
     assertTrue(persistedBeat.getSourceAnchorJson().contains("\"sourceHash\":\"" + sourceHash + "\""));
+
+    ArgumentCaptor<ChapterAnalysisRun> runCaptor = ArgumentCaptor.forClass(ChapterAnalysisRun.class);
+    verify(analysisRunRepository).recordRun(runCaptor.capture());
+    ChapterAnalysisRun recordedRun = runCaptor.getValue();
+    assertEquals(chapterId, recordedRun.chapterId());
+    assertEquals(job.getId(), recordedRun.generationJobId());
+    assertEquals(revisionId, recordedRun.storyboardRevisionId());
+    assertEquals(sourceHash, recordedRun.sourceHash());
+    assertEquals("gemini-3.8-flash", recordedRun.model());
+    assertEquals("test-canon-hash", recordedRun.canonHash());
+    assertEquals(100, recordedRun.promptTokens());
+    assertEquals(50, recordedRun.outputTokens());
+    assertEquals(20, recordedRun.thinkingTokens());
+    assertEquals(0, recordedRun.cachedTokens());
+    assertEquals(150, recordedRun.totalTokens());
+    assertEquals(200, recordedRun.runtimeMs());
   }
 
   @Test

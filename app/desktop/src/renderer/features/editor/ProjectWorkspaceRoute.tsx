@@ -1,15 +1,13 @@
 import { useEffect } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { AssetsScreen } from "../assets/screens/AssetsScreen";
-import { ChaptersScreen } from "../chapters/screens/ChaptersScreen";
-import { CharactersScreen } from "../characters/screens/CharactersScreen";
-import { ImagesScreen } from "../generation/screens/ImagesScreen";
+import { ChapterWorkspaceScreen } from "../chapters/screens/ChapterWorkspaceScreen";
+import { ProjectCanonScreen } from "../canon/screens/ProjectCanonScreen";
+import { JobsScreen } from "../jobs/screens/JobsScreen";
 import { useRenderController } from "../production/useRenderController";
 import { RenderScreen } from "../production/screens/RenderScreen";
 import { useProjectSessionStore } from "../projects/store/project-session.store";
 import { SettingsScreen } from "../settings/screens/SettingsScreen";
-import { StoryboardScreen } from "../storyboard/screens/StoryboardScreen";
-import { VoiceScreen } from "../voices/screens/VoiceScreen";
 import { WorkspaceShell } from "../workspace/components/WorkspaceShell";
 import { useProjectWorkspace } from "../workspace/queries/useProjectWorkspace";
 import { screenFromWorkspacePath } from "../workspace/workspace-navigation";
@@ -38,44 +36,22 @@ export function ProjectWorkspaceRoute() {
 
   return (
     <WorkspaceShell projectId={projectId} screen={screen} workspace={workspace}>
-      {screen === "editor" && <EditorScreen workspace={workspace} renderController={renderController} />}
-      {screen === "chapters" && (
-        <ChaptersScreen
+      {(screen === "chapters" || screen === "storyboard") && (
+        <ChapterWorkspaceScreen
           projectId={projectId}
-          projectName={workspace.projects.find((project) => project.id === projectId)?.name ?? "Project hiện tại"}
-          storyVersionId={workspace.timeline?.storyVersionId ?? null}
-          chapters={workspace.chapters}
-          voices={workspace.voices}
-          timeline={workspace.timeline}
-          workspaceStatus={workspace.status}
-        />
-      )}
-      {screen === "storyboard" && (
-        <StoryboardScreen
-          projectId={projectId}
+          projectName={projectName ?? "Project hiện tại"}
           chapters={workspace.chapters}
           timeline={workspace.timeline}
+          initialStage={screen === "storyboard" || location.pathname.includes("/story") ? "story" : "source"}
         />
       )}
-      {screen === "characters" && (
-        <CharactersScreen projectId={projectId} characters={workspace.characters} />
+      {(screen === "canon" || screen === "characters" || screen === "voice") && (
+        <ProjectCanonScreen projectId={projectId} workspace={workspace} />
       )}
-      {screen === "images" && (
-        <ImagesScreen
-          projectId={projectId}
-          chapters={workspace.chapters}
-          timeline={workspace.timeline}
-        />
+      {screen === "editor" && (
+        <EditorScreen workspace={workspace} renderController={renderController} />
       )}
-      {screen === "voice" && (
-        <VoiceScreen
-          projectId={projectId}
-          chapters={workspace.chapters}
-          voices={workspace.voices}
-          assets={workspace.assets}
-        />
-      )}
-      {screen === "assets" && (
+      {(screen === "assets" || screen === "images") && (
         <AssetsScreen
           projectId={projectId}
           assets={workspace.assets}
@@ -83,10 +59,15 @@ export function ProjectWorkspaceRoute() {
           timeline={workspace.timeline}
         />
       )}
+      {screen === "jobs" && (
+        <JobsScreen projectId={projectId} workspace={workspace} />
+      )}
       {screen === "render" && (
         <RenderScreen timeline={workspace.timeline} controller={renderController} />
       )}
-      {screen === "settings" && <SettingsScreen workspace={workspace} />}
+      {screen === "settings" && (
+        <SettingsScreen workspace={workspace} />
+      )}
     </WorkspaceShell>
   );
 }
