@@ -174,6 +174,26 @@ npm run package:win
 
 Production release work still needs full signing, upgrade/auto-update, and release pipeline validation. See `../../documentation/product/ROADMAP.md`.
 
+## Renderer structure and dependency direction
+
+The renderer (`src/renderer/`) is organized by feature ownership:
+
+```text
+src/renderer/
+  app/         -> DesktopApp, DesktopRouter, providers
+  api/         -> cross-feature transport only (client.ts, guards.ts)
+  components/  -> domain-free UI primitives (components/ui/)
+  features/    -> feature slices (api, queries, model, components, screens, store)
+  lib/         -> small utilities genuinely shared across unrelated features
+```
+
+Dependency direction inside features:
+- `screen -> queries -> components -> model`
+- `queries -> api`, and `queries -> model` only when pure helpers are needed
+- `components -> model -> shared contracts / pure libraries`
+- Never import screens across features; compose cross-feature workflows in workspace containers.
+- Model code (`model/`) remains deterministic and React-lifecycle-free.
+
 ## Architecture rule
 
 `app/desktop` is the only supported editor client. Do not recreate a parallel browser editor without an explicit ADR. Native filesystem integration and local final FFmpeg execution belong in Electron main, never unrestricted renderer code.

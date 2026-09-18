@@ -9,7 +9,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Start with [current status](documentation/CURRENT_STATUS.md) and the [documentation map](documentation/README.md). Code, migrations and tests establish implementation facts; accepted ADRs establish direction. Report disagreement instead of assuming a migration is complete.
 - For backend/compute changes, read ADR-0028, ADR-0029, ADR-0031 and `documentation/COMPUTE_PROTOCOL.md`.
 - For identity, ownership or runtime-limit changes, read ADR-0030. Earlier account/session/quota rules are superseded in that scope.
-- For schema changes, read `documentation/architecture/flyway-baseline-policy.md`.
+- For schema changes, read `documentation/architecture/DATABASE.md`.
 - For Desktop styling, read `.agents/rules/frontend-styling.md`; for browser verification, read `.agents/rules/playwright-testing.md` and the completion gate below.
 - Run checks according to `CONTRIBUTING.md`.
 
@@ -23,7 +23,8 @@ The repository itself is the current implementation source of truth. Keep archit
 - Preserve locked character versions, approved assets, provider snapshots and render snapshots.
 - Persist operation/submission intent before external I/O. Ambiguous outcomes remain UNKNOWN until reconciled; never blind-resubmit.
 - Expensive work requires backend admission, OperationPlan where applicable, runtime capacity limits, idempotency and diagnostic usage attribution. Do not restore monetary billing or per-user entitlements retired by ADR-0030.
-- Keep backend domain free of provider SDKs. GPU execution adapters own provider/media dependencies; `app/generation-service` must not access the business database or orchestrate business jobs. Legacy `app/ai-worker` polling remains migration context, not the new worker contract.
+- Keep backend domain free of provider SDKs. GPU execution adapters own provider/media dependencies; `app/generation-service` must not access the business database or orchestrate business jobs.
+
 
 ## Desktop and storage boundaries
 

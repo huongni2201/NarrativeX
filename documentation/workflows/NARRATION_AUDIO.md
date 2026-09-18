@@ -1,4 +1,4 @@
-# Narration and User-Provided Audio Workflow — V1.12
+# Narration and User-Provided Audio Workflow
 
 Narration is a first-class timeline consumed by visual planning and rendering. It is not synonymous with TTS.
 

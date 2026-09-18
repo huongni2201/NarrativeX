@@ -1,8 +1,9 @@
-# NarrativeX Technology Stack — V1.12
+# NarrativeX Technology Stack
 
-Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md).
+Product specification: [`../product/PRODUCT_SPEC.md`](../product/PRODUCT_SPEC.md).
 
 Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the single-user local-first (ADR-0030) and compute execution plane (ADR-0028/0029) refactors.
+
 
 | Layer | Current stack | Current role |
 |---|---|---|

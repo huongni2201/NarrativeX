@@ -1,4 +1,4 @@
-# Image Generation Workflow — V1.13
+# Image Generation Workflow
 
 Image generation produces immutable image MediaAssets for VisualBeats. NarrativeX is image-first, but image generation is separate from final FFmpeg motion/rendering and from optional I2V.
 

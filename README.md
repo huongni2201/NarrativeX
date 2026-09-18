@@ -127,5 +127,5 @@ At the first production deployment, freeze the accepted baseline and make future
 - Executors perform only backend-authorized work.
 - Final project video bytes stay local.
 
-Canonical product direction: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`.
+Canonical product direction: `documentation/product/PRODUCT_SPEC.md`.
 Active remaining work: `documentation/product/ROADMAP.md`.

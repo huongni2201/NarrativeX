@@ -41,7 +41,7 @@ replay_pid*
 .codegraph/
 
 # ==========================================
-# Python (AI Worker)
+# Python (Generation Service)
 # ==========================================
 .venv/
 venv/
@@ -57,14 +57,12 @@ __pycache__/
 *.egg-info/
 /dist/
 /build/
-app/ai-worker/dist/
-app/ai-worker/build/
-app/gpu-worker/dist/
-app/gpu-worker/build/
-# Generated AI-worker maintenance/upload artifacts
-app/ai-worker/artifacts/
+app/generation-service/dist/
+app/generation-service/build/
+app/generation-service/artifacts/
 eggs/
 .eggs/
+
 
 # ==========================================
 # Testing & Coverage
@@ -94,6 +92,7 @@ htmlcov/
 # OS & Temp Files
 # ==========================================
 .runtime/
+.test-remote-materializer/
 *.swp
 *.swo
 *~

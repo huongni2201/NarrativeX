@@ -32,7 +32,6 @@ Re-architect NarrativeX as a strictly **single-user local-first** application:
 
 ## References
 
-- `documentation/codebase/DATABASE_BASELINE.md`
+- `documentation/architecture/DATABASE.md`
 - `documentation/architecture/SYSTEM_ARCHITECTURE.md`
-- `documentation/architecture/SERVICE_BOUNDARIES.md`
 - `AGENTS.md`

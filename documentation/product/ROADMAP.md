@@ -1,8 +1,6 @@
-# NarrativeX — V1.12 Roadmap
+# NarrativeX — Roadmap
 
-**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_12.md`
 **Planning rule:** dependency order, not fixed-date commitment.
-**Current checkpoint:** `main` at `b1457f38a169ccc59a5789c9f40207db275cc06f`
 
 The browser→Desktop, authentication/account and monetary billing/credit migrations are no longer active roadmap tracks. Desktop is already the only editor client, NarrativeX is a single-user local-first application per ADR-0030, MyBatis is the production persistence path, provider execution carries no monetary accounting contract, and system capacity limits replace per-user quotas. Remaining work is product reliability and release hardening; the compute execution-plane cutover is complete.
 

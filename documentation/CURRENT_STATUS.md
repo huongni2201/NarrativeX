@@ -1,32 +1,42 @@
 # Current architecture and migration status
 
-Reviewed against the working tree on 2026-09-16. This is a navigation and migration-status summary, not a release certification.
+Reviewed against commit `b351f4de30f6aa30bbbd9e83a7f8b6e01829994a` (branch `feat/vertex-gemini-3-8-analysis`) on 2026-09-18. This is a factual navigation and migration-status summary.
 
 ## Authority
 
-Current code, migrations and tests establish factual behavior. Accepted ADRs establish intended boundaries; a newer ADR supersedes only its stated scope. V1.11 and older workflow/codebase descriptions contain pre-migration material and must be read with this status page. Historical plans and audit reports are evidence, not current requirements.
+Source code, migrations, and automated tests establish implementation facts. Accepted Architecture Decision Records (ADRs) in `documentation/decisions/` establish architectural direction; a newer ADR supersedes earlier ADRs only within its stated scope.
 
-## Active decisions
+## Implemented
 
-| Area | Direction and evidence | Status |
-| --- | --- | --- |
-| Local application | [ADR-0030](decisions/ADR-0030-single-user-local-first-architecture.md): single-user local-first; no application account/session identity; runtime limits replace per-user quotas | Cutover COMPLETE across codebase, configuration, and migrations |
-| Business control | Spring Boot modular monolith + PostgreSQL; backend owns admission, jobs, leases, domain state and artifact metadata | Current boundary |
-| Compute execution | [ADR-0028](decisions/ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md), [ADR-0029](decisions/ADR-0029-generation-service-light-ddd-hexagonal-structure.md): active compute path is `Desktop -> Backend -> Generation Service -> Provider/runtime`. `app/generation-service` owns the registered protocol executors | Cutover COMPLETE; residue checker enforced |
-| Recovery | [ADR-0031](decisions/ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md): durable submission checkpoint before I/O; reconcile ambiguous outcomes | Accepted; verified in execution journal and recovery tests |
-| Video Generation & Residency | [ADR-0033](decisions/ADR-0033-reference-conditioned-gpu-video-generation.md): Reference-conditioned GPU video generation via Wan2.1/ComfyUI | PLANNED / NOT IN CURRENT SCOPE (Scope strictly bounded to Image/Audio generation; no active Wan/I2V/T2V pipeline) |
-| Database | [Database baseline](codebase/DATABASE_BASELINE.md): seven current SQL migrations, V1 through V7 | File inventory verified; baseline migrations aligned; 398 tests passing |
-| Desktop | Only editor; renderer uses typed native capabilities; Electron main owns local media and final rendering | Retained boundary; UI flow verification required for UI changes |
+- **Desktop (`app/desktop`)**: The sole editor application. Built with React and TypeScript renderer; Electron main process owns local media files, secure credential storage, native dialogs, and timeline video assembly using local FFmpeg. Operates strictly under single-user local-first principles ([ADR-0030](decisions/ADR-0030-single-user-local-first-architecture.md)).
+- **Backend Service (`app/backend-service`)**: Spring Boot modular monolith and authoritative control plane. Manages business state, project entities, admission, job scheduling, leases, and artifact metadata in PostgreSQL (Flyway migrations V1 through V7, documented in [DATABASE.md](architecture/DATABASE.md)).
+- **Story Analysis**: Analysis and visual beat extraction powered by Google Vertex AI Gemini 2.5 Flash (`VertexGeminiStoryAnalysisClient`).
+- **Generation Service (`app/generation-service`)**: Domain-agnostic GPU execution plane ([ADR-0028](decisions/ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md), [ADR-0029](decisions/ADR-0029-generation-service-light-ddd-hexagonal-structure.md)). Implements Compute Protocol v1 ([COMPUTE_PROTOCOL.md](COMPUTE_PROTOCOL.md)) with capability-based token authentication, ephemeral SQLite execution journal, and durable submission checkpoints ([ADR-0031](decisions/ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md)).
+- **Audio Generation**: TTS synthesis via VieNeu (`VieneuTtsAdapter`); speech forced alignment via WhisperX (`WhisperXAdapter`).
+- **Image Generation**: Visual beat reference-conditioned image generation via ComfyUI (`ComfyUiAdapter`).
+- **Timeline Composition & Final Render**: Narration audio and visual beats rendered into final MP4 video locally within Electron using FFmpeg.
 
-## Target Topology & Migration Cutover
+## Partial
 
-- **Topology**: `Desktop` (local editor & final FFmpeg timeline renderer) -> `Backend Service` (modular monolith control plane) -> `Generation Service` (remote or local GPU worker) -> `Provider runtimes (ComfyUI, VieNeu, WhisperX, media validation)`.
-- **Active compute runtime**: `app/generation-service` registers all protocol workload adapters, manages single-GPU VRAM residency mutual exclusion via `GpuResidencyManager`, and persists only its local execution journal.
-- **Remote GPU deployment**: Production contract in `deploy/remote-gpu/` with capability-based token auth and TLS/SSH tunnel support.
-- `docker-compose.yml`, CI and runtime environment run `generation-service` directly; legacy PostgreSQL-polling compute runtime configuration is removed.
-- Architecture residue check (`scripts/check_architecture_residue.py`) is enforced as a repository gate in CI.
-- All per-user quotas, account models, and authentication gates are removed in favor of single-user local-first operation.
+- **GPU Residency Arbitration**: `GpuResidencyManager` implements logical domain mutual exclusion (`audio_alignment`, `tts`, `image`, `video`), but process lifecycle unload hooks and physical VRAM polling probes are not yet wired into the runtime bootstrap.
 
-## Maintaining this page
+## Deferred / Not Implemented
 
-Update a status only with evidence from the affected implementation and relevant checks. Keep historical ADR rationale intact. When an older current-state document is revised, replace stale claims in that document and remove its migration notice only after its affected sections are reconciled.
+- **GPU Video Generation**: Reference-conditioned GPU video generation via Wan 2.1 / ComfyUI ([ADR-0033](decisions/ADR-0033-reference-conditioned-gpu-video-generation.md)) is **DEFERRED / NOT IMPLEMENTED**. Final video is produced locally from visual beat images and narration audio via FFmpeg.
+- **Advanced Identity Verification**: Real-person biometric embeddings and automated consent verification remain deferred.
+
+## Known Drift
+
+- **Remote GPU Deployment**: `deploy/remote-gpu/docker-compose.yml` reflects a Linux Docker setup, whereas the active target execution environment is a disposable Windows RTX 3090 workstation (see [REMOTE_GPU_RUNTIME.md](operations/REMOTE_GPU_RUNTIME.md)).
+- **Environment Configuration**: Template defaults in `app/generation-service/.env.example` require alignment with production disposable workstation setup scripts.
+
+## Active Architecture Decisions
+
+Key decisions governing active architecture:
+- [ADR-0028](decisions/ADR-0028-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md): Backend Control Plane & Domain-Agnostic GPU Execution Plane
+- [ADR-0029](decisions/ADR-0029-generation-service-light-ddd-hexagonal-structure.md): Generation Service Hexagonal Structure
+- [ADR-0030](decisions/ADR-0030-single-user-local-first-architecture.md): Single-User Local-First Architecture
+- [ADR-0031](decisions/ADR-0031-submission-checkpoint-and-worker-recovery-semantics.md): Submission Checkpoint & Worker Recovery Semantics
+- [ADR-0033](decisions/ADR-0033-reference-conditioned-gpu-video-generation.md): Reference-Conditioned GPU Video Generation (*Deferred*)
+- [ADR-0034](decisions/ADR-0034-vertex-gemini-chapter-analysis.md): Vertex AI Gemini Chapter Analysis
+- [ADR-0035](decisions/ADR-0035-vieneu-remote-gpu-media-runtime.md): VieNeu Remote GPU Media Runtime

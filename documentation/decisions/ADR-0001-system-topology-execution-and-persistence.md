@@ -120,7 +120,8 @@ The backend and Python workers do not execute final project FFmpeg rendering and
 - Final rendering has one executor and one byte-storage boundary instead of duplicate local/server paths.
 - The V1–V8 core remains easy to reason about before production freeze while future V9+ migrations preserve normal Flyway upgrade semantics after production adoption.
 
-See [`DATABASE_BASELINE.md`](../codebase/DATABASE_BASELINE.md) for the concrete migration matrix and verification gate.
+See [`DATABASE.md`](../architecture/DATABASE.md) for the concrete migration matrix and verification gate.
+
 
 ### Cleanup clarification — 2026-09-13
 

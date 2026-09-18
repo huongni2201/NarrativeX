@@ -42,18 +42,17 @@ Production upload/finalize/alignment integration remains a hardening target.
 
 Project Character list/detail reads are exposed through project-scoped APIs and MyBatis read projections. The frontend uses these authoritative responses for role, importance, aliases/groups, pinned version, appearance state and scene usage instead of runtime demo values. Fields without an authoritative read model remain explicitly unavailable rather than fabricated.
 
-## Persistence migration
+## Database and persistence
 
-Follow `documentation/codebase/PERSISTENCE_MIGRATION.md` and ADR-0001 conventions: explicit row models/result maps/SQL, CAS predicates, affected-row validation and PostgreSQL integration tests. New persistence-heavy features must preserve the MyBatis boundary.
+Follow [`../../documentation/architecture/DATABASE.md`](../../documentation/architecture/DATABASE.md) and ADR-0001 conventions: explicit row models/result maps/SQL, CAS predicates, affected-row validation and PostgreSQL integration tests. New persistence-heavy features must preserve the MyBatis boundary.
 
-Persistence migration is complete. New work must preserve technology-neutral ports, explicit MyBatis mappings and PostgreSQL integration evidence.
+Persistence is fully migrated to MyBatis + PostgreSQL with Flyway V1–V7 baseline. New work must preserve technology-neutral ports, explicit MyBatis mappings and PostgreSQL integration evidence.
 
 ## Development / verification
 
 ```bash
-./mvnw clean verify
+./mvnw.cmd test
+./mvnw.cmd clean verify  # requires Docker for Testcontainers
 ```
 
-The backend does not execute heavy AI/media/FFmpeg workloads inside HTTP request threads.
-
-Coverage policy, the measured baseline, critical-path expectations, and CI artifact locations are documented in `documentation/codebase/BACKEND_COVERAGE.md`.
+The backend does not execute heavy AI/media/FFmpeg workloads inside HTTP request threads. JaCoCo line coverage threshold is defined authoritatively in `pom.xml` (`jacoco.minimum.line.coverage`). Generated coverage reports are available under `target/site/jacoco/index.html`.
