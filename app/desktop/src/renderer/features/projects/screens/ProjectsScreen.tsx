@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Plus, RefreshCw, Star, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Search, Star, Trash2 } from "lucide-react";
 import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -53,6 +53,8 @@ export function ProjectsScreen() {
   const [description, setDescription] = useState("");
   const [imageAspectRatio, setImageAspectRatio] = useState<ProjectAspectRatio>("16:9");
   const [projectToDelete, setProjectToDelete] = useState<DesktopProject | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTab, setFilterTab] = useState<"all" | "starred">("all");
   const activeProjectId = useProjectSessionStore((state) => state.activeProjectId);
   const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
   const clearActiveProject = useProjectSessionStore((state) => state.clearActiveProject);
@@ -132,7 +134,19 @@ export function ProjectsScreen() {
     });
   }
 
-  const projectCount = projects.data.content.length;
+  const allProjects = projects.data.content;
+  const projectCount = allProjects.length;
+  const starredCount = allProjects.filter((p) => p.isStarred).length;
+
+  const filteredProjects = allProjects.filter((project) => {
+    if (filterTab === "starred" && !project.isStarred) return false;
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.trim().toLowerCase();
+    return (
+      project.name.toLowerCase().includes(query) ||
+      (project.description && project.description.toLowerCase().includes(query))
+    );
+  });
 
   return (
     <>
@@ -141,15 +155,48 @@ export function ProjectsScreen() {
         title="Projects"
         description="Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop."
         actions={
-          <>
-            <span className="mr-1 text-[10px] tabular-nums text-text-dim">{projectCount} projects</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-44 sm:w-56">
+              <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm project…"
+                className="h-7 pl-7 pr-2.5 text-[11px]"
+              />
+            </div>
+            <div className="flex items-center rounded-md border border-border-subtle bg-surface-dark p-0.5">
+              <button
+                type="button"
+                onClick={() => setFilterTab("all")}
+                className={`rounded px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
+                  filterTab === "all"
+                    ? "bg-surface-3 text-foreground shadow-xs"
+                    : "text-text-muted hover:text-text-secondary"
+                }`}
+              >
+                All ({projectCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTab("starred")}
+                className={`inline-flex items-center gap-1 rounded px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
+                  filterTab === "starred"
+                    ? "bg-surface-3 text-foreground shadow-xs"
+                    : "text-text-muted hover:text-text-secondary"
+                }`}
+              >
+                <Star size={10} className={filterTab === "starred" ? "text-warning fill-current" : ""} />
+                Starred ({starredCount})
+              </button>
+            </div>
             <Button size="sm" onClick={() => setIsCreating(true)}>
               <Plus size={12} /> New project
             </Button>
             <Button variant="outline" size="sm" onClick={() => void projects.refetch()}>
               <RefreshCw size={12} /> Refresh
             </Button>
-          </>
+          </div>
         }
       >
         {toggleFavorite.isError && (
@@ -160,9 +207,27 @@ export function ProjectsScreen() {
 
         {projectCount === 0 ? (
           <EmptyState title="Chưa có project" description="Tạo project mới để bắt đầu workflow trên desktop." />
+        ) : filteredProjects.length === 0 ? (
+          <div className="grid min-h-40 place-items-center text-center">
+            <div className="max-w-xs">
+              <p className="text-[12px] font-semibold text-foreground">Không tìm thấy project phù hợp</p>
+              <p className="mt-1 text-[11px] text-text-muted">Thử tìm với từ khoá khác hoặc xoá bộ lọc.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setSearchQuery("");
+                  setFilterTab("all");
+                }}
+              >
+                Xoá bộ lọc
+              </Button>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2.5">
-            {projects.data.content.map((project) => (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3">
+            {filteredProjects.map((project) => (
               <div className="relative min-w-0" key={project.id}>
                 <ProjectCard
                   project={project}
@@ -171,10 +236,10 @@ export function ProjectsScreen() {
                     navigate(`/projects/${project.id}/editor`);
                   }}
                 />
-                <div className="absolute right-2 top-2 flex items-center gap-1">
+                <div className="absolute right-3.5 top-3.5 flex items-center gap-1">
                   <button
                     type="button"
-                    className="nx-icon-button size-7 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex size-7 items-center justify-center rounded-md border border-border-subtle bg-surface-dark/85 text-text-dim backdrop-blur-xs transition-colors hover:border-border hover:bg-surface-3 hover:text-warning disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={project.isStarred ? "Remove favorite" : "Add favorite"}
                     disabled={toggleFavorite.isPending || deleteProject.isPending}
                     onClick={() =>
@@ -192,7 +257,7 @@ export function ProjectsScreen() {
                   </button>
                   <button
                     type="button"
-                    className="nx-icon-button size-7 text-text-dim hover:bg-danger-bg hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex size-7 items-center justify-center rounded-md border border-border-subtle bg-surface-dark/85 text-text-dim backdrop-blur-xs transition-colors hover:border-danger/30 hover:bg-danger-bg hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={`Xoá project ${project.name}`}
                     disabled={deleteProject.isPending}
                     onClick={() => {
@@ -241,6 +306,39 @@ export function ProjectsScreen() {
               </label>
               <div className="grid content-start gap-1.5 text-[10px] font-medium text-text-secondary">
                 <label htmlFor="project-aspect-ratio">Khung hình</label>
+                <div className="grid grid-cols-5 gap-1.5 mb-1">
+                  {ASPECT_RATIOS.map((ratio) => {
+                    const isSelected = imageAspectRatio === ratio.value;
+                    return (
+                      <button
+                        key={ratio.value}
+                        type="button"
+                        onClick={() => setImageAspectRatio(ratio.value)}
+                        className={`group flex flex-col items-center justify-center gap-1 rounded border p-1.5 text-center transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-primary shadow-xs"
+                            : "border-border-subtle bg-surface-dark text-text-muted hover:border-border hover:bg-surface-3 hover:text-text-secondary"
+                        }`}
+                        title={ratio.label}
+                      >
+                        <div className="flex h-5 items-center justify-center">
+                          <div
+                            className={`rounded-xs border transition-colors ${
+                              isSelected
+                                ? "border-primary bg-primary/25"
+                                : "border-border-subtle bg-surface-2 group-hover:border-border"
+                            }`}
+                            style={{
+                              width: ratio.value === "16:9" ? "20px" : ratio.value === "9:16" ? "10px" : ratio.value === "1:1" ? "14px" : ratio.value === "4:3" ? "18px" : "13px",
+                              height: ratio.value === "16:9" ? "11px" : ratio.value === "9:16" ? "18px" : ratio.value === "1:1" ? "14px" : ratio.value === "4:3" ? "13.5px" : "17px",
+                            }}
+                          />
+                        </div>
+                        <span className="font-mono text-[8px] font-semibold">{ratio.value}</span>
+                      </button>
+                    );
+                  })}
+                </div>
                 <Select
                   value={imageAspectRatio}
                   onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}

@@ -278,14 +278,14 @@ export function EditorScreen({
 
   return (
     <div className="nx-editor-layout relative grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
-      <div className="absolute right-[calc(var(--editor-inspector-width)+16px)] top-3 z-50">
+      <div className="absolute right-[calc(var(--editor-inspector-width)+14px)] top-2.5 z-40">
         <Button
           size="sm"
           onClick={() => setRenderOpen(true)}
           disabled={!projectId || !timeline}
-          className="shadow-lg"
+          className="border border-primary/30 bg-primary font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary-hover active:scale-[0.98]"
         >
-          <Film size={14} /> Render
+          <Film size={13} /> Render
         </Button>
       </div>
 

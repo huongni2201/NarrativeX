@@ -217,7 +217,7 @@ export function EditorPreviewViewport({
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-1">
-        <div ref={frameRef} className="nx-editor-preview-frame relative aspect-video max-h-full max-w-full overflow-hidden rounded-md border border-border-subtle bg-surface-dark">
+        <div ref={frameRef} className="nx-editor-preview-frame relative aspect-video max-h-full max-w-full overflow-hidden rounded-md border border-border bg-black shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]">
           {showMedia && selectedBeat?.mediaType === "IMAGE" ? (
             <img
               src={mediaUrl as string}
@@ -302,21 +302,31 @@ export function EditorPreviewViewport({
       </div>
 
       <div className="relative mx-auto flex h-11 w-full max-w-[1040px] items-center justify-between">
-        <div className="font-mono text-[10px]">
-          <span className="font-medium text-foreground">{formatFullTimecode(currentOffsetMs)}</span>
+        <div className="font-mono text-[10px] tabular-nums">
+          <span className="font-semibold text-foreground">{formatFullTimecode(currentOffsetMs)}</span>
           <span className="mx-1.5 text-text-dim">/</span>
           <span className="text-text-muted">{formatFullTimecode(totalScopeDurationMs || 10_000)}</span>
         </div>
-        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5">
-          <button type="button" onClick={onPrevBeat} className="nx-icon-button" title="Previous beat"><SkipBack size={15} /></button>
-          <button type="button" onClick={() => onStepMs(-500)} className="nx-icon-button" title="Step back"><ChevronsLeft size={16} /></button>
-          <button type="button" onClick={onTogglePlay} className="mx-1 flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary-hover" title={playing ? "Pause" : "Play"}>{playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5 fill-current" />}</button>
-          <button type="button" onClick={() => onStepMs(500)} className="nx-icon-button" title="Step forward"><ChevronsRight size={16} /></button>
-          <button type="button" onClick={onNextBeat} className="nx-icon-button" title="Next beat"><SkipForward size={15} /></button>
-          <button type="button" onClick={() => setMuted(!muted)} className="nx-icon-button ml-1" title={muted ? "Unmute narration" : "Mute narration"}>{muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border-subtle bg-surface-dark/95 px-2 py-1 shadow-sm backdrop-blur-xs">
+          <button type="button" onClick={onPrevBeat} className="nx-icon-button size-7" title="Previous beat"><SkipBack size={13} /></button>
+          <button type="button" onClick={() => onStepMs(-500)} className="nx-icon-button size-7" title="Step back (-0.5s)"><ChevronsLeft size={14} /></button>
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            className="mx-1 flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(249,115,22,0.35)] transition-all duration-150 hover:bg-primary-hover hover:scale-105 active:scale-95"
+            title={playing ? "Pause" : "Play"}
+          >
+            {playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5 fill-current" />}
+          </button>
+          <button type="button" onClick={() => onStepMs(500)} className="nx-icon-button size-7" title="Step forward (+0.5s)"><ChevronsRight size={14} /></button>
+          <button type="button" onClick={onNextBeat} className="nx-icon-button size-7" title="Next beat"><SkipForward size={13} /></button>
+          <span className="mx-0.5 h-3.5 w-px bg-border-subtle" aria-hidden="true" />
+          <button type="button" onClick={() => setMuted(!muted)} className="nx-icon-button size-7" title={muted ? "Unmute narration" : "Mute narration"}>
+            {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+          </button>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-text-dim" title="Preview framing follows final render policy">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-text-dim" title="Preview framing follows final render policy">
             {selectedBeat?.mediaType === "IMAGE" ? "Cover" : "Contain"}
           </span>
           <button type="button" onClick={() => void toggleFullscreen()} className="nx-icon-button size-7 border border-border-subtle bg-surface-input" title="Toàn màn hình"><Maximize2 size={12} /></button>

@@ -3,17 +3,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-[12px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45",
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-[12px] font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45 active:scale-[0.98]",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-hover/90",
+        default:
+          "bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.3)] hover:bg-primary-hover active:bg-primary-hover/90",
         outline:
-          "border border-border bg-surface-input text-text-secondary hover:border-border-dark hover:bg-surface-2 hover:text-foreground active:bg-surface-3",
+          "border border-border bg-surface-input text-text-secondary shadow-xs hover:border-border-dark hover:bg-surface-2 hover:text-foreground active:bg-surface-3",
         ghost:
           "border border-transparent bg-transparent text-text-muted hover:bg-surface-2 hover:text-foreground active:bg-surface-3",
         destructive:
-          "border border-danger-border bg-danger-bg text-danger hover:border-danger/40 hover:bg-destructive/20",
+          "border border-danger-border bg-danger-bg text-danger hover:border-danger/40 hover:bg-destructive/20 active:bg-destructive/30",
       },
       size: {
         default: "h-8 px-3",

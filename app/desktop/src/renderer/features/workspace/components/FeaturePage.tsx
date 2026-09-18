@@ -39,10 +39,10 @@ export function FeaturePage({
 
 export function EmptyState({ title, description }: Readonly<{ title: string; description: string }>) {
   return (
-    <div className="grid min-h-32 place-items-center border-y border-dashed border-border-subtle px-6 py-8 text-center">
+    <div className="grid min-h-36 place-items-center rounded-lg border border-dashed border-border bg-surface-dark/40 px-6 py-10 text-center">
       <div className="max-w-sm">
-        <strong className="text-[12px] font-semibold text-foreground">{title}</strong>
-        <p className="mt-1 text-[11px] leading-4 text-text-muted">{description}</p>
+        <strong className="text-[12px] font-semibold tracking-tight text-foreground">{title}</strong>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-muted">{description}</p>
       </div>
     </div>
   );
