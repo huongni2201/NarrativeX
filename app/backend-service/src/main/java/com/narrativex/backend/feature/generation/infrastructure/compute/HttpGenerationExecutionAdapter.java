@@ -4,7 +4,7 @@ import com.narrativex.backend.feature.generation.application.model.compute.Compu
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
-import com.narrativex.backend.feature.generation.infrastructure.compute.target.ComputeTargetRegistry;
+import com.narrativex.backend.feature.generation.infrastructure.compute.node.ComputeTargetRegistry;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
