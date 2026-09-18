@@ -7,9 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Spring configuration wiring Vertex AI client and provider beans.
- */
+/** Spring configuration wiring Vertex AI client and provider beans. */
 @Configuration
 public class VertexGeminiConfiguration {
 

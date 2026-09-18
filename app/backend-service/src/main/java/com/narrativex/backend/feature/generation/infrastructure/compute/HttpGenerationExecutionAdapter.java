@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.generation.application.model.compute.Compu
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
+import com.narrativex.backend.feature.generation.infrastructure.compute.target.ComputeTargetRegistry;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,26 +24,66 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
   private final ComputeServiceProperties properties;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
+  private final ComputeTargetRegistry registry;
 
   @Autowired
   public HttpGenerationExecutionAdapter(
-      ComputeServiceProperties properties, ObjectMapper objectMapper) {
+      ComputeServiceProperties properties,
+      ObjectMapper objectMapper,
+      @Autowired(required = false) ComputeTargetRegistry registry) {
     this(
         properties,
         HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build(),
-        objectMapper);
+        objectMapper,
+        registry);
   }
 
   public HttpGenerationExecutionAdapter(
       ComputeServiceProperties properties, HttpClient httpClient, ObjectMapper objectMapper) {
+    this(properties, httpClient, objectMapper, null);
+  }
+
+  public HttpGenerationExecutionAdapter(
+      ComputeServiceProperties properties,
+      HttpClient httpClient,
+      ObjectMapper objectMapper,
+      ComputeTargetRegistry registry) {
     this.properties = properties;
     this.httpClient = httpClient;
     this.objectMapper = objectMapper;
+    this.registry = registry;
+  }
+
+  private String resolveBaseUrl(String executor) {
+    if (registry != null) {
+      var target = registry.resolveTargetForExecutor(executor);
+      if (target.isPresent()
+          && target.get().baseUrl() != null
+          && !target.get().baseUrl().isBlank()) {
+        return target.get().baseUrl().replaceAll("/+$", "");
+      }
+    }
+    return properties.getBaseUrl() != null
+        ? properties.getBaseUrl().replaceAll("/+$", "")
+        : "http://127.0.0.1:8010";
+  }
+
+  private String resolveMachineToken(String executor) {
+    if (registry != null) {
+      var target = registry.resolveTargetForExecutor(executor);
+      if (target.isPresent()
+          && target.get().machineToken() != null
+          && !target.get().machineToken().isBlank()) {
+        return target.get().machineToken();
+      }
+    }
+    return properties.getMachineToken();
   }
 
   @Override
   public SubmitTaskResult submitTask(ComputeTaskRequest request) {
-    String url = properties.getBaseUrl().replaceAll("/+$", "") + "/v1/tasks";
+    String executor = request.model() != null ? request.model().executor() : "default";
+    String url = resolveBaseUrl(executor) + "/v1/tasks";
     try {
       String jsonBody = objectMapper.writeValueAsString(request);
       HttpRequest.Builder builder =
@@ -54,8 +95,9 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
               .header("Idempotency-Key", request.idempotencyKey())
               .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
 
-      if (properties.getMachineToken() != null && !properties.getMachineToken().isBlank()) {
-        builder.header("Authorization", "Bearer " + properties.getMachineToken());
+      String machineToken = resolveMachineToken(executor);
+      if (machineToken != null && !machineToken.isBlank()) {
+        builder.header("Authorization", "Bearer " + machineToken);
       }
 
       HttpResponse<String> response =
@@ -78,12 +120,7 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
 
   @Override
   public ComputeObservationDto queryTask(UUID taskId, UUID attemptId) {
-    String url =
-        properties.getBaseUrl().replaceAll("/+$", "")
-            + "/v1/tasks/"
-            + taskId
-            + "/attempts/"
-            + attemptId;
+    String url = resolveBaseUrl("default") + "/v1/tasks/" + taskId + "/attempts/" + attemptId;
     try {
       HttpRequest.Builder builder =
           HttpRequest.newBuilder()
@@ -92,8 +129,9 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
               .header("Accept", COMPUTE_MEDIA_TYPE)
               .GET();
 
-      if (properties.getMachineToken() != null && !properties.getMachineToken().isBlank()) {
-        builder.header("Authorization", "Bearer " + properties.getMachineToken());
+      String machineToken = resolveMachineToken("default");
+      if (machineToken != null && !machineToken.isBlank()) {
+        builder.header("Authorization", "Bearer " + machineToken);
       }
 
       HttpResponse<String> response =
@@ -117,12 +155,7 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
   @Override
   public void cancelTask(UUID taskId, UUID attemptId) {
     String url =
-        properties.getBaseUrl().replaceAll("/+$", "")
-            + "/v1/tasks/"
-            + taskId
-            + "/attempts/"
-            + attemptId
-            + ":cancel";
+        resolveBaseUrl("default") + "/v1/tasks/" + taskId + "/attempts/" + attemptId + ":cancel";
     try {
       HttpRequest.Builder builder =
           HttpRequest.newBuilder()
@@ -131,8 +164,9 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
               .header("Accept", COMPUTE_MEDIA_TYPE)
               .POST(HttpRequest.BodyPublishers.noBody());
 
-      if (properties.getMachineToken() != null && !properties.getMachineToken().isBlank()) {
-        builder.header("Authorization", "Bearer " + properties.getMachineToken());
+      String machineToken = resolveMachineToken("default");
+      if (machineToken != null && !machineToken.isBlank()) {
+        builder.header("Authorization", "Bearer " + machineToken);
       }
 
       HttpResponse<String> response =

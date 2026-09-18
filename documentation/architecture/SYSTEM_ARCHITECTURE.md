@@ -22,7 +22,7 @@ Spring Boot Backend
         v
   generation-service
         |
-        +-> VoiceStudio (TTS)
+        +-> VieNeu (TTS)
         +-> WhisperX (forced alignment)
         +-> ComfyUI (RealVisXL image generation)
         +-> media validation
@@ -43,7 +43,7 @@ Electron main owns native filesystem and hashing, ProjectStorage/ProjectCatalog 
 
 ## Compute execution plane (`generation-service`)
 
-`app/generation-service` is the target domain-agnostic execution plane under ADR-0028/ADR-0029. It accepts closed compute tasks over HTTP, tracks submission checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`) in a local SQLite journal, and dispatches to executor adapters (VoiceStudio, WhisperX, ComfyUI, media validation). It has zero access to the NarrativeX business database or project filesystem.
+`app/generation-service` is the target domain-agnostic execution plane under ADR-0028/ADR-0029. It accepts closed compute tasks over HTTP, tracks submission checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`) in a local SQLite journal, and dispatches to executor adapters (VieNeu, WhisperX, ComfyUI, media validation). It has zero access to the NarrativeX business database or project filesystem.
 
 ## Project-media boundary
 

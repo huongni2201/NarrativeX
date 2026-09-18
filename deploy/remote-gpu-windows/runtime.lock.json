@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "target_platform": "windows-x86_64",
+  "target_gpu": "NVIDIA GeForce RTX 3090 (24GB VRAM)",
+  "components": {
+    "python": {
+      "version": "3.12.8"
+    },
+    "cuda": {
+      "version": "12.4"
+    },
+    "pytorch": {
+      "version": "2.5.1+cu124",
+      "torchaudio_version": "2.5.1+cu124",
+      "index_url": "https://download.pytorch.org/whl/cu124"
+    },
+    "generation_service": {
+      "package": "narrativex-gpu-worker",
+      "python_version": "3.12"
+    },
+    "comfyui": {
+      "repository": "https://github.com/comfyanonymous/ComfyUI.git",
+      "ref": "master"
+    },
+    "vieneu": {
+      "repository": "https://github.com/pnn-tech/VieNeu.git",
+      "version": "0.3.0"
+    },
+    "whisperx": {
+      "version": "3.3.1",
+      "faster_whisper_version": "1.1.1"
+    }
+  }
+}

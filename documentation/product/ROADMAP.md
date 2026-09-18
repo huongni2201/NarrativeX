@@ -11,7 +11,7 @@ The browser→Desktop, authentication/account and monetary billing/credit migrat
 Build on the `app/generation-service` scaffold and Compute Protocol v1:
 
 - backend compute control-plane persistence, task materialization, and attempt mapping;
-- VoiceStudio TTS, WhisperX forced alignment, ComfyUI RealVisXL, and media validation behind the Compute Protocol;
+- VieNeu TTS, WhisperX forced alignment, ComfyUI RealVisXL, and media validation behind the Compute Protocol;
 - artifact capability transport with SHA-256 integrity verification;
 - local and remote GPU execution targets through the same generation-service boundary;
 - legacy PostgreSQL-polling runtime and CI/configuration residue removed.

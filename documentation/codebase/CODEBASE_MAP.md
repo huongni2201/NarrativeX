@@ -20,7 +20,7 @@ app/generation-service/ Python domain-agnostic compute execution plane
                      Hexagonal architecture (ports and adapters)
                      Compute Protocol v1 (HTTP task submission & callback)
                      Local SQLite execution journal (submission checkpoints)
-                     Adapters: VoiceStudio, WhisperX, ComfyUI, media validation
+                     Adapters: VieNeu, WhisperX, ComfyUI, media validation
 
 packages/client-contracts/
                      shared typed Desktop/backend contracts
@@ -79,7 +79,7 @@ Renderer code does not own arbitrary filesystem paths, provider secrets or FFmpe
   - `application/services/`: execution orchestrator with checkpointing;
   - `adapters/inbound/http/`: REST task submission and health endpoints;
   - `adapters/persistence/`: SQLite execution journal adapter;
-  - `adapters/executors/`: VoiceStudio, WhisperX, ComfyUI, media validation;
+  - `adapters/executors/`: VieNeu, WhisperX, ComfyUI, media validation;
   - `adapters/artifacts/`: HTTP capability upload/download;
 - Zero NarrativeX database access or business domain model knowledge;
 - Durable checkpoint states (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`) for safe crash recovery (ADR-0031).

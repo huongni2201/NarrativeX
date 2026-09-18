@@ -4,7 +4,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Domain-aligned request for analyzing a chapter's source text into a structured storyboard envelope.
+ * Domain-aligned request for analyzing a chapter's source text into a structured storyboard
+ * envelope.
  */
 public record ChapterAnalysisRequest(
     UUID projectId,

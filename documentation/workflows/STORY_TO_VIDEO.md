@@ -70,7 +70,7 @@ Image-only camera/motion controls must not be shown as if they apply identically
 
 ```text
 TTS
-  -> generation-service VoiceStudio synthesis
+  -> generation-service VieNeu synthesis
   -> 48 kHz mono WAV master
   -> WhisperX forced alignment against the Vietnamese script
   -> local project media / Desktop materialization

@@ -43,7 +43,7 @@ idempotent. The backend persists its reservation/outbox state before submission.
     "schemaVersion": "1.0"
   },
   "model": {
-    "executor": "voicestudio",
+    "executor": "vieneu",
     "model": "vi-profile",
     "revision": "0.5.2"
   },
@@ -104,11 +104,10 @@ Rules:
 - `constraints.deadline` is validated before `ACCEPTED`. If the deadline is already in the past,
   the worker rejects the task with a validation error (`422 Unprocessable Entity`).
 
-The task types are `audio.synthesize`, `audio.align`, `image.generate`, `media.validate`, and
-`text.generate`. Add a task type only with schemas, deterministic validation, capability
-advertisement, tests, and documented artifact behavior. `text.generate` is the domain-neutral
-Qwen boundary for text generation, including chapter-analysis prompts; the backend retains chapter
-interpretation, validation, and persistence. FFmpeg GPU work can later use `media.transcode`.
+The active task types are `audio.synthesize`, `audio.align`, `image.generate`, and `media.validate`.
+Add a task type only with schemas, deterministic validation, capability advertisement, tests, and
+documented artifact behavior. Chapter analysis is handled directly by Spring Boot using Vertex AI
+Gemini 3.8 Flash (ADR-0034) rather than compute-plane text generation. FFmpeg GPU work can later use `media.transcode`.
 
 ### Artifact Models
 

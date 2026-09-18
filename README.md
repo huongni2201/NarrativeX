@@ -10,7 +10,7 @@ The Electron application is the only supported editor client. Spring Boot is the
 | --- | --- |
 | `app/desktop` | Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution |
 | `app/backend-service` | Spring Boot modular monolith; control plane, domain metadata, policy, jobs, leases, system capacity limits and Flyway schema |
-| `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (VoiceStudio, WhisperX, ComfyUI, media validation) |
+| `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (VieNeu, WhisperX, ComfyUI, media validation) |
 | `packages/client-contracts` | Shared Desktop/backend contracts |
 | `contracts` | Compute Protocol v1 task schemas and payloads |
 | `documentation` | Product, architecture, workflows, current-state maps and ADRs |
@@ -33,7 +33,7 @@ Spring Boot Backend             Local project workspace
   v Compute Protocol v1           -> final MP4
 generation-service
   -> local SQLite journal
-  -> execution adapters (VoiceStudio, WhisperX, ComfyUI, validation)
+  -> execution adapters (VieNeu, WhisperX, ComfyUI, validation)
 ```
 
 PostgreSQL is authoritative for durable business/control state. The target execution plane receives closed compute tasks over HTTP from `backend-service`. Electron local storage owns machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis and browser editors are removed.

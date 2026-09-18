@@ -27,7 +27,7 @@ User action / scheduled generation
   -> backend-service builds closed ComputeTask (contracts/compute/v1/)
   -> backend-service submits ComputeTask via HTTP to generation-service
   -> generation-service records submission state (SQLite journal, ADR-0031)
-  -> generation-service executes task via adapter (VoiceStudio, WhisperX, ComfyUI, validation)
+  -> generation-service executes task via adapter (VieNeu, WhisperX, ComfyUI, validation)
   -> generation-service notifies backend callback / backend reconciles
   -> backend-service applies domain state transition in PostgreSQL
   -> Desktop receives SSE event / updates editor state
@@ -50,7 +50,7 @@ saved Chapter
 
 ```text
 TTS
-  -> generation-service VoiceStudio synthesis
+  -> generation-service VieNeu synthesis
   -> WhisperX forced alignment
   -> project-local generated WAV audio
   -> Desktop materialization

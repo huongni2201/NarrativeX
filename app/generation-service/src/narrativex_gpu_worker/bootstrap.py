@@ -22,10 +22,15 @@ from narrativex_gpu_worker.adapters.executors.whisperx import WhisperXClient, Wh
 from narrativex_gpu_worker.adapters.inbound.http import AppState
 from narrativex_gpu_worker.adapters.inbound.http import create_app as create_http_app
 from narrativex_gpu_worker.adapters.persistence import SqliteExecutionJournalAdapter
-from narrativex_gpu_worker.adapters.runtime import GpuResidencyManager
+from narrativex_gpu_worker.adapters.runtime import (
+    GpuResidencyManager,
+    GpuVramProbe,
+    RuntimeProcessSupervisor,
+)
 from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
 from narrativex_gpu_worker.application.ports.residency import (
     NullRuntimeResidency,
+    RuntimeFamily,
     RuntimeResidencyPort,
 )
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
@@ -97,11 +102,26 @@ def build_application(
         catalog = executor_catalog
 
     residency_manager: RuntimeResidencyPort
+    supervisor: RuntimeProcessSupervisor | None = None
     if residency is not None:
         residency_manager = residency
     elif settings.residency_enabled:
+        vram_probe = GpuVramProbe(
+            max_idle_mb=settings.residency_max_vram_idle_mb,
+            enabled=settings.residency_vram_probe_enabled,
+        )
+        supervisor = RuntimeProcessSupervisor(vram_probe=vram_probe, http_client=client)
+        managed_families = (
+            RuntimeFamily.VIENEU,
+            RuntimeFamily.COMFYUI_IMAGE,
+            RuntimeFamily.COMFYUI_VIDEO,
+            RuntimeFamily.WHISPERX,
+        )
         residency_manager = GpuResidencyManager(
-            transition_timeout_seconds=settings.residency_transition_timeout_seconds
+            transition_timeout_seconds=settings.residency_transition_timeout_seconds,
+            unload_hooks={f: supervisor.create_unload_hook(f) for f in managed_families},
+            load_hooks={f: supervisor.create_load_hook(f) for f in managed_families},
+            vram_reclamation_probe=vram_probe.check_reclaimed,
         )
     else:
         residency_manager = NullRuntimeResidency()
@@ -117,6 +137,8 @@ def build_application(
     async def close_resources() -> None:
         if client is not None:
             await client.aclose()
+        if supervisor is not None:
+            await supervisor.stop_all()
         await residency_manager.release_all()
 
     return ApplicationComponents(

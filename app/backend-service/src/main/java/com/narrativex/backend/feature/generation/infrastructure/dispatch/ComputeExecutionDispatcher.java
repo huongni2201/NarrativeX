@@ -1,6 +1,9 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.model.compute.CanonicalFingerprintCalculator;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
@@ -10,6 +13,7 @@ import com.narrativex.backend.feature.generation.application.model.compute.Produ
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -17,17 +21,13 @@ import com.narrativex.backend.feature.generation.application.service.ComputeAtte
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeClientException;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeObservationReconciler;
-import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
-import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
-import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
-import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
-import java.nio.charset.StandardCharsets;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -181,7 +181,8 @@ public class ComputeExecutionDispatcher {
           result.usage().outputTokens(),
           result.usage().totalTokens());
     } catch (ChapterAnalysisException e) {
-      log.error("Chapter analysis provider failure for job {}: {}", job.getJobId(), e.getMessage(), e);
+      log.error(
+          "Chapter analysis provider failure for job {}: {}", job.getJobId(), e.getMessage(), e);
       if (e.isRetryable()) {
         job = job.markUnknown("COMPUTE_OUTCOME_UNKNOWN", e.getMessage());
       } else {

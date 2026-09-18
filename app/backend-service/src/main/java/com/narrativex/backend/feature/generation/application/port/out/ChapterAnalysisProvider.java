@@ -4,8 +4,8 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Chap
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 
 /**
- * Outbound port for analyzing a chapter into structured scenes and visual beats.
- * Domain and application layers interact solely through this port without importing provider SDKs.
+ * Outbound port for analyzing a chapter into structured scenes and visual beats. Domain and
+ * application layers interact solely through this port without importing provider SDKs.
  */
 public interface ChapterAnalysisProvider {
 

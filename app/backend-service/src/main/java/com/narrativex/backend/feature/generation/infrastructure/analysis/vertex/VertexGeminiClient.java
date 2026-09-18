@@ -17,12 +17,11 @@ import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Low-level HTTP client invoking Vertex AI Gemini generateContent and countTokens REST APIs.
- */
+/** Low-level HTTP client invoking Vertex AI Gemini generateContent and countTokens REST APIs. */
 @Slf4j
 public class VertexGeminiClient {
-  private static final String CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
+  private static final String CLOUD_PLATFORM_SCOPE =
+      "https://www.googleapis.com/auth/cloud-platform";
   private static final List<String> REQUIRED_DIRECTION_FIELDS =
       List.of(
           "shot_size",
@@ -57,15 +56,11 @@ public class VertexGeminiClient {
     this.objectMapper = objectMapper;
   }
 
-  /**
-   * Preflight counts tokens for input text against the configured Gemini model.
-   */
+  /** Preflight counts tokens for input text against the configured Gemini model. */
   public int countTokens(String text) {
     String url = buildEndpointUrl("countTokens");
     Map<String, Object> requestPayload =
-        Map.of(
-            "contents",
-            List.of(Map.of("role", "user", "parts", List.of(Map.of("text", text)))));
+        Map.of("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", text)))));
 
     try {
       String jsonBody = objectMapper.writeValueAsString(requestPayload);
@@ -86,9 +81,7 @@ public class VertexGeminiClient {
     }
   }
 
-  /**
-   * Generates structured storyboard output from chapter text.
-   */
+  /** Generates structured storyboard output from chapter text. */
   public GeneratedAnalysisResponse generateContent(
       String sourceText, String sourceLanguage, String promptVersion, String schemaVersion) {
     String url = buildEndpointUrl("generateContent");

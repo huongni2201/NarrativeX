@@ -1,8 +1,6 @@
 package com.narrativex.backend.feature.generation.application.model.analysis;
 
-/**
- * Base exception for failures during chapter analysis.
- */
+/** Base exception for failures during chapter analysis. */
 public class ChapterAnalysisException extends RuntimeException {
   private final boolean retryable;
 
@@ -32,7 +30,9 @@ public class ChapterAnalysisException extends RuntimeException {
     private final int limit;
 
     public ContextTooLargeException(int tokenCount, int limit) {
-      super("Chapter input token count (" + tokenCount + ") exceeds soft limit (" + limit + ")", false);
+      super(
+          "Chapter input token count (" + tokenCount + ") exceeds soft limit (" + limit + ")",
+          false);
       this.tokenCount = tokenCount;
       this.limit = limit;
     }

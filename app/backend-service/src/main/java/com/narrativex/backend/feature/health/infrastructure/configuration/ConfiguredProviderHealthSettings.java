@@ -12,8 +12,10 @@ public class ConfiguredProviderHealthSettings implements ProviderHealthSettings 
 
   public ConfiguredProviderHealthSettings(
       @Value("${narrativex.providers.vertex-gemini.enabled:false}") boolean vertexGeminiEnabled,
-      @Value("${narrativex.providers.vertex-gemini.model:gemini-3.8-flash}") String vertexGeminiModel,
-      @Value("${narrativex.providers.vertex-gemini.location:us-central1}") String vertexGeminiLocation) {
+      @Value("${narrativex.providers.vertex-gemini.model:gemini-3.8-flash}")
+          String vertexGeminiModel,
+      @Value("${narrativex.providers.vertex-gemini.location:us-central1}")
+          String vertexGeminiLocation) {
     this.vertexGeminiEnabled = vertexGeminiEnabled;
     this.vertexGeminiModel = vertexGeminiModel;
     this.vertexGeminiLocation = vertexGeminiLocation;

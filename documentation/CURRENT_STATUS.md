@@ -20,7 +20,7 @@ Current code, migrations and tests establish factual behavior. Accepted ADRs est
 
 ## Target Topology & Migration Cutover
 
-- **Topology**: `Desktop` (local editor & final FFmpeg timeline renderer) -> `Backend Service` (modular monolith control plane) -> `Generation Service` (remote or local GPU worker) -> `Provider runtimes (Qwen, ComfyUI, VoiceStudio, WhisperX)`.
+- **Topology**: `Desktop` (local editor & final FFmpeg timeline renderer) -> `Backend Service` (modular monolith control plane) -> `Generation Service` (remote or local GPU worker) -> `Provider runtimes (ComfyUI, VieNeu, WhisperX, media validation)`.
 - **Active compute runtime**: `app/generation-service` registers all protocol workload adapters, manages single-GPU VRAM residency mutual exclusion via `GpuResidencyManager`, and persists only its local execution journal.
 - **Remote GPU deployment**: Production contract in `deploy/remote-gpu/` with capability-based token auth and TLS/SSH tunnel support.
 - `docker-compose.yml`, CI and runtime environment run `generation-service` directly; legacy PostgreSQL-polling compute runtime configuration is removed.

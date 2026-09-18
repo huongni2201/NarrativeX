@@ -22,7 +22,7 @@ Current foundations include:
 - Project/StoryVersion/Chapter authoring and dashboard;
 - durable Chapter Analyze with Character/Location/Scene/VisualBeat materialization;
 - generated narration plus native user-audio import/TTS-bypass foundations;
-- generation-service task execution (VoiceStudio, WhisperX, ComfyUI, media validation);
+- generation-service task execution (VieNeu, WhisperX, ComfyUI, media validation);
 - native local image/audio/video registration and ProjectStorage materialization;
 - production timeline with narration-aligned timing and explicit beat media selection;
 - Auto Edit planning, render overrides and immutable subtitle snapshots;

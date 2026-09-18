@@ -13,7 +13,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Concrete infrastructure adapter implementing ChapterAnalysisProvider via Vertex AI Gemini 3.8 Flash.
+ * Concrete infrastructure adapter implementing ChapterAnalysisProvider via Vertex AI Gemini 3.8
+ * Flash.
  */
 @Slf4j
 @Component
@@ -81,7 +82,8 @@ public class VertexGeminiChapterAnalysisAdapter implements ChapterAnalysisProvid
         response.usage().outputTokens(),
         response.usage().totalTokens());
 
-    return new ChapterAnalysisResult(response.rawJson(), response.usage(), properties.getModel(), canonHash);
+    return new ChapterAnalysisResult(
+        response.rawJson(), response.usage(), properties.getModel(), canonHash);
   }
 
   private static String computeSha256(String input) {

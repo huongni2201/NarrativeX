@@ -18,15 +18,22 @@ class ChapterAnalysisModelsTest {
 
     assertThrows(
         NullPointerException.class,
-        () -> new ChapterAnalysisRequest(null, chapterId, null, "text", "vi", "1.0", "1.0", null, null));
+        () ->
+            new ChapterAnalysisRequest(
+                null, chapterId, null, "text", "vi", "1.0", "1.0", null, null));
     assertThrows(
         NullPointerException.class,
-        () -> new ChapterAnalysisRequest(projectId, null, null, "text", "vi", "1.0", "1.0", null, null));
+        () ->
+            new ChapterAnalysisRequest(
+                projectId, null, null, "text", "vi", "1.0", "1.0", null, null));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ChapterAnalysisRequest(projectId, chapterId, null, "  ", "vi", "1.0", "1.0", null, null));
+        () ->
+            new ChapterAnalysisRequest(
+                projectId, chapterId, null, "  ", "vi", "1.0", "1.0", null, null));
 
-    ChapterAnalysisRequest request = ChapterAnalysisRequest.simple(projectId, chapterId, "valid text", null);
+    ChapterAnalysisRequest request =
+        ChapterAnalysisRequest.simple(projectId, chapterId, "valid text", null);
     assertEquals("vi", request.sourceLanguage());
     assertEquals("1.0", request.promptVersion());
     assertEquals("1.0", request.schemaVersion());
@@ -35,8 +42,7 @@ class ChapterAnalysisModelsTest {
   @Test
   void usageEnforcesNonNegativeValues() {
     assertThrows(
-        IllegalArgumentException.class,
-        () -> new ChapterAnalysisUsage(-1, 10, 5, 0, 15, 100));
+        IllegalArgumentException.class, () -> new ChapterAnalysisUsage(-1, 10, 5, 0, 15, 100));
 
     ChapterAnalysisUsage usage = new ChapterAnalysisUsage(100, 50, 20, 10, 150, 500);
     assertEquals(100, usage.promptTokens());
@@ -50,7 +56,8 @@ class ChapterAnalysisModelsTest {
   @Test
   void resultContainsAllMetadata() {
     ChapterAnalysisUsage usage = ChapterAnalysisUsage.zero();
-    ChapterAnalysisResult result = new ChapterAnalysisResult("{}", usage, "gemini-3.8-flash", "hash123");
+    ChapterAnalysisResult result =
+        new ChapterAnalysisResult("{}", usage, "gemini-3.8-flash", "hash123");
     assertEquals("{}", result.rawJson());
     assertEquals("gemini-3.8-flash", result.model());
     assertEquals("hash123", result.canonHash());

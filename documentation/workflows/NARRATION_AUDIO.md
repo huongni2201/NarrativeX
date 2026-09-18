@@ -16,12 +16,12 @@ For an accepted user-provided-audio scope, operation planning omits TTS work/res
 
 Generated narration starts from a persisted source identity and is validated/aligned before downstream use.
 
-### VoiceStudio
+### VieNeu
 
 ```text
 persisted source
   -> sentence-aware segments
-  -> VoiceStudio headless/API inference per segment
+  -> VieNeu headless/API inference per segment
   -> native speaking-rate adjustment (0.25x–4.0x)
   -> normalize/concatenate 48 kHz mono PCM
   -> WAV master
@@ -30,7 +30,7 @@ persisted source
   -> local project media store
 ```
 
-The generic `TtsProvider` orchestration contract remains, but production contains only `VoiceStudioTtsEngine`. VoiceStudio is a persistent service; NarrativeX does not import its engine packages, depend on its Desktop UI, or start a model process per sentence.
+The generic `TtsProvider` orchestration contract remains, but production contains only `VieNeuExecutor` on the compute plane. VieNeu is a dedicated runtime; NarrativeX does not import its engine packages, depend on a Desktop UI, or start a model process per sentence.
 
 Narration admission checks system capacity limits and reserves concurrent capacity. It has no monetary estimator, pricing snapshot or local/external pricing branch. Source text and voice capabilities are validated by the generation use case before admission.
 
@@ -68,7 +68,7 @@ Desktop native picker / existing project AUDIO asset
   -> narration request selects { scope: PROJECT, assetId }
   -> executor resolves the immutable project manifest entry
   -> size/checksum verification
-  -> temporary VoiceStudio reference input
+  -> temporary VieNeu reference input
 ```
 
 Missing, stale, unsafe or corrupt manifest data fails closed.
@@ -84,7 +84,7 @@ Desktop native picker (MP3/WAV) / Voice Library manager
   -> READY VoiceReferenceAsset
   -> narration request selects { scope: GLOBAL_LOCAL, assetId }
   -> executor loads from local voice library
-  -> temporary VoiceStudio reference input
+  -> temporary VieNeu reference input
 ```
 
 GLOBAL_LOCAL references require READY state and valid size/SHA-256 integrity metadata.

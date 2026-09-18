@@ -92,6 +92,15 @@ class WorkerSettings(BaseSettings):
         gt=0,
         validation_alias="GENERATION_SERVICE_RESIDENCY_TIMEOUT_SECONDS",
     )
+    residency_max_vram_idle_mb: int = Field(
+        default=1500,
+        ge=0,
+        validation_alias="GENERATION_SERVICE_RESIDENCY_MAX_VRAM_IDLE_MB",
+    )
+    residency_vram_probe_enabled: bool = Field(
+        default=True,
+        validation_alias="GENERATION_SERVICE_RESIDENCY_VRAM_PROBE_ENABLED",
+    )
 
     @property
     def whisperx_available(self) -> bool:

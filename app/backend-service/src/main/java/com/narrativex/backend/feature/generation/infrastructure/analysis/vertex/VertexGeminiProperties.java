@@ -6,9 +6,7 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-/**
- * Configuration properties for Vertex AI Gemini chapter analysis adapter.
- */
+/** Configuration properties for Vertex AI Gemini chapter analysis adapter. */
 @Getter
 @Setter
 @Component

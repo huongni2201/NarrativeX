@@ -8,20 +8,19 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
-
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
-import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.model.compute.ArtifactWriteAccessDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -258,7 +257,9 @@ class ComputeExecutionDispatcherTest {
     when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
     when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
     when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
-        .thenThrow(new ChapterAnalysisException.ProviderUnavailableException("Analysis output unavailable"));
+        .thenThrow(
+            new ChapterAnalysisException.ProviderUnavailableException(
+                "Analysis output unavailable"));
 
     dispatcher.dispatchJob(job.getJobId());
 

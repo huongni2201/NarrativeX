@@ -41,7 +41,7 @@ app/generation-service/
           manager.py         # GpuResidencyManager (host-level VRAM mutual exclusion)
         executors/
           catalog.py         # Dynamic executor catalog
-          voicestudio/       # VoiceStudio TTS executor adapter
+          vieneu/            # VieNeu TTS executor adapter
           whisperx/          # local WhisperX forced-alignment adapter
           comfyui/           # ComfyUI (RealVisXL / Wan2.1) image & video generation adapter
           media_validation/  # Domain-neutral media validation adapter
@@ -66,13 +66,13 @@ To prevent blind resubmission and double-execution on external AI engines:
 ## GPU Model Residency & Mutual Exclusion (ADR-0033)
 
 In single-GPU host deployments (such as remote RTX 3090 with 24GB VRAM):
-- `GpuResidencyManager` arbitrates exclusive access between heavy model runtimes (`COMFYUI_VIDEO`, `COMFYUI_IMAGE`, `QWEN`, `VOICESTUDIO`, `WHISPERX`).
+- `GpuResidencyManager` arbitrates exclusive access between heavy model runtimes (`COMFYUI_VIDEO`, `COMFYUI_IMAGE`, `VIENEU`, `WHISPERX`).
 - Concurrent leases are allowed within non-exclusive families; family transitions require full active lease drainage.
 - Transitions enforce strict timeouts with fail-closed poisoning: if an unloader hangs or VRAM is not reclaimed, the manager poisons itself to prevent cascading host OOM errors.
 
 ## Supported Task Types (Compute Protocol v1)
 
-- `audio.synthesize`: VoiceStudio segment TTS synthesis (`task-audio-synthesize.json`).
+- `audio.synthesize`: VieNeu segment TTS synthesis (`task-audio-synthesize.json`).
 - `audio.align`: WhisperX forced alignment (`task-audio-align.json`). The adapter aligns the known script against the exact WAV input, emits deterministic UTF-16 source offsets plus measured millisecond word ranges, caches the align model per language, and fails closed instead of inventing proportional timing when tokens/timestamps cannot be reconciled.
 - `image.generate`: ComfyUI RealVisXL image generation (`task-image-generate.json`).
 - `video.generate`: ComfyUI Wan2.1 reference-conditioned short video clip generation (silent stems, ADR-0033).

@@ -5,9 +5,7 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Chap
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 
-/**
- * Fallback provider bean when Vertex AI is not enabled.
- */
+/** Fallback provider bean when Vertex AI is not enabled. */
 public class DisabledChapterAnalysisProvider implements ChapterAnalysisProvider {
 
   @Override

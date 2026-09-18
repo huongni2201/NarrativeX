@@ -19,10 +19,10 @@ Set `GENERATION_SERVICE_MACHINE_TOKEN` to a non-empty machine credential and run
 python -m narrativex_gpu_worker
 ```
 
-The production bootstrap registers Qwen (`text.generate`), ComfyUI (`image.generate`), VoiceStudio
-(`audio.synthesize`), WhisperX (`audio.align`), and media validation (`media.validate`). Capability
+The production bootstrap registers ComfyUI (`image.generate`), VieNeu (`audio.synthesize`),
+WhisperX (`audio.align`), and media validation (`media.validate`). Capability
 readiness is advertised per adapter: endpoint-backed adapters require a configured endpoint, the
-VoiceStudio adapter also requires its API key, and WhisperX requires the optional local dependency.
+VieNeu adapter also requires its endpoint/API key, and WhisperX requires the optional local dependency.
 The service starts with unavailable optional capabilities marked `ready=false`; the backend must
 not dispatch a task until its advertised executor is ready.
 
@@ -50,8 +50,8 @@ bootstrap.py    composition root; the only place that wires concrete adapters
 
 ## GPU Model Residency & Mutual Exclusion
 
-In resource-constrained GPU host environments (such as a single 24GB RTX 3090/4090 host running Wan2.1 / ComfyUI / Qwen / VoiceStudio), `GpuResidencyManager` guarantees:
-- Strict single-resident runtime family arbitration across generative workloads (`COMFYUI_VIDEO`, `COMFYUI_IMAGE`, `QWEN`, `VOICESTUDIO`, `WHISPERX`).
+In resource-constrained GPU host environments (such as a single 24GB RTX 3090/4090 host running ComfyUI / VieNeu / WhisperX), `GpuResidencyManager` guarantees:
+- Strict single-resident runtime family arbitration across generative workloads (`COMFYUI_VIDEO`, `COMFYUI_IMAGE`, `VIENEU`, `WHISPERX`).
 - Automatic draining of in-flight leases before unloading the resident model.
 - Invocation of family unloader and loader lifecycle hooks during transitions.
 - Timeout-bounded fail-closed transitions: if a runtime fails to unload or verify VRAM reclamation within `GENERATION_SERVICE_RESIDENCY_TRANSITION_TIMEOUT_SECONDS`, the residency manager poisons itself to protect the host GPU from out-of-memory cascading crashes until reset.

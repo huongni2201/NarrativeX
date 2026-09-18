@@ -44,7 +44,7 @@ The backend never persists absolute Desktop project paths and never stores or pr
 Owns domain-agnostic compute execution under ADR-0028/ADR-0029:
 
 - `contracts/compute/v1/` task processing;
-- execution adapters: VoiceStudio, WhisperX, ComfyUI, media validation;
+- execution adapters: VieNeu, WhisperX, ComfyUI, media validation;
 - local SQLite execution journal (`.runtime/execution_journal.sqlite3`) for crash recovery (ADR-0031);
 - artifact download/upload via opaque capability URLs;
 - zero business DB access and zero domain entity awareness.

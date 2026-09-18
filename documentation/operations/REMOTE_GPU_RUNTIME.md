@@ -26,16 +26,16 @@ An NVIDIA RTX 3090 provides 24,576 MiB of VRAM. Concurrently loading multiple st
 
 | Generative Workload | Engine / Model | Approx. VRAM Footprint |
 | :--- | :--- | :--- |
-| **Text Generation** | Qwen 2.5 7B / 14B (GGUF/AWQ/BF16) | 5GB – 12GB |
+| **Text Generation** | Out of scope (managed directly via Vertex AI Gemini 3.8 Flash) | N/A – 12GB |
 | **Image Generation** | SDXL / FLUX.1-schnell (NF4 / FP8) | 12GB – 16GB |
-| **Speech Generation** | VoiceStudio (F5-TTS / Kokoro) | 4GB – 8GB |
+| **Speech Generation** | VieNeu (`vieneu-v3-turbo`) | 4GB – 8GB |
 | **Audio Alignment** | WhisperX (wav2vec2 + alignment) | 3GB – 5GB |
 | **Video Generation** | Wan 2.1 14B (Quantized GGUF/NF4) | 16GB – 22GB |
 
 ### Sequential Residency Rule
 To prevent out-of-memory (OOM) faults:
 - The GPU service implements `RuntimeResidencyPort` and `GpuResidencyManager`.
-- Only **one** runtime family (`QWEN`, `COMFYUI_IMAGE`, `VOICESTUDIO`, `WHISPERX`, `COMFYUI_VIDEO`) may actively occupy GPU resources at any instant.
+- Only **one** runtime family (`VIENEU`, `COMFYUI_IMAGE`, `WHISPERX`, `COMFYUI_VIDEO`) may actively occupy GPU resources at any instant.
 - Switching between runtime families is an atomic, fail-closed operation:
   1. The running runtime process is unloaded or gracefully terminated.
   2. The system polls host and PyTorch/CUDA memory metrics until VRAM is freed below the idle threshold (< 1.5GB).
@@ -59,8 +59,8 @@ The remote GPU node runs only Docker with the NVIDIA Container Toolkit.
 |  | - Compute Protocol v1 dispatcher                         |  |
 |  | - GpuResidencyManager (RuntimeResidencyPort)             |  |
 |  | - Task Executors:                                        |  |
-|  |     * Qwen Text Executor                                 |  |
-|  |     * VoiceStudio TTS Executor                           |  |
+|  |     * (Text Gen handled by Spring Boot Vertex Gemini)    |  |
+|  |     * VieNeu TTS Executor                                |  |
 |  |     * WhisperX Alignment Executor                        |  |
 |  |     * ComfyUI Image / Video Executor                     |  |
 |  +----------------------------------------------------------+  |

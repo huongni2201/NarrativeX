@@ -37,7 +37,8 @@ class VertexGeminiChapterAnalysisAdapterTest {
     when(client.countTokens(anyString())).thenReturn(850000);
 
     var request =
-        ChapterAnalysisRequest.simple(UUID.randomUUID(), UUID.randomUUID(), "Very long chapter", "vi");
+        ChapterAnalysisRequest.simple(
+            UUID.randomUUID(), UUID.randomUUID(), "Very long chapter", "vi");
 
     var exc =
         assertThrows(
@@ -56,7 +57,8 @@ class VertexGeminiChapterAnalysisAdapterTest {
         .thenReturn(new VertexGeminiClient.GeneratedAnalysisResponse("{\"scenes\":[]}", usage));
 
     var request =
-        ChapterAnalysisRequest.simple(UUID.randomUUID(), UUID.randomUUID(), "Normal chapter text", "vi");
+        ChapterAnalysisRequest.simple(
+            UUID.randomUUID(), UUID.randomUUID(), "Normal chapter text", "vi");
 
     ChapterAnalysisResult result = adapter.analyze(request);
     assertNotNull(result);
