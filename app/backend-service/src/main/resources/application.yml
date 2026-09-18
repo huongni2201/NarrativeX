@@ -1,6 +1,11 @@
 spring:
   application:
     name: NarrativeX Backend
+  threads:
+    virtual:
+      enabled: true
+  main:
+    keep-alive: true
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:narrativex}
     username: ${DB_USERNAME:narrativex}

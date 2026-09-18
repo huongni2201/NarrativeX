@@ -42,7 +42,7 @@ if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
 Write-Host "[1/6] Checking NVIDIA GPU and VRAM..." -ForegroundColor Yellow
 $nvidiaSmi = Get-Command "nvidia-smi" -ErrorAction SilentlyContinue
 if (-not $nvidiaSmi) {
-    Write-Error "nvidia-smi not found in PATH. Please install latest NVIDIA GPU drivers with CUDA 12.4+ support."
+    Write-Error "nvidia-smi not found in PATH. Please install latest NVIDIA GPU drivers with CUDA 13.0+ support."
 }
 
 $gpuInfo = & nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits
@@ -94,24 +94,29 @@ if (-not $uvExe) {
 }
 Write-Host "Using uv at: $uvExe" -ForegroundColor Green
 
-# 5. Setup Python 3.12 virtualenv and PyTorch CUDA 12.4
-Write-Host "[4/6] Creating Python 3.12 environment and installing PyTorch cu124..." -ForegroundColor Yellow
+# 5. Setup Python 3.14 environment and PyTorch CUDA 13.0
+Write-Host "[4/6] Creating Python 3.14.7 environment and installing PyTorch cu130..." -ForegroundColor Yellow
 $venvDir = "$InstallDir\.venv"
-& uv venv "$venvDir" --python 3.12 --seed
+& uv venv "$venvDir" --python 3.14.7 --seed
 $pythonExe = "$venvDir\Scripts\python.exe"
 
-# Install PyTorch with CUDA 12.4 wheels
-Write-Host "Installing torch 2.5.1+cu124..."
-& uv pip install --python "$pythonExe" torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+# Install PyTorch with CUDA 13.0 wheels
+Write-Host "Installing torch 2.14.0+cu130 and torchaudio..."
+& uv pip install --python "$pythonExe" torch==2.14.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu130
 
-# Install generation-service package
+# Install generation-service package using frozen lock
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Resolve-Path "$scriptDir\..\..").Path
 $genServiceDir = "$repoRoot\app\generation-service"
 
 if (Test-Path "$genServiceDir\pyproject.toml") {
-    Write-Host "Installing generation-service from $genServiceDir..."
-    & uv pip install --python "$pythonExe" -e "$genServiceDir"
+    Write-Host "Installing generation-service from $genServiceDir using uv sync --frozen..."
+    Push-Location "$genServiceDir"
+    try {
+        & uv sync --frozen --no-dev
+    } finally {
+        Pop-Location
+    }
 } else {
     Write-Warning "Source directory not found at $genServiceDir. Please run from clone or copy app/generation-service."
 }

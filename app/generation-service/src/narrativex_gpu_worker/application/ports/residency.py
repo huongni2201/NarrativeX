@@ -14,7 +14,6 @@ class RuntimeFamily(StrEnum):
     VIENEU = "VIENEU"
     COMFYUI_IMAGE = "COMFYUI_IMAGE"
     WHISPERX = "WHISPERX"
-    COMFYUI_VIDEO = "COMFYUI_VIDEO"
 
 
 @dataclass(frozen=True, slots=True)

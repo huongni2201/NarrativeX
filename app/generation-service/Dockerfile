@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim
+FROM python:3.14.7-slim
 
 ARG BUILD_SHA=unknown
 ARG GENERATION_SERVICE_EXTRAS=image,narration
@@ -21,7 +21,7 @@ RUN addgroup --system appgroup \
     && mkdir -p /home/appuser/.cache/huggingface /home/appuser/.config /app/.runtime \
     && chown -R appuser:appgroup /home/appuser /app/.runtime
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md uv.lock* ./
 COPY src/ ./src/
 
 RUN --mount=type=cache,id=narrativex-generation-service-pip,target=/root/.cache/pip,sharing=locked \

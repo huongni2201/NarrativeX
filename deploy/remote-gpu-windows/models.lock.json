@@ -24,12 +24,12 @@
     {
       "runtime_family": "WHISPERX",
       "executor": "whisperx",
-      "model_id": "whisper-large-v3",
-      "filename": "model.bin",
-      "target_subpath": "models/whisperx",
-      "source_url": "https://huggingface.co/Systran/faster-whisper-large-v3",
-      "sha256": "8a69e7f5fa316d3f2ecba4f3aa792686851508db8c7150a09e13d96fa8dc9c73",
-      "size_bytes": 3094892544
+      "model_id": "whisperx-forced-align-vi",
+      "filename": "model.safetensors",
+      "target_subpath": "models/whisperx/vi",
+      "source_url": "https://huggingface.co/nguyenvulebinh/wav2vec2-base-vietnamese-250h/resolve/main/model.safetensors",
+      "sha256": "9b1c7a8d8e23f0512837bc901ef4682079173db4591a27e7161b960b772c5e03",
+      "size_bytes": 377983692
     }
   ]
 }

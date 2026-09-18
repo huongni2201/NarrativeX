@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+import shlex
 
 import httpx
 from fastapi import FastAPI
@@ -25,6 +26,7 @@ from narrativex_gpu_worker.adapters.persistence import SqliteExecutionJournalAda
 from narrativex_gpu_worker.adapters.runtime import (
     GpuResidencyManager,
     GpuVramProbe,
+    ProcessSpec,
     RuntimeProcessSupervisor,
 )
 from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
@@ -111,10 +113,35 @@ def build_application(
             enabled=settings.residency_vram_probe_enabled,
         )
         supervisor = RuntimeProcessSupervisor(vram_probe=vram_probe, http_client=client)
+        if settings.comfyui_command.strip():
+            supervisor.register_runtime(
+                ProcessSpec(
+                    family=RuntimeFamily.COMFYUI_IMAGE,
+                    command=tuple(shlex.split(settings.comfyui_command)),
+                    health_url=f"{settings.comfyui_base_url.rstrip('/')}/system_stats",
+                    startup_timeout_seconds=settings.residency_transition_timeout_seconds,
+                )
+            )
+        if settings.vieneu_command.strip():
+            supervisor.register_runtime(
+                ProcessSpec(
+                    family=RuntimeFamily.VIENEU,
+                    command=tuple(shlex.split(settings.vieneu_command)),
+                    health_url=f"{settings.vieneu_base_url.rstrip('/')}/health",
+                    startup_timeout_seconds=settings.residency_transition_timeout_seconds,
+                )
+            )
+        if settings.whisperx_command.strip():
+            supervisor.register_runtime(
+                ProcessSpec(
+                    family=RuntimeFamily.WHISPERX,
+                    command=tuple(shlex.split(settings.whisperx_command)),
+                    startup_timeout_seconds=settings.residency_transition_timeout_seconds,
+                )
+            )
         managed_families = (
             RuntimeFamily.VIENEU,
             RuntimeFamily.COMFYUI_IMAGE,
-            RuntimeFamily.COMFYUI_VIDEO,
             RuntimeFamily.WHISPERX,
         )
         residency_manager = GpuResidencyManager(

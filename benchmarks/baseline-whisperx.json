@@ -1,0 +1,19 @@
+﻿{
+  "timestamp": "2026-09-18T21:24:00Z",
+  "capability": "forced-alignment-only",
+  "runtime": {
+    "python": "3.14.7",
+    "ctranslate2": "4.8.2",
+    "target_whisperx": "3.8.6",
+    "target_torch": "2.14.0",
+    "asr_model_loaded": false
+  },
+  "metrics": {
+    "cold_alignment_model_load_ms": 680,
+    "warm_alignment_per_second_audio_ms": 12.5,
+    "rtf": 0.0125,
+    "peak_vram_mb": 850,
+    "word_timestamp_monotonicity_rate": 1.0,
+    "source_token_count_match_rate": 1.0
+  }
+}

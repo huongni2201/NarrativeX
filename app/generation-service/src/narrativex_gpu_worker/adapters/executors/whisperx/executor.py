@@ -24,7 +24,10 @@ class WhisperXExecutor:
 
     name = "whisperx"
     task_types = frozenset({"audio.align"})
-    models = (ModelRef(executor="whisperx", model="large-v3", revision="3.8.6"),)
+    models = (
+        ModelRef(executor="whisperx", model="forced-align", revision="3.8.6"),
+        ModelRef(executor="whisperx", model="large-v3", revision="3.8.6"),
+    )
 
     def __init__(
         self,

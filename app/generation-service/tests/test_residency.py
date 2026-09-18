@@ -42,20 +42,20 @@ async def test_residency_exclusive_family_switch() -> None:
 
     manager = GpuResidencyManager(
         transition_timeout_seconds=5.0,
-        unload_hooks={RuntimeFamily.COMFYUI_VIDEO: unload_comfyui},
+        unload_hooks={RuntimeFamily.COMFYUI_IMAGE: unload_comfyui},
         load_hooks={RuntimeFamily.WHISPERX: load_whisperx},
     )
 
-    req_comfy = RuntimeRequirement(family=RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
+    req_comfy = RuntimeRequirement(family=RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
     req_whisperx = RuntimeRequirement(family=RuntimeFamily.WHISPERX, exclusive=True)
 
     # Acquire ComfyUI lease
     async with manager.acquire(req_comfy):
-        assert manager.current_family == RuntimeFamily.COMFYUI_VIDEO
+        assert manager.current_family == RuntimeFamily.COMFYUI_IMAGE
         assert manager.active_leases == 1
 
     assert manager.active_leases == 0
-    assert manager.current_family == RuntimeFamily.COMFYUI_VIDEO
+    assert manager.current_family == RuntimeFamily.COMFYUI_IMAGE
 
     # Acquire WhisperX lease (should trigger unload comfyui -> load whisperx)
     async with manager.acquire(req_whisperx):
@@ -98,7 +98,7 @@ async def test_residency_concurrent_non_exclusive_leases() -> None:
 
 async def test_residency_exclusive_blocks_concurrent() -> None:
     manager = GpuResidencyManager(transition_timeout_seconds=5.0)
-    req_exclusive = RuntimeRequirement(family=RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
+    req_exclusive = RuntimeRequirement(family=RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
 
     entered_first = asyncio.Event()
     release_first = asyncio.Event()
@@ -134,11 +134,11 @@ async def test_residency_transition_timeout_fails_closed() -> None:
 
     manager = GpuResidencyManager(
         transition_timeout_seconds=0.1,
-        unload_hooks={RuntimeFamily.COMFYUI_VIDEO: hanging_unloader},
+        unload_hooks={RuntimeFamily.COMFYUI_IMAGE: hanging_unloader},
     )
 
-    # First establish COMFYUI_VIDEO
-    req_video = RuntimeRequirement(family=RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
+    # First establish COMFYUI_IMAGE
+    req_video = RuntimeRequirement(family=RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
     async with manager.acquire(req_video):
         pass
 
@@ -181,7 +181,7 @@ class FamilyExecutor:
 
 
 async def test_execution_service_with_residency(tmp_path: Path, compute_task: ComputeTask) -> None:
-    exec_a = FamilyExecutor("exec-a", RuntimeFamily.COMFYUI_VIDEO, exclusive=True)
+    exec_a = FamilyExecutor("exec-a", RuntimeFamily.COMFYUI_IMAGE, exclusive=True)
     exec_b = FamilyExecutor("exec-b", RuntimeFamily.WHISPERX, exclusive=True)
 
     catalog = ExecutorCatalog((exec_a, exec_b))
@@ -212,7 +212,7 @@ async def test_execution_service_with_residency(tmp_path: Path, compute_task: Co
                 break
             await asyncio.sleep(0.01)
         assert res is not None and res.state == ExecutionState.SUCCEEDED
-        assert residency.current_family == RuntimeFamily.COMFYUI_VIDEO
+        assert residency.current_family == RuntimeFamily.COMFYUI_IMAGE
 
         # Submit Task B (requires transition to WHISPERX)
         task_b = deepcopy(compute_task)

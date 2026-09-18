@@ -101,6 +101,18 @@ class WorkerSettings(BaseSettings):
         default=True,
         validation_alias="GENERATION_SERVICE_RESIDENCY_VRAM_PROBE_ENABLED",
     )
+    comfyui_command: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_COMFYUI_COMMAND",
+    )
+    vieneu_command: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_VIENEU_COMMAND",
+    )
+    whisperx_command: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_WHISPERX_COMMAND",
+    )
 
     @property
     def whisperx_available(self) -> bool:

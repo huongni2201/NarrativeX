@@ -1,0 +1,28 @@
+﻿{
+  "timestamp": "2026-09-18T21:24:00Z",
+  "runtime": {
+    "python": "3.14.7",
+    "numpy": "2.5.2",
+    "vieneu": "3.2.4",
+    "target_vieneu": "3.8.1",
+    "target_torch": "2.14.0",
+    "target_torchaudio": "2.14.0",
+    "target_cuda": "cu130"
+  },
+  "metrics": {
+    "cold_startup_seconds": 1.25,
+    "first_audio_latency_ms": 420.0,
+    "rtf": 0.18,
+    "10_chunk_throughput_sec": 3.8,
+    "100_chunk_throughput_sec": 36.2,
+    "peak_vram_mb": 1820,
+    "audio_sample_rate": 48000,
+    "audio_channels": 1,
+    "batch_profiles": {
+      "batch_1": {"rtf": 0.22, "peak_vram_mb": 1450},
+      "batch_2": {"rtf": 0.18, "peak_vram_mb": 1680},
+      "batch_4": {"rtf": 0.14, "peak_vram_mb": 2100},
+      "batch_8": {"rtf": 0.12, "peak_vram_mb": 2950}
+    }
+  }
+}
