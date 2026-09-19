@@ -59,13 +59,13 @@ class SourceAnchorResolverTest {
 
     for (int i = 0; i < anchors.size(); i++) {
       assertEquals(
-          anchors.get(i),
-          source.substring(results.get(i).textStart(), results.get(i).textEnd()));
+          anchors.get(i), source.substring(results.get(i).textStart(), results.get(i).textEnd()));
     }
   }
 
   @Test
-  @DisplayName("Resolves duplicate identical anchors deterministically without re-consuming earlier occurrence")
+  @DisplayName(
+      "Resolves duplicate identical anchors deterministically without re-consuming earlier occurrence")
   void resolvesDuplicateIdenticalAnchorsDeterministically() {
     String source = "The bell tolls. Quiet settles. The bell tolls once more for all.";
     String anchor = "The bell tolls";
@@ -87,7 +87,8 @@ class SourceAnchorResolverTest {
   @DisplayName("Fails closed when an anchor appears earlier than search cursor (out of order)")
   void failsClosedWhenAnchorsAreOutOfOrder() {
     String source = "First chapter summary. Middle chapter event. Early prologue note.";
-    // "Middle chapter" appears before "Early prologue note", so requesting "Middle chapter" then "First chapter" is out of order
+    // "Middle chapter" appears before "Early prologue note", so requesting "Middle chapter" then
+    // "First chapter" is out of order
     List<String> anchors = List.of("Middle chapter event", "First chapter summary");
 
     IllegalArgumentException ex =
@@ -119,8 +120,7 @@ class SourceAnchorResolverTest {
     assertEquals(4, results.size());
     for (int i = 0; i < anchors.size(); i++) {
       assertEquals(
-          anchors.get(i),
-          source.substring(results.get(i).textStart(), results.get(i).textEnd()));
+          anchors.get(i), source.substring(results.get(i).textStart(), results.get(i).textEnd()));
     }
   }
 
@@ -137,11 +137,14 @@ class SourceAnchorResolverTest {
     assertEquals(2, results.size());
     assertEquals(0, results.get(0).textStart());
     assertEquals("Tàu vũ trụ 🚀".length(), results.get(0).textEnd());
-    assertEquals("Tàu vũ trụ 🚀", source.substring(results.get(0).textStart(), results.get(0).textEnd()));
+    assertEquals(
+        "Tàu vũ trụ 🚀", source.substring(results.get(0).textStart(), results.get(0).textEnd()));
 
     int secondExpectedStart = source.indexOf("không gian 🌟 rực rỡ");
     assertEquals(secondExpectedStart, results.get(1).textStart());
-    assertEquals("không gian 🌟 rực rỡ", source.substring(results.get(1).textStart(), results.get(1).textEnd()));
+    assertEquals(
+        "không gian 🌟 rực rỡ",
+        source.substring(results.get(1).textStart(), results.get(1).textEnd()));
   }
 
   @Test
@@ -162,11 +165,16 @@ class SourceAnchorResolverTest {
   @Test
   @DisplayName("Fails closed on null, empty, or blank inputs")
   void failsClosedOnInvalidInputs() {
-    assertThrows(IllegalArgumentException.class, () -> resolver.resolveAll(null, null, List.of("a")));
-    assertThrows(IllegalArgumentException.class, () -> resolver.resolveAll(" ", null, List.of("a")));
+    assertThrows(
+        IllegalArgumentException.class, () -> resolver.resolveAll(null, null, List.of("a")));
+    assertThrows(
+        IllegalArgumentException.class, () -> resolver.resolveAll(" ", null, List.of("a")));
     assertThrows(IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, null));
-    assertThrows(IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, List.of()));
-    assertThrows(IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, List.of("")));
-    assertThrows(IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, List.of("   ")));
+    assertThrows(
+        IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, List.of()));
+    assertThrows(
+        IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, List.of("")));
+    assertThrows(
+        IllegalArgumentException.class, () -> resolver.resolveAll("valid", null, List.of("   ")));
   }
 }

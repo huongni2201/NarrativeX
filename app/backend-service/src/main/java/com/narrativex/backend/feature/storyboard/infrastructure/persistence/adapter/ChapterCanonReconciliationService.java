@@ -46,8 +46,7 @@ public class ChapterCanonReconciliationService {
       Map<String, UUID> characterMap,
       Map<String, UUID> locationMap,
       Map<String, UUID> characterLookup,
-      Map<String, UUID> locationLookup
-  ) {
+      Map<String, UUID> locationLookup) {
     public ReconciledCanon(Map<String, UUID> characterMap, Map<String, UUID> locationMap) {
       this(characterMap, locationMap, buildLookup(characterMap), buildLookup(locationMap));
     }
@@ -55,9 +54,10 @@ public class ChapterCanonReconciliationService {
     private static Map<String, UUID> buildLookup(Map<String, UUID> map) {
       Map<String, UUID> lookup = new HashMap<>();
       if (map != null) {
-        map.forEach((k, v) -> {
-          if (k != null) lookup.put(k.trim().toLowerCase(), v);
-        });
+        map.forEach(
+            (k, v) -> {
+              if (k != null) lookup.put(k.trim().toLowerCase(), v);
+            });
       }
       return lookup;
     }
@@ -92,7 +92,8 @@ public class ChapterCanonReconciliationService {
         Collections.unmodifiableMap(locations.lookupMap()));
   }
 
-  private ReconciliationResult reconcileCharacters(UUID projectId, List<AnalyzedCharacter> analyzedList) {
+  private ReconciliationResult reconcileCharacters(
+      UUID projectId, List<AnalyzedCharacter> analyzedList) {
     Map<String, UUID> resultMap = new HashMap<>();
     Map<String, UUID> lookupMap = new HashMap<>();
     if (analyzedList == null || analyzedList.isEmpty()) {
@@ -111,7 +112,12 @@ public class ChapterCanonReconciliationService {
       if (match != null) {
         UUID projectCharId = match.getProjectCharacterId();
         resultMap.put(analyzed.aiName(), projectCharId);
-        indexNames(lookupMap, projectCharId, analyzed.aiName(), analyzed.canonicalName(), analyzed.aliases());
+        indexNames(
+            lookupMap,
+            projectCharId,
+            analyzed.aiName(),
+            analyzed.canonicalName(),
+            analyzed.aliases());
         indexNames(
             lookupMap,
             projectCharId,
@@ -123,12 +129,14 @@ public class ChapterCanonReconciliationService {
                 match.getProjectAliasesJson()));
 
         // Check if pinned version is locked and appearance changed semantically
-        boolean isLocked = match.getVersionLockedAt() != null
-            || "LOCKED".equalsIgnoreCase(match.getVersionStatus());
+        boolean isLocked =
+            match.getVersionLockedAt() != null
+                || "LOCKED".equalsIgnoreCase(match.getVersionStatus());
         if (isLocked) {
-          boolean promptChanged = analyzed.visualPrompt() != null
-              && !analyzed.visualPrompt().isBlank()
-              && !analyzed.visualPrompt().equals(match.getVisualPrompt());
+          boolean promptChanged =
+              analyzed.visualPrompt() != null
+                  && !analyzed.visualPrompt().isBlank()
+                  && !analyzed.visualPrompt().equals(match.getVisualPrompt());
           if (promptChanged) {
             int nextVersion = canonMapper.maxCharacterVersion(match.getCharacterId()) + 1;
             CharacterVersionRow newVersion = new CharacterVersionRow();
@@ -145,11 +153,13 @@ public class ChapterCanonReconciliationService {
 
         // Update AI identity binding
         String aliasesJson = toJson(analyzed.aliases());
-        canonMapper.upsertProjectCharacterAiIdentity(projectId, projectCharId, analyzed.aiName(), aliasesJson);
+        canonMapper.upsertProjectCharacterAiIdentity(
+            projectId, projectCharId, analyzed.aiName(), aliasesJson);
       } else {
         // Create new Character
         CharacterRow charRow = new CharacterRow();
-        charRow.setCanonicalName(analyzed.canonicalName() != null ? analyzed.canonicalName() : analyzed.aiName());
+        charRow.setCanonicalName(
+            analyzed.canonicalName() != null ? analyzed.canonicalName() : analyzed.aiName());
         charRow.setAliasesJson(toJson(analyzed.aliases()));
         charRow.setStatus("ACTIVE");
         charRow.setCreatedAt(now);
@@ -185,19 +195,27 @@ public class ChapterCanonReconciliationService {
         UUID projCharId = canonMapper.insertProjectCharacter(projCharRow);
         if (projCharId == null) {
           // If conflict hit, refetch
-          List<ProjectCharacterBindingRow> refreshed = canonMapper.findProjectCharacterBindings(projectId);
-          projCharId = refreshed.stream()
-              .filter(r -> r.getCharacterId().equals(characterId))
-              .map(ProjectCharacterBindingRow::getProjectCharacterId)
-              .findFirst()
-              .orElse(null);
+          List<ProjectCharacterBindingRow> refreshed =
+              canonMapper.findProjectCharacterBindings(projectId);
+          projCharId =
+              refreshed.stream()
+                  .filter(r -> r.getCharacterId().equals(characterId))
+                  .map(ProjectCharacterBindingRow::getProjectCharacterId)
+                  .findFirst()
+                  .orElse(null);
         }
 
         if (projCharId != null) {
           resultMap.put(analyzed.aiName(), projCharId);
-          indexNames(lookupMap, projCharId, analyzed.aiName(), analyzed.canonicalName(), analyzed.aliases());
+          indexNames(
+              lookupMap,
+              projCharId,
+              analyzed.aiName(),
+              analyzed.canonicalName(),
+              analyzed.aliases());
           String aliasesJson = toJson(analyzed.aliases());
-          canonMapper.upsertProjectCharacterAiIdentity(projectId, projCharId, analyzed.aiName(), aliasesJson);
+          canonMapper.upsertProjectCharacterAiIdentity(
+              projectId, projCharId, analyzed.aiName(), aliasesJson);
 
           // Add to local existing list to prevent duplicates within same batch
           ProjectCharacterBindingRow newBinding = new ProjectCharacterBindingRow();
@@ -214,7 +232,8 @@ public class ChapterCanonReconciliationService {
     return new ReconciliationResult(resultMap, lookupMap);
   }
 
-  private ReconciliationResult reconcileLocations(UUID projectId, List<AnalyzedLocation> analyzedList) {
+  private ReconciliationResult reconcileLocations(
+      UUID projectId, List<AnalyzedLocation> analyzedList) {
     Map<String, UUID> resultMap = new HashMap<>();
     Map<String, UUID> lookupMap = new HashMap<>();
     if (analyzedList == null || analyzedList.isEmpty()) {
@@ -234,9 +253,15 @@ public class ChapterCanonReconciliationService {
         UUID projectLocId = match.getProjectLocationId();
         resultMap.put(analyzed.aiName(), projectLocId);
         indexNames(lookupMap, projectLocId, analyzed.aiName(), analyzed.name(), analyzed.aliases());
-        indexNames(lookupMap, projectLocId, match.getAiName(), match.getName(), parseAliases(match.getAiAliasesJson()));
+        indexNames(
+            lookupMap,
+            projectLocId,
+            match.getAiName(),
+            match.getName(),
+            parseAliases(match.getAiAliasesJson()));
         String aliasesJson = toJson(analyzed.aliases());
-        canonMapper.upsertProjectLocationAiIdentity(projectId, projectLocId, analyzed.aiName(), aliasesJson);
+        canonMapper.upsertProjectLocationAiIdentity(
+            projectId, projectLocId, analyzed.aiName(), aliasesJson);
       } else {
         ProjectLocationRow locRow = new ProjectLocationRow();
         locRow.setProjectId(projectId);
@@ -252,7 +277,8 @@ public class ChapterCanonReconciliationService {
         resultMap.put(analyzed.aiName(), locId);
         indexNames(lookupMap, locId, analyzed.aiName(), analyzed.name(), analyzed.aliases());
         String aliasesJson = toJson(analyzed.aliases());
-        canonMapper.upsertProjectLocationAiIdentity(projectId, locId, analyzed.aiName(), aliasesJson);
+        canonMapper.upsertProjectLocationAiIdentity(
+            projectId, locId, analyzed.aiName(), aliasesJson);
 
         // Add to local existing list to prevent duplicate insertions within same batch
         ProjectLocationBindingRow newBinding = new ProjectLocationBindingRow();
@@ -302,13 +328,19 @@ public class ChapterCanonReconciliationService {
     }
 
     for (ProjectCharacterBindingRow candidate : existing) {
-      if (candidate.getAiName() != null && searchNames.contains(candidate.getAiName().trim().toLowerCase())) {
+      if (candidate.getAiName() != null
+          && searchNames.contains(candidate.getAiName().trim().toLowerCase())) {
         return candidate;
       }
-      if (candidate.getCanonicalName() != null && searchNames.contains(candidate.getCanonicalName().trim().toLowerCase())) {
+      if (candidate.getCanonicalName() != null
+          && searchNames.contains(candidate.getCanonicalName().trim().toLowerCase())) {
         return candidate;
       }
-      List<String> candidateAliases = parseAliases(candidate.getCharacterAliasesJson(), candidate.getAiAliasesJson(), candidate.getProjectAliasesJson());
+      List<String> candidateAliases =
+          parseAliases(
+              candidate.getCharacterAliasesJson(),
+              candidate.getAiAliasesJson(),
+              candidate.getProjectAliasesJson());
       for (String ca : candidateAliases) {
         if (searchNames.contains(ca.trim().toLowerCase())) {
           return candidate;
@@ -332,10 +364,12 @@ public class ChapterCanonReconciliationService {
     }
 
     for (ProjectLocationBindingRow candidate : existing) {
-      if (candidate.getAiName() != null && searchNames.contains(candidate.getAiName().trim().toLowerCase())) {
+      if (candidate.getAiName() != null
+          && searchNames.contains(candidate.getAiName().trim().toLowerCase())) {
         return candidate;
       }
-      if (candidate.getName() != null && searchNames.contains(candidate.getName().trim().toLowerCase())) {
+      if (candidate.getName() != null
+          && searchNames.contains(candidate.getName().trim().toLowerCase())) {
         return candidate;
       }
       List<String> candidateAliases = parseAliases(candidate.getAiAliasesJson());
@@ -357,7 +391,8 @@ public class ChapterCanonReconciliationService {
           if (items != null) {
             result.addAll(items);
           }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
       }
     }
     return result;

@@ -24,5 +24,8 @@ public interface StoryboardRepository {
 
   Optional<StoryBeat> findStoryBeatById(UUID storyBeatId);
 
-  StoryBeat updateStoryBeatReviewStatus(UUID storyBeatId, String status, long expectedRowVersion);
+  Optional<StoryBeat> findStoryBeatByIdAndChapterId(UUID storyBeatId, UUID chapterId);
+
+  StoryBeat updateStoryBeatReviewStatus(
+      UUID chapterId, UUID storyBeatId, String status, long expectedRowVersion);
 }

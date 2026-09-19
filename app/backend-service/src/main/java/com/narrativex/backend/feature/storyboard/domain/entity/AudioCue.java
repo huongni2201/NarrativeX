@@ -8,9 +8,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Represents what the audience should hear during a StoryBeat.
- * Encapsulates dialogue, inner monologue, system cues, or narration along with
- * source text range and adaptation policy (KEEP_EXACT, LIGHT_EDIT, COMPRESS, VISUAL_PRIMARY).
+ * Represents what the audience should hear during a StoryBeat. Encapsulates dialogue, inner
+ * monologue, system cues, or narration along with source text range and adaptation policy
+ * (KEEP_EXACT, LIGHT_EDIT, COMPRESS, VISUAL_PRIMARY).
  */
 public final class AudioCue extends DomainEntity {
   private final UUID storyBeatId;
@@ -89,13 +89,18 @@ public final class AudioCue extends DomainEntity {
     if (sourceStart != null && sourceEnd != null) {
       if (sourceStart < 0 || sourceEnd <= sourceStart) {
         throw new IllegalArgumentException(
-            "sourceStart must be >= 0 and < sourceEnd, got [" + sourceStart + ", " + sourceEnd + "]");
+            "sourceStart must be >= 0 and < sourceEnd, got ["
+                + sourceStart
+                + ", "
+                + sourceEnd
+                + "]");
       }
     }
     this.sourceStart = sourceStart;
     this.sourceEnd = sourceEnd;
     this.sourceAnchorJson = sourceAnchorJson;
-    this.adaptationAction = Objects.requireNonNull(adaptationAction, "adaptationAction must not be null");
+    this.adaptationAction =
+        Objects.requireNonNull(adaptationAction, "adaptationAction must not be null");
     this.adaptedText = adaptedText != null ? adaptedText.trim() : null;
     this.deliveryHint = deliveryHint != null ? deliveryHint.trim() : null;
     this.narrationTextStart = narrationTextStart;
@@ -149,7 +154,8 @@ public final class AudioCue extends DomainEntity {
 
   public void updateNarrationOffsets(int textStart, int textEnd) {
     if (textStart < 0 || textEnd < textStart) {
-      throw new IllegalArgumentException("Invalid narration offsets: [" + textStart + ", " + textEnd + "]");
+      throw new IllegalArgumentException(
+          "Invalid narration offsets: [" + textStart + ", " + textEnd + "]");
     }
     this.narrationTextStart = textStart;
     this.narrationTextEnd = textEnd;

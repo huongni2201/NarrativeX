@@ -7,8 +7,7 @@ public record AnalyzedVisualBeat(
     String visualIntent,
     String sourceAnchor,
     List<String> characterAiNames,
-    VisualDirection visualDirection
-) {
+    VisualDirection visualDirection) {
   public AnalyzedVisualBeat {
     if (characterAiNames == null) {
       characterAiNames = List.of();

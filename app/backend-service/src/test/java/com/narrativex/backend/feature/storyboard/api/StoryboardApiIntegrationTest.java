@@ -1,8 +1,10 @@
 package com.narrativex.backend.feature.storyboard.api;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -114,6 +116,8 @@ class StoryboardApiIntegrationTest {
         PROJECT_1,
         CHAPTER_1,
         REVISION_1);
+    jdbcTemplate.update("DELETE FROM visual_beats WHERE scene_id = ? AND id != ?", SCENE_1, BEAT_1);
+    jdbcTemplate.update("DELETE FROM story_beats WHERE scene_id = ?", SCENE_1);
     jdbcTemplate.update(
         "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode, text_start, text_end) VALUES (?, ?, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', '{\"shot_size\":\"MEDIUM\",\"camera_angle\":\"EYE_LEVEL\",\"lens_mm\":50,\"focus_target\":\"lanterns\",\"action_phase\":\"AFTER\",\"subject_placement\":\"centered street composition\",\"foreground\":null,\"background\":\"quiet stone streets\",\"motivated_light\":\"warm lantern light\",\"palette\":\"warm amber and stone\",\"camera_movement\":\"PAN\",\"movement_direction\":\"RIGHT\",\"movement_intensity\":\"SUBTLE\",\"crop_safe_area\":\"modest crop room\"}', 'APPROVED', 'BASIC_MOTION', 0, 46) ON CONFLICT (id) DO UPDATE SET review_status = 'APPROVED', visual_intent = EXCLUDED.visual_intent, title = EXCLUDED.title, row_version = 0, preview_media_asset_id = NULL",
         BEAT_1,
@@ -397,7 +401,261 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.chapterId").value(CHAPTER_1.toString()))
         .andExpect(jsonPath("$.data.chapterTitle").value("Ch 1"))
         .andExpect(jsonPath("$.data.scenes[0].id").value(SCENE_1.toString()))
-        .andExpect(jsonPath("$.data.scenes[0].storyBeats[0].visualBeats[0].id").value(BEAT_1.toString()));
+        .andExpect(
+            jsonPath("$.data.scenes[0].storyBeats[0].visualBeats[0].id").value(BEAT_1.toString()));
+  }
+
+  @Test
+  void crossChapterStoryBeatMutationRejectedWith404AndNoDbChange() throws Exception {
+    UUID sceneCh2 = testUuid(4002);
+    UUID storyBeatCh2 = testUuid(5002);
+
+    jdbcTemplate.update(
+        "INSERT INTO scenes (id, project_id, chapter_id, storyboard_revision_id, order_index, title, status) VALUES (?, ?, ?, ?, 1, 'Scene Ch2', 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        sceneCh2,
+        PROJECT_2,
+        CHAPTER_2,
+        REVISION_2);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 0, 'PLOT', 'Beat in chapter 2', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 0",
+        storyBeatCh2,
+        sceneCh2);
+
+    mockMvc
+        .perform(
+            put("/api/v1/projects/"
+                    + PROJECT_1
+                    + "/chapters/"
+                    + CHAPTER_1
+                    + "/story-beats/"
+                    + storyBeatCh2
+                    + "/review-status")
+                .header("If-Match", "\"0\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"APPROVED\"}"))
+        .andExpect(status().isNotFound());
+
+    String status =
+        jdbcTemplate.queryForObject(
+            "SELECT review_status FROM story_beats WHERE id = ?", String.class, storyBeatCh2);
+    Long rowVersion =
+        jdbcTemplate.queryForObject(
+            "SELECT row_version FROM story_beats WHERE id = ?", Long.class, storyBeatCh2);
+    assertEquals("NEEDS_REVIEW", status);
+    assertEquals(0L, rowVersion);
+  }
+
+  @Test
+  void crossProjectStoryBeatMutationRejectedWith404AndNoDbChange() throws Exception {
+    UUID sceneCh2 = testUuid(4002);
+    UUID storyBeatCh2 = testUuid(5002);
+
+    jdbcTemplate.update(
+        "INSERT INTO scenes (id, project_id, chapter_id, storyboard_revision_id, order_index, title, status) VALUES (?, ?, ?, ?, 1, 'Scene Ch2', 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        sceneCh2,
+        PROJECT_2,
+        CHAPTER_2,
+        REVISION_2);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 0, 'PLOT', 'Beat in chapter 2', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 0",
+        storyBeatCh2,
+        sceneCh2);
+
+    mockMvc
+        .perform(
+            put("/api/v1/projects/"
+                    + PROJECT_1
+                    + "/chapters/"
+                    + CHAPTER_2
+                    + "/story-beats/"
+                    + storyBeatCh2
+                    + "/review-status")
+                .header("If-Match", "\"0\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"APPROVED\"}"))
+        .andExpect(status().isNotFound());
+
+    String status =
+        jdbcTemplate.queryForObject(
+            "SELECT review_status FROM story_beats WHERE id = ?", String.class, storyBeatCh2);
+    assertEquals("NEEDS_REVIEW", status);
+  }
+
+  @Test
+  void oldStoryboardRevisionMutationRejectedWith404() throws Exception {
+    UUID oldRevision = testUuid(3590);
+    UUID newRevision = testUuid(3591);
+    UUID oldScene = testUuid(4090);
+    UUID oldBeat = testUuid(5090);
+
+    jdbcTemplate.update(
+        "INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (?, ?, 10, repeat('c', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        oldRevision,
+        CHAPTER_1);
+    jdbcTemplate.update(
+        "INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (?, ?, 11, repeat('d', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        newRevision,
+        CHAPTER_1);
+    jdbcTemplate.update(
+        "INSERT INTO scenes (id, project_id, chapter_id, storyboard_revision_id, order_index, title, status) VALUES (?, ?, ?, ?, 10, 'Old Scene', 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        oldScene,
+        PROJECT_1,
+        CHAPTER_1,
+        oldRevision);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 0, 'PLOT', 'Old Beat', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 0",
+        oldBeat,
+        oldScene);
+
+    jdbcTemplate.update(
+        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?",
+        newRevision,
+        CHAPTER_1);
+
+    try {
+      mockMvc
+          .perform(
+              put("/api/v1/projects/"
+                      + PROJECT_1
+                      + "/chapters/"
+                      + CHAPTER_1
+                      + "/story-beats/"
+                      + oldBeat
+                      + "/review-status")
+                  .header("If-Match", "\"0\"")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"status\":\"APPROVED\"}"))
+          .andExpect(status().isNotFound());
+    } finally {
+      jdbcTemplate.update(
+          "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?",
+          REVISION_1,
+          CHAPTER_1);
+    }
+  }
+
+  @Test
+  void staleRowVersionReturns409Conflict() throws Exception {
+    UUID storyBeat = testUuid(5080);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 99, 'PLOT', 'Conflict Beat', 'NEEDS_REVIEW', 5) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 5",
+        storyBeat,
+        SCENE_1);
+
+    try {
+      mockMvc
+          .perform(
+              put("/api/v1/projects/"
+                      + PROJECT_1
+                      + "/chapters/"
+                      + CHAPTER_1
+                      + "/story-beats/"
+                      + storyBeat
+                      + "/review-status")
+                  .header("If-Match", "\"4\"")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"status\":\"APPROVED\"}"))
+          .andExpect(status().isConflict());
+    } finally {
+      jdbcTemplate.update("DELETE FROM story_beats WHERE id = ?", storyBeat);
+    }
+  }
+
+  @Test
+  void successfulRowVersionIncrementAndEtag() throws Exception {
+    UUID storyBeat = testUuid(5081);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 98, 'PLOT', 'Happy Beat', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 0",
+        storyBeat,
+        SCENE_1);
+
+    try {
+      mockMvc
+          .perform(
+              put("/api/v1/projects/"
+                      + PROJECT_1
+                      + "/chapters/"
+                      + CHAPTER_1
+                      + "/story-beats/"
+                      + storyBeat
+                      + "/review-status")
+                  .header("If-Match", "\"0\"")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"status\":\"APPROVED\"}"))
+          .andExpect(status().isOk())
+          .andExpect(header().string("ETag", "\"1\""))
+          .andExpect(jsonPath("$.data.reviewStatus").value("APPROVED"))
+          .andExpect(jsonPath("$.data.rowVersion").value(1));
+
+      Long newVersion =
+          jdbcTemplate.queryForObject(
+              "SELECT row_version FROM story_beats WHERE id = ?", Long.class, storyBeat);
+      String newStatus =
+          jdbcTemplate.queryForObject(
+              "SELECT review_status FROM story_beats WHERE id = ?", String.class, storyBeat);
+      assertEquals(1L, newVersion);
+      assertEquals("APPROVED", newStatus);
+    } finally {
+      jdbcTemplate.update("DELETE FROM story_beats WHERE id = ?", storyBeat);
+    }
+  }
+
+  @Test
+  void legacyUnassignedVisualBeatsPreservedWhenPersistedBeatsExist() throws Exception {
+    UUID persistedBeat = testUuid(5082);
+    UUID persistedVisual = testUuid(5083);
+    String validDirection =
+        "{\"shot_size\":\"MEDIUM\",\"camera_angle\":\"EYE_LEVEL\",\"lens_mm\":50,\"focus_target\":\"lanterns\",\"action_phase\":\"AFTER\",\"subject_placement\":\"centered street composition\",\"foreground\":null,\"background\":\"quiet stone streets\",\"motivated_light\":\"warm lantern light\",\"palette\":\"warm amber and stone\",\"camera_movement\":\"PAN\",\"movement_direction\":\"RIGHT\",\"movement_intensity\":\"SUBTLE\",\"crop_safe_area\":\"modest crop room\"}";
+
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 0, 'PLOT', 'Persisted Beat 1', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO NOTHING",
+        persistedBeat,
+        SCENE_1);
+    jdbcTemplate.update(
+        "INSERT INTO visual_beats (id, scene_id, story_beat_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode) VALUES (?, ?, ?, 0, 'Visual assigned to beat', 'Intent', ?::jsonb, 'APPROVED', 'STILL') ON CONFLICT (id) DO NOTHING",
+        persistedVisual,
+        SCENE_1,
+        persistedBeat,
+        validDirection);
+
+    try {
+      mockMvc
+          .perform(get("/api/v1/projects/" + PROJECT_1 + "/chapters/" + CHAPTER_1 + "/story"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data.scenes[0].storyBeats.length()").value(2))
+          .andExpect(jsonPath("$.data.scenes[0].storyBeats[0].persistenceState").value("PERSISTED"))
+          .andExpect(
+              jsonPath("$.data.scenes[0].storyBeats[0].visualBeats[0].id")
+                  .value(persistedVisual.toString()))
+          .andExpect(jsonPath("$.data.scenes[0].storyBeats[1].persistenceState").value("SYNTHETIC"))
+          .andExpect(
+              jsonPath("$.data.scenes[0].storyBeats[1].title").value("Legacy unassigned visuals"))
+          .andExpect(
+              jsonPath("$.data.scenes[0].storyBeats[1].visualBeats[0].id")
+                  .value(BEAT_1.toString()));
+    } finally {
+      jdbcTemplate.update("DELETE FROM visual_beats WHERE id = ?", persistedVisual);
+      jdbcTemplate.update("DELETE FROM story_beats WHERE id = ?", persistedBeat);
+    }
+  }
+
+  @Test
+  void syntheticBeatCannotBeMutated() throws Exception {
+    UUID syntheticId = UUID.nameUUIDFromBytes(("synth-beat-" + SCENE_1).getBytes());
+
+    mockMvc
+        .perform(
+            put("/api/v1/projects/"
+                    + PROJECT_1
+                    + "/chapters/"
+                    + CHAPTER_1
+                    + "/story-beats/"
+                    + syntheticId
+                    + "/review-status")
+                .header("If-Match", "\"0\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"APPROVED\"}"))
+        .andExpect(status().isNotFound());
   }
 
   private static UUID testUuid(long suffix) {

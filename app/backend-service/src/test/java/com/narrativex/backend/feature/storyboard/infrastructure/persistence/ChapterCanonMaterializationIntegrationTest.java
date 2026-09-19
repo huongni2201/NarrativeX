@@ -1,13 +1,12 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
@@ -82,7 +81,8 @@ class ChapterCanonMaterializationIntegrationTest {
     chapterId = UuidV7.random();
     revisionId = UuidV7.random();
     sourceText = "Once upon a time in a faraway realm, an ancient hero arose to defend the realm.";
-    byte[] digest = MessageDigest.getInstance("SHA-256").digest(sourceText.getBytes(StandardCharsets.UTF_8));
+    byte[] digest =
+        MessageDigest.getInstance("SHA-256").digest(sourceText.getBytes(StandardCharsets.UTF_8));
     sourceHash = HexFormat.of().formatHex(digest);
 
     jdbcTemplate.update(
@@ -115,7 +115,8 @@ class ChapterCanonMaterializationIntegrationTest {
   }
 
   @Test
-  @DisplayName("Full materialization reconciles canon, creates scene/beat character bindings and locations")
+  @DisplayName(
+      "Full materialization reconciles canon, creates scene/beat character bindings and locations")
   void fullCanonMaterializationSucceeds() {
     var materializer =
         new ChapterAnalysisArtifactMaterializerTestAccessor(
@@ -227,25 +228,32 @@ class ChapterCanonMaterializationIntegrationTest {
     materializer.materialize(job, payload.getBytes(StandardCharsets.UTF_8));
 
     // 1. Verify project characters created
-    List<ProjectCharacterBindingRow> charBindings = canonMapper.findProjectCharacterBindings(projectId);
+    List<ProjectCharacterBindingRow> charBindings =
+        canonMapper.findProjectCharacterBindings(projectId);
     assertEquals(2, charBindings.size(), "Should have created 2 project characters");
 
     ProjectCharacterBindingRow elena =
         charBindings.stream()
-            .filter(c -> "char_elena".equals(c.getAiName()) || "Elena Vance".equals(c.getCanonicalName()))
+            .filter(
+                c ->
+                    "char_elena".equals(c.getAiName())
+                        || "Elena Vance".equals(c.getCanonicalName()))
             .findFirst()
             .orElseThrow();
     assertEquals("Elena Vance", elena.getCanonicalName());
 
     ProjectCharacterBindingRow lucas =
         charBindings.stream()
-            .filter(c -> "char_lucas".equals(c.getAiName()) || "Lucas Cole".equals(c.getCanonicalName()))
+            .filter(
+                c ->
+                    "char_lucas".equals(c.getAiName()) || "Lucas Cole".equals(c.getCanonicalName()))
             .findFirst()
             .orElseThrow();
     assertEquals("Lucas Cole", lucas.getCanonicalName());
 
     // 2. Verify project locations created
-    List<ProjectLocationBindingRow> locBindings = canonMapper.findProjectLocationBindings(projectId);
+    List<ProjectLocationBindingRow> locBindings =
+        canonMapper.findProjectLocationBindings(projectId);
     assertEquals(1, locBindings.size(), "Should have created 1 project location");
     assertEquals("Underground Bunker 9", locBindings.get(0).getName());
 
@@ -260,7 +268,8 @@ class ChapterCanonMaterializationIntegrationTest {
     // 4. Verify scene_characters
     List<SceneCharacterRow> sceneChars = canonMapper.findSceneCharacters(scene.getId());
     assertEquals(2, sceneChars.size(), "Scene should link both characters");
-    List<UUID> sceneCharIds = sceneChars.stream().map(SceneCharacterRow::getProjectCharacterId).toList();
+    List<UUID> sceneCharIds =
+        sceneChars.stream().map(SceneCharacterRow::getProjectCharacterId).toList();
     assertTrue(sceneCharIds.contains(elena.getProjectCharacterId()));
     assertTrue(sceneCharIds.contains(lucas.getProjectCharacterId()));
 
@@ -280,12 +289,14 @@ class ChapterCanonMaterializationIntegrationTest {
   }
 
   @Test
-  @DisplayName("Re-reconciliation on locked character preserves locked version and creates new draft version")
+  @DisplayName(
+      "Re-reconciliation on locked character preserves locked version and creates new draft version")
   void lockedCharacterVersionPreservedOnPromptChange() {
     fullCanonMaterializationSucceeds();
 
     // Find Elena's character and version
-    List<ProjectCharacterBindingRow> charBindings = canonMapper.findProjectCharacterBindings(projectId);
+    List<ProjectCharacterBindingRow> charBindings =
+        canonMapper.findProjectCharacterBindings(projectId);
     ProjectCharacterBindingRow elena =
         charBindings.stream()
             .filter(c -> "Elena Vance".equals(c.getCanonicalName()))
@@ -308,33 +319,40 @@ class ChapterCanonMaterializationIntegrationTest {
             "Elena in battle gear",
             "Updated prompt: armored exo-suit with plasma rifle");
 
-    var canon = new com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanon(List.of(charUpdate), List.of());
+    var canon =
+        new com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanon(
+            List.of(charUpdate), List.of());
     canonReconciliationService.reconcileAndPersist(projectId, canon);
 
     // Verify version 1 is still locked
-    String v1Status = jdbcTemplate.queryForObject(
-        "SELECT status FROM character_versions WHERE character_id = ? AND version_number = 1",
-        String.class,
-        elena.getCharacterId());
+    String v1Status =
+        jdbcTemplate.queryForObject(
+            "SELECT status FROM character_versions WHERE character_id = ? AND version_number = 1",
+            String.class,
+            elena.getCharacterId());
     assertEquals("LOCKED", v1Status);
 
     // Verify version 2 exists as DRAFT with new prompt
-    String v2Status = jdbcTemplate.queryForObject(
-        "SELECT status FROM character_versions WHERE character_id = ? AND version_number = 2",
-        String.class,
-        elena.getCharacterId());
+    String v2Status =
+        jdbcTemplate.queryForObject(
+            "SELECT status FROM character_versions WHERE character_id = ? AND version_number = 2",
+            String.class,
+            elena.getCharacterId());
     assertEquals("DRAFT", v2Status);
 
-    String v2Prompt = jdbcTemplate.queryForObject(
-        "SELECT visual_prompt FROM character_versions WHERE character_id = ? AND version_number = 2",
-        String.class,
-        elena.getCharacterId());
+    String v2Prompt =
+        jdbcTemplate.queryForObject(
+            "SELECT visual_prompt FROM character_versions WHERE character_id = ? AND version_number = 2",
+            String.class,
+            elena.getCharacterId());
     assertEquals("Updated prompt: armored exo-suit with plasma rifle", v2Prompt);
   }
 
   /** Package-private wrapper to invoke materializer from test package. */
   static class ChapterAnalysisArtifactMaterializerTestAccessor {
-    private final com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisArtifactMaterializer materializer;
+    private final com.narrativex.backend.feature.generation.infrastructure.dispatch
+            .ChapterAnalysisArtifactMaterializer
+        materializer;
 
     ChapterAnalysisArtifactMaterializerTestAccessor(
         StoryboardMapper storyboardMapper,
@@ -343,7 +361,8 @@ class ChapterCanonMaterializationIntegrationTest {
         ChapterCanonMapper canonMapper,
         ChapterCanonReconciliationService canonReconciliationService) {
       this.materializer =
-          new com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisArtifactMaterializer(
+          new com.narrativex.backend.feature.generation.infrastructure.dispatch
+              .ChapterAnalysisArtifactMaterializer(
               storyboardMapper,
               chapterMapper,
               sourceAnchorResolver,

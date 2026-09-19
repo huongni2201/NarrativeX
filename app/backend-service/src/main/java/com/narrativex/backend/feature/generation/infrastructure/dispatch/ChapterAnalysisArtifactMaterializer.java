@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
-import com.narrativex.backend.feature.generation.application.model.analysis.AnalyzedCharacter;
-import com.narrativex.backend.feature.generation.application.model.analysis.AnalyzedLocation;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanon;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanonParser;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -42,14 +40,16 @@ public final class ChapterAnalysisArtifactMaterializer {
 
   private final StoryboardMapper storyboardMapper;
   private final ChapterMapper chapterMapper;
-  private final com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver sourceAnchorResolver;
+  private final com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
+      sourceAnchorResolver;
   private final ChapterCanonMapper canonMapper;
   private final ChapterCanonReconciliationService canonReconciliationService;
 
   public ChapterAnalysisArtifactMaterializer(
       StoryboardMapper storyboardMapper,
       ChapterMapper chapterMapper,
-      com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver sourceAnchorResolver,
+      com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
+          sourceAnchorResolver,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService) {
     this.storyboardMapper = storyboardMapper;
@@ -62,7 +62,8 @@ public final class ChapterAnalysisArtifactMaterializer {
   public ChapterAnalysisArtifactMaterializer(
       StoryboardMapper storyboardMapper,
       ChapterMapper chapterMapper,
-      com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver sourceAnchorResolver) {
+      com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
+          sourceAnchorResolver) {
     this(storyboardMapper, chapterMapper, sourceAnchorResolver, null, null);
   }
 
@@ -125,7 +126,9 @@ public final class ChapterAnalysisArtifactMaterializer {
     }
 
     // Deterministically resolve all anchors before performing any database writes
-    List<com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver.ResolvedSourceAnchor>
+    List<
+            com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
+                .ResolvedSourceAnchor>
         resolvedAnchors =
             sourceAnchorResolver.resolveAll(
                 job.getSourceText(), job.getSourceHash(), orderedAnchors);
@@ -166,7 +169,10 @@ public final class ChapterAnalysisArtifactMaterializer {
           int charOrder = 0;
           Set<UUID> addedSceneChars = new HashSet<>();
           for (JsonNode charNode : sceneCharacters) {
-            String charRef = charNode.isTextual() ? charNode.asText() : text(charNode, "ai_name", text(charNode, "name", null));
+            String charRef =
+                charNode.isTextual()
+                    ? charNode.asText()
+                    : text(charNode, "ai_name", text(charNode, "name", null));
             if (charRef != null && !charRef.isBlank()) {
               UUID projectCharId = reconciled.findCharacterId(charRef);
               if (projectCharId != null && addedSceneChars.add(projectCharId)) {
@@ -203,7 +209,10 @@ public final class ChapterAnalysisArtifactMaterializer {
           if (beatCharacters != null && beatCharacters.isArray()) {
             Set<UUID> addedBeatChars = new HashSet<>();
             for (JsonNode charNode : beatCharacters) {
-              String charRef = charNode.isTextual() ? charNode.asText() : text(charNode, "ai_name", text(charNode, "name", null));
+              String charRef =
+                  charNode.isTextual()
+                      ? charNode.asText()
+                      : text(charNode, "ai_name", text(charNode, "name", null));
               String role = charNode.isObject() ? text(charNode, "role", "SECONDARY") : "SECONDARY";
               if (charRef != null && !charRef.isBlank()) {
                 UUID projectCharId = reconciled.findCharacterId(charRef);

@@ -3,13 +3,16 @@ package com.narrativex.backend.feature.storyboard.api.controller;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.storyboard.api.request.AttachVisualBeatPreviewMediaRequest;
 import com.narrativex.backend.feature.storyboard.api.request.CreateVisualBeatRequest;
+import com.narrativex.backend.feature.storyboard.api.request.UpdateStoryBeatReviewStatusRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateVisualBeatReviewStatusRequest;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardResponse;
+import com.narrativex.backend.feature.storyboard.api.response.StoryBeatResponse;
 import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
 import com.narrativex.backend.feature.storyboard.application.usecase.AttachVisualBeatPreviewMediaUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateVisualBeatUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterStoryboardUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.UpdateStoryBeatReviewStatusUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateVisualBeatReviewStatusUseCase;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -27,10 +30,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.narrativex.backend.feature.storyboard.api.request.UpdateStoryBeatReviewStatusRequest;
-import com.narrativex.backend.feature.storyboard.api.response.StoryBeatResponse;
-import com.narrativex.backend.feature.storyboard.application.usecase.UpdateStoryBeatReviewStatusUseCase;
 
 @Slf4j
 @RestController
@@ -51,8 +50,9 @@ public class StoryboardController {
   }
 
   @GetMapping("/story")
-  public ResponseEntity<ApiResponse<com.narrativex.backend.feature.storyboard.api.response.ChapterStoryResponse>> getStory(
-      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
+  public ResponseEntity<
+          ApiResponse<com.narrativex.backend.feature.storyboard.api.response.ChapterStoryResponse>>
+      getStory(@PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterStoryUseCase.execute(projectId, chapterId));
   }
 

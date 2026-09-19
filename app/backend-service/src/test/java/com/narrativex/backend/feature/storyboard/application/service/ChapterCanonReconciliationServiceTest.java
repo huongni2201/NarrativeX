@@ -20,7 +20,6 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Chap
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectCharacterBindingRow;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectLocationBindingRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectLocationRow;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -55,7 +54,8 @@ class ChapterCanonReconciliationServiceTest {
 
     when(canonMapper.insertCharacter(any(CharacterRow.class))).thenReturn(charId);
     when(canonMapper.insertCharacterVersion(any(CharacterVersionRow.class))).thenReturn(versionId);
-    when(canonMapper.insertProjectCharacter(any(ProjectCharacterRow.class))).thenReturn(projectCharId);
+    when(canonMapper.insertProjectCharacter(any(ProjectCharacterRow.class)))
+        .thenReturn(projectCharId);
     when(canonMapper.insertProjectLocation(any(ProjectLocationRow.class))).thenReturn(locId);
 
     AnalyzedCharacter character =
@@ -134,7 +134,9 @@ class ChapterCanonReconciliationServiceTest {
     verify(canonMapper, never()).insertCharacter(any());
     verify(canonMapper, never()).insertProjectCharacter(any());
     // AI identity binding should be upserted for the project character
-    verify(canonMapper).upsertProjectCharacterAiIdentity(eq(projectId), eq(existingProjectCharId), eq("char_new"), any());
+    verify(canonMapper)
+        .upsertProjectCharacterAiIdentity(
+            eq(projectId), eq(existingProjectCharId), eq("char_new"), any());
   }
 
   @Test
@@ -169,7 +171,8 @@ class ChapterCanonReconciliationServiceTest {
     ChapterCanon canon = new ChapterCanon(List.of(character), List.of());
     service.reconcileAndPersist(projectId, canon);
 
-    ArgumentCaptor<CharacterVersionRow> versionCaptor = ArgumentCaptor.forClass(CharacterVersionRow.class);
+    ArgumentCaptor<CharacterVersionRow> versionCaptor =
+        ArgumentCaptor.forClass(CharacterVersionRow.class);
     verify(canonMapper).insertCharacterVersion(versionCaptor.capture());
 
     CharacterVersionRow createdVersion = versionCaptor.getValue();
@@ -221,7 +224,8 @@ class ChapterCanonReconciliationServiceTest {
     assertNull(resultNull.findCharacterId("any"));
     assertNull(resultNull.findLocationId("any"));
 
-    var resultEmpty = service.reconcileAndPersist(projectId, new ChapterCanon(List.of(), List.of()));
+    var resultEmpty =
+        service.reconcileAndPersist(projectId, new ChapterCanon(List.of(), List.of()));
     assertNotNull(resultEmpty);
     assertTrue(resultEmpty.characterMap().isEmpty());
     assertTrue(resultEmpty.locationMap().isEmpty());

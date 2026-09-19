@@ -6,8 +6,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Robust, schema-agnostic parser for narrative canon (characters, locations)
- * extracted during chapter analysis.
+ * Robust, schema-agnostic parser for narrative canon (characters, locations) extracted during
+ * chapter analysis.
  */
 public final class ChapterCanonParser {
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
@@ -41,7 +41,8 @@ public final class ChapterCanonParser {
       for (JsonNode c : charArr) {
         String aiName = text(c, "ai_name", text(c, "aiName", null));
         if (aiName == null || aiName.isBlank()) continue;
-        String canonicalName = text(c, "canonical_name", text(c, "canonicalName", text(c, "name", aiName)));
+        String canonicalName =
+            text(c, "canonical_name", text(c, "canonicalName", text(c, "name", aiName)));
         String description = text(c, "description", "");
         String visualPrompt = text(c, "visual_prompt", text(c, "visualPrompt", ""));
         String role = text(c, "role", "SUPPORTING");
@@ -49,7 +50,13 @@ public final class ChapterCanonParser {
         List<String> aliases = parseStringList(c.get("aliases"));
         characters.add(
             new AnalyzedCharacter(
-                aiName.trim(), canonicalName.trim(), aliases, role.trim(), importance.trim(), description.trim(), visualPrompt.trim()));
+                aiName.trim(),
+                canonicalName.trim(),
+                aliases,
+                role.trim(),
+                importance.trim(),
+                description.trim(),
+                visualPrompt.trim()));
       }
     }
 
@@ -64,7 +71,8 @@ public final class ChapterCanonParser {
         String visualPrompt = text(l, "visual_prompt", text(l, "visualPrompt", ""));
         List<String> aliases = parseStringList(l.get("aliases"));
         locations.add(
-            new AnalyzedLocation(aiName.trim(), name.trim(), aliases, description.trim(), visualPrompt.trim()));
+            new AnalyzedLocation(
+                aiName.trim(), name.trim(), aliases, description.trim(), visualPrompt.trim()));
       }
     }
 

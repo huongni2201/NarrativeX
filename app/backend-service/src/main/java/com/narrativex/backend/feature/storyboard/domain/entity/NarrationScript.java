@@ -8,8 +8,8 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * Assembled, coherent chapter narration script derived from ordered AudioCue entries.
- * Serves as the single authoritative input text for production VieNeu TTS synthesis.
+ * Assembled, coherent chapter narration script derived from ordered AudioCue entries. Serves as the
+ * single authoritative input text for production VieNeu TTS synthesis.
  */
 public final class NarrationScript extends DomainEntity {
   private static final Pattern SHA256_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
@@ -57,7 +57,8 @@ public final class NarrationScript extends DomainEntity {
       NarrationScriptStatus status) {
     super(id, rowVersion);
     this.chapterId = Objects.requireNonNull(chapterId, "chapterId must not be null");
-    this.storyboardRevisionId = Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId must not be null");
+    this.storyboardRevisionId =
+        Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId must not be null");
     this.sourceHash = validateHash(sourceHash, "sourceHash");
     if (version < 1) {
       throw new IllegalArgumentException("version must be positive, got " + version);
@@ -139,7 +140,8 @@ public final class NarrationScript extends DomainEntity {
 
   private static String validateHash(String hash, String field) {
     if (hash == null || !SHA256_PATTERN.matcher(hash).matches()) {
-      throw new IllegalArgumentException(field + " must be a 64-character lowercase hex SHA-256 string");
+      throw new IllegalArgumentException(
+          field + " must be a 64-character lowercase hex SHA-256 string");
     }
     return hash;
   }

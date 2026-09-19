@@ -7,9 +7,9 @@ SQLite, HTTP or provider implementations themselves.
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-import shlex
 
 import httpx
 from fastapi import FastAPI

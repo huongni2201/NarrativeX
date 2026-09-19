@@ -27,6 +27,7 @@ test("StoryBeat hierarchy maintains semantic parent contract", () => {
     summary: "Hero leaves the village at dawn.",
     importance: "HIGH",
     reviewStatus: "APPROVED",
+    persistenceState: "PERSISTED",
     audioCues: [
       {
         id: "cue-1",
@@ -65,6 +66,7 @@ test("StoryBeat hierarchy maintains semantic parent contract", () => {
   assert.equal(mockStoryBeat.audioCues[0].storyBeatId, mockStoryBeat.id);
   assert.equal(mockStoryBeat.visualBeats[0].storyBeatId, mockStoryBeat.id);
   assert.equal(mockStoryBeat.timing.durationMs, 3200);
+  assert.equal(mockStoryBeat.persistenceState, "PERSISTED");
 });
 
 test("jobs and health query keys conform to cache namespaces", async () => {
@@ -78,4 +80,43 @@ test("jobs and health query keys conform to cache namespaces", async () => {
 test("story API review status contract requires optimistic concurrency rowVersion", async () => {
   const { storyApi } = await import("../src/renderer/features/story/api/story.api.ts");
   assert.equal(typeof storyApi.updateStoryBeatReviewStatus, "function");
+});
+
+test("synthetic story beats distinguish from persisted beats and preserve legacy visuals", () => {
+  const syntheticBeat = {
+    id: "synth-beat-scene-1",
+    sceneId: "scene-1",
+    orderIndex: 1,
+    title: "Legacy unassigned visuals",
+    purpose: "PLOT",
+    summary: "",
+    importance: "NORMAL",
+    reviewStatus: "NEEDS_REVIEW",
+    persistenceState: "SYNTHETIC",
+    audioCues: [],
+    visualBeats: [
+      {
+        id: "vbeat-legacy-1",
+        sceneId: "scene-1",
+        orderIndex: 0,
+        title: "Legacy visual without beat parent",
+        visualIntent: "Archival painting shot",
+        reviewStatus: "NEEDS_REVIEW",
+        motionMode: "STILL",
+        relativeWeight: 1.0,
+        visualFocus: "SPEAKER",
+        rowVersion: 0,
+      },
+    ],
+    timing: {
+      startMs: null,
+      endMs: null,
+      durationMs: null,
+    },
+    rowVersion: 0,
+  };
+
+  assert.equal(syntheticBeat.persistenceState, "SYNTHETIC");
+  assert.equal(syntheticBeat.visualBeats.length, 1);
+  assert.equal(syntheticBeat.title, "Legacy unassigned visuals");
 });

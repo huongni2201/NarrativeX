@@ -58,6 +58,7 @@ export type {
   DesktopStoryBeatTiming,
   DesktopStoryScene,
   DesktopStoryVisualBeat,
+  StoryBeatPersistenceState,
   StoryBeatReviewStatus,
   UpdateAudioCueInput,
   UpdateStoryBeatInput,

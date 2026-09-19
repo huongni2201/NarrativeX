@@ -5,9 +5,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Coherent dramatic or semantic event within a Scene.
- * Acts as the shared semantic parent for what the audience hears (AudioCue[])
- * and what the audience sees (VisualBeat[]).
+ * Coherent dramatic or semantic event within a Scene. Acts as the shared semantic parent for what
+ * the audience hears (AudioCue[]) and what the audience sees (VisualBeat[]).
  */
 public final class StoryBeat extends DomainEntity {
   private static final int MAX_PURPOSE_LENGTH = 64;
@@ -104,7 +103,11 @@ public final class StoryBeat extends DomainEntity {
     if (sourceStart != null && sourceEnd != null) {
       if (sourceStart < 0 || sourceEnd <= sourceStart) {
         throw new IllegalArgumentException(
-            "sourceStart must be >= 0 and < sourceEnd, got [" + sourceStart + ", " + sourceEnd + "]");
+            "sourceStart must be >= 0 and < sourceEnd, got ["
+                + sourceStart
+                + ", "
+                + sourceEnd
+                + "]");
       }
     }
     this.sourceStart = sourceStart;

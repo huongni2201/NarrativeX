@@ -3,14 +3,9 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow;
@@ -124,7 +119,8 @@ class VisualBeatSourceAnchorPersistenceIntegrationTest {
   void persistsAndRetrievesSourceAnchorFields() throws Exception {
     String sourceText = "Once upon a time in a faraway realm, an ancient hero arose.";
     String anchor = "faraway realm";
-    var resolved = sourceAnchorResolver.resolveAll(sourceText, "a".repeat(64), List.of(anchor)).get(0);
+    var resolved =
+        sourceAnchorResolver.resolveAll(sourceText, "a".repeat(64), List.of(anchor)).get(0);
 
     Instant now = Instant.now();
     VisualBeatRow row = new VisualBeatRow();
@@ -176,10 +172,12 @@ class VisualBeatSourceAnchorPersistenceIntegrationTest {
     row.setMotionMode("STILL");
     row.setTextStart(10);
     row.setTextEnd(5); // textEnd <= textStart violates check constraint!
-    row.setSourceAnchorJson("{\"textStart\":10,\"textEnd\":5,\"sourceHash\":\"" + "a".repeat(64) + "\"}");
+    row.setSourceAnchorJson(
+        "{\"textStart\":10,\"textEnd\":5,\"sourceHash\":\"" + "a".repeat(64) + "\"}");
     row.setCreatedAt(now);
     row.setUpdatedAt(now);
 
-    assertThrows(DataIntegrityViolationException.class, () -> storyboardMapper.insertVisualBeat(row));
+    assertThrows(
+        DataIntegrityViolationException.class, () -> storyboardMapper.insertVisualBeat(row));
   }
 }

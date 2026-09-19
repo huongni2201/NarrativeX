@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,10 +39,7 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
   void setUp() {
     useCase =
         new UpdateStoryBeatReviewStatusUseCase(
-            storyVersionAccess,
-            chapterRepository,
-            storyboardRepository,
-            storyboardRevisionAccess);
+            storyVersionAccess, chapterRepository, storyboardRepository, storyboardRevisionAccess);
   }
 
   @Test
@@ -80,7 +78,7 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
             "{}",
             "APPROVED");
 
-    when(storyboardRepository.updateStoryBeatReviewStatus(storyBeatId, "APPROVED", 1L))
+    when(storyboardRepository.updateStoryBeatReviewStatus(chapterId, storyBeatId, "APPROVED", 1L))
         .thenReturn(updatedBeat);
 
     ApiResponse<StoryBeatResponse> response =
@@ -111,7 +109,7 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 
     when(chapterRepository.findById(chapterId)).thenReturn(Optional.of(chapter));
-    when(storyboardRepository.updateStoryBeatReviewStatus(storyBeatId, "APPROVED", 1L))
+    when(storyboardRepository.updateStoryBeatReviewStatus(chapterId, storyBeatId, "APPROVED", 1L))
         .thenThrow(new OptimisticLockingFailureException("concurrent edit"));
 
     assertThrows(
@@ -126,6 +124,59 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
     UUID storyBeatId = UUID.randomUUID();
 
     when(chapterRepository.findById(chapterId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResourceNotFoundException.class,
+        () -> useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED"));
+  }
+
+  @Test
+  void throwsNotFoundWhenBeatNotInChapterOrNotFound() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID storyBeatId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+
+    Chapter chapter =
+        Chapter.rehydrate(
+            chapterId,
+            1L,
+            storyVersionId,
+            1,
+            "Chapter 1",
+            "Content",
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+    when(chapterRepository.findById(chapterId)).thenReturn(Optional.of(chapter));
+    when(storyboardRepository.updateStoryBeatReviewStatus(chapterId, storyBeatId, "APPROVED", 1L))
+        .thenThrow(new ResourceNotFoundException("Story beat not found"));
+
+    assertThrows(
+        ResourceNotFoundException.class,
+        () -> useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED"));
+  }
+
+  @Test
+  void throwsNotFoundWhenStoryVersionDoesNotBelongToProject() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID storyBeatId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+
+    Chapter chapter =
+        Chapter.rehydrate(
+            chapterId,
+            1L,
+            storyVersionId,
+            1,
+            "Chapter 1",
+            "Content",
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+    when(chapterRepository.findById(chapterId)).thenReturn(Optional.of(chapter));
+    doThrow(new ResourceNotFoundException("Story version not found"))
+        .when(storyVersionAccess)
+        .requireStoryVersion(projectId, storyVersionId);
 
     assertThrows(
         ResourceNotFoundException.class,

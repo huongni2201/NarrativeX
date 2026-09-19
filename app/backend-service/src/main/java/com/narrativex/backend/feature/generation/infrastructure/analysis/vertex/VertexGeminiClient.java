@@ -265,9 +265,7 @@ public class VertexGeminiClient {
         "required",
         List.of("canon", "scenes"),
         "properties",
-        Map.of(
-            "canon", canonSchema,
-            "scenes", Map.of("type", "ARRAY", "items", sceneSchema)));
+        Map.of("canon", canonSchema, "scenes", Map.of("type", "ARRAY", "items", sceneSchema)));
   }
 
   private GeneratedAnalysisResponse parseSuccessfulResponse(String responseBody, long runtimeMs) {

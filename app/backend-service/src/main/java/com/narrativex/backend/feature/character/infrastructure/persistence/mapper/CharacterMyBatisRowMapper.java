@@ -85,7 +85,8 @@ public class CharacterMyBatisRowMapper {
     } else if (row.getImportance() != null) {
       try {
         importance = Integer.parseInt(row.getImportance());
-      } catch (NumberFormatException ignored) {}
+      } catch (NumberFormatException ignored) {
+      }
     }
     return ProjectCharacter.rehydrate(
         row.getId(),
@@ -171,7 +172,9 @@ public class CharacterMyBatisRowMapper {
     row.setCharacterId(value.getCharacterId());
     row.setRole(value.getRole());
     String importance =
-        value.getImportance() == 0 ? "PRIMARY" : value.getImportance() == 1 ? "SECONDARY" : "BACKGROUND";
+        value.getImportance() == 0
+            ? "PRIMARY"
+            : value.getImportance() == 1 ? "SECONDARY" : "BACKGROUND";
     row.setImportance(importance);
     row.setProjectAliasesJson(write(value.getProjectAliases()));
     row.setStoryMetadata(value.getStoryMetadata());

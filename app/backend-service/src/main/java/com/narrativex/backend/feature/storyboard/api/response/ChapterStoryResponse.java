@@ -43,7 +43,8 @@ public record ChapterStoryResponse(
       List<AudioCueItem> audioCues,
       List<VisualBeatItem> visualBeats,
       BeatTiming timing,
-      long rowVersion) {}
+      long rowVersion,
+      String persistenceState) {}
 
   public record AudioCueItem(
       UUID id,

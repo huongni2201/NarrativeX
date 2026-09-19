@@ -38,11 +38,7 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
     List<SceneRow> scenes = storyboardMapper.findCurrentScenes(chapterId);
     if (scenes.isEmpty()) {
       return new ChapterStoryResponse(
-          chapter.getId(),
-          chapter.getTitle(),
-          chapter.getOrderIndex(),
-          null,
-          List.of());
+          chapter.getId(), chapter.getTitle(), chapter.getOrderIndex(), null, List.of());
     }
 
     List<UUID> sceneIds = scenes.stream().map(SceneRow::getId).toList();
@@ -69,7 +65,8 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
 
     // Resolve prompts
     List<VisualBeat> domainVisualBeats = storyboardRepository.findVisualBeatsBySceneIds(sceneIds);
-    Map<UUID, String> promptsByBeat = visualBeatPromptProvider.promptsFor(projectId, domainVisualBeats);
+    Map<UUID, String> promptsByBeat =
+        visualBeatPromptProvider.promptsFor(projectId, domainVisualBeats);
 
     List<ChapterStoryResponse.StorySceneItem> sceneItems = new ArrayList<>();
 
@@ -125,7 +122,9 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
                             v.getVisualDirectionJson(),
                             v.getReviewStatus(),
                             v.getMotionMode(),
-                            v.getRelativeWeight() != null ? v.getRelativeWeight().doubleValue() : 1.0,
+                            v.getRelativeWeight() != null
+                                ? v.getRelativeWeight().doubleValue()
+                                : 1.0,
                             v.getVisualFocus() != null ? v.getVisualFocus() : "SPEAKER",
                             v.getAspectRatioOverride(),
                             v.getTextStart(),
@@ -148,20 +147,27 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
         Long beatEndMs = null;
         for (AudioCueRow cue : cues) {
           if (cue.getAudioStartMs() != null) {
-            beatStartMs = beatStartMs == null ? cue.getAudioStartMs() : Math.min(beatStartMs, cue.getAudioStartMs());
+            beatStartMs =
+                beatStartMs == null
+                    ? cue.getAudioStartMs()
+                    : Math.min(beatStartMs, cue.getAudioStartMs());
           }
           if (cue.getAudioEndMs() != null) {
-            beatEndMs = beatEndMs == null ? cue.getAudioEndMs() : Math.max(beatEndMs, cue.getAudioEndMs());
+            beatEndMs =
+                beatEndMs == null ? cue.getAudioEndMs() : Math.max(beatEndMs, cue.getAudioEndMs());
           }
         }
-        Long durationMs = (beatStartMs != null && beatEndMs != null) ? (beatEndMs - beatStartMs) : null;
+        Long durationMs =
+            (beatStartMs != null && beatEndMs != null) ? (beatEndMs - beatStartMs) : null;
 
         beatItems.add(
             new ChapterStoryResponse.StoryBeatItem(
                 beat.getId(),
                 beat.getSceneId(),
                 beat.getOrderIndex(),
-                beat.getPurpose() != null ? beat.getPurpose() : "Beat " + (beat.getOrderIndex() + 1),
+                beat.getPurpose() != null
+                    ? beat.getPurpose()
+                    : "Beat " + (beat.getOrderIndex() + 1),
                 beat.getPurpose(),
                 beat.getSummary(),
                 beat.getImportance(),
@@ -174,11 +180,12 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
                 cueItems,
                 visualItems,
                 new ChapterStoryResponse.BeatTiming(beatStartMs, beatEndMs, durationMs),
-                beat.getRowVersion()));
+                beat.getRowVersion(),
+                "PERSISTED"));
       }
 
-      // If there are unassigned visual beats from legacy data, synthesize a default beat container
-      if (!sceneUnassignedVisuals.isEmpty() && beatItems.isEmpty()) {
+      // If there are unassigned visual beats from legacy data, synthesize a beat container
+      if (!sceneUnassignedVisuals.isEmpty()) {
         List<ChapterStoryResponse.VisualBeatItem> visualItems =
             sceneUnassignedVisuals.stream()
                 .map(
@@ -195,7 +202,9 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
                             v.getVisualDirectionJson(),
                             v.getReviewStatus(),
                             v.getMotionMode(),
-                            v.getRelativeWeight() != null ? v.getRelativeWeight().doubleValue() : 1.0,
+                            v.getRelativeWeight() != null
+                                ? v.getRelativeWeight().doubleValue()
+                                : 1.0,
                             v.getVisualFocus() != null ? v.getVisualFocus() : "SPEAKER",
                             v.getAspectRatioOverride(),
                             v.getTextStart(),
@@ -213,12 +222,22 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
           }
         }
 
+        int nextOrderIndex =
+            beatItems.isEmpty()
+                ? 0
+                : (beatItems.stream()
+                        .mapToInt(ChapterStoryResponse.StoryBeatItem::orderIndex)
+                        .max()
+                        .orElse(-1)
+                    + 1);
+        String synthTitle = beatItems.isEmpty() ? scene.getTitle() : "Legacy unassigned visuals";
+
         beatItems.add(
             new ChapterStoryResponse.StoryBeatItem(
                 UUID.nameUUIDFromBytes(("synth-beat-" + scene.getId()).getBytes()),
                 scene.getId(),
-                0,
-                scene.getTitle(),
+                nextOrderIndex,
+                synthTitle,
                 "PLOT",
                 "",
                 "NORMAL",
@@ -231,7 +250,8 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
                 List.of(),
                 visualItems,
                 new ChapterStoryResponse.BeatTiming(null, null, null),
-                0L));
+                0L,
+                "SYNTHETIC"));
       }
 
       sceneItems.add(
@@ -253,10 +273,6 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
     }
 
     return new ChapterStoryResponse(
-        chapter.getId(),
-        chapter.getTitle(),
-        chapter.getOrderIndex(),
-        null,
-        sceneItems);
+        chapter.getId(), chapter.getTitle(), chapter.getOrderIndex(), null, sceneItems);
   }
 }

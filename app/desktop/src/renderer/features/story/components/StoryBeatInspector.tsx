@@ -35,6 +35,7 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus, isUpdatingStatu
   }
 
   const isApproved = beat.reviewStatus === "APPROVED";
+  const isSynthetic = beat.persistenceState === "SYNTHETIC";
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-surface-dark border-l border-border-subtle">
@@ -50,16 +51,33 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus, isUpdatingStatu
 
           {/* Quick Review Status Actions */}
           <div className="flex items-center gap-1.5">
+            {isSynthetic && (
+              <span
+                className="rounded bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-text-muted border border-border-subtle"
+                title="Beat này được tạo tạm từ dữ liệu legacy và chưa có entity StoryBeat trong database."
+              >
+                Legacy / Read-only
+              </span>
+            )}
             <button
               type="button"
-              disabled={isUpdatingStatus}
-              onClick={() => onUpdateReviewStatus?.(isApproved ? "NEEDS_REVIEW" : "APPROVED")}
+              disabled={isUpdatingStatus || isSynthetic}
+              onClick={() => {
+                if (isSynthetic) return;
+                onUpdateReviewStatus?.(isApproved ? "NEEDS_REVIEW" : "APPROVED");
+              }}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all focus-visible:ring-1 focus-visible:ring-primary ${
                 isApproved
                   ? "bg-success text-white shadow-sm hover:brightness-110"
                   : "bg-surface-3 text-text-secondary hover:text-foreground hover:bg-surface-2 border border-border-subtle"
               } disabled:opacity-50`}
-              title={isApproved ? "Bấm để đổi thành Cần duyệt" : "Bấm để đánh dấu Đã duyệt"}
+              title={
+                isSynthetic
+                  ? "Beat này được tạo tạm từ dữ liệu legacy và chưa có entity StoryBeat trong database."
+                  : isApproved
+                  ? "Bấm để đổi thành Cần duyệt"
+                  : "Bấm để đánh dấu Đã duyệt"
+              }
             >
               <CheckCircle2 size={12} />
               <span>{isApproved ? "Đã duyệt" : "Duyệt Beat"}</span>

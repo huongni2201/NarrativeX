@@ -10,7 +10,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
@@ -202,9 +201,11 @@ class ComputeExecutionDispatcherTest {
     assertNotNull(persistedBeat.getSourceAnchorJson());
     assertTrue(persistedBeat.getSourceAnchorJson().contains("\"textStart\":0"));
     assertTrue(persistedBeat.getSourceAnchorJson().contains("\"textEnd\":20"));
-    assertTrue(persistedBeat.getSourceAnchorJson().contains("\"sourceHash\":\"" + sourceHash + "\""));
+    assertTrue(
+        persistedBeat.getSourceAnchorJson().contains("\"sourceHash\":\"" + sourceHash + "\""));
 
-    ArgumentCaptor<ChapterAnalysisRun> runCaptor = ArgumentCaptor.forClass(ChapterAnalysisRun.class);
+    ArgumentCaptor<ChapterAnalysisRun> runCaptor =
+        ArgumentCaptor.forClass(ChapterAnalysisRun.class);
     verify(analysisRunRepository).recordRun(runCaptor.capture());
     ChapterAnalysisRun recordedRun = runCaptor.getValue();
     assertEquals(chapterId, recordedRun.chapterId());

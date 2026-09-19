@@ -29,13 +29,12 @@ import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeClientException;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeObservationReconciler;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardRevisionRow;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;

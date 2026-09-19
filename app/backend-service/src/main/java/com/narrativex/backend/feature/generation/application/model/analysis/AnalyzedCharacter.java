@@ -9,8 +9,7 @@ public record AnalyzedCharacter(
     String role,
     String importance,
     String description,
-    String visualPrompt
-) {
+    String visualPrompt) {
   public AnalyzedCharacter {
     if (aliases == null) {
       aliases = List.of();

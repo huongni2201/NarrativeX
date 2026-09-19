@@ -25,7 +25,11 @@ class CanonHashCalculatorTest {
                     "hero prompt")),
             List.of(
                 new AnalyzedLocation(
-                    "citadel", "The Citadel", List.of("High Castle"), "A fortress", "castle prompt")));
+                    "citadel",
+                    "The Citadel",
+                    List.of("High Castle"),
+                    "A fortress",
+                    "castle prompt")));
 
     ChapterCanon canon2 =
         new ChapterCanon(
@@ -40,7 +44,11 @@ class CanonHashCalculatorTest {
                     "hero prompt")),
             List.of(
                 new AnalyzedLocation(
-                    "citadel", "The Citadel", List.of("High Castle"), "A fortress", "castle prompt")));
+                    "citadel",
+                    "The Citadel",
+                    List.of("High Castle"),
+                    "A fortress",
+                    "castle prompt")));
 
     String hash1 = CanonHashCalculator.computeCanonHash(canon1);
     String hash2 = CanonHashCalculator.computeCanonHash(canon2);
@@ -90,7 +98,8 @@ class CanonHashCalculatorTest {
         }
         """;
 
-    // Different array order (alice first, then bob), different key order in objects, different alias order
+    // Different array order (alice first, then bob), different key order in objects, different
+    // alias order
     String jsonB =
         """
         {
@@ -131,7 +140,8 @@ class CanonHashCalculatorTest {
     String hashA = CanonHashCalculator.computeCanonHash(jsonA);
     String hashB = CanonHashCalculator.computeCanonHash(jsonB);
 
-    assertEquals(hashA, hashB, "Hash must be invariant to JSON field order and character array order");
+    assertEquals(
+        hashA, hashB, "Hash must be invariant to JSON field order and character array order");
   }
 
   @Test
@@ -165,7 +175,8 @@ class CanonHashCalculatorTest {
     String hashBase = CanonHashCalculator.computeCanonHash(baseCanon);
     String hashModified = CanonHashCalculator.computeCanonHash(modifiedCanon);
 
-    assertNotEquals(hashBase, hashModified, "Changing canon data must produce a different canonHash");
+    assertNotEquals(
+        hashBase, hashModified, "Changing canon data must produce a different canonHash");
   }
 
   @Test
@@ -203,7 +214,8 @@ class CanonHashCalculatorTest {
     String hash1 = CanonHashCalculator.computeCanonHash(jsonWithScene1);
     String hash2 = CanonHashCalculator.computeCanonHash(jsonWithScene2);
 
-    assertEquals(hash1, hash2, "Canon hash must be strictly invariant to scene prose/title differences");
+    assertEquals(
+        hash1, hash2, "Canon hash must be strictly invariant to scene prose/title differences");
   }
 
   @Test

@@ -5,28 +5,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Outbound port for recording and querying durable chapter analysis telemetry and provenance.
- */
+/** Outbound port for recording and querying durable chapter analysis telemetry and provenance. */
 public interface ChapterAnalysisRunRepository {
 
-  /**
-   * Persists a completed chapter analysis run record.
-   */
+  /** Persists a completed chapter analysis run record. */
   ChapterAnalysisRun recordRun(ChapterAnalysisRun run);
 
-  /**
-   * Finds the latest analysis run for a chapter.
-   */
+  /** Finds the latest analysis run for a chapter. */
   Optional<ChapterAnalysisRun> findLatestByChapterId(UUID chapterId);
 
-  /**
-   * Finds all analysis runs for a chapter ordered by createdAt DESC.
-   */
+  /** Finds all analysis runs for a chapter ordered by createdAt DESC. */
   List<ChapterAnalysisRun> findByChapterId(UUID chapterId);
 
-  /**
-   * Finds the analysis run associated with a specific generation job.
-   */
+  /** Finds the analysis run associated with a specific generation job. */
   Optional<ChapterAnalysisRun> findByJobId(UUID generationJobId);
 }

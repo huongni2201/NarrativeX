@@ -7,8 +7,7 @@ public record AnalyzedScene(
     String narration,
     String locationAiName,
     List<String> characterAiNames,
-    List<AnalyzedVisualBeat> visualBeats
-) {
+    List<AnalyzedVisualBeat> visualBeats) {
   public AnalyzedScene {
     if (characterAiNames == null) {
       characterAiNames = List.of();

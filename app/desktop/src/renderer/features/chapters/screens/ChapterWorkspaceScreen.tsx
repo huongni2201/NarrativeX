@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   FileText,
   Compass,
@@ -44,7 +44,7 @@ export function ChapterWorkspaceScreen({
     chapters[0]?.id ?? null
   );
   const [currentStage, setCurrentStage] = useState<ChapterStage>(initialStage);
-  const [selectedBeat, setSelectedBeat] = useState<DesktopStoryBeat | null>(null);
+  const [selectedBeatId, setSelectedBeatId] = useState<string | null>(null);
 
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);
@@ -59,25 +59,17 @@ export function ChapterWorkspaceScreen({
 
   const activeChapter = chapters.find((c) => c.id === selectedChapterId) ?? null;
 
-  // Auto-select first beat if available and none selected
-  useEffect(() => {
-    if (story && story.scenes.length > 0) {
-      if (!selectedBeat) {
-        const firstBeat = story.scenes[0].storyBeats[0];
-        if (firstBeat) {
-          setSelectedBeat(firstBeat);
-        }
-      } else {
-        const refreshed = story.scenes.flatMap((s) => s.storyBeats).find((b) => b.id === selectedBeat.id);
-        if (refreshed && refreshed.rowVersion !== selectedBeat.rowVersion) {
-          setSelectedBeat(refreshed);
-        }
-      }
-    }
-  }, [story, selectedBeat]);
+  // Derive selected beat from server query state as single source of truth
+  const selectedBeat = useMemo(() => {
+    if (!story || !story.scenes) return null;
+    const allBeats = story.scenes.flatMap((s) => s.storyBeats);
+    if (allBeats.length === 0) return null;
+    if (!selectedBeatId) return allBeats[0];
+    return allBeats.find((b) => b.id === selectedBeatId) ?? allBeats[0];
+  }, [story, selectedBeatId]);
 
   const handleSelectBeat = (beat: DesktopStoryBeat) => {
-    setSelectedBeat(beat);
+    setSelectedBeatId(beat.id);
     if (currentStage !== "story" && currentStage !== "production") {
       setCurrentStage("story");
     }
@@ -85,13 +77,14 @@ export function ChapterWorkspaceScreen({
 
   const handleUpdateReviewStatus = async (newStatus: StoryBeatReviewStatus) => {
     if (!selectedBeat || !selectedChapterId) return;
-    setSelectedBeat((prev) => (prev ? { ...prev, reviewStatus: newStatus } : null));
+    if (selectedBeat.persistenceState === "SYNTHETIC") return;
     try {
       await updateBeatStatus.mutateAsync({
         storyBeatId: selectedBeat.id,
         status: newStatus,
         rowVersion: selectedBeat.rowVersion,
       });
+      await refetchStory();
     } catch {
       void refetchStory();
     }
@@ -143,7 +136,7 @@ export function ChapterWorkspaceScreen({
         selectedBeatId={selectedBeat?.id ?? null}
         onSelectChapter={(id) => {
           setSelectedChapterId(id);
-          setSelectedBeat(null);
+          setSelectedBeatId(null);
         }}
         onSelectBeat={(beatId) => {
           const beat = story?.scenes.flatMap((s) => s.storyBeats).find((b) => b.id === beatId);

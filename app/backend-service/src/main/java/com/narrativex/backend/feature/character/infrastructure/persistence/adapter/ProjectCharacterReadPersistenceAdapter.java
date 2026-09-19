@@ -97,7 +97,9 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
         parseStringList(row.getAliasesJson()),
         parseStringList(row.getProjectAliasesJson()),
         row.getRole(),
-        "PRIMARY".equalsIgnoreCase(row.getImportance()) ? 0 : "SECONDARY".equalsIgnoreCase(row.getImportance()) ? 1 : 2,
+        "PRIMARY".equalsIgnoreCase(row.getImportance())
+            ? 0
+            : "SECONDARY".equalsIgnoreCase(row.getImportance()) ? 1 : 2,
         parseStringList(row.getGroupsJson()),
         row.getPinnedCharacterVersionId(),
         row.getStatus(),

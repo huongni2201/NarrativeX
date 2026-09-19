@@ -52,6 +52,8 @@ export interface DesktopStoryBeatTiming {
   durationMs: number | null;
 }
 
+export type StoryBeatPersistenceState = "PERSISTED" | "SYNTHETIC";
+
 export interface DesktopStoryBeat {
   id: string;
   sceneId: string;
@@ -70,6 +72,7 @@ export interface DesktopStoryBeat {
   visualBeats: DesktopStoryVisualBeat[];
   timing: DesktopStoryBeatTiming;
   rowVersion: number;
+  persistenceState?: StoryBeatPersistenceState;
   createdAt?: string;
   updatedAt?: string;
 }

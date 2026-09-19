@@ -142,12 +142,20 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
   }
 
   @Override
-  public StoryBeat updateStoryBeatReviewStatus(UUID storyBeatId, String status, long expectedRowVersion) {
-    StoryBeatRow existing = mapper.findStoryBeat(storyBeatId);
+  public Optional<StoryBeat> findStoryBeatByIdAndChapterId(UUID id, UUID chapterId) {
+    return Optional.ofNullable(mapper.findCurrentStoryBeatByChapter(id, chapterId))
+        .map(MyBatisStoryboardPersistenceAdapter::toDomain);
+  }
+
+  @Override
+  public StoryBeat updateStoryBeatReviewStatus(
+      UUID chapterId, UUID storyBeatId, String status, long expectedRowVersion) {
+    StoryBeatRow existing = mapper.findCurrentStoryBeatByChapter(storyBeatId, chapterId);
     if (existing == null) throw new ResourceNotFoundException("Story beat not found");
     OptimisticConcurrency.requireVersion(
         expectedRowVersion, existing.getRowVersion(), StoryBeat.class, storyBeatId);
-    if (mapper.updateStoryBeatReviewStatus(storyBeatId, status, expectedRowVersion) != 1) {
+    if (mapper.updateStoryBeatReviewStatus(chapterId, storyBeatId, status, expectedRowVersion)
+        != 1) {
       throw new org.springframework.dao.OptimisticLockingFailureException(
           "Story beat was modified concurrently");
     }

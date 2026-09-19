@@ -27,11 +27,7 @@ public class UpdateStoryBeatReviewStatusUseCase {
 
   @Transactional
   public ApiResponse<StoryBeatResponse> execute(
-      UUID projectId,
-      UUID chapterId,
-      UUID storyBeatId,
-      long expectedRowVersion,
-      String status) {
+      UUID projectId, UUID chapterId, UUID storyBeatId, long expectedRowVersion, String status) {
     storyboardRevisionAccess.lockChapter(chapterId);
 
     var chapter =
@@ -43,7 +39,7 @@ public class UpdateStoryBeatReviewStatusUseCase {
     try {
       StoryBeat updated =
           storyboardRepository.updateStoryBeatReviewStatus(
-              storyBeatId, status, expectedRowVersion);
+              chapterId, storyBeatId, status, expectedRowVersion);
 
       log.info(
           "Updated story beat id={} review status to '{}' (rowVersion={}) in chapterId={}, projectId={}",

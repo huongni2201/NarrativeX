@@ -141,6 +141,17 @@
     WHERE id = #{id}
   </select>
 
+  <select id="findCurrentStoryBeatByChapter" resultMap="storyBeat">
+    SELECT sb.id, sb.row_version, sb.created_at, sb.updated_at, sb.scene_id, sb.order_index, sb.source_start, sb.source_end, sb.source_anchor_json::text AS source_anchor_json, sb.purpose, sb.summary, sb.importance, sb.story_functions_json::text AS story_functions_json, sb.continuity_state_json::text AS continuity_state_json, sb.review_status
+    FROM story_beats sb
+    JOIN scenes s ON s.id = sb.scene_id
+    JOIN chapters c ON c.id = s.chapter_id
+    WHERE sb.id = #{id}
+      AND c.id = #{chapterId}
+      AND c.deleted_at IS NULL
+      AND s.storyboard_revision_id = c.current_storyboard_revision_id
+  </select>
+
   <select id="insertStoryBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow" resultType="java.util.UUID" affectData="true">
     INSERT INTO story_beats (row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json, purpose, summary, importance, story_functions_json, continuity_state_json, review_status)
     VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{orderIndex}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{purpose}, #{summary}, #{importance}, COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb), COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb), COALESCE(#{reviewStatus}, 'NEEDS_REVIEW'))
@@ -168,8 +179,15 @@
     UPDATE story_beats
     SET review_status = #{reviewStatus},
         updated_at = CURRENT_TIMESTAMP,
-        row_version = row_version + 1
-    WHERE id = #{id} AND row_version = #{expectedRowVersion}
+        row_version = story_beats.row_version + 1
+    FROM scenes s
+    JOIN chapters c ON c.id = s.chapter_id
+    WHERE story_beats.id = #{id}
+      AND story_beats.scene_id = s.id
+      AND c.id = #{chapterId}
+      AND c.deleted_at IS NULL
+      AND s.storyboard_revision_id = c.current_storyboard_revision_id
+      AND story_beats.row_version = #{expectedRowVersion}
   </update>
 
   <!-- AudioCue -->

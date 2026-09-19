@@ -96,7 +96,8 @@ class ChapterAnalysisTelemetryPersistenceIntegrationTest {
   @DisplayName("Persist analysis telemetry and retrieve by chapter, job, and list")
   void recordsAndQueriesAnalysisTelemetrySuccessfully() {
     UUID runId = UuidV7.random();
-    String canonHash = CanonHashCalculator.computeCanonHash("{\"canon\":{\"characters\":[],\"locations\":[]}}");
+    String canonHash =
+        CanonHashCalculator.computeCanonHash("{\"canon\":{\"characters\":[],\"locations\":[]}}");
 
     ChapterAnalysisRun run =
         new ChapterAnalysisRun(
@@ -171,7 +172,6 @@ class ChapterAnalysisTelemetryPersistenceIntegrationTest {
             Instant.now());
 
     assertThrows(
-        DataIntegrityViolationException.class,
-        () -> analysisRunRepository.recordRun(invalidRun));
+        DataIntegrityViolationException.class, () -> analysisRunRepository.recordRun(invalidRun));
   }
 }

@@ -5,8 +5,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Durable telemetry and provenance record for a completed chapter analysis run.
- * Follows ADR-0022.
+ * Durable telemetry and provenance record for a completed chapter analysis run. Follows ADR-0022.
  */
 public record ChapterAnalysisRun(
     UUID id,

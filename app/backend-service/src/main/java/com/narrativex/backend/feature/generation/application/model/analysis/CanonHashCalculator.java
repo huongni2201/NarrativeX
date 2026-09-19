@@ -14,10 +14,10 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Computes deterministic SHA-256 canon hashes for chapter continuity according to ADR-0022.
- * Canon is canonicalized by sorting characters and locations by ai_name, sorting alias arrays,
- * and serializing with alphabetical key ordering, ensuring invariance to JSON field ordering
- * or raw scene prose differences.
+ * Computes deterministic SHA-256 canon hashes for chapter continuity according to ADR-0022. Canon
+ * is canonicalized by sorting characters and locations by ai_name, sorting alias arrays, and
+ * serializing with alphabetical key ordering, ensuring invariance to JSON field ordering or raw
+ * scene prose differences.
  */
 public final class CanonHashCalculator {
   private static final JsonMapper MAPPER = JsonMapper.builder().build();

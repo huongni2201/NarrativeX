@@ -29,11 +29,15 @@ public interface StoryboardMapper extends NarrativeXMyBatisMapper {
 
   StoryBeatRow findStoryBeat(@Param("id") UUID id);
 
+  StoryBeatRow findCurrentStoryBeatByChapter(
+      @Param("id") UUID id, @Param("chapterId") UUID chapterId);
+
   UUID insertStoryBeat(StoryBeatRow row);
 
   int updateStoryBeat(StoryBeatRow row);
 
   int updateStoryBeatReviewStatus(
+      @Param("chapterId") UUID chapterId,
       @Param("id") UUID id,
       @Param("reviewStatus") String reviewStatus,
       @Param("expectedRowVersion") long expectedRowVersion);

@@ -12,15 +12,13 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Deterministically resolves ordered VisualBeat source_anchor strings to UTF-16 text ranges.
  *
- * Follows strict ADR-0015 and compute protocol rules:
- * 1. Exact verbatim source substrings.
- * 2. Strict beat-order resolution.
- * 3. Repeated text advances monotonically without re-consuming earlier occurrences.
- * 4. Prefer the next occurrence at or after previous beat end.
- * 5. Fails closed (throws IllegalArgumentException) if any anchor cannot be deterministically resolved.
- * 6. Offsets match Java/JS UTF-16 code unit semantics.
- * 7. Validates 0 <= textStart < textEnd <= normalizedSource.length().
- * 8. Serializes deterministic sourceAnchorJson containing textStart, textEnd, and sourceHash.
+ * <p>Follows strict ADR-0015 and compute protocol rules: 1. Exact verbatim source substrings. 2.
+ * Strict beat-order resolution. 3. Repeated text advances monotonically without re-consuming
+ * earlier occurrences. 4. Prefer the next occurrence at or after previous beat end. 5. Fails closed
+ * (throws IllegalArgumentException) if any anchor cannot be deterministically resolved. 6. Offsets
+ * match Java/JS UTF-16 code unit semantics. 7. Validates 0 <= textStart < textEnd <=
+ * normalizedSource.length(). 8. Serializes deterministic sourceAnchorJson containing textStart,
+ * textEnd, and sourceHash.
  */
 @Component
 public class SourceAnchorResolver {

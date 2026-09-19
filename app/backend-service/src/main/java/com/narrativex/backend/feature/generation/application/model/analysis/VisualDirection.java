@@ -12,5 +12,4 @@ public record VisualDirection(
     String palette,
     String cameraMovement,
     String movementIntensity,
-    String cropSafeArea
-) {}
+    String cropSafeArea) {}
