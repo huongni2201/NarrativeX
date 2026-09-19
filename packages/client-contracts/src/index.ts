@@ -61,5 +61,9 @@ export type {
   StoryBeatReviewStatus,
   UpdateAudioCueInput,
   UpdateStoryBeatInput,
+  UpdateStoryBeatReviewStatusInput,
+  DesktopJobHistoryItem,
+  DesktopJobHistoryPage,
+  DesktopProviderHealth,
 } from "./story";
 

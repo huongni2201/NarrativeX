@@ -1,13 +1,19 @@
 import { Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useJobHistoryQuery } from "../../jobs/queries/jobs.queries";
 
 export interface JobStatusIndicatorProps {
   projectId: string;
   activeCount?: number;
 }
 
-export function JobStatusIndicator({ projectId, activeCount = 0 }: JobStatusIndicatorProps) {
+export function JobStatusIndicator({ projectId, activeCount: propActiveCount }: JobStatusIndicatorProps) {
   const navigate = useNavigate();
+  const { data: page } = useJobHistoryQuery(20);
+
+  const activeCount = propActiveCount ?? (
+    page?.content?.filter((j) => j.status === "RUNNING" || j.status === "QUEUED").length ?? 0
+  );
 
   return (
     <button

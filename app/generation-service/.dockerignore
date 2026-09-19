@@ -1,0 +1,17 @@
+.venv
+venv
+env
+ENV
+__pycache__
+*.py[cod]
+*$py.class
+.pytest_cache
+.pytest-tmp*
+.mypy_cache
+.ruff_cache
+tests
+.git
+.idea
+.vscode
+*.log
+.env

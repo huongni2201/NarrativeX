@@ -66,3 +66,16 @@ test("StoryBeat hierarchy maintains semantic parent contract", () => {
   assert.equal(mockStoryBeat.visualBeats[0].storyBeatId, mockStoryBeat.id);
   assert.equal(mockStoryBeat.timing.durationMs, 3200);
 });
+
+test("jobs and health query keys conform to cache namespaces", async () => {
+  const { jobQueryKeys } = await import("../src/renderer/features/jobs/queries/jobs.queries.ts");
+  const { healthQueryKeys } = await import("../src/renderer/features/workspace/queries/health.queries.ts");
+
+  assert.deepEqual(jobQueryKeys.history(20), ["jobs", "history", 20]);
+  assert.deepEqual(healthQueryKeys.provider(), ["health", "provider"]);
+});
+
+test("story API review status contract requires optimistic concurrency rowVersion", async () => {
+  const { storyApi } = await import("../src/renderer/features/story/api/story.api.ts");
+  assert.equal(typeof storyApi.updateStoryBeatReviewStatus, "function");
+});

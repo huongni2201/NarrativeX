@@ -34,6 +34,7 @@
     <result property="importance" column="importance"/>
     <result property="storyFunctionsJson" column="story_functions_json"/>
     <result property="continuityStateJson" column="continuity_state_json"/>
+    <result property="reviewStatus" column="review_status"/>
   </resultMap>
 
   <resultMap id="audioCue" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow">
@@ -128,21 +129,21 @@
 
   <!-- StoryBeat -->
   <select id="findStoryBeats" resultMap="storyBeat">
-    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json
+    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json, review_status
     FROM story_beats
     WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach>
     ORDER BY scene_id, order_index, id
   </select>
 
   <select id="findStoryBeat" resultMap="storyBeat">
-    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json
+    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json, review_status
     FROM story_beats
     WHERE id = #{id}
   </select>
 
   <select id="insertStoryBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow" resultType="java.util.UUID" affectData="true">
-    INSERT INTO story_beats (row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json, purpose, summary, importance, story_functions_json, continuity_state_json)
-    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{orderIndex}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{purpose}, #{summary}, #{importance}, COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb), COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb))
+    INSERT INTO story_beats (row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json, purpose, summary, importance, story_functions_json, continuity_state_json, review_status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{orderIndex}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{purpose}, #{summary}, #{importance}, COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb), COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb), COALESCE(#{reviewStatus}, 'NEEDS_REVIEW'))
     RETURNING id
   </select>
 
@@ -157,9 +158,18 @@
         importance = #{importance},
         story_functions_json = COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb),
         continuity_state_json = COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb),
+        review_status = COALESCE(#{reviewStatus}, review_status),
         updated_at = #{updatedAt},
         row_version = row_version + 1
     WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <update id="updateStoryBeatReviewStatus">
+    UPDATE story_beats
+    SET review_status = #{reviewStatus},
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{expectedRowVersion}
   </update>
 
   <!-- AudioCue -->

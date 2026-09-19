@@ -7,16 +7,30 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../../../components/ui/dialog";
+import { useProviderHealthQuery } from "../queries/health.queries";
 
 export interface ComputeStatusIndicatorProps {
   status?: "Ready" | "Busy" | "Degraded" | "Offline";
 }
 
-export function ComputeStatusIndicator({ status = "Ready" }: ComputeStatusIndicatorProps) {
+export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndicatorProps) {
   const [open, setOpen] = useState(false);
+  const { data: health, isLoading, isError } = useProviderHealthQuery();
+
+  const resolvedStatus: "Ready" | "Busy" | "Degraded" | "Offline" = propStatus ?? (
+    isError
+      ? "Offline"
+      : isLoading
+      ? "Ready"
+      : health?.vertexGemini?.configured && health?.vertexGemini?.status === "READY"
+      ? "Ready"
+      : health?.vertexGemini?.configured
+      ? "Busy"
+      : "Degraded"
+  );
 
   const getStatusBadge = () => {
-    switch (status) {
+    switch (resolvedStatus) {
       case "Busy":
         return {
           icon: <RefreshCw size={13} className="animate-spin text-primary" />,
@@ -68,7 +82,7 @@ export function ComputeStatusIndicator({ status = "Ready" }: ComputeStatusIndica
               <DialogTitle className="text-[16px] font-semibold">Trạng thái hạ tầng tính toán (Compute)</DialogTitle>
             </div>
             <DialogDescription className="text-[13px] text-text-muted">
-              Hệ thống xử lý AI ngoại vi phục vụ phân tích kịch bản, sinh giọng đọc và tạo hình ảnh.
+              Hệ thống xử lý AI phục vụ phân tích kịch bản Story Director, sinh giọng đọc và tạo hình ảnh.
             </DialogDescription>
           </DialogHeader>
 
@@ -77,13 +91,15 @@ export function ComputeStatusIndicator({ status = "Ready" }: ComputeStatusIndica
               <span className="text-[13px] font-medium text-text-secondary">Trạng thái kết nối</span>
               <span className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[12px] font-medium bg-surface-3 text-foreground">
                 {current.icon}
-                {status}
+                {resolvedStatus}
               </span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-dark px-3.5 py-2.5">
-              <span className="text-[13px] font-medium text-text-secondary">Mục tiêu GPU thực thi</span>
-              <span className="font-mono text-[12px] text-foreground">RTX 3090 (Windows Remote GPU)</span>
+              <span className="text-[13px] font-medium text-text-secondary">Story Analysis Engine</span>
+              <span className="font-mono text-[12px] text-foreground">
+                {health?.vertexGemini?.model || "Gemini 3.8 Flash (Thinking HIGH)"}
+              </span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-dark px-3.5 py-2.5">
@@ -95,20 +111,22 @@ export function ComputeStatusIndicator({ status = "Ready" }: ComputeStatusIndica
               <span className="text-[13px] font-medium text-text-secondary block mb-2">Các pipeline khả dụng</span>
               <ul className="flex flex-col gap-1.5 text-[12px] text-text-muted">
                 <li className="flex items-center justify-between">
-                  <span>Gemini 3.8 Flash (Story Director)</span>
-                  <span className="text-success font-mono">OK</span>
+                  <span>Vertex Gemini (Story Director)</span>
+                  <span className={health?.vertexGemini?.configured ? "text-success font-mono" : "text-warning font-mono"}>
+                    {health?.vertexGemini?.configured ? "READY" : "NOT CONFIGURED"}
+                  </span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span>VieNeu (Vietnamese TTS)</span>
-                  <span className="text-success font-mono">OK</span>
+                  <span className="text-success font-mono">READY</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span>WhisperX (Forced Alignment)</span>
-                  <span className="text-success font-mono">OK</span>
+                  <span className="text-success font-mono">READY</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span>ComfyUI (RealVisXL / Image Gen)</span>
-                  <span className="text-success font-mono">OK</span>
+                  <span className="text-success font-mono">READY</span>
                 </li>
               </ul>
             </div>

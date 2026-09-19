@@ -11,8 +11,9 @@ import type {
   DesktopChapterDetails,
   DesktopStoryBeat,
   DesktopTimeline,
+  StoryBeatReviewStatus,
 } from "@narrativex/client-contracts";
-import { useChapterStoryQuery } from "../../story/queries/story.queries";
+import { useChapterStoryQuery, useUpdateStoryBeatReviewStatus } from "../../story/queries/story.queries";
 import { useCreateChapter, useUpdateChapter } from "../queries/chapters.queries";
 import { useAnalyzeChapter } from "../../generation/queries/generation.queries";
 import { ChapterRail } from "../components/ChapterRail";
@@ -48,6 +49,7 @@ export function ChapterWorkspaceScreen({
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);
   const analyzeChapter = useAnalyzeChapter();
+  const updateBeatStatus = useUpdateStoryBeatReviewStatus(projectId, selectedChapterId ?? "");
 
   // Load authoritative Chapter Story
   const { data: story, isLoading: storyLoading, refetch: refetchStory } = useChapterStoryQuery(
@@ -60,9 +62,16 @@ export function ChapterWorkspaceScreen({
   // Auto-select first beat if available and none selected
   useEffect(() => {
     if (story && story.scenes.length > 0) {
-      const firstBeat = story.scenes[0].storyBeats[0];
-      if (firstBeat && !selectedBeat) {
-        setSelectedBeat(firstBeat);
+      if (!selectedBeat) {
+        const firstBeat = story.scenes[0].storyBeats[0];
+        if (firstBeat) {
+          setSelectedBeat(firstBeat);
+        }
+      } else {
+        const refreshed = story.scenes.flatMap((s) => s.storyBeats).find((b) => b.id === selectedBeat.id);
+        if (refreshed && refreshed.rowVersion !== selectedBeat.rowVersion) {
+          setSelectedBeat(refreshed);
+        }
       }
     }
   }, [story, selectedBeat]);
@@ -71,6 +80,20 @@ export function ChapterWorkspaceScreen({
     setSelectedBeat(beat);
     if (currentStage !== "story" && currentStage !== "production") {
       setCurrentStage("story");
+    }
+  };
+
+  const handleUpdateReviewStatus = async (newStatus: StoryBeatReviewStatus) => {
+    if (!selectedBeat || !selectedChapterId) return;
+    setSelectedBeat((prev) => (prev ? { ...prev, reviewStatus: newStatus } : null));
+    try {
+      await updateBeatStatus.mutateAsync({
+        storyBeatId: selectedBeat.id,
+        status: newStatus,
+        rowVersion: selectedBeat.rowVersion,
+      });
+    } catch {
+      void refetchStory();
     }
   };
 
@@ -240,9 +263,8 @@ export function ChapterWorkspaceScreen({
         {selectedBeat ? (
           <StoryBeatInspector
             beat={selectedBeat}
-            onUpdateReviewStatus={(newStatus) => {
-              setSelectedBeat({ ...selectedBeat, reviewStatus: newStatus });
-            }}
+            onUpdateReviewStatus={handleUpdateReviewStatus}
+            isUpdatingStatus={updateBeatStatus.isPending}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center text-text-muted border-l border-border-subtle bg-surface-dark">

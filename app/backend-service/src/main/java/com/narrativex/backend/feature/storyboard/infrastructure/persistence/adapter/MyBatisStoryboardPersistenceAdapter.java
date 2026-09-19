@@ -4,12 +4,14 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
+import com.narrativex.backend.feature.storyboard.domain.entity.StoryBeat;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow;
 import java.time.Instant;
@@ -131,5 +133,41 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
       beat.attachPreviewMediaAsset(row.getPreviewMediaAssetId());
     }
     return beat;
+  }
+
+  @Override
+  public Optional<StoryBeat> findStoryBeatById(UUID id) {
+    return Optional.ofNullable(mapper.findStoryBeat(id))
+        .map(MyBatisStoryboardPersistenceAdapter::toDomain);
+  }
+
+  @Override
+  public StoryBeat updateStoryBeatReviewStatus(UUID storyBeatId, String status, long expectedRowVersion) {
+    StoryBeatRow existing = mapper.findStoryBeat(storyBeatId);
+    if (existing == null) throw new ResourceNotFoundException("Story beat not found");
+    OptimisticConcurrency.requireVersion(
+        expectedRowVersion, existing.getRowVersion(), StoryBeat.class, storyBeatId);
+    if (mapper.updateStoryBeatReviewStatus(storyBeatId, status, expectedRowVersion) != 1) {
+      throw new org.springframework.dao.OptimisticLockingFailureException(
+          "Story beat was modified concurrently");
+    }
+    return toDomain(mapper.findStoryBeat(storyBeatId));
+  }
+
+  private static StoryBeat toDomain(StoryBeatRow row) {
+    return StoryBeat.rehydrate(
+        row.getId(),
+        row.getRowVersion(),
+        row.getSceneId(),
+        row.getOrderIndex(),
+        row.getSourceStart(),
+        row.getSourceEnd(),
+        row.getSourceAnchorJson(),
+        row.getPurpose(),
+        row.getSummary(),
+        row.getImportance(),
+        row.getStoryFunctionsJson(),
+        row.getContinuityStateJson(),
+        row.getReviewStatus());
   }
 }

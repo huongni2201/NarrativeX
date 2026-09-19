@@ -1,54 +1,38 @@
 import { useState } from "react";
-import { Activity, RefreshCw, CheckCircle2, XCircle, Clock, ChevronDown, ChevronRight, Terminal } from "lucide-react";
+import {
+  Activity,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  Terminal,
+  AlertCircle,
+} from "lucide-react";
+import type { DesktopJobHistoryItem } from "@narrativex/client-contracts";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
+import { useJobHistoryQuery } from "../queries/jobs.queries";
 
 export interface JobsScreenProps {
   projectId: string;
   workspace: DesktopWorkspaceState;
 }
 
-interface MockJob {
-  id: string;
-  type: "ANALYSIS" | "NARRATION_TTS" | "AUDIO_ALIGNMENT" | "IMAGE_GENERATION" | "RENDER";
-  title: string;
-  chapterTitle?: string;
-  status: "COMPLETED" | "RUNNING" | "FAILED" | "QUEUED";
-  progressPercent: number;
-  createdAt: string;
-  diagnostics?: {
-    attempt: number;
-    workerTarget: string;
-    leaseTimeMs: number;
-    error?: string;
-  };
-}
-
-export function JobsScreen({ projectId, workspace }: JobsScreenProps) {
+export function JobsScreen({ projectId }: JobsScreenProps) {
   const [filter, setFilter] = useState<"ALL" | "RUNNING" | "COMPLETED" | "FAILED">("ALL");
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
-  // Derive initial jobs list from chapters and timeline
-  const jobs: MockJob[] = workspace.chapters.map((ch, idx) => ({
-    id: `job-analysis-${ch.id}`,
-    type: "ANALYSIS",
-    title: `Phân tích chương: ${ch.title}`,
-    chapterTitle: ch.title,
-    status: idx === 0 ? "COMPLETED" : "COMPLETED",
-    progressPercent: 100,
-    createdAt: new Date(ch.updatedAt).toLocaleTimeString(),
-    diagnostics: {
-      attempt: 1,
-      workerTarget: "Gemini 3.8 Flash (Thinking HIGH)",
-      leaseTimeMs: 4200,
-    },
-  }));
+  const { data: page, isLoading, isError, refetch } = useJobHistoryQuery(50);
+  const jobs: DesktopJobHistoryItem[] = page?.content ?? [];
 
-  const filteredJobs = jobs.filter((j) => {
+  const filteredJobs = jobs.filter((job) => {
     if (filter === "ALL") return true;
-    return j.status === filter;
+    if (filter === "RUNNING") return job.status === "RUNNING" || job.status === "QUEUED";
+    return job.status === filter;
   });
 
-  const getStatusIcon = (status: MockJob["status"]) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case "RUNNING":
         return <RefreshCw size={15} className="animate-spin text-primary" />;
@@ -95,23 +79,45 @@ export function JobsScreen({ projectId, workspace }: JobsScreenProps) {
 
       {/* Jobs List */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {filteredJobs.length === 0 ? (
+        {isLoading ? (
+          <div className="flex h-64 flex-col items-center justify-center text-text-muted">
+            <RefreshCw size={32} className="animate-spin text-primary mb-3" />
+            <span className="text-[13px] font-medium text-foreground">Đang tải danh sách tác vụ...</span>
+          </div>
+        ) : isError ? (
+          <div className="flex h-64 flex-col items-center justify-center text-text-muted">
+            <AlertCircle size={36} className="text-destructive mb-2" />
+            <p className="text-[14px] text-foreground font-medium">Không thể tải nhật ký tác vụ</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-surface-3 px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-2 border border-border-subtle"
+            >
+              <RefreshCw size={12} />
+              <span>Thử lại</span>
+            </button>
+          </div>
+        ) : filteredJobs.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center text-text-muted">
             <Activity size={36} className="mb-2 text-text-dim" />
-            <p className="text-[14px]">Không có tác vụ nào trong danh mục này.</p>
+            <p className="text-[14px]">
+              {filter === "ALL" ? "Chưa có tác vụ nào được thực thi." : `Không có tác vụ nào ở trạng thái ${filter}.`}
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {filteredJobs.map((job) => {
-              const isExpanded = expandedJobId === job.id;
+              const isExpanded = expandedJobId === job.jobId;
+              const formattedDate = new Date(job.createdAt).toLocaleString();
+
               return (
                 <div
-                  key={job.id}
+                  key={job.jobId}
                   className="rounded-lg border border-border-subtle bg-surface transition-all hover:border-border"
                 >
                   <div
                     className="flex cursor-pointer items-center justify-between p-3.5"
-                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                    onClick={() => setExpandedJobId(isExpanded ? null : job.jobId)}
                   >
                     <div className="flex items-center gap-3">
                       <button type="button" className="text-text-muted hover:text-foreground">
@@ -120,26 +126,28 @@ export function JobsScreen({ projectId, workspace }: JobsScreenProps) {
                       {getStatusIcon(job.status)}
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[14px] font-medium text-foreground">{job.title}</span>
-                          <span className="rounded bg-surface-3 px-1.5 py-0.5 text-[10px] font-mono text-text-secondary">
-                            {job.type}
+                          <span className="text-[14px] font-medium text-foreground">
+                            {job.jobType}
+                          </span>
+                          <span className="rounded bg-surface-3 px-1.5 py-0.5 text-[10px] font-mono text-text-secondary uppercase">
+                            {job.jobType}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-[12px] text-text-muted mt-0.5">
-                          <span>Chương: {job.chapterTitle}</span>
-                          <span>•</span>
-                          <span>Bắt đầu: {job.createdAt}</span>
+                          {job.currentStep && <span>Bước: {job.currentStep}</span>}
+                          {job.currentStep && <span>•</span>}
+                          <span>Thời gian: {formattedDate}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <span className="text-[12px] font-mono font-medium text-foreground">{job.progressPercent}%</span>
+                        <span className="text-[12px] font-mono font-medium text-foreground">{job.progress}%</span>
                         <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-surface-3">
                           <div
                             className="h-full bg-primary transition-all duration-300"
-                            style={{ width: `${job.progressPercent}%` }}
+                            style={{ width: `${Math.max(5, Math.min(100, job.progress))}%` }}
                           />
                         </div>
                       </div>
@@ -150,7 +158,9 @@ export function JobsScreen({ projectId, workspace }: JobsScreenProps) {
                             ? "border-success/30 bg-success-bg text-success"
                             : job.status === "RUNNING"
                             ? "border-primary/30 bg-primary-muted text-primary"
-                            : "border-destructive/30 bg-danger-bg text-destructive"
+                            : job.status === "FAILED"
+                            ? "border-destructive/30 bg-danger-bg text-destructive"
+                            : "border-warning/30 bg-warning-bg text-warning"
                         }`}
                       >
                         {job.status}
@@ -159,7 +169,7 @@ export function JobsScreen({ projectId, workspace }: JobsScreenProps) {
                   </div>
 
                   {/* Expandable Diagnostics */}
-                  {isExpanded && job.diagnostics && (
+                  {isExpanded && (
                     <div className="border-t border-border-subtle bg-surface-panel p-3.5 text-[12px]">
                       <div className="flex items-center gap-1.5 text-text-muted mb-2 font-mono">
                         <Terminal size={13} />
@@ -168,15 +178,15 @@ export function JobsScreen({ projectId, workspace }: JobsScreenProps) {
                       <div className="grid grid-cols-3 gap-2 font-mono text-text-secondary">
                         <div className="rounded bg-surface-dark p-2">
                           <span className="text-text-muted block text-[11px]">Job ID:</span>
-                          <span className="truncate block text-foreground">{job.id}</span>
+                          <span className="truncate block text-foreground">{job.jobId}</span>
                         </div>
                         <div className="rounded bg-surface-dark p-2">
-                          <span className="text-text-muted block text-[11px]">Worker Target:</span>
-                          <span className="truncate block text-foreground">{job.diagnostics.workerTarget}</span>
+                          <span className="text-text-muted block text-[11px]">Current Step:</span>
+                          <span className="truncate block text-foreground">{job.currentStep || "—"}</span>
                         </div>
                         <div className="rounded bg-surface-dark p-2">
-                          <span className="text-text-muted block text-[11px]">Lease / Duration:</span>
-                          <span className="block text-foreground">{job.diagnostics.leaseTimeMs} ms</span>
+                          <span className="text-text-muted block text-[11px]">Error Code:</span>
+                          <span className="block text-foreground">{job.errorCode || "None"}</span>
                         </div>
                       </div>
                     </div>

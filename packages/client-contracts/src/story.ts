@@ -166,3 +166,37 @@ export interface UpdateAudioCueInput {
   status?: AudioCueStatus;
   rowVersion: number;
 }
+
+export interface UpdateStoryBeatReviewStatusInput {
+  status: StoryBeatReviewStatus;
+  rowVersion: number;
+}
+
+export interface DesktopJobHistoryItem {
+  jobId: string;
+  projectId: string;
+  projectName: string;
+  jobType: string;
+  status: string;
+  progress: number;
+  currentStep?: string | null;
+  errorCode?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export interface DesktopJobHistoryPage {
+  content: DesktopJobHistoryItem[];
+  nextCursor?: string | null;
+  limit: number;
+  hasNext: boolean;
+}
+
+export interface DesktopProviderHealth {
+  vertexGemini: {
+    status: string;
+    model: string;
+    location: string;
+    configured: boolean;
+  };
+}

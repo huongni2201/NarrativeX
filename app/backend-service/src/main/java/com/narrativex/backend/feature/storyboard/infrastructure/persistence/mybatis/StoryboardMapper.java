@@ -33,6 +33,11 @@ public interface StoryboardMapper extends NarrativeXMyBatisMapper {
 
   int updateStoryBeat(StoryBeatRow row);
 
+  int updateStoryBeatReviewStatus(
+      @Param("id") UUID id,
+      @Param("reviewStatus") String reviewStatus,
+      @Param("expectedRowVersion") long expectedRowVersion);
+
   // --- AudioCue ---
   List<AudioCueRow> findAudioCues(@Param("storyBeatIds") List<UUID> storyBeatIds);
 

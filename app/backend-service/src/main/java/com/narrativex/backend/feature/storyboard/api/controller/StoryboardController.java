@@ -28,6 +28,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.narrativex.backend.feature.storyboard.api.request.UpdateStoryBeatReviewStatusRequest;
+import com.narrativex.backend.feature.storyboard.api.response.StoryBeatResponse;
+import com.narrativex.backend.feature.storyboard.application.usecase.UpdateStoryBeatReviewStatusUseCase;
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -38,6 +42,7 @@ public class StoryboardController {
   private final CreateVisualBeatUseCase createVisualBeatUseCase;
   private final UpdateVisualBeatReviewStatusUseCase updateVisualBeatReviewStatusUseCase;
   private final AttachVisualBeatPreviewMediaUseCase attachVisualBeatPreviewMediaUseCase;
+  private final UpdateStoryBeatReviewStatusUseCase updateStoryBeatReviewStatusUseCase;
 
   @GetMapping("/storyboard")
   public ResponseEntity<ApiResponse<ChapterStoryboardResponse>> getStoryboard(
@@ -49,6 +54,28 @@ public class StoryboardController {
   public ResponseEntity<ApiResponse<com.narrativex.backend.feature.storyboard.api.response.ChapterStoryResponse>> getStory(
       @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterStoryUseCase.execute(projectId, chapterId));
+  }
+
+  @PutMapping("/story-beats/{storyBeatId}/review-status")
+  public ResponseEntity<ApiResponse<StoryBeatResponse>> updateStoryBeatReviewStatus(
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @PathVariable UUID storyBeatId,
+      @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+      @Valid @RequestBody UpdateStoryBeatReviewStatusRequest request) {
+    log.info(
+        "API PUT update review status to '{}' for storyBeatId={}, chapterId={}, projectId={}",
+        request.status(),
+        storyBeatId,
+        chapterId,
+        projectId);
+    long expectedRowVersion = parseExpectedVersion(ifMatch);
+    ApiResponse<StoryBeatResponse> response =
+        updateStoryBeatReviewStatusUseCase.execute(
+            projectId, chapterId, storyBeatId, expectedRowVersion, request.status());
+    return ResponseEntity.ok()
+        .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
+        .body(response);
   }
 
   @PostMapping("/scenes/{sceneId}/visual-beats")

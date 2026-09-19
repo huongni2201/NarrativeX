@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.storyboard.application.port.out;
 
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
+import com.narrativex.backend.feature.storyboard.domain.entity.StoryBeat;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import java.util.List;
 import java.util.Optional;
@@ -20,4 +21,8 @@ public interface StoryboardRepository {
   int nextVisualBeatOrderIndex(UUID sceneId);
 
   VisualBeat saveVisualBeat(VisualBeat visualBeat);
+
+  Optional<StoryBeat> findStoryBeatById(UUID storyBeatId);
+
+  StoryBeat updateStoryBeatReviewStatus(UUID storyBeatId, String status, long expectedRowVersion);
 }

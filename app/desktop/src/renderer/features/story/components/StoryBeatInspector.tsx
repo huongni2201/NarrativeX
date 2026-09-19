@@ -10,16 +10,19 @@ import {
   User,
   MapPin,
   ExternalLink,
+  Copy,
 } from "lucide-react";
-import type { DesktopStoryBeat } from "@narrativex/client-contracts";
+import type { DesktopStoryBeat, StoryBeatReviewStatus } from "@narrativex/client-contracts";
 
 export interface StoryBeatInspectorProps {
   beat: DesktopStoryBeat | null;
-  onUpdateReviewStatus?: (status: "APPROVED" | "NEEDS_REVIEW" | "REJECTED") => void;
+  onUpdateReviewStatus?: (status: StoryBeatReviewStatus) => void;
+  isUpdatingStatus?: boolean;
 }
 
-export function StoryBeatInspector({ beat, onUpdateReviewStatus }: StoryBeatInspectorProps) {
+export function StoryBeatInspector({ beat, onUpdateReviewStatus, isUpdatingStatus }: StoryBeatInspectorProps) {
   const [activeTab, setActiveTab] = useState<"story" | "audio" | "visual" | "continuity" | "advanced">("story");
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   if (!beat) {
     return (
@@ -30,6 +33,8 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus }: StoryBeatInsp
       </div>
     );
   }
+
+  const isApproved = beat.reviewStatus === "APPROVED";
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-surface-dark border-l border-border-subtle">
@@ -47,67 +52,46 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus }: StoryBeatInsp
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onUpdateReviewStatus?.("APPROVED")}
-              className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
-                beat.reviewStatus === "APPROVED"
-                  ? "bg-success text-white"
-                  : "bg-surface-3 text-text-secondary hover:text-foreground"
-              }`}
-              title="Đánh dấu đã duyệt"
+              disabled={isUpdatingStatus}
+              onClick={() => onUpdateReviewStatus?.(isApproved ? "NEEDS_REVIEW" : "APPROVED")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all focus-visible:ring-1 focus-visible:ring-primary ${
+                isApproved
+                  ? "bg-success text-white shadow-sm hover:brightness-110"
+                  : "bg-surface-3 text-text-secondary hover:text-foreground hover:bg-surface-2 border border-border-subtle"
+              } disabled:opacity-50`}
+              title={isApproved ? "Bấm để đổi thành Cần duyệt" : "Bấm để đánh dấu Đã duyệt"}
             >
               <CheckCircle2 size={12} />
-              <span>Duyệt</span>
+              <span>{isApproved ? "Đã duyệt" : "Duyệt Beat"}</span>
             </button>
           </div>
         </div>
 
         {/* Inspector 5 Tabs */}
-        <div className="flex items-center gap-1 rounded-lg bg-surface-dark p-1 text-[12px]">
-          <button
-            type="button"
-            onClick={() => setActiveTab("story")}
-            className={`flex-1 rounded py-1 font-medium transition-all text-center ${
-              activeTab === "story" ? "bg-primary-muted text-primary shadow-sm" : "text-text-muted hover:text-foreground"
-            }`}
-          >
-            Story
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("audio")}
-            className={`flex-1 rounded py-1 font-medium transition-all text-center ${
-              activeTab === "audio" ? "bg-primary-muted text-primary shadow-sm" : "text-text-muted hover:text-foreground"
-            }`}
-          >
-            Audio
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("visual")}
-            className={`flex-1 rounded py-1 font-medium transition-all text-center ${
-              activeTab === "visual" ? "bg-primary-muted text-primary shadow-sm" : "text-text-muted hover:text-foreground"
-            }`}
-          >
-            Visual
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("continuity")}
-            className={`flex-1 rounded py-1 font-medium transition-all text-center ${
-              activeTab === "continuity" ? "bg-primary-muted text-primary shadow-sm" : "text-text-muted hover:text-foreground"
-            }`}
-          >
-            Continuity
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("advanced")}
-            className={`flex-1 rounded py-1 font-medium transition-all text-center ${
-              activeTab === "advanced" ? "bg-primary-muted text-primary shadow-sm" : "text-text-muted hover:text-foreground"
-            }`}
-          >
-            Advanced
-          </button>
+        <div
+          role="tablist"
+          aria-label="StoryBeat inspector sections"
+          className="flex items-center gap-1 rounded-lg bg-surface-dark p-1 text-[12px]"
+        >
+          {(["story", "audio", "visual", "continuity", "advanced"] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                id={`inspector-tab-${tab}`}
+                aria-selected={isActive}
+                aria-controls={`inspector-panel-${tab}`}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 rounded py-1 font-medium transition-all text-center capitalize focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${
+                  isActive ? "bg-primary-muted text-primary shadow-sm" : "text-text-muted hover:text-foreground"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -318,8 +302,25 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus }: StoryBeatInsp
             </div>
 
             {beat.visualBeats[0]?.prompt && (
-              <div>
-                <span className="block text-text-muted uppercase tracking-wider mb-1">Compiled Prompt Snapshot</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="block text-text-muted uppercase tracking-wider">Compiled Prompt Snapshot</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (beat.visualBeats[0]?.prompt) {
+                        await window.narrativex.system.copyText(beat.visualBeats[0].prompt);
+                        setCopiedPrompt(true);
+                        setTimeout(() => setCopiedPrompt(false), 2000);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 rounded bg-surface-3 px-2 py-0.5 text-[10px] text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors border border-border-subtle"
+                    title="Sao chép prompt vào clipboard"
+                  >
+                    <Copy size={11} />
+                    <span>{copiedPrompt ? "Đã copy!" : "Copy Prompt"}</span>
+                  </button>
+                </div>
                 <div className="rounded bg-surface-dark p-2 text-text-secondary max-h-32 overflow-y-auto whitespace-pre-wrap border border-border-subtle">
                   {beat.visualBeats[0].prompt}
                 </div>

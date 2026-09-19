@@ -23,3 +23,14 @@ test("storyboard prompt copy uses the protected Desktop clipboard bridge", () =>
   );
   assert.match(bootstrap, /await clipboard\.writeText\(text\);/);
 });
+
+test("story beat inspector prompt copy uses the protected Desktop clipboard bridge", () => {
+  const inspector = readFileSync(
+    resolve(desktopRoot, "src/renderer/features/story/components/StoryBeatInspector.tsx"),
+    "utf8",
+  );
+
+  assert.match(inspector, /window\.narrativex\.system\.copyText\(beat\.visualBeats\[0\]\.prompt\)/);
+  assert.doesNotMatch(inspector, /IMAGE TASK:/);
+  assert.doesNotMatch(inspector, /navigator\.clipboard/);
+});
