@@ -11,8 +11,11 @@ import {
 const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
 const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
 const RECONNECT_DELAY_MS = 1_500;
-const GENERATION_EVENTS_PATH = /^\/api\/v1\/generation-jobs\/[0-9a-f-]{36}\/events$/iu;
 const SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/iu;
+const ALLOWED_SSE_PATHS = [
+  /^\/api\/v1\/generation-jobs\/[0-9a-f-]{36}\/events$/iu,
+  /^\/api\/v1\/projects\/[0-9a-f-]{36}\/generation\/events$/iu,
+];
 const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
 const MAX_VOICE_REFERENCE_BYTES = 50 * 1024 * 1024;
 
@@ -323,11 +326,13 @@ function abortableDelay(delayMs: number, signal: AbortSignal): Promise<void> {
 function isStartSseInput(value: unknown): value is StartSseInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
+  const subscriptionId = input.subscriptionId;
+  const path = input.path;
   return (
-    typeof input.subscriptionId === "string" &&
-    SUBSCRIPTION_ID.test(input.subscriptionId) &&
-    typeof input.path === "string" &&
-    GENERATION_EVENTS_PATH.test(input.path)
+    typeof subscriptionId === "string" &&
+    SUBSCRIPTION_ID.test(subscriptionId) &&
+    typeof path === "string" &&
+    ALLOWED_SSE_PATHS.some((pattern) => pattern.test(path))
   );
 }
 

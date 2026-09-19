@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.api.internal;
 
 import com.narrativex.backend.feature.generation.application.service.ComputeEventApplicationService;
-import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -9,8 +8,8 @@ import java.util.HexFormat;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,13 +22,21 @@ import tools.jackson.databind.ObjectMapper;
 @Slf4j
 @RestController
 @RequestMapping
-@RequiredArgsConstructor
 public class ComputeEventController {
   private static final long MAX_ALLOWED_SKEW_MS = 5 * 60 * 1000L; // 5 minutes
 
   private final ComputeEventApplicationService eventApplicationService;
-  private final ComputeServiceProperties properties;
   private final ObjectMapper objectMapper;
+  private final String machineToken;
+
+  public ComputeEventController(
+      ComputeEventApplicationService eventApplicationService,
+      ObjectMapper objectMapper,
+      @Value("${narrativex.compute.machine-token:default-dev-machine-token}") String machineToken) {
+    this.eventApplicationService = eventApplicationService;
+    this.objectMapper = objectMapper;
+    this.machineToken = machineToken;
+  }
 
   @PostMapping(
       value = {"/internal/compute/events", "/internal/v1/compute-events"},
@@ -40,7 +47,7 @@ public class ComputeEventController {
       @RequestBody String rawBody) {
 
     // 1. Verify HMAC Signature if secret configured and header provided
-    String secret = properties.getMachineToken();
+    String secret = machineToken;
     if (secret != null && !secret.isBlank()) {
       if (signature == null || timestampHeader == null) {
         log.warn("Compute event rejected: Missing signature or timestamp header");

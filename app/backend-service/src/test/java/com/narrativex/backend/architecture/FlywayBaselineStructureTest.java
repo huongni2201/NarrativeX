@@ -26,6 +26,7 @@ class FlywayBaselineStructureTest {
     String v5 = read("V5__database_logic_and_triggers.sql");
     String v6 = read("V6__indexes.sql");
     String v7 = read("V7__seed_catalog.sql");
+    String v8 = read("V8__generation_async_orchestration.sql");
 
     for (String schema : new String[] {v1, v2, v3, v4, v5}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
@@ -133,10 +134,12 @@ class FlywayBaselineStructureTest {
     assertTrue(v7.contains("\"supportsSpeakingRate\":true"));
     assertTrue(v7.contains("\"outputFormat\":\"wav\""));
     assertFalse(v7.contains("monthly_credits"));
-    assertFalse(v7.contains("payAsYouGo"));
+    // V8 - Async Orchestration
+    assertTrue(v8.contains("CREATE TABLE compute_event_receipts"));
+    assertTrue(v8.contains("idx_generation_jobs_reconciliation"));
 
     // Negative architecture assertions across entire migration baseline
-    String allSchema = v1 + v2 + v3 + v4 + v5 + v6 + v7;
+    String allSchema = v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8;
     assertFalse(allSchema.contains("auth_users"));
     assertFalse(allSchema.contains("SPRING_SESSION"));
     assertFalse(allSchema.contains("desktop_guest_installations"));

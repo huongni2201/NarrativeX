@@ -15,6 +15,7 @@ import {
   isAnalysisProcessingStatus,
   isAudioProcessingStatus,
 } from "../model/chapter-ui";
+import { isProjectSseActive } from "../../generation/realtime/project-events";
 
 export const chapterQueryKeys = {
   all: (projectId: string) => ["projects", projectId, "chapters"] as const,
@@ -54,8 +55,12 @@ export function useChapterWorkspacesQuery(
     queryFn: () => chaptersApi.workspaces(projectId, chapterIds),
     enabled: Boolean(projectId && chapterIds.length),
     staleTime: 30_000,
-    refetchInterval: (query) =>
-      hasActiveChapterWork(query.state.data as DesktopChapterWorkspace[] | undefined) ? 3000 : false,
+    refetchInterval: (query) => {
+      if (!hasActiveChapterWork(query.state.data as DesktopChapterWorkspace[] | undefined)) {
+        return false;
+      }
+      return isProjectSseActive(projectId) ? 30_000 : 3000;
+    },
   });
 
   const pollingEnabled = Boolean(pollingChapterId && chapterIds.includes(pollingChapterId));
@@ -65,11 +70,12 @@ export function useChapterWorkspacesQuery(
     enabled: pollingEnabled,
     refetchInterval: (query) => {
       const workspace = query.state.data as DesktopChapterWorkspace | undefined;
-      return workspace &&
+      const active =
+        workspace &&
         (isAudioProcessingStatus(workspace.pipeline.audio.status) ||
-          isAnalysisProcessingStatus(workspace.pipeline.analysis.status))
-        ? 3000
-        : false;
+          isAnalysisProcessingStatus(workspace.pipeline.analysis.status));
+      if (!active) return false;
+      return isProjectSseActive(projectId) ? 30_000 : 3000;
     },
   });
 

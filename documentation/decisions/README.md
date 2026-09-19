@@ -50,6 +50,8 @@ Decisions that define the current architecture and implementation boundaries:
   VieNeu as the production TTS engine generating 48 kHz mono WAV audio, paired with WhisperX forced alignment on remote GPU; supersedes VoiceStudio (ADR-0027).
 - **[ADR-0024: StoryBeat Audio + Visual Director Architecture](./ADR-0024-storybeat-audio-visual-director-architecture.md)**
   StoryBeat as the semantic parent of AudioCue and VisualBeat, governed by Gemini as Story Director with Spring Boot validation, assembled narration scripts, and audio-driven visual timing.
+- **[ADR-0025: Event-Driven Compute Orchestration, Worker Callback Outbox, and Scheduled State Reconciliation](./ADR-0025-event-driven-compute-orchestration-and-reconciliation.md)**
+  Non-blocking worker callbacks with HMAC signatures, durable job state machine, SQLite worker outbox, scheduled non-blocking reconciliation fallback, and SSE desktop stream without extra message brokers.
 
 ### PARTIALLY SUPERSEDED
 

@@ -32,6 +32,27 @@ class WorkerSettings(BaseSettings):
         default=Path(".runtime/generation-service.sqlite3"),
         validation_alias="GENERATION_SERVICE_JOURNAL_FILE",
     )
+    backend_callback_url: str = Field(
+        default="http://127.0.0.1:8080/internal/compute/events",
+        validation_alias=AliasChoices(
+            "NARRATIVEX_BACKEND_CALLBACK_URL",
+            "GENERATION_SERVICE_BACKEND_CALLBACK_URL",
+        ),
+    )
+    callback_shared_secret: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices(
+            "NARRATIVEX_COMPUTE_CALLBACK_SECRET",
+            "GENERATION_SERVICE_CALLBACK_SECRET",
+        ),
+    )
+    event_delivery_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "NARRATIVEX_EVENT_DELIVERY_ENABLED",
+            "GENERATION_SERVICE_EVENT_DELIVERY_ENABLED",
+        ),
+    )
     max_concurrent_tasks: int = Field(
         default=1,
         ge=1,

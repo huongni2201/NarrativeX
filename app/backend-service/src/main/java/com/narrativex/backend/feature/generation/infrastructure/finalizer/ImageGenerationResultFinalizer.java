@@ -1,4 +1,4 @@
-package com.narrativex.backend.feature.generation.application.service;
+package com.narrativex.backend.feature.generation.infrastructure.finalizer;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
@@ -6,6 +6,8 @@ import com.narrativex.backend.feature.generation.application.model.compute.Outpu
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
+import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import java.util.UUID;

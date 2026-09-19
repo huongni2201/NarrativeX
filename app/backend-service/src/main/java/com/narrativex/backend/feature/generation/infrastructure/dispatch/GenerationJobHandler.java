@@ -1,4 +1,4 @@
-package com.narrativex.backend.feature.generation.application.handler;
+package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import java.util.UUID;

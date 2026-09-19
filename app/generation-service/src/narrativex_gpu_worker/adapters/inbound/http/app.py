@@ -18,6 +18,9 @@ from narrativex_gpu_worker.application.errors import (
 )
 from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPort
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
+from narrativex_gpu_worker.application.services.outbox_delivery_service import (
+    OutboxDeliveryService,
+)
 from narrativex_gpu_worker.config import WorkerSettings
 from narrativex_gpu_worker.contracts import (
     ComputeObservation,
@@ -38,6 +41,7 @@ class AppState:
     settings: WorkerSettings
     executor_catalog: ExecutorCatalogPort
     execution: ExecutionApplicationService
+    outbox: OutboxDeliveryService | None = None
     close_resources: Callable[[], Awaitable[None]] | None = None
 
 
@@ -47,9 +51,13 @@ def create_app(state: AppState) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await state.execution.start()
+        if state.outbox is not None:
+            await state.outbox.start()
         try:
             yield
         finally:
+            if state.outbox is not None:
+                await state.outbox.stop()
             await state.execution.stop()
             if state.close_resources is not None:
                 await state.close_resources()

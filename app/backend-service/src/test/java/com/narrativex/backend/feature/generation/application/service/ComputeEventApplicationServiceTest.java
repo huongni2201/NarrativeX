@@ -12,13 +12,12 @@ import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.internal.ComputeEventRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeErrorDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
+import com.narrativex.backend.feature.generation.application.port.out.ComputeEventReceiptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ComputeEventReceiptMapper;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ComputeEventReceiptRow;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +28,7 @@ import org.junit.jupiter.api.Test;
 class ComputeEventApplicationServiceTest {
 
   private GenerationJobRepository generationJobRepository;
-  private ComputeEventReceiptMapper receiptMapper;
+  private ComputeEventReceiptRepository receiptRepository;
   private ComputeResultFinalizerRegistry finalizerRegistry;
   private GenerationJobEventBroadcaster broadcaster;
   private ComputeResultFinalizer imageFinalizer;
@@ -38,7 +37,7 @@ class ComputeEventApplicationServiceTest {
   @BeforeEach
   void setUp() {
     generationJobRepository = mock(GenerationJobRepository.class);
-    receiptMapper = mock(ComputeEventReceiptMapper.class);
+    receiptRepository = mock(ComputeEventReceiptRepository.class);
     broadcaster = mock(GenerationJobEventBroadcaster.class);
     imageFinalizer = mock(ComputeResultFinalizer.class);
     when(imageFinalizer.supportedType()).thenReturn(JobType.CHAPTER_GENERATE);
@@ -46,7 +45,7 @@ class ComputeEventApplicationServiceTest {
     finalizerRegistry = new ComputeResultFinalizerRegistry(List.of(imageFinalizer));
     service =
         new ComputeEventApplicationService(
-            generationJobRepository, receiptMapper, finalizerRegistry, broadcaster);
+            generationJobRepository, receiptRepository, finalizerRegistry, broadcaster);
   }
 
   @Test
@@ -66,13 +65,13 @@ class ComputeEventApplicationServiceTest {
             null,
             Instant.now());
 
-    when(receiptMapper.existsByEventId("evt_dup_1")).thenReturn(true);
+    when(receiptRepository.existsByEventId("evt_dup_1")).thenReturn(true);
 
     ComputeEventApplicationService.ProcessingOutcome outcome =
         service.processEvent(request, "hash");
 
     assertEquals(ComputeEventApplicationService.ProcessingOutcome.DUPLICATE, outcome);
-    verify(receiptMapper, never()).insert(any(ComputeEventReceiptRow.class));
+    verify(receiptRepository, never()).recordReceipt(any(), any(), any(), any(), any(), any(), any());
     verify(generationJobRepository, never()).save(any());
   }
 
@@ -85,7 +84,7 @@ class ComputeEventApplicationServiceTest {
             .markSubmitting("SUBMITTING")
             .markSubmitted(attemptId, "handle-1", 5L, Instant.now(), Instant.now().plusSeconds(10));
 
-    when(receiptMapper.existsByEventId("evt_stale")).thenReturn(false);
+    when(receiptRepository.existsByEventId("evt_stale")).thenReturn(false);
     when(generationJobRepository.findByComputeAttempt(taskId, attemptId))
         .thenReturn(Optional.of(job));
 
@@ -108,7 +107,15 @@ class ComputeEventApplicationServiceTest {
         service.processEvent(request, "hash");
 
     assertEquals(ComputeEventApplicationService.ProcessingOutcome.STALE_SEQUENCE, outcome);
-    verify(receiptMapper).insert(any(ComputeEventReceiptRow.class));
+    verify(receiptRepository)
+        .recordReceipt(
+            eq("evt_stale"),
+            eq(taskId),
+            eq(attemptId),
+            eq(3L),
+            eq("RUNNING"),
+            any(Instant.class),
+            eq("hash"));
   }
 
   @Test
@@ -120,7 +127,7 @@ class ComputeEventApplicationServiceTest {
             .markRunning("RUNNING", 100)
             .markCompleted("COMPLETED");
 
-    when(receiptMapper.existsByEventId("evt_regress")).thenReturn(false);
+    when(receiptRepository.existsByEventId("evt_regress")).thenReturn(false);
     when(generationJobRepository.findByComputeAttempt(taskId, attemptId))
         .thenReturn(Optional.of(job));
 
@@ -155,7 +162,7 @@ class ComputeEventApplicationServiceTest {
             .markSubmitting("SUBMITTING")
             .markSubmitted(attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10));
 
-    when(receiptMapper.existsByEventId("evt_success")).thenReturn(false);
+    when(receiptRepository.existsByEventId("evt_success")).thenReturn(false);
     when(generationJobRepository.findByComputeAttempt(taskId, attemptId))
         .thenReturn(Optional.of(job));
     when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
@@ -193,7 +200,7 @@ class ComputeEventApplicationServiceTest {
             .markSubmitting("SUBMITTING")
             .markSubmitted(attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10));
 
-    when(receiptMapper.existsByEventId("evt_fail")).thenReturn(false);
+    when(receiptRepository.existsByEventId("evt_fail")).thenReturn(false);
     when(generationJobRepository.findByComputeAttempt(taskId, attemptId))
         .thenReturn(Optional.of(job));
     when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));

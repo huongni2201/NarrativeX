@@ -1,12 +1,11 @@
 package com.narrativex.backend.feature.generation.application.service;
 
 import com.narrativex.backend.feature.generation.api.internal.ComputeEventRequest;
+import com.narrativex.backend.feature.generation.application.port.out.ComputeEventReceiptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.service.GenerationJobStateMachine;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ComputeEventReceiptMapper;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ComputeEventReceiptRow;
 import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +27,7 @@ public class ComputeEventApplicationService {
   }
 
   private final GenerationJobRepository generationJobRepository;
-  private final ComputeEventReceiptMapper computeEventReceiptMapper;
+  private final ComputeEventReceiptRepository computeEventReceiptRepository;
   private final ComputeResultFinalizerRegistry finalizerRegistry;
   private final GenerationJobEventBroadcaster eventBroadcaster;
 
@@ -39,21 +38,20 @@ public class ComputeEventApplicationService {
     }
 
     // Invariant: Idempotent receipt deduplication
-    if (computeEventReceiptMapper.existsByEventId(request.eventId())) {
+    if (computeEventReceiptRepository.existsByEventId(request.eventId())) {
       log.info("Duplicate event {} received for task {}; skipping", request.eventId(), request.taskId());
       return ProcessingOutcome.DUPLICATE;
     }
 
     // Persist event receipt
-    computeEventReceiptMapper.insert(
-        new ComputeEventReceiptRow(
-            request.eventId(),
-            request.taskId(),
-            request.attemptId(),
-            request.sequence(),
-            request.state(),
-            Instant.now(),
-            payloadHash));
+    computeEventReceiptRepository.recordReceipt(
+        request.eventId(),
+        request.taskId(),
+        request.attemptId(),
+        request.sequence(),
+        request.state(),
+        Instant.now(),
+        payloadHash);
 
     // Resolve domain job
     Optional<GenerationJob> jobOpt =

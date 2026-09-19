@@ -15,6 +15,7 @@ import httpx
 from fastapi import FastAPI
 
 from narrativex_gpu_worker.adapters.artifacts import HttpArtifactAdapter
+from narrativex_gpu_worker.adapters.events import HttpComputeEventPublisher
 from narrativex_gpu_worker.adapters.executors import ExecutorCatalog
 from narrativex_gpu_worker.adapters.executors.comfyui import ComfyUIClient, ComfyUIExecutor
 from narrativex_gpu_worker.adapters.executors.media_validation import MediaValidationExecutor
@@ -36,6 +37,9 @@ from narrativex_gpu_worker.application.ports.residency import (
     RuntimeResidencyPort,
 )
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
+from narrativex_gpu_worker.application.services.outbox_delivery_service import (
+    OutboxDeliveryService,
+)
 from narrativex_gpu_worker.config import WorkerSettings
 
 
@@ -44,6 +48,7 @@ class ApplicationComponents:
     settings: WorkerSettings
     executor_catalog: ExecutorCatalogPort
     execution: ExecutionApplicationService
+    outbox: OutboxDeliveryService | None = None
     residency: RuntimeResidencyPort | None = None
     close_resources: Callable[[], Awaitable[None]] | None = None
 
@@ -161,7 +166,24 @@ def build_application(
         residency=residency_manager,
     )
 
+    secret = (
+        settings.callback_shared_secret.get_secret_value()
+        or settings.machine_token.get_secret_value()
+    )
+    publisher = HttpComputeEventPublisher(
+        callback_url=settings.backend_callback_url,
+        shared_secret=secret,
+        http_client=client,
+    )
+    outbox = (
+        OutboxDeliveryService(journal=journal, publisher=publisher)
+        if settings.event_delivery_enabled
+        else None
+    )
+
     async def close_resources() -> None:
+        if outbox is not None:
+            await outbox.stop()
         if client is not None:
             await client.aclose()
         if supervisor is not None:
@@ -172,6 +194,7 @@ def build_application(
         settings=settings,
         executor_catalog=catalog,
         execution=execution,
+        outbox=outbox,
         residency=residency_manager,
         close_resources=close_resources,
     )
@@ -187,6 +210,7 @@ def create_app(
         settings=components.settings,
         executor_catalog=components.executor_catalog,
         execution=components.execution,
+        outbox=components.outbox,
         close_resources=components.close,
     )
     return create_http_app(state)

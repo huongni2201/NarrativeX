@@ -79,7 +79,8 @@ class ComputeNarrationAlignmentAdapterTest {
         .thenAnswer(
             invocation -> {
               ComputeTaskRequest req = invocation.getArgument(0);
-              return new SubmitTaskResult(req.taskId(), req.attemptId(), "ACCEPTED");
+              return new com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt(
+                  req.taskId(), req.attemptId(), "whisperx:handle", "ACCEPTED", 1L);
             });
 
     when(executionPort.queryTask(any(UUID.class), any(UUID.class)))

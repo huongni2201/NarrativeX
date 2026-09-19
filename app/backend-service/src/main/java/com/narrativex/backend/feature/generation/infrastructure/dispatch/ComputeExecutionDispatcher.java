@@ -1,11 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
-import com.narrativex.backend.feature.generation.application.handler.ChapterAnalysisJobHandler;
-import com.narrativex.backend.feature.generation.application.handler.GenerationJobHandler;
-import com.narrativex.backend.feature.generation.application.handler.GenerationJobHandlerRegistry;
-import com.narrativex.backend.feature.generation.application.handler.ImageGenerationJobHandler;
-import com.narrativex.backend.feature.generation.application.handler.NarrationGenerationJobHandler;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;

@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.application.service.ComputeEventApplicationService;
-import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -25,7 +24,6 @@ import tools.jackson.databind.json.JsonMapper;
 class ComputeEventControllerTest {
 
   private ComputeEventApplicationService eventApplicationService;
-  private ComputeServiceProperties properties;
   private ObjectMapper objectMapper;
   private ComputeEventController controller;
   private static final String SECRET = "test-secret-key-123456";
@@ -33,10 +31,8 @@ class ComputeEventControllerTest {
   @BeforeEach
   void setUp() {
     eventApplicationService = mock(ComputeEventApplicationService.class);
-    properties = new ComputeServiceProperties();
-    properties.setMachineToken(SECRET);
     objectMapper = JsonMapper.builder().build();
-    controller = new ComputeEventController(eventApplicationService, properties, objectMapper);
+    controller = new ComputeEventController(eventApplicationService, objectMapper, SECRET);
   }
 
   private String sign(String timestamp, String body) throws Exception {

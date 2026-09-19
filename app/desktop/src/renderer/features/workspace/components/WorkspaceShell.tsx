@@ -13,6 +13,7 @@ import type { DesktopWorkspaceState } from "../queries/useProjectWorkspace";
 import type { ActivityId } from "../workspace-navigation";
 import { ComputeStatusIndicator } from "./ComputeStatusIndicator";
 import { JobStatusIndicator } from "./JobStatusIndicator";
+import { useProjectGenerationEvents } from "../../generation/realtime/project-events";
 
 const navigation: Array<{
   id: ActivityId;
@@ -39,6 +40,8 @@ export function WorkspaceShell({
   workspace: DesktopWorkspaceState;
   children: ReactNode;
 }>) {
+  useProjectGenerationEvents(projectId);
+
   const currentProject = workspace.projects.find((p) => p.id === projectId);
   const projectName = currentProject?.name ?? "NarrativeX Studio";
   const aspectRatio = currentProject?.imageAspectRatio;

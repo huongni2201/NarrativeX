@@ -27,6 +27,9 @@ narrativex:
     upload-cleanup-enabled: false
   generation:
     outbox-dispatch-enabled: false
+  compute:
+    reconciliation:
+      enabled: false
   security:
     local-dev-identity-enabled: true
 

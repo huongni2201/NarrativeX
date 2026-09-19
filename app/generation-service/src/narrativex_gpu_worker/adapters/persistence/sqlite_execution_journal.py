@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
@@ -163,6 +165,28 @@ class SqliteExecutionJournalAdapter:
                    SET correlation_key = task_id || ':' || attempt_id
                    WHERE correlation_key IS NULL"""
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS compute_event_outbox (
+                    event_id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    delivery_state TEXT NOT NULL DEFAULT 'PENDING',
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    next_attempt_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    delivered_at TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_compute_event_outbox_pending
+                ON compute_event_outbox (delivery_state, next_attempt_at)
+                """
+            )
 
     def _save_accepted_sync(self, task: ComputeTask) -> tuple[ComputeObservation, bool]:
         accepted_attempt = ExecutionAttempt.accepted(
@@ -300,6 +324,44 @@ class SqliteExecutionJournalAdapter:
                     str(observation.attempt_id),
                 ),
             )
+            event_id = f"evt_{uuid.uuid4().hex}"
+            payload_dict = {
+                "eventId": event_id,
+                "protocolVersion": observation.protocol_version,
+                "taskId": str(observation.task_id),
+                "attemptId": str(observation.attempt_id),
+                "sequence": observation.sequence,
+                "state": observation.state.value,
+                "executionHandle": handle,
+                "progress": observation.progress,
+                "outputs": [
+                    o.model_dump(by_alias=True) for o in observation.outputs
+                ]
+                if observation.outputs
+                else [],
+                "metrics": observation.metrics.model_dump(by_alias=True)
+                if observation.metrics
+                else None,
+                "error": observation.error.model_dump(by_alias=True)
+                if observation.error
+                else None,
+                "occurredAt": observation.observed_at.isoformat(),
+            }
+            connection.execute(
+                """INSERT INTO compute_event_outbox
+                    (event_id, task_id, attempt_id, sequence, payload_json, delivery_state,
+                     attempt_count, next_attempt_at, created_at)
+                    VALUES (?, ?, ?, ?, ?, 'PENDING', 0, ?, ?)""",
+                (
+                    event_id,
+                    str(observation.task_id),
+                    str(observation.attempt_id),
+                    observation.sequence,
+                    json.dumps(payload_dict),
+                    observation.observed_at.isoformat(),
+                    observation.observed_at.isoformat(),
+                ),
+            )
 
     def _request_cancel_sync(self, task_id: UUID, attempt_id: UUID) -> bool:
         with self._connect() as connection:
@@ -413,6 +475,67 @@ class SqliteExecutionJournalAdapter:
             )
             for row in rows
         ]
+
+    async def fetch_pending_outbox_events(
+        self, limit: int = 50, before: datetime | None = None
+    ) -> list[dict]:
+        return await asyncio.to_thread(self._fetch_pending_outbox_events_sync, limit, before)
+
+    def _fetch_pending_outbox_events_sync(
+        self, limit: int = 50, before: datetime | None = None
+    ) -> list[dict]:
+        threshold = (before or datetime.now(UTC)).isoformat()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """SELECT event_id, task_id, attempt_id, sequence, payload_json,
+                          delivery_state, attempt_count, next_attempt_at, created_at
+                   FROM compute_event_outbox
+                   WHERE delivery_state = 'PENDING' AND next_attempt_at <= ?
+                   ORDER BY next_attempt_at ASC, sequence ASC
+                   LIMIT ?""",
+                (threshold, limit),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    async def mark_outbox_event_delivered(
+        self, event_id: str, delivered_at: datetime | None = None
+    ) -> None:
+        async with self._lock:
+            await asyncio.to_thread(
+                self._mark_outbox_event_delivered_sync, event_id, delivered_at
+            )
+
+    def _mark_outbox_event_delivered_sync(
+        self, event_id: str, delivered_at: datetime | None = None
+    ) -> None:
+        ts = (delivered_at or datetime.now(UTC)).isoformat()
+        with self._connect() as connection:
+            connection.execute(
+                """UPDATE compute_event_outbox
+                   SET delivery_state = 'DELIVERED', delivered_at = ?
+                   WHERE event_id = ?""",
+                (ts, event_id),
+            )
+
+    async def record_outbox_delivery_failure(
+        self, event_id: str, next_attempt_at: datetime
+    ) -> None:
+        async with self._lock:
+            await asyncio.to_thread(
+                self._record_outbox_delivery_failure_sync, event_id, next_attempt_at
+            )
+
+    def _record_outbox_delivery_failure_sync(
+        self, event_id: str, next_attempt_at: datetime
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """UPDATE compute_event_outbox
+                   SET attempt_count = attempt_count + 1,
+                       next_attempt_at = ?
+                   WHERE event_id = ?""",
+                (next_attempt_at.isoformat(), event_id),
+            )
 
 
 __all__ = ["SqliteExecutionJournalAdapter"]

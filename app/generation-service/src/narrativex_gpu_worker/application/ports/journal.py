@@ -43,3 +43,17 @@ class ExecutionJournalPort(Protocol):
     ) -> SubmissionState | None: ...
 
     async def recoverable(self) -> list[tuple[ComputeTask, bool, str | None, SubmissionState]]: ...
+
+
+class OutboxJournalPort(Protocol):
+    """Durable journal port for compute event outbox storage."""
+
+    async def fetch_pending_outbox_events(
+        self, limit: int = 50, now: object | None = None
+    ) -> list[dict[str, object]]: ...
+
+    async def mark_outbox_event_delivered(self, event_id: str) -> None: ...
+
+    async def mark_outbox_event_failed(
+        self, event_id: str, error: str, next_attempt_at: object
+    ) -> None: ...

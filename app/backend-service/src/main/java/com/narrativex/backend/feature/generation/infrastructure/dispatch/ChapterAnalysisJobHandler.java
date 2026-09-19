@@ -1,4 +1,4 @@
-package com.narrativex.backend.feature.generation.application.handler;
+package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.generation.application.model.analysis.CanonHashCalculator;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
@@ -13,7 +13,6 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
-import com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisArtifactMaterializer;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;

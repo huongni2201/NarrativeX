@@ -768,6 +768,7 @@ public final class GenerationJob extends AggregateRoot {
         .errorCode(null)
         .lastComputeState("SUCCEEDED")
         .completedAt(this.completedAt != null ? this.completedAt : now)
+        .nextReconcileAt(null)
         .build();
   }
 
@@ -779,6 +780,7 @@ public final class GenerationJob extends AggregateRoot {
         .currentStep(step)
         .lastComputeState("FAILED")
         .completedAt(this.completedAt != null ? this.completedAt : now)
+        .nextReconcileAt(null)
         .build();
   }
 
@@ -790,6 +792,7 @@ public final class GenerationJob extends AggregateRoot {
         .currentStep(step)
         .lastComputeState("CANCELED")
         .completedAt(this.completedAt != null ? this.completedAt : now)
+        .nextReconcileAt(null)
         .build();
   }
 
