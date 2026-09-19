@@ -2,16 +2,19 @@ package com.narrativex.backend.feature.generation.domain.enums;
 
 public enum JobStatus {
   QUEUED,
+  SUBMITTING,
+  SUBMITTED,
   RUNNING,
   COMPLETED,
   FAILED,
   CANCELED,
   UNKNOWN,
+  RECONCILING,
   STALLED;
 
   public boolean isActive() {
     return switch (this) {
-      case QUEUED, RUNNING, UNKNOWN, STALLED -> true;
+      case QUEUED, SUBMITTING, SUBMITTED, RUNNING, UNKNOWN, RECONCILING, STALLED -> true;
       case COMPLETED, FAILED, CANCELED -> false;
     };
   }
@@ -19,7 +22,7 @@ public enum JobStatus {
   public boolean isTerminal() {
     return switch (this) {
       case COMPLETED, FAILED, CANCELED -> true;
-      case QUEUED, RUNNING, UNKNOWN, STALLED -> false;
+      case QUEUED, SUBMITTING, SUBMITTED, RUNNING, UNKNOWN, RECONCILING, STALLED -> false;
     };
   }
 }

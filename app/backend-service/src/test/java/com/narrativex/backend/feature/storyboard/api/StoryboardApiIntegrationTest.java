@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -656,6 +658,100 @@ class StoryboardApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"APPROVED\"}"))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void invalidReviewStatusReturns400() throws Exception {
+    UUID storyBeat = testUuid(5085);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 95, 'PLOT', 'Test Beat', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 0",
+        storyBeat,
+        SCENE_1);
+
+    try {
+      mockMvc
+          .perform(
+              put("/api/v1/projects/"
+                      + PROJECT_1
+                      + "/chapters/"
+                      + CHAPTER_1
+                      + "/story-beats/"
+                      + storyBeat
+                      + "/review-status")
+                  .header("If-Match", "\"0\"")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"status\":\"INVALID_STATUS\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    } finally {
+      jdbcTemplate.update("DELETE FROM story_beats WHERE id = ?", storyBeat);
+    }
+  }
+
+  @Test
+  void nullReviewStatusReturns400() throws Exception {
+    UUID storyBeat = testUuid(5086);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 96, 'PLOT', 'Test Beat', 'NEEDS_REVIEW', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NEEDS_REVIEW', row_version = 0",
+        storyBeat,
+        SCENE_1);
+
+    try {
+      mockMvc
+          .perform(
+              put("/api/v1/projects/"
+                      + PROJECT_1
+                      + "/chapters/"
+                      + CHAPTER_1
+                      + "/story-beats/"
+                      + storyBeat
+                      + "/review-status")
+                  .header("If-Match", "\"0\"")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"status\":null}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    } finally {
+      jdbcTemplate.update("DELETE FROM story_beats WHERE id = ?", storyBeat);
+    }
+  }
+
+  @Test
+  void allValidReviewStatusEnumsAccepted() throws Exception {
+    UUID storyBeat = testUuid(5087);
+    jdbcTemplate.update(
+        "INSERT INTO story_beats (id, scene_id, order_index, purpose, summary, review_status, row_version) VALUES (?, ?, 97, 'PLOT', 'Enum Beat', 'NOT_READY', 0) ON CONFLICT (id) DO UPDATE SET review_status = 'NOT_READY', row_version = 0",
+        storyBeat,
+        SCENE_1);
+
+    try {
+      long currentVersion = 0;
+      for (StoryBeatReviewStatus statusEnum :
+          List.of(
+              StoryBeatReviewStatus.NEEDS_REVIEW,
+              StoryBeatReviewStatus.APPROVED,
+              StoryBeatReviewStatus.REJECTED,
+              StoryBeatReviewStatus.NOT_READY)) {
+        mockMvc
+            .perform(
+                put("/api/v1/projects/"
+                        + PROJECT_1
+                        + "/chapters/"
+                        + CHAPTER_1
+                        + "/story-beats/"
+                        + storyBeat
+                        + "/review-status")
+                    .header("If-Match", "\"" + currentVersion + "\"")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"status\":\"" + statusEnum.name() + "\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.reviewStatus").value(statusEnum.name()))
+            .andExpect(jsonPath("$.data.rowVersion").value(currentVersion + 1));
+        currentVersion++;
+      }
+    } finally {
+      jdbcTemplate.update("DELETE FROM story_beats WHERE id = ?", storyBeat);
+    }
   }
 
   private static UUID testUuid(long suffix) {

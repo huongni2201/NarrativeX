@@ -21,7 +21,7 @@ import com.narrativex.backend.feature.generation.application.model.compute.Compu
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
-import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
+import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
@@ -68,6 +68,7 @@ class ComputeExecutionDispatcherTest {
   private ChapterAnalysisProvider chapterAnalysisProvider;
   private ChapterAnalysisRunRepository analysisRunRepository;
   private Map<UUID, OutputArtifactTargetDto> targetsByTask;
+  private Map<UUID, GenerationJob> jobsById;
   private ComputeExecutionDispatcher dispatcher;
 
   @BeforeEach
@@ -81,6 +82,17 @@ class ComputeExecutionDispatcherTest {
     chapterAnalysisProvider = mock(ChapterAnalysisProvider.class);
     analysisRunRepository = mock(ChapterAnalysisRunRepository.class);
     targetsByTask = new HashMap<>();
+    jobsById = new HashMap<>();
+
+    when(generationJobRepository.findByJobId(any(UUID.class)))
+        .thenAnswer(i -> Optional.ofNullable(jobsById.get(i.getArgument(0))));
+    when(generationJobRepository.save(any(GenerationJob.class)))
+        .thenAnswer(
+            i -> {
+              GenerationJob saved = i.getArgument(0);
+              jobsById.put(saved.getJobId(), saved);
+              return saved;
+            });
     when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
         .thenReturn(VALID_ANALYSIS_JSON.getBytes());
 
@@ -129,7 +141,8 @@ class ComputeExecutionDispatcherTest {
         .thenAnswer(
             invocation -> {
               ComputeTaskRequest req = invocation.getArgument(0);
-              return new SubmitTaskResult(req.taskId(), req.attemptId(), "ACCEPTED");
+              return new ComputeSubmissionReceipt(
+                  req.taskId(), req.attemptId(), "handle:" + req.taskId(), "ACCEPTED", 1L);
             });
 
     when(executionPort.queryTask(any(UUID.class), any(UUID.class)))
@@ -175,8 +188,7 @@ class ComputeExecutionDispatcherTest {
             "IMAGE",
             "API");
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    jobsById.put(job.getJobId(), job);
     when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
     when(storyboardMapper.insertScene(any(SceneRow.class))).thenReturn(UuidV7.random());
     when(storyboardMapper.insertVisualBeat(any(VisualBeatRow.class))).thenReturn(UuidV7.random());
@@ -228,46 +240,16 @@ class ComputeExecutionDispatcherTest {
     GenerationJob job =
         GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    jobsById.put(job.getJobId(), job);
     dispatcher.dispatchJob(job.getJobId());
 
     ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
     verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
     GenerationJob finalState = captor.getValue();
-    assertEquals(JobStatus.COMPLETED, finalState.getStatus());
+    assertEquals(JobStatus.SUBMITTED, finalState.getStatus());
+    assertNotNull(finalState.getComputeAttemptId());
+    assertNotNull(finalState.getComputeExecutionHandle());
     verify(executionPort).submitTask(any(ComputeTaskRequest.class));
-  }
-
-  @Test
-  void doesNotCompleteImageGenerationWithoutProducedArtifact() {
-    UUID projectId = UuidV7.random();
-    GenerationJob job =
-        GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
-
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
-    when(executionPort.queryTask(any(UUID.class), any(UUID.class)))
-        .thenReturn(
-            new ComputeObservationDto(
-                "1.0",
-                job.getJobId(),
-                UuidV7.random(),
-                "SUCCEEDED",
-                1,
-                Instant.now(),
-                "handle:missing",
-                1.0,
-                List.of(),
-                null,
-                null));
-
-    dispatcher.dispatchJob(job.getJobId());
-
-    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
-    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
-    GenerationJob finalState = captor.getValue();
-    assertNotEquals(JobStatus.COMPLETED, finalState.getStatus());
   }
 
   @Test
@@ -289,8 +271,7 @@ class ComputeExecutionDispatcherTest {
             "IMAGE",
             "API");
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    jobsById.put(job.getJobId(), job);
     when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
     when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
         .thenThrow(
@@ -325,8 +306,7 @@ class ComputeExecutionDispatcherTest {
             "IMAGE",
             "API");
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    jobsById.put(job.getJobId(), job);
     when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
         .thenReturn(
             new ChapterAnalysisResult(
@@ -350,15 +330,15 @@ class ComputeExecutionDispatcherTest {
     GenerationJob job =
         GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
-
+    jobsById.put(job.getJobId(), job);
     dispatcher.dispatchJob(job.getJobId());
 
     ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
     verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
     GenerationJob finalState = captor.getValue();
-    assertEquals(JobStatus.COMPLETED, finalState.getStatus());
+    assertEquals(JobStatus.SUBMITTED, finalState.getStatus());
+    assertNotNull(finalState.getComputeAttemptId());
+    assertNotNull(finalState.getComputeExecutionHandle());
     verify(executionPort).submitTask(any(ComputeTaskRequest.class));
   }
 
@@ -368,8 +348,7 @@ class ComputeExecutionDispatcherTest {
     GenerationJob job =
         GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    jobsById.put(job.getJobId(), job);
     when(executionPort.submitTask(any(ComputeTaskRequest.class)))
         .thenThrow(new RuntimeException("Compute service offline"));
 
@@ -382,21 +361,15 @@ class ComputeExecutionDispatcherTest {
   }
 
   @Test
-  void keepsJobUnknownWhenComputeOutcomeCannotBeConfirmed() {
+  void ignoresNonQueuedJob() {
     UUID projectId = UuidV7.random();
     GenerationJob job =
-        GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
+        GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+            .markRunning("GENERATING_MEDIA", 50);
 
-    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
-    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
-    when(executionPort.queryTask(any(UUID.class), any(UUID.class))).thenReturn(null);
-
+    jobsById.put(job.getJobId(), job);
     dispatcher.dispatchJob(job.getJobId());
 
-    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
-    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
-    GenerationJob finalState = captor.getValue();
-    assertEquals(JobStatus.UNKNOWN, finalState.getStatus());
-    verify(executionPort).submitTask(any(ComputeTaskRequest.class));
+    verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
   }
 }

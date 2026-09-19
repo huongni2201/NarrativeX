@@ -53,6 +53,20 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
+  public Optional<GenerationJob> findByComputeAttempt(UUID taskId, UUID attemptId) {
+    return Optional.ofNullable(mapper.findByComputeAttemptId(taskId, attemptId))
+        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
+  }
+
+  @Override
+  public java.util.List<GenerationJob> findJobsDueForReconciliation(java.time.Instant now, int limit) {
+    java.util.List<GenerationJobRow> rows = mapper.findJobsDueForReconciliation(now, limit);
+    return rows == null
+        ? java.util.List.of()
+        : rows.stream().map(MyBatisGenerationJobPersistenceAdapter::toDomain).toList();
+  }
+
+  @Override
   public Optional<AnalysisProgress> findAnalysisProgressByJobId(UUID jobId) {
     return Optional.ofNullable(mapper.findAnalysisProgressByJobId(jobId))
         .map(MyBatisGenerationJobPersistenceAdapter::toAnalysisProgress);
@@ -139,7 +153,21 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         job.getMediaPlanRevision(),
         job.getProductionMode(),
         job.getAnalysisVisualGenerationMode(),
-        job.getAnalysisImageProvider());
+        job.getAnalysisImageProvider(),
+        job.getSubmissionState(),
+        job.getComputeAttemptId(),
+        job.getComputeExecutionHandle(),
+        job.getComputeSequence(),
+        job.getLastComputeState(),
+        job.getSubmittedAt(),
+        job.getStartedAt(),
+        job.getCompletedAt(),
+        job.getLastReconciledAt(),
+        job.getNextReconcileAt(),
+        job.getReconcileAttemptCount(),
+        job.getLastEventId(),
+        job.getLastEventSequence(),
+        job.getCallbackReceivedAt());
   }
 
   private static GenerationJob toDomain(GenerationJobRow row) {
@@ -166,7 +194,21 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         row.getMediaPlanRevision(),
         row.getProductionMode(),
         row.getAnalysisVisualGenerationMode(),
-        row.getAnalysisImageProvider());
+        row.getAnalysisImageProvider(),
+        row.getSubmissionState(),
+        row.getComputeAttemptId(),
+        row.getComputeExecutionHandle(),
+        row.getComputeSequence(),
+        row.getLastComputeState(),
+        row.getSubmittedAt(),
+        row.getStartedAt(),
+        row.getCompletedAt(),
+        row.getLastReconciledAt(),
+        row.getNextReconcileAt(),
+        row.getReconcileAttemptCount(),
+        row.getLastEventId(),
+        row.getLastEventSequence(),
+        row.getCallbackReceivedAt());
   }
 
   private static ResourceNotFoundException missing(UUID id) {

@@ -67,6 +67,40 @@ public class LocalComputeArtifactAccess implements ComputeArtifactAccess {
   }
 
   @Override
+  public OutputArtifactTargetDto getOrCreateTarget(
+      UUID taskId, UUID attemptId, UUID artifactId, String role, String mediaType) {
+    Binding existing = outputBindings.get(artifactId);
+    if (existing != null) {
+      return existing.target();
+    }
+    Instant expiresAt = Instant.now().plus(properties.getArtifactTtl());
+    String storageKey =
+        "private/provider-results/"
+            + taskId
+            + "/"
+            + attemptId
+            + "/"
+            + artifactId
+            + extensionFor(mediaType);
+    URI uploadUrl =
+        projectLocalMediaAccess.createUploadUrl(
+            storageKey,
+            mediaType,
+            properties.getMaxArtifactBytes(),
+            expiresAt,
+            URI.create(properties.getArtifactBaseUrl()));
+    OutputArtifactTargetDto target =
+        new OutputArtifactTargetDto(
+            artifactId,
+            role,
+            mediaType,
+            new ArtifactWriteAccessDto(
+                "PUT", uploadUrl.toString(), expiresAt, Map.of("Content-Type", mediaType)));
+    outputBindings.put(artifactId, new Binding(target, storageKey));
+    return target;
+  }
+
+  @Override
   public InputArtifactRefDto createInput(UUID projectId, UUID assetId, String role) {
     MediaAssetView asset = mediaAssetRepository.findById(projectId, assetId);
     if (asset.storageKey() == null

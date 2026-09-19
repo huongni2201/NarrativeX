@@ -1,6 +1,8 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -13,6 +15,12 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
   GenerationJobRow findById(@Param("id") UUID id);
 
   GenerationJobRow findByJobId(@Param("jobId") UUID jobId);
+
+  GenerationJobRow findByComputeAttemptId(
+      @Param("taskId") UUID taskId, @Param("attemptId") UUID attemptId);
+
+  List<GenerationJobRow> findJobsDueForReconciliation(
+      @Param("now") Instant now, @Param("limit") int limit);
 
   AnalysisProgressRow findAnalysisProgressByJobId(@Param("jobId") UUID jobId);
 

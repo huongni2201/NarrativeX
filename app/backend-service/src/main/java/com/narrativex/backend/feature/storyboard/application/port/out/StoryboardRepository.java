@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.storyboard.application.port.out;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
 import com.narrativex.backend.feature.storyboard.domain.entity.StoryBeat;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,8 +25,6 @@ public interface StoryboardRepository {
 
   Optional<StoryBeat> findStoryBeatById(UUID storyBeatId);
 
-  Optional<StoryBeat> findStoryBeatByIdAndChapterId(UUID storyBeatId, UUID chapterId);
-
   StoryBeat updateStoryBeatReviewStatus(
-      UUID chapterId, UUID storyBeatId, String status, long expectedRowVersion);
+      UUID chapterId, UUID storyBeatId, StoryBeatReviewStatus status, long expectedRowVersion);
 }

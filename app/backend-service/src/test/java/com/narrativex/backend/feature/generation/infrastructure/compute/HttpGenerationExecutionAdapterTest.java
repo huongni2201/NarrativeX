@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.ModelRefDto;
-import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
+import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
@@ -85,7 +85,7 @@ class HttpGenerationExecutionAdapterTest {
     when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
         .thenReturn(response);
 
-    SubmitTaskResult result = adapter.submitTask(request);
+    ComputeSubmissionReceipt result = adapter.submitTask(request);
 
     assertThat(result.taskId()).isEqualTo(taskId);
     assertThat(result.attemptId()).isEqualTo(attemptId);

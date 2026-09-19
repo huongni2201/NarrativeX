@@ -63,9 +63,9 @@ export function AssetsScreen({
   }
 
   const actions = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-3">
       <Select value={chapterId} onValueChange={setChapterId}>
-        <SelectTrigger className="h-8 w-[220px] text-[11px]">
+        <SelectTrigger className="h-9.5 w-[240px] text-[13px]">
           <SelectValue placeholder="All chapters" />
         </SelectTrigger>
         <SelectContent>
@@ -77,8 +77,8 @@ export function AssetsScreen({
           ))}
         </SelectContent>
       </Select>
-      <Button size="sm" onClick={() => void importAsset()} disabled={busy}>
-        <Plus size={13} /> {importAssetMutation.isPending ? "Importing…" : "Import asset"}
+      <Button size="default" onClick={() => void importAsset()} disabled={busy}>
+        <Plus size={16} /> {importAssetMutation.isPending ? "Importing…" : "Import asset"}
       </Button>
     </div>
   );
@@ -88,46 +88,46 @@ export function AssetsScreen({
       title="Asset Browser"
       description="Project-local image, audio và video trên máy hiện tại."
       actions={actions}
-      contentClassName="min-h-0 overflow-auto bg-background p-0"
+      contentClassName="min-h-0 overflow-auto bg-background p-6 lg:p-8"
     >
       {notice ? <InlineNotice>{notice}</InlineNotice> : null}
       {visibleAssets.length ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-px bg-border-subtle">
+        <div className="grid max-w-[1600px] grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
           {visibleAssets.map((asset) => {
             const localState = localStates[asset.id];
             const Icon = asset.type === "AUDIO" ? FileAudio : asset.type === "IMAGE" ? FileImage : Film;
             const needsRepair = Boolean(localState && localState !== "AVAILABLE");
             const canPreviewImage = asset.type === "IMAGE" && localState === "AVAILABLE";
             return (
-              <article key={asset.id} className="group min-w-0 bg-surface-panel transition-colors hover:bg-surface-hover">
+              <article key={asset.id} className="group min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-panel transition-all hover:border-primary/50 hover:bg-surface-hover shadow-sm">
                 <div className="relative grid aspect-video place-items-center overflow-hidden bg-surface-dark text-text-muted">
                   {canPreviewImage ? (
                     <img
                       src={localAssetPreviewUrl(projectId, asset.id)}
                       alt={asset.originalFilename}
-                      className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.015]"
+                      className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.02]"
                       loading="lazy"
                     />
                   ) : (
-                    <Icon size={24} strokeWidth={1.4} />
+                    <Icon size={32} strokeWidth={1.4} />
                   )}
-                  <span className="absolute left-2 top-2 bg-background/85 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-text-secondary backdrop-blur-sm">
+                  <span className="absolute left-2.5 top-2.5 rounded bg-background/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary backdrop-blur-sm border border-border-subtle">
                     {asset.type}
                   </span>
                 </div>
-                <div className="p-2.5">
-                  <h2 className="truncate text-[11px] font-semibold text-foreground" title={asset.originalFilename}>{asset.originalFilename}</h2>
-                  <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-text-dim">
+                <div className="p-4">
+                  <h2 className="truncate text-[13px] font-semibold text-foreground" title={asset.originalFilename}>{asset.originalFilename}</h2>
+                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-dim">
                     <span>{formatBytes(asset.sizeBytes)}</span>
-                    {asset.durationMs ? <span>{formatDuration(asset.durationMs)}</span> : null}
-                    <span>{asset.status}</span>
+                    {asset.durationMs ? <span>· {formatDuration(asset.durationMs)}</span> : null}
+                    <span>· {asset.status}</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-border-subtle pt-3">
                     <StatusIndicator label={localState ?? (localStatesQuery.isPending ? "CHECKING" : "UNKNOWN")} tone={needsRepair ? "warning" : localState === "AVAILABLE" ? "success" : "neutral"} />
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {needsRepair ? (
                         <Button variant="outline" size="sm" onClick={() => void importAsset(asset.id)} disabled={busy}>
-                          <Wrench size={11} /> Repair
+                          <Wrench size={13} /> Repair
                         </Button>
                       ) : null}
                     </div>
@@ -139,11 +139,17 @@ export function AssetsScreen({
         </div>
       ) : (
         <EmptyState
-          title={assets.length ? "Không có asset trong chapter này" : "Chưa có asset"}
+          icon={Film}
+          title={assets.length ? "Không có asset trong chapter này" : "Chưa có asset media trong project"}
           description={
             assets.length
               ? "Chọn chapter khác hoặc All chapters để xem các asset còn lại."
-              : "Import image, audio hoặc video từ máy để bắt đầu."
+              : "Import image, audio hoặc video từ máy của bạn để bắt đầu xây dựng visual storyboard."
+          }
+          action={
+            <Button size="default" onClick={() => void importAsset()} disabled={busy}>
+              <Plus size={16} /> Import asset ngay
+            </Button>
           }
         />
       )}

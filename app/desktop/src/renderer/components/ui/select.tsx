@@ -12,14 +12,14 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "inline-flex h-8 min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-surface-input px-2.5 text-[12px] text-text-secondary outline-none transition-[background-color,border-color,box-shadow,color] duration-150 hover:border-border-dark hover:bg-surface-2 hover:text-foreground focus:border-primary focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-9.5 min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-surface-input px-3 text-[13px] text-text-secondary outline-none transition-[background-color,border-color,box-shadow,color] duration-150 hover:border-border-dark hover:bg-surface-2 hover:text-foreground focus:border-primary focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown size={13} />
+        <ChevronDown size={14} />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
 
@@ -74,7 +74,7 @@ function SelectLabel({ className, ...props }: React.ComponentProps<typeof Select
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("px-2 py-1.5 text-[10px] font-semibold text-text-muted", className)}
+      className={cn("px-2 py-1.5 text-[11px] font-semibold text-text-muted", className)}
       {...props}
     />
   );
@@ -85,14 +85,14 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-7 pr-2 text-[11px] text-text-secondary outline-none transition-colors focus:bg-surface-3 focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex w-full cursor-default select-none items-center rounded-sm py-2 pl-8 pr-3 text-[13px] text-text-secondary outline-none transition-colors focus:bg-surface-3 focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-2 inline-flex size-3.5 items-center justify-center">
+      <span className="absolute left-2.5 inline-flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <Check size={12} />
+          <Check size={13} />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

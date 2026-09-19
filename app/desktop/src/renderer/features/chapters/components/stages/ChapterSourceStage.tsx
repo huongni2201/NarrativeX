@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Save, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { Sparkles, Save, FileText, CheckCircle, AlertCircle, Plus } from "lucide-react";
 import type { DesktopChapterDetails } from "@narrativex/client-contracts";
+import { Button } from "@/components/ui/button";
 
 export interface ChapterSourceStageProps {
   chapter: DesktopChapterDetails | null;
   onSave: (title: string, sourceText: string) => Promise<void>;
   onAnalyze: () => void;
+  onCreateChapter?: () => void;
   isAnalyzing: boolean;
 }
 
@@ -13,6 +15,7 @@ export function ChapterSourceStage({
   chapter,
   onSave,
   onAnalyze,
+  onCreateChapter,
   isAnalyzing,
 }: ChapterSourceStageProps) {
   const [title, setTitle] = useState(chapter?.title ?? "");
@@ -44,9 +47,24 @@ export function ChapterSourceStage({
 
   if (!chapter) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-text-muted p-8">
-        <FileText size={44} className="mb-2 text-text-dim" />
-        <span className="text-[14px]">Chọn hoặc tạo một chương để bắt đầu soạn thảo.</span>
+      <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-surface-dark/25">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 mb-4 shadow-sm">
+          <FileText size={32} />
+        </div>
+        <h3 className="text-[18px] font-semibold text-foreground">Chưa có Chapter nào được chọn</h3>
+        <p className="mt-2 max-w-md text-[13px] leading-relaxed text-text-secondary">
+          Tạo chapter mới để bắt đầu nhập kịch bản hoặc tiểu thuyết. Hệ thống AI Story Director sẽ tự động phân tích bối cảnh, trích xuất nhân vật và phân tách StoryBeats.
+        </p>
+        {onCreateChapter && (
+          <Button
+            type="button"
+            size="lg"
+            onClick={onCreateChapter}
+            className="mt-6 gap-2 font-semibold shadow-sm"
+          >
+            <Plus size={16} /> Thêm chapter mới
+          </Button>
+        )}
       </div>
     );
   }

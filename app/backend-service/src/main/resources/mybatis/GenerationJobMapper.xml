@@ -30,6 +30,21 @@
         <result property="productionMode" column="production_mode" />
         <result property="analysisVisualGenerationMode" column="analysis_visual_generation_mode" />
         <result property="analysisImageProvider" column="analysis_image_provider" />
+        <result property="submissionState" column="submission_state" />
+        <result property="computeAttemptId" column="compute_attempt_id"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="computeExecutionHandle" column="compute_execution_handle" />
+        <result property="computeSequence" column="compute_sequence" />
+        <result property="lastComputeState" column="last_compute_state" />
+        <result property="submittedAt" column="submitted_at" />
+        <result property="startedAt" column="started_at" />
+        <result property="completedAt" column="completed_at" />
+        <result property="lastReconciledAt" column="last_reconciled_at" />
+        <result property="nextReconcileAt" column="next_reconcile_at" />
+        <result property="reconcileAttemptCount" column="reconcile_attempt_count" />
+        <result property="lastEventId" column="last_event_id" />
+        <result property="lastEventSequence" column="last_event_sequence" />
+        <result property="callbackReceivedAt" column="callback_received_at" />
     </resultMap>
 
     <resultMap id="analysisProgressRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.AnalysisProgressRow">
@@ -48,7 +63,11 @@
         resource_class, progress, current_step, error_code,
         story_version_id, chapter_id, chapter_row_version, source_hash,
         source_text, source_language, idempotency_key, storyboard_revision_id, media_plan_id,
-        media_plan_revision, production_mode, analysis_visual_generation_mode, analysis_image_provider
+        media_plan_revision, production_mode, analysis_visual_generation_mode, analysis_image_provider,
+        submission_state, compute_attempt_id, compute_execution_handle, compute_sequence,
+        last_compute_state, submitted_at, started_at, completed_at,
+        last_reconciled_at, next_reconcile_at, reconcile_attempt_count,
+        last_event_id, last_event_sequence, callback_received_at
     </sql>
 
     <sql id="qualifiedColumns">
@@ -56,7 +75,11 @@
         j.resource_class, j.progress, j.current_step, j.error_code,
         j.story_version_id, j.chapter_id, j.chapter_row_version, j.source_hash,
         j.source_text, j.source_language, j.idempotency_key, j.storyboard_revision_id, j.media_plan_id,
-        j.media_plan_revision, j.production_mode, j.analysis_visual_generation_mode, j.analysis_image_provider
+        j.media_plan_revision, j.production_mode, j.analysis_visual_generation_mode, j.analysis_image_provider,
+        j.submission_state, j.compute_attempt_id, j.compute_execution_handle, j.compute_sequence,
+        j.last_compute_state, j.submitted_at, j.started_at, j.completed_at,
+        j.last_reconciled_at, j.next_reconcile_at, j.reconcile_attempt_count,
+        j.last_event_id, j.last_event_sequence, j.callback_received_at
     </sql>
 
     <select id="insert"
@@ -67,21 +90,30 @@
              error_code, story_version_id, chapter_id,
              chapter_row_version, source_hash, source_text, source_language, idempotency_key,
              storyboard_revision_id, media_plan_id, media_plan_revision, production_mode,
-             analysis_visual_generation_mode, analysis_image_provider)
+             analysis_visual_generation_mode, analysis_image_provider,
+             submission_state, compute_attempt_id, compute_execution_handle,
+             compute_sequence, last_compute_state, submitted_at, started_at,
+             completed_at, last_reconciled_at, next_reconcile_at,
+             reconcile_attempt_count, last_event_id, last_event_sequence, callback_received_at)
         VALUES
             (#{jobId}, #{projectId}, #{type}, #{status}, #{resourceClass}, #{progress}, #{currentStep},
              #{errorCode}, #{storyVersionId}, #{chapterId},
              #{chapterRowVersion}, #{sourceHash}, #{sourceText}, #{sourceLanguage}, #{idempotencyKey},
              #{storyboardRevisionId},
              #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
-             #{mediaPlanRevision}, #{productionMode}, #{analysisVisualGenerationMode}, #{analysisImageProvider})
+             #{mediaPlanRevision}, #{productionMode}, #{analysisVisualGenerationMode}, #{analysisImageProvider},
+             #{submissionState},
+             #{computeAttemptId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{computeExecutionHandle}, #{computeSequence}, #{lastComputeState}, #{submittedAt},
+             #{startedAt}, #{completedAt}, #{lastReconciledAt}, #{nextReconcileAt},
+             #{reconcileAttemptCount}, #{lastEventId}, #{lastEventSequence}, #{callbackReceivedAt})
         RETURNING id
     </select>
 
     <update id="updateCas"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow">
         UPDATE generation_jobs
-           SET job_id = #{jobId},
+            SET job_id = #{jobId},
                project_id = #{projectId},
                job_type = #{type},
                status = #{status},
@@ -102,6 +134,20 @@
                production_mode = #{productionMode},
                analysis_visual_generation_mode = #{analysisVisualGenerationMode},
                analysis_image_provider = #{analysisImageProvider},
+               submission_state = #{submissionState},
+               compute_attempt_id = #{computeAttemptId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+               compute_execution_handle = #{computeExecutionHandle},
+               compute_sequence = #{computeSequence},
+               last_compute_state = #{lastComputeState},
+               submitted_at = #{submittedAt},
+               started_at = #{startedAt},
+               completed_at = #{completedAt},
+               last_reconciled_at = #{lastReconciledAt},
+               next_reconcile_at = #{nextReconcileAt},
+               reconcile_attempt_count = #{reconcileAttemptCount},
+               last_event_id = #{lastEventId},
+               last_event_sequence = #{lastEventSequence},
+               callback_received_at = #{callbackReceivedAt},
                updated_at = CURRENT_TIMESTAMP,
                row_version = row_version + 1
          WHERE id = #{id}
@@ -205,5 +251,23 @@
     <select id="acquireIdempotencyLock" resultType="int">
         SELECT 1
           FROM pg_advisory_xact_lock(hashtextextended(#{idempotencyKey}, 0))
+    </select>
+
+    <select id="findByComputeAttemptId" resultMap="generationJobRow">
+        SELECT <include refid="columns" />
+          FROM generation_jobs
+         WHERE job_id = #{taskId}
+           AND compute_attempt_id = #{attemptId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         LIMIT 1
+    </select>
+
+    <select id="findJobsDueForReconciliation" resultMap="generationJobRow">
+        SELECT <include refid="columns" />
+          FROM generation_jobs
+         WHERE status IN ('SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING')
+           AND next_reconcile_at IS NOT NULL
+           AND next_reconcile_at &lt;= #{now}
+         ORDER BY next_reconcile_at ASC
+         LIMIT #{limit}
     </select>
 </mapper>

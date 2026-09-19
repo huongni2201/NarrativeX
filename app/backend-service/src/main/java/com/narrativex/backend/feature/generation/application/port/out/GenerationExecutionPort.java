@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
+import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
-import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
 import java.util.UUID;
 
 public interface GenerationExecutionPort {
@@ -10,9 +10,9 @@ public interface GenerationExecutionPort {
    * Submit an immutable execution task to the generation service.
    *
    * @param request the compute task request
-   * @return the submission result
+   * @return the submission receipt
    */
-  SubmitTaskResult submitTask(ComputeTaskRequest request);
+  ComputeSubmissionReceipt submitTask(ComputeTaskRequest request);
 
   /**
    * Reconcile or poll the status of a previously submitted task attempt.

@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.storyboard.domain.entity;
 
 import com.narrativex.backend.feature.common.domain.DomainEntity;
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ public final class StoryBeat extends DomainEntity {
   private final String importance;
   private final String storyFunctionsJson;
   private final String continuityStateJson;
-  private final String reviewStatus;
+  private final StoryBeatReviewStatus reviewStatus;
 
   public StoryBeat(
       UUID sceneId,
@@ -49,7 +50,7 @@ public final class StoryBeat extends DomainEntity {
         importance,
         storyFunctionsJson,
         continuityStateJson,
-        "NEEDS_REVIEW");
+        StoryBeatReviewStatus.NEEDS_REVIEW);
   }
 
   public StoryBeat(
@@ -63,7 +64,7 @@ public final class StoryBeat extends DomainEntity {
       String importance,
       String storyFunctionsJson,
       String continuityStateJson,
-      String reviewStatus) {
+      StoryBeatReviewStatus reviewStatus) {
     this(
         null,
         0L,
@@ -93,7 +94,7 @@ public final class StoryBeat extends DomainEntity {
       String importance,
       String storyFunctionsJson,
       String continuityStateJson,
-      String reviewStatus) {
+      StoryBeatReviewStatus reviewStatus) {
     super(id, rowVersion);
     this.sceneId = Objects.requireNonNull(sceneId, "sceneId must not be null");
     if (orderIndex < 0) {
@@ -121,7 +122,7 @@ public final class StoryBeat extends DomainEntity {
     this.importance = defaultIfBlank(importance, "NORMAL", MAX_IMPORTANCE_LENGTH);
     this.storyFunctionsJson = storyFunctionsJson != null ? storyFunctionsJson.trim() : "[]";
     this.continuityStateJson = continuityStateJson != null ? continuityStateJson.trim() : "{}";
-    this.reviewStatus = defaultIfBlank(reviewStatus, "NEEDS_REVIEW", 32);
+    this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus must not be null");
   }
 
   public static StoryBeat rehydrate(
@@ -137,7 +138,7 @@ public final class StoryBeat extends DomainEntity {
       String importance,
       String storyFunctionsJson,
       String continuityStateJson,
-      String reviewStatus) {
+      StoryBeatReviewStatus reviewStatus) {
     return new StoryBeat(
         id,
         rowVersion,
@@ -180,7 +181,7 @@ public final class StoryBeat extends DomainEntity {
         importance,
         storyFunctionsJson,
         continuityStateJson,
-        "NEEDS_REVIEW");
+        StoryBeatReviewStatus.NEEDS_REVIEW);
   }
 
   public UUID getSceneId() {
@@ -223,11 +224,11 @@ public final class StoryBeat extends DomainEntity {
     return continuityStateJson;
   }
 
-  public String getReviewStatus() {
+  public StoryBeatReviewStatus getReviewStatus() {
     return reviewStatus;
   }
 
-  public StoryBeat withReviewStatus(String newStatus) {
+  public StoryBeat withReviewStatus(StoryBeatReviewStatus newStatus) {
     return new StoryBeat(
         getId(),
         getRowVersion(),

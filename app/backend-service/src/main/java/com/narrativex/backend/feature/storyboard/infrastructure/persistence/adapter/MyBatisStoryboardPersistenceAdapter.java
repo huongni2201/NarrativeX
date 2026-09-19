@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow;
@@ -142,19 +143,14 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
   }
 
   @Override
-  public Optional<StoryBeat> findStoryBeatByIdAndChapterId(UUID id, UUID chapterId) {
-    return Optional.ofNullable(mapper.findCurrentStoryBeatByChapter(id, chapterId))
-        .map(MyBatisStoryboardPersistenceAdapter::toDomain);
-  }
-
-  @Override
   public StoryBeat updateStoryBeatReviewStatus(
-      UUID chapterId, UUID storyBeatId, String status, long expectedRowVersion) {
+      UUID chapterId, UUID storyBeatId, StoryBeatReviewStatus status, long expectedRowVersion) {
     StoryBeatRow existing = mapper.findCurrentStoryBeatByChapter(storyBeatId, chapterId);
     if (existing == null) throw new ResourceNotFoundException("Story beat not found");
     OptimisticConcurrency.requireVersion(
         expectedRowVersion, existing.getRowVersion(), StoryBeat.class, storyBeatId);
-    if (mapper.updateStoryBeatReviewStatus(chapterId, storyBeatId, status, expectedRowVersion)
+    if (mapper.updateStoryBeatReviewStatus(
+            chapterId, storyBeatId, status.name(), expectedRowVersion)
         != 1) {
       throw new org.springframework.dao.OptimisticLockingFailureException(
           "Story beat was modified concurrently");
@@ -162,7 +158,22 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
     return toDomain(mapper.findStoryBeat(storyBeatId));
   }
 
-  private static StoryBeat toDomain(StoryBeatRow row) {
+  static StoryBeat toDomain(StoryBeatRow row) {
+    if (row.getReviewStatus() == null) {
+      throw new IllegalStateException(
+          "StoryBeat row " + row.getId() + " has null reviewStatus in DB");
+    }
+    StoryBeatReviewStatus reviewStatus;
+    try {
+      reviewStatus = StoryBeatReviewStatus.valueOf(row.getReviewStatus().trim());
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalStateException(
+          "StoryBeat row "
+              + row.getId()
+              + " has invalid reviewStatus in DB: "
+              + row.getReviewStatus(),
+          ex);
+    }
     return StoryBeat.rehydrate(
         row.getId(),
         row.getRowVersion(),
@@ -176,6 +187,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
         row.getImportance(),
         row.getStoryFunctionsJson(),
         row.getContinuityStateJson(),
-        row.getReviewStatus());
+        reviewStatus);
   }
 }

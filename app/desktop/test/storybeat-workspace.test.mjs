@@ -120,3 +120,89 @@ test("synthetic story beats distinguish from persisted beats and preserve legacy
   assert.equal(syntheticBeat.visualBeats.length, 1);
   assert.equal(syntheticBeat.title, "Legacy unassigned visuals");
 });
+
+test("mutation response contract does not require full DesktopStoryBeat fields", () => {
+  /** @type {import("@narrativex/client-contracts").StoryBeatMutationResponse} */
+  const mutationResponse = {
+    id: "beat-1",
+    sceneId: "scene-1",
+    orderIndex: 0,
+    purpose: "PLOT",
+    summary: "Hero leaves the village at dawn.",
+    importance: "HIGH",
+    reviewStatus: "APPROVED",
+    rowVersion: 2,
+  };
+
+  assert.equal(mutationResponse.id, "beat-1");
+  assert.equal(mutationResponse.reviewStatus, "APPROVED");
+  assert.equal(mutationResponse.rowVersion, 2);
+  assert.equal("audioCues" in mutationResponse, false);
+  assert.equal("visualBeats" in mutationResponse, false);
+  assert.equal("timing" in mutationResponse, false);
+  assert.equal("persistenceState" in mutationResponse, false);
+});
+
+test("synthetic beat cannot trigger mutation", () => {
+  const syntheticBeat = {
+    id: "synth-beat-scene-1",
+    persistenceState: /** @type {const} */ ("SYNTHETIC"),
+  };
+  const persistedBeat = {
+    id: "beat-1",
+    persistenceState: /** @type {const} */ ("PERSISTED"),
+  };
+
+  let mutationTriggered = false;
+  const triggerMutation = (beat) => {
+    if (!beat) return;
+    if (beat.persistenceState === "SYNTHETIC") return;
+    mutationTriggered = true;
+  };
+
+  triggerMutation(syntheticBeat);
+  assert.equal(mutationTriggered, false, "Synthetic beat must not trigger mutation");
+
+  triggerMutation(persistedBeat);
+  assert.equal(mutationTriggered, true, "Persisted beat should trigger mutation");
+});
+
+test("selected beat derives updated rowVersion from query state after mutation", () => {
+  const selectedBeatId = "beat-1";
+  const deriveSelectedBeat = (story) => {
+    const allBeats = story.scenes.flatMap((s) => s.storyBeats);
+    return allBeats.find((b) => b.id === selectedBeatId) ?? null;
+  };
+
+  let storyCache = {
+    scenes: [
+      {
+        id: "scene-1",
+        storyBeats: [
+          { id: "beat-1", title: "Beat 1", rowVersion: 1, reviewStatus: "NEEDS_REVIEW", persistenceState: "PERSISTED" },
+        ],
+      },
+    ],
+  };
+
+  let selected = deriveSelectedBeat(storyCache);
+  assert.equal(selected.rowVersion, 1);
+  assert.equal(selected.reviewStatus, "NEEDS_REVIEW");
+
+  // Query cache update after mutation
+  storyCache = {
+    scenes: [
+      {
+        id: "scene-1",
+        storyBeats: [
+          { id: "beat-1", title: "Beat 1", rowVersion: 2, reviewStatus: "APPROVED", persistenceState: "PERSISTED" },
+        ],
+      },
+    ],
+  };
+
+  selected = deriveSelectedBeat(storyCache);
+  assert.equal(selected.rowVersion, 2);
+  assert.equal(selected.reviewStatus, "APPROVED");
+});
+

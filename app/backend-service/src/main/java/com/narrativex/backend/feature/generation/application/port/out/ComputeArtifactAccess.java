@@ -16,4 +16,9 @@ public interface ComputeArtifactAccess {
   byte[] readOutput(OutputArtifactTargetDto target);
 
   String storageKey(OutputArtifactTargetDto target);
+
+  default OutputArtifactTargetDto getOrCreateTarget(
+      UUID taskId, UUID attemptId, UUID artifactId, String role, String mediaType) {
+    return createOutput(taskId, attemptId, role, mediaType);
+  }
 }

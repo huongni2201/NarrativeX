@@ -15,14 +15,14 @@ function DropdownMenuSubTrigger({ className, inset, children, ...props }: React.
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
-        "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-[10px] outline-none focus:bg-secondary data-[state=open]:bg-secondary",
+        "flex cursor-default select-none items-center rounded-sm px-2.5 py-2 text-[13px] outline-none focus:bg-secondary data-[state=open]:bg-secondary",
         inset && "pl-7",
         className,
       )}
       {...props}
     >
       {children}
-      <ChevronRight className="ml-auto" size={13} />
+      <ChevronRight className="ml-auto" size={14} />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }
@@ -32,7 +32,7 @@ function DropdownMenuSubContent({ className, ...props }: React.ComponentProps<ty
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "z-[11000] min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl",
+        "z-[11000] min-w-[9rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl",
         className,
       )}
       {...props}
@@ -47,7 +47,7 @@ function DropdownMenuContent({ className, sideOffset = 4, ...props }: React.Comp
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-[11000] min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl",
+          "z-[11000] min-w-[9rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl",
           className,
         )}
         {...props}
@@ -61,7 +61,7 @@ function DropdownMenuItem({ className, inset, ...props }: React.ComponentProps<t
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-[10px] outline-none focus:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-default select-none items-center rounded-sm px-2.5 py-2 text-[13px] outline-none focus:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         inset && "pl-7",
         className,
       )}
@@ -76,14 +76,14 @@ function DropdownMenuCheckboxItem({ className, children, checked, ...props }: Re
       data-slot="dropdown-menu-checkbox-item"
       checked={checked}
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-7 pr-2 text-[10px] outline-none focus:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-default select-none items-center rounded-sm py-2 pl-8 pr-2.5 text-[13px] outline-none focus:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-2 inline-flex size-3.5 items-center justify-center">
+      <span className="absolute left-2.5 inline-flex size-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check size={12} />
+          <Check size={13} />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -96,12 +96,12 @@ function DropdownMenuRadioItem({ className, children, ...props }: React.Componen
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-7 pr-2 text-[10px] outline-none focus:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-default select-none items-center rounded-sm py-2 pl-8 pr-2.5 text-[13px] outline-none focus:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-2 inline-flex size-3.5 items-center justify-center">
+      <span className="absolute left-2.5 inline-flex size-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <Circle className="fill-current" size={7} />
         </DropdownMenuPrimitive.ItemIndicator>
@@ -116,7 +116,7 @@ function DropdownMenuLabel({ className, inset, ...props }: React.ComponentProps<
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       className={cn(
-        "px-2 py-1.5 text-[10px] font-semibold text-muted-foreground",
+        "px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground",
         inset && "pl-7",
         className,
       )}
@@ -139,7 +139,7 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"spa
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn("ml-auto pl-4 font-mono text-[9px] tracking-widest text-muted-foreground", className)}
+      className={cn("ml-auto pl-4 font-mono text-[11px] tracking-widest text-muted-foreground", className)}
       {...props}
     />
   );

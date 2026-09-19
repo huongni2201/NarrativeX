@@ -72,7 +72,7 @@ export interface DesktopStoryBeat {
   visualBeats: DesktopStoryVisualBeat[];
   timing: DesktopStoryBeatTiming;
   rowVersion: number;
-  persistenceState?: StoryBeatPersistenceState;
+  persistenceState: StoryBeatPersistenceState;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -172,6 +172,17 @@ export interface UpdateAudioCueInput {
 
 export interface UpdateStoryBeatReviewStatusInput {
   status: StoryBeatReviewStatus;
+  rowVersion: number;
+}
+
+export interface StoryBeatMutationResponse {
+  id: string;
+  sceneId: string;
+  orderIndex: number;
+  purpose: string;
+  summary: string;
+  importance: string;
+  reviewStatus: StoryBeatReviewStatus;
   rowVersion: number;
 }
 

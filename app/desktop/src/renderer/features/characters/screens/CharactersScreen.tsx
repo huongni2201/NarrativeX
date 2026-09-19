@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
-import { Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
@@ -175,7 +175,16 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
         {notice ? <InlineNotice>{notice}</InlineNotice> : null}
 
         {!characters.length ? (
-          <EmptyState title="Chưa có character" description="Tạo nhân vật đầu tiên để xây identity reference và continuity." />
+          <EmptyState
+            icon={Users}
+            title="Chưa có nhân vật nào trong Project"
+            description="Tạo nhân vật đầu tiên để xây dựng hồ sơ diện mạo (character bible), visual reference chân dung và duy trì tính nhất quán (continuity) qua từng khung hình."
+            action={
+              <Button size="default" onClick={() => setCreating(true)} className="gap-2 font-medium">
+                <Plus size={16} /> Thêm nhân vật mới
+              </Button>
+            }
+          />
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,280px)_minmax(360px,1fr)_minmax(260px,300px)] overflow-hidden">
             <WorkspacePane className="flex flex-col border-r border-border-subtle bg-surface-panel">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, BookOpen, ChevronRight, ChevronDown, Film, Disc } from "lucide-react";
 import type { DesktopChapterDetails, DesktopChapterStory } from "@narrativex/client-contracts";
+import { Button } from "@/components/ui/button";
 
 export interface ChapterRailProps {
   chapters: DesktopChapterDetails[];
@@ -35,10 +36,30 @@ export function ChapterRail({
 
   return (
     <div className="flex h-full w-[260px] shrink-0 flex-col border-r border-border-subtle bg-surface-dark select-none">
-      {/* Search & Add Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-border-subtle p-2.5 gap-1.5">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+      {/* Rail Header with Title and Add Button */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-panel/40 px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <BookOpen size={16} className="text-primary" />
+          <span className="text-[13px] font-semibold text-foreground">Chapters</span>
+          <span className="rounded-full bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-text-dim">
+            {chapters.length}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateChapter}
+          className="flex size-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
+          title="Tạo chapter mới"
+          aria-label="Tạo chapter mới"
+        >
+          <Plus size={15} />
+        </button>
+      </div>
+
+      {/* Search Input */}
+      <div className="border-b border-border-subtle p-2">
+        <div className="relative">
+          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             placeholder="Tìm chương..."
@@ -47,19 +68,17 @@ export function ChapterRail({
             className="w-full rounded-md border border-border-subtle bg-surface-input pl-8 pr-2.5 py-1 text-[12px] text-foreground placeholder:text-text-muted focus:border-primary focus:outline-none"
           />
         </div>
-
-        <button
-          type="button"
-          onClick={onCreateChapter}
-          className="inline-flex size-7 items-center justify-center rounded-md border border-border-subtle bg-surface-2 text-text-secondary transition-all hover:bg-primary hover:text-primary-foreground hover:border-primary"
-          title="Tạo chương mới"
-        >
-          <Plus size={15} />
-        </button>
       </div>
 
       {/* Chapters & Hierarchy List */}
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5 space-y-1 text-[13px]">
+        {filteredChapters.length === 0 && (
+          <div className="flex min-h-36 flex-col items-center justify-center p-4 text-center text-text-muted">
+            <BookOpen size={24} className="mb-2 text-text-dim opacity-40" />
+            <p className="text-[12px] font-medium text-text-secondary">Chưa có chapter</p>
+            <p className="mt-0.5 text-[11px] text-text-dim">Tạo chapter từ vùng làm việc bên phải</p>
+          </div>
+        )}
         {filteredChapters.map((chapter) => {
           const isChapterSelected = selectedChapterId === chapter.id;
 
@@ -130,6 +149,15 @@ export function ChapterRail({
             </div>
           );
         })}
+        {filteredChapters.length > 0 && (
+          <button
+            type="button"
+            onClick={onCreateChapter}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border-subtle py-2 text-[12px] font-medium text-text-muted transition-all hover:border-primary hover:bg-surface-2 hover:text-primary"
+          >
+            <Plus size={14} /> Thêm chapter mới
+          </button>
+        )}
       </div>
     </div>
   );

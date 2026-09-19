@@ -17,6 +17,7 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRep
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.domain.entity.StoryBeat;
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,16 +77,17 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
             "HIGH",
             "[]",
             "{}",
-            "APPROVED");
+            StoryBeatReviewStatus.APPROVED);
 
-    when(storyboardRepository.updateStoryBeatReviewStatus(chapterId, storyBeatId, "APPROVED", 1L))
+    when(storyboardRepository.updateStoryBeatReviewStatus(
+            chapterId, storyBeatId, StoryBeatReviewStatus.APPROVED, 1L))
         .thenReturn(updatedBeat);
 
     ApiResponse<StoryBeatResponse> response =
-        useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED");
+        useCase.execute(projectId, chapterId, storyBeatId, 1L, StoryBeatReviewStatus.APPROVED);
 
     assertNotNull(response);
-    assertEquals("APPROVED", response.data().reviewStatus());
+    assertEquals(StoryBeatReviewStatus.APPROVED, response.data().reviewStatus());
     assertEquals(2L, response.data().rowVersion());
     verify(storyboardRevisionAccess).lockChapter(chapterId);
     verify(storyVersionAccess).requireStoryVersion(projectId, storyVersionId);
@@ -109,12 +111,14 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 
     when(chapterRepository.findById(chapterId)).thenReturn(Optional.of(chapter));
-    when(storyboardRepository.updateStoryBeatReviewStatus(chapterId, storyBeatId, "APPROVED", 1L))
+    when(storyboardRepository.updateStoryBeatReviewStatus(
+            chapterId, storyBeatId, StoryBeatReviewStatus.APPROVED, 1L))
         .thenThrow(new OptimisticLockingFailureException("concurrent edit"));
 
     assertThrows(
         ResourceConflictException.class,
-        () -> useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED"));
+        () ->
+            useCase.execute(projectId, chapterId, storyBeatId, 1L, StoryBeatReviewStatus.APPROVED));
   }
 
   @Test
@@ -127,7 +131,8 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
 
     assertThrows(
         ResourceNotFoundException.class,
-        () -> useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED"));
+        () ->
+            useCase.execute(projectId, chapterId, storyBeatId, 1L, StoryBeatReviewStatus.APPROVED));
   }
 
   @Test
@@ -148,12 +153,14 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 
     when(chapterRepository.findById(chapterId)).thenReturn(Optional.of(chapter));
-    when(storyboardRepository.updateStoryBeatReviewStatus(chapterId, storyBeatId, "APPROVED", 1L))
+    when(storyboardRepository.updateStoryBeatReviewStatus(
+            chapterId, storyBeatId, StoryBeatReviewStatus.APPROVED, 1L))
         .thenThrow(new ResourceNotFoundException("Story beat not found"));
 
     assertThrows(
         ResourceNotFoundException.class,
-        () -> useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED"));
+        () ->
+            useCase.execute(projectId, chapterId, storyBeatId, 1L, StoryBeatReviewStatus.APPROVED));
   }
 
   @Test
@@ -180,6 +187,7 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
 
     assertThrows(
         ResourceNotFoundException.class,
-        () -> useCase.execute(projectId, chapterId, storyBeatId, 1L, "APPROVED"));
+        () ->
+            useCase.execute(projectId, chapterId, storyBeatId, 1L, StoryBeatReviewStatus.APPROVED));
   }
 }

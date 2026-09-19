@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.generation.infrastructure.compute;
 
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
+import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
-import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.infrastructure.compute.node.ComputeTargetRegistry;
 import java.io.IOException;
@@ -81,7 +81,7 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
   }
 
   @Override
-  public SubmitTaskResult submitTask(ComputeTaskRequest request) {
+  public ComputeSubmissionReceipt submitTask(ComputeTaskRequest request) {
     String executor = request.model() != null ? request.model().executor() : "default";
     String url = resolveBaseUrl(executor) + "/v1/tasks";
     try {
@@ -106,7 +106,12 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
       if (response.statusCode() == 202) {
         ComputeObservationDto observation =
             objectMapper.readValue(response.body(), ComputeObservationDto.class);
-        return new SubmitTaskResult(request.taskId(), request.attemptId(), observation.state());
+        return new ComputeSubmissionReceipt(
+            request.taskId(),
+            request.attemptId(),
+            observation.executionHandle(),
+            observation.state(),
+            observation.sequence());
       } else {
         throw new ComputeClientException(response.statusCode(), response.body());
       }

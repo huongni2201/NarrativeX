@@ -60,6 +60,7 @@ export type {
   DesktopStoryVisualBeat,
   StoryBeatPersistenceState,
   StoryBeatReviewStatus,
+  StoryBeatMutationResponse,
   UpdateAudioCueInput,
   UpdateStoryBeatInput,
   UpdateStoryBeatReviewStatusInput,

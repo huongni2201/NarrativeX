@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.api.response;
 
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
 import java.util.UUID;
 
 public record StoryBeatResponse(
@@ -9,5 +10,5 @@ public record StoryBeatResponse(
     String purpose,
     String summary,
     String importance,
-    String reviewStatus,
+    StoryBeatReviewStatus reviewStatus,
     long rowVersion) {}

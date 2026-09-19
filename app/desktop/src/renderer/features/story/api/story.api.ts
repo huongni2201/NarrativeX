@@ -1,4 +1,4 @@
-import type { DesktopChapterStory, DesktopStoryBeat, StoryBeatReviewStatus } from "@narrativex/client-contracts";
+import type { DesktopChapterStory, StoryBeatMutationResponse, StoryBeatReviewStatus } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client.ts";
 
 export const storyApi = {
@@ -14,7 +14,7 @@ export const storyApi = {
     status: StoryBeatReviewStatus,
     rowVersion: number,
   ) =>
-    apiRequest<DesktopStoryBeat>(
+    apiRequest<StoryBeatMutationResponse>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/story-beats/${encodeURIComponent(storyBeatId)}/review-status`,
       {
         method: "PUT",

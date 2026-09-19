@@ -41,4 +41,18 @@ public class GenerationJobRow {
   private ProductionMode productionMode;
   private String analysisVisualGenerationMode;
   private String analysisImageProvider;
+  private String submissionState;
+  private UUID computeAttemptId;
+  private String computeExecutionHandle;
+  private Long computeSequence;
+  private String lastComputeState;
+  private Instant submittedAt;
+  private Instant startedAt;
+  private Instant completedAt;
+  private Instant lastReconciledAt;
+  private Instant nextReconcileAt;
+  private int reconcileAttemptCount;
+  private String lastEventId;
+  private Long lastEventSequence;
+  private Instant callbackReceivedAt;
 }

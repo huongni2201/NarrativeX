@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardR
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.entity.StoryBeat;
+import com.narrativex.backend.feature.storyboard.domain.enums.StoryBeatReviewStatus;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,11 @@ public class UpdateStoryBeatReviewStatusUseCase {
 
   @Transactional
   public ApiResponse<StoryBeatResponse> execute(
-      UUID projectId, UUID chapterId, UUID storyBeatId, long expectedRowVersion, String status) {
+      UUID projectId,
+      UUID chapterId,
+      UUID storyBeatId,
+      long expectedRowVersion,
+      StoryBeatReviewStatus status) {
     storyboardRevisionAccess.lockChapter(chapterId);
 
     var chapter =

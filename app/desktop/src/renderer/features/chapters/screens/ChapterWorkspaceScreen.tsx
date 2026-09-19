@@ -5,7 +5,6 @@ import {
   Clapperboard,
   Sparkles,
   Layers,
-  ArrowRight,
 } from "lucide-react";
 import type {
   DesktopChapterDetails,
@@ -84,7 +83,6 @@ export function ChapterWorkspaceScreen({
         status: newStatus,
         rowVersion: selectedBeat.rowVersion,
       });
-      await refetchStory();
     } catch {
       void refetchStory();
     }
@@ -203,8 +201,10 @@ export function ChapterWorkspaceScreen({
             </button>
           </div>
 
-          <div className="text-[12px] font-mono text-text-muted">
-            {activeChapter?.title || "Chưa chọn chương"}
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-mono text-text-muted">
+              {activeChapter ? activeChapter.title || `Chương ${activeChapter.orderIndex + 1}` : "Chưa chọn chương"}
+            </span>
           </div>
         </div>
 
@@ -215,6 +215,7 @@ export function ChapterWorkspaceScreen({
               chapter={activeChapter}
               onSave={handleSaveSource}
               onAnalyze={handleAnalyze}
+              onCreateChapter={handleCreateNewChapter}
               isAnalyzing={analyzeChapter.isPending}
             />
           )}
@@ -260,10 +261,12 @@ export function ChapterWorkspaceScreen({
             isUpdatingStatus={updateBeatStatus.isPending}
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center p-6 text-center text-text-muted border-l border-border-subtle bg-surface-dark">
-            <Layers size={36} className="mb-2 text-text-dim" />
+          <div className="flex h-full flex-col items-center justify-center p-6 text-center text-text-muted border-l border-border-subtle bg-surface-dark/50">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-surface-panel border border-border-subtle mb-3 text-text-dim shadow-sm">
+              <Layers size={22} />
+            </div>
             <h4 className="text-[14px] font-semibold text-foreground">Inspector</h4>
-            <p className="mt-1 text-[12px] text-text-secondary">
+            <p className="mt-1.5 max-w-[260px] text-[12px] leading-relaxed text-text-secondary">
               Chọn một StoryBeat để chỉnh sửa chi tiết kịch bản, lời thoại, góc nhìn thị giác và tham số kỹ thuật.
             </p>
           </div>
