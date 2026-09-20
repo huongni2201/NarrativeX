@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeMapper">
+
+  <resultMap id="selectedTake" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeRow">
+    <id property="shotId" column="shot_id"/>
+    <result property="takeId" column="take_id"/>
+    <result property="sourceInMs" column="source_in_ms"/>
+    <result property="sourceOutMs" column="source_out_ms"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+  </resultMap>
+
+  <select id="findByShotId" resultMap="selectedTake">
+    SELECT shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at
+    FROM selected_takes
+    WHERE shot_id = #{shotId}
+  </select>
+
+  <insert id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeRow">
+    INSERT INTO selected_takes (shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at)
+    VALUES (#{shotId}, #{takeId}, #{sourceInMs}, #{sourceOutMs}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP))
+  </insert>
+
+  <update id="update">
+    UPDATE selected_takes
+    SET take_id = #{takeId},
+        source_in_ms = #{sourceInMs},
+        source_out_ms = #{sourceOutMs},
+        updated_at = #{updatedAt}
+    WHERE shot_id = #{shotId}
+  </update>
+
+  <delete id="deleteByShotId">
+    DELETE FROM selected_takes WHERE shot_id = #{shotId}
+  </delete>
+
+</mapper>

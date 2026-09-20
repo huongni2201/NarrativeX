@@ -112,14 +112,14 @@ export function ChapterProductionStage({
 
         <div className="rounded-lg border border-border-subtle bg-surface p-3">
           <div className="flex items-center justify-between text-text-muted mb-1 text-[11px] uppercase tracking-wider font-medium">
-            <span>Hình ảnh (ComfyUI)</span>
-            <ImageIcon size={14} className="text-primary" />
+            <span>Video Shots (LTX-2.5)</span>
+            <Film size={14} className="text-primary" />
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-[18px] font-bold text-foreground font-mono">
               {visualsReadyCount} / {totalVisuals}
             </span>
-            <span className="text-[11px] text-text-secondary">Visuals sẵn sàng</span>
+            <span className="text-[11px] text-text-secondary">Shots / Takes sẵn sàng</span>
           </div>
         </div>
 

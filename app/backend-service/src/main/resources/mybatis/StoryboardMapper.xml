@@ -78,6 +78,9 @@
     <result property="relativeWeight" column="relative_weight"/>
     <result property="visualFocus" column="visual_focus"/>
     <result property="aspectRatioOverride" column="aspect_ratio_override"/>
+    <result property="dramaticIntent" column="dramatic_intent"/>
+    <result property="emotion" column="emotion"/>
+    <result property="retentionRole" column="retention_role"/>
     <result property="previewMediaAssetId" column="preview_media_asset_id"/>
     <result property="textStart" column="text_start"/>
     <result property="textEnd" column="text_end"/>
@@ -233,14 +236,14 @@
 
   <!-- VisualBeat -->
   <select id="findVisualBeats" resultMap="beat">
-    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
+    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, dramatic_intent, emotion, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
     FROM visual_beats
     WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach>
     ORDER BY scene_id, order_index, id
   </select>
 
   <select id="findVisualBeat" resultMap="beat">
-    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
+    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, dramatic_intent, emotion, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
     FROM visual_beats
     WHERE id = #{id}
   </select>
@@ -250,8 +253,8 @@
   </select>
 
   <select id="insertVisualBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow" resultType="java.util.UUID" affectData="true">
-    INSERT INTO visual_beats (row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, visual_direction_json, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json)
-    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{storyBeatId}, #{orderIndex}, #{title}, #{visualIntent}, COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb), #{reviewStatus}, #{motionMode}, COALESCE(CAST(#{relativeWeight} AS numeric), 1.0), COALESCE(#{visualFocus}, 'SPEAKER'), #{aspectRatioOverride}, #{previewMediaAssetId}, #{textStart}, #{textEnd}, #{audioDurationMs}, #{sourceAnchorJson}::jsonb)
+    INSERT INTO visual_beats (row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, visual_direction_json, dramatic_intent, emotion, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{storyBeatId}, #{orderIndex}, #{title}, #{visualIntent}, COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb), COALESCE(#{dramaticIntent}, 'SETUP'), #{emotion}, #{retentionRole}, #{reviewStatus}, #{motionMode}, COALESCE(CAST(#{relativeWeight} AS numeric), 1.0), COALESCE(#{visualFocus}, 'SPEAKER'), #{aspectRatioOverride}, #{previewMediaAssetId}, #{textStart}, #{textEnd}, #{audioDurationMs}, #{sourceAnchorJson}::jsonb)
     RETURNING id
   </select>
 
@@ -262,6 +265,9 @@
         title = #{title},
         visual_intent = #{visualIntent},
         visual_direction_json = COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb),
+        dramatic_intent = COALESCE(#{dramaticIntent}, dramatic_intent),
+        emotion = #{emotion},
+        retention_role = #{retentionRole},
         review_status = #{reviewStatus},
         motion_mode = #{motionMode},
         relative_weight = COALESCE(CAST(#{relativeWeight} AS numeric), 1.0),

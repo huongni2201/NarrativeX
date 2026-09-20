@@ -15,7 +15,12 @@ ProtocolVersion = Literal["1.0"]
 
 class TaskDescriptor(ProtocolModel):
     type: Literal[
-        "audio.synthesize", "audio.align", "image.generate", "media.validate", "text.generate"
+        "audio.synthesize",
+        "audio.align",
+        "image.generate",
+        "media.validate",
+        "text.generate",
+        "video.generate",
     ]
     schema_version: Literal["1.0"]
 
@@ -77,12 +82,35 @@ class TextGenerateInputs(ProtocolModel):
     response_format: Literal["text", "json_object"] = "text"
 
 
+class VideoGenerateInputs(ProtocolModel):
+    prompt: Annotated[str, Field(min_length=1, max_length=20000)]
+    negative_prompt: Annotated[str, Field(max_length=10000)]
+    width: Annotated[int, Field(ge=64, le=8192)]
+    height: Annotated[int, Field(ge=64, le=8192)]
+    fps: Annotated[int, Field(ge=1, le=120)]
+    duration_ms: Annotated[int, Field(ge=100, le=60000)]
+    generation_mode: Literal[
+        "TEXT_TO_VIDEO",
+        "IMAGE_TO_VIDEO",
+        "FIRST_LAST_FRAME",
+        "MULTI_KEYFRAME",
+        "VIDEO_EXTEND",
+        "VIDEO_RETAKE",
+    ]
+    seed: Annotated[int, Field(ge=0)]
+    motion_bucket_id: Annotated[int | None, Field(ge=1, le=255)] = None
+    reference_asset_ids: Annotated[list[UUID], Field(default_factory=list)] = Field(
+        default_factory=list
+    )
+
+
 TaskInputs = (
     AudioSynthesizeInputs
     | AudioAlignInputs
     | ImageGenerateInputs
     | MediaValidateInputs
     | TextGenerateInputs
+    | VideoGenerateInputs
 )
 
 
@@ -108,6 +136,7 @@ class ComputeTask(ProtocolModel):
             "image.generate": ImageGenerateInputs,
             "media.validate": MediaValidateInputs,
             "text.generate": TextGenerateInputs,
+            "video.generate": VideoGenerateInputs,
         }[self.task.type]
         if not isinstance(self.inputs, expected):
             raise ValueError("inputs do not match task.type")
@@ -127,5 +156,6 @@ __all__ = [
     "TaskDescriptor",
     "TaskInputs",
     "TextGenerateInputs",
+    "VideoGenerateInputs",
     "VoiceSelection",
 ]

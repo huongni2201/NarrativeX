@@ -10,6 +10,8 @@ import type { StoryboardVisualBeat } from "../api/storyboard.api";
 import { StoryboardHeader } from "../components/StoryboardHeader";
 import { StoryboardNavigator } from "../components/StoryboardNavigator";
 import { VisualBeatGrid } from "../components/VisualBeatGrid";
+import { VideoShotboard } from "../components/VideoShotboard";
+import { RetentionPlanView } from "../components/RetentionPlanView";
 import { useStoryboardMediaMutations } from "../queries/storyboard-media.queries";
 import { useApproveVisualBeats, useCreateVisualBeat, useStoryboardQuery, useUpdateVisualBeatReview } from "../queries/storyboard.queries";
 import { beatsNeedingReview, filterVisualBeatsByStatus, type VisualBeatStatusFilter } from "../storyboard-review";
@@ -26,6 +28,7 @@ export function StoryboardScreen({ projectId, chapters, timeline }: Readonly<{
   const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
+  const [viewMode, setViewMode] = useState<"SHOTBOARD" | "RETENTION_PLAN" | "GRID">("SHOTBOARD");
 
   useEffect(() => {
     if (!chapters.length) setSelectedChapterId(null);
@@ -77,7 +80,13 @@ export function StoryboardScreen({ projectId, chapters, timeline }: Readonly<{
         <StoryboardNavigator chapters={chapters} selectedChapterId={selectedChapterId} scenes={scenes} selectedSceneId={selectedSceneId} loading={storyboardQuery.isLoading} error={storyboardQuery.isError ? errorMessage(storyboardQuery.error, "Không tải được storyboard.") : null} onSelectChapter={(id) => { setSelectedChapterId(id); setSelectedSceneId(null); }} onSelectScene={setSelectedSceneId} />
         <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <WorkspaceToolbar>
-            <div><div className="flex items-center gap-1.5 text-[10px] uppercase text-text-dim"><WandSparkles size={11}/> Visual Beats</div><div className="text-[12px] font-semibold">{selectedScene?.title ?? "Chọn scene"}</div></div>
+            <div className="flex items-center gap-3">
+              <div><div className="flex items-center gap-1.5 text-[10px] uppercase text-text-dim"><WandSparkles size={11}/> Production Shots</div><div className="text-[12px] font-semibold">{selectedScene?.title ?? "Chọn scene"}</div></div>
+              <div className="flex rounded border border-border-subtle bg-surface-dark p-0.5 text-[10px]">
+                <button type="button" className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${viewMode === "SHOTBOARD" ? "bg-primary text-primary-foreground font-semibold" : "text-text-muted hover:text-foreground"}`} onClick={() => setViewMode("SHOTBOARD")}>Video Shotboard</button>
+                <button type="button" className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${viewMode === "RETENTION_PLAN" ? "bg-primary text-primary-foreground font-semibold" : "text-text-muted hover:text-foreground"}`} onClick={() => setViewMode("RETENTION_PLAN")}>Retention Plan</button>
+              </div>
+            </div>
             <div className="flex items-center gap-1.5">
               <Select value={reviewStatusFilter} onValueChange={(value) => setReviewStatusFilter(value as VisualBeatStatusFilter)}><SelectTrigger className="min-w-[124px]"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="ALL">All beats</SelectItem><SelectItem value="NEEDS_REVIEW">Needs review</SelectItem><SelectItem value="APPROVED">Approved</SelectItem></SelectContent></Select>
               <Button variant="ghost" size="sm" disabled={!pendingApproval.length || reviewUpdating} onClick={() => approveAll.mutate(pendingApproval)}>{approveAll.isPending ? <Loader2 size={12} className="animate-spin"/> : <CheckCheck size={12}/>} Approve {pendingApproval.length || ""}</Button>
@@ -86,7 +95,15 @@ export function StoryboardScreen({ projectId, chapters, timeline }: Readonly<{
           </WorkspaceToolbar>
           {mutationError || notice ? <InlineNotice tone={mutationError ? "danger" : "info"}>{mutationError ? errorMessage(mutationError, "Không thể cập nhật storyboard.") : notice}</InlineNotice> : null}
           {creatingBeat && selectedScene ? <div className="grid shrink-0 gap-2 border-b border-border-subtle bg-surface-panel p-3 lg:grid-cols-[.65fr_1.35fr_auto]"><Input value={beatTitle} onChange={(event) => setBeatTitle(event.target.value)} placeholder="Beat title"/><Textarea value={visualIntent} onChange={(event) => setVisualIntent(event.target.value)} placeholder="Visual intent" rows={2}/><Button disabled={!beatTitle.trim() || !visualIntent.trim() || createBeat.isPending} onClick={() => selectedSceneId && createBeat.mutate({ sceneId: selectedSceneId, beat: { title: beatTitle.trim(), visualIntent: visualIntent.trim() } }, { onSuccess: () => { setBeatTitle(""); setVisualIntent(""); setCreatingBeat(false); } })}>Create</Button></div> : null}
-          <div className="min-h-0 flex-1 overflow-y-auto p-3"><VisualBeatGrid projectId={projectId} beats={filteredVisualBeats} hasSelectedScene={Boolean(selectedScene)} selectedSceneBeatCount={selectedSceneBeats.length} timelineBeats={timelineBeats} updating={reviewUpdating} mediaBusyBeatId={mediaBusyBeatId} copiedPromptBeatId={copiedPromptBeatId} onReview={(beat,status) => updateReview.mutate({beat,status})} onCopyPrompt={(beat) => void copyPrompt(beat)} onImport={(beat) => void importImage(beat)}/></div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {viewMode === "RETENTION_PLAN" ? (
+              <RetentionPlanView hookPlan={null} retentionMap={null} />
+            ) : viewMode === "GRID" ? (
+              <VisualBeatGrid projectId={projectId} beats={filteredVisualBeats} hasSelectedScene={Boolean(selectedScene)} selectedSceneBeatCount={selectedSceneBeats.length} timelineBeats={timelineBeats} updating={reviewUpdating} mediaBusyBeatId={mediaBusyBeatId} copiedPromptBeatId={copiedPromptBeatId} onReview={(beat,status) => updateReview.mutate({beat,status})} onCopyPrompt={(beat) => void copyPrompt(beat)} onImport={(beat) => void importImage(beat)}/>
+            ) : (
+              <VideoShotboard projectId={projectId} beats={filteredVisualBeats} hasSelectedScene={Boolean(selectedScene)} selectedSceneBeatCount={selectedSceneBeats.length} timelineBeats={timelineBeats} updating={reviewUpdating} mediaBusyBeatId={mediaBusyBeatId} copiedPromptBeatId={copiedPromptBeatId} onReview={(beat,status) => updateReview.mutate({beat,status})} onCopyPrompt={(beat) => void copyPrompt(beat)} onImport={(beat) => void importImage(beat)}/>
+            )}
+          </div>
         </section>
       </div>}
   </div>;

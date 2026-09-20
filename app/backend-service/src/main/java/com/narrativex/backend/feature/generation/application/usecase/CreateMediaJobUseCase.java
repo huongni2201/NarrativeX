@@ -49,10 +49,11 @@ public class CreateMediaJobUseCase {
   @Transactional
   public GenerationJob execute(CreateMediaJobCommand command) {
     if (!"IMAGE_MOTION".equals(command.productionMode())
-        || !"IMAGE".equals(normalizeVisualMode(command.visualGenerationMode()))) {
+        && !"VIDEO_FIRST".equals(command.productionMode())
+        && !"LEGACY_IMAGE".equals(command.productionMode())) {
       throw new GenerationAdmissionDeniedException(
           "UNSUPPORTED_MEDIA_STRATEGY",
-          "Only IMAGE generation with IMAGE_MOTION is available in the MVP.");
+          "Unsupported productionMode: " + command.productionMode());
     }
 
     String imageProvider = normalizeImageProvider(command.imageProvider());
@@ -103,7 +104,7 @@ public class CreateMediaJobUseCase {
             new CreateMediaPlanCommand(
                 command.projectId(),
                 command.chapterId(),
-                ProductionMode.IMAGE_MOTION,
+                ProductionMode.valueOf(command.productionMode()),
                 command.aspectRatio(),
                 imageProfile.providerKey(),
                 imageProfile.model(),

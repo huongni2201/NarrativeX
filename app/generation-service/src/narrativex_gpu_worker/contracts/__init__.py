@@ -32,6 +32,7 @@ from .task import (
     TaskDescriptor,
     TaskInputs,
     TextGenerateInputs,
+    VideoGenerateInputs,
     VoiceSelection,
 )
 
@@ -62,6 +63,7 @@ __all__ = [
     "TaskDescriptor",
     "TaskInputs",
     "TextGenerateInputs",
+    "VideoGenerateInputs",
     "VoiceSelection",
     "WorkerCapabilities",
     "WorkerLimits",

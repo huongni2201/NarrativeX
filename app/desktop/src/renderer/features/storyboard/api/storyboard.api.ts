@@ -31,6 +31,9 @@ export interface StoryboardVisualBeat {
   reviewStatus: VisualBeatReviewStatus;
   aspectRatioOverride: string | null;
   previewMediaAssetId: string | null;
+  dramaticIntent?: string | null;
+  emotion?: string | null;
+  retentionRole?: string | null;
   rowVersion: number;
 }
 

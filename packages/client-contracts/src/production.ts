@@ -2,7 +2,38 @@ export type BeatMediaFitMode = "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
 export type BeatMediaType = "IMAGE" | "VIDEO";
 export type AutoEditStyle = "AUTO" | "CINEMATIC" | "BALANCED" | "DYNAMIC";
 export type RenderResolution = "720p" | "1080p" | "1440p";
-export type RenderFrameRate = 30 | 60;
+export type RenderFrameRate = 24 | 30 | 60;
+
+export interface EditDecisionTransition {
+  type: "CUT" | "DISSOLVE" | "FADE_BLACK";
+  durationMs: number;
+}
+
+export interface EditDecision {
+  decisionId: string;
+  orderIndex: number;
+  shotId: string;
+  takeId: string;
+  mediaAssetId: string;
+  sourceInMs: number;
+  sourceOutMs: number;
+  timelineInMs: number;
+  timelineOutMs: number;
+  transition?: EditDecisionTransition;
+}
+
+export interface EditDecisionList {
+  schemaVersion: "1.0";
+  projectId: string;
+  storyVersionId?: string | null;
+  chapterId: string;
+  totalDurationMs: number;
+  fps: RenderFrameRate;
+  resolution: { width: number; height: number };
+  audioClockSource: "VIENEU_MASTER" | "SCRIPTLOCK";
+  audioAssetId: string;
+  decisions: EditDecision[];
+}
 
 export interface DesktopTimelineBeat {
   chapterId: string;
@@ -10,6 +41,8 @@ export interface DesktopTimelineBeat {
   storyBeatId?: string | null;
   beatIndex: number;
   visualBeatId: string;
+  shotId?: string | null;
+  takeId?: string | null;
   title: string;
   visualIntent: string;
   cameraMovement: string;

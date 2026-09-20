@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapMapper">
+
+  <resultMap id="retentionMap" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="chapterId" column="chapter_id"/>
+    <result property="tensionCurveJson" column="tension_curve_json"/>
+    <result property="openQuestionsJson" column="open_questions_json"/>
+    <result property="resolvedQuestionsJson" column="resolved_questions_json"/>
+    <result property="pacingWarningsJson" column="pacing_warnings_json"/>
+  </resultMap>
+
+  <select id="findByChapterId" resultMap="retentionMap">
+    SELECT id, row_version, created_at, updated_at, chapter_id,
+           tension_curve_json::text AS tension_curve_json,
+           open_questions_json::text AS open_questions_json,
+           resolved_questions_json::text AS resolved_questions_json,
+           pacing_warnings_json::text AS pacing_warnings_json
+    FROM retention_maps
+    WHERE chapter_id = #{chapterId}
+  </select>
+
+  <select id="findById" resultMap="retentionMap">
+    SELECT id, row_version, created_at, updated_at, chapter_id,
+           tension_curve_json::text AS tension_curve_json,
+           open_questions_json::text AS open_questions_json,
+           resolved_questions_json::text AS resolved_questions_json,
+           pacing_warnings_json::text AS pacing_warnings_json
+    FROM retention_maps
+    WHERE id = #{id}
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO retention_maps (row_version, created_at, updated_at, chapter_id, tension_curve_json, open_questions_json, resolved_questions_json, pacing_warnings_json)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{chapterId},
+            COALESCE(#{tensionCurveJson}::jsonb, '[]'::jsonb),
+            COALESCE(#{openQuestionsJson}::jsonb, '[]'::jsonb),
+            COALESCE(#{resolvedQuestionsJson}::jsonb, '[]'::jsonb),
+            COALESCE(#{pacingWarningsJson}::jsonb, '[]'::jsonb))
+    RETURNING id
+  </select>
+
+  <update id="update">
+    UPDATE retention_maps
+    SET tension_curve_json = COALESCE(#{tensionCurveJson}::jsonb, '[]'::jsonb),
+        open_questions_json = COALESCE(#{openQuestionsJson}::jsonb, '[]'::jsonb),
+        resolved_questions_json = COALESCE(#{resolvedQuestionsJson}::jsonb, '[]'::jsonb),
+        pacing_warnings_json = COALESCE(#{pacingWarningsJson}::jsonb, '[]'::jsonb),
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <delete id="deleteByChapterId">
+    DELETE FROM retention_maps WHERE chapter_id = #{chapterId}
+  </delete>
+
+</mapper>

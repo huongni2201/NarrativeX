@@ -18,6 +18,7 @@ from narrativex_gpu_worker.adapters.artifacts import HttpArtifactAdapter
 from narrativex_gpu_worker.adapters.events import HttpComputeEventPublisher
 from narrativex_gpu_worker.adapters.executors import ExecutorCatalog
 from narrativex_gpu_worker.adapters.executors.comfyui import ComfyUIClient, ComfyUIExecutor
+from narrativex_gpu_worker.adapters.executors.ltx import LtxVideoExecutor
 from narrativex_gpu_worker.adapters.executors.media_validation import MediaValidationExecutor
 from narrativex_gpu_worker.adapters.executors.vieneu import VieNeuClient, VieNeuExecutor
 from narrativex_gpu_worker.adapters.executors.whisperx import WhisperXClient, WhisperXExecutor
@@ -90,6 +91,15 @@ def build_executor_catalog(
                 ),
                 artifacts,
                 ready=settings.whisperx_available,
+            ),
+            LtxVideoExecutor(
+                ComfyUIClient(
+                    base_url=settings.comfyui_base_url,
+                    timeout=settings.comfyui_timeout_seconds,
+                    client=client,
+                ),
+                artifacts,
+                ready=bool(settings.comfyui_base_url.strip()),
             ),
             MediaValidationExecutor(artifacts, ready=True),
         )

@@ -1,15 +1,15 @@
 # NarrativeX Database Architecture and Baseline Policy
 
 **Status:** maintained database contract  
-**Authority:** Spring Boot backend Flyway migrations (V1–V8), integration tests, and active ADRs (ADR-0020, ADR-0021, ADR-0025)
+**Authority:** Spring Boot backend Flyway migrations (V1–V9), integration tests, and active ADRs (ADR-0020, ADR-0021, ADR-0025, ADR-0026 to ADR-0031)
 
 ## PostgreSQL Authority and Flyway Ownership
 
 PostgreSQL is the single authoritative store for business state, admission control, durable generation jobs, device leases, and artifact metadata. The Spring Boot backend owns Flyway and manages the relational schema. `app/generation-service` and Electron Desktop have zero direct access to PostgreSQL.
 
-## Current Canonical Baseline (V1–V8)
+## Current Canonical Baseline (V1–V9)
 
-NarrativeX maintains a clean, squashed pre-production baseline. A fresh database applies exactly eight responsibility-separated migrations:
+NarrativeX maintains a clean, squashed pre-production baseline. A fresh database applies exactly nine responsibility-separated migrations:
 
 | Migration | Responsibility |
 |---|---|
@@ -21,8 +21,40 @@ NarrativeX maintains a clean, squashed pre-production baseline. A fresh database
 | V6__indexes.sql | Access-path, covering, partial, and unique indexes |
 | V7__seed_catalog.sql | Deterministic system and catalog seed data only |
 | V8__generation_async_orchestration.sql | Compute attempt handles, callback metadata, event receipts, and reconciliation indexes |
+| V9__video_first_retention_production.sql | Video-first production schema, hook plans, retention maps, attention events, shot sequences, shots, takes, selected takes, generation references, and production insights |
 
-A clean database applies **V1 through V8** directly. There are no obsolete patch migrations; former patch work was folded into the baseline.
+A clean database applies **V1 through V9** directly. There are no obsolete patch migrations; former patch work was folded into the baseline.
+
+## Video-First Retention Production Schema (V9)
+
+Migration V9 introduces the tables required for video-first, retention-driven production:
+
+1. **`visual_beats` additions**:
+   - `dramatic_intent` (VARCHAR(32), default `'SETUP'`): Dramatic function of the beat.
+   - `emotion` (VARCHAR(64)): Dominant emotional valence.
+   - `retention_role` (VARCHAR(32)): Pacing/retention function (`HOOK`, `INCITING`, `ESCALATION`, `CLIMAX`, etc.).
+
+2. **`hook_plans`**:
+   - Pre-generation hook architecture for the opening 30 seconds of an episode.
+   - Fields: `promise`, `conflict`, `curiosity_question`, `visual_hook`, `dialogue_hook`, `withheld_information`, and `payoff_beat_id` (FK to `visual_beats`).
+
+3. **`retention_maps` & `attention_events`**:
+   - `retention_maps`: Maintains the episode's `tension_curve_json`, `open_questions_json`, `resolved_questions_json`, and `pacing_warnings_json`.
+   - `attention_events`: Tracks sensory and dramatic shifts (`event_type`, `time_offset_ms`, `description`, `severity`).
+
+4. **`shot_sequences` & `shots`**:
+   - `shot_sequences`: Container attaching 1..N shots to a dramatic `visual_beat_id`.
+   - `shots`: The atomic unit for generation, GPU leasing, Video QA, and editing. Contains full kinetic specifications (`start_state_json`, `action_json`, `end_state_json`), camera plans (`composition_json`, `camera_json`), motions (`subject_motion_json`, `camera_motion_json`, `environment_motion_json`), `generation_strategy` (`TEXT_TO_VIDEO`, `IMAGE_TO_VIDEO`, etc.), and `status`.
+
+5. **`takes` & `selected_takes`**:
+   - `takes`: Immutable candidate generation attempts produced by video foundation models (LTX-2.5). Records generation metrics, `validation_status`, `validation_failure_category`, and targeted retry recommendations.
+   - `selected_takes`: Decouples raw clip duration from the timeline edit. Stores `source_in_ms` and `source_out_ms` trim points for the approved take on each shot.
+
+6. **`generation_references`**:
+   - Stores auxiliary conditioning assets (`reference_type` in `CHARACTER_REFERENCE`, `LOCATION_REFERENCE`, `START_FRAME`, `END_FRAME`, `KEYFRAME`, `THUMBNAIL`, `POSTER`) attached to a shot with attention `weight`.
+
+7. **`production_insights`**:
+   - Stores post-publish audience retention observations (`observation_json`, `recommendation_text`) for continuous narrative tuning.
 
 ## Pre-Production Rewrite Rule
 

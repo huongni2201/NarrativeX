@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper">
+
+  <resultMap id="shot" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="sequenceId" column="sequence_id"/>
+    <result property="orderIndex" column="order_index"/>
+    <result property="narrativePurpose" column="narrative_purpose"/>
+    <result property="retentionRole" column="retention_role"/>
+    <result property="subjectsJson" column="subjects_json"/>
+    <result property="locationRef" column="location_ref"/>
+    <result property="startStateJson" column="start_state_json"/>
+    <result property="actionJson" column="action_json"/>
+    <result property="endStateJson" column="end_state_json"/>
+    <result property="compositionJson" column="composition_json"/>
+    <result property="cameraJson" column="camera_json"/>
+    <result property="subjectMotionJson" column="subject_motion_json"/>
+    <result property="cameraMotionJson" column="camera_motion_json"/>
+    <result property="environmentMotionJson" column="environment_motion_json"/>
+    <result property="targetDurationMs" column="target_duration_ms"/>
+    <result property="generationStrategy" column="generation_strategy"/>
+    <result property="qualityProfile" column="quality_profile"/>
+    <result property="continuityFromShotId" column="continuity_from_shot_id"/>
+    <result property="continuityToShotId" column="continuity_to_shot_id"/>
+    <result property="status" column="status"/>
+  </resultMap>
+
+  <resultMap id="shotSequence" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="visualBeatId" column="visual_beat_id"/>
+    <result property="orderIndex" column="order_index"/>
+  </resultMap>
+
+  <select id="findBySequenceId" resultMap="shot">
+    SELECT id, row_version, created_at, updated_at, sequence_id, order_index, narrative_purpose, retention_role,
+           subjects_json::text AS subjects_json, location_ref,
+           start_state_json::text AS start_state_json,
+           action_json::text AS action_json,
+           end_state_json::text AS end_state_json,
+           composition_json::text AS composition_json,
+           camera_json::text AS camera_json,
+           subject_motion_json::text AS subject_motion_json,
+           camera_motion_json::text AS camera_motion_json,
+           environment_motion_json::text AS environment_motion_json,
+           target_duration_ms, generation_strategy, quality_profile,
+           continuity_from_shot_id, continuity_to_shot_id, status
+    FROM shots
+    WHERE sequence_id = #{sequenceId}
+    ORDER BY order_index ASC, id ASC
+  </select>
+
+  <select id="findBySequenceIds" resultMap="shot">
+    SELECT id, row_version, created_at, updated_at, sequence_id, order_index, narrative_purpose, retention_role,
+           subjects_json::text AS subjects_json, location_ref,
+           start_state_json::text AS start_state_json,
+           action_json::text AS action_json,
+           end_state_json::text AS end_state_json,
+           composition_json::text AS composition_json,
+           camera_json::text AS camera_json,
+           subject_motion_json::text AS subject_motion_json,
+           camera_motion_json::text AS camera_motion_json,
+           environment_motion_json::text AS environment_motion_json,
+           target_duration_ms, generation_strategy, quality_profile,
+           continuity_from_shot_id, continuity_to_shot_id, status
+    FROM shots
+    WHERE sequence_id IN
+    <foreach collection="sequenceIds" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+    ORDER BY sequence_id ASC, order_index ASC, id ASC
+  </select>
+
+  <select id="findById" resultMap="shot">
+    SELECT id, row_version, created_at, updated_at, sequence_id, order_index, narrative_purpose, retention_role,
+           subjects_json::text AS subjects_json, location_ref,
+           start_state_json::text AS start_state_json,
+           action_json::text AS action_json,
+           end_state_json::text AS end_state_json,
+           composition_json::text AS composition_json,
+           camera_json::text AS camera_json,
+           subject_motion_json::text AS subject_motion_json,
+           camera_motion_json::text AS camera_motion_json,
+           environment_motion_json::text AS environment_motion_json,
+           target_duration_ms, generation_strategy, quality_profile,
+           continuity_from_shot_id, continuity_to_shot_id, status
+    FROM shots
+    WHERE id = #{id}
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO shots (row_version, created_at, updated_at, sequence_id, order_index, narrative_purpose, retention_role,
+                       subjects_json, location_ref, start_state_json, action_json, end_state_json,
+                       composition_json, camera_json, subject_motion_json, camera_motion_json,
+                       environment_motion_json, target_duration_ms, generation_strategy, quality_profile,
+                       continuity_from_shot_id, continuity_to_shot_id, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP),
+            #{sequenceId}, #{orderIndex}, #{narrativePurpose}, #{retentionRole},
+            COALESCE(#{subjectsJson}::jsonb, '[]'::jsonb), #{locationRef},
+            COALESCE(#{startStateJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{actionJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{endStateJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{compositionJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{cameraJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{subjectMotionJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{cameraMotionJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{environmentMotionJson}::jsonb, '{}'::jsonb),
+            #{targetDurationMs}, #{generationStrategy}, #{qualityProfile},
+            #{continuityFromShotId}, #{continuityToShotId}, #{status})
+    RETURNING id
+  </select>
+
+  <insert id="insertBatch">
+    INSERT INTO shots (row_version, created_at, updated_at, sequence_id, order_index, narrative_purpose, retention_role,
+                       subjects_json, location_ref, start_state_json, action_json, end_state_json,
+                       composition_json, camera_json, subject_motion_json, camera_motion_json,
+                       environment_motion_json, target_duration_ms, generation_strategy, quality_profile,
+                       continuity_from_shot_id, continuity_to_shot_id, status)
+    VALUES
+    <foreach collection="shots" item="s" separator=",">
+      (#{s.rowVersion}, COALESCE(#{s.createdAt}, CURRENT_TIMESTAMP), COALESCE(#{s.updatedAt}, CURRENT_TIMESTAMP),
+       #{s.sequenceId}, #{s.orderIndex}, #{s.narrativePurpose}, #{s.retentionRole},
+       COALESCE(#{s.subjectsJson}::jsonb, '[]'::jsonb), #{s.locationRef},
+       COALESCE(#{s.startStateJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.actionJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.endStateJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.compositionJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.cameraJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.subjectMotionJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.cameraMotionJson}::jsonb, '{}'::jsonb),
+       COALESCE(#{s.environmentMotionJson}::jsonb, '{}'::jsonb),
+       #{s.targetDurationMs}, #{s.generationStrategy}, #{s.qualityProfile},
+       #{s.continuityFromShotId}, #{s.continuityToShotId}, #{s.status})
+    </foreach>
+  </insert>
+
+  <update id="update">
+    UPDATE shots
+    SET narrative_purpose = #{narrativePurpose},
+        retention_role = #{retentionRole},
+        subjects_json = COALESCE(#{subjectsJson}::jsonb, '[]'::jsonb),
+        location_ref = #{locationRef},
+        start_state_json = COALESCE(#{startStateJson}::jsonb, '{}'::jsonb),
+        action_json = COALESCE(#{actionJson}::jsonb, '{}'::jsonb),
+        end_state_json = COALESCE(#{endStateJson}::jsonb, '{}'::jsonb),
+        composition_json = COALESCE(#{compositionJson}::jsonb, '{}'::jsonb),
+        camera_json = COALESCE(#{cameraJson}::jsonb, '{}'::jsonb),
+        subject_motion_json = COALESCE(#{subjectMotionJson}::jsonb, '{}'::jsonb),
+        camera_motion_json = COALESCE(#{cameraMotionJson}::jsonb, '{}'::jsonb),
+        environment_motion_json = COALESCE(#{environmentMotionJson}::jsonb, '{}'::jsonb),
+        target_duration_ms = #{targetDurationMs},
+        generation_strategy = #{generationStrategy},
+        quality_profile = #{qualityProfile},
+        continuity_from_shot_id = #{continuityFromShotId},
+        continuity_to_shot_id = #{continuityToShotId},
+        status = #{status},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <update id="updateStatus">
+    UPDATE shots
+    SET status = #{status},
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM shots WHERE id = #{id}
+  </delete>
+
+  <select id="findCurrentShotsByChapter" resultMap="shot">
+    SELECT sh.id, sh.row_version, sh.created_at, sh.updated_at, sh.sequence_id, sh.order_index, sh.narrative_purpose, sh.retention_role,
+           sh.subjects_json::text AS subjects_json, sh.location_ref,
+           sh.start_state_json::text AS start_state_json,
+           sh.action_json::text AS action_json,
+           sh.end_state_json::text AS end_state_json,
+           sh.composition_json::text AS composition_json,
+           sh.camera_json::text AS camera_json,
+           sh.subject_motion_json::text AS subject_motion_json,
+           sh.camera_motion_json::text AS camera_motion_json,
+           sh.environment_motion_json::text AS environment_motion_json,
+           sh.target_duration_ms, sh.generation_strategy, sh.quality_profile,
+           sh.continuity_from_shot_id, sh.continuity_to_shot_id, sh.status
+    FROM shots sh
+    JOIN shot_sequences sq ON sq.id = sh.sequence_id
+    JOIN visual_beats vb ON vb.id = sq.visual_beat_id
+    JOIN scenes sc ON sc.id = vb.scene_id
+    JOIN chapters ch ON ch.id = sc.chapter_id
+    WHERE sc.project_id = #{projectId}
+      AND ch.id = #{chapterId}
+      AND ch.deleted_at IS NULL
+      AND sc.storyboard_revision_id = ch.current_storyboard_revision_id
+    ORDER BY sc.order_index ASC, vb.order_index ASC, sh.order_index ASC
+  </select>
+
+  <select id="findShotByIdAndProject" resultMap="shot">
+    SELECT sh.id, sh.row_version, sh.created_at, sh.updated_at, sh.sequence_id, sh.order_index, sh.narrative_purpose, sh.retention_role,
+           sh.subjects_json::text AS subjects_json, sh.location_ref,
+           sh.start_state_json::text AS start_state_json,
+           sh.action_json::text AS action_json,
+           sh.end_state_json::text AS end_state_json,
+           sh.composition_json::text AS composition_json,
+           sh.camera_json::text AS camera_json,
+           sh.subject_motion_json::text AS subject_motion_json,
+           sh.camera_motion_json::text AS camera_motion_json,
+           sh.environment_motion_json::text AS environment_motion_json,
+           sh.target_duration_ms, sh.generation_strategy, sh.quality_profile,
+           sh.continuity_from_shot_id, sh.continuity_to_shot_id, sh.status
+    FROM shots sh
+    JOIN shot_sequences sq ON sq.id = sh.sequence_id
+    JOIN visual_beats vb ON vb.id = sq.visual_beat_id
+    JOIN scenes sc ON sc.id = vb.scene_id
+    JOIN chapters ch ON ch.id = sc.chapter_id
+    WHERE sc.project_id = #{projectId}
+      AND sh.id = #{shotId}
+      AND ch.deleted_at IS NULL
+  </select>
+
+  <select id="findSequenceByBeatIdAndProject" resultMap="shotSequence">
+    SELECT sq.id, sq.row_version, sq.created_at, sq.updated_at, sq.visual_beat_id, sq.order_index
+    FROM shot_sequences sq
+    JOIN visual_beats vb ON vb.id = sq.visual_beat_id
+    JOIN scenes sc ON sc.id = vb.scene_id
+    JOIN chapters ch ON ch.id = sc.chapter_id
+    WHERE sc.project_id = #{projectId}
+      AND sq.visual_beat_id = #{visualBeatId}
+      AND ch.deleted_at IS NULL
+  </select>
+
+</mapper>

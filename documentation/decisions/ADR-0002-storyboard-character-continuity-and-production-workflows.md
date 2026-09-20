@@ -1,7 +1,7 @@
-# ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows
+# ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows
 
-- Status: Accepted
-- Date: 2026-08-18 (consolidated and updated: 2026-08-22)
+- Status: Partially Superseded by ADR-0026 and ADR-0027 (Motion models, still-image storyboard, and IMAGE_MOTION production mode are superseded by video-first architecture; chapter, character, and revision aggregate invariants remain active)
+- Date: 2026-08-18 (consolidated and updated: 2026-08-22, amended: 2026-09-20)
 - Scope: Chapter-first workflows, storyboard aggregate boundaries, revision lifecycle, character continuity identities, motion rendering models, and translation lineage.
 - Consolidated from: former ADR-0002, ADR-0005, ADR-0004, ADR-0005, and ADR-0009.
 
@@ -54,6 +54,10 @@ Treating an entire story or chapter as a single monolithic aggregate leads to he
 - **Pre-Lock Ownership Authorization:** Before acquiring the chapter-scoped advisory transaction lock (`pg_advisory_xact_lock`), the backend verifies project ownership (`project.owner_id == user_id`) to prevent unauthorized cross-tenant lock contention.
 
 ### 5. VisualBeat Motion Model & Production Modes
+
+> [!WARNING]
+> **Superseded by ADR-0026, ADR-0027, and ADR-0028**:
+> The `IMAGE_MOTION` production mode, still image keyframing, and programmatic Ken Burns zoompan filters described below are superseded. NarrativeX transitions to video-first moving footage generated directly by video foundation models (LTX-2.5), with Shot as the atomic unit and image generation restricted to reference conditioning and keyframes.
 
 - **Decoupled Motion Properties:**
   - **`motion_mode` (Rendering Strategy):** `STILL`, `BASIC_MOTION`, `AI_VIDEO`.

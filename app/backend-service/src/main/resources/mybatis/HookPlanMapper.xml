@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanMapper">
+
+  <resultMap id="hookPlan" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="chapterId" column="chapter_id"/>
+    <result property="promise" column="promise"/>
+    <result property="conflict" column="conflict"/>
+    <result property="curiosityQuestion" column="curiosity_question"/>
+    <result property="visualHook" column="visual_hook"/>
+    <result property="dialogueHook" column="dialogue_hook"/>
+    <result property="withheldInformation" column="withheld_information"/>
+    <result property="payoffBeatId" column="payoff_beat_id"/>
+  </resultMap>
+
+  <select id="findByChapterId" resultMap="hookPlan">
+    SELECT id, row_version, created_at, updated_at, chapter_id, promise, conflict, curiosity_question, visual_hook, dialogue_hook, withheld_information, payoff_beat_id
+    FROM hook_plans
+    WHERE chapter_id = #{chapterId}
+  </select>
+
+  <select id="findById" resultMap="hookPlan">
+    SELECT id, row_version, created_at, updated_at, chapter_id, promise, conflict, curiosity_question, visual_hook, dialogue_hook, withheld_information, payoff_beat_id
+    FROM hook_plans
+    WHERE id = #{id}
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO hook_plans (row_version, created_at, updated_at, chapter_id, promise, conflict, curiosity_question, visual_hook, dialogue_hook, withheld_information, payoff_beat_id)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{chapterId}, #{promise}, #{conflict}, #{curiosityQuestion}, #{visualHook}, #{dialogueHook}, #{withheldInformation}, #{payoffBeatId})
+    RETURNING id
+  </select>
+
+  <update id="update">
+    UPDATE hook_plans
+    SET promise = #{promise},
+        conflict = #{conflict},
+        curiosity_question = #{curiosityQuestion},
+        visual_hook = #{visualHook},
+        dialogue_hook = #{dialogueHook},
+        withheld_information = #{withheldInformation},
+        payoff_beat_id = #{payoffBeatId},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <delete id="deleteByChapterId">
+    DELETE FROM hook_plans WHERE chapter_id = #{chapterId}
+  </delete>
+
+</mapper>

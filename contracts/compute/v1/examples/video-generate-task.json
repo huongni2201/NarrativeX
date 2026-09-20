@@ -1,0 +1,34 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7ad",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab74",
+  "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7ad:1",
+  "requestFingerprint": "cc6197e88de70f4f78d739aa5b66701962b751a366dc6c74c321649b4e51891b",
+  "task": {
+    "type": "video.generate",
+    "schemaVersion": "1.0"
+  },
+  "model": {
+    "executor": "ltx",
+    "model": "ltx-2.5",
+    "revision": "nvfp4"
+  },
+  "constraints": {
+    "deadline": "2026-09-20T12:00:00Z",
+    "maxRuntimeSeconds": 900
+  },
+  "inputs": {
+    "prompt": "Cinematic tracking shot of an ancient library as sunlight streams through arched windows",
+    "negativePrompt": "jitter, blur, flickering, morphing, low quality",
+    "width": 1280,
+    "height": 720,
+    "fps": 24,
+    "durationMs": 4000,
+    "generationMode": "TEXT_TO_VIDEO",
+    "seed": 42
+  },
+  "artifacts": {
+    "inputs": [],
+    "outputs": []
+  }
+}

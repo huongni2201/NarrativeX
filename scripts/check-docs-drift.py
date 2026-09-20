@@ -178,7 +178,7 @@ ALLOWED_CONTEXT = re.compile(
 )
 
 FORBIDDEN_COMPUTE_NAMING = re.compile(r"\bapp/gpu-worker\b")
-FORBIDDEN_V9_BASELINE = re.compile(r"\bV1[–-]V9\b|\bV9__seed_catalog\.sql\b")
+FORBIDDEN_V9_BASELINE = re.compile(r"\bV9__seed_catalog\.sql\b")
 OLD_HIERARCHY = re.compile(
     r"Chapter\s*(?:->|→)\s*Scene\s*(?:->|→)\s*VisualBeat",
     re.IGNORECASE,
@@ -346,9 +346,9 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
     if version_by_name:
         versions = set(version_by_name.values())
         highest = max(versions)
-        if highest != 8:
+        if highest != 9:
             errors.append(
-                f"Flyway pre-production baseline highest version must be V8, found V{highest}"
+                f"Flyway pre-production baseline highest version must be V9, found V{highest}"
             )
         missing_versions = sorted(set(range(1, highest + 1)) - versions)
         if missing_versions:

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceMapper">
+
+  <resultMap id="shotSequence" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="visualBeatId" column="visual_beat_id"/>
+    <result property="orderIndex" column="order_index"/>
+  </resultMap>
+
+  <select id="findByVisualBeatId" resultMap="shotSequence">
+    SELECT id, row_version, created_at, updated_at, visual_beat_id, order_index
+    FROM shot_sequences
+    WHERE visual_beat_id = #{visualBeatId}
+  </select>
+
+  <select id="findByVisualBeatIds" resultMap="shotSequence">
+    SELECT id, row_version, created_at, updated_at, visual_beat_id, order_index
+    FROM shot_sequences
+    WHERE visual_beat_id IN
+    <foreach collection="visualBeatIds" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+    ORDER BY order_index ASC, id ASC
+  </select>
+
+  <select id="findById" resultMap="shotSequence">
+    SELECT id, row_version, created_at, updated_at, visual_beat_id, order_index
+    FROM shot_sequences
+    WHERE id = #{id}
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO shot_sequences (row_version, created_at, updated_at, visual_beat_id, order_index)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{visualBeatId}, #{orderIndex})
+    RETURNING id
+  </select>
+
+  <update id="update">
+    UPDATE shot_sequences
+    SET order_index = #{orderIndex},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM shot_sequences WHERE id = #{id}
+  </delete>
+
+</mapper>

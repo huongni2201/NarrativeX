@@ -17,7 +17,7 @@
 - TARGET: tổng chi phí mỗi tập không quá 100.000 VND; ưu tiên chất lượng trong giới hạn đó. Chưa cam kết throughput trước benchmark thật.
 - TARGET: tối đa 2 retry tự động cho mỗi shot, tức tối đa 3 lượt sinh; sửa prompt/keyframe không được tự reset giới hạn này. Retry thủ công vẫn phải qua admission.
 - TARGET: một video generation task hoạt động tại một thời điểm trên GPU; tải clip có thể đồng thời với compute.
-- Không Qwen, đa video provider, broker mới, microservice business mới, billing người dùng, tự động mua/thuê máy hay tự upload công khai.
+- Không thêm mô hình ngôn ngữ phụ ngoài Vertex Gemini, đa video provider, broker mới, microservice business mới, billing người dùng, tự động mua/thuê máy hay tự upload công khai.
 - V1 tích hợp ComfyUI LTX qua worker hiện có. Native ltx-pipelines là phương án thay adapter nếu thử nghiệm chứng minh ComfyUI không đáp ứng; không xây cả hai ngay.
 - TARGET cập nhật: nội dung tiếng Anh, ưu tiên LTX sinh cả hình và audio; mỗi nhân vật giữ cùng vocal identity xuyên cảnh. VieNeu không còn là giọng production mặc định cho luồng này. Audio nhập sẵn/TTS riêng chỉ là chế độ explicit, không tự fallback khi LTX trượt quality gate.
 - “Episode” là một production run chọn các Chapter có thứ tự trong một Project/StoryVersion, không phải business root mới. Một tập có nhiều batch GPU; một phiên thuê có thể phục vụ nhiều tập.
