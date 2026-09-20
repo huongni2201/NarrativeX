@@ -1,12 +1,14 @@
 # Remote GPU Runtime Deployment (Windows RTX 3090)
 
+> **Status: PARTIAL / RUNTIME-LOCK DRIFT.** This package describes the intended Windows target, but its bootstrap currently pins Python 3.12/PyTorch 2.5.1 while the active generation-service manifest targets Python 3.14 and newer runtime versions. Do not claim deployment readiness until the bootstrap and lock files are reconciled with the active manifest and ADR-0025 callback/outbox configuration.
+
 This directory provides the production deployment package for running the NarrativeX GPU execution plane (`generation-service`) on a leased or dedicated **Windows RTX 3090** (24GB VRAM) machine (e.g. Vast.ai, RunPod, TensorDock, or bare-metal Windows server).
 
 ---
 
 ## 1. Architecture Scope & Constraints
 
-Under **ADR-0018**, **ADR-0019**, and **ADR-0023**:
+Under **ADR-0018**, **ADR-0019**, **ADR-0023**, and **ADR-0025**:
 - **Workloads Hosted on GPU Node**:
   1. **VieNeu TTS** (`audio.synthesize`): Fast Vietnamese text-to-speech generating 48kHz mono signed 16-bit PCM WAV.
   2. **WhisperX** (`audio.align`): Forced audio alignment using `faster-whisper-large-v3` against exact synthesized WAV.
@@ -17,6 +19,7 @@ Under **ADR-0018**, **ADR-0019**, and **ADR-0023**:
   - **No Chapter Analysis / Text Generation**: Spring Boot handles chapter analysis directly with Google Vertex AI Gemini 3.8 Flash.
   - **No Video Generation**: Video generation (`video.generate`, Wan, HunyuanVideo) is deferred/planned.
   - **Mutual Exclusion**: Only one heavy model runtime is resident in GPU VRAM at any time (enforced by `GpuResidencyManager` and `RuntimeProcessSupervisor`).
+  - **Event delivery**: Worker transitions are recorded in the SQLite journal/outbox and delivered as signed callbacks; PostgreSQL receipt/finalization and scheduled reconciliation remain backend responsibilities.
 
 ---
 

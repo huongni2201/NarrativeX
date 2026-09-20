@@ -1,27 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  claimSessionIsCurrent,
+  claimContextIsCurrent,
   heartbeatRetryDelayMs,
 } from "../src/main/local-execution/recovery-policy.ts";
 
-test("claim response becomes invalid after logout or account/session generation change", () => {
+test("claim response stays valid only for the current executor epoch and device", () => {
   const current = {
     claimEpoch: 4,
     currentEpoch: 4,
     claimedDeviceId: "device-1",
     currentDeviceId: "device-1",
-    claimedUserId: "owner-1",
-    currentUserId: "owner-1",
     online: true,
   };
 
-  assert.equal(claimSessionIsCurrent(current), true);
-  assert.equal(claimSessionIsCurrent({ ...current, currentEpoch: 5 }), false);
-  assert.equal(claimSessionIsCurrent({ ...current, currentUserId: null }), false);
-  assert.equal(claimSessionIsCurrent({ ...current, currentUserId: "owner-2" }), false);
-  assert.equal(claimSessionIsCurrent({ ...current, currentDeviceId: null }), false);
-  assert.equal(claimSessionIsCurrent({ ...current, online: false }), false);
+  assert.equal(claimContextIsCurrent(current), true);
+  assert.equal(claimContextIsCurrent({ ...current, currentEpoch: 5 }), false);
+  assert.equal(claimContextIsCurrent({ ...current, currentDeviceId: "device-2" }), false);
+  assert.equal(claimContextIsCurrent({ ...current, currentDeviceId: null }), false);
+  assert.equal(claimContextIsCurrent({ ...current, online: false }), false);
 });
 
 test("heartbeat retry uses bounded exponential backoff with jitter", () => {

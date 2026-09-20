@@ -32,6 +32,10 @@ persisted source
 
 The generic `TtsProvider` orchestration contract remains, but production contains only `VieNeuExecutor` on the compute plane. VieNeu is a dedicated runtime; NarrativeX does not import its engine packages, depend on a Desktop UI, or start a model process per sentence.
 
+## Semantic narration model
+
+The canonical story hierarchy is `Project -> StoryVersion -> Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]}`. `AudioCue` is the ordered semantic narration child of a StoryBeat; it is not an independent final audio clip. `NarrationAssembler` orders AudioCues into a coherent `NarrationScript`, then the implementation may segment that script internally for VieNeu inference. WhisperX alignment is mapped back to AudioCue and StoryBeat timing before VisualBeat windows are derived.
+
 Narration admission checks system capacity limits and reserves concurrent capacity. It has no monetary estimator, pricing snapshot or local/external pricing branch. Source text and voice capabilities are validated by the generation use case before admission.
 
 ## Batch admission and capacity errors
@@ -124,10 +128,11 @@ Alignment must preserve source identity/version, source span, global audio start
 Narration alignment is consumed by the production timeline through source-anchored VisualBeat text ranges:
 
 ```text
-VisualBeat textStart/textEnd
+AudioCue/StoryBeat text ranges
   + narration/subtitle alignment spans
   -> backend NarrationTextClockMapper
-  -> exact VisualBeat audio clock
+  -> exact StoryBeat clock
+  -> VisualBeat audio window
 ```
 
 The compute executor does not own production VisualBeat text-to-audio mapping. Complete persisted beat audio spans may remain compatibility input; provisional fallback timing is review-only and does not make a Chapter render-ready.

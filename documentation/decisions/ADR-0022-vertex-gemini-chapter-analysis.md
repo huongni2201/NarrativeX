@@ -6,13 +6,15 @@ Accepted (2026-09-18)
 
 ## Supersedes
 
-ADR-0032 (Text generation compute boundary)
+The historical text-generation compute-boundary decision (formerly referenced as ADR-0032; preserved in Git history)
 
 ## Context
 
 Chapter analysis transforms raw narrative text into structured storyboard scenes, visual beats, and character actions. This requires deep contextual reasoning, long-context narrative comprehension, and rigid adherence to a complex structured output schema containing 12 distinct visual direction attributes per visual beat.
 
-Previous architecture (ADR-0032) routed chapter analysis through a local or compute-plane Qwen model via `text.generate`. This introduced several critical limitations:
+The previous architecture routed chapter analysis through a local or compute-plane Qwen model via
+`text.generate`. That historical decision is preserved in Git history and introduced several
+critical limitations:
 1. Contended for scarce GPU VRAM on media worker nodes against image generation and TTS.
 2. Context window limits constrained the analysis of full novel chapters.
 3. Lower reasoning density resulted in frequent schema violations and hallucinated narrative beats.
@@ -31,4 +33,4 @@ Previous architecture (ADR-0032) routed chapter analysis through a local or comp
 
 - Compute plane nodes are completely relieved of text generation tasks and retain zero LLM runtime overhead.
 - Chapter analysis achieves superior structural fidelity and nuanced visual beat decomposition.
-- `ADR-0032` is formally superseded.
+- The historical Qwen/text-generation decision is formally superseded; its old identifier is retained only in Git history.

@@ -16,6 +16,7 @@ import {
 } from "./backend-client";
 import type { LocalExecutionConfig } from "./config";
 import { DeviceIdentityStore, type DeviceIdentity } from "./device-identity";
+import { claimContextIsCurrent as isCurrentExecutionContext } from "./recovery-policy";
 import type { RenderJournalStore } from "../rendering/render-journal";
 
 export type LocalExecutionConnectionState =
@@ -45,9 +46,8 @@ export class LocalExecutionService extends EventEmitter {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private heartbeatInFlight = false;
   private heartbeatRetryAttempt = 0;
-  private sessionEpoch = 0;
+  private executionEpoch = 0;
   private identity: DeviceIdentity | null = null;
-  private sessionUserId: string | null = null;
   private state: LocalExecutionConnectionState = "UNPAIRED";
   private lastError: string | null = null;
   private renderPollTimer: NodeJS.Timeout | null = null;
@@ -77,88 +77,19 @@ export class LocalExecutionService extends EventEmitter {
       return;
     }
 
-    const sessionUserId = this.sessionUserId;
-    if (!sessionUserId) {
-      this.setState("OFFLINE", null);
-      return;
-    }
-    if (loadedIdentity.userId !== sessionUserId) {
-      this.identity = null;
-      await this.identityStore.clear();
-      this.setState("UNPAIRED", null);
-      return;
-    }
     await this.startHeartbeat();
-  }
-
-  async setUser(userId: string | null): Promise<LocalExecutionStatus> {
-    const normalized = userId?.trim() || null;
-    if (normalized !== this.sessionUserId) this.sessionEpoch += 1;
-    if (!normalized) {
-      this.sessionUserId = null;
-      this.stopHeartbeat();
-      this.stopRenderPolling();
-      this.abortActiveRender(
-        new RenderExecutionError(
-          "RENDER_INTERRUPTED",
-          "NarrativeX user session ended while rendering.",
-          true,
-        ),
-      );
-      this.setState(this.identity ? "OFFLINE" : "UNPAIRED", null);
-      return this.status();
-    }
-
-    this.sessionUserId = normalized;
-    if (!this.identity) {
-      this.setState("UNPAIRED", null);
-      return this.status();
-    }
-
-    if (this.identity.userId !== normalized) {
-      this.stopHeartbeat();
-      this.stopRenderPolling();
-      this.abortActiveRender(
-        new RenderExecutionError(
-          "RENDER_INTERRUPTED",
-          "NarrativeX account changed while rendering.",
-          true,
-        ),
-      );
-      this.identity = null;
-      await this.identityStore.clear();
-      this.setState("UNPAIRED", null);
-      return this.status();
-    }
-
-    if (
-      (this.heartbeatTimer || this.heartbeatInFlight) &&
-      (this.state === "ONLINE" || this.state === "CONNECTING")
-    ) {
-      return this.status();
-    }
-    await this.startHeartbeat();
-    return this.status();
   }
 
   async pair(pairingCode: string): Promise<LocalExecutionStatus> {
     const normalized = pairingCode.trim().toUpperCase();
     if (!normalized) throw new Error("Pairing code is required.");
-    const sessionUserId = this.sessionUserId;
-    if (!sessionUserId) {
-      throw new Error("Sign in to NarrativeX before pairing this desktop device.");
-    }
 
     this.setState("CONNECTING", null);
     try {
       const paired = await this.backendClient.pair(normalized);
-      if (paired.userId !== sessionUserId) {
-        throw new Error("Pairing code belongs to a different NarrativeX user.");
-      }
-      this.sessionEpoch += 1;
+      this.executionEpoch += 1;
       this.identity = {
         deviceId: paired.deviceId,
-        userId: paired.userId,
         deviceToken: paired.deviceToken,
       };
       await this.identityStore.save(this.identity);
@@ -172,7 +103,7 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   async unpair(): Promise<LocalExecutionStatus> {
-    this.sessionEpoch += 1;
+    this.executionEpoch += 1;
     this.stopHeartbeat();
     this.stopRenderPolling();
     this.abortActiveRender(
@@ -202,13 +133,13 @@ export class LocalExecutionService extends EventEmitter {
 
   renderPreflightContext(): {
     state: LocalExecutionConnectionState;
-    currentUserValid: boolean;
     devicePaired: boolean;
+    deviceOnline: boolean;
   } {
     return {
       state: this.state,
-      currentUserValid: Boolean(this.sessionUserId && this.identity && this.identity.userId === this.sessionUserId),
       devicePaired: Boolean(this.identity),
+      deviceOnline: this.state === "ONLINE",
     };
   }
 
@@ -217,8 +148,6 @@ export class LocalExecutionService extends EventEmitter {
     if (
       !this.projectRenderer ||
       !identity ||
-      !this.sessionUserId ||
-      identity.userId !== this.sessionUserId ||
       this.state !== "ONLINE"
     ) {
       return null;
@@ -229,10 +158,10 @@ export class LocalExecutionService extends EventEmitter {
       );
     }
 
-    const claimEpoch = this.sessionEpoch;
+    const claimEpoch = this.executionEpoch;
     const claimed = await this.backendClient.claimProjectRender(identity.deviceToken);
     if (!claimed) return null;
-    if (!this.claimSessionIsCurrent(identity, claimEpoch)) {
+    if (!this.claimContextIsCurrent(identity, claimEpoch)) {
       await this.persistCancellation(identity, claimed);
       return null;
     }
@@ -350,8 +279,7 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   stop(): void {
-    this.sessionEpoch += 1;
-    this.sessionUserId = null;
+    this.executionEpoch += 1;
     this.stopHeartbeat();
     this.stopRenderPolling();
     this.abortActiveRender(
@@ -363,13 +291,14 @@ export class LocalExecutionService extends EventEmitter {
     );
   }
 
-  private claimSessionIsCurrent(identity: DeviceIdentity, claimEpoch: number): boolean {
-    return (
-      this.sessionEpoch === claimEpoch &&
-      this.identity?.deviceId === identity.deviceId &&
-      this.sessionUserId === identity.userId &&
-      this.state === "ONLINE"
-    );
+  private claimContextIsCurrent(identity: DeviceIdentity, claimEpoch: number): boolean {
+    return isCurrentExecutionContext({
+      claimEpoch,
+      currentEpoch: this.executionEpoch,
+      claimedDeviceId: identity.deviceId,
+      currentDeviceId: this.identity?.deviceId ?? null,
+      online: this.state === "ONLINE",
+    });
   }
 
   private async persistCancellation(
@@ -529,19 +458,12 @@ export class LocalExecutionService extends EventEmitter {
       this.setState("UNPAIRED", null);
       return;
     }
-    if (!this.sessionUserId || identity.userId !== this.sessionUserId) {
-      this.setState("OFFLINE", null);
-      return;
-    }
 
     this.heartbeatInFlight = true;
     this.setState(this.state === "ONLINE" ? "ONLINE" : "CONNECTING", null);
     try {
       await this.backendClient.heartbeat(identity.deviceToken);
-      if (
-        this.identity?.deviceId !== identity.deviceId ||
-        this.sessionUserId !== identity.userId
-      ) {
+      if (this.identity?.deviceId !== identity.deviceId) {
         return;
       }
       this.heartbeatRetryAttempt = 0;
@@ -549,16 +471,13 @@ export class LocalExecutionService extends EventEmitter {
       this.scheduleHeartbeat(this.config.heartbeatIntervalMs);
       this.startRenderPolling();
     } catch (error) {
-      if (
-        this.identity?.deviceId !== identity.deviceId ||
-        this.sessionUserId !== identity.userId
-      ) {
+      if (this.identity?.deviceId !== identity.deviceId) {
         return;
       }
       if (isDeviceAuthenticationFailure(error)) {
         this.stopHeartbeat();
         this.stopRenderPolling();
-        this.sessionEpoch += 1;
+        this.executionEpoch += 1;
         this.identity = null;
         await this.identityStore.clear().catch(() => undefined);
         this.setState("UNPAIRED", null);

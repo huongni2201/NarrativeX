@@ -11,7 +11,7 @@
            AND c.deleted_at IS NULL
     </select>
 
-    <select id="existsOwnedForChapter" resultType="boolean">
+    <select id="existsForChapter" resultType="boolean">
         SELECT EXISTS (
           SELECT 1
             FROM media_plans mp

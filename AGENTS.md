@@ -7,7 +7,7 @@ The repository itself is the current implementation source of truth. Keep archit
 ## Read by task
 
 - Start with [current status](documentation/CURRENT_STATUS.md) and the [documentation map](documentation/README.md). Code, migrations and tests establish implementation facts; accepted ADRs establish direction. Report disagreement instead of assuming a migration is complete.
-- For backend/compute changes, read ADR-0018, ADR-0019, ADR-0021 and `documentation/COMPUTE_PROTOCOL.md`.
+- For backend/compute changes, read ADR-0018, ADR-0019, ADR-0021, ADR-0025 and `documentation/COMPUTE_PROTOCOL.md`.
 - For identity, ownership or runtime-limit changes, read ADR-0020. Earlier account/session/quota rules are superseded in that scope.
 - For schema changes, read `documentation/architecture/DATABASE.md`.
 - For Desktop styling, read `.agents/rules/frontend-styling.md`; for browser verification, read `.agents/rules/playwright-testing.md` and the completion gate below.
@@ -17,7 +17,7 @@ The repository itself is the current implementation source of truth. Keep archit
 
 - Keep Spring Boot a modular monolith and the authority for business state, admission, durable jobs, leases and artifact metadata in PostgreSQL. Add a broker, cache or business microservice only with measured need and an ADR.
 - Follow ADR-0020: one local installation, Project as the business boundary, no synthetic user/account/session identity. Provider secrets and machine execution credentials remain separate runtime concerns.
-- Character remains a reusable identity with ProjectCharacter participation and immutable CharacterVersion snapshots. Appearance/outfit changes do not create a new Character. Resolve only participating characters for Scene/VisualBeat context.
+- Character remains a reusable identity with ProjectCharacter participation and immutable CharacterVersion snapshots. Appearance/outfit changes do not create a new Character. Resolve only participating characters for Scene/StoryBeat/VisualBeat context.
 - Treat story text, prompts, references and provider output as untrusted. Validate schemas and enforce prompt-injection/media-safety boundaries. Real-person references require explicit consent, restricted retention and deletion handling; do not add blanket story-rights checkboxes.
 - Plan visuals from duration, semantic complexity and reuse/delta. Preserve source provenance and narration as the production master clock; provisional timing cannot make a render ready.
 - Preserve locked character versions, approved assets, provider snapshots and render snapshots.

@@ -70,6 +70,23 @@ class Violation:
 
 
 FORBIDDEN_RULES: dict[str, list[tuple[str, Pattern[str]]]] = {
+    "user_identity_residue": [
+        ("userId", re.compile(r"\buserId\b")),
+        ("ownerId", re.compile(r"\bownerId\b")),
+        ("owner_id", re.compile(r"\bowner_id\b")),
+        ("sessionUserId", re.compile(r"\bsessionUserId\b")),
+        ("currentUserId", re.compile(r"\bcurrentUserId\b")),
+        ("claimedUserId", re.compile(r"\bclaimedUserId\b")),
+        ("activeUserId", re.compile(r"\bactiveUserId\b")),
+        ("lastActiveUserId", re.compile(r"\blastActiveUserId\b")),
+        ("bindUser", re.compile(r"\bbindUser\b")),
+        ("desktop:preferences:bind-user", re.compile(r"desktop:preferences:bind-user")),
+        ("desktop:local-execution:set-user", re.compile(r"desktop:local-execution:set-user")),
+        ("sessionEpoch", re.compile(r"\bsessionEpoch\b")),
+        ("currentUserValid", re.compile(r"\bcurrentUserValid\b")),
+        ("USER_MISMATCH", re.compile(r"\bUSER_MISMATCH\b")),
+        ("synthetic_user", re.compile(r"\b(?:defaultUser|localUser|systemUser|guestUser)\b")),
+    ],
     "auth_account": [
         ("CurrentUserId", re.compile(r"\bCurrentUserId\b")),
         ("AuthGuard", re.compile(r"\bAuthGuard\b")),
@@ -118,6 +135,15 @@ GENERATION_SERVICE_FORBIDDEN: list[tuple[str, Pattern[str]]] = [
     ("visual_beats", re.compile(r"\bvisual_beats\b")),
 ]
 
+ACTIVE_SOURCE_PREFIXES = (
+    "app/desktop/src/",
+    "app/backend-service/src/main/",
+    "app/generation-service/src/",
+    "packages/",
+)
+
+CATEGORY_CHOICES = [*FORBIDDEN_RULES.keys(), "generation_service_business_leak"]
+
 
 def should_skip(path: Path) -> bool:
     rel_parts = path.relative_to(ROOT).parts
@@ -132,21 +158,25 @@ def should_skip(path: Path) -> bool:
     return False
 
 
-def scan_file(path: Path) -> list[Violation]:
-    violations: list[Violation] = []
-    try:
-        content = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
-        return violations
+def is_active_source(path: Path) -> bool:
+    """Return whether identity residue in this file is production source, not history/tests."""
+    relative = path.relative_to(ROOT).as_posix()
+    return relative.startswith(ACTIVE_SOURCE_PREFIXES)
 
+
+def scan_text(path: Path, content: str) -> list[Violation]:
+    violations: list[Violation] = []
     is_gen_service = (
         "app/generation-service/src" in path.as_posix()
         or "app\\generation-service\\src" in path.as_posix()
     )
+    identity_source = is_active_source(path)
 
     lines = content.splitlines()
     for line_idx, line in enumerate(lines, start=1):
         for category, rules in FORBIDDEN_RULES.items():
+            if category == "user_identity_residue" and not identity_source:
+                continue
             for term, pattern in rules:
                 if pattern.search(line):
                     violations.append(
@@ -171,8 +201,15 @@ def scan_file(path: Path) -> list[Violation]:
                             line_content=line.strip(),
                         )
                     )
-
     return violations
+
+
+def scan_file(path: Path) -> list[Violation]:
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    return scan_text(path, content)
 
 
 def scan_repository() -> list[Violation]:
@@ -211,7 +248,7 @@ def main() -> int:
     parser.add_argument("--summary", action="store_true", help="Print summary of violations by category")
     parser.add_argument(
         "--category",
-        choices=["auth_account", "quota_plans", "r2_storage", "vieneu_tts", "generation_service_business_leak"],
+        choices=CATEGORY_CHOICES,
         help="Filter scan by category",
     )
     args = parser.parse_args()

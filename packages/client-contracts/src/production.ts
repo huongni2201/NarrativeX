@@ -82,7 +82,6 @@ export type LocalRenderPreflightBlockerCode =
   | "EXECUTOR_UNPAIRED"
   | "EXECUTOR_CONNECTING"
   | "DEVICE_MISMATCH"
-  | "USER_MISMATCH"
   | "INSUFFICIENT_DISK"
   | "DISK_UNKNOWN"
   | "ASSET_MISSING"

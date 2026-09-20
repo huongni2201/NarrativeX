@@ -6,11 +6,13 @@ Accepted (2026-09-18)
 
 ## Supersedes
 
-ADR-0027 (VoiceStudio-only TTS and WhisperX-aligned WAV narration)
+The historical VoiceStudio decision (formerly referenced as ADR-0027; preserved in Git history)
 
 ## Context
 
-NarrativeX produces Vietnamese audiobook and storyboard narration. ADR-0027 previously selected VoiceStudio as the sole TTS runtime. In practice, VoiceStudio introduced operational complexity, dependency bloat, and sub-optimal Vietnamese prosody.
+NarrativeX produces Vietnamese audiobook and storyboard narration. The historical VoiceStudio
+decision previously selected VoiceStudio as the sole TTS runtime. In practice, VoiceStudio
+introduced operational complexity, dependency bloat, and sub-optimal Vietnamese prosody.
 
 VieNeu (`vieneu-v3-turbo`) provides high-quality Vietnamese speech synthesis with lower latency and reliable headless execution. Furthermore, offloading heavy media synthesis to a leased or dedicated 24GB RTX 3090 host enables stable multi-modal generation without impacting the local user editor.
 
@@ -32,4 +34,4 @@ VieNeu (`vieneu-v3-turbo`) provides high-quality Vietnamese speech synthesis wit
 
 - Vietnamese speech synthesis quality and reliability are significantly enhanced.
 - The GPU worker operates with clean, predictable VRAM residency on an RTX 3090.
-- `ADR-0027` is formally superseded.
+- The historical VoiceStudio decision is formally superseded; its old identifier is retained only in Git history.

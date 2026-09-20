@@ -1,13 +1,13 @@
 # ADR-0001: System topology, modular monolith, durable execution and persistence architecture
 
-- Status: Accepted; amended 2026-09-12 for the squashed V1–V8 baseline, non-monetary quota model and R2 voice-only storage boundary
+- Status: Partially superseded; retained as historical topology rationale. Current identity, capacity, storage and compute-event rules follow ADR-0020 and ADR-0025.
 - Date: 2026-08-18 (consolidated and updated: 2026-09-12)
 - Scope: Application topology, worker boundary, DDD package boundaries, SQL-first MyBatis persistence, Flyway PostgreSQL baseline, durable provider execution lifecycle and local final-render authority.
 - Consolidated from: former ADR-0001, ADR-0003, ADR-0003, ADR-0008, and ADR-0006.
 
 ## Context
 
-NarrativeX is an image-first, long-form story-to-video platform combining transaction-heavy business state (projects, chapters, characters, storyboards and non-monetary quota/capacity state) with asynchronous Python AI/media workloads and native Desktop final rendering.
+NarrativeX is an image-first, long-form story-to-video platform combining transaction-heavy business state (Projects, StoryVersions, Chapters, Characters, StoryBeats, AudioCues and VisualBeats) with asynchronous Python AI/media workloads and native Desktop final rendering.
 
 Persistence originally used Spring Data JPA/Hibernate, which obscured SQL execution and made concurrency/CAS behavior less explicit. External AI providers can time out or crash mid-flight, so memory state or transient queue messages cannot be authoritative execution state.
 
@@ -17,12 +17,12 @@ NarrativeX therefore uses a SQL-first modular-monolith control plane backed auth
 
 ### 1. System topology and service boundaries
 
-- The Spring Boot backend is a modular monolith and the application/authorization authority.
+- The Spring Boot backend is a modular monolith and the business-state/control-plane authority.
 - Python workers execute backend-authorized AI/media provider workloads such as analysis, image generation, narration and validation.
 - Electron Desktop executes final project rendering and machine-local media operations under backend assignment/lease control.
-- PostgreSQL owns business state, generation jobs, stage attempts, provider operations, non-monetary quota reservations/usage counters, notifications, render assignment/lease state and final-artifact metadata.
-- PostgreSQL is also the authority for server sessions and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime.
-- Cloudflare R2 is restricted to authenticated reusable ACCOUNT voice-reference/custom-voice bytes. It is not generated-project-media transport, fallback storage or final-video storage.
+- PostgreSQL owns business state, generation jobs, stage attempts, provider operations, system-capacity reservations, render assignment/lease state and final-artifact metadata.
+- ADR-0020 removes application User/Account/Session/OAuth identity. Google/Gemini Chrome login is provider/browser state, not NarrativeX authentication. Redis is not required by the current runtime.
+- Project-local media remains in Electron ProjectStorage; PostgreSQL stores metadata and opaque keys, not project bytes.
 - Desktop ProjectStorage owns project-local generated/imported media, render intermediates/cache and final MP4 artifacts.
 
 Provider-consuming work is admitted only after a durable PostgreSQL execution path exists. Returning `202 Accepted` is valid only after the required authoritative rows have been persisted transactionally.
@@ -51,31 +51,31 @@ Public JSON success responses use `ApiResponse<T>`. Mutable contracts use explic
 NarrativeX uses a responsibility-separated eight-file pre-release baseline:
 
 ```text
-V1__identity_and_access.sql                    -> identity, session, OAuth handoff and device state
-V2__project_story_and_planning.sql             -> project, story, chapter, storyboard and media-planning state
-V3__generation_quota_and_media.sql             -> generation, provider operations, non-monetary quota and media
-V4__narration_notifications_and_artifacts.sql  -> narration, notifications and artifact metadata
-V5__catalog_generation_and_render_snapshots.sql -> catalogs, generation lineage, continuity and render snapshots
-V6__database_logic_and_triggers.sql            -> database functions, guards, quota settlement and lifecycle logic
-V7__indexes.sql                                -> indexes and access-path invariants
-V8__seed_catalog.sql                           -> deterministic system/catalog bootstrap data
+V1__project_story_and_planning.sql              -> Project, StoryVersion, Chapter, storyboard, Characters, Scenes, StoryBeats, AudioCues, VisualBeats and planning state
+V2__generation_and_media.sql                    -> generation jobs, provider operations, media assets and voice-reference assets
+V3__narration_and_artifacts.sql                 -> narration/alignment, local render leases and final-artifact metadata
+V4__catalog_generation_and_render_snapshots.sql -> catalogs, lineage, continuity, regeneration and render snapshots
+V5__database_logic_and_triggers.sql             -> database functions, guards and lifecycle triggers
+V6__indexes.sql                                 -> indexes and access-path invariants
+V7__seed_catalog.sql                            -> deterministic system/catalog bootstrap data
+V8__generation_async_orchestration.sql          -> compute handles, callback metadata, event receipts and reconciliation indexes
 ```
 
 That split is structural rather than historical. The former V9–V18 patch sequence has been folded into the owning V1–V8 baseline migrations. New pre-production databases therefore create the final schema directly instead of creating retired billing/pricing, credit-accounting or storage-compatibility shapes and later removing them.
 
 V1–V8 form the clean pre-release baseline and may still be reorganized before the first production deployment. After that deployment, checksums and filenames are frozen and new schema features begin with append-only `V9__*.sql` migrations.
 
-`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies V1 through V8. Within the baseline, relational uniqueness needed as a foreign-key target is declared in the owning schema migration, V7 owns the consolidated query/claim/index set and V8 owns deterministic seeds.
+`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies V1 through V8. Within the baseline, relational uniqueness needed as a foreign-key target is declared in the owning schema migration, V6 owns indexes and V8 owns asynchronous compute-orchestration state.
 
-### 5. Durable provider execution and non-monetary quota lifecycle
+### 5. Durable provider execution and system-capacity lifecycle
 
 Before crossing an external provider submission boundary, durable provider-operation state exists in PostgreSQL. Ambiguous outcomes use `UNKNOWN` and are reconciled before any resubmission that could duplicate provider work.
 
-Provider-operation lifecycle preserves fenced request identity, external operation identity where available, normalized result state, result fingerprints and reconciliation metadata. It does not persist user billing currency, actual provider cost, pricing snapshots or pricing fingerprints as an application contract.
+Provider-operation lifecycle preserves fenced request identity, external operation identity where available, normalized result state, result fingerprints and reconciliation metadata. It does not persist user billing currency, actual provider cost, pricing snapshots, application accounts or per-user quotas as an application contract.
 
-Admission services receive account identity only; project/source/voice validation belongs to the calling use case. Retired zero-cost estimators and unused uploaded-audio admission facades are removed. Capacity exhaustion uses the stable `CAPACITY_LIMIT` API code.
+Admission services receive project/source/voice context only; there is no application account identity. Retired zero-cost estimators and unused uploaded-audio admission facades are removed. Capacity exhaustion uses the stable `CAPACITY_LIMIT` API code.
 
-Quota admission is non-monetary. `quota_reservations` represents supported capacity/export reservations such as `CAPACITY` and `LONGFORM_EXPORT`. The terminal PostgreSQL trigger consumes successful reservations and releases failed/canceled reservations; completed long-form exports increment the period usage counter exactly once. There is no credit balance, monthly-credit allowance, estimated-cost reservation or `PAUSED_COST_LIMIT` job state.
+Capacity admission is non-monetary. `quota_reservations` represents supported system capacity/export reservations such as `CAPACITY` and `LONGFORM_EXPORT`. The terminal PostgreSQL trigger consumes successful reservations and releases failed/canceled reservations. There is no credit balance, monthly-credit allowance, estimated-cost reservation, per-user quota, or `PAUSED_COST_LIMIT` job state.
 
 ### 6. Desktop final project rendering
 
@@ -104,12 +104,12 @@ The backend and Python workers do not execute final project FFmpeg rendering and
 5. First accepted terminal provider result wins under CAS; immutable media/render input snapshots are not rewritten in place.
 6. Generation completion depends on valid execution/result state, not monetary billing evidence.
 7. The current clean pre-release database is exactly the accepted V1–V8 baseline; obsolete patch migrations are not retained for disposable development compatibility.
-8. V8 contains deterministic system/catalog data only, never project/user content.
+8. V8 contains asynchronous compute-orchestration state (handles, callback metadata, event receipts and reconciliation indexes), never project content.
 9. After the first production deployment, applied Flyway migrations become immutable and subsequent schema changes are append-only.
 10. Final project rendering executes in Electron main under backend lease authority.
 11. Final MP4 bytes remain local; backend FinalArtifact persistence is metadata-only.
-12. Generation SSE and any database wake-up signal are delivery mechanisms only; PostgreSQL job rows remain authoritative and Desktop can recover through GET/watchdog queries.
-13. R2 is ACCOUNT voice-reference/custom-voice storage only; project media and final renders do not use an R2 fallback path.
+12. Worker SQLite outbox events, signed callbacks, scheduled reconciliation and project-scoped SSE are delivery mechanisms only; PostgreSQL job rows remain authoritative and Desktop can recover through GET/watchdog queries.
+13. Project media and final renders use Electron-owned local storage; PostgreSQL stores metadata and opaque keys only.
 
 ## Consequences
 

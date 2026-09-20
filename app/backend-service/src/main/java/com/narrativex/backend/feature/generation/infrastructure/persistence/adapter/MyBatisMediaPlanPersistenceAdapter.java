@@ -88,8 +88,7 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
   }
 
   @Override
-  public boolean existsOwnedForChapter(
-      UUID mediaPlanId, int revision, UUID chapterId, String ownerId) {
-    return mapper.existsOwnedForChapter(mediaPlanId, revision, chapterId, ownerId);
+  public boolean existsForChapter(UUID mediaPlanId, int revision, UUID chapterId) {
+    return mapper.existsForChapter(mediaPlanId, revision, chapterId);
   }
 }

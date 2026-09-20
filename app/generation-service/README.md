@@ -1,8 +1,8 @@
 # NarrativeX Generation Service
 
-`generation-service` is the domain-agnostic compute execution plane. It accepts versioned compute tasks, runs registered executor adapters, stages artifacts, and reports execution observations.
+`generation-service` is the domain-agnostic compute execution plane. It accepts versioned compute tasks, runs registered executor adapters, stages artifacts, and reports execution observations. Its SQLite execution journal and `compute_event_outbox` durably record state transitions before asynchronous signed callback delivery.
 
-It deliberately has no NarrativeX database connection, business aggregate, project workspace, or job orchestration. See `../../documentation/COMPUTE_PROTOCOL.md` and `../../contracts/compute/v1/openapi.yaml`.
+It deliberately has no NarrativeX database connection, business aggregate, project workspace, or job orchestration. Outbox delivery uses bounded retry/backoff and never changes a terminal execution state merely because callback delivery failed. See `../../documentation/COMPUTE_PROTOCOL.md` and `../../contracts/compute/v1/openapi.yaml`.
 
 ## Development
 
@@ -42,7 +42,7 @@ application/     execution use case plus driven ports
 adapters/
   inbound/http/  FastAPI transport and authentication
   executors/    model/provider capability registry and executor adapters
-  persistence/  SQLite execution-journal adapter
+  persistence/  SQLite execution-journal and event-outbox adapter
   artifacts/    capability-based HTTP artifact adapter
   runtime/      host-level GPU model residency manager (GpuResidencyManager)
 bootstrap.py    composition root; the only place that wires concrete adapters

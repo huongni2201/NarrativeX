@@ -42,7 +42,9 @@ test("project workspace owns one render controller across editor and render rout
 test("local execution invalidates pending claims and retries initial transient heartbeat failures", async () => {
   const service = await source("../src/main/local-execution/service.ts");
 
-  assert.match(service, /sessionEpoch/);
+  assert.match(service, /executionEpoch/);
+  assert.match(service, /claimContextIsCurrent/);
+  assert.doesNotMatch(service, /sessionUserId|setUser\(|currentUserValid/);
   assert.match(service, /claimEpoch/);
   assert.match(service, /scheduleHeartbeatRetry/);
   assert.match(service, /heartbeatRetryAttempt/);

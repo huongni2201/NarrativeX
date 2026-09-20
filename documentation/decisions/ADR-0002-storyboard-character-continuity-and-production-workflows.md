@@ -45,7 +45,7 @@ Treating an entire story or chapter as a single monolithic aggregate leads to he
 
 ### 4. Storyboard Aggregate Boundaries & Revision Lifecycle
 
-- **Independent Aggregate Roots:** `Chapter` and `Scene` are independent `AggregateRoots` to allow concurrent scene updates. `VisualBeat` is an entity owned by `Scene`.
+- **Historical storyboard note:** Older storyboard modeling treated `VisualBeat` as directly owned by `Scene`. The current StoryBeat-centered model is governed by ADR-0024.
 - **Durable `storyboard_revisions`:**
   - Chapter analysis materializes scenes and visual beats into a new `DRAFT` storyboard revision.
   - Upon successful analysis completion, `chapters.current_storyboard_revision_id` atomically switches to the new revision in PostgreSQL.

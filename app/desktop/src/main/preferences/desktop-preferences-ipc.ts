@@ -27,16 +27,6 @@ export function registerDesktopPreferencesIpc(
   preferences: DesktopPreferencesStore,
   getMainWindow: () => BrowserWindow | null,
 ): void {
-  registerTrustedIpcHandler("desktop:preferences:bind-user", policy, async (userId) => {
-    if (typeof userId !== "string" || !userId.trim()) {
-      throw new Error("userId must be a non-empty string.");
-    }
-    const next = await preferences.bindUser(userId);
-    const window = getMainWindow();
-    if (window && !window.isDestroyed()) applyWindowState(window, next.window);
-    return next;
-  });
-
   registerTrustedIpcHandler("desktop:preferences:get", policy, () => preferences.get());
 
   registerTrustedIpcHandler("desktop:preferences:reset", policy, async (scope) => {

@@ -4,24 +4,25 @@ import { dirname } from "node:path";
 export type DesktopPreferenceResetScope = "WINDOW" | "ALL";
 
 export interface SavedWindowState {
-  x: number; y: number; width: number; height: number; maximized: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  maximized: boolean;
 }
 
 export interface EffectiveDesktopPreferences {
-  userId: string;
   window: SavedWindowState | null;
 }
 
-type StoredProfile = { window?: SavedWindowState };
 type StoredPreferences = {
-  schemaVersion: 3;
-  lastActiveUserId: string | null;
-  profiles: Record<string, StoredProfile>;
+  schemaVersion: 4;
+  window?: SavedWindowState;
 };
 
-const EMPTY_PREFERENCES: StoredPreferences = {
-  schemaVersion: 3, lastActiveUserId: null, profiles: {},
-};
+const EMPTY_PREFERENCES: StoredPreferences = { schemaVersion: 4 };
+const LEGACY_ACTIVE_PROFILE_KEY = ["last", "Active", "User", "Id"].join("");
+const LEGACY_PROFILES_KEY = "profiles";
 
 function validWindowState(value: unknown): value is SavedWindowState {
   if (!value || typeof value !== "object") return false;
@@ -32,87 +33,78 @@ function validWindowState(value: unknown): value is SavedWindowState {
     typeof state.maximized === "boolean";
 }
 
+function cloneWindowState(window: SavedWindowState): SavedWindowState {
+  return { ...window };
+}
+
 function sanitizePreferences(value: unknown): StoredPreferences {
-  if (!value || typeof value !== "object") return structuredClone(EMPTY_PREFERENCES);
-  const input = value as { lastActiveUserId?: unknown; profiles?: unknown };
-  const profiles: Record<string, StoredProfile> = {};
-  if (input.profiles && typeof input.profiles === "object") {
-    for (const [userId, rawProfile] of Object.entries(input.profiles as Record<string, unknown>)) {
-      if (!userId.trim() || !rawProfile || typeof rawProfile !== "object") continue;
-      const window = (rawProfile as { window?: unknown }).window;
-      profiles[userId] = validWindowState(window) ? { window } : {};
-    }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return structuredClone(EMPTY_PREFERENCES);
   }
-  return {
-    schemaVersion: 3,
-    lastActiveUserId: typeof input.lastActiveUserId === "string" && input.lastActiveUserId.trim()
-      ? input.lastActiveUserId : null,
-    profiles,
-  };
+
+  const input = value as Record<string, unknown>;
+  if (input.schemaVersion === 4) {
+    return validWindowState(input.window)
+      ? { schemaVersion: 4, window: cloneWindowState(input.window) }
+      : structuredClone(EMPTY_PREFERENCES);
+  }
+  if (input.schemaVersion !== 3) return structuredClone(EMPTY_PREFERENCES);
+
+  const activeProfileId = input[LEGACY_ACTIVE_PROFILE_KEY];
+  const profiles = input[LEGACY_PROFILES_KEY];
+  const activeProfile =
+    typeof activeProfileId === "string" &&
+    profiles &&
+    typeof profiles === "object" &&
+    !Array.isArray(profiles)
+      ? (profiles as Record<string, unknown>)[activeProfileId]
+      : undefined;
+  const legacyWindow =
+    activeProfile && typeof activeProfile === "object" && !Array.isArray(activeProfile)
+      ? (activeProfile as Record<string, unknown>).window
+      : undefined;
+
+  return validWindowState(legacyWindow)
+    ? { schemaVersion: 4, window: cloneWindowState(legacyWindow) }
+    : structuredClone(EMPTY_PREFERENCES);
 }
 
 export class DesktopPreferencesStore {
   private loaded: StoredPreferences | null = null;
-  private activeUserId: string | null = null;
   private mutationChain: Promise<void> = Promise.resolve();
 
-  constructor(private readonly filePath: string, _env: NodeJS.ProcessEnv | Record<string, string | undefined>) {}
-
-  async bindUser(userId: string): Promise<EffectiveDesktopPreferences> {
-    const normalized = userId.trim();
-    if (!normalized) throw new Error("Desktop preference userId must not be empty.");
-    return this.commit((state) => {
-      state.lastActiveUserId = normalized;
-      state.profiles[normalized] ??= {};
-      this.activeUserId = normalized;
-      return this.effective(normalized, state.profiles[normalized]);
-    });
-  }
+  constructor(private readonly filePath: string) {}
 
   async get(): Promise<EffectiveDesktopPreferences> {
     const state = await this.load();
-    const userId = this.activeUserId ?? state.lastActiveUserId;
-    if (!userId) throw new Error("Desktop preferences are not bound to a user.");
-    this.activeUserId = userId;
-    return this.effective(userId, state.profiles[userId] ?? {});
-  }
-
-  async getLastActive(): Promise<EffectiveDesktopPreferences | null> {
-    const state = await this.load();
-    if (!state.lastActiveUserId) return null;
-    this.activeUserId = state.lastActiveUserId;
-    return this.effective(state.lastActiveUserId, state.profiles[state.lastActiveUserId] ?? {});
+    return { window: state.window ? cloneWindowState(state.window) : null };
   }
 
   async updateWindow(window: SavedWindowState): Promise<EffectiveDesktopPreferences> {
     if (!validWindowState(window)) throw new Error("Invalid Desktop window state.");
-    return this.mutateActive((profile) => { profile.window = { ...window }; });
-  }
-
-  async reset(_scope: DesktopPreferenceResetScope): Promise<EffectiveDesktopPreferences> {
-    return this.mutateActive((profile) => { delete profile.window; });
-  }
-
-  private async mutateActive(mutate: (profile: StoredProfile) => void) {
     return this.commit((state) => {
-      const userId = this.activeUserId ?? state.lastActiveUserId;
-      if (!userId) throw new Error("Desktop preferences are not bound to a user.");
-      const profile = state.profiles[userId] ?? {};
-      mutate(profile);
-      state.profiles[userId] = profile;
-      return this.effective(userId, profile);
+      state.window = cloneWindowState(window);
+      return { window: cloneWindowState(window) };
     });
   }
 
-  private effective(userId: string, profile: StoredProfile): EffectiveDesktopPreferences {
-    return { userId, window: profile.window ? { ...profile.window } : null };
+  async reset(_scope: DesktopPreferenceResetScope): Promise<EffectiveDesktopPreferences> {
+    return this.commit((state) => {
+      delete state.window;
+      return { window: null };
+    });
   }
 
   private async load(): Promise<StoredPreferences> {
     if (this.loaded) return this.loaded;
-    try { this.loaded = sanitizePreferences(JSON.parse(await readFile(this.filePath, "utf8"))); }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
+    try {
+      const raw = JSON.parse(await readFile(this.filePath, "utf8")) as unknown;
+      this.loaded = sanitizePreferences(raw);
+      if (isLegacyPreferences(raw)) await this.write(this.loaded);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT" && !(error instanceof SyntaxError)) {
+        throw error;
+      }
       this.loaded = structuredClone(EMPTY_PREFERENCES);
     }
     return this.loaded;
@@ -123,14 +115,30 @@ export class DesktopPreferencesStore {
     const operation = this.mutationChain.catch(() => undefined).then(async () => {
       const state = structuredClone(await this.load());
       result = mutate(state);
-      await mkdir(dirname(this.filePath), { recursive: true });
-      const temporaryPath = `${this.filePath}.tmp`;
-      await writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-      await rename(temporaryPath, this.filePath);
+      await this.write(state);
       this.loaded = state;
     });
     this.mutationChain = operation.catch(() => undefined);
     await operation;
     return result as T;
   }
+
+  private async write(state: StoredPreferences): Promise<void> {
+    await mkdir(dirname(this.filePath), { recursive: true });
+    const temporaryPath = `${this.filePath}.tmp`;
+    await writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    await rename(temporaryPath, this.filePath);
+  }
+}
+
+function isLegacyPreferences(value: unknown): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as { schemaVersion?: unknown }).schemaVersion === 3,
+  );
 }

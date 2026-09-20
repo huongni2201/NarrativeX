@@ -23,14 +23,11 @@ const bridge: NarrativeXDesktopBridge = {
       ipcRenderer.invoke("desktop:api:upload-voice-reference") as Promise<VoiceReferenceUploadResult | null>,
   },
   preferences: {
-    bindUser: (userId: string) => ipcRenderer.invoke("desktop:preferences:bind-user", userId),
     get: () => ipcRenderer.invoke("desktop:preferences:get"),
     reset: (scope: DesktopPreferenceResetScope) => ipcRenderer.invoke("desktop:preferences:reset", scope),
   },
   localExecution: {
     status: () => ipcRenderer.invoke("desktop:local-execution:status"),
-    setUser: (userId: string | null) =>
-      ipcRenderer.invoke("desktop:local-execution:set-user", userId),
     pair: (pairingCode: string) =>
       ipcRenderer.invoke("desktop:local-execution:pair", pairingCode),
     unpair: () => ipcRenderer.invoke("desktop:local-execution:unpair"),
@@ -43,8 +40,7 @@ const bridge: NarrativeXDesktopBridge = {
   localProjects: {
     list: () => ipcRenderer.invoke("desktop:projects-local:list"),
     lastOpened: () => ipcRenderer.invoke("desktop:projects-local:last-opened"),
-    upsert: (project, metadata) =>
-      ipcRenderer.invoke("desktop:projects-local:upsert", { project, metadata }),
+    upsert: (project) => ipcRenderer.invoke("desktop:projects-local:upsert", project),
     touch: (projectId: string) => ipcRenderer.invoke("desktop:projects-local:touch", projectId),
     setFavorite: (projectId: string, isStarred: boolean) =>
       ipcRenderer.invoke("desktop:projects-local:set-favorite", { projectId, isStarred }),

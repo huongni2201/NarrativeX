@@ -21,7 +21,6 @@ export interface DesktopWindowPreference {
 }
 
 export interface DesktopPreferences {
-  userId: string;
   window: DesktopWindowPreference | null;
 }
 
@@ -43,13 +42,8 @@ export interface LocalProjectStorageStatus {
 
 export interface LocalProjectCatalogEntry {
   project: DesktopProject;
-  ownerId: string | null;
   registeredAt: string;
   lastOpenedAt: string;
-}
-
-export interface LocalProjectCatalogMetadata {
-  ownerId?: string | null;
 }
 
 export interface LocalStorageSummary {
@@ -193,13 +187,11 @@ export interface NarrativeXDesktopBridge {
     uploadVoiceReference(): Promise<VoiceReferenceUploadResult | null>;
   };
   preferences: {
-    bindUser(userId: string): Promise<DesktopPreferences>;
     get(): Promise<DesktopPreferences>;
     reset(scope: DesktopPreferenceResetScope): Promise<DesktopPreferences>;
   };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;
-    setUser(userId: string | null): Promise<LocalExecutionStatus>;
     pair(pairingCode: string): Promise<LocalExecutionStatus>;
     unpair(): Promise<LocalExecutionStatus>;
     onStatusChanged(listener: (status: LocalExecutionStatus) => void): () => void;
@@ -207,7 +199,7 @@ export interface NarrativeXDesktopBridge {
   localProjects: {
     list(): Promise<LocalProjectCatalogEntry[]>;
     lastOpened(): Promise<LocalProjectCatalogEntry | null>;
-    upsert(project: DesktopProject, metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry>;
+    upsert(project: DesktopProject): Promise<LocalProjectCatalogEntry>;
     touch(projectId: string): Promise<LocalProjectCatalogEntry>;
     setFavorite(projectId: string, isStarred: boolean): Promise<LocalProjectCatalogEntry>;
     markArchived(projectId: string): Promise<void>;

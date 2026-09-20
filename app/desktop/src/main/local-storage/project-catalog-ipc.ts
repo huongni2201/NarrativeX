@@ -12,7 +12,6 @@ import { SelectionTokenStore } from "../security/selection-token-store";
 import {
   ProjectCatalog,
   type LocalProjectCatalogEntry,
-  type LocalProjectCatalogMetadata,
 } from "./project-catalog";
 import { ProjectStorage } from "./project-storage";
 
@@ -44,7 +43,7 @@ export function registerProjectCatalogIpc(
   });
   registerTrustedIpcHandler("desktop:projects-local:upsert", trustPolicy, async (input) => {
     if (!isCatalogUpsertInput(input)) throw new Error("Invalid local project catalog input.");
-    return toRendererCatalogEntry(await catalog.upsert(input.project, input.metadata));
+    return toRendererCatalogEntry(await catalog.upsert(input));
   });
 
   registerTrustedIpcHandlerWithEvent(
@@ -127,19 +126,13 @@ export function registerProjectCatalogIpc(
 function toRendererCatalogEntry(entry: LocalProjectCatalogEntry) {
   return {
     project: entry.project,
-    ownerId: entry.ownerId,
     registeredAt: entry.registeredAt,
     lastOpenedAt: entry.lastOpenedAt,
   };
 }
 
-function isCatalogUpsertInput(value: unknown): value is {
-  project: DesktopProject;
-  metadata?: LocalProjectCatalogMetadata;
-} {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const input = value as Record<string, unknown>;
-  return isProject(input.project) && isMetadata(input.metadata);
+function isCatalogUpsertInput(value: unknown): value is DesktopProject {
+  return isProject(value);
 }
 
 function isFavoritePatch(value: unknown): value is {
@@ -194,18 +187,4 @@ function isProject(value: unknown): value is DesktopProject {
     (project.coverImageUrl === null || typeof project.coverImageUrl === "string") &&
     typeof project.status === "string"
   );
-}
-
-function isMetadata(value: unknown): value is LocalProjectCatalogMetadata | undefined {
-  if (value === undefined) return true;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const metadata = value as Record<string, unknown>;
-  return (
-    Object.keys(metadata).every((key) => key === "ownerId") &&
-    optionalNullableString(metadata.ownerId)
-  );
-}
-
-function optionalNullableString(value: unknown): boolean {
-  return value === undefined || value === null || typeof value === "string";
 }

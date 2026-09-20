@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-24  
-**Updated:** 2026-08-26 after legacy web removal, OAuth fallback cleanup, Desktop sandbox compatibility adjustment and local-only final-render consolidation
+**Updated:** 2026-08-26 after legacy web removal, provider/browser login boundary cleanup, Desktop sandbox compatibility adjustment and local-only final-render consolidation
 
 ## Context
 
@@ -10,20 +10,20 @@ NarrativeX's creator experience is a dense desktop editor with a persistent acti
 
 The Desktop client also owns native capabilities that should not exist in a browser renderer: local project storage, system file/folder selection, protected device credentials, deep-link handling and FFmpeg/ffprobe execution.
 
-The backend remains authoritative for durable domain state, ownership, policy and execution admission. The Desktop renderer must not become a second backend or receive unrestricted Node.js access.
+The backend remains authoritative for durable domain state, project scope, policy and execution admission. The Desktop renderer must not become a second backend or receive unrestricted Node.js access. NarrativeX has no application authentication/session model; provider/browser login is a separate runtime concern.
 
 ## Decision
 
 `app/desktop` is the only supported NarrativeX editor client, built with Electron, Electron Vite, React and TypeScript.
 
-The former `app/frontend-web` client was removed from the repository and active runtime topology. Spring browser routes that remain for Google OAuth are backend authentication flow only, not a second editor client.
+The former `app/frontend-web` client was removed from the repository and active runtime topology. Google/Gemini login used by Chrome automation is provider/browser state only, not a NarrativeX authentication flow or application identity.
 
 ### Electron main
 
 Electron main owns native/runtime capabilities:
 
 - BrowserWindow lifecycle and security configuration;
-- system-browser Google OAuth start and `narrativex://` custom-protocol callback handling;
+- Gemini Chrome profile lifecycle and CDP automation state;
 - local project workspace/manifest access;
 - native file/folder selection and artifact reveal/open actions;
 - protected device identity and local-execution heartbeat;
@@ -61,11 +61,11 @@ Desktop project media is local-first. Electron main maps stable backend asset ID
 
 ## Current implementation checkpoint
 
-At the current V1.11 implementation baseline:
+At the current implementation baseline:
 
 - the Desktop editor shell and project-scoped routes exist;
 - shared client contracts are consumed by the Desktop renderer;
-- Google OAuth opens in the system browser and custom-protocol handoff is wired in Electron main;
+- Google/Gemini login remains inside the selected Chrome profile and is not persisted as NarrativeX identity;
 - `ProjectStorage` owns schema-versioned local manifests and checksum/path-boundary validation;
 - local device pairing/identity/heartbeat is wired;
 - backend-assigned local project renders can be claimed by the device;
@@ -104,5 +104,5 @@ Process-restart render recovery/resume and several planned editor/review hardeni
 
 - [ADR-0001: System topology, durable execution and persistence](./ADR-0001-system-topology-execution-and-persistence.md)
 - [ADR-0003: Cloud media storage and provider integrations](./ADR-0007-desktop-local-first-media-and-render-execution.md)
-- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0020-single-user-local-first-architecture.md)
+- [ADR-0020: Single-user local-first architecture](./ADR-0020-single-user-local-first-architecture.md)
 - [ADR-0007: Desktop local-first media and render execution](./ADR-0007-desktop-local-first-media-and-render-execution.md)

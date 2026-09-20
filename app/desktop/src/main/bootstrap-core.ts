@@ -273,16 +273,6 @@ void app.whenReady().then(async () => {
   registerTrustedIpcHandler("desktop:local-execution:status", trustPolicy, () =>
     requireLocalExecution().status(),
   );
-  registerTrustedIpcHandler(
-    "desktop:local-execution:set-user",
-    trustPolicy,
-    async (userId) => {
-      if (userId !== null && typeof userId !== "string") {
-        throw new Error("userId must be a string or null.");
-      }
-      return requireLocalExecution().setUser(userId);
-    },
-  );
   registerTrustedIpcHandler("desktop:local-storage:summary", trustPolicy, async (projectId) => {
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
     return requireProjectStorage().storageSummary(projectId);

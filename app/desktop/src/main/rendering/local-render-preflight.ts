@@ -19,8 +19,8 @@ export interface LocalRenderPreflightInput {
 
 export interface LocalRenderPreflightContext {
   state: LocalExecutionConnectionState;
-  currentUserValid: boolean;
   devicePaired: boolean;
+  deviceOnline: boolean;
 }
 
 export class LocalRenderPreflightService {
@@ -49,11 +49,12 @@ export class LocalRenderPreflightService {
     if (!this.runtime.available || !this.runtime.ffmpegPath || !this.runtime.ffprobePath) {
       blockers.push("FFMPEG_UNAVAILABLE");
     }
-    if (!context.currentUserValid) blockers.push("USER_MISMATCH");
     if (!context.devicePaired) blockers.push("DEVICE_MISMATCH");
     if (context.state !== "ONLINE") {
       const blocker = executorBlockerCode(context.state);
       if (!blockers.includes(blocker)) blockers.push(blocker);
+    } else if (!context.deviceOnline) {
+      blockers.push("EXECUTOR_OFFLINE");
     }
 
     let diskFreeBytes: number | null = null;
@@ -102,7 +103,7 @@ function dedupeAssets(assets: LocalRenderPreflightAssetInput[]): LocalRenderPref
 
 export function executorBlockerCode(
   state: LocalExecutionConnectionState,
-): Exclude<LocalRenderPreflightBlockerCode, "FFMPEG_UNAVAILABLE" | "DEVICE_MISMATCH" | "USER_MISMATCH" | "INSUFFICIENT_DISK" | "DISK_UNKNOWN" | "ASSET_MISSING" | "ASSET_CORRUPT"> {
+): Exclude<LocalRenderPreflightBlockerCode, "FFMPEG_UNAVAILABLE" | "DEVICE_MISMATCH" | "INSUFFICIENT_DISK" | "DISK_UNKNOWN" | "ASSET_MISSING" | "ASSET_CORRUPT"> {
   if (state === "UNPAIRED") return "EXECUTOR_UNPAIRED";
   if (state === "CONNECTING") return "EXECUTOR_CONNECTING";
   if (state === "OFFLINE") return "EXECUTOR_OFFLINE";

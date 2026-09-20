@@ -65,7 +65,7 @@ Current foundations include production timeline reads, narration-aligned timing,
 
 Remaining:
 
-- richer scene/beat hierarchy editing while preserving Chapter → Scene → VisualBeat semantics;
+- richer StoryBeat hierarchy editing while preserving Project → StoryVersion → Chapter → Scene → StoryBeat → {AudioCue[], VisualBeat[]} semantics;
 - trim/split/reorder behavior where domain rules allow it;
 - clear visual distinction between image and imported/generated video beats;
 - image-only camera/motion controls that do not appear for video beats;

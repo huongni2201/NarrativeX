@@ -1,6 +1,6 @@
 # Image Generation Workflow
 
-Image generation produces immutable image MediaAssets for VisualBeats. NarrativeX is image-first, but image generation is separate from final FFmpeg motion/rendering and from optional I2V.
+Image generation produces immutable image MediaAssets for VisualBeats within StoryBeat and AudioCue timing context. NarrativeX is image-first, but image generation is separate from final FFmpeg motion/rendering and from optional I2V.
 
 ## Admission and editor flow
 
@@ -48,7 +48,7 @@ Rules:
 
 The generation-service owns provider mechanics; backend policy/admission remains authoritative.
 
-Gemini Web is intentionally different: it is a user-owned browser-product integration rather than a fake paid-provider ledger. Its immutable generation input is still backend-authoritative, while browser attempt reconciliation is device-local as defined by ADR-0021.
+Gemini Web is intentionally different: it is a local Chrome-profile/browser integration rather than a fake paid-provider ledger. Google/Gemini login is provider/browser state, not NarrativeX authentication or application identity. Its immutable generation input is still backend-authoritative, while browser attempt reconciliation is device-local as defined by ADR-0021.
 
 ## Validation and lineage
 
@@ -81,6 +81,7 @@ ImageStyle
    + timeline-scoped CharacterAppearance        (temporary state when available)
    + pinned beat continuity                     (authoritative visible state)
    + ProjectLocation.visualPrompt                (reusable location canon)
+   + StoryBeat semantic intent                   (shared narrative context)
    + VisualBeat.visualIntent                     (beat-local scene delta)
    + camera/aspect ratio
    + deterministic reference bindings
@@ -141,7 +142,7 @@ POST .../gemini-generation-batches:prepare
   beatIds[]
   optional expectedStoryboardRevisionId
       -> REPEATABLE_READ
-      -> authorize project/chapter ownership
+      -> validate project/chapter scope
       -> pin source/storyboard/continuity/style/provider revisions
       -> compile each exact final prompt
       -> pin character snapshot + ordered refs/checksums
@@ -245,6 +246,6 @@ Do not introduce extra anchor-image generation merely because deterministic cons
 ## Remaining work
 
 - richer approval/reuse/reframe/edit lineage and affected-scope regeneration;
-- stronger adaptive Scene/VisualBeat planning before generation;
+- stronger adaptive StoryBeat/VisualBeat planning before generation;
 - real-image Gemini consistency benchmark and Desktop runtime screenshot evidence for the prepared-batch flow;
 - production hardening driven by measured browser/provider failure data rather than blind retry heuristics.

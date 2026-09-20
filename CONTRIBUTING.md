@@ -56,7 +56,7 @@ For database changes, follow `documentation/architecture/DATABASE.md`. Reset a d
 
 Update the smallest relevant document, but update an ADR when a change crosses a client, storage, authentication, timing-authority or execution boundary. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET` and `DEFERRED` distinct.
 
-Use the [ADR index](documentation/decisions/README.md) and [current migration status](documentation/CURRENT_STATUS.md). ADR-0020 supersedes the former authentication and per-user quota model; ADR-0018/0029 define the compute boundary and ADR-0021 defines recovery semantics. Preserve earlier ADRs as historical rationale.
+Use the [ADR index](documentation/decisions/README.md) and [current migration status](documentation/CURRENT_STATUS.md). ADR-0020 supersedes the former authentication and per-user quota model; ADR-0018, ADR-0021, and ADR-0025 define the compute boundary and event/recovery semantics. Preserve earlier decisions as historical rationale only when explicitly marked as such.
 
 ## Pull request checklist
 

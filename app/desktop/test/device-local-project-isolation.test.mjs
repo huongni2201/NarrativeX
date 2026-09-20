@@ -104,8 +104,11 @@ test("renderer bridge exposes no project synchronization surface", () => {
   assert.doesNotMatch(types, /LocalProjectSyncStatus|cloudProjectId|syncStatus/);
   assert.doesNotMatch(ipc, /projects-local:reconcile|cloudProjectId|syncStatus/);
   assert.doesNotMatch(catalog, /\breconcile\s*\(|cloudProjectId|syncStatus/);
-  assert.match(catalog, /CATALOG_SCHEMA_VERSION = 2/);
-  assert.match(catalog, /PROJECT_SNAPSHOT_SCHEMA_VERSION = 2/);
+  assert.match(catalog, /CATALOG_SCHEMA_VERSION = 3/);
+  assert.match(catalog, /PROJECT_SNAPSHOT_SCHEMA_VERSION = 3/);
+  assert.doesNotMatch(catalog, /ownerId/);
+  assert.doesNotMatch(ipc, /ownerId/);
+  assert.doesNotMatch(types, /ownerId/);
 });
 
 test("project media contracts contain no storage-mode abstraction", () => {

@@ -12,7 +12,7 @@ function storageWithResolver(resolveAsset) {
 }
 
 const storage = storageWithResolver(async () => ".");
-const onlineContext = { state: "ONLINE", currentUserValid: true, devicePaired: true };
+const onlineContext = { state: "ONLINE", devicePaired: true, deviceOnline: true };
 
 function input(assets = []) {
   return {
@@ -23,13 +23,13 @@ function input(assets = []) {
   };
 }
 
-test("preflight only passes for an online, paired, user-bound executor", async () => {
+test("preflight only passes for an online, paired executor", async () => {
   const service = new LocalRenderPreflightService(runtime, storage);
   const states = ["OFFLINE", "UNPAIRED", "CONNECTING", "ONLINE"];
   for (const state of states) {
     const result = await service.check(input(), {
       state,
-      currentUserValid: true,
+      deviceOnline: state === "ONLINE",
       devicePaired: true,
     });
     assert.equal(result.ready, state === "ONLINE");
@@ -37,14 +37,14 @@ test("preflight only passes for an online, paired, user-bound executor", async (
   }
 });
 
-test("preflight returns stable identity blockers instead of parsing messages", async () => {
+test("preflight returns stable executor blockers instead of parsing messages", async () => {
   const service = new LocalRenderPreflightService(runtime, storage);
   const result = await service.check(input(), {
     state: "ONLINE",
-    currentUserValid: false,
+    deviceOnline: false,
     devicePaired: false,
   });
-  assert.deepEqual(result.blockers, ["USER_MISMATCH", "DEVICE_MISMATCH"]);
+  assert.deepEqual(result.blockers, ["DEVICE_MISMATCH", "EXECUTOR_OFFLINE"]);
 });
 
 test("every missing project render asset blocks render", async () => {

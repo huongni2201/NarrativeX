@@ -13,9 +13,8 @@ public interface MediaPlanMapper extends NarrativeXMyBatisMapper {
 
   int insertBeat(MediaBeatPlanRow row);
 
-  boolean existsOwnedForChapter(
+  boolean existsForChapter(
       @Param("mediaPlanId") UUID mediaPlanId,
       @Param("revision") int revision,
-      @Param("chapterId") UUID chapterId,
-      @Param("ownerId") String ownerId);
+      @Param("chapterId") UUID chapterId);
 }

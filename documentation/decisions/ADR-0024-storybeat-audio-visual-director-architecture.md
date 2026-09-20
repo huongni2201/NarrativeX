@@ -1,12 +1,16 @@
 # ADR-0024: StoryBeat Audio + Visual Director Architecture
 
+**Implementation status:** foundation implemented; legacy/manual VisualBeat rows without a StoryBeat remain a compatibility path.
+
 ## Status
 
 Accepted (2026-09-18)
 
 ## Context
 
-In previous iterations, Chapter Analysis decomposed chapter source text directly into `Scene` and `VisualBeat` entities, while narration synthesis and audio alignment were handled as semi-independent pipelines. This led to several fundamental architectural issues:
+In previous iterations, Chapter Analysis decomposed chapter source text directly into Scene and
+VisualBeat entities, while narration synthesis and audio alignment were handled as semi-independent
+pipelines. This led to several fundamental architectural issues:
 1. Narration and visual planning were two independent AI interpretations of the same chapter, causing narrative desynchronization.
 2. VisualBeats lacked a shared semantic parent representing a single dramatic or narrative beat, leading to either arbitrary 1:1 beat-to-sentence splits or rigid 5-second placeholder timings.
 3. Copied AI text in analysis outputs risked hallucinations, missed clues, altered character voices, and subtle worldbuilding drift when trying to preserve exact dialogue.
@@ -17,9 +21,9 @@ In previous iterations, Chapter Analysis decomposed chapter source text directly
 1. **Domain Hierarchy — StoryBeat as Semantic Parent**:
    Decompose chapters into:
    ```text
-   Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]}
+   Project -> StoryVersion -> Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]}
    ```
-   A `StoryBeat` represents one coherent semantic or dramatic event. It owns one or more `AudioCue` records (what the audience hears) and one or more `VisualBeat` records (what the audience sees).
+   A `StoryBeat` represents one coherent semantic or dramatic event. It owns ordered `AudioCue` records (what the audience hears) and canonically groups `VisualBeat` records (what the audience sees). Legacy/manual VisualBeat rows may remain unassigned until migrated.
 
 2. **Gemini 3.8 Flash (Thinking HIGH) as Story Director**:
    Gemini acts as the executive Story Director. For each `StoryBeat`, Gemini determines:

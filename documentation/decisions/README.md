@@ -45,9 +45,9 @@ Decisions that define the current architecture and implementation boundaries:
 - **[ADR-0021: Durable submission checkpointing and safe worker recovery semantics](./ADR-0021-submission-checkpoint-and-worker-recovery-semantics.md)**
   Internal submission checkpoints (`NOT_SUBMITTED`, `SUBMITTING`, `SUBMITTED`, `UNKNOWN`), journal-before-I/O, and safe worker recovery without blind resubmission.
 - **[ADR-0022: Vertex AI Gemini 3.8 Flash for Chapter Analysis Control Plane](./ADR-0022-vertex-gemini-chapter-analysis.md)**
-  Direct backend-owned Vertex AI Gemini integration for Chapter Analysis; structured schema enforcement and telemetry; supersedes Qwen (ADR-0032).
+  Direct backend-owned Vertex AI Gemini integration for Chapter Analysis; structured schema enforcement and telemetry; supersedes the historical Qwen decision preserved in Git history (formerly referenced as ADR-0032).
 - **[ADR-0023: VieNeu TTS and Media Generation Runtime on Leased Remote RTX 3090](./ADR-0023-vieneu-remote-gpu-media-runtime.md)**
-  VieNeu as the production TTS engine generating 48 kHz mono WAV audio, paired with WhisperX forced alignment on remote GPU; supersedes VoiceStudio (ADR-0027).
+  VieNeu as the production TTS engine generating 48 kHz mono WAV audio, paired with WhisperX forced alignment on remote GPU; supersedes the historical VoiceStudio decision preserved in Git history (formerly referenced as ADR-0027).
 - **[ADR-0024: StoryBeat Audio + Visual Director Architecture](./ADR-0024-storybeat-audio-visual-director-architecture.md)**
   StoryBeat as the semantic parent of AudioCue and VisualBeat, governed by Gemini as Story Director with Spring Boot validation, assembled narration scripts, and audio-driven visual timing.
 - **[ADR-0025: Event-Driven Compute Orchestration, Worker Callback Outbox, and Scheduled State Reconciliation](./ADR-0025-event-driven-compute-orchestration-and-reconciliation.md)**
@@ -67,20 +67,22 @@ Decisions whose core technical decisions remain valid, but specific sections hav
   *Active:* PostgreSQL as the sole state store (no Redis).
   *Superseded:* Direct worker polling of PostgreSQL superseded by ADR-0018 Compute Protocol. Session state in PostgreSQL superseded by ADR-0020.
 
-### RETIRED DECISIONS
+### HISTORICAL DECISIONS FROM PRE-CONSOLIDATION GIT HISTORY
 
-Preserved in Git history; superseded or removed from active runtime:
+The entries below are historical descriptions preserved in Git history. They are not active ADR
+IDs or current architecture authority. Some historical documents used identifiers that were later
+reused by active ADR files; use the active section and linked files above for current decisions.
 
-- ADR-0003: Media storage, generation pipelines and external provider integrations (superseded by ADR-0007, ADR-0018)
-- ADR-0004: Authentication, runtime security and test credentials (superseded by ADR-0020)
-- ADR-0005: Deterministic MVP E2E rendering with local final storage (superseded by ADR-0007)
-- ADR-0008: Real Docker runtime (superseded by ADR-0006, ADR-0020)
-- ADR-0011: Google OAuth-only identity (superseded by ADR-0020)
-- ADR-0022: R2 voice-only storage and explicit voice-reference scope (superseded by ADR-0020)
-- ADR-0025: Local AI production stack (superseded by ADR-0020, ADR-0022, ADR-0023)
-- ADR-0027: VoiceStudio-only TTS and WhisperX-aligned WAV narration (superseded by ADR-0023)
-- ADR-0032: Domain-neutral text generation compute boundary (superseded by ADR-0022)
-- ADR-0033: Reference-conditioned GPU video generation (deferred; video generation is out of scope)
+- Historical media storage/generation decision: superseded by ADR-0007 and ADR-0018.
+- Historical authentication/runtime-security decision: superseded by ADR-0020.
+- Historical deterministic MVP render decision: superseded by ADR-0007.
+- Historical Docker-runtime decision: superseded by ADR-0006 and ADR-0020.
+- Historical Google OAuth identity decision: superseded by ADR-0020.
+- Historical R2 voice-storage decision: superseded by ADR-0020.
+- Historical local-AI production-stack decision: superseded by ADR-0020, ADR-0022, and ADR-0023.
+- Historical VoiceStudio-only TTS decision: superseded by ADR-0023.
+- Historical domain-neutral text-generation boundary: superseded by ADR-0022.
+- Historical reference-conditioned GPU video-generation decision: deferred; video generation remains out of scope.
 
 ---
 
@@ -91,8 +93,8 @@ Preserved in Git history; superseded or removed from active runtime:
 - ADR-0007 governs Desktop project bytes and Desktop final artifacts.
 - ADR-0014 supersedes Redis guidance within the current MVP runtime.
 - ADR-0015 supersedes older duration-weighted visual timing descriptions.
-- ADR-0022 supersedes text generation compute boundaries (ADR-0032) and Qwen chapter analysis; backend control plane owns Vertex Gemini integration.
-- ADR-0023 supersedes VoiceStudio (ADR-0027); VieNeu is the production TTS engine.
+- ADR-0022 supersedes the historical text-generation compute boundary preserved in Git history and Qwen chapter analysis; backend control plane owns Vertex Gemini integration.
+- ADR-0023 supersedes the historical VoiceStudio decision preserved in Git history; VieNeu is the production TTS engine.
 - ADR-0018 supersedes direct PostgreSQL polling by workers in ADR-0014 and relocates executors behind the Compute Protocol into `app/generation-service`.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.

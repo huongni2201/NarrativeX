@@ -4,10 +4,11 @@
 
 NarrativeX employs an asynchronous, domain-neutral GPU execution plane (`app/generation-service`) that can run locally on an authoring workstation or remotely on a dedicated high-VRAM machine (NVIDIA GeForce RTX 3090 24GB).
 
-Per [ADR-0018](../decisions/ADR-0018-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md), [ADR-0019](../decisions/ADR-0019-generation-service-light-ddd-hexagonal-structure.md), and [ADR-0023](../decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md):
+Per [ADR-0018](../decisions/ADR-0018-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md), [ADR-0019](../decisions/ADR-0019-generation-service-light-ddd-hexagonal-structure.md), [ADR-0023](../decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md), and [ADR-0025](../decisions/ADR-0025-event-driven-compute-orchestration-and-reconciliation.md):
 - **Domain-Neutral Execution**: The GPU worker exposes the Compute Protocol v1 HTTP interface (`/v1/tasks`, `/v1/capabilities`, `/health`). It never connects to PostgreSQL, has no knowledge of business entities (`projects`, `chapters`, `scenes`), and processes only self-contained task payloads.
 - **Control Plane Independence**: Spring Boot (`app/backend-service`) acts as the exclusive control plane, coordinating admission, persistence, job recovery ([ADR-0021](../decisions/ADR-0021-submission-checkpoint-and-worker-recovery-semantics.md)), and artifact metadata.
 - **Desktop Render Master**: Desktop (`app/desktop` Electron + FFmpeg) is the sole compositor and final render master. The GPU runtime produces individual audio stems and preview images; it never produces final mixed project MP4s.
+- **Event delivery**: The worker SQLite journal/outbox records transitions atomically, delivers HMAC-signed callbacks with bounded retry/backoff, and the backend applies idempotent receipts/finalization. Scheduled reconciliation is the non-blocking fallback for missed callbacks or ambiguous outcomes; Desktop receives project-scoped SSE snapshots.
 
 ---
 
@@ -79,5 +80,5 @@ python scripts/smoke-remote-generation-service.py --host <worker-host> --port 80
 ## 5. Known Deployment Drift
 
 > [!WARNING]
-> The configuration files in `deploy/remote-gpu/docker-compose.yml` reflect an earlier Linux Docker prototype.
+> The configuration files in `deploy/remote-gpu/` reflect an earlier Linux Docker prototype and are not the active production deployment path.
 > The current operational target is a disposable Windows 11/Server RTX 3090 workstation running Python 3.14.x with native CUDA, VieNeu, WhisperX, and ComfyUI. When deploying to disposable Windows workstations, launch `app/generation-service` directly using `uv run narrativex-gpu-worker` or native service wrappers rather than the stale Linux container compose file.

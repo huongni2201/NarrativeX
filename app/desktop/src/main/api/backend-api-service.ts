@@ -147,7 +147,7 @@ export class DesktopBackendApiService {
     if (url.origin !== this.backendOrigin) {
       throw new Error("Desktop API request cannot leave the configured backend origin.");
     }
-    if (!(url.pathname.startsWith("/api/v1/") || url.pathname === "/logout")) {
+    if (!url.pathname.startsWith("/api/v1/")) {
       throw new Error(`Desktop API path is not allowlisted: ${url.pathname}`);
     }
     return url;

@@ -2,22 +2,23 @@
 
 ## Status
 
-Target design for the compute execution-plane migration. This document defines the boundary;
-implementation status must be recorded separately as each migration phase lands.
+Active Compute Protocol v1 contract. The execution boundary, signed event delivery, idempotent
+receipt, and scheduled reconciliation described here are implemented in the current backend and
+generation-service paths. This document is not a migration target.
 
 ## Boundary
 
-The backend is the control plane. It owns domain interpretation, admission, entitlement and
-capacity checks, `GenerationJob`, `StageAttempt`, `ProviderOperation`, retries, reconciliation,
-idempotency, outbox state, artifact publication, and all NarrativeX database writes.
+The backend is the control plane. It owns domain interpretation, admission, system capacity checks,
+`GenerationJob`, `StageAttempt`, `ProviderOperation`, retries, reconciliation, idempotency, event
+receipt state, artifact publication, and all NarrativeX database writes.
 
 `generation-service` is a domain-agnostic execution plane. It accepts a fully materialized compute task,
 invokes an executor, stages output artifacts, and reports observations. It must not:
 
-- receive or infer `Project`, `Chapter`, `Scene`, `VisualBeat`, character, workspace, or user IDs;
+- receive or infer `Project`, `StoryVersion`, `Chapter`, `Scene`, `StoryBeat`, `AudioCue`, `VisualBeat`, character, workspace, or NarrativeX identity IDs;
 - connect to the NarrativeX PostgreSQL database;
 - resolve NarrativeX domain records or construct domain output;
-- decide retry, quota, entitlement, job completion, or provider reconciliation policy;
+- decide retry, admission, job completion, or provider reconciliation policy;
 - accept or return absolute host filesystem paths.
 
 Local RTX 4060 and remote GPU deployments implement the same versioned HTTP contract. Backend
@@ -29,7 +30,7 @@ changing a domain use case.
 ### ComputeTask
 
 A single immutable execution request. A retry is a new `attemptId`; replay of the same attempt is
-idempotent. The backend persists its reservation/outbox state before submission.
+idempotent. The backend persists its reservation and attempt intent before submission.
 
 ```json
 {
@@ -241,13 +242,51 @@ All media types are `application/vnd.narrativex.compute-v1+json`. Mismatches are
 | `POST` | `/v1/tasks` | Submit an immutable attempt; return `202 Accepted` or the stored replay response |
 | `GET` | `/v1/tasks/{taskId}/attempts/{attemptId}` | Reconcile after timeout or ambiguous submission |
 | `POST` | `/v1/tasks/{taskId}/attempts/{attemptId}:cancel` | Request cooperative cancellation; idempotent |
-| `POST` | backend callback URL `/internal/v1/compute-events` | Deliver sequenced observations when configured |
+| `POST` | backend callback URL `/internal/compute/events` or `/internal/v1/compute-events` | Deliver signed sequenced observations |
 
 `POST /v1/tasks` must return the same acceptance/result for the same `attemptId`, idempotency key,
 and fingerprint. Reusing one of those identifiers with a different fingerprint returns `409
 Conflict`. Unsupported protocol/task/model combinations return `422`; temporary capacity returns
 `429` with `Retry-After`; authentication/authorization uses `401`/`403` without revealing target
 configuration.
+
+## Event Delivery and Reconciliation (ADR-0025)
+
+The worker and backend use a durable event path in addition to the reconciliation endpoint:
+
+```text
+worker execution state transition
+  -> SQLite transaction updates execution_attempts
+  -> same transaction appends compute_event_outbox(event_id, attempt_id, sequence, payload)
+  -> OutboxDeliveryService retries delivery with bounded backoff
+  -> HMAC-signed POST to /internal/compute/events or /internal/v1/compute-events
+  -> backend verifies signature and timestamp
+  -> compute_event_receipts records event_id once
+  -> common finalizer applies monotonic state transition
+  -> project-scoped SSE emits job.updated / job.completed / job.failed
+```
+
+Callback signing uses HMAC-SHA256 over `${timestampHeader}.${rawBody}` with the machine secret.
+The worker sends `X-NarrativeX-Compute-Signature` and `X-NarrativeX-Compute-Timestamp`; the
+backend accepts millisecond or ISO timestamps and rejects timestamps outside the five-minute
+replay window. The raw body is verified before deserialization. A duplicate `event_id` is
+acknowledged without reprocessing, and an event older than the current attempt sequence is a
+monotonic no-op.
+
+Transaction boundaries are deliberate: backend intent is committed before external submission;
+remote worker/provider I/O happens outside backend database transactions; the callback receipt and
+finalization transaction performs local PostgreSQL work only; reconciliation performs one remote
+observation outside a transaction and then persists it in a short local transaction. No long
+database transaction contains external I/O.
+
+`ComputeReconciliationScheduler` runs a bounded, non-blocking worker query for due
+`SUBMITTED`, `RUNNING`, `UNKNOWN`, and `RECONCILING` attempts. It uses the same finalizer as the
+callback path and backs off after failures. It is the source-of-truth fallback for lost callbacks
+and ambiguous submission outcomes, not a second state machine.
+
+Desktop subscribes to `GET /api/v1/projects/{projectId}/generation/events` through the Electron
+bridge. SSE events invalidate generation, Chapter, timeline, and storyboard queries; reconnect
+and terminal snapshots are handled by the Desktop transport.
 
 ### Cancellation Semantics
 
@@ -259,9 +298,9 @@ configuration.
 
 ### Lifecycle & State Transitions
 
-Callbacks are an optimization, not the source of truth. Backend reconciliation through `GET`
-closes lost-callback and ambiguous-submit gaps. Every observation carries a monotonically increasing
-`sequence`; duplicates and older sequences are accepted as no-ops. The minimal execution states are:
+Callbacks and reconciliation share the same finalizer. Every observation carries a monotonically
+increasing `sequence`; duplicate event IDs and older sequences are accepted as no-ops. The minimal
+execution states are:
 
 ```text
 ACCEPTED -> RUNNING -> SUCCEEDED
@@ -277,7 +316,8 @@ execution-local and contains no NarrativeX domain data.
 ## Security and operational requirements
 
 - Authenticate each target using a separate machine credential; prefer mTLS for remote targets and
-  bind local workers to loopback/private interfaces. Rotate credentials independently of users.
+  bind local workers to loopback/private interfaces. Rotate credentials independently of provider
+  browser state.
 - Authorize callback events to one target identity and reject task/attempt mismatches.
 - Never pass `DATABASE_URL` or NarrativeX service credentials to `generation-service`.
 - Enforce request size, artifact size, media type, checksum, decompression, runtime, output count,
@@ -293,7 +333,7 @@ execution-local and contains no NarrativeX domain data.
 | Concern | Backend control plane | GPU execution plane |
 |---|---|---|
 | Domain context and materialization | Owns | Forbidden |
-| Admission, quota, entitlement, abuse checks | Owns | Enforces only local safety/capacity limits |
+| Admission, system capacity, and abuse checks | Owns | Enforces only local safety/capacity limits |
 | Job/attempt/provider lifecycle | Owns durable truth | Reports execution observations |
 | Retry and `UNKNOWN` reconciliation | Decides and persists | Returns idempotent status by attempt |
 | Model and target registry | Owns desired configuration | Advertises actual capabilities |

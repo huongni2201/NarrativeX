@@ -6,7 +6,7 @@
 
 ## Product definition
 
-NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, single-user local-first, Chapter-first, review-first, audio-timeline-first, image-first and local-media-first.
+NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, single-user local-first, Project-first, review-first, audio-timeline-first, image-first and local-media-first.
 
 Project creation and Chapter saving persist metadata and source text only. Analysis, narration/audio processing, image generation and final rendering are explicit user operations.
 
@@ -18,7 +18,7 @@ NarrativeX boots directly into the local workspace per ADR-0020. There is no use
 
 - Single-user boot directly into workspace;
 - Project/StoryVersion/Chapter authoring and dashboard;
-- Durable Chapter Analyze with Character/Location/Scene/VisualBeat materialization (via Vertex Gemini chapter analysis adapter);
+- Durable Chapter Analyze with Character/Location/Scene/StoryBeat/AudioCue/VisualBeat materialization where supported (via Vertex Gemini chapter analysis adapter); legacy unassigned VisualBeat compatibility remains partial;
 - Generated narration plus native user-audio import and TTS-bypass foundations;
 - Generation-service task execution (VieNeu TTS, WhisperX forced alignment, ComfyUI RealVisXL image generation, media validation);
 - Native local image/audio/video registration and ProjectStorage materialization;
@@ -31,18 +31,19 @@ NarrativeX boots directly into the local workspace per ADR-0020. There is no use
 
 ```text
 Project
-  -> Chapter
-      -> Scene
-          -> StoryBeat
-              -> AudioCue[]
-              -> VisualBeat[]
-                  -> selected image or video MediaAsset
+  -> StoryVersion
+      -> Chapter
+          -> Scene
+              -> StoryBeat
+                  -> AudioCue[]
+                  -> VisualBeat[]
+                      -> selected image or video MediaAsset
 ```
 
 `VisualGenerationMode` supports `IMAGE` and `VIDEO`.
 
 - `IMAGE` supports backend/generation-service image generation via ComfyUI.
-- `VIDEO` remains available in Analyze Chapter and is preserved for web/browser-driven video generation workflows.
+- `VIDEO` remains available as an analysis/editor visual intent; no active NarrativeX video-generation provider runtime exists.
 - VIDEO intent does not imply an active Python worker video-provider role; video generation runtime is currently deferred / not implemented.
 - The removed Wan/provider-side I2V runtime must not be restored implicitly.
 - A video-selected beat uses trim/fill/video semantics. Image-only camera motion must not be forced onto video media.
@@ -70,7 +71,7 @@ Final MP4                       -> Desktop project workspace/artifacts
 Business/job/artifact metadata  -> PostgreSQL
 ```
 
-Project bytes live locally. The backend coordinates metadata and leases but does not proxy or host media bytes.
+Project bytes live locally. PostgreSQL stores metadata and opaque keys, while the backend may expose short-lived local-media capabilities for authorized Desktop transfer; it is not a durable media byte store.
 
 ## Provider accounting boundary
 
@@ -100,19 +101,19 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Per-user quota / entitlement | REMOVED | Monetary billing, user credits and per-user quotas retired |
 | Runtime capacity limits | IMPLEMENTED foundation | System capacity reservations with terminal settlement |
 | Project / Chapter authoring | IMPLEMENTED foundation | Backend-authoritative persistence + Desktop UI |
-| StoryBeat semantic authoring | IMPLEMENTED | Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]} (ADR-0024) |
+| StoryBeat semantic authoring | IMPLEMENTED foundation | Project -> StoryVersion -> Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]} (ADR-0024); legacy unassigned VisualBeat rows remain a compatibility path |
 | Chapter Workspace (4 stages) | IMPLEMENTED | Source, Canon, Story, Production stages with 5-tab inspector |
 | Chapter Analyze | IMPLEMENTED | Durable job/provider lifecycle (Vertex Gemini adapter) |
 | Character / Location continuity | IMPLEMENTED foundation | Richer review/reference locking remains partial |
 | Scene / VisualBeat storyboard | IMPLEMENTED foundation | Review + generation preparation |
 | `IMAGE` visual intent | IMPLEMENTED | Backend/generation-service image workflows (ComfyUI) |
-| `VIDEO` visual intent | IMPLEMENTED foundation | Retained in Analyze Chapter for web/browser video-generation workflows |
+| `VIDEO` visual intent | IMPLEMENTED foundation | Retained as an editor intent; no active video-generation runtime |
 | Python / Wan video provider | DEFERRED / NOT IMPLEMENTED | Video generation deferred; no active Wan/I2V/T2V pipeline |
 | VieNeu narration | IMPLEMENTED foundation | Segmented headless TTS persists a project-local WAV master |
 | User-provided narration | IMPLEMENTED foundation | Native import + logical audio clock |
 | Compute Protocol v1 | IMPLEMENTED | JSON Schema contracts in `contracts/compute/v1/` |
 | Generation-service execution plane | IMPLEMENTED foundation | Hexagonal FastAPI execution plane (`app/generation-service`) |
-| Backend compute dispatch | IMPLEMENTED foundation | Control plane task submission, artifact verification, durable mapping & callbacks |
+| Backend compute dispatch | IMPLEMENTED foundation | Control-plane task submission, artifact verification, signed callbacks, idempotent receipt/finalization, reconciliation, and SSE |
 | Narration cutover | IMPLEMENTED foundation | VieNeu synthesis + WhisperX forced alignment through generation-service |
 | Image cutover | IMPLEMENTED foundation | ComfyUI/RealVisXL execution with backend-owned artifact materialization |
 | Legacy compute runtime removal | IMPLEMENTED | PostgreSQL-polling runtime, CI job and active configuration removed |
@@ -133,7 +134,7 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Generated project media via R2 | REMOVED | Images/narration are project-local |
 | Account-scoped voice storage in R2 | REMOVED | Voice assets transition to local storage (`PROJECT` / `GLOBAL_LOCAL`) |
 | MyBatis production persistence | IMPLEMENTED | Explicit PostgreSQL SQL |
-| Flyway clean pre-production baseline | IMPLEMENTED | Clean DB applies squashed V1–V7 final schema directly |
+| Flyway clean pre-production baseline | IMPLEMENTED | Clean DB applies squashed V1–V8 final schema directly |
 | Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | Reconcile/fence before external resubmission |
 | Non-monetary provider usage telemetry | IMPLEMENTED foundation | Diagnostic usage where providers expose it; not pricing/accounting |
 | Abrupt process / OS render recovery UX | PARTIAL | Journals exist; richer resume UX remains |

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProjectCatalog } from "../src/main/local-storage/project-catalog.ts";
@@ -44,8 +44,56 @@ test("project catalog persists device-local project metadata and last-opened pro
       await readFile(join(root, projectId, "project.json"), "utf8"),
     );
     assert.equal(snapshot.project.id, projectId);
-    assert.equal(snapshot.schemaVersion, 2);
+    assert.equal(snapshot.schemaVersion, 3);
     assert.equal(snapshot.archived, false);
+    assert.equal("ownerId" in snapshot, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("project catalog migrates v2 ownership metadata without losing local project state", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-migration-"));
+  const legacyOwnershipKey = ["owner", "Id"].join("");
+  try {
+    const legacyProject = project(projectId, "Migrated project");
+    const legacyEntry = {
+      project: legacyProject,
+      [legacyOwnershipKey]: "retired-value",
+      archived: false,
+      registeredAt: "2026-09-19T10:00:00.000Z",
+      lastOpenedAt: "2026-09-20T10:00:00.000Z",
+    };
+    await writeFile(
+      join(root, "project-registry.json"),
+      JSON.stringify({
+        schemaVersion: 2,
+        lastProjectId: projectId,
+        projects: { [projectId]: legacyEntry },
+      }),
+      "utf8",
+    );
+    await mkdir(join(root, projectId), { recursive: true });
+    await writeFile(join(root, projectId, "project.json"), JSON.stringify({
+      schemaVersion: 2,
+      ...legacyEntry,
+    }), "utf8");
+
+    const catalog = new ProjectCatalog(new ProjectStorage(root));
+    const entries = await catalog.list();
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].project.name, "Migrated project");
+    assert.equal(entries[0].registeredAt, legacyEntry.registeredAt);
+    assert.equal(entries[0].lastOpenedAt, legacyEntry.lastOpenedAt);
+    assert.equal((await catalog.lastOpened())?.project.id, projectId);
+    assert.equal("ownerId" in entries[0], false);
+
+    const registry = JSON.parse(await readFile(join(root, "project-registry.json"), "utf8"));
+    const snapshot = JSON.parse(await readFile(join(root, projectId, "project.json"), "utf8"));
+    assert.equal(registry.schemaVersion, 3);
+    assert.equal(snapshot.schemaVersion, 3);
+    assert.equal("ownerId" in registry.projects[projectId], false);
+    assert.equal("ownerId" in snapshot, false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

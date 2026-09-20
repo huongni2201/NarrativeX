@@ -1,18 +1,15 @@
-export interface ClaimSessionState {
+export interface ClaimExecutionState {
   claimEpoch: number;
   currentEpoch: number;
   claimedDeviceId: string;
   currentDeviceId: string | null;
-  claimedUserId: string;
-  currentUserId: string | null;
   online: boolean;
 }
 
-export function claimSessionIsCurrent(state: ClaimSessionState): boolean {
+export function claimContextIsCurrent(state: ClaimExecutionState): boolean {
   return (
     state.currentEpoch === state.claimEpoch &&
     state.currentDeviceId === state.claimedDeviceId &&
-    state.currentUserId === state.claimedUserId &&
     state.online
   );
 }

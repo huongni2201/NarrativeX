@@ -10,7 +10,6 @@ let preferences: DesktopPreferencesStore | null = null;
 export function desktopPreferencesStore(): DesktopPreferencesStore {
   preferences ??= new DesktopPreferencesStore(
     join(app.getPath("userData"), "desktop-preferences.json"),
-    process.env,
   );
   return preferences;
 }
@@ -28,11 +27,11 @@ async function restoreAndTrackWindow(
   window: BrowserWindow,
   store: DesktopPreferencesStore,
 ): Promise<void> {
-  const lastActive = await store.getLastActive();
-  if (lastActive?.window) {
+  const savedPreferences = await store.get();
+  if (savedPreferences.window) {
     const fallbackDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const restored = resolveRestoredWindowState(
-      lastActive.window,
+      savedPreferences.window,
       screen.getAllDisplays(),
       fallbackDisplay,
     );

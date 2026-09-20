@@ -1,10 +1,10 @@
 # Story-to-Video Workflow
 
 **Status:** maintained workflow contract
-**Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021)
+**Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021, ADR-0024, ADR-0025)
 
 
-NarrativeX is Desktop-only at the editor boundary, single-user local-first, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
+NarrativeX is Desktop-only at the editor boundary, single-user local-first, Project-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
 
 ## Entry and workspace behavior
 
@@ -52,8 +52,8 @@ persisted Chapter
   -> GenerationJob / StageAttempt / outbox state
   -> Vertex Gemini chapter analysis adapter
   -> stale-source guard
-  -> Character + Location + Scene + VisualBeat materialization
-  -> deterministic VisualBeat source_anchor -> UTF-16 textStart/textEnd
+  -> Character + Location + Scene + StoryBeat + AudioCue + VisualBeat materialization where supported
+  -> deterministic StoryBeat/VisualBeat source anchors -> UTF-16 textStart/textEnd
 ```
 
 
@@ -61,23 +61,27 @@ persisted Chapter
 
 ```text
 Project
-  -> Chapter
-      -> Scene
-          -> VisualBeat
-              -> source anchor / text range
-              -> generated/default media
-              -> optional editor override
+  -> StoryVersion
+      -> Chapter
+          -> Scene
+              -> StoryBeat
+                  -> AudioCue[]
+                  -> VisualBeat[]
+                      -> source anchor / text range
+                      -> generated/default media
+                      -> optional editor override
 ```
 
-`VisualBeat` is the smallest production timeline span. Scene and Chapter are logical groupings, not a requirement to prerender `scene.mp4`/`chapter.mp4` before editing.
+`StoryBeat` is the shared semantic unit; `AudioCue` and `VisualBeat` are its ordered narration and visual children. Legacy/manual VisualBeat rows without a StoryBeat remain a compatibility path and are not the canonical hierarchy. Scene and Chapter are logical groupings, not a requirement to prerender `scene.mp4`/`chapter.mp4` before editing.
 
 Narration/alignment is the timing authority. Current production timing follows:
 
 ```text
-VisualBeat source_anchor
+StoryBeat/VisualBeat source_anchor
   -> deterministic UTF-16 textStart/textEnd
   -> narration/subtitle alignment spans
   -> backend NarrationTextClockMapper
+  -> AudioCue/StoryBeat clock
   -> VisualBeat audio start/end/duration
 ```
 
@@ -131,7 +135,7 @@ backend-authorized media work
   -> stable MediaAsset identity + checksum
   -> project-local generated media
   -> Desktop ProjectStorage materialization where required
-  -> attach generated image to VisualBeat.preview_media_asset_id
+  -> attach generated image to VisualBeat.preview_media_asset_id under its StoryBeat
   -> project.manifest.json resolves local bytes for preview/render
 ```
 
@@ -152,8 +156,9 @@ MediaPlan infrastructure remains available for compatibility/planning, but it is
 Render admission requires all of the following:
 
 - READY narration metadata for every Chapter;
-- at least one current VisualBeat per Chapter;
-- exact contiguous narration-aligned VisualBeat timing from `0` through the Chapter narration duration;
+- current StoryBeat narration/visual plan for every Chapter;
+- exact contiguous narration-aligned AudioCue/StoryBeat timing from `0` through the Chapter narration duration;
+- one current VisualBeat and READY effective media for each visual span that participates in the render;
 - one READY effective image/video asset per VisualBeat;
 - one project aspect ratio;
 - a paired eligible local renderer for `LOCAL_DEVICE` execution.
@@ -162,7 +167,7 @@ Manual Editor media selection, reset, fit and trim settings are durable through 
 
 ## Real-time job tracking and subtitles
 
-Generation, narration and local-render jobs expose SSE snapshots to Desktop. Electron main owns the reconnecting transport; the renderer updates React Query and retains a slow GET watchdog while a job is active. PostgreSQL remains the durable job authority.
+Generation, narration and local-render jobs expose project-scoped SSE snapshots to Desktop. The generation worker persists SQLite outbox events and sends signed callbacks; backend receipt/finalization is idempotent, while scheduled reconciliation handles missed or ambiguous outcomes. Electron main owns the reconnecting transport; the renderer updates React Query and retains a slow GET watchdog while a job is active. PostgreSQL remains the durable job authority.
 
 When a render is admitted, narration text and alignment spans are captured in the immutable render input snapshot. Electron main derives renderable cues, writes a UTF-8 `subtitles.srt` file and includes it in the final FFmpeg output when cues are available.
 
@@ -204,7 +209,7 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 ## Remaining creator-loop work
 
 - compute execution through `generation-service` with backend-owned reconciliation and artifact verification;
-- adaptive narration-driven `VisualScenePlanner` and richer Scene/VisualBeat review;
+- adaptive narration-driven `VisualScenePlanner` and richer StoryBeat/VisualBeat review;
 - complete multi-part user-audio alignment/slicing behavior for all production scopes;
 - richer media reuse/reframe/edit/regeneration lineage;
 - richer timeline mutation/save/retry UX;

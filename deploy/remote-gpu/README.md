@@ -1,5 +1,7 @@
 # Remote GPU Runtime Deployment (RTX 3090)
 
+> **Status: LEGACY PROTOTYPE.** This Linux Docker package is retained for historical/reference use and is not the active production deployment path. The current target is the disposable Windows worker described in `documentation/operations/REMOTE_GPU_RUNTIME.md`; verify runtime versions and callback/outbox configuration before using this package.
+
 This directory provides the standalone deployment configuration for running the NarrativeX GPU execution plane (`generation-service`) on a remote machine equipped with an NVIDIA RTX 3090 (24GB VRAM).
 
 ## Prerequisites
@@ -47,3 +49,4 @@ This directory provides the standalone deployment configuration for running the 
 - **No Database:** This node does not host or connect to PostgreSQL.
 - **No Business IDs:** All payloads are domain-neutral `ComputeTask` objects.
 - **Desktop Compositing:** Electron + FFmpeg on Desktop retains exclusive responsibility for rendering final project MP4s.
+- **Event delivery:** The worker SQLite journal/outbox and signed callback path are governed by ADR-0025; this prototype package must not be treated as proof of current deployment readiness.

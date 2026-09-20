@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,7 @@ CURRENT_FILES = [
     ROOT / "app" / "backend-service" / "README.md",
     ROOT / "app" / "generation-service" / "README.md",
     ROOT / "app" / "desktop" / "README.md",
+    ROOT / "documentation" / "decisions" / "README.md",
 ]
 
 REQUIRED_PATHS = [
@@ -64,6 +66,8 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "decisions" / "ADR-0021-submission-checkpoint-and-worker-recovery-semantics.md",
     ROOT / "documentation" / "decisions" / "ADR-0022-vertex-gemini-chapter-analysis.md",
     ROOT / "documentation" / "decisions" / "ADR-0023-vieneu-remote-gpu-media-runtime.md",
+    ROOT / "documentation" / "decisions" / "ADR-0024-storybeat-audio-visual-director-architecture.md",
+    ROOT / "documentation" / "decisions" / "ADR-0025-event-driven-compute-orchestration-and-reconciliation.md",
 ]
 
 RETIRED_PATHS = [
@@ -160,13 +164,135 @@ FORBIDDEN_IDENTITY_TERMS = [
     ("per-user entitlement", re.compile(r"per-user entitlement", re.IGNORECASE)),
 ]
 
+STALE_CURRENT_IDENTITY_TERMS = [
+    ("owner-scoped state", re.compile(r"\bowner-scoped\b", re.IGNORECASE)),
+    ("per-user concurrency", re.compile(r"\bper-user concurrency\b", re.IGNORECASE)),
+    ("NarrativeX user identity wording", re.compile(r"\bEach NarrativeX user\b", re.IGNORECASE)),
+    ("user-local installation state", re.compile(r"\buser-local\s+(?:installation|state|directory|profile|project)\b", re.IGNORECASE)),
+    ("authenticated owner-scoped stream", re.compile(r"authenticated[^\n]{0,40}owner-scoped", re.IGNORECASE)),
+]
+
 ALLOWED_CONTEXT = re.compile(
     r"\b(?:removed|superseded|historical|legacy|migration|retired|prior|former|no|without|eliminated|purged|replaces?)\b",
     re.IGNORECASE,
 )
 
 FORBIDDEN_COMPUTE_NAMING = re.compile(r"\bapp/gpu-worker\b")
-FORBIDDEN_V8_BASELINE = re.compile(r"\bV1[–-]V8\b|\bV8__seed_catalog\.sql\b")
+FORBIDDEN_V9_BASELINE = re.compile(r"\bV1[–-]V9\b|\bV9__seed_catalog\.sql\b")
+OLD_HIERARCHY = re.compile(
+    r"Chapter\s*(?:->|→)\s*Scene\s*(?:->|→)\s*VisualBeat",
+    re.IGNORECASE,
+)
+CONTROL_CHARACTER = re.compile(r"[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]")
+ADR_REFERENCE = re.compile(r"\bADR-(\d{4})\b")
+COMPUTE_MIGRATION_TARGET = re.compile(
+    r"(?:Target design for the compute execution-plane migration|"
+    r"implementation status must be recorded separately|"
+    r"as each migration phase lands)",
+    re.IGNORECASE,
+)
+HIERARCHY_DOCS = [
+    ROOT / "README.md",
+    ROOT / "documentation" / "CURRENT_STATUS.md",
+    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
+    ROOT / "documentation" / "architecture" / "DATABASE.md",
+    ROOT / "documentation" / "domain" / "DOMAIN.md",
+    ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
+    ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
+    ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
+    ROOT / "documentation" / "workflows" / "IMAGE_GENERATION.md",
+]
+EVENT_ARCHITECTURE_DOCS = [
+    ROOT / "documentation" / "CURRENT_STATUS.md",
+    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
+    ROOT / "documentation" / "COMPUTE_PROTOCOL.md",
+]
+
+
+def markdown_paths() -> list[Path]:
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--", "*.md"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        paths = [ROOT / line for line in result.stdout.splitlines() if line]
+    except (OSError, subprocess.CalledProcessError):
+        paths = list(ROOT.rglob("*.md"))
+
+    excluded_parts = {".git", ".codegraph", ".m2", "node_modules", ".pytest_cache", "target", "dist", "build"}
+    return [
+        path
+        for path in paths
+        if path.exists() and not excluded_parts.intersection(path.parts)
+    ]
+
+
+def control_character_errors() -> list[str]:
+    errors: list[str] = []
+    for path in markdown_paths():
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            errors.append(f"{path.relative_to(ROOT)}: invalid UTF-8 in Markdown ({exc})")
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            match = CONTROL_CHARACTER.search(line)
+            if match:
+                codepoint = f"U+{ord(match.group(0)):04X}"
+                errors.append(
+                    f"{path.relative_to(ROOT)}:{line_number}: control character {codepoint} is forbidden in Markdown"
+                )
+    return errors
+
+
+def adr_reference_errors() -> list[str]:
+    active_ids = {
+        match.group(1)
+        for path in (ROOT / "documentation" / "decisions").glob("ADR-*.md")
+        if (match := re.match(r"ADR-(\d{4})-", path.name)) is not None
+    }
+    errors: list[str] = []
+    for path in markdown_paths():
+        text = path.read_text(encoding="utf-8")
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            for match in ADR_REFERENCE.finditer(line):
+                if match.group(1) not in active_ids and not re.search(
+                    r"historical|Git history|pre-consolidation|formerly referenced|old identifier",
+                    line,
+                    re.IGNORECASE,
+                ):
+                    errors.append(
+                        f"{path.relative_to(ROOT)}:{line_number}: active ADR reference ADR-{match.group(1)} does not exist"
+                    )
+    return errors
+
+
+def hierarchy_and_event_contract_errors() -> list[str]:
+    errors: list[str] = []
+    for path in HIERARCHY_DOCS:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if OLD_HIERARCHY.search(text):
+            errors.append(f"{path.relative_to(ROOT)}: obsolete Chapter -> Scene -> VisualBeat hierarchy")
+        for term in ("StoryBeat", "AudioCue", "VisualBeat"):
+            if term not in text:
+                errors.append(f"{path.relative_to(ROOT)}: canonical hierarchy is missing {term}")
+
+    for path in EVENT_ARCHITECTURE_DOCS:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "ADR-0025" not in text:
+            errors.append(f"{path.relative_to(ROOT)}: ADR-0025 is required in current compute architecture docs")
+
+    protocol = ROOT / "documentation" / "COMPUTE_PROTOCOL.md"
+    if protocol.exists() and COMPUTE_MIGRATION_TARGET.search(protocol.read_text(encoding="utf-8")):
+        errors.append("documentation/COMPUTE_PROTOCOL.md: migration-target wording is forbidden in the active protocol")
+    return errors
 
 
 def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bool) -> list[str]:
@@ -220,9 +346,9 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
     if version_by_name:
         versions = set(version_by_name.values())
         highest = max(versions)
-        if highest != 7:
+        if highest != 8:
             errors.append(
-                f"Flyway pre-production baseline highest version must be V7, found V{highest}"
+                f"Flyway pre-production baseline highest version must be V8, found V{highest}"
             )
         missing_versions = sorted(set(range(1, highest + 1)) - versions)
         if missing_versions:
@@ -269,16 +395,26 @@ def check_stale_identity_and_naming(path: Path, text: str) -> list[str]:
                 f"{rel_path}:{idx}: stale service directory 'app/gpu-worker' must be 'app/generation-service'"
             )
 
-        if FORBIDDEN_V8_BASELINE.search(line):
+        if FORBIDDEN_V9_BASELINE.search(line):
             errors.append(
-                f"{rel_path}:{idx}: stale Flyway V8 baseline claim; pre-production baseline is V1-V7 only"
+                f"{rel_path}:{idx}: stale Flyway V9 baseline claim; pre-production baseline is V1-V8 only"
             )
+
+        for term_label, term_pattern in STALE_CURRENT_IDENTITY_TERMS:
+            if term_pattern.search(line):
+                errors.append(
+                    f"{rel_path}:{idx}: stale identity architecture term '{term_label}' is forbidden in current docs"
+                )
 
     return errors
 
 
 def main() -> int:
     errors: list[str] = []
+
+    errors.extend(control_character_errors())
+    errors.extend(adr_reference_errors())
+    errors.extend(hierarchy_and_event_contract_errors())
 
     for path in REQUIRED_PATHS:
         if not path.exists():

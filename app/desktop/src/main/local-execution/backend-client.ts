@@ -22,7 +22,6 @@ export class LocalExecutionBackendError extends Error {
 export interface PairDeviceResponse {
   deviceId: string;
   deviceToken: string;
-  userId: string;
 }
 
 export interface ClaimedProjectRenderChapter {

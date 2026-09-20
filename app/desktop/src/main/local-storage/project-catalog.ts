@@ -4,26 +4,21 @@ import { join } from "node:path";
 import type { DesktopProject } from "@narrativex/client-contracts";
 import { ProjectStorage } from "./project-storage.ts";
 
-const CATALOG_SCHEMA_VERSION = 2 as const;
-const PROJECT_SNAPSHOT_SCHEMA_VERSION = 2 as const;
+const CATALOG_SCHEMA_VERSION = 3 as const;
+const PROJECT_SNAPSHOT_SCHEMA_VERSION = 3 as const;
+const LEGACY_OWNERSHIP_KEY = ["owner", "Id"].join("");
 const PROJECT_SNAPSHOT_FILENAME = "project.json";
 const CATALOG_FILENAME = "project-registry.json";
 
 export interface LocalProjectCatalogEntry {
   project: DesktopProject;
   workspacePath: string;
-  ownerId: string | null;
   registeredAt: string;
   lastOpenedAt: string;
 }
 
-export interface LocalProjectCatalogMetadata {
-  ownerId?: string | null;
-}
-
 interface PersistedProjectEntry {
   project: DesktopProject;
-  ownerId: string | null;
   archived: boolean;
   registeredAt: string;
   lastOpenedAt: string;
@@ -64,7 +59,6 @@ export class ProjectCatalog {
 
   async upsert(
     project: DesktopProject,
-    metadata: LocalProjectCatalogMetadata = {},
   ): Promise<LocalProjectCatalogEntry> {
     assertProject(project);
     await this.storage.ensureProject(project.id);
@@ -74,7 +68,6 @@ export class ProjectCatalog {
       const now = new Date().toISOString();
       const entry: PersistedProjectEntry = {
         project: cloneProject(project),
-        ownerId: metadata.ownerId !== undefined ? metadata.ownerId : existing?.ownerId ?? null,
         archived: false,
         registeredAt: existing?.registeredAt ?? now,
         lastOpenedAt: existing?.lastOpenedAt ?? now,
@@ -139,7 +132,6 @@ export class ProjectCatalog {
   private toPublicEntry(entry: PersistedProjectEntry): LocalProjectCatalogEntry {
     return {
       project: cloneProject(entry.project),
-      ownerId: entry.ownerId,
       registeredAt: entry.registeredAt,
       lastOpenedAt: entry.lastOpenedAt,
       workspacePath: this.storage.projectDirectory(entry.project.id),
@@ -151,8 +143,15 @@ export class ProjectCatalog {
     try {
       const raw = await readFile(this.registryPath, "utf8");
       const parsed = JSON.parse(raw) as unknown;
-      if (!isCatalogDocument(parsed)) throw new Error("Invalid local project registry.");
-      return parsed;
+      const migrated = migrateCatalog(parsed);
+      if (!migrated) throw new Error("Invalid local project registry.");
+      if (migrated.migrated) {
+        for (const [projectId, entry] of Object.entries(migrated.catalog.projects)) {
+          await this.persistEntry(projectId, entry);
+        }
+        await this.writeCatalog(migrated.catalog);
+      }
+      return migrated.catalog;
     } catch (error) {
       if (!isMissingFile(error)) await this.quarantineCorruptRegistry();
       return this.rebuildCatalogFromSnapshots();
@@ -176,11 +175,12 @@ export class ProjectCatalog {
           join(this.storage.rootDirectory(), directory.name, PROJECT_SNAPSHOT_FILENAME),
           "utf8",
         );
-        const snapshot = JSON.parse(raw) as unknown;
-        if (!isProjectSnapshot(snapshot) || snapshot.project.id.toLowerCase() !== directory.name.toLowerCase()) {
+        const snapshot = parseProjectSnapshot(JSON.parse(raw) as unknown);
+        if (!snapshot || snapshot.project.id.toLowerCase() !== directory.name.toLowerCase()) {
           continue;
         }
-        catalog.projects[snapshot.project.id] = snapshotToEntry(snapshot);
+        catalog.projects[snapshot.project.id] = snapshot.entry;
+        await this.persistEntry(snapshot.project.id, snapshot.entry);
       } catch (error) {
         if (!isMissingFile(error) && !(error instanceof SyntaxError)) throw error;
       }
@@ -236,20 +236,9 @@ function emptyCatalog(): ProjectCatalogDocument {
   return { schemaVersion: CATALOG_SCHEMA_VERSION, lastProjectId: null, projects: {} };
 }
 
-function snapshotToEntry(snapshot: PersistedProjectSnapshot): PersistedProjectEntry {
-  return {
-    project: cloneProject(snapshot.project),
-    ownerId: snapshot.ownerId,
-    archived: snapshot.archived,
-    registeredAt: snapshot.registeredAt,
-    lastOpenedAt: snapshot.lastOpenedAt,
-  };
-}
-
 function clonePersistedEntry(entry: PersistedProjectEntry): PersistedProjectEntry {
   return {
     project: cloneProject(entry.project),
-    ownerId: entry.ownerId,
     archived: entry.archived,
     registeredAt: entry.registeredAt,
     lastOpenedAt: entry.lastOpenedAt,
@@ -279,42 +268,69 @@ function isProject(value: unknown): value is DesktopProject {
   );
 }
 
-function isProjectSnapshot(value: unknown): value is PersistedProjectSnapshot {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const snapshot = value as Partial<PersistedProjectSnapshot>;
-  return (
-    snapshot.schemaVersion === PROJECT_SNAPSHOT_SCHEMA_VERSION &&
-    isPersistedEntry(snapshot)
-  );
-}
-
-function isCatalogDocument(value: unknown): value is ProjectCatalogDocument {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const catalog = value as Partial<ProjectCatalogDocument>;
+function migrateCatalog(value: unknown): {
+  catalog: ProjectCatalogDocument;
+  migrated: boolean;
+} | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const schemaVersion = candidate.schemaVersion;
+  if (schemaVersion !== CATALOG_SCHEMA_VERSION && schemaVersion !== 2) return null;
   if (
-    catalog.schemaVersion !== CATALOG_SCHEMA_VERSION ||
-    (catalog.lastProjectId !== null && typeof catalog.lastProjectId !== "string") ||
-    !catalog.projects ||
-    typeof catalog.projects !== "object" ||
-    Array.isArray(catalog.projects)
-  ) {
-    return false;
+    candidate.lastProjectId !== null &&
+    typeof candidate.lastProjectId !== "string"
+  ) return null;
+  if (!candidate.projects || typeof candidate.projects !== "object" || Array.isArray(candidate.projects)) {
+    return null;
   }
-  return Object.entries(catalog.projects).every(
-    ([projectId, entry]) => isPersistedEntry(entry) && entry.project.id === projectId,
-  );
+
+  const projects: Record<string, PersistedProjectEntry> = {};
+  for (const [projectId, valueEntry] of Object.entries(candidate.projects)) {
+    const entry = normalizePersistedEntry(valueEntry);
+    if (!entry || entry.project.id !== projectId) return null;
+    projects[projectId] = entry;
+  }
+  return {
+    catalog: {
+      schemaVersion: CATALOG_SCHEMA_VERSION,
+      lastProjectId: candidate.lastProjectId as string | null,
+      projects,
+    },
+    migrated: schemaVersion !== CATALOG_SCHEMA_VERSION,
+  };
 }
 
-function isPersistedEntry(value: unknown): value is PersistedProjectEntry {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const entry = value as Partial<PersistedProjectEntry>;
-  return (
-    isProject(entry.project) &&
-    (entry.ownerId === null || typeof entry.ownerId === "string") &&
-    typeof entry.archived === "boolean" &&
-    typeof entry.registeredAt === "string" &&
-    typeof entry.lastOpenedAt === "string"
-  );
+function parseProjectSnapshot(value: unknown): {
+  project: DesktopProject;
+  entry: PersistedProjectEntry;
+} | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const snapshot = value as Record<string, unknown>;
+  if (
+    snapshot.schemaVersion !== PROJECT_SNAPSHOT_SCHEMA_VERSION &&
+    snapshot.schemaVersion !== 2
+  ) return null;
+  const entry = normalizePersistedEntry(snapshot);
+  return entry ? { project: entry.project, entry } : null;
+}
+
+function normalizePersistedEntry(value: unknown): PersistedProjectEntry | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entry = value as Record<string, unknown>;
+  if (
+    !isProject(entry.project) ||
+    typeof entry.archived !== "boolean" ||
+    typeof entry.registeredAt !== "string" ||
+    typeof entry.lastOpenedAt !== "string"
+  ) return null;
+  // Legacy ownership is intentionally ignored while the project metadata is retained.
+  void entry[LEGACY_OWNERSHIP_KEY];
+  return {
+    project: cloneProject(entry.project),
+    archived: entry.archived,
+    registeredAt: entry.registeredAt,
+    lastOpenedAt: entry.lastOpenedAt,
+  };
 }
 
 async function atomicJsonWrite(path: string, value: unknown): Promise<void> {

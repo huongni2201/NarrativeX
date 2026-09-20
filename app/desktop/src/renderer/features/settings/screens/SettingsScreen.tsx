@@ -21,22 +21,22 @@ export function SettingsScreen({
     void window.narrativex.preferences
       .get()
       .then(() => undefined)
-      .catch((error) => setPreferenceNotice(error instanceof Error ? error.message : "Unable to load personalized settings."));
+      .catch((error) => setPreferenceNotice(error instanceof Error ? error.message : "Unable to load application settings."));
   }, []);
 
   async function resetPreferences(scope: DesktopPreferenceResetScope) {
     try {
       await window.narrativex.preferences.reset(scope);
-      setPreferenceNotice(scope === "WINDOW" ? "Window layout reset." : "Personalized settings reset.");
+      setPreferenceNotice(scope === "WINDOW" ? "Window layout reset." : "Application settings reset.");
     } catch (error) {
-      setPreferenceNotice(error instanceof Error ? error.message : "Unable to reset personalized settings.");
+      setPreferenceNotice(error instanceof Error ? error.message : "Unable to reset application settings.");
     }
   }
 
   return (
     <FeaturePage
       title="Desktop Settings"
-      description="Runtime diagnostics, project defaults và personalized Desktop preferences."
+      description="Runtime diagnostics, project defaults và application-scoped Desktop preferences."
     >
       <div className="grid max-w-[1500px] gap-6 lg:grid-cols-2">
         <SettingsGroup
@@ -59,18 +59,18 @@ export function SettingsScreen({
 
         <div className="lg:col-span-2">
           <SettingsGroup
-            eyebrow="Personalization"
+            eyebrow="Application"
             title="Reset Actions"
             description="Reset Desktop layout preferences."
           >
             <ResetRow
               title="Reset window layout"
-              description="Forget this user's saved size/position and restore the default Desktop layout."
+              description="Forget the saved size/position and restore the default Desktop layout."
               onReset={() => void resetPreferences("WINDOW")}
             />
             <ResetRow
-              title="Reset all personalized settings"
-              description="Reset all personalized Desktop settings."
+              title="Reset all application settings"
+              description="Reset all application-scoped Desktop settings."
               onReset={() => void resetPreferences("ALL")}
             />
           </SettingsGroup>

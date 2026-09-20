@@ -8,9 +8,9 @@
 
 NarrativeX uses Electron Desktop as its only editor. Long-form projects contain large images, narration, imported media, render intermediates and final MP4 files. Sending project bytes through remote storage or synchronizing them between Desktop installations adds transfer cost, latency and duplicate ownership paths without helping the local editing workflow.
 
-The backend remains authoritative for authenticated ownership, source versions, job admission, render policy, durable queues, leases and execution/artifact metadata. Desktop owns the project workspace and project bytes. Different Desktop installations signed into the same account do not synchronize project workspaces or project media.
+The backend remains authoritative for project scope, source versions, job admission, render policy, durable queues, leases and execution/artifact metadata. Desktop owns the project workspace and project bytes. NarrativeX is single-user local-first; installations do not synchronize project workspaces or project media.
 
-The only media intentionally shared across devices is account-owned custom voice/reference media, which is stored through the R2 voice-reference boundary defined by ADR-0003.
+Voice references are local PROJECT or GLOBAL_LOCAL assets. Google/Gemini Chrome login is provider/browser state and does not create a NarrativeX account or shared ownership boundary.
 
 ## Decision
 
@@ -39,7 +39,7 @@ checksumSha256
 updatedAt
 ```
 
-The local project catalog determines which projects are visible/openable on that Desktop installation. Backend project records are not imported into another device's local catalog simply because the same account owns them.
+The local project catalog determines which projects are visible/openable on that Desktop installation. Backend project records are not imported into another device's local catalog as a synchronization feed.
 
 A project created on Device A is not discovered by Device B. Device B starts with its own local project catalog and creates independent project data.
 
@@ -51,9 +51,9 @@ Absolute filesystem paths must never be persisted to PostgreSQL or sent as durab
 
 ### 3. Project media has one storage boundary
 
-Generated narration, generated images, imported project media, render inputs, render intermediates and final video are project-local media. Production project-media flows must not switch to `REMOTE`, `HYBRID`, or R2 fallback modes.
+Generated narration, generated images, imported project media, render inputs, render intermediates and final video are project-local media. Production project-media flows must not switch to `REMOTE`, `HYBRID`, or remote-storage fallback modes.
 
-Media selection must require that the chosen media identity is READY, owned by the account, and available in the current project-local boundary before it becomes a production beat selection.
+Media selection must require that the chosen media identity is READY and available in the current project-local boundary before it becomes a production beat selection.
 
 ### 4. Electron main owns local storage and final execution
 
@@ -93,11 +93,12 @@ backend assigns render job
 
 Lease loss aborts local execution. A device that no longer owns the lease may not finalize success.
 
-### 6. R2 is voice-reference/custom-voice storage only
+### 6. Local voice-reference storage
 
-R2 is reserved for reusable account-owned custom voice/reference assets. Those assets may be used from multiple devices signed into the same account because their ownership boundary is the account, not a project workspace.
+Reusable voice/reference assets use PROJECT or GLOBAL_LOCAL local scopes. No remote voice-storage
+path is part of the current runtime.
 
-Project images, generated narration, imported project media, render intermediates and final video are not uploaded to R2 for synchronization, transport or durability.
+Project images, generated narration, imported project media, render intermediates and final video are not uploaded to remote storage for synchronization, transport or durability.
 
 ### 7. Final video delivery is local
 
@@ -129,7 +130,7 @@ Richer process/OS-crash recovery/resume and long-duration soak validation remain
 ### Positive
 
 - One project-media ownership model per Desktop installation.
-- Same-account devices do not accidentally merge project workspaces or media.
+- Separate installations do not accidentally merge project workspaces or media.
 - One final-render executor and one final-video byte location.
 - Long-form project media avoids remote round trips and backend proxy load.
 - Backend policy/job authority is preserved without machine-specific paths.
@@ -155,11 +156,11 @@ Richer process/OS-crash recovery/resume and long-duration soak validation remain
 9. Backend FinalArtifact persistence is metadata-only.
 10. Project discovery is device-local; backend project lists are not synchronization feeds.
 11. Project media never uses R2 fallback or cross-device synchronization.
-12. R2 is limited to account-owned custom voice/reference storage and its validation/download lifecycle.
+12. Voice/reference assets use local PROJECT or GLOBAL_LOCAL scopes.
 
 ## Related decisions
 
 - [ADR-0001: System topology, durable execution and persistence](./ADR-0001-system-topology-execution-and-persistence.md)
 - [ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0007-desktop-local-first-media-and-render-execution.md)
 - [ADR-0006: Electron desktop editor client boundary](./ADR-0006-desktop-editor-client-boundary.md)
-- [ADR-0011: Google OAuth-only desktop authentication](./ADR-0020-single-user-local-first-architecture.md)
+- [ADR-0020: Single-user local-first architecture](./ADR-0020-single-user-local-first-architecture.md)

@@ -6,7 +6,7 @@ NarrativeX Desktop is the only supported NarrativeX editor client. It is built w
 
 The app is split into three trust zones:
 
-- **Renderer** — React UI, routing, React Query and editor draft state. No Node.js access and no direct ownership of backend session cookies.
+- **Renderer** — React UI, routing, React Query and editor draft state. No Node.js access and no application authentication/session ownership.
 - **Preload** — narrow typed `window.narrativex` bridge with context isolation and no Node integration; Chromium renderer sandboxing is currently disabled for startup compatibility.
 - **Main process** — project bytes, ProjectStorage/ProjectCatalog, local device execution, FFmpeg/ffprobe, Gemini Web Chrome/CDP automation and protected clipboard.
 
@@ -23,11 +23,13 @@ startup
   -> load active local project or project catalog
 ```
 
-External AI provider API keys and machine execution credentials are local runtime configurations managed in Desktop Settings, not user identities. Remote OAuth, guest ownership transfers, and synthetic user sessions have been retired.
+External AI provider API keys and machine execution credentials are local runtime configurations managed in Desktop Settings, not user identities. Remote OAuth, guest ownership transfers, and synthetic application sessions have been retired. Desktop preferences and the local project catalog are application-scoped and stay inside this installation; a new machine starts with an empty local workspace.
+
+Final rendering uses an installation's paired executor device. Pairing stores only the device ID and protected device token, then maintains capabilities, heartbeat, render claim, lease, progress, cancellation and recovery state. No application account or session identity is involved.
 
 ## Local project storage
 
-Project bytes live under Electron `userData` and are indexed by a schema-versioned local manifest using project-relative paths, size and SHA-256.
+Project bytes live under Electron `userData` and are indexed by a schema-versioned local manifest using project-relative paths, size and SHA-256. The local project catalog and per-project snapshots use schema v3; v2 records migrate in place while preserving project metadata, archive state, timestamps and last-opened selection.
 
 ```text
 <userData>/projects/<projectId>/
@@ -45,15 +47,15 @@ Current storage tooling includes project verification, storage accounting, compl
 
 The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the bounded-parallel `Gemini All` queue; it does not create an API media job or cost estimate.
 
-Each NarrativeX user has one Gemini browser profile by default and may add more from Desktop Settings. Every browser profile owns an independent Chrome process lifecycle, persistent `--user-data-dir`, local CDP port, automation session and download/slot namespace. Browser profile roots are device-local and user-local. The first browser is `Browser 1`; at least one browser must remain.
+Each local installation has one Gemini browser profile by default and may add more from Desktop Settings. Every browser profile owns an independent Chrome process lifecycle, persistent `--user-data-dir`, local CDP port, automation session and download/slot namespace. Browser profile roots are device-local and installation-local. The first browser is `Browser 1`; at least one browser must remain.
 
-The user signs in manually inside each selected Chrome profile. NarrativeX never stores or autofills Google passwords, OAuth tokens or browser cookies in Desktop preferences. Chrome keeps its own cookies/local storage in the profile directory so login may survive NarrativeX/Chrome restart until Google expires, revokes or re-verifies the session. Settings derives `Logged in`, `Not logged in` and `Unavailable` state from the live Gemini page instead of trusting a saved login boolean.
+The operator signs in manually inside each selected Chrome profile. Google/Gemini login is provider/browser state only, not NarrativeX authentication, an application session, or a NarrativeX User identity. NarrativeX never stores or autofills Google passwords, OAuth tokens or browser cookies in Desktop preferences. Chrome keeps its own cookies/local storage in the profile directory so login may survive NarrativeX/Chrome restart until Google expires, revokes or re-verifies the provider session. Settings derives `Logged in`, `Not logged in` and `Unavailable` state from the live Gemini page instead of trusting a saved login boolean.
 
 Settings provides per-browser `Open`, `Login`, `Reset login` and `Remove` actions plus `Add browser`. `Login` is shown for a browser detected as not logged in. Reset Login affects only the selected browser profile. Resetting Gemini concurrency or all normal personalized settings does not silently delete browser login profiles. Removing/resetting a browser while it owns active generation leases is rejected.
 
 Electron main automatically selects an authenticated browser for generation; renderer generation requests remain browser-agnostic. Scheduling favors the least-active ready browser and rotates equal-load choices. A request that fails after submission is not silently replayed through another browser/account.
 
-Character defaults to 2 concurrent Gemini tabs and Storyboard defaults to 4, configurable from 1 to 8. These are **global per-user concurrency limits across the complete browser pool**, not per-browser multipliers. For example, two signed-in browsers with Storyboard set to 4 still allow at most four Storyboard generations at once, not eight. Within each browser host, prompts, target identity, captures and download namespaces remain slot-scoped.
+Character defaults to 2 concurrent Gemini tabs and Storyboard defaults to 4, configurable from 1 to 8. These are **installation-wide concurrency limits across the complete browser pool**, not per-browser multipliers. For example, two signed-in browsers with Storyboard set to 4 still allow at most four Storyboard generations at once, not eight. Within each browser host, prompts, target identity, captures and download namespaces remain slot-scoped.
 
 Chrome uses background-throttling safeguards and brings the requested page to the front before submit when required. `NARRATIVEX_CHROME_PATH` can override Chrome discovery.
 
@@ -63,7 +65,7 @@ The pre-browser-pool single profile is migrated to the current user's Browser 1 
 
 ## Desktop settings
 
-Electron main persists versioned `desktop-preferences.json` data under `userData`. Settings are installation-scoped on the local machine.
+Electron main persists version 4 `desktop-preferences.json` data under `userData`. Settings are application-scoped on the local machine. Legacy version 3 window state migrates without retaining profile or ownership metadata.
 
 Desktop settings currently include:
 
@@ -111,13 +113,13 @@ Current foundations include:
 - checksum-verified local artifact registration;
 - in-process cancellation.
 
-Generation and narration jobs use authenticated owner-scoped SSE snapshots through the Electron main bridge. The renderer updates React Query from snapshots, reconnects after stream interruption and keeps a slow GET watchdog; terminal snapshots stop the subscription. Durable job state remains backend/PostgreSQL authority.
+Generation and narration jobs use project-scoped SSE snapshots through the Electron main bridge. The worker event outbox and signed callback path feed backend idempotent receipt/finalization; scheduled reconciliation covers missed events. The renderer updates React Query from snapshots, reconnects after stream interruption and keeps a slow GET watchdog; terminal snapshots stop the subscription. Durable job state remains backend/PostgreSQL authority.
 
 Richer recovery/resume UX after abrupt process/OS failure remains roadmap work.
 
 ## Configuration
 
-Copy `.env.example` to `.env` for development. `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime defaults/overrides. For personalized Gemini concurrency, a saved user setting takes precedence over the corresponding environment default.
+Copy `.env.example` to `.env` for development. `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime defaults/overrides. For installation-scoped Gemini concurrency, a saved Desktop setting takes precedence over the corresponding environment default.
 
 Important values include:
 

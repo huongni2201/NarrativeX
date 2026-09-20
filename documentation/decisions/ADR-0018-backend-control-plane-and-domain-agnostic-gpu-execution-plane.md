@@ -12,7 +12,7 @@ TTS, image generation, alignment and media validation. This duplicates business 
 the Spring modular monolith and makes local-to-remote GPU routing a business-code change.
 
 The backend already persists `GenerationJob`, `StageAttempt`, `NarrationOperation`,
-`ProviderOperation`, `OperationPlan`, quota reservations and transactional outbox records. In
+`ProviderOperation`, `OperationPlan`, system-capacity reservations and durable execution records. In
 particular, `ProviderOperation.UNKNOWN` already protects ambiguous external submissions from blind
 resubmission.
 
@@ -29,9 +29,9 @@ resubmission.
 
 Spring Boot is the NarrativeX control plane. It exclusively owns domain interpretation,
 admission, job/operation lifecycle, compute routing, model/target registry, retry/recovery,
-idempotency, quota/entitlement, outbox, artifact coordination and PostgreSQL persistence.
+idempotency, system-capacity policy, event receipt/finalization, artifact coordination and PostgreSQL persistence.
 
-Create `app/gpu-worker` as a new domain-agnostic HTTP execution plane. It implements
+The existing `app/generation-service` is the domain-agnostic HTTP execution plane. It implements
 `documentation/COMPUTE_PROTOCOL.md`, does not connect to NarrativeX PostgreSQL, and does not receive
 NarrativeX domain identifiers. The backend turns domain state into typed `ComputeTask` requests and
 turns verified `ComputeResult` observations into domain transitions.
@@ -88,7 +88,8 @@ Image generation, media validation and other compute tasks follow after the cont
 This ADR supersedes ADR-0014 only where it assigns workers direct PostgreSQL queue polling. PostgreSQL
 remains the only required durable application-state service; no Redis or broker is introduced.
 
-It supersedes ADR-0027 where VoiceStudio, WhisperX and narration execution are placed inside the
+It supersedes the historical VoiceStudio decision (formerly referenced as ADR-0027 and preserved
+in Git history) where VoiceStudio, WhisperX and narration execution were placed inside the
 domain-aware `ai-worker`; their functional audio decisions remain valid behind execution adapters.
 
 It supersedes ADR-0021 and any current-state documentation that retains browser/Vertex image

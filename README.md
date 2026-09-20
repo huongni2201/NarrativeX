@@ -32,11 +32,14 @@ Spring Boot Backend             Local project workspace
   |                               -> render work/cache
   v Compute Protocol v1           -> final MP4
 generation-service
-  -> local SQLite journal
+  -> local SQLite execution journal + event outbox
+  -> signed compute-event callback -> backend receipt/finalization
   -> execution adapters (VieNeu, WhisperX, ComfyUI, validation)
+                              ^
+                    SSE generation snapshots -> Desktop
 ```
 
-PostgreSQL is authoritative for durable business/control state. The target execution plane receives closed compute tasks over HTTP from `backend-service`. Electron local storage owns machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis and browser editors are removed.
+PostgreSQL is authoritative for durable business/control state. The execution plane receives closed compute tasks over HTTP from `backend-service`, records state transitions in its SQLite journal and outbox, and delivers signed events back to the backend. The backend acknowledges events idempotently, reconciles ambiguous work on a non-blocking schedule, and streams project-scoped updates to Desktop over SSE. Electron local storage owns machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis and browser editors are removed.
 
 ## Single-user local-first workspace
 
@@ -62,7 +65,7 @@ Business/job/artifact metadata  -> PostgreSQL
 Analyze Chapter keeps the visual intent explicit:
 
 - `IMAGE` supports backend/generation-service image generation.
-- `VIDEO` remains a supported analysis/editor intent for web/browser-driven video generation workflows.
+- `VIDEO` remains a supported visual/media intent in analysis and editing; NarrativeX has no active video-generation provider runtime.
 - The generation service does not host a video-generation/I2V provider role.
 - Final composition/rendering always uses Electron main + FFmpeg/ffprobe.
 
@@ -113,13 +116,13 @@ NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 
 ## Database baseline
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V7** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V8** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
 
-At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V8.
+At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V9.
 
 ## Guardrails
 
-- Chapter → Scene → VisualBeat remains the production hierarchy.
+- The production hierarchy is `Project -> StoryVersion -> Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]}`. Legacy/manual VisualBeat rows may remain unassigned and are surfaced through a compatibility container until migrated.
 - Narration timing is the master clock.
 - A VisualBeat may use image or video media.
 - Do not assume fixed image count or fixed image duration.

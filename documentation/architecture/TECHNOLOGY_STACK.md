@@ -2,7 +2,7 @@
 
 Product specification: [`../product/PRODUCT_SPEC.md`](../product/PRODUCT_SPEC.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the single-user local-first (ADR-0020) and compute execution plane (ADR-0018/0029) refactors.
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the single-user local-first (ADR-0020) and event-driven compute execution plane (ADR-0018, ADR-0019, ADR-0021, ADR-0025) refactors.
 
 
 | Layer | Current stack | Current role |
@@ -12,7 +12,7 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Desktop UI | Tailwind CSS 4.3.3, `@tailwindcss/vite` 4.3.3, source-owned shadcn-style primitives, Radix UI, CVA, clsx, tailwind-merge, Lucide 1.34.0, Sonner 2.0.8 | accessible renderer component vocabulary and semantic styling |
 | Backend | Java 25, Spring Boot 4.1.1, Spring MVC + Virtual Threads, Google GenAI Java SDK 1.72.0, Actuator | modular monolith, control plane, domain metadata, policy, Vertex Gemini Chapter Analyze and durable orchestration authority |
 | Persistence | PostgreSQL 18.6 + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL | sole production application persistence path, including durable jobs, leases, and state CAS |
-| Compute Execution Plane | Python 3.14.7, FastAPI 0.141.1, Pydantic 2.13.5, HTTPX 0.28.1, Uvicorn 0.53.0, SQLite3 | `app/generation-service`: domain-agnostic Compute Protocol v1 execution plane with Hexagonal adapters, RuntimeProcessSupervisor, and local SQLite execution journal |
+| Compute Execution Plane | Python 3.14.7, FastAPI 0.141.1, Pydantic 2.13.5, HTTPX 0.28.1, Uvicorn 0.53.0, SQLite3 | `app/generation-service`: domain-agnostic Compute Protocol v1 execution plane with Hexagonal adapters, RuntimeProcessSupervisor, local SQLite journal, and SQLite event outbox |
 | Compute media/AI extras | Pillow 12.3.0, WhisperX 3.8.6 forced-align, PyTorch 2.14.0 (cu130), TorchAudio 2.11.0, NumPy 2.5.3, CTranslate2 4.8.2 | forced alignment, image validation, and media execution runtimes |
 | Compute contracts | JSON Schema, Pydantic models | `contracts/compute/v1/`: versioned wire contracts for task submission, callbacks, and artifact descriptors |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
@@ -54,7 +54,7 @@ final MP4                             -> Desktop project artifacts
 metadata                              -> PostgreSQL
 ```
 
-There is no generated-project-media R2 transport/fallback in the current runtime.
+There is no generated-project-media R2 transport/fallback in the current runtime. The backend may expose short-lived opaque local-media capabilities for authorized Desktop transfer; PostgreSQL stores metadata and keys, not media bytes.
 
 Current visual timing is source anchored. AI materialization resolves deterministic UTF-16 text ranges; backend production-timeline reads map those ranges through narration/subtitle alignment. Provisional fallback timing is review-only and does not satisfy render readiness.
 
@@ -64,4 +64,4 @@ NarrativeX is a single-user local-first application per ADR-0020. There is no ap
 
 ## Persistence status
 
-Production persistence is MyBatis + explicit PostgreSQL SQL. The final pre-release baseline is clean and squashed into **V1–V7**. V1–V5 separate schema/database responsibilities, V6 contains indexes/invariants and V7 contains deterministic catalog seeds. Future migrations begin at append-only V8 only after the first production deployment.
+Production persistence is MyBatis + explicit PostgreSQL SQL. The final pre-release baseline is clean and squashed into **V1–V8**. V1–V5 separate schema/database responsibilities, V6 contains indexes/invariants, V7 contains deterministic catalog seeds, and V8 contains asynchronous compute orchestration tables. Future migrations begin at append-only V9 only after the first production deployment.
