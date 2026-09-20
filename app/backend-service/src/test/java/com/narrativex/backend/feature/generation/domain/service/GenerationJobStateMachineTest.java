@@ -43,7 +43,9 @@ class GenerationJobStateMachineTest {
     GenerationJob job =
         GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
 
-    job = job.markSubmitted(UuidV7.random(), "handle:1", 5L, Instant.now(), Instant.now().plusSeconds(10));
+    job =
+        job.markSubmitted(
+            UuidV7.random(), "handle:1", 5L, Instant.now(), Instant.now().plusSeconds(10));
 
     assertTrue(GenerationJobStateMachine.isStaleSequence(job, 4L));
     assertFalse(GenerationJobStateMachine.isStaleSequence(job, 5L));

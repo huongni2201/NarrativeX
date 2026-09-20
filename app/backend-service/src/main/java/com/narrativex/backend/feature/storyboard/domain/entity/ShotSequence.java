@@ -23,7 +23,9 @@ public final class ShotSequence extends DomainEntity {
     this.visualBeatId = Objects.requireNonNull(visualBeatId, "visualBeatId must not be null");
     this.orderIndex = orderIndex;
     this.shots =
-        shots != null ? Collections.unmodifiableList(new ArrayList<>(shots)) : Collections.emptyList();
+        shots != null
+            ? Collections.unmodifiableList(new ArrayList<>(shots))
+            : Collections.emptyList();
   }
 
   public UUID getVisualBeatId() {

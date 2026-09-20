@@ -11,8 +11,5 @@ public record RetentionMapSpec(
     List<AttentionEventSpec> attentionEvents) {
 
   public record AttentionEventSpec(
-      AttentionEventType eventType,
-      long timeOffsetMs,
-      String description,
-      String severity) {}
+      AttentionEventType eventType, long timeOffsetMs, String description, String severity) {}
 }

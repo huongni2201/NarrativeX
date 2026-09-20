@@ -65,7 +65,8 @@ export function RenderDialog({
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30">30 FPS · Recommended</SelectItem>
+                  <SelectItem value="24">24 FPS · Cinematic (Recommended)</SelectItem>
+                  <SelectItem value="30">30 FPS · Standard</SelectItem>
                   <SelectItem value="60">60 FPS · Smooth</SelectItem>
                 </SelectContent>
               </Select>

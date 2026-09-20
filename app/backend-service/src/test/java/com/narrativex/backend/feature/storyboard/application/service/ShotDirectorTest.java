@@ -208,8 +208,7 @@ class ShotDirectorTest {
             3000L,
             null);
 
-    ShotSequence sequence =
-        shotDirector.planShotSequence(visualBeatId, 0, List.of(spec1, spec2));
+    ShotSequence sequence = shotDirector.planShotSequence(visualBeatId, 0, List.of(spec1, spec2));
 
     assertThat(sequence).isNotNull();
     assertThat(sequence.getVisualBeatId()).isEqualTo(visualBeatId);

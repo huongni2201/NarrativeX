@@ -26,13 +26,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Handler for NARRATION_GENERATE (audio TTS) jobs. Submits task to GPU compute plane and
- * immediately records SUBMITTED without blocking.
+ * Handler for VIDEO_FIRST CHAPTER_GENERATE jobs using the provider-neutral video.generate workload.
+ * Submits task to GPU compute plane and immediately records SUBMITTED without blocking.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class NarrationGenerationJobHandler implements GenerationJobHandler {
+public class VideoGenerationJobHandler implements GenerationJobHandler {
   private static final String PROTOCOL_VERSION = "1.0";
 
   private final GenerationJobTransactionService transactionService;
@@ -41,14 +41,14 @@ public class NarrationGenerationJobHandler implements GenerationJobHandler {
 
   @Override
   public JobType supportedType() {
-    return JobType.NARRATION_GENERATE;
+    return JobType.CHAPTER_GENERATE;
   }
 
   @Override
   public void execute(UUID jobId) {
-    log.info("Claiming narration generation job {} for submission", jobId);
+    log.info("Claiming video generation job {} for submission", jobId);
     Optional<GenerationJob> jobOpt =
-        transactionService.claimForSubmission(jobId, "GENERATING_NARRATION");
+        transactionService.claimForSubmission(jobId, "GENERATING_VIDEO");
     if (jobOpt.isEmpty()) {
       return;
     }
@@ -56,19 +56,34 @@ public class NarrationGenerationJobHandler implements GenerationJobHandler {
 
     UUID taskId = job.getJobId();
     UUID attemptId = ComputeAttemptIdentity.forJob(job.getJobId(), job.getType());
-    String idempotencyKey = "compute:tts:" + taskId;
+    String idempotencyKey = "compute:video-gen:" + taskId;
 
-    TaskDescriptorDto task = new TaskDescriptorDto("audio.synthesize", "1.0");
-    ModelRefDto model = new ModelRefDto("vieneu", "vieneu-v3-turbo", "default");
+    TaskDescriptorDto task = new TaskDescriptorDto("video.generate", "1.0");
+    ModelRefDto model = new ModelRefDto("ltx", "ltx-2.5", "nvfp4");
     TaskConstraintsDto constraints =
-        new TaskConstraintsDto(Instant.now().plus(15, ChronoUnit.MINUTES), 900);
+        new TaskConstraintsDto(Instant.now().plus(20, ChronoUnit.MINUTES), 1200);
+
     Map<String, Object> inputs =
         Map.of(
-            "script", job.getSourceText() != null ? job.getSourceText() : "",
-            "voice", Map.of("kind", "catalog", "value", "vieneu-default"),
-            "format", Map.of("container", "wav", "sampleRateHz", 48000, "channels", 1));
+            "prompt",
+            "Cinematic tracking shot, dramatic lighting, high quality motion",
+            "negativePrompt",
+            "jitter, blur, flickering, morphing, low quality, unnatural limbs",
+            "width",
+            1280,
+            "height",
+            720,
+            "fps",
+            24,
+            "durationMs",
+            4000,
+            "generationMode",
+            "TEXT_TO_VIDEO",
+            "seed",
+            42);
+
     OutputArtifactTargetDto output =
-        artifactAccess.createOutput(taskId, attemptId, "narration", "audio/wav");
+        artifactAccess.createOutput(taskId, attemptId, "video", "video/mp4");
     TaskArtifactsDto artifacts = new TaskArtifactsDto(List.of(), List.of(output));
 
     String fingerprint =
@@ -93,21 +108,21 @@ public class NarrationGenerationJobHandler implements GenerationJobHandler {
       Instant nextReconcile = Instant.now().plusSeconds(2);
       transactionService.markSubmitted(jobId, receipt, nextReconcile);
       log.info(
-          "Narration generation task submitted for job {}; taskId={}, attemptId={}, handle={}, nextReconcileAt={}",
+          "Video generation task submitted for job {}; taskId={}, attemptId={}, handle={}, nextReconcileAt={}",
           jobId,
           taskId,
           attemptId,
           receipt.executionHandle(),
           nextReconcile);
     } catch (RuntimeException e) {
-      log.error("Failed to submit narration generation task for job {}", jobId, e);
+      log.error("Failed to submit video generation task for job {}", jobId, e);
       if (isOutcomeAmbiguous(e)) {
         Instant nextReconcile = Instant.now().plusSeconds(2);
         transactionService.markSubmissionUnknown(
-            jobId, "COMPUTE_OUTCOME_UNKNOWN", "Narration dispatch outcome unknown", nextReconcile);
+            jobId, "COMPUTE_OUTCOME_UNKNOWN", "Video dispatch outcome unknown", nextReconcile);
       } else {
         transactionService.markSubmissionFailed(
-            jobId, "NARRATION_DISPATCH_ERROR", "Failed to dispatch narration");
+            jobId, "VIDEO_DISPATCH_ERROR", "Failed to dispatch video generation");
       }
     }
   }

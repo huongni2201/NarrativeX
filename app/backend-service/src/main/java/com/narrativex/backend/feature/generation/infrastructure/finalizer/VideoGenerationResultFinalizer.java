@@ -16,11 +16,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Finalizes image generation jobs upon compute success (callback or reconciliation). */
+/**
+ * Finalizes video generation jobs upon compute success (callback or reconciliation). Materializes
+ * VIDEO MediaAsset with video/mp4 MIME type and updates job state to COMPLETED.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
+public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
   private final GenerationJobRepository generationJobRepository;
   private final MediaAssetRepository mediaAssetRepository;
   private final ComputeArtifactAccess artifactAccess;
@@ -35,10 +38,8 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
       JobType jobType,
       com.narrativex.backend.feature.generation.domain.enums.ProductionMode productionMode) {
     return jobType == JobType.CHAPTER_GENERATE
-        && (productionMode == null
-            || productionMode
-                == com.narrativex.backend.feature.generation.domain.enums.ProductionMode
-                    .IMAGE_MOTION);
+        && productionMode
+            == com.narrativex.backend.feature.generation.domain.enums.ProductionMode.VIDEO_FIRST;
   }
 
   @Override
@@ -46,7 +47,7 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
   public void finalizeResult(GenerationJob job, ComputeObservationDto observation) {
     if (job.getStatus().isTerminal()) {
       log.debug(
-          "Job {} is already terminal ({}), skipping finalization",
+          "Job {} is already terminal ({}), skipping video finalization",
           job.getJobId(),
           job.getStatus());
       return;
@@ -63,13 +64,13 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
             .filter(
                 artifact ->
                     artifact != null
-                        && "image".equalsIgnoreCase(artifact.role())
-                        && "image/png".equalsIgnoreCase(artifact.mediaType()))
+                        && "video".equalsIgnoreCase(artifact.role())
+                        && "video/mp4".equalsIgnoreCase(artifact.mediaType()))
             .findFirst()
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        "Compute observation is missing required image output"));
+                        "Compute observation is missing required video output"));
 
     OutputArtifactTargetDto target =
         artifactAccess.getOrCreateTarget(
@@ -81,10 +82,10 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
         new MediaAssetRepository.CreateGeneratedMediaAsset(
             produced.artifactId(),
             job.getProjectId(),
-            "IMAGE",
-            "IMAGE_GENERATED",
+            "VIDEO",
+            "VIDEO_GENERATED",
             artifactAccess.storageKey(target),
-            job.getJobId() + ".png",
+            job.getJobId() + ".mp4",
             produced.mediaType(),
             produced.sizeBytes(),
             produced.sha256(),
@@ -94,7 +95,7 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
     if (!freshJob.getStatus().isTerminal()) {
       GenerationJob completed = freshJob.markCompleted("MEDIA_READY");
       generationJobRepository.save(completed);
-      log.info("Image generation completed and asset finalized for job {}", job.getJobId());
+      log.info("Video generation completed and asset finalized for job {}", job.getJobId());
     }
   }
 }

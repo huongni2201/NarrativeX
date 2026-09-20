@@ -6,8 +6,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Post-publish audience retention observations and actionable recommendations
- * for continuous narrative tuning according to ADR-0031.
+ * Post-publish audience retention observations and actionable recommendations for continuous
+ * narrative tuning according to ADR-0031.
  */
 public record ProductionInsight(
     UUID id,
@@ -34,10 +34,7 @@ public record ProductionInsight(
   }
 
   public static ProductionInsight create(
-      UUID projectId,
-      UUID chapterId,
-      String observationJson,
-      String recommendationText) {
+      UUID projectId, UUID chapterId, String observationJson, String recommendationText) {
     return new ProductionInsight(
         UuidV7.random(),
         0L,

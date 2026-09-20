@@ -157,3 +157,10 @@ ALTER TABLE media_plans ADD CONSTRAINT ck_media_plans_production_mode CHECK (pro
 
 ALTER TABLE generation_jobs DROP CONSTRAINT IF EXISTS ck_generation_jobs_production_mode;
 ALTER TABLE generation_jobs ADD CONSTRAINT ck_generation_jobs_production_mode CHECK (production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE'));
+
+-- 12. Enforce Scene and StoryBeat integrity on VisualBeats (ADR-0024, ADR-0027)
+ALTER TABLE visual_beats
+    ADD CONSTRAINT fk_visual_beats_scene_story_beat
+    FOREIGN KEY (scene_id, story_beat_id)
+    REFERENCES story_beats(scene_id, id)
+    ON DELETE CASCADE;

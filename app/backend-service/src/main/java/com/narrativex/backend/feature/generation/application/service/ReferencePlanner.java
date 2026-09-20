@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Plans and validates conditioning reference assets for video generation according to ADR-0028.
- * Image generation is strictly channeled into reference conditioning and keyframes,
- * never directly to final timeline playback.
+ * Image generation is strictly channeled into reference conditioning and keyframes, never directly
+ * to final timeline playback.
  */
 @Service
 public class ReferencePlanner {
@@ -28,8 +28,8 @@ public class ReferencePlanner {
   }
 
   /**
-   * Plans required conditioning reference assets for a shot given the current inventory
-   * of approved character, location, and keyframe assets.
+   * Plans required conditioning reference assets for a shot given the current inventory of approved
+   * character, location, and keyframe assets.
    */
   public ReferencePlanResult planReferences(
       ShotView shot,
@@ -59,8 +59,7 @@ public class ReferencePlanner {
         UUID assetId =
             approvedCharacterAssets != null ? approvedCharacterAssets.get(character) : null;
         if (assetId == null) {
-          missing.add(
-              "Missing approved CHARACTER_REFERENCE for required character: " + character);
+          missing.add("Missing approved CHARACTER_REFERENCE for required character: " + character);
         } else {
           refs.add(
               new GenerationReference(
@@ -73,9 +72,7 @@ public class ReferencePlanner {
 
       if (shot.locationRef() != null && !shot.locationRef().isBlank()) {
         UUID locAssetId =
-            approvedLocationAssets != null
-                ? approvedLocationAssets.get(shot.locationRef())
-                : null;
+            approvedLocationAssets != null ? approvedLocationAssets.get(shot.locationRef()) : null;
         if (locAssetId != null) {
           refs.add(
               new GenerationReference(
@@ -133,9 +130,7 @@ public class ReferencePlanner {
     return new ReferencePlanResult(refs, missing);
   }
 
-  /**
-   * Helper parsing character AI names from subjectsJson.
-   */
+  /** Helper parsing character AI names from subjectsJson. */
   public List<String> parseSubjectNames(String subjectsJson) {
     List<String> names = new ArrayList<>();
     if (subjectsJson == null || subjectsJson.isBlank() || subjectsJson.equals("[]")) {

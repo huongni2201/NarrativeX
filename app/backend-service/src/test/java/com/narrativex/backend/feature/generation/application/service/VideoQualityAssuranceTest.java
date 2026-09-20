@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.generation.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
+import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

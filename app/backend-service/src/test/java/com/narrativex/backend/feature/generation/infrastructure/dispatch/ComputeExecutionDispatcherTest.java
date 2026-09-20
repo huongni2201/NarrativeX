@@ -18,10 +18,10 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Chap
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.application.model.compute.ArtifactWriteAccessDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
+import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
-import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;

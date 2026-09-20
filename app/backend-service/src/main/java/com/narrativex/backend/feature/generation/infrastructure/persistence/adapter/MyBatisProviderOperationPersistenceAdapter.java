@@ -81,6 +81,10 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
       ProviderOperationStatus nextStatus,
       String providerOperationId) {
     ProviderOperation current = require(id);
+    if (current.getRowVersion() != expectedVersion) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
     requireTransition(current, nextStatus);
     int affected =
         mapper.transition(
@@ -102,6 +106,10 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   public ProviderOperation markSubmissionUnknown(
       UUID id, long expectedVersion, Instant nextReconcileAt) {
     ProviderOperation current = require(id);
+    if (current.getRowVersion() != expectedVersion) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
     requireTransition(current, ProviderOperationStatus.UNKNOWN);
     if (mapper.markSubmissionUnknown(id, expectedVersion, nextReconcileAt) != 1) {
       increment("provider_operation.transition.conflict");
@@ -127,6 +135,10 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
     ProviderOperation current = require(id);
     if (current.getStatus() == ProviderOperationStatus.COMPLETED)
       return resolveCompletedResult(current, resultFingerprint);
+    if (current.getRowVersion() != expectedVersion) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
     requireTransition(current, ProviderOperationStatus.COMPLETED);
     int affected =
         mapper.persistResult(
@@ -146,9 +158,14 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   @Transactional
   public ProviderOperation recordReconciliationError(
       UUID id, long expectedVersion, String error, Instant nextReconcileAt) {
-    if (require(id).getStatus().isTerminal()) {
+    ProviderOperation current = require(id);
+    if (current.getStatus().isTerminal()) {
       throw new InvalidProviderOperationTransitionException(
           "Provider operation " + id + " cannot record reconciliation metadata after termination");
+    }
+    if (current.getRowVersion() != expectedVersion) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
     }
     if (mapper.recordReconciliationError(id, expectedVersion, error, nextReconcileAt) != 1) {
       increment("provider_operation.transition.conflict");

@@ -65,7 +65,12 @@ class ComputeReconciliationServiceTest {
 
     service =
         new ComputeReconciliationService(
-            jobRepository, executionPort, finalizerRegistry, backoffPolicy, eventBroadcaster, clock);
+            jobRepository,
+            executionPort,
+            finalizerRegistry,
+            backoffPolicy,
+            eventBroadcaster,
+            clock);
   }
 
   private GenerationJob sampleJob(UUID jobId, UUID attemptId, JobStatus status) {
@@ -76,7 +81,8 @@ class ComputeReconciliationServiceTest {
             .jobId(jobId)
             .build()
             .markSubmitting("SUBMITTING")
-            .markSubmitted(attemptId, "handle-123", 1L, Instant.now(), Instant.now().plusSeconds(10));
+            .markSubmitted(
+                attemptId, "handle-123", 1L, Instant.now(), Instant.now().plusSeconds(10));
 
     if (status == JobStatus.RUNNING) {
       job = job.markRunningWithCompute("COMPUTING_MEDIA", 50, 1L, "RUNNING", "handle-123");
@@ -121,12 +127,14 @@ class ComputeReconciliationServiceTest {
     db.put(jobId, job);
 
     var result = service.reconcileOnce(jobId);
-    assertThat(result).isEqualTo(ComputeReconciliationService.ReconciliationResult.ALREADY_TERMINAL);
+    assertThat(result)
+        .isEqualTo(ComputeReconciliationService.ReconciliationResult.ALREADY_TERMINAL);
     verify(executionPort, never()).queryTask(any(), any());
   }
 
   @Test
-  @DisplayName("Reconciles worker query failure with backoff and marks UNKNOWN after repeated failures")
+  @DisplayName(
+      "Reconciles worker query failure with backoff and marks UNKNOWN after repeated failures")
   void testWorkerQueryFailureBackoff() {
     UUID jobId = UUID.randomUUID();
     UUID attemptId = UUID.randomUUID();
@@ -139,7 +147,8 @@ class ComputeReconciliationServiceTest {
         .thenThrow(new RuntimeException("Connection refused"));
 
     var result = service.reconcileOnce(jobId);
-    assertThat(result).isEqualTo(ComputeReconciliationService.ReconciliationResult.WORKER_UNAVAILABLE);
+    assertThat(result)
+        .isEqualTo(ComputeReconciliationService.ReconciliationResult.WORKER_UNAVAILABLE);
 
     GenerationJob updated = db.get(jobId);
     assertThat(updated.getReconcileAttemptCount()).isEqualTo(3);
@@ -175,15 +184,15 @@ class ComputeReconciliationServiceTest {
     when(executionPort.queryTask(jobId, attemptId)).thenReturn(observation);
 
     var result = service.reconcileOnce(jobId);
-    assertThat(result).isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_RUNNING);
+    assertThat(result)
+        .isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_RUNNING);
 
     GenerationJob updated = db.get(jobId);
     assertThat(updated.getStatus()).isEqualTo(JobStatus.RUNNING);
     assertThat(updated.getProgress()).isEqualTo(65);
     assertThat(updated.getComputeSequence()).isEqualTo(2L);
     assertThat(updated.getReconcileAttemptCount()).isEqualTo(1);
-    assertThat(updated.getNextReconcileAt())
-        .isEqualTo(clock.instant().plus(Duration.ofSeconds(5)));
+    assertThat(updated.getNextReconcileAt()).isEqualTo(clock.instant().plus(Duration.ofSeconds(5)));
     verify(eventBroadcaster).broadcastJobEvent(updated);
   }
 
@@ -216,7 +225,8 @@ class ComputeReconciliationServiceTest {
         .thenReturn(Optional.of(mockFinalizer));
 
     var result = service.reconcileOnce(jobId);
-    assertThat(result).isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_TERMINAL);
+    assertThat(result)
+        .isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_TERMINAL);
 
     verify(mockFinalizer).finalizeResult(eq(job), eq(observation));
     verify(eventBroadcaster).broadcastJobEvent(any(GenerationJob.class));
@@ -248,7 +258,8 @@ class ComputeReconciliationServiceTest {
     when(executionPort.queryTask(jobId, attemptId)).thenReturn(observation);
 
     var result = service.reconcileOnce(jobId);
-    assertThat(result).isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_TERMINAL);
+    assertThat(result)
+        .isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_TERMINAL);
 
     GenerationJob updated = db.get(jobId);
     assertThat(updated.getStatus()).isEqualTo(JobStatus.FAILED);

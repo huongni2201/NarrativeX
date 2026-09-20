@@ -3,9 +3,9 @@ package com.narrativex.backend.feature.generation.domain.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
 import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
-import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -63,10 +63,8 @@ class TakeDomainTest {
     assertThat(failedTake.getValidationStatus()).isEqualTo("FAILED");
     assertThat(failedTake.getValidationFailureCategory())
         .isEqualTo(VideoQAFailureCategory.FACE_IDENTITY);
-    assertThat(failedTake.getValidationFailureReason())
-        .contains("drifted significantly");
-    assertThat(failedTake.getValidationRetryRecommendation())
-        .contains("Switch to IMAGE_TO_VIDEO");
+    assertThat(failedTake.getValidationFailureReason()).contains("drifted significantly");
+    assertThat(failedTake.getValidationRetryRecommendation()).contains("Switch to IMAGE_TO_VIDEO");
   }
 
   @Test

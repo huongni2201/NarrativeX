@@ -16,9 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Finalizes narration generation jobs upon compute success (callback or reconciliation).
- */
+/** Finalizes narration generation jobs upon compute success (callback or reconciliation). */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -37,7 +35,9 @@ public class NarrationGenerationResultFinalizer implements ComputeResultFinalize
   public void finalizeResult(GenerationJob job, ComputeObservationDto observation) {
     if (job.getStatus().isTerminal()) {
       log.debug(
-          "Job {} is already terminal ({}), skipping finalization", job.getJobId(), job.getStatus());
+          "Job {} is already terminal ({}), skipping finalization",
+          job.getJobId(),
+          job.getStatus());
       return;
     }
 
@@ -79,8 +79,7 @@ public class NarrationGenerationResultFinalizer implements ComputeResultFinalize
             produced.sha256(),
             null));
 
-    GenerationJob freshJob =
-        generationJobRepository.findByJobId(job.getJobId()).orElse(job);
+    GenerationJob freshJob = generationJobRepository.findByJobId(job.getJobId()).orElse(job);
     if (!freshJob.getStatus().isTerminal()) {
       GenerationJob completed = freshJob.markCompleted("NARRATION_READY");
       generationJobRepository.save(completed);

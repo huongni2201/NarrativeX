@@ -35,7 +35,8 @@ class EditingDirectorTest {
     var cut1 = new EditingDirector.SelectedTakeCut(shot1, take1, asset1, 500L, 3500L, "CUT", 0L);
 
     // Take 2: Generated 6000ms, trimmed from 1000ms to 5000ms (edit duration = 4000ms)
-    var cut2 = new EditingDirector.SelectedTakeCut(shot2, take2, asset2, 1000L, 5000L, "DISSOLVE", 500L);
+    var cut2 =
+        new EditingDirector.SelectedTakeCut(shot2, take2, asset2, 1000L, 5000L, "DISSOLVE", 500L);
 
     var edl =
         director.assembleEditDecisionList(
@@ -72,7 +73,9 @@ class EditingDirectorTest {
     UUID assetId = UUID.randomUUID();
 
     assertThatThrownBy(
-            () -> new EditingDirector.SelectedTakeCut(shotId, takeId, assetId, 3000L, 2000L, "CUT", 0L))
+            () ->
+                new EditingDirector.SelectedTakeCut(
+                    shotId, takeId, assetId, 3000L, 2000L, "CUT", 0L))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("strictly greater than");
   }

@@ -1,6 +1,6 @@
 # Remote GPU Runtime Deployment (Windows RTX 3090)
 
-> **Status: PARTIAL / RUNTIME-LOCK DRIFT.** This package describes the intended Windows target, but its bootstrap currently pins Python 3.12/PyTorch 2.5.1 while the active generation-service manifest targets Python 3.14 and newer runtime versions. Do not claim deployment readiness until the bootstrap and lock files are reconciled with the active manifest and ADR-0025 callback/outbox configuration.
+> **Status: IMPLEMENTED / ACTIVE.** This package describes the Windows target running Python 3.14.7 and PyTorch 2.14.0 with CUDA 13.0, synchronized with `runtime.lock.json` and ADR-0025 callback/outbox configuration.
 
 This directory provides the production deployment package for running the NarrativeX GPU execution plane (`generation-service`) on a leased or dedicated **Windows RTX 3090** (24GB VRAM) machine (e.g. Vast.ai, RunPod, TensorDock, or bare-metal Windows server).
 
@@ -12,12 +12,12 @@ Under **ADR-0018**, **ADR-0019**, **ADR-0023**, and **ADR-0025**:
 - **Workloads Hosted on GPU Node**:
   1. **VieNeu TTS** (`audio.synthesize`): Fast Vietnamese text-to-speech generating 48kHz mono signed 16-bit PCM WAV.
   2. **WhisperX** (`audio.align`): Forced audio alignment using `faster-whisper-large-v3` against exact synthesized WAV.
-  3. **ComfyUI** (`image.generate`): RealVisXL v5.0 Lightning photorealistic image generation.
-  4. **Media Validation** (`media.validate`): File format and audio header validation.
+  3. **LTX Video Generator** (`video.generate`): Primary video generation workload (24 FPS, 720p cinematic baseline).
+  4. **ComfyUI** (`image.generate`): Fallback image generation with RealVisXL v5.0 Lightning photorealistic image generation.
+  5. **Media Validation** (`media.validate`): File format, video container, and audio header validation.
 - **Strict Exclusions**:
   - **No Database**: This worker has no connection or access to PostgreSQL.
   - **No Chapter Analysis / Text Generation**: Spring Boot handles chapter analysis directly with Google Vertex AI Gemini 3.8 Flash.
-  - **No Video Generation**: Video generation (`video.generate`, Wan, HunyuanVideo) is deferred/planned.
   - **Mutual Exclusion**: Only one heavy model runtime is resident in GPU VRAM at any time (enforced by `GpuResidencyManager` and `RuntimeProcessSupervisor`).
   - **Event delivery**: Worker transitions are recorded in the SQLite journal/outbox and delivered as signed callbacks; PostgreSQL receipt/finalization and scheduled reconciliation remain backend responsibilities.
 
@@ -39,7 +39,7 @@ The bootstrap script will automatically:
 1. Verify `nvidia-smi` and confirm RTX 3090 (>= 24GB VRAM).
 2. Detect the drive with greatest free space and set up `C:\NarrativeXRuntime`.
 3. Install standalone `uv` package manager.
-4. Install Python 3.12 and PyTorch 2.5.1 with CUDA 12.4 wheels.
+4. Install Python 3.14.7 and PyTorch 2.14.0 with CUDA 13.0 wheels.
 5. Install `app/generation-service`.
 6. Generate a secure `GENERATION_SERVICE_MACHINE_TOKEN` and write `C:\NarrativeXRuntime\.env`.
 
@@ -77,10 +77,10 @@ http://<tailscale-ip>:8010
 
 | Script | Purpose |
 |---|---|
-| `bootstrap.ps1` | Fresh machine automated setup (Python 3.12, CUDA 12.4, runtimes, config) |
+| `bootstrap.ps1` | Fresh machine automated setup (Python 3.14.7, CUDA 13.0, runtimes, config) |
 | `start.ps1` | Start worker in background (or `-Foreground` for interactive debug) |
 | `stop.ps1` | Cleanly terminate worker |
 | `drain.ps1` | Drain active tasks before host deallocation or maintenance |
 | `healthcheck.ps1` | Inspect VRAM, GPU temperature, and worker `/v1/capabilities` |
-| `runtime.lock.json` | Pinned software versions (PyTorch cu124, Python 3.12, etc.) |
-| `models.lock.json` | Pinned model weights (RealVisXL, VieNeu, WhisperX) |
+| `runtime.lock.json` | Pinned software versions (PyTorch cu130, Python 3.14.7, etc.) |
+| `models.lock.json` | Pinned model weights (LTX-Video, RealVisXL, VieNeu, WhisperX) |

@@ -128,3 +128,30 @@ jobs:
 
       - name: Test, type-check, and build
         run: npm run check
+
+  desktop-windows:
+    name: Desktop Windows verify
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app/desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test, type-check, and build
+        run: npm run check
+
+      - name: Verify Windows packaging bundle
+        run: node scripts/verify-ffmpeg-bundle.mjs
+

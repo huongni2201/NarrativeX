@@ -20,7 +20,7 @@ public record CreateProjectRenderRequest(
     @Valid @Size(max = 2000) List<BeatOverride> beatOverrides) {
 
   public CreateProjectRenderRequest {
-    fps = fps == null ? 30 : fps;
+    fps = fps == null ? 24 : fps;
     subtitlesEnabled = subtitlesEnabled == null ? Boolean.TRUE : subtitlesEnabled;
     beatOverrides = beatOverrides == null ? List.of() : List.copyOf(beatOverrides);
   }
@@ -31,17 +31,17 @@ public record CreateProjectRenderRequest(
       UUID localDeviceId,
       Boolean subtitlesEnabled,
       List<BeatOverride> beatOverrides) {
-    this(resolution, format, localDeviceId, 30, subtitlesEnabled, beatOverrides);
+    this(resolution, format, localDeviceId, 24, subtitlesEnabled, beatOverrides);
   }
 
   public CreateProjectRenderRequest(
       String resolution, String format, UUID localDeviceId, List<BeatOverride> beatOverrides) {
-    this(resolution, format, localDeviceId, 30, Boolean.TRUE, beatOverrides);
+    this(resolution, format, localDeviceId, 24, Boolean.TRUE, beatOverrides);
   }
 
-  @AssertTrue(message = "fps must be 30 or 60")
+  @AssertTrue(message = "fps must be 24, 30, or 60")
   public boolean isFrameRateSupported() {
-    return fps != null && (fps == 30 || fps == 60);
+    return fps != null && (fps == 24 || fps == 30 || fps == 60);
   }
 
   public record BeatOverride(

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import re
 import subprocess
 import sys
@@ -32,6 +33,7 @@ CURRENT_FILES = [
     ROOT / "app" / "generation-service" / "README.md",
     ROOT / "app" / "desktop" / "README.md",
     ROOT / "documentation" / "decisions" / "README.md",
+    ROOT / "deploy" / "remote-gpu-windows" / "README.md",
 ]
 
 REQUIRED_PATHS = [
@@ -55,6 +57,9 @@ REQUIRED_PATHS = [
     ROOT / "app" / "backend-service" / "README.md",
     ROOT / "app" / "generation-service" / "README.md",
     ROOT / "app" / "desktop" / "README.md",
+    ROOT / "deploy" / "remote-gpu-windows" / "README.md",
+    ROOT / "deploy" / "remote-gpu-windows" / "bootstrap.ps1",
+    ROOT / "deploy" / "remote-gpu-windows" / "runtime.lock.json",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
     ROOT / "documentation" / "decisions" / "ADR-0006-desktop-editor-client-boundary.md",
@@ -69,7 +74,6 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "decisions" / "ADR-0024-storybeat-audio-visual-director-architecture.md",
     ROOT / "documentation" / "decisions" / "ADR-0025-event-driven-compute-orchestration-and-reconciliation.md",
 ]
-
 RETIRED_PATHS = [
     ROOT / "documentation" / "PROJECT_OVERVIEW_API_REPORT.md",
     ROOT / "documentation" / "TRACEABILITY.md",
@@ -409,12 +413,29 @@ def check_stale_identity_and_naming(path: Path, text: str) -> list[str]:
     return errors
 
 
+def runtime_lock_and_windows_deployment_errors() -> list[str]:
+    errors: list[str] = []
+    lock_file = ROOT / "deploy" / "remote-gpu-windows" / "runtime.lock.json"
+    if lock_file.exists():
+        try:
+            data = json.loads(lock_file.read_text(encoding="utf-8"))
+            py_ver = data.get("components", {}).get("python", {}).get("version")
+            if not py_ver or not py_ver.startswith("3.14"):
+                errors.append(
+                    f"deploy/remote-gpu-windows/runtime.lock.json: python version must be 3.14.x, found {py_ver}"
+                )
+        except Exception as exc:
+            errors.append(f"deploy/remote-gpu-windows/runtime.lock.json is not valid JSON: {exc}")
+    return errors
+
+
 def main() -> int:
     errors: list[str] = []
 
     errors.extend(control_character_errors())
     errors.extend(adr_reference_errors())
     errors.extend(hierarchy_and_event_contract_errors())
+    errors.extend(runtime_lock_and_windows_deployment_errors())
 
     for path in REQUIRED_PATHS:
         if not path.exists():

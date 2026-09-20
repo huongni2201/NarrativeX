@@ -202,7 +202,8 @@ class FlywayBaselineStructureTest {
     assertTrue(v9.contains("CREATE TABLE selected_takes"));
     assertTrue(v9.contains("CREATE TABLE generation_references"));
     assertTrue(v9.contains("CREATE TABLE production_insights"));
-    assertTrue(v9.contains("CHECK (production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE'))"));
+    assertTrue(
+        v9.contains("CHECK (production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE'))"));
   }
 
   private static String read(String name) throws IOException {

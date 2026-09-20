@@ -46,7 +46,8 @@ class VideoPromptCompilerTest {
             null,
             ShotStatus.PLANNED);
 
-    var compiled = compiler.compile(shot, ImageStyle.CINEMATIC_ANIME, "Previous shot was wide establishing");
+    var compiled =
+        compiler.compile(shot, ImageStyle.CINEMATIC_ANIME, "Previous shot was wide establishing");
 
     assertThat(compiled.prompt()).contains("Drops down silently");
     assertThat(compiled.prompt()).contains("Characters: thief");

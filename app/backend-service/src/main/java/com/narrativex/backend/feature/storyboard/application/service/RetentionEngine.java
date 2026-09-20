@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.storyboard.application.service;
 
-import com.narrativex.backend.feature.storyboard.domain.enums.AttentionEventType;
 import com.narrativex.backend.feature.storyboard.application.port.in.HookPlanSpec;
 import com.narrativex.backend.feature.storyboard.application.port.in.RetentionMapSpec;
 import com.narrativex.backend.feature.storyboard.domain.entity.AttentionEvent;
 import com.narrativex.backend.feature.storyboard.domain.entity.HookPlan;
 import com.narrativex.backend.feature.storyboard.domain.entity.RetentionMap;
+import com.narrativex.backend.feature.storyboard.domain.enums.AttentionEventType;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -109,11 +109,17 @@ public class RetentionEngine {
 
     String tensionJson = spec.tensionCurve() != null ? spec.tensionCurve().toString() : "[]";
     String openQJson = spec.openQuestions() != null ? spec.openQuestions().toString() : "[]";
-    String resQJson =
-        spec.resolvedQuestions() != null ? spec.resolvedQuestions().toString() : "[]";
+    String resQJson = spec.resolvedQuestions() != null ? spec.resolvedQuestions().toString() : "[]";
     String warningsJson = pacingWarnings.toString();
 
     return new RetentionMap(
-        retentionMapId, 0L, chapterId, tensionJson, openQJson, resQJson, warningsJson, domainEvents);
+        retentionMapId,
+        0L,
+        chapterId,
+        tensionJson,
+        openQJson,
+        resQJson,
+        warningsJson,
+        domainEvents);
   }
 }

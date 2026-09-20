@@ -7,9 +7,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Generates an authoritative EditDecisionList (EDL) from approved SelectedTakes
- * and the master narration audio clock according to ADR-0030.
- * In/Out trimming ensures generated clip duration does not equal timeline edit duration.
+ * Generates an authoritative EditDecisionList (EDL) from approved SelectedTakes and the master
+ * narration audio clock according to ADR-0030. In/Out trimming ensures generated clip duration does
+ * not equal timeline edit duration.
  */
 @Service
 public class EditingDirector {

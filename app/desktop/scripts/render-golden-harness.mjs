@@ -13,7 +13,7 @@ export const GOLDEN_FIXTURES = [
   "scene-transition",
   "subtitle-boundary",
 ];
-export const GOLDEN_FRAME_RATES = [30, 60];
+export const GOLDEN_FRAME_RATES = [24, 30, 60];
 export const GOLDEN_RESOLUTIONS = [
   [1920, 1080],
   [2560, 1440],

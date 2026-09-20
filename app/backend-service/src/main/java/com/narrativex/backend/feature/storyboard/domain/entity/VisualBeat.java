@@ -1,10 +1,10 @@
 package com.narrativex.backend.feature.storyboard.domain.entity;
 
 import com.narrativex.backend.feature.common.domain.DomainEntity;
-import com.narrativex.backend.feature.storyboard.domain.enums.DramaticIntent;
-import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
+import com.narrativex.backend.feature.storyboard.domain.enums.DramaticIntent;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
+import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.Objects;
 import java.util.UUID;

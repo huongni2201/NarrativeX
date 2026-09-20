@@ -31,8 +31,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
     if (assignedLocalDeviceId == null) {
       throw new IllegalArgumentException("Project render requires an assigned local device");
     }
-    if (fps != 30 && fps != 60) {
-      throw new IllegalArgumentException("Project render fps must be 30 or 60");
+    if (fps != 24 && fps != 30 && fps != 60) {
+      throw new IllegalArgumentException("Project render fps must be 24, 30, or 60");
     }
     String renderProfileJson =
         ProjectRenderProfileFactory.create(fps, subtitlesEnabled, watermarkRequired);

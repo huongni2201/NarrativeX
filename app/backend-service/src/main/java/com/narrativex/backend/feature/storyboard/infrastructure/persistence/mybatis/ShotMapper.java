@@ -25,8 +25,7 @@ public interface ShotMapper extends NarrativeXMyBatisMapper {
   List<ShotRow> findCurrentShotsByChapter(
       @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
 
-  ShotRow findShotByIdAndProject(
-      @Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
+  ShotRow findShotByIdAndProject(@Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
 
   ShotSequenceRow findSequenceByBeatIdAndProject(
       @Param("projectId") UUID projectId, @Param("visualBeatId") UUID visualBeatId);

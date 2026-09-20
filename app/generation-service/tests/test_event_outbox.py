@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -61,14 +61,14 @@ async def test_outbox_records_events_on_state_transition(
 
     pending = await journal.fetch_pending_outbox_events()
     assert len(pending) == 2
-    assert pending[0]["sequence"] == 2
-    assert pending[1]["sequence"] == 3
+    assert pending[0].sequence == 2
+    assert pending[1].sequence == 3
 
-    payload_running = json.loads(pending[0]["payload_json"])
+    payload_running = json.loads(pending[0].payload_json)
     assert payload_running["state"] == "RUNNING"
     assert payload_running["sequence"] == 2
 
-    payload_succeeded = json.loads(pending[1]["payload_json"])
+    payload_succeeded = json.loads(pending[1].payload_json)
     assert payload_succeeded["state"] == "SUCCEEDED"
     assert payload_succeeded["sequence"] == 3
 
@@ -101,7 +101,10 @@ async def test_outbox_delivery_service_delivers_pending_events(
             published_payloads.append(payload_json)
             return True
 
-    service = OutboxDeliveryService(journal=journal, publisher=MockPublisher())  # type: ignore[arg-type]
+        async def close(self) -> None:
+            pass
+
+    service = OutboxDeliveryService(journal=journal, publisher=MockPublisher())
     delivered = await service.deliver_pending_once()
     assert delivered == 1
     assert len(published_payloads) == 1
@@ -136,7 +139,10 @@ async def test_compute_state_remains_succeeded_when_callback_delivery_fails(
         async def publish(self, payload_json: str) -> bool:
             return False
 
-    service = OutboxDeliveryService(journal=journal, publisher=FailingPublisher())  # type: ignore[arg-type]
+        async def close(self) -> None:
+            pass
+
+    service = OutboxDeliveryService(journal=journal, publisher=FailingPublisher())
     delivered = await service.deliver_pending_once()
     assert delivered == 0
 
@@ -188,3 +194,84 @@ async def test_publisher_signs_with_hmac_and_headers() -> None:
     assert signature == expected_sig
 
     await publisher.close()
+
+
+@pytest.mark.asyncio
+async def test_outbox_backoff_schedule_and_retry(
+    tmp_path: Path, compute_task: ComputeTask
+) -> None:
+    db_file = tmp_path / "journal.sqlite3"
+    journal = SqliteExecutionJournalAdapter(db_file)
+    await journal.initialize()
+
+    task = compute_task
+    await journal.save_accepted(task)
+
+    obs = ComputeObservation(
+        task_id=task.task_id,
+        attempt_id=task.attempt_id,
+        state=ExecutionState.RUNNING,
+        sequence=1,
+        observed_at=datetime.now(UTC),
+        progress=0.1,
+    )
+    await journal.update(obs)
+
+    call_count = 0
+
+    class RetryingPublisher:
+        async def publish(self, payload_json: str) -> bool:
+            nonlocal call_count
+            call_count += 1
+            return call_count > 2
+
+        async def close(self) -> None:
+            pass
+
+    service = OutboxDeliveryService(journal=journal, publisher=RetryingPublisher())
+
+    # Attempt 1: fails
+    delivered = await service.deliver_pending_once()
+    assert delivered == 0
+    assert call_count == 1
+
+    # Right now, next_attempt_at is in the future (+1s),
+    # so fetching without due_before/future returns empty
+    pending_now = await journal.fetch_pending_outbox_events()
+    assert len(pending_now) == 0
+
+    # With due_before in future (+5s), event is fetched and retried
+    future = datetime.now(UTC) + timedelta(seconds=5)
+    pending_future = await journal.fetch_pending_outbox_events(due_before=future)
+    assert len(pending_future) == 1
+    assert pending_future[0].attempt_count == 1
+
+
+@pytest.mark.asyncio
+async def test_outbox_persistence_across_reconnect(
+    tmp_path: Path, compute_task: ComputeTask
+) -> None:
+    db_file = tmp_path / "journal.sqlite3"
+    journal1 = SqliteExecutionJournalAdapter(db_file)
+    await journal1.initialize()
+
+    task = compute_task
+    await journal1.save_accepted(task)
+    obs = ComputeObservation(
+        task_id=task.task_id,
+        attempt_id=task.attempt_id,
+        state=ExecutionState.RUNNING,
+        sequence=1,
+        observed_at=datetime.now(UTC),
+        progress=0.2,
+    )
+    await journal1.update(obs)
+
+    # Re-open database with new journal adapter instance
+    journal2 = SqliteExecutionJournalAdapter(db_file)
+    await journal2.initialize()
+
+    pending = await journal2.fetch_pending_outbox_events()
+    assert len(pending) == 1
+    assert pending[0].task_id == task.task_id
+    assert pending[0].sequence == 1

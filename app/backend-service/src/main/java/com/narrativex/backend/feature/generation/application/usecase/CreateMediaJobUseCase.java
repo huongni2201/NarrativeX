@@ -52,8 +52,7 @@ public class CreateMediaJobUseCase {
         && !"VIDEO_FIRST".equals(command.productionMode())
         && !"LEGACY_IMAGE".equals(command.productionMode())) {
       throw new GenerationAdmissionDeniedException(
-          "UNSUPPORTED_MEDIA_STRATEGY",
-          "Unsupported productionMode: " + command.productionMode());
+          "UNSUPPORTED_MEDIA_STRATEGY", "Unsupported productionMode: " + command.productionMode());
     }
 
     String imageProvider = normalizeImageProvider(command.imageProvider());

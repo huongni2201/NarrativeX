@@ -92,10 +92,12 @@ class GenerationRouterTest {
             null,
             ShotStatus.PLANNED);
 
-    var plan = router.route(shot, ImageStyle.CINEMATIC_ANIME, Map.of(), Map.of(), Map.of(), null, null);
+    var plan =
+        router.route(shot, ImageStyle.CINEMATIC_ANIME, Map.of(), Map.of(), Map.of(), null, null);
 
     assertThat(plan.readyForAdmission()).isFalse();
     assertThat(plan.blockingPreflightReasons()).isNotEmpty();
-    assertThat(plan.blockingPreflightReasons().getFirst()).contains("Missing approved CHARACTER_REFERENCE");
+    assertThat(plan.blockingPreflightReasons().getFirst())
+        .contains("Missing approved CHARACTER_REFERENCE");
   }
 }

@@ -27,15 +27,17 @@ public class ComputeEventController {
 
   private final ComputeEventApplicationService eventApplicationService;
   private final ObjectMapper objectMapper;
-  private final String machineToken;
+  private final String callbackSecret;
 
   public ComputeEventController(
       ComputeEventApplicationService eventApplicationService,
       ObjectMapper objectMapper,
-      @Value("${narrativex.compute.machine-token:default-dev-machine-token}") String machineToken) {
+      @Value(
+              "${narrativex.compute.callback-secret:${narrativex.compute.machine-token:default-dev-machine-token}}")
+          String callbackSecret) {
     this.eventApplicationService = eventApplicationService;
     this.objectMapper = objectMapper;
-    this.machineToken = machineToken;
+    this.callbackSecret = callbackSecret;
   }
 
   @PostMapping(
@@ -43,11 +45,12 @@ public class ComputeEventController {
       consumes = {"application/json", "application/vnd.narrativex.compute-v1+json"})
   public ResponseEntity<?> handleComputeEvent(
       @RequestHeader(value = "X-NarrativeX-Compute-Signature", required = false) String signature,
-      @RequestHeader(value = "X-NarrativeX-Compute-Timestamp", required = false) String timestampHeader,
+      @RequestHeader(value = "X-NarrativeX-Compute-Timestamp", required = false)
+          String timestampHeader,
       @RequestBody String rawBody) {
 
     // 1. Verify HMAC Signature if secret configured and header provided
-    String secret = machineToken;
+    String secret = callbackSecret;
     if (secret != null && !secret.isBlank()) {
       if (signature == null || timestampHeader == null) {
         log.warn("Compute event rejected: Missing signature or timestamp header");

@@ -8,9 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
+import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.ModelRefDto;
-import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;

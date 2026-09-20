@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+from narrativex_gpu_worker.application.models.outbox import PendingOutboxEvent
 from narrativex_gpu_worker.contracts import ComputeObservation, ComputeTask, ExecutionState
 from narrativex_gpu_worker.contracts.fingerprint import request_fingerprint
 from narrativex_gpu_worker.domain.execution_attempt import (
@@ -477,14 +478,14 @@ class SqliteExecutionJournalAdapter:
         ]
 
     async def fetch_pending_outbox_events(
-        self, limit: int = 50, before: datetime | None = None
-    ) -> list[dict]:
-        return await asyncio.to_thread(self._fetch_pending_outbox_events_sync, limit, before)
+        self, *, limit: int = 50, due_before: datetime | None = None
+    ) -> list[PendingOutboxEvent]:
+        return await asyncio.to_thread(self._fetch_pending_outbox_events_sync, limit, due_before)
 
     def _fetch_pending_outbox_events_sync(
-        self, limit: int = 50, before: datetime | None = None
-    ) -> list[dict]:
-        threshold = (before or datetime.now(UTC)).isoformat()
+        self, limit: int = 50, due_before: datetime | None = None
+    ) -> list[PendingOutboxEvent]:
+        threshold = (due_before or datetime.now(UTC)).isoformat()
         with self._connect() as connection:
             rows = connection.execute(
                 """SELECT event_id, task_id, attempt_id, sequence, payload_json,
@@ -495,7 +496,19 @@ class SqliteExecutionJournalAdapter:
                    LIMIT ?""",
                 (threshold, limit),
             ).fetchall()
-            return [dict(row) for row in rows]
+            return [
+                PendingOutboxEvent(
+                    event_id=str(row["event_id"]),
+                    task_id=UUID(str(row["task_id"])),
+                    attempt_id=UUID(str(row["attempt_id"])),
+                    sequence=int(row["sequence"]),
+                    payload_json=str(row["payload_json"]),
+                    attempt_count=int(row["attempt_count"]),
+                    next_attempt_at=datetime.fromisoformat(str(row["next_attempt_at"])),
+                    created_at=datetime.fromisoformat(str(row["created_at"])),
+                )
+                for row in rows
+            ]
 
     async def mark_outbox_event_delivered(
         self, event_id: str, delivered_at: datetime | None = None
@@ -517,16 +530,16 @@ class SqliteExecutionJournalAdapter:
                 (ts, event_id),
             )
 
-    async def record_outbox_delivery_failure(
-        self, event_id: str, next_attempt_at: datetime
+    async def mark_outbox_event_failed(
+        self, event_id: str, error: str | None, next_attempt_at: datetime
     ) -> None:
         async with self._lock:
             await asyncio.to_thread(
-                self._record_outbox_delivery_failure_sync, event_id, next_attempt_at
+                self._mark_outbox_event_failed_sync, event_id, error, next_attempt_at
             )
 
-    def _record_outbox_delivery_failure_sync(
-        self, event_id: str, next_attempt_at: datetime
+    def _mark_outbox_event_failed_sync(
+        self, event_id: str, error: str | None, next_attempt_at: datetime
     ) -> None:
         with self._connect() as connection:
             connection.execute(
@@ -536,6 +549,11 @@ class SqliteExecutionJournalAdapter:
                    WHERE event_id = ?""",
                 (next_attempt_at.isoformat(), event_id),
             )
+
+    async def record_outbox_delivery_failure(
+        self, event_id: str, next_attempt_at: datetime
+    ) -> None:
+        await self.mark_outbox_event_failed(event_id, None, next_attempt_at)
 
 
 __all__ = ["SqliteExecutionJournalAdapter"]

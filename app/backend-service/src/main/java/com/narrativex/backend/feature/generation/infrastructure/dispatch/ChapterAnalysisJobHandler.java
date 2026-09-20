@@ -34,8 +34,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Handler for CHAPTER_ANALYZE generation jobs.
- * Enforces that the Vertex Gemini AI call executes outside any database transaction.
+ * Handler for CHAPTER_ANALYZE generation jobs. Enforces that the Vertex Gemini AI call executes
+ * outside any database transaction.
  */
 @Slf4j
 @Component
@@ -145,7 +145,10 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
           "Chapter analysis provider failure for job {}: {}", job.getJobId(), e.getMessage(), e);
       if (e.isRetryable()) {
         transactionService.markSubmissionUnknown(
-            job.getJobId(), "COMPUTE_OUTCOME_UNKNOWN", e.getMessage(), Instant.now().plusSeconds(15));
+            job.getJobId(),
+            "COMPUTE_OUTCOME_UNKNOWN",
+            e.getMessage(),
+            Instant.now().plusSeconds(15));
       } else {
         transactionService.markSubmissionFailed(
             job.getJobId(), "CHAPTER_ANALYSIS_FAILED", e.getMessage());

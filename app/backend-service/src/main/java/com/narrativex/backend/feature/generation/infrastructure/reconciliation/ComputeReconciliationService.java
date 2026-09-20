@@ -109,7 +109,8 @@ public class ComputeReconciliationService {
       GenerationJob updated = job.recordReconciliationAttempt(nextReconcileAt, now);
       if (job.getStatus() == JobStatus.SUBMITTED && nextAttempts >= 3) {
         updated =
-            updated.markUnknown("WORKER_UNREACHABLE", "RECONCILIATION_UNREACHABLE", nextReconcileAt);
+            updated.markUnknown(
+                "WORKER_UNREACHABLE", "RECONCILIATION_UNREACHABLE", nextReconcileAt);
       }
       jobRepository.save(updated);
       return ReconciliationResult.WORKER_UNAVAILABLE;
@@ -171,8 +172,7 @@ public class ComputeReconciliationService {
           GenerationJob completed = job.markCompleted("RECONCILIATION_COMPLETED");
           jobRepository.save(completed);
         }
-        GenerationJob finalJob =
-            jobRepository.findByJobId(job.getJobId()).orElse(job);
+        GenerationJob finalJob = jobRepository.findByJobId(job.getJobId()).orElse(job);
         eventBroadcaster.broadcastJobEvent(finalJob);
         return ReconciliationResult.RECONCILED_TERMINAL;
       }

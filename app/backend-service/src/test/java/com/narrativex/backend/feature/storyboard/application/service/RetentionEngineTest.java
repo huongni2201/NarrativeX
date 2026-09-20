@@ -2,11 +2,11 @@ package com.narrativex.backend.feature.storyboard.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.narrativex.backend.feature.storyboard.domain.enums.AttentionEventType;
 import com.narrativex.backend.feature.storyboard.application.port.in.HookPlanSpec;
 import com.narrativex.backend.feature.storyboard.application.port.in.RetentionMapSpec;
 import com.narrativex.backend.feature.storyboard.domain.entity.HookPlan;
 import com.narrativex.backend.feature.storyboard.domain.entity.RetentionMap;
+import com.narrativex.backend.feature.storyboard.domain.enums.AttentionEventType;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,10 +101,7 @@ class RetentionEngineTest {
             AttentionEventType.SOUND_CHANGE, 20000L, "Heartbeat stops", "CRITICAL");
     var spec =
         new RetentionMapSpec(
-            List.of(0.2, 0.5, 0.9),
-            List.of("Will he make it?"),
-            List.of(),
-            List.of(event));
+            List.of(0.2, 0.5, 0.9), List.of("Will he make it?"), List.of(), List.of(event));
 
     RetentionMap map = retentionEngine.buildRetentionMap(chapterId, spec, 30000L);
 

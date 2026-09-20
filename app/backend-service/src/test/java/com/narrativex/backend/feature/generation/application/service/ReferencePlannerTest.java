@@ -112,10 +112,7 @@ class ReferencePlannerTest {
 
     var result =
         referencePlanner.planReferences(
-            shot,
-            Map.of("elena", elenaAssetId),
-            Map.of("castle", castleAssetId),
-            Map.of());
+            shot, Map.of("elena", elenaAssetId), Map.of("castle", castleAssetId), Map.of());
 
     assertThat(result.isReady()).isTrue();
     assertThat(result.references()).hasSize(2);

@@ -1,10 +1,10 @@
 package com.narrativex.backend.feature.storyboard.application.port.in;
 
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
-import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
-import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
 import com.narrativex.backend.feature.storyboard.domain.entity.Shot;
 import com.narrativex.backend.feature.storyboard.domain.entity.ShotSequence;
+import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
+import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -111,11 +111,7 @@ public interface StoryboardShotAccess {
   }
 
   record ShotSequenceView(
-      UUID id,
-      long rowVersion,
-      UUID visualBeatId,
-      int orderIndex,
-      List<ShotView> shots) {
+      UUID id, long rowVersion, UUID visualBeatId, int orderIndex, List<ShotView> shots) {
 
     public static ShotSequenceView from(ShotSequence sequence) {
       if (sequence == null) return null;

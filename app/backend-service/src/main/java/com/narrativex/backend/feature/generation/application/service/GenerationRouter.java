@@ -12,9 +12,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Model-agnostic routing service implementing ADR-0029 decision matrix.
- * Determines the execution strategy, conditioned reference assets, compiled prompt,
- * and preflight readiness for a Shot.
+ * Model-agnostic routing service implementing ADR-0029 decision matrix. Determines the execution
+ * strategy, conditioned reference assets, compiled prompt, and preflight readiness for a Shot.
  */
 @Service
 public class GenerationRouter {
@@ -34,14 +33,13 @@ public class GenerationRouter {
 
   public GenerationRouter(
       ReferencePlanner referencePlanner, VideoPromptCompiler videoPromptCompiler) {
-    this.referencePlanner = Objects.requireNonNull(referencePlanner, "referencePlanner must not be null");
+    this.referencePlanner =
+        Objects.requireNonNull(referencePlanner, "referencePlanner must not be null");
     this.videoPromptCompiler =
         Objects.requireNonNull(videoPromptCompiler, "videoPromptCompiler must not be null");
   }
 
-  /**
-   * Routes a Shot into a concrete GenerationPlan.
-   */
+  /** Routes a Shot into a concrete GenerationPlan. */
   public GenerationPlan route(
       ShotView shot,
       ImageStyle style,
@@ -66,8 +64,7 @@ public class GenerationRouter {
 
     // 2. Validate strategy-specific invariants
     if (strategy == GenerationStrategy.VIDEO_EXTEND && continuitySourceAssetId == null) {
-      blockingReasons.add(
-          "VIDEO_EXTEND requires a valid preceding continuity media asset ID");
+      blockingReasons.add("VIDEO_EXTEND requires a valid preceding continuity media asset ID");
     }
 
     // 3. Compile prompt

@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.storyboard.domain.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.narrativex.backend.feature.storyboard.domain.enums.DramaticIntent;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;

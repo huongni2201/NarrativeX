@@ -1,10 +1,10 @@
 package com.narrativex.backend.feature.storyboard.application.service;
 
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
-import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
 import com.narrativex.backend.feature.storyboard.application.port.in.ShotPlanSpec;
 import com.narrativex.backend.feature.storyboard.domain.entity.Shot;
 import com.narrativex.backend.feature.storyboard.domain.entity.ShotSequence;
+import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -12,15 +12,15 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Translates dramatic VisualBeats into concrete ShotSequences and Shots,
- * validates temporal progression, and assigns initial generation strategies.
+ * Translates dramatic VisualBeats into concrete ShotSequences and Shots, validates temporal
+ * progression, and assigns initial generation strategies.
  */
 @Service
 public class ShotDirector {
 
   /**
-   * Enforces temporal progression: every Shot must define kinetic or compositional change
-   * between startState and endState unless explicitly flagged as an intentional narrative hold.
+   * Enforces temporal progression: every Shot must define kinetic or compositional change between
+   * startState and endState unless explicitly flagged as an intentional narrative hold.
    */
   public void validateTemporalProgression(ShotPlanSpec spec) {
     Objects.requireNonNull(spec, "spec must not be null");
@@ -35,9 +35,7 @@ public class ShotDirector {
     }
   }
 
-  /**
-   * Recommends a generation strategy according to ADR-0029 decision matrix.
-   */
+  /** Recommends a generation strategy according to ADR-0029 decision matrix. */
   public GenerationStrategy recommendGenerationStrategy(ShotPlanSpec spec) {
     Objects.requireNonNull(spec, "spec must not be null");
     if (spec.recommendedStrategy() != null) {
@@ -49,9 +47,7 @@ public class ShotDirector {
     return GenerationStrategy.TEXT_TO_VIDEO;
   }
 
-  /**
-   * Builds an individual Shot entity from a specification, validating temporal progression.
-   */
+  /** Builds an individual Shot entity from a specification, validating temporal progression. */
   public Shot buildShot(UUID sequenceId, ShotPlanSpec spec) {
     Objects.requireNonNull(sequenceId, "sequenceId must not be null");
     Objects.requireNonNull(spec, "spec must not be null");
@@ -118,9 +114,7 @@ public class ShotDirector {
         ShotStatus.PLANNED);
   }
 
-  /**
-   * Translates a dramatic VisualBeat into a concrete ShotSequence containing validated Shots.
-   */
+  /** Translates a dramatic VisualBeat into a concrete ShotSequence containing validated Shots. */
   public ShotSequence planShotSequence(
       UUID visualBeatId, int orderIndex, List<ShotPlanSpec> shotSpecs) {
     Objects.requireNonNull(visualBeatId, "visualBeatId must not be null");

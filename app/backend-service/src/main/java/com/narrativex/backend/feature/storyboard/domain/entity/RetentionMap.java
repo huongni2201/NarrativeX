@@ -47,7 +47,8 @@ public final class RetentionMap extends DomainEntity {
     this.chapterId = Objects.requireNonNull(chapterId, "chapterId must not be null");
     this.tensionCurveJson = tensionCurveJson != null ? tensionCurveJson.trim() : "[]";
     this.openQuestionsJson = openQuestionsJson != null ? openQuestionsJson.trim() : "[]";
-    this.resolvedQuestionsJson = resolvedQuestionsJson != null ? resolvedQuestionsJson.trim() : "[]";
+    this.resolvedQuestionsJson =
+        resolvedQuestionsJson != null ? resolvedQuestionsJson.trim() : "[]";
     this.pacingWarningsJson = pacingWarningsJson != null ? pacingWarningsJson.trim() : "[]";
     this.attentionEvents =
         attentionEvents != null

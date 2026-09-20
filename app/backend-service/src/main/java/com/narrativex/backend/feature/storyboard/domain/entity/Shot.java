@@ -116,7 +116,8 @@ public final class Shot extends DomainEntity {
     this.cameraJson = cameraJson != null ? cameraJson.trim() : "{}";
     this.subjectMotionJson = subjectMotionJson != null ? subjectMotionJson.trim() : "{}";
     this.cameraMotionJson = cameraMotionJson != null ? cameraMotionJson.trim() : "{}";
-    this.environmentMotionJson = environmentMotionJson != null ? environmentMotionJson.trim() : "{}";
+    this.environmentMotionJson =
+        environmentMotionJson != null ? environmentMotionJson.trim() : "{}";
     this.targetDurationMs = Math.max(100, targetDurationMs);
     this.generationStrategy =
         generationStrategy != null ? generationStrategy : GenerationStrategy.TEXT_TO_VIDEO;

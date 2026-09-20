@@ -48,24 +48,26 @@ class OutboxDeliveryService:
     async def deliver_pending_once(self, limit: int = 50) -> int:
         """Processes one batch of due pending outbox events. Returns count of delivered events."""
         now = datetime.now(UTC)
-        events = await self._journal.fetch_pending_outbox_events(limit=limit, before=now)
+        events = await self._journal.fetch_pending_outbox_events(limit=limit, due_before=now)
         delivered_count = 0
         for event in events:
             if self._stopped:
                 break
-            event_id = event["event_id"]
-            payload_json = event["payload_json"]
+            event_id = event.event_id
+            payload_json = event.payload_json
             success = await self._publisher.publish(payload_json)
             if success:
                 await self._journal.mark_outbox_event_delivered(event_id, datetime.now(UTC))
                 delivered_count += 1
                 LOGGER.debug("Delivered outbox event %s", event_id)
             else:
-                attempt_count = event["attempt_count"] + 1
+                attempt_count = event.attempt_count + 1
                 delay_idx = min(attempt_count, len(BACKOFF_DELAYS) - 1)
                 delay_seconds = BACKOFF_DELAYS[delay_idx]
                 next_attempt = datetime.now(UTC) + timedelta(seconds=delay_seconds)
-                await self._journal.record_outbox_delivery_failure(event_id, next_attempt)
+                await self._journal.mark_outbox_event_failed(
+                    event_id, "Delivery failed", next_attempt
+                )
                 LOGGER.warning(
                     "Outbox event %s delivery failed (attempt %d); retrying in %ds",
                     event_id,

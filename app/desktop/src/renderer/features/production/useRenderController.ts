@@ -26,7 +26,7 @@ export function useRenderController({
   projectName?: string;
 }>) {
   const [resolution, setResolution] = useState<RenderResolution>("1080p");
-  const [frameRate, setFrameRate] = useState<RenderFrameRate>(30);
+  const [frameRate, setFrameRate] = useState<RenderFrameRate>(24);
   const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("AUTO");
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const [job, setJob] = useState<DesktopRenderJob | null>(null);

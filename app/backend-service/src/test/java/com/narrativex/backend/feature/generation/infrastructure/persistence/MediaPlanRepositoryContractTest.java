@@ -12,13 +12,14 @@ import org.junit.jupiter.api.Test;
 class MediaPlanRepositoryContractTest {
   @Test
   void existenceContractUsesOnlyPlanRevisionAndChapter() throws Exception {
-    var method = MediaPlanRepository.class.getMethod(
-        "existsForChapter", UUID.class, int.class, UUID.class);
+    var method =
+        MediaPlanRepository.class.getMethod("existsForChapter", UUID.class, int.class, UUID.class);
     assertEquals(boolean.class, method.getReturnType());
     assertEquals(3, method.getParameterCount());
     assertEquals(
         method.getGenericReturnType(),
-        MediaPlanMapper.class.getMethod("existsForChapter", UUID.class, int.class, UUID.class)
+        MediaPlanMapper.class
+            .getMethod("existsForChapter", UUID.class, int.class, UUID.class)
             .getGenericReturnType());
     assertEquals(
         method.getGenericReturnType(),
@@ -27,11 +28,12 @@ class MediaPlanRepositoryContractTest {
             .getGenericReturnType());
     assertThrows(
         NoSuchMethodException.class,
-        () -> MediaPlanRepository.class.getMethod(
-            String.join("", "exists", "Owned", "For", "Chapter"),
-            UUID.class,
-            int.class,
-            UUID.class,
-            String.class));
+        () ->
+            MediaPlanRepository.class.getMethod(
+                String.join("", "exists", "Owned", "For", "Chapter"),
+                UUID.class,
+                int.class,
+                UUID.class,
+                String.class));
   }
 }

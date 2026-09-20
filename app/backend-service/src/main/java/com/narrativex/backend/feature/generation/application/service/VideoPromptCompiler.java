@@ -10,9 +10,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Sole backend owner of compiled video generation prompts sent to video model adapters (e.g. LTX-2.5).
- * Compiles Subject + Action + Camera + Subject Motion + Camera Motion + Environment Motion +
- * Temporal Progression + Continuity Constraints + Shared Character Rendering Language.
+ * Sole backend owner of compiled video generation prompts sent to video model adapters (e.g.
+ * LTX-2.5). Compiles Subject + Action + Camera + Subject Motion + Camera Motion + Environment
+ * Motion + Temporal Progression + Continuity Constraints + Shared Character Rendering Language.
  */
 @Component
 public final class VideoPromptCompiler {
@@ -77,9 +77,12 @@ public final class VideoPromptCompiler {
 
     // 4. Motion Section
     StringBuilder motionSb = new StringBuilder();
-    if (!subjectMotion.isBlank()) motionSb.append("Subject motion: ").append(subjectMotion).append(". ");
-    if (!cameraMotion.isBlank()) motionSb.append("Camera movement: ").append(cameraMotion).append(". ");
-    if (!environmentMotion.isBlank()) motionSb.append("Atmosphere: ").append(environmentMotion).append(". ");
+    if (!subjectMotion.isBlank())
+      motionSb.append("Subject motion: ").append(subjectMotion).append(". ");
+    if (!cameraMotion.isBlank())
+      motionSb.append("Camera movement: ").append(cameraMotion).append(". ");
+    if (!environmentMotion.isBlank())
+      motionSb.append("Atmosphere: ").append(environmentMotion).append(". ");
     String motionDesc = motionSb.toString().trim();
 
     // 5. Temporal Progression Section

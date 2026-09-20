@@ -18,6 +18,7 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +31,9 @@ import java.util.UUID;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Validates and materializes the canonical chapter storyboard envelope and retention/shot models. */
+/**
+ * Validates and materializes the canonical chapter storyboard envelope and retention/shot models.
+ */
 public final class ChapterAnalysisArtifactMaterializer {
   private static final JsonMapper JSON = JsonMapper.builder().build();
   private static final List<String> REQUIRED_DIRECTION_FIELDS =
@@ -146,7 +149,8 @@ public final class ChapterAnalysisArtifactMaterializer {
         hookRow.setCuriosityQuestion(
             text(hookNode, "curiosity_question", text(hookNode, "curiosityQuestion", "")));
         hookRow.setVisualHook(text(hookNode, "visual_hook", text(hookNode, "visualHook", "")));
-        hookRow.setDialogueHook(text(hookNode, "dialogue_hook", text(hookNode, "dialogueHook", "")));
+        hookRow.setDialogueHook(
+            text(hookNode, "dialogue_hook", text(hookNode, "dialogueHook", "")));
         hookRow.setWithheldInformation(
             text(hookNode, "withheld_information", text(hookNode, "withheldInformation", "")));
         hookRow.setCreatedAt(now);
@@ -179,7 +183,9 @@ public final class ChapterAnalysisArtifactMaterializer {
         retRow.setPacingWarningsJson(
             retNode.has("pacing_warnings")
                 ? retNode.get("pacing_warnings").toString()
-                : (retNode.has("pacingWarnings") ? retNode.get("pacingWarnings").toString() : "[]"));
+                : (retNode.has("pacingWarnings")
+                    ? retNode.get("pacingWarnings").toString()
+                    : "[]"));
         retRow.setCreatedAt(now);
         retRow.setUpdatedAt(now);
         UUID mapId = retentionMapMapper.insert(retRow);
@@ -255,7 +261,8 @@ public final class ChapterAnalysisArtifactMaterializer {
             sourceAnchorResolver.resolveAll(
                 job.getSourceText(), job.getSourceHash(), orderedAnchors);
 
-    // Pass 2: Materialize scenes, visual beats, shots, and character bindings with validated UTF-16 ranges
+    // Pass 2: Materialize scenes, visual beats, shots, and character bindings with validated UTF-16
+    // ranges
     int globalBeatIndex = 0;
     for (int sceneIndex = 0; sceneIndex < scenes.size(); sceneIndex++) {
       JsonNode scene = scenes.get(sceneIndex);
@@ -309,8 +316,25 @@ public final class ChapterAnalysisArtifactMaterializer {
         JsonNode direction = firstObject(beat, "visual_direction", "visualDirection");
         var resolvedAnchor = resolvedAnchors.get(globalBeatIndex++);
 
+        StoryBeatRow storyBeatRow = new StoryBeatRow();
+        storyBeatRow.setSceneId(sceneId);
+        storyBeatRow.setOrderIndex(beatIndex);
+        storyBeatRow.setSourceStart(resolvedAnchor.textStart());
+        storyBeatRow.setSourceEnd(resolvedAnchor.textEnd());
+        storyBeatRow.setSourceAnchorJson(resolvedAnchor.sourceAnchorJson());
+        storyBeatRow.setPurpose(requiredText(beat, "visual_intent", "visual beat visual_intent"));
+        storyBeatRow.setSummary(requiredText(beat, "title", "visual beat title"));
+        storyBeatRow.setImportance(text(beat, "importance", "NORMAL"));
+        storyBeatRow.setStoryFunctionsJson("[]");
+        storyBeatRow.setContinuityStateJson("{}");
+        storyBeatRow.setReviewStatus("NEEDS_REVIEW");
+        storyBeatRow.setCreatedAt(now);
+        storyBeatRow.setUpdatedAt(now);
+        UUID storyBeatId = storyboardMapper.insertStoryBeat(storyBeatRow);
+
         VisualBeatRow beatRow = new VisualBeatRow();
         beatRow.setSceneId(sceneId);
+        beatRow.setStoryBeatId(storyBeatId);
         beatRow.setOrderIndex(beatIndex);
         beatRow.setTitle(requiredText(beat, "title", "visual beat title"));
         beatRow.setVisualIntent(requiredText(beat, "visual_intent", "visual beat visual_intent"));
@@ -351,7 +375,11 @@ public final class ChapterAnalysisArtifactMaterializer {
 
         // Materialize shot sequences and shots
         JsonNode shotsNode = firstArray(beat, "shots", "shot_sequence", "shotSequence");
-        if (shotSequenceMapper != null && shotMapper != null && shotsNode != null && shotsNode.isArray() && !shotsNode.isEmpty()) {
+        if (shotSequenceMapper != null
+            && shotMapper != null
+            && shotsNode != null
+            && shotsNode.isArray()
+            && !shotsNode.isEmpty()) {
           ShotSequenceRow seqRow = new ShotSequenceRow();
           seqRow.setVisualBeatId(beatId);
           seqRow.setOrderIndex(0);
@@ -366,13 +394,16 @@ public final class ChapterAnalysisArtifactMaterializer {
             shotRow.setSequenceId(seqId);
             shotRow.setOrderIndex(shotIndex);
             shotRow.setNarrativePurpose(
-                text(shotItem, "narrative_purpose",
+                text(
+                    shotItem,
+                    "narrative_purpose",
                     text(shotItem, "narrativePurpose", text(shotItem, "purpose", ""))));
             shotRow.setRetentionRole(
                 text(shotItem, "retention_role", text(shotItem, "retentionRole", null)));
             shotRow.setSubjectsJson(
                 shotItem.has("subjects") ? shotItem.get("subjects").toString() : "[]");
-            shotRow.setLocationRef(text(shotItem, "location_ref", text(shotItem, "locationRef", null)));
+            shotRow.setLocationRef(
+                text(shotItem, "location_ref", text(shotItem, "locationRef", null)));
             shotRow.setStartStateJson(
                 shotItem.has("start_state")
                     ? shotItem.get("start_state").toString()
@@ -381,7 +412,9 @@ public final class ChapterAnalysisArtifactMaterializer {
                 shotItem.has("action")
                     ? (shotItem.get("action").isObject()
                         ? shotItem.get("action").toString()
-                        : "{\"action\":\"" + shotItem.get("action").asText().replace("\"", "\\\"") + "\"}")
+                        : "{\"action\":\""
+                            + shotItem.get("action").asText().replace("\"", "\\\"")
+                            + "\"}")
                     : "{}");
             shotRow.setEndStateJson(
                 shotItem.has("end_state")
@@ -391,40 +424,58 @@ public final class ChapterAnalysisArtifactMaterializer {
                 shotItem.has("composition")
                     ? (shotItem.get("composition").isObject()
                         ? shotItem.get("composition").toString()
-                        : "{\"composition\":\"" + shotItem.get("composition").asText().replace("\"", "\\\"") + "\"}")
+                        : "{\"composition\":\""
+                            + shotItem.get("composition").asText().replace("\"", "\\\"")
+                            + "\"}")
                     : "{}");
             shotRow.setCameraJson(
                 shotItem.has("camera")
                     ? (shotItem.get("camera").isObject()
                         ? shotItem.get("camera").toString()
-                        : "{\"camera\":\"" + shotItem.get("camera").asText().replace("\"", "\\\"") + "\"}")
+                        : "{\"camera\":\""
+                            + shotItem.get("camera").asText().replace("\"", "\\\"")
+                            + "\"}")
                     : "{}");
             shotRow.setSubjectMotionJson(
                 shotItem.has("subject_motion")
                     ? (shotItem.get("subject_motion").isObject()
                         ? shotItem.get("subject_motion").toString()
-                        : "{\"subjectMotion\":\"" + shotItem.get("subject_motion").asText().replace("\"", "\\\"") + "\"}")
+                        : "{\"subjectMotion\":\""
+                            + shotItem.get("subject_motion").asText().replace("\"", "\\\"")
+                            + "\"}")
                     : "{}");
             shotRow.setCameraMotionJson(
                 shotItem.has("camera_motion")
                     ? (shotItem.get("camera_motion").isObject()
                         ? shotItem.get("camera_motion").toString()
-                        : "{\"cameraMotion\":\"" + shotItem.get("camera_motion").asText().replace("\"", "\\\"") + "\"}")
+                        : "{\"cameraMotion\":\""
+                            + shotItem.get("camera_motion").asText().replace("\"", "\\\"")
+                            + "\"}")
                     : "{}");
             shotRow.setEnvironmentMotionJson(
                 shotItem.has("environment_motion")
                     ? (shotItem.get("environment_motion").isObject()
                         ? shotItem.get("environment_motion").toString()
-                        : "{\"environmentMotion\":\"" + shotItem.get("environment_motion").asText().replace("\"", "\\\"") + "\"}")
+                        : "{\"environmentMotion\":\""
+                            + shotItem.get("environment_motion").asText().replace("\"", "\\\"")
+                            + "\"}")
                     : "{}");
             shotRow.setTargetDurationMs(
                 shotItem.has("target_duration_ms")
                     ? shotItem.get("target_duration_ms").asLong(4000)
-                    : (shotItem.has("targetDurationMs") ? shotItem.get("targetDurationMs").asLong(4000) : 4000L));
+                    : (shotItem.has("targetDurationMs")
+                        ? shotItem.get("targetDurationMs").asLong(4000)
+                        : 4000L));
             shotRow.setGenerationStrategy(
-                text(shotItem, "generation_strategy", text(shotItem, "generationStrategy", "TEXT_TO_VIDEO")));
+                text(
+                    shotItem,
+                    "generation_strategy",
+                    text(shotItem, "generationStrategy", "TEXT_TO_VIDEO")));
             shotRow.setQualityProfile(
-                text(shotItem, "quality_profile", text(shotItem, "qualityProfile", "720p_24fps_standard")));
+                text(
+                    shotItem,
+                    "quality_profile",
+                    text(shotItem, "qualityProfile", "720p_24fps_standard")));
             shotRow.setStatus(text(shotItem, "status", "PLANNED"));
             shotRow.setCreatedAt(now);
             shotRow.setUpdatedAt(now);
@@ -444,12 +495,18 @@ public final class ChapterAnalysisArtifactMaterializer {
           ShotRow defaultShot = new ShotRow();
           defaultShot.setSequenceId(seqId);
           defaultShot.setOrderIndex(0);
-          defaultShot.setNarrativePurpose(beatRow.getTitle() != null ? beatRow.getTitle() : "Visual Beat Shot");
+          defaultShot.setNarrativePurpose(
+              beatRow.getTitle() != null ? beatRow.getTitle() : "Visual Beat Shot");
           defaultShot.setRetentionRole(beatRow.getRetentionRole());
           defaultShot.setSubjectsJson("[]");
           defaultShot.setLocationRef(sceneRow.getLocationText());
           defaultShot.setStartStateJson("{}");
-          defaultShot.setActionJson("{\"action\":\"" + (beatRow.getVisualIntent() != null ? beatRow.getVisualIntent().replace("\"", "\\\"") : "") + "\"}");
+          defaultShot.setActionJson(
+              "{\"action\":\""
+                  + (beatRow.getVisualIntent() != null
+                      ? beatRow.getVisualIntent().replace("\"", "\\\"")
+                      : "")
+                  + "\"}");
           defaultShot.setEndStateJson("{}");
           defaultShot.setCompositionJson("{}");
           defaultShot.setCameraJson("{}");

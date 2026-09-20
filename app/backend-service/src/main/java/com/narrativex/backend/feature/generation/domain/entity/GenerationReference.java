@@ -14,10 +14,7 @@ public final class GenerationReference extends DomainEntity {
   private final BigDecimal weight;
 
   public GenerationReference(
-      UUID shotId,
-      ReferenceType referenceType,
-      UUID mediaAssetId,
-      BigDecimal weight) {
+      UUID shotId, ReferenceType referenceType, UUID mediaAssetId, BigDecimal weight) {
     this(null, 0L, shotId, referenceType, mediaAssetId, weight);
   }
 
