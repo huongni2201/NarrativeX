@@ -15,16 +15,20 @@ import type { DesktopChapterDetails, DesktopChapterStory } from "@narrativex/cli
 export interface ChapterProductionStageProps {
   chapter: DesktopChapterDetails | null;
   story: DesktopChapterStory | null;
-  onGenerateMissing: () => void;
+  onGenerateVideoShots?: () => void;
+  onGenerateMissing?: () => void;
   isGenerating?: boolean;
 }
 
 export function ChapterProductionStage({
   chapter,
   story,
+  onGenerateVideoShots,
   onGenerateMissing,
   isGenerating = false,
 }: ChapterProductionStageProps) {
+  const handleTriggerGeneration = onGenerateVideoShots ?? onGenerateMissing;
+
   if (!chapter || !story) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center text-text-muted">
@@ -69,16 +73,16 @@ export function ChapterProductionStage({
           </div>
         </div>
 
-        {/* Primary CTA: Generate Missing */}
+        {/* Primary CTA: Generate Video Shots */}
         <button
           type="button"
-          onClick={onGenerateMissing}
+          onClick={handleTriggerGeneration}
           disabled={isGenerating}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition-all hover:bg-primary-hover shadow-md disabled:opacity-50"
-          title="Tự động kiểm tra và sinh toàn bộ Audio, Alignment và Visuals còn thiếu cho chương này"
+          title="Tự động kiểm tra và sinh toàn bộ Video Shots (LTX-2.5) cho chương này"
         >
           <Sparkles size={15} className={isGenerating ? "animate-spin" : ""} />
-          <span>{isGenerating ? "Đang xử lý tạo dữ liệu..." : "Generate Missing (Tạo tài nguyên thiếu)"}</span>
+          <span>{isGenerating ? "Đang xử lý sinh video..." : "Generate Video Shots (Sản xuất Video)"}</span>
         </button>
       </div>
 
@@ -177,11 +181,11 @@ export function ChapterProductionStage({
                   </span>
                 </div>
 
-                {/* Visuals Status */}
+                {/* Video Shots Status */}
                 <div className="flex items-center gap-2">
-                  <ImageIcon size={14} className={visualsCount > 0 ? "text-primary" : "text-text-dim"} />
+                  <Film size={14} className={visualsCount > 0 ? "text-primary" : "text-text-dim"} />
                   <span className="font-mono">
-                    {visualsApproved} / {visualsCount} Visuals
+                    {visualsApproved} / {visualsCount} Shots
                   </span>
                 </div>
 

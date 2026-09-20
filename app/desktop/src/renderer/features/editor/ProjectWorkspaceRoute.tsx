@@ -36,22 +36,22 @@ export function ProjectWorkspaceRoute() {
 
   return (
     <WorkspaceShell projectId={projectId} screen={screen} workspace={workspace}>
-      {(screen === "chapters" || screen === "storyboard") && (
+      {screen === "chapters" && (
         <ChapterWorkspaceScreen
           projectId={projectId}
           projectName={projectName ?? "Project hiện tại"}
           chapters={workspace.chapters}
           timeline={workspace.timeline}
-          initialStage={screen === "storyboard" || location.pathname.includes("/story") ? "story" : "source"}
+          initialStage={location.pathname.includes("/story") ? "story" : "source"}
         />
       )}
-      {(screen === "canon" || screen === "characters" || screen === "voice") && (
+      {screen === "canon" && (
         <ProjectCanonScreen projectId={projectId} workspace={workspace} />
       )}
       {screen === "editor" && (
         <EditorScreen workspace={workspace} renderController={renderController} />
       )}
-      {(screen === "assets" || screen === "images") && (
+      {screen === "assets" && (
         <AssetsScreen
           projectId={projectId}
           assets={workspace.assets}

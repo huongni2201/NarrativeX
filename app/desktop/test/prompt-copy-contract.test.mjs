@@ -5,17 +5,17 @@ import test from "node:test";
 
 const desktopRoot = resolve(dirname(import.meta.filename), "..");
 
-test("storyboard prompt copy uses the protected Desktop clipboard bridge", () => {
-  const screen = readFileSync(
-    resolve(desktopRoot, "src/renderer/features/storyboard/screens/StoryboardScreen.tsx"),
+test("video shotboard and story inspector prompt copy uses the protected Desktop clipboard bridge", () => {
+  const shotboard = readFileSync(
+    resolve(desktopRoot, "src/renderer/features/storyboard/components/VideoShotboard.tsx"),
     "utf8",
   );
   const preload = readFileSync(resolve(desktopRoot, "src/preload/index.ts"), "utf8");
   const bootstrap = readFileSync(resolve(desktopRoot, "src/main/bootstrap-core.ts"), "utf8");
 
-  assert.match(screen, /window\.narrativex\.system\.copyText\(beat\.prompt\)/);
-  assert.doesNotMatch(screen, /IMAGE TASK:/);
-  assert.doesNotMatch(screen, /navigator\.clipboard/);
+  assert.match(shotboard, /onCopyPrompt/);
+  assert.doesNotMatch(shotboard, /IMAGE TASK:/);
+  assert.doesNotMatch(shotboard, /navigator\.clipboard/);
   assert.match(preload, /desktop:system:clipboard-write/);
   assert.match(
     bootstrap,

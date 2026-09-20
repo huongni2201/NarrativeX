@@ -98,6 +98,7 @@ export function AssetsScreen({
             const Icon = asset.type === "AUDIO" ? FileAudio : asset.type === "IMAGE" ? FileImage : Film;
             const needsRepair = Boolean(localState && localState !== "AVAILABLE");
             const canPreviewImage = asset.type === "IMAGE" && localState === "AVAILABLE";
+            const canPreviewVideo = asset.type === "VIDEO" && localState === "AVAILABLE";
             return (
               <article key={asset.id} className="group min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-panel transition-all hover:border-primary/50 hover:bg-surface-hover shadow-sm">
                 <div className="relative grid aspect-video place-items-center overflow-hidden bg-surface-dark text-text-muted">
@@ -107,6 +108,13 @@ export function AssetsScreen({
                       alt={asset.originalFilename}
                       className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.02]"
                       loading="lazy"
+                    />
+                  ) : canPreviewVideo ? (
+                    <video
+                      src={localAssetPreviewUrl(projectId, asset.id)}
+                      className="h-full w-full object-cover"
+                      controls
+                      preload="metadata"
                     />
                   ) : (
                     <Icon size={32} strokeWidth={1.4} />
@@ -144,7 +152,7 @@ export function AssetsScreen({
           description={
             assets.length
               ? "Chọn chapter khác hoặc All chapters để xem các asset còn lại."
-              : "Import image, audio hoặc video từ máy của bạn để bắt đầu xây dựng visual storyboard."
+              : "Import image, audio hoặc video từ máy của bạn để bắt đầu xây dựng production media."
           }
           action={
             <Button size="default" onClick={() => void importAsset()} disabled={busy}>

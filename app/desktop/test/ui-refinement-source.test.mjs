@@ -59,26 +59,28 @@ test("dense workstation primitives are shared instead of screen-local shells", (
   assert.match(primitives, /export function InlineNotice/);
 });
 
-test("storyboard no longer reserves separate chapter and scene rails", () => {
-  const storyboard = source("features/storyboard/screens/StoryboardScreen.tsx");
+test("video shotboard encapsulates multi-take layout without legacy separate rails", () => {
+  const shotboard = source("features/storyboard/components/VideoShotboard.tsx");
 
-  assert.doesNotMatch(storyboard, /grid-cols-\[130px_320px_minmax\(0,1fr\)\]/);
-  assert.match(storyboard, /StoryboardNavigator/);
+  assert.doesNotMatch(shotboard, /grid-cols-\[130px_320px_minmax\(0,1fr\)\]/);
+  assert.match(shotboard, /VideoShotboard/);
 });
 
-test("visual beat cards use an adaptive media-first grid", () => {
-  const beats = source("features/storyboard/components/VisualBeatGrid.tsx");
+test("video shotboard cards use an adaptive media-first grid", () => {
+  const shotboard = source("features/storyboard/components/VideoShotboard.tsx");
 
-  assert.match(beats, /repeat\(auto-fill,minmax/);
-  assert.match(beats, /aspect-video/);
-  assert.doesNotMatch(beats, />Gemini Web</);
-  assert.doesNotMatch(beats, />Generate New</);
+  assert.match(shotboard, /repeat\(auto-fill,minmax/);
+  assert.match(shotboard, /aspect-video/);
+  assert.doesNotMatch(shotboard, />Gemini Web</);
+  assert.doesNotMatch(shotboard, />Generate New</);
 });
 
-test("chapters use adjacent workstation panes without outer card gaps", () => {
-  const chapters = source("features/chapters/screens/ChaptersScreen.tsx");
+test("chapter workspace uses unified stage layout with chapter rail and inspector", () => {
+  const workspace = source("features/chapters/screens/ChapterWorkspaceScreen.tsx");
 
-  assert.doesNotMatch(chapters, /gap-3 overflow-hidden p-4/);
+  assert.match(workspace, /ChapterRail/);
+  assert.match(workspace, /StoryBeatInspector/);
+  assert.doesNotMatch(workspace, /gap-3 overflow-hidden p-4/);
 });
 
 test("asset browser renders project-local image previews", () => {
@@ -108,36 +110,27 @@ test("project creation opens in an accessible dialog instead of expanding the pr
   assert.match(projects, /<Textarea[\s\S]*?className="min-h-24"/);
 });
 
-test("chapter editor delegates focused writing responsibilities", () => {
-  const panel = source("features/chapters/components/ChapterEditorPanel.tsx");
+test("chapter workspace delegates focused stage responsibilities", () => {
+  const workspace = source("features/chapters/screens/ChapterWorkspaceScreen.tsx");
 
-  assert.match(panel, /ChapterWritingForm/);
-  assert.match(panel, /ChapterAudioPanel/);
-  assert.match(panel, /ChapterNextActions/);
-  assert.match(panel, /AnalyzeChapterDialog/);
-  assert.doesNotMatch(panel, /function AudioChapterCard/);
-  assert.doesNotMatch(panel, /function AnalyzeChapterModal/);
+  assert.match(workspace, /ChapterSourceStage/);
+  assert.match(workspace, /ChapterCanonStage/);
+  assert.match(workspace, /StoryStageView/);
+  assert.match(workspace, /ChapterProductionStage/);
 });
 
-test("chapter writing surface is an adjacent workstation pane", () => {
-  const panel = source("features/chapters/components/ChapterEditorPanel.tsx");
-  const audio = source("features/chapters/components/ChapterAudioPanel.tsx");
+test("chapter writing surface is structured in ChapterSourceStage", () => {
+  const sourceStage = source("features/chapters/components/stages/ChapterSourceStage.tsx");
 
-  assert.match(panel, /WorkspacePane/);
-  assert.match(panel, /PaneHeader/);
-  assert.doesNotMatch(panel, /shadow-\[var\(--shadow-panel\)\]/);
-  assert.doesNotMatch(panel, /rounded-lg border border-border bg-surface-panel/);
-  assert.match(audio, /border-t border-border-subtle/);
-  assert.doesNotMatch(audio, /space-y-3 rounded-lg border border-border bg-surface p-3\.5/);
+  assert.match(sourceStage, /handleSave/);
+  assert.match(sourceStage, /onAnalyze/);
+  assert.match(sourceStage, /ChapterSourceStage/);
 });
 
-test("chapter writing tools cap their viewport footprint without becoming narrow", () => {
-  const panel = source("features/chapters/components/ChapterEditorPanel.tsx");
-  const writing = source("features/chapters/components/ChapterWritingForm.tsx");
+test("chapter production stage manages video shots and narration readiness", () => {
+  const prodStage = source("features/chapters/components/stages/ChapterProductionStage.tsx");
 
-  assert.match(panel, /max-w-\[980px\]/);
-  assert.match(panel, /h-fit/);
-  assert.match(panel, /max-h-full/);
-  assert.match(writing, /h-\[clamp\(300px,42vh,520px\)\]/);
-  assert.doesNotMatch(writing, /flex min-h-\[240px\] flex-col/);
+  assert.match(prodStage, /Video Shots/);
+  assert.match(prodStage, /Narration Audio/);
+  assert.match(prodStage, /Word Alignment/);
 });

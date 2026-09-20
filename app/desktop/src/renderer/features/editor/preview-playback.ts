@@ -15,7 +15,7 @@ export interface PreviewPlaybackState {
 export function previewPlaybackState(
   beat: DesktopTimelineBeat,
   playheadMs: number,
-  frameRate: RenderFrameRate = 30,
+  frameRate: RenderFrameRate = 24,
 ): PreviewPlaybackState {
   const localMs = clamp(playheadMs - beat.startMs, 0, Math.max(0, beat.durationMs));
   const sourceDurationMs = beat.sourceDurationMs ?? beat.durationMs;
@@ -58,7 +58,7 @@ export function previewPlaybackState(
 export function imageTransformForBeat(
   beat: Pick<DesktopTimelineBeat, "cameraMovement" | "durationMs">,
   localMs: number,
-  frameRate: RenderFrameRate = 30,
+  frameRate: RenderFrameRate = 24,
 ): string {
   const frameCount = Math.max(1, Math.ceil((Math.max(1, beat.durationMs) * frameRate) / 1000));
   const localFrame = Math.min(frameCount - 1, Math.floor((Math.max(0, localMs) * frameRate) / 1000));

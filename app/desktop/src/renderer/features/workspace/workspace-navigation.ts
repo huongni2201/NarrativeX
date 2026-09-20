@@ -5,10 +5,6 @@ export type ActivityId =
   | "assets"
   | "jobs"
   | "settings"
-  | "storyboard"
-  | "characters"
-  | "images"
-  | "voice"
   | "render";
 
 export type DesktopScreen = ActivityId | "projects";
@@ -17,10 +13,6 @@ const workspaceSegments: ReadonlyArray<readonly [string, ActivityId]> = [
   ["editor", "editor"],
   ["chapters", "chapters"],
   ["canon", "canon"],
-  ["storyboard", "storyboard"],
-  ["characters", "characters"],
-  ["images", "images"],
-  ["voice", "voice"],
   ["assets", "assets"],
   ["jobs", "jobs"],
   ["render", "render"],

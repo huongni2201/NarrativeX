@@ -1,13 +1,13 @@
-# ADR-0001: System topology, modular monolith, durable execution and persistence architecture
+# ADR-0001: System topology, modular monolith, durable execution and persistence architecture
 
-- Status: Partially superseded; retained as historical topology rationale. Current identity, capacity, storage and compute-event rules follow ADR-0020 and ADR-0025.
+- Status: Partially superseded; retained as historical topology rationale. Current identity, capacity, storage and compute-event rules follow ADR-0020 and ADR-0025. Production mode and video-first execution follow ADR-0026.
 - Date: 2026-08-18 (consolidated and updated: 2026-09-12)
 - Scope: Application topology, worker boundary, DDD package boundaries, SQL-first MyBatis persistence, Flyway PostgreSQL baseline, durable provider execution lifecycle and local final-render authority.
 - Consolidated from: former ADR-0001, ADR-0003, ADR-0003, ADR-0008, and ADR-0006.
 
 ## Context
 
-NarrativeX is an image-first, long-form story-to-video platform combining transaction-heavy business state (Projects, StoryVersions, Chapters, Characters, StoryBeats, AudioCues and VisualBeats) with asynchronous Python AI/media workloads and native Desktop final rendering.
+NarrativeX was originally designed as an image-first platform and has transitioned to video-first production under ADR-0026. It combines transaction-heavy business state (Projects, StoryVersions, Chapters, Characters, StoryBeats, AudioCues and VisualBeats) with asynchronous Python AI/media workloads and native Desktop final rendering.
 
 Persistence originally used Spring Data JPA/Hibernate, which obscured SQL execution and made concurrency/CAS behavior less explicit. External AI providers can time out or crash mid-flight, so memory state or transient queue messages cannot be authoritative execution state.
 

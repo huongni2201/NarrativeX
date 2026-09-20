@@ -68,12 +68,12 @@ test("VideoShotboard component encapsulates multi-take and review workflows", ()
   assert.match(shotboardSource, /onImport/);
 });
 
-test("ProjectsScreen and ChaptersScreen maintain consistent navigation and routing", () => {
+test("ProjectsScreen and ChapterWorkspaceScreen maintain consistent navigation and routing", () => {
   const projectsScreen = readSource("features/projects/screens/ProjectsScreen.tsx");
-  const chaptersScreen = readSource("features/chapters/screens/ChaptersScreen.tsx");
+  const chapterWorkspaceScreen = readSource("features/chapters/screens/ChapterWorkspaceScreen.tsx");
 
   assert.match(projectsScreen, /useProjectsQuery/);
-  assert.match(chaptersScreen, /useChapterWorkspacesQuery/);
+  assert.match(chapterWorkspaceScreen, /useChapterStoryQuery/);
   assert.doesNotMatch(projectsScreen, /mockProjects|fakeProjects/);
-  assert.doesNotMatch(chaptersScreen, /mockChapters|fakeChapters/);
+  assert.doesNotMatch(chapterWorkspaceScreen, /mockChapters|fakeChapters/);
 });
