@@ -11,6 +11,7 @@ Current source code, Flyway migrations, and automated tests establish factual im
 | [`CURRENT_STATUS.md`](./CURRENT_STATUS.md) | Navigation index, implementation reality, and migration status |
 | [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) | Compute Protocol v1 wire contract between Backend and Generation Service |
 | [`product/`](./product/) | Product specification (`PRODUCT_SPEC.md`) and project roadmap (`ROADMAP.md`) |
+| [`LTX production implementation plan`](./product/LTX_PRODUCTION_IMPLEMENTATION_PLAN.md) | TARGET implementation plan for Gemini preparation, LTX footage generation, production expense cap, and local 720p/24 FPS finishing; not a claim of implemented capability |
 | [`architecture/`](./architecture/) | System architecture (`SYSTEM_ARCHITECTURE.md`), database design (`DATABASE.md`), and technology stack (`TECHNOLOGY_STACK.md`) |
 | [`domain/`](./domain/) | Core domain model, invariants, business rules, and terminology (`DOMAIN.md`) |
 | [`workflows/`](./workflows/) | End-to-end production pipelines: story-to-video (`STORY_TO_VIDEO.md`), narration audio (`NARRATION_AUDIO.md`), image generation (`IMAGE_GENERATION.md`) |
