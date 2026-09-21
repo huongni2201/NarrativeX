@@ -11,8 +11,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Periodically scans for generation jobs that are due for reconciliation fallback.
- * Uses bounded batch size and non-blocking single-job reconciliation.
+ * Periodically scans for generation jobs that are due for reconciliation fallback. Uses bounded
+ * batch size and non-blocking single-job reconciliation.
  */
 @Slf4j
 @Component

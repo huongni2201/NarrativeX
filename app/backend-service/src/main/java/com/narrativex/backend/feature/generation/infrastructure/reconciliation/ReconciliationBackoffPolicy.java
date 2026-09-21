@@ -6,8 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Calculates exponential backoff intervals for scheduled compute reconciliation queries.
- * Schedule: 2s -> 5s -> 10s -> 30s -> 60s -> max 300s.
+ * Calculates exponential backoff intervals for scheduled compute reconciliation queries. Schedule:
+ * 2s -> 5s -> 10s -> 30s -> 60s -> max 300s.
  */
 @Component
 public class ReconciliationBackoffPolicy {

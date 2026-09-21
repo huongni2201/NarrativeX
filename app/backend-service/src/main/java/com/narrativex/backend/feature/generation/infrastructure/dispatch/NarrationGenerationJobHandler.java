@@ -26,8 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Handler for NARRATION_GENERATE (audio TTS) jobs.
- * Submits task to GPU compute plane and immediately records SUBMITTED without blocking.
+ * Handler for NARRATION_GENERATE (audio TTS) jobs. Submits task to GPU compute plane and
+ * immediately records SUBMITTED without blocking.
  */
 @Slf4j
 @Component

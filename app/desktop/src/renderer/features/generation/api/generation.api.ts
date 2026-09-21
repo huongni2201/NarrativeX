@@ -12,19 +12,23 @@ export interface CurrentMediaJob {
 }
 
 export function normalizeCreateMediaJobInput(input: CreateMediaJobInput): CreateMediaJobInput {
-  if (input.visualGenerationMode !== "IMAGE") {
-    return { ...input, imageProvider: null };
+  const productionMode = input.productionMode ?? "VIDEO_FIRST";
+  const visualGenerationMode = input.visualGenerationMode ?? "VIDEO";
+  if (visualGenerationMode !== "IMAGE") {
+    return { ...input, productionMode, visualGenerationMode, imageProvider: null };
   }
 
   return {
     ...input,
+    productionMode,
+    visualGenerationMode,
     imageProvider: input.imageProvider ?? "API",
   };
 }
 
 let analyzeChapterPreferences: AnalyzeChapterInput = {
-  visualGenerationMode: "IMAGE",
-  imageProvider: "API",
+  visualGenerationMode: "VIDEO",
+  imageProvider: null,
 };
 
 export function setAnalyzeChapterPreferences(input: AnalyzeChapterInput) {

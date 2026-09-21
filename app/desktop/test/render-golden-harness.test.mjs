@@ -9,7 +9,7 @@ import {
 } from "../scripts/render-golden-harness.mjs";
 
 test("golden matrix covers motion, crop, transition, subtitle, fps, resolution and encoder cases", () => {
-  assert.deepEqual(GOLDEN_FRAME_RATES, [30, 60]);
+  assert.deepEqual(GOLDEN_FRAME_RATES, [24, 30, 60]);
   assert.deepEqual(GOLDEN_RESOLUTIONS, [[1920, 1080], [2560, 1440]]);
   assert.deepEqual(GOLDEN_ENCODERS, ["libx264", "h264_nvenc"]);
   for (const fixture of ["static-image", "slow-push-in", "horizontal-pan", "portrait-crop", "landscape-crop", "scene-transition", "subtitle-boundary"]) {

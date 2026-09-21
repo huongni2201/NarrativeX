@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   BookOpen,
   Volume2,
-  Image as ImageIcon,
+  Film,
   Compass,
   Code2,
   CheckCircle2,
@@ -216,39 +216,48 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus, isUpdatingStatu
           </div>
         )}
 
-        {/* VISUAL TAB */}
+        {/* VISUAL / SHOT TAB */}
         {activeTab === "visual" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-semibold text-text-secondary uppercase tracking-wider">
-                Visual Beats ({beat.visualBeats.length})
+                Video Shot Plan ({beat.visualBeats.length})
               </span>
             </div>
 
             {beat.visualBeats.length === 0 ? (
-              <p className="text-[12px] text-text-muted italic">Không có Visual Beat nào trong StoryBeat này.</p>
+              <p className="text-[12px] text-text-muted italic">Không có Shot nào trong StoryBeat này.</p>
             ) : (
               beat.visualBeats.map((vBeat, idx) => (
                 <div key={vBeat.id || idx} className="rounded-lg border border-border-subtle bg-surface p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <ImageIcon size={13} className="text-primary" />
+                      <Film size={13} className="text-primary" />
                       <span className="text-[13px] font-medium text-foreground">
-                        {vBeat.title || `Visual #${idx + 1}`}
+                        {vBeat.title || `Shot #${idx + 1}`}
                       </span>
                     </div>
-                    <span className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-text-secondary">
-                      {vBeat.visualFocus || "SPEAKER"}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      {vBeat.dramaticIntent && (
+                        <span className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[9px] text-text-secondary">
+                          {vBeat.dramaticIntent}
+                        </span>
+                      )}
+                      {vBeat.retentionRole && (
+                        <span className="rounded bg-cyan-soft text-cyan border border-cyan/30 px-1.5 py-0.5 font-mono text-[9px]">
+                          {vBeat.retentionRole}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="rounded bg-surface-dark p-2.5 text-[12px] text-text-secondary border border-border-subtle/40">
-                    <p>{vBeat.visualIntent || vBeat.visualSummary || "Chưa có mô tả hình ảnh."}</p>
+                    <p>{vBeat.visualIntent || vBeat.visualSummary || "Chưa có chỉ đạo cinematic shot."}</p>
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-text-muted">
                     <span>Trọng số thời lượng: {vBeat.relativeWeight}x</span>
-                    <span>Chế độ: {vBeat.motionMode}</span>
+                    <span>Motion: {vBeat.motionMode || "DYNAMIC"}</span>
                   </div>
                 </div>
               ))

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeMapper">
+
+  <resultMap id="take" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="shotId" column="shot_id"/>
+    <result property="attemptNumber" column="attempt_number"/>
+    <result property="provider" column="provider"/>
+    <result property="model" column="model"/>
+    <result property="generationMode" column="generation_mode"/>
+    <result property="outputAssetId" column="output_asset_id"/>
+    <result property="sourceDurationMs" column="source_duration_ms"/>
+    <result property="metricsJson" column="metrics_json"/>
+    <result property="validationStatus" column="validation_status"/>
+    <result property="validationFailureCategory" column="validation_failure_category"/>
+    <result property="validationFailureReason" column="validation_failure_reason"/>
+    <result property="validationRetryRecommendation" column="validation_retry_recommendation"/>
+    <result property="status" column="status"/>
+  </resultMap>
+
+  <select id="findByShotId" resultMap="take">
+    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+           generation_mode, output_asset_id, source_duration_ms,
+           metrics_json::text AS metrics_json, validation_status,
+           validation_failure_category, validation_failure_reason,
+           validation_retry_recommendation, status
+    FROM takes
+    WHERE shot_id = #{shotId}
+    ORDER BY attempt_number ASC, id ASC
+  </select>
+
+  <select id="findById" resultMap="take">
+    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+           generation_mode, output_asset_id, source_duration_ms,
+           metrics_json::text AS metrics_json, validation_status,
+           validation_failure_category, validation_failure_reason,
+           validation_retry_recommendation, status
+    FROM takes
+    WHERE id = #{id}
+  </select>
+
+  <select id="findByShotIdAndAttempt" resultMap="take">
+    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+           generation_mode, output_asset_id, source_duration_ms,
+           metrics_json::text AS metrics_json, validation_status,
+           validation_failure_category, validation_failure_reason,
+           validation_retry_recommendation, status
+    FROM takes
+    WHERE shot_id = #{shotId} AND attempt_number = #{attemptNumber}
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO takes (row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+                      generation_mode, output_asset_id, source_duration_ms, metrics_json,
+                      validation_status, validation_failure_category, validation_failure_reason,
+                      validation_retry_recommendation, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP),
+            #{shotId}, #{attemptNumber}, #{provider}, #{model}, #{generationMode}, #{outputAssetId},
+            #{sourceDurationMs}, COALESCE(#{metricsJson}::jsonb, '{}'::jsonb),
+            COALESCE(#{validationStatus}, 'PENDING'), #{validationFailureCategory},
+            #{validationFailureReason}, #{validationRetryRecommendation}, COALESCE(#{status}, 'PENDING'))
+    RETURNING id
+  </select>
+
+  <update id="update">
+    UPDATE takes
+    SET output_asset_id = #{outputAssetId},
+        source_duration_ms = #{sourceDurationMs},
+        metrics_json = COALESCE(#{metricsJson}::jsonb, '{}'::jsonb),
+        validation_status = #{validationStatus},
+        validation_failure_category = #{validationFailureCategory},
+        validation_failure_reason = #{validationFailureReason},
+        validation_retry_recommendation = #{validationRetryRecommendation},
+        status = #{status},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+
+  <update id="updateStatus">
+    UPDATE takes
+    SET status = #{status},
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateValidation">
+    UPDATE takes
+    SET validation_status = #{validationStatus},
+        validation_failure_category = #{validationFailureCategory},
+        validation_failure_reason = #{validationFailureReason},
+        validation_retry_recommendation = #{validationRetryRecommendation},
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM takes WHERE id = #{id}
+  </delete>
+
+</mapper>

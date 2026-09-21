@@ -95,7 +95,7 @@ export type MediaAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
 export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR" | "CINEMATIC_ANIME";
 
 export interface CreateMediaJobInput {
-  productionMode: "IMAGE_MOTION";
+  productionMode: "VIDEO_FIRST" | "IMAGE_MOTION" | "LEGACY_IMAGE";
   aspectRatio: MediaAspectRatio;
   imageStyle?: MediaImageStyle;
   visualGenerationMode: VisualGenerationMode;

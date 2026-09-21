@@ -15,9 +15,14 @@ import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -29,8 +34,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Handler for CHAPTER_ANALYZE generation jobs.
- * Enforces that the Vertex Gemini AI call executes outside any database transaction.
+ * Handler for CHAPTER_ANALYZE generation jobs. Enforces that the Vertex Gemini AI call executes
+ * outside any database transaction.
  */
 @Slf4j
 @Component
@@ -51,7 +56,12 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
       @Autowired(required = false) ChapterAnalysisProvider chapterAnalysisProvider,
       @Autowired(required = false) ChapterCanonMapper canonMapper,
       @Autowired(required = false) ChapterCanonReconciliationService canonReconciliationService,
-      @Autowired(required = false) ChapterAnalysisRunRepository analysisRunRepository) {
+      @Autowired(required = false) ChapterAnalysisRunRepository analysisRunRepository,
+      @Autowired(required = false) HookPlanMapper hookPlanMapper,
+      @Autowired(required = false) RetentionMapMapper retentionMapMapper,
+      @Autowired(required = false) AttentionEventMapper attentionEventMapper,
+      @Autowired(required = false) ShotSequenceMapper shotSequenceMapper,
+      @Autowired(required = false) ShotMapper shotMapper) {
     this.generationJobRepository = generationJobRepository;
     this.transactionService = transactionService;
     this.chapterMapper = chapterMapper;
@@ -66,7 +76,37 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
             chapterMapper,
             new SourceAnchorResolver(),
             canonMapper,
-            canonReconciliationService);
+            canonReconciliationService,
+            hookPlanMapper,
+            retentionMapMapper,
+            attentionEventMapper,
+            shotSequenceMapper,
+            shotMapper);
+  }
+
+  public ChapterAnalysisJobHandler(
+      GenerationJobRepository generationJobRepository,
+      GenerationJobTransactionService transactionService,
+      StoryboardMapper storyboardMapper,
+      ChapterMapper chapterMapper,
+      ChapterAnalysisProvider chapterAnalysisProvider,
+      ChapterCanonMapper canonMapper,
+      ChapterCanonReconciliationService canonReconciliationService,
+      ChapterAnalysisRunRepository analysisRunRepository) {
+    this(
+        generationJobRepository,
+        transactionService,
+        storyboardMapper,
+        chapterMapper,
+        chapterAnalysisProvider,
+        canonMapper,
+        canonReconciliationService,
+        analysisRunRepository,
+        null,
+        null,
+        null,
+        null,
+        null);
   }
 
   @Override
@@ -105,7 +145,10 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
           "Chapter analysis provider failure for job {}: {}", job.getJobId(), e.getMessage(), e);
       if (e.isRetryable()) {
         transactionService.markSubmissionUnknown(
-            job.getJobId(), "COMPUTE_OUTCOME_UNKNOWN", e.getMessage(), Instant.now().plusSeconds(15));
+            job.getJobId(),
+            "COMPUTE_OUTCOME_UNKNOWN",
+            e.getMessage(),
+            Instant.now().plusSeconds(15));
       } else {
         transactionService.markSubmissionFailed(
             job.getJobId(), "CHAPTER_ANALYSIS_FAILED", e.getMessage());

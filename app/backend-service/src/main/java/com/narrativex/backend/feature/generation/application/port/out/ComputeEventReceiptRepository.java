@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Outbound port for recording and checking received compute callback receipts.
- * Guarantees idempotent deduplication at the application boundary.
+ * Outbound port for recording and checking received compute callback receipts. Guarantees
+ * idempotent deduplication at the application boundary.
  */
 public interface ComputeEventReceiptRepository {
   boolean existsByEventId(String eventId);

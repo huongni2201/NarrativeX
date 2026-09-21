@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from narrativex_gpu_worker.application.models.outbox import PendingOutboxEvent
 from narrativex_gpu_worker.contracts import ComputeObservation, ComputeTask
 from narrativex_gpu_worker.domain import SubmissionState
 
@@ -49,11 +51,13 @@ class OutboxJournalPort(Protocol):
     """Durable journal port for compute event outbox storage."""
 
     async def fetch_pending_outbox_events(
-        self, limit: int = 50, now: object | None = None
-    ) -> list[dict[str, object]]: ...
+        self, *, limit: int = 50, due_before: datetime | None = None
+    ) -> list[PendingOutboxEvent]: ...
 
-    async def mark_outbox_event_delivered(self, event_id: str) -> None: ...
+    async def mark_outbox_event_delivered(
+        self, event_id: str, delivered_at: datetime | None = None
+    ) -> None: ...
 
-    async def mark_outbox_event_failed(
-        self, event_id: str, error: str, next_attempt_at: object
+    async def record_outbox_delivery_failure(
+        self, event_id: str, next_attempt_at: datetime
     ) -> None: ...

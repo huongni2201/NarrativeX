@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { RenderFrameRate } from "@narrativex/client-contracts";
 import { SUBTITLE_STYLE_V1 } from "../../shared/subtitle-style.ts";
 import type { PlannedSubtitle } from "./subtitle-planner";
 import type { LocalRenderBeat, LocalRenderManifest } from "./render-manifest";
@@ -28,7 +29,7 @@ export async function writeBeatSubtitleTrack(
 export function subtitleSlicesForBeat(
   subtitles: readonly PlannedSubtitle[],
   beat: LocalRenderBeat,
-  fps: 30 | 60,
+  fps: RenderFrameRate,
 ): BeatSubtitleSlice[] {
   const beatStartMs = frameMs(beat.startFrame, fps);
   const beatEndMs = frameMs(beat.endFrame, fps);
@@ -83,11 +84,11 @@ export function escapeSubtitleFilterPath(path: string): string {
   return path.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
 }
 
-function quantizeToFrame(ms: number, fps: 30 | 60): number {
+function quantizeToFrame(ms: number, fps: RenderFrameRate): number {
   return frameMs(Math.round((Math.max(0, ms) * fps) / 1000), fps);
 }
 
-function frameMs(frame: number, fps: 30 | 60): number {
+function frameMs(frame: number, fps: RenderFrameRate): number {
   return (Math.max(0, frame) * 1000) / fps;
 }
 

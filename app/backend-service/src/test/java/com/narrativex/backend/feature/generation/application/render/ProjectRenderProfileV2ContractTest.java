@@ -22,8 +22,15 @@ class ProjectRenderProfileV2ContractTest {
   }
 
   @Test
+  void createsCinematicTwentyFourFpsProfile() {
+    assertEquals(
+        "{\"schemaVersion\":3,\"rendererVersion\":\"project-image-motion-v3-composition\",\"compositionPolicyVersion\":1,\"fps\":24,\"video\":{\"x264Preset\":\"medium\",\"crf\":18,\"nvencPreset\":\"p6\",\"nvencCq\":19,\"pixelFormat\":\"yuv420p\"},\"color\":{\"mode\":\"SDR_BT709_LIMITED\"},\"subtitles\":{\"mode\":\"burn_in\"},\"watermark\":{\"mode\":\"none\",\"policyVersion\":1}}",
+        ProjectRenderProfileFactory.create(24, true, false));
+  }
+
+  @Test
   void rejectsUnsupportedFrameRate() {
     assertThrows(
-        IllegalArgumentException.class, () -> ProjectRenderProfileFactory.create(24, false, true));
+        IllegalArgumentException.class, () -> ProjectRenderProfileFactory.create(15, false, true));
   }
 }

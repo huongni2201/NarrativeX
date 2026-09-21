@@ -2,10 +2,10 @@ package com.narrativex.backend.feature.generation.infrastructure.assets;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import com.narrativex.backend.feature.generation.application.port.out.VoiceReferenceAssetAccess;
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -38,7 +38,7 @@ public class VoiceReferenceAssetAccessAdapter implements VoiceReferenceAssetAcce
             .findById(selection.assetId())
             .orElseThrow(() -> new ResourceNotFoundException("Voice reference asset not found"));
     return new VoiceReferenceAsset(
-        VoiceReferenceScope.ACCOUNT,
+        VoiceReferenceScope.GLOBAL_LOCAL,
         asset.id(),
         asset.contentType(),
         asset.status(),

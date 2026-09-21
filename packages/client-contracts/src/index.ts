@@ -7,6 +7,7 @@ export type {
   DesktopCharacterDetail,
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
+  DesktopCharacterVoiceProfile,
 } from "./character";
 export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, RegisterLocalAssetRequest } from "./asset";
 export type {
@@ -19,7 +20,7 @@ export type {
   VoiceReferenceInput,
   VoiceReferenceScope,
 } from "./narration";
-export type { AutoEditBeatDecision, AutoEditPlan, AutoEditStyle, BeatMediaFitMode, BeatMediaType, DesktopTimeline, DesktopTimelineBeat, LocalRenderPreflight, LocalRenderPreflightAsset, LocalRenderPreflightAssetInput, LocalRenderPreflightBlockerCode, ProjectRenderBeatOverride, RenderFrameRate, RenderResolution, UpdateBeatMediaInput } from "./production";
+export type { AutoEditBeatDecision, AutoEditPlan, AutoEditStyle, BeatMediaFitMode, BeatMediaType, DesktopTimeline, DesktopTimelineBeat, EditDecision, EditDecisionList, EditDecisionTransition, LocalRenderPreflight, LocalRenderPreflightAsset, LocalRenderPreflightAssetInput, LocalRenderPreflightBlockerCode, ProjectRenderBeatOverride, RenderFrameRate, RenderResolution, UpdateBeatMediaInput } from "./production";
 export type {
   AnalyzeChapterInput,
   ChapterContinuityIssue,
@@ -46,26 +47,40 @@ export type {
 } from "./generation";
 export type {
   AdaptationAction,
+  AttentionEvent,
+  AttentionEventType,
   AudioCueStatus,
   AudioCueType,
   CreateAudioCueInput,
   CreateStoryBeatInput,
   DesktopAudioCue,
   DesktopChapterStory,
+  DesktopJobHistoryItem,
+  DesktopJobHistoryPage,
   DesktopProductionBeatStatus,
   DesktopProductionStatus,
+  DesktopProviderHealth,
+  DesktopSelectedTake,
+  DesktopShot,
+  DesktopShotSequence,
   DesktopStoryBeat,
   DesktopStoryBeatTiming,
   DesktopStoryScene,
   DesktopStoryVisualBeat,
+  DesktopTake,
+  DramaticIntent,
+  GenerationStrategy,
+  HookPlan,
+  RetentionMap,
+  RetentionRole,
+  ShotStatus,
+  StoryBeatMutationResponse,
   StoryBeatPersistenceState,
   StoryBeatReviewStatus,
-  StoryBeatMutationResponse,
+  TakeValidationResult,
+  TakeValidationStatus,
   UpdateAudioCueInput,
   UpdateStoryBeatInput,
   UpdateStoryBeatReviewStatusInput,
-  DesktopJobHistoryItem,
-  DesktopJobHistoryPage,
-  DesktopProviderHealth,
+  VideoQAFailureCategory,
 } from "./story";
-

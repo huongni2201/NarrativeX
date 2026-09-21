@@ -14,7 +14,7 @@ import type {
 } from "@narrativex/client-contracts";
 import { useChapterStoryQuery, useUpdateStoryBeatReviewStatus } from "../../story/queries/story.queries";
 import { useCreateChapter, useUpdateChapter } from "../queries/chapters.queries";
-import { useAnalyzeChapter } from "../../generation/queries/generation.queries";
+import { useAnalyzeChapter, useCreateMediaJob } from "../../generation/queries/generation.queries";
 import { ChapterRail } from "../components/ChapterRail";
 import { ChapterSourceStage } from "../components/stages/ChapterSourceStage";
 import { ChapterCanonStage } from "../components/stages/ChapterCanonStage";
@@ -48,6 +48,7 @@ export function ChapterWorkspaceScreen({
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);
   const analyzeChapter = useAnalyzeChapter();
+  const createMediaJob = useCreateMediaJob();
   const updateBeatStatus = useUpdateStoryBeatReviewStatus(projectId, selectedChapterId ?? "");
 
   // Load authoritative Chapter Story
@@ -104,13 +105,27 @@ export function ChapterWorkspaceScreen({
       projectId,
       chapterId: activeChapter.id,
       request: {
-        visualGenerationMode: "IMAGE",
-        imageProvider: "API",
+        visualGenerationMode: "VIDEO",
       },
       idempotencyKey: `analyze-${activeChapter.id}-${Date.now()}`,
     });
     // Switch to Canon stage to view results
     setCurrentStage("canon");
+    void refetchStory();
+  };
+
+  const handleGenerateVideoShots = async () => {
+    if (!activeChapter) return;
+    await createMediaJob.mutateAsync({
+      projectId,
+      chapterId: activeChapter.id,
+      request: {
+        productionMode: "VIDEO_FIRST",
+        visualGenerationMode: "VIDEO",
+        aspectRatio: "16:9",
+      },
+      idempotencyKey: `media-${activeChapter.id}-${Date.now()}`,
+    });
     void refetchStory();
   };
 
@@ -242,11 +257,8 @@ export function ChapterWorkspaceScreen({
             <ChapterProductionStage
               chapter={activeChapter}
               story={story ?? null}
-              onGenerateMissing={() => {
-                // Trigger missing generations
-                void refetchStory();
-              }}
-              isGenerating={false}
+              onGenerateVideoShots={handleGenerateVideoShots}
+              isGenerating={createMediaJob.isPending}
             />
           )}
         </div>

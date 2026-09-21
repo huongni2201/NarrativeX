@@ -20,7 +20,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Owns the short authoritative transaction after an R2 voice-reference object is verified. */
+/** Owns the short authoritative transaction after a local voice-reference object is verified. */
 @Service
 public class MediaUploadFinalizationService {
   private final MediaUploadSessionRepository sessions;

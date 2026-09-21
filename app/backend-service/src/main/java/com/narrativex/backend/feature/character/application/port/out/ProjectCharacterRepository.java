@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProjectCharacterRepository {
+  Optional<ProjectCharacter> findById(UUID id);
+
   Optional<ProjectCharacter> findByProjectAndCharacterForUpdate(UUID projectId, UUID characterId);
 
   ProjectCharacter save(ProjectCharacter projectCharacter);

@@ -10,7 +10,7 @@ function source(...parts) {
   return readFileSync(join(repoRoot, ...parts), "utf8");
 }
 
-test("chapter workspace keeps an explicit create mode and blocks generation from dirty drafts", () => {
+test("chapter workspace keeps focused chapter creation and save source lifecycle", () => {
   const chapters = source(
     "app",
     "desktop",
@@ -19,13 +19,11 @@ test("chapter workspace keeps an explicit create mode and blocks generation from
     "features",
     "chapters",
     "screens",
-    "ChaptersScreen.tsx",
+    "ChapterWorkspaceScreen.tsx",
   );
-  assert.match(chapters, /setIsCreating\(true\)/);
-  assert.match(chapters, /generationBlockedByUnsavedChanges/);
-  assert.match(chapters, /busy \|\| generationBlockedByUnsavedChanges/);
-  assert.doesNotMatch(chapters, /setPage\(2\)/);
-  assert.match(chapters, /Math\.min\(Math\.max\(current, 1\), totalPages\)/);
+  assert.match(chapters, /handleCreateNewChapter/);
+  assert.match(chapters, /handleSaveSource/);
+  assert.match(chapters, /handleAnalyze/);
 });
 
 test("chapter CRUD writes refresh chapter and backend-derived timeline data", () => {
@@ -79,20 +77,20 @@ test("chapter polling follows active work across the batch", () => {
   assert.match(queries, /hasActiveChapterWork\(query\.state\.data/);
 });
 
-test("storyboard review filter uses the themed select primitive", () => {
-  const storyboard = source(
+test("story beat inspector review status uses typed status updates", () => {
+  const inspector = source(
     "app",
     "desktop",
     "src",
     "renderer",
     "features",
-    "storyboard",
-    "screens",
-    "StoryboardScreen.tsx",
+    "story",
+    "components",
+    "StoryBeatInspector.tsx",
   );
-  assert.match(storyboard, /<SelectContent>/);
-  assert.match(storyboard, /<SelectItem value="NEEDS_REVIEW">Needs review<\/SelectItem>/);
-  assert.doesNotMatch(storyboard, /<select[\s>]/);
+  assert.match(inspector, /onUpdateReviewStatus/);
+  assert.match(inspector, /APPROVED/);
+  assert.match(inspector, /NEEDS_REVIEW/);
 });
 
 test("chapter analysis preserves one idempotency key across transport retries", () => {

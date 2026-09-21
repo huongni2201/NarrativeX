@@ -15,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service providing short, isolated database transaction boundaries for GenerationJob lifecycle.
- * Remote calls to external engines (Gemini, GPU worker) must occur outside these transaction methods.
+ * Remote calls to external engines (Gemini, GPU worker) must occur outside these transaction
+ * methods.
  */
 @Slf4j
 @Service
@@ -32,8 +33,7 @@ public class GenerationJobTransactionService {
     }
     GenerationJob job = jobOpt.get();
     if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.SUBMITTING)) {
-      log.debug(
-          "Job {} is in state {}, cannot transition to SUBMITTING", jobId, job.getStatus());
+      log.debug("Job {} is in state {}, cannot transition to SUBMITTING", jobId, job.getStatus());
       return Optional.empty();
     }
     GenerationJob submitting = job.markSubmitting(step);
@@ -49,8 +49,7 @@ public class GenerationJobTransactionService {
     }
     GenerationJob job = jobOpt.get();
     if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.RUNNING)) {
-      log.debug(
-          "Job {} is in state {}, cannot transition to RUNNING", jobId, job.getStatus());
+      log.debug("Job {} is in state {}, cannot transition to RUNNING", jobId, job.getStatus());
       return Optional.empty();
     }
     GenerationJob running = job.markRunning(step, progress);

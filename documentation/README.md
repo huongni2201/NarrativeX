@@ -11,8 +11,10 @@ Current source code, Flyway migrations, and automated tests establish factual im
 | [`CURRENT_STATUS.md`](./CURRENT_STATUS.md) | Navigation index, implementation reality, and migration status |
 | [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) | Compute Protocol v1 wire contract between Backend and Generation Service |
 | [`product/`](./product/) | Product specification (`PRODUCT_SPEC.md`) and project roadmap (`ROADMAP.md`) |
-| [`architecture/`](./architecture/) | System architecture (`SYSTEM_ARCHITECTURE.md`), database design (`DATABASE.md`), and technology stack (`TECHNOLOGY_STACK.md`) |
-| [`domain/`](./domain/) | Core domain model, invariants, business rules, and terminology (`DOMAIN.md`) |
+| [`LTX production implementation plan`](./product/LTX_PRODUCTION_IMPLEMENTATION_PLAN.md) | TARGET implementation plan for Gemini preparation, LTX footage generation, production expense cap, and local 720p/24 FPS finishing; not a claim of implemented capability |
+| [`architecture/`](./architecture/) | System architecture (`SYSTEM_ARCHITECTURE.md`), target video-first architecture (`target-architecture-video-first.md`), runtime flow (`runtime-flow.md`), generation routing (`generation-routing.md`), editing pipeline (`editing-pipeline.md`), database design (`DATABASE.md`), and technology stack (`TECHNOLOGY_STACK.md`) |
+| [`domain/`](./domain/) | Core domain model (`DOMAIN.md`), story domain (`story-domain.md`), retention domain (`retention-domain.md`), shot domain (`shot-domain.md`), generation domain (`generation-domain.md`), and production manifest (`production-manifest.md`) |
+| [`migration/`](./migration/) | Migration inventory and cut-over plans (`current-state-inventory.md`) |
 | [`workflows/`](./workflows/) | End-to-end production pipelines: story-to-video (`STORY_TO_VIDEO.md`), narration audio (`NARRATION_AUDIO.md`), image generation (`IMAGE_GENERATION.md`) |
 | [`operations/`](./operations/) | Operational guides including remote GPU runtime operations (`REMOTE_GPU_RUNTIME.md`) |
 | [`decisions/`](./decisions/) | Architecture Decision Records (ADRs) with classification and supersession rules (`README.md`) |

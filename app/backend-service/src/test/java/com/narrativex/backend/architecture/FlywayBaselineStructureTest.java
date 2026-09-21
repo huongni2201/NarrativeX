@@ -27,8 +27,10 @@ class FlywayBaselineStructureTest {
     String v6 = read("V6__indexes.sql");
     String v7 = read("V7__seed_catalog.sql");
     String v8 = read("V8__generation_async_orchestration.sql");
+    String v9 = read("V9__video_first_retention_production.sql");
+    String v10 = read("V10__character_voice_profiles.sql");
 
-    for (String schema : new String[] {v1, v2, v3, v4, v5}) {
+    for (String schema : new String[] {v1, v2, v3, v4, v5, v9, v10}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     }
     assertFalse(v6.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
@@ -187,6 +189,29 @@ class FlywayBaselineStructureTest {
     assertTrue(
         chapters.contains(
             "media_plan_revision INTEGER CHECK (media_plan_revision IS NULL OR media_plan_revision > 0)"));
+  }
+
+  @Test
+  void v9VideoFirstRetentionProductionConforms() throws IOException {
+    String v9 = read("V9__video_first_retention_production.sql");
+    assertTrue(v9.contains("CREATE TABLE hook_plans"));
+    assertTrue(v9.contains("CREATE TABLE retention_maps"));
+    assertTrue(v9.contains("CREATE TABLE attention_events"));
+    assertTrue(v9.contains("CREATE TABLE shot_sequences"));
+    assertTrue(v9.contains("CREATE TABLE shots"));
+    assertTrue(v9.contains("CREATE TABLE takes"));
+    assertTrue(v9.contains("CREATE TABLE selected_takes"));
+    assertTrue(v9.contains("CREATE TABLE generation_references"));
+    assertTrue(v9.contains("CREATE TABLE production_insights"));
+    assertTrue(
+        v9.contains("CHECK (production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE'))"));
+  }
+
+  @Test
+  void v10CharacterVoiceProfilesConforms() throws IOException {
+    String v10 = read("V10__character_voice_profiles.sql");
+    assertTrue(v10.contains("CREATE TABLE character_voice_profiles"));
+    assertTrue(v10.contains("pinned_voice_profile_id"));
   }
 
   private static String read(String name) throws IOException {

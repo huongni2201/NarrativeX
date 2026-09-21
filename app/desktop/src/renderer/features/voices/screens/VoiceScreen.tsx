@@ -128,19 +128,19 @@ export function VoiceScreen({
   const parsedRate = Number.parseFloat(speakingRate);
   const normalizedRate = Number.isFinite(parsedRate) ? parsedRate : 1;
 
-  const accountVoiceReferenceId =
-    voiceReference?.scope === "ACCOUNT" ? voiceReference.assetId : null;
-  const voiceReferenceQuery = useVoiceReferenceAsset(accountVoiceReferenceId);
+  const globalLocalVoiceReferenceId =
+    voiceReference?.scope === "GLOBAL_LOCAL" ? voiceReference.assetId : null;
+  const voiceReferenceQuery = useVoiceReferenceAsset(globalLocalVoiceReferenceId);
   const voiceReferenceReady =
     voiceReference?.scope === "PROJECT"
       ? selectedProjectVoiceAsset?.status === "READY"
-      : voiceReference?.scope === "ACCOUNT"
+      : voiceReference?.scope === "GLOBAL_LOCAL"
         ? voiceReferenceQuery.data?.status === "READY"
         : false;
   const referencePending = Boolean(voiceReference && !voiceReferenceReady);
 
   useEffect(() => {
-    if (voiceReference?.scope !== "ACCOUNT") return;
+    if (voiceReference?.scope !== "GLOBAL_LOCAL") return;
     if (voiceReferenceQuery.data?.status === "REJECTED") {
       setNotice("Giọng tham chiếu bị từ chối khi kiểm tra file. Hãy chọn MP3/WAV sạch dài ít nhất 3 giây.");
       setVoiceReference(null);
@@ -258,13 +258,13 @@ export function VoiceScreen({
     try {
       const uploaded = await uploadReference.mutateAsync();
       if (!uploaded) return;
-      setVoiceReference({ scope: "ACCOUNT", assetId: uploaded.assetId });
+      setVoiceReference({ scope: "GLOBAL_LOCAL", assetId: uploaded.assetId });
       setSelectedAssetIds([]);
       setVoiceReferenceName(uploaded.originalFilename);
       setPreviewJobId(null);
       setNotice(
         uploaded.status === "READY"
-          ? `${uploaded.originalFilename} đã sẵn sàng để clone giọng cho account.`
+          ? `${uploaded.originalFilename} đã sẵn sàng để làm giọng tham chiếu dùng chung.`
           : `${uploaded.originalFilename} đã upload. Đang kiểm tra audio…`,
       );
     } catch (error) {
@@ -272,13 +272,13 @@ export function VoiceScreen({
     }
   }
 
-  function selectAccountVoice(assetId: string, originalFilename: string) {
+  function selectReusableVoice(assetId: string, originalFilename: string) {
     if (voiceReferenceBusy) return;
-    setVoiceReference({ scope: "ACCOUNT", assetId });
+    setVoiceReference({ scope: "GLOBAL_LOCAL", assetId });
     setVoiceReferenceName(originalFilename);
     setSelectedAssetIds([]);
     setPreviewJobId(null);
-    setNotice(`${originalFilename} đang được dùng làm account voice reference từ R2.`);
+    setNotice(`${originalFilename} đang được dùng làm giọng tham chiếu dùng chung.`);
   }
 
   function clearVoiceReference() {
@@ -376,7 +376,7 @@ export function VoiceScreen({
                 </span>
                 <h1 className="mt-1 text-[22px] font-semibold tracking-[-.02em]">Voice &amp; TTS</h1>
                 <p className="mt-1 text-[11px] text-text-secondary">
-                  Project voice lưu local; account voice upload lên R2 và dùng lại giữa các project.
+                  Project voice lưu cục bộ theo dự án; reusable voice lưu trong thư viện dùng chung cho toàn bộ dự án.
                 </p>
               </div>
 
@@ -489,11 +489,11 @@ export function VoiceScreen({
         voiceReferenceName={voiceReferenceName}
         voiceReferenceScope={voiceReference?.scope ?? null}
         previewText={previewText}
-        previewStatus={voiceReferenceReady ? previewStatus : voiceReference?.scope === "ACCOUNT" ? voiceReferenceQuery.data?.status ?? null : selectedProjectVoiceAsset?.status ?? null}
+        previewStatus={voiceReferenceReady ? previewStatus : voiceReference?.scope === "GLOBAL_LOCAL" ? voiceReferenceQuery.data?.status ?? null : selectedProjectVoiceAsset?.status ?? null}
         previewUrl={previewResultQuery.data?.url ?? null}
         previewBusy={previewBusy}
         onToggleAsset={toggleAsset}
-        onSelectAccountVoice={selectAccountVoice}
+        onSelectReusableVoice={selectReusableVoice}
         onCreateTake={() => void runSingle()}
         onResetFilters={resetFilters}
         onUploadVoiceReference={() => void uploadVoiceReference()}

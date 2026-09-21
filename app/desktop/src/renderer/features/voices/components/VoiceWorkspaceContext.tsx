@@ -23,7 +23,7 @@ import {
   StatusIndicator,
 } from "../../workspace/components/WorkstationPrimitives";
 import { formatBytes, formatDuration } from "../model/voice-ui";
-import { useAccountVoiceReferences } from "../queries/voice-media.queries";
+import { useGlobalLocalVoiceReferences } from "../queries/voice-media.queries";
 
 type Props = Readonly<{
   selectedVoice: DesktopVoice | null;
@@ -43,7 +43,7 @@ type Props = Readonly<{
   previewUrl: string | null;
   previewBusy: boolean;
   onToggleAsset: (assetId: string) => void;
-  onSelectAccountVoice: (assetId: string, originalFilename: string) => void;
+  onSelectReusableVoice: (assetId: string, originalFilename: string) => void;
   onCreateTake: () => void;
   onResetFilters: () => void;
   onUploadVoiceReference: () => void;
@@ -75,7 +75,7 @@ export function VoiceWorkspaceContext({
   previewUrl,
   previewBusy,
   onToggleAsset,
-  onSelectAccountVoice,
+  onSelectReusableVoice,
   onCreateTake,
   onResetFilters,
   onUploadVoiceReference,
@@ -88,12 +88,12 @@ export function VoiceWorkspaceContext({
   onTagFilter,
   onOpenAssets,
 }: Props) {
-  const accountVoices = useAccountVoiceReferences();
-  const reusableAccountVoices = (accountVoices.data ?? []).filter((asset) => asset.status === "READY");
+  const globalLocalVoices = useGlobalLocalVoiceReferences();
+  const reusableVoices = (globalLocalVoices.data ?? []).filter((asset) => asset.status === "READY");
   const customVoiceLabel = voiceReferenceScope === "PROJECT"
     ? "Project voice · local"
-    : voiceReferenceScope === "ACCOUNT"
-      ? "Account voice · R2"
+    : voiceReferenceScope === "GLOBAL_LOCAL"
+      ? "Thư viện giọng · Local"
       : "Custom voice";
 
   return (
@@ -130,18 +130,18 @@ export function VoiceWorkspaceContext({
             />
           ) : null}
 
-          {reusableAccountVoices.length ? (
+          {reusableVoices.length ? (
             <div className="border-b border-border-subtle p-2.5">
-              <div className="mb-1.5 text-[9px] text-text-dim">Account voices · R2</div>
+              <div className="mb-1.5 text-[9px] text-text-dim">Giọng dùng chung · Local</div>
               <div className="grid gap-1">
-                {reusableAccountVoices.slice(0, 5).map((asset) => {
-                  const selected = voiceReferenceScope === "ACCOUNT" && voiceReferenceName === asset.originalFilename;
+                {reusableVoices.slice(0, 5).map((asset) => {
+                  const selected = voiceReferenceScope === "GLOBAL_LOCAL" && voiceReferenceName === asset.originalFilename;
                   return (
                     <button
                       key={asset.id}
                       type="button"
                       disabled={busy}
-                      onClick={() => onSelectAccountVoice(asset.id, asset.originalFilename)}
+                      onClick={() => onSelectReusableVoice(asset.id, asset.originalFilename)}
                       className={`flex min-h-8 items-center gap-2 border-l-2 px-2 py-1.5 text-left text-[9px] transition-colors disabled:opacity-40 ${selected ? "border-l-primary bg-primary-muted text-primary-hover" : "border-l-transparent bg-surface-dark text-text-secondary hover:bg-surface-hover"}`}
                     >
                       <Mic2 size={12} />
@@ -156,7 +156,7 @@ export function VoiceWorkspaceContext({
 
           <div className="grid gap-2 p-2.5">
             <Button variant="outline" size="sm" onClick={onUploadVoiceReference} disabled={busy} className="w-full justify-start">
-              <Upload size={12} /> {voiceReferenceScope === "ACCOUNT" && voiceReferenceName ? voiceReferenceName : "Upload account voice (R2)"}
+              <Upload size={12} /> {voiceReferenceScope === "GLOBAL_LOCAL" && voiceReferenceName ? voiceReferenceName : "Thêm giọng dùng chung (Local)"}
             </Button>
             <label className="grid gap-1 text-[9px] text-text-muted">
               Preview text
@@ -212,7 +212,7 @@ export function VoiceWorkspaceContext({
           </div>
         </InspectorSection>
 
-        {accountVoices.isError ? <InlineNotice tone="warning">Không tải được account voice list.</InlineNotice> : null}
+        {globalLocalVoices.isError ? <InlineNotice tone="warning">Không tải được danh sách giọng dùng chung.</InlineNotice> : null}
       </div>
     </aside>
   );

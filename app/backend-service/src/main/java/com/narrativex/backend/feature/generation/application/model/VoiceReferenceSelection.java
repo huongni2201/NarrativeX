@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.generation.application.model;
 
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import java.util.Objects;
 import java.util.UUID;
 

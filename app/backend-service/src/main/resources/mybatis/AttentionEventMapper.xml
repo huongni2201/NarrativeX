@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper">
+
+  <resultMap id="attentionEvent" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="retentionMapId" column="retention_map_id"/>
+    <result property="eventType" column="event_type"/>
+    <result property="timeOffsetMs" column="time_offset_ms"/>
+    <result property="description" column="description"/>
+    <result property="severity" column="severity"/>
+  </resultMap>
+
+  <select id="findByRetentionMapId" resultMap="attentionEvent">
+    SELECT id, row_version, created_at, updated_at, retention_map_id, event_type, time_offset_ms, description, severity
+    FROM attention_events
+    WHERE retention_map_id = #{retentionMapId}
+    ORDER BY time_offset_ms ASC, id ASC
+  </select>
+
+  <select id="findById" resultMap="attentionEvent">
+    SELECT id, row_version, created_at, updated_at, retention_map_id, event_type, time_offset_ms, description, severity
+    FROM attention_events
+    WHERE id = #{id}
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO attention_events (row_version, created_at, updated_at, retention_map_id, event_type, time_offset_ms, description, severity)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{retentionMapId}, #{eventType}, #{timeOffsetMs}, #{description}, #{severity})
+    RETURNING id
+  </select>
+
+  <insert id="insertBatch">
+    INSERT INTO attention_events (row_version, created_at, updated_at, retention_map_id, event_type, time_offset_ms, description, severity)
+    VALUES
+    <foreach collection="events" item="e" separator=",">
+      (#{e.rowVersion}, COALESCE(#{e.createdAt}, CURRENT_TIMESTAMP), COALESCE(#{e.updatedAt}, CURRENT_TIMESTAMP), #{e.retentionMapId}, #{e.eventType}, #{e.timeOffsetMs}, #{e.description}, #{e.severity})
+    </foreach>
+  </insert>
+
+  <delete id="deleteByRetentionMapId">
+    DELETE FROM attention_events WHERE retention_map_id = #{retentionMapId}
+  </delete>
+
+</mapper>

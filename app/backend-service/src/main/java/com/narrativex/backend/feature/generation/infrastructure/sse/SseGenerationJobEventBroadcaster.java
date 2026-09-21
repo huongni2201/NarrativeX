@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * In-memory SSE event broadcaster per project.
- * Notifies connected Desktop clients of active generation job state transitions.
+ * In-memory SSE event broadcaster per project. Notifies connected Desktop clients of active
+ * generation job state transitions.
  */
 @Slf4j
 @Component

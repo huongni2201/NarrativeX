@@ -45,28 +45,24 @@ test("features only use renderer/api for shared transport primitives", () => {
   assert.deepEqual(violations, []);
 });
 
-test("Storyboard delegates media transport workflows to feature queries", () => {
+test("VideoShotboard delegates media transport workflows to feature queries", () => {
   const storyboardRoot = join(featuresRoot, "storyboard");
-  const screenPath = join(storyboardRoot, "screens", "StoryboardScreen.tsx");
-  const gridPath = join(storyboardRoot, "components", "VisualBeatGrid.tsx");
-  const source = readFileSync(screenPath, "utf8");
-  const gridSource = readFileSync(gridPath, "utf8");
+  const shotboardPath = join(storyboardRoot, "components", "VideoShotboard.tsx");
+  const source = readFileSync(shotboardPath, "utf8");
 
   assert.doesNotMatch(source, /import\s+\{\s*assetsApi\s*\}/);
   assert.doesNotMatch(source, /import\s+\{\s*productionApi\s*\}/);
-  assert.doesNotMatch(source, /\bassetsApi\.registerLocal\s*\(/);
-  assert.doesNotMatch(source, /\bproductionApi\.updateBeatMedia\s*\(/);
-  assert.match(source, /useStoryboardMediaMutations/);
-  assert.match(gridSource, /useStoryboardImagePreview/);
+  assert.match(source, /useStoryboardImagePreview/);
 });
 
-test("StoryboardScreen composes focused presentation components", () => {
+test("VideoShotboard composes focused video shot presentation components", () => {
   const storyboardRoot = join(featuresRoot, "storyboard");
   const componentRoot = join(storyboardRoot, "components");
   const requiredComponents = [
-    "StoryboardHeader.tsx",
-    "StoryboardNavigator.tsx",
-    "VisualBeatGrid.tsx",
+    "VideoShotboard.tsx",
+    "TakeSelectorDrawer.tsx",
+    "ShotActionToolbar.tsx",
+    "RetentionPlanView.tsx",
   ];
 
   for (const component of requiredComponents) {
@@ -77,12 +73,10 @@ test("StoryboardScreen composes focused presentation components", () => {
     );
   }
 
-  const source = readFileSync(join(storyboardRoot, "screens", "StoryboardScreen.tsx"), "utf8");
-  assert.match(source, /<StoryboardHeader\b/);
-  assert.match(source, /<StoryboardNavigator\b/);
-  assert.match(source, /<VisualBeatGrid\b/);
-  assert.doesNotMatch(source, /function VisualBeatCard\s*\(/);
-  assert.doesNotMatch(source, /function BeatImagePreview\s*\(/);
+  const source = readFileSync(join(storyboardRoot, "components", "VideoShotboard.tsx"), "utf8");
+  assert.match(source, /<TakeSelectorDrawer\b/);
+  assert.match(source, /<ShotActionToolbar\b/);
+  assert.match(source, /export function VideoShotboard\b/);
 });
 
 test("EditorScreen delegates media persistence and preview transport to feature queries", () => {
@@ -124,15 +118,14 @@ test("CharactersScreen delegates generation and queue workflows to feature queri
   assert.match(source, /useCharacterPortrait/);
 });
 
-test("ChaptersScreen delegates analysis mutation polling and invalidation to chapter queries", () => {
+test("ChapterWorkspaceScreen delegates analysis and story queries to feature hooks", () => {
   const source = readFileSync(
-    join(featuresRoot, "chapters", "screens", "ChaptersScreen.tsx"),
+    join(featuresRoot, "chapters", "screens", "ChapterWorkspaceScreen.tsx"),
     "utf8",
   );
 
   assert.doesNotMatch(source, /import\s+\{\s*useMutation/);
-  assert.doesNotMatch(source, /generationApi\.analyze\s*\(/);
-  assert.doesNotMatch(source, /const\s+analysisJobQuery\s*=\s*useGenerationJob/);
-  assert.doesNotMatch(source, /setAnalysisJob\s*\(/);
-  assert.match(source, /useChapterAnalysis/);
+  assert.match(source, /useAnalyzeChapter/);
+  assert.match(source, /useChapterStoryQuery/);
+  assert.match(source, /useCreateMediaJob/);
 });

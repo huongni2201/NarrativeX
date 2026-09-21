@@ -16,7 +16,7 @@
       "additionalProperties": false,
       "required": ["type", "schemaVersion"],
       "properties": {
-        "type": {"type": "string", "enum": ["audio.synthesize", "audio.align", "image.generate", "media.validate", "text.generate"]},
+        "type": {"type": "string", "enum": ["audio.synthesize", "audio.align", "image.generate", "video.generate", "media.validate", "text.generate"]},
         "schemaVersion": {"const": "1.0"}
       }
     },
@@ -35,6 +35,7 @@
         {"$ref": "task-audio-synthesize.json"},
         {"$ref": "task-audio-align.json"},
         {"$ref": "task-image-generate.json"},
+        {"$ref": "task-video-generate.json"},
         {"$ref": "task-media-validate.json"},
         {"$ref": "task-text-generate.json"}
       ]

@@ -54,6 +54,7 @@ async def test_capabilities_returns_protocol_media_type(tmp_path: Path) -> None:
     assert response.headers["content-type"].startswith(MEDIA_TYPE)
     assert {executor["name"] for executor in response.json()["executors"]} == {
         "comfyui",
+        "ltx",
         "media-validator",
         "vieneu",
         "whisperx",

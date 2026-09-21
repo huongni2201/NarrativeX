@@ -8,7 +8,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.internal.ComputeEventRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeErrorDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
@@ -41,6 +40,8 @@ class ComputeEventApplicationServiceTest {
     broadcaster = mock(GenerationJobEventBroadcaster.class);
     imageFinalizer = mock(ComputeResultFinalizer.class);
     when(imageFinalizer.supportedType()).thenReturn(JobType.CHAPTER_GENERATE);
+    when(imageFinalizer.supports(org.mockito.ArgumentMatchers.eq(JobType.CHAPTER_GENERATE), any()))
+        .thenReturn(true);
 
     finalizerRegistry = new ComputeResultFinalizerRegistry(List.of(imageFinalizer));
     service =
@@ -71,7 +72,8 @@ class ComputeEventApplicationServiceTest {
         service.processEvent(request, "hash");
 
     assertEquals(ComputeEventApplicationService.ProcessingOutcome.DUPLICATE, outcome);
-    verify(receiptRepository, never()).recordReceipt(any(), any(), any(), any(), any(), any(), any());
+    verify(receiptRepository, never())
+        .recordReceipt(any(), any(), any(), any(), any(), any(), any());
     verify(generationJobRepository, never()).save(any());
   }
 
@@ -80,7 +82,8 @@ class ComputeEventApplicationServiceTest {
     UUID taskId = UUID.randomUUID();
     UUID attemptId = UUID.randomUUID();
     GenerationJob job =
-        GenerationJob.create(UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
             .markSubmitting("SUBMITTING")
             .markSubmitted(attemptId, "handle-1", 5L, Instant.now(), Instant.now().plusSeconds(10));
 
@@ -123,7 +126,8 @@ class ComputeEventApplicationServiceTest {
     UUID taskId = UUID.randomUUID();
     UUID attemptId = UUID.randomUUID();
     GenerationJob job =
-        GenerationJob.create(UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
             .markRunning("RUNNING", 100)
             .markCompleted("COMPLETED");
 
@@ -158,7 +162,8 @@ class ComputeEventApplicationServiceTest {
     UUID taskId = UUID.randomUUID();
     UUID attemptId = UUID.randomUUID();
     GenerationJob job =
-        GenerationJob.create(UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
             .markSubmitting("SUBMITTING")
             .markSubmitted(attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10));
 
@@ -187,7 +192,8 @@ class ComputeEventApplicationServiceTest {
         service.processEvent(request, "hash");
 
     assertEquals(ComputeEventApplicationService.ProcessingOutcome.PROCESSED, outcome);
-    verify(imageFinalizer).finalizeResult(any(GenerationJob.class), any(ComputeObservationDto.class));
+    verify(imageFinalizer)
+        .finalizeResult(any(GenerationJob.class), any(ComputeObservationDto.class));
     verify(broadcaster).broadcastJobEvent(any(GenerationJob.class));
   }
 
@@ -196,7 +202,8 @@ class ComputeEventApplicationServiceTest {
     UUID taskId = UUID.randomUUID();
     UUID attemptId = UUID.randomUUID();
     GenerationJob job =
-        GenerationJob.create(UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
             .markSubmitting("SUBMITTING")
             .markSubmitted(attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10));
 

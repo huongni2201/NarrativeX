@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationReferenceMapper">
+
+  <resultMap id="generationReference" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationReferenceRow">
+    <id property="id" column="id"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="shotId" column="shot_id"/>
+    <result property="referenceType" column="reference_type"/>
+    <result property="mediaAssetId" column="media_asset_id"/>
+    <result property="weight" column="weight"/>
+  </resultMap>
+
+  <select id="findByShotId" resultMap="generationReference">
+    SELECT id, row_version, created_at, shot_id, reference_type, media_asset_id, weight
+    FROM generation_references
+    WHERE shot_id = #{shotId}
+    ORDER BY created_at ASC, id ASC
+  </select>
+
+  <select id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationReferenceRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO generation_references (row_version, created_at, shot_id, reference_type, media_asset_id, weight)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), #{shotId}, #{referenceType}, #{mediaAssetId}, COALESCE(#{weight}, 1.0))
+    RETURNING id
+  </select>
+
+  <insert id="insertBatch">
+    INSERT INTO generation_references (row_version, created_at, shot_id, reference_type, media_asset_id, weight)
+    VALUES
+    <foreach collection="refs" item="r" separator=",">
+      (#{r.rowVersion}, COALESCE(#{r.createdAt}, CURRENT_TIMESTAMP), #{r.shotId}, #{r.referenceType}, #{r.mediaAssetId}, COALESCE(#{r.weight}, 1.0))
+    </foreach>
+  </insert>
+
+  <delete id="deleteByShotId">
+    DELETE FROM generation_references WHERE shot_id = #{shotId}
+  </delete>
+
+</mapper>

@@ -21,6 +21,7 @@ TASK_SCHEMAS = {
     "audio.synthesize": "task-audio-synthesize.json",
     "audio.align": "task-audio-align.json",
     "image.generate": "task-image-generate.json",
+    "video.generate": "task-video-generate.json",
     "media.validate": "task-media-validate.json",
     "text.generate": "task-text-generate.json",
 }

@@ -1,6 +1,8 @@
 package com.narrativex.backend.feature.generation.domain.enums;
 
-/** Current executable production policy authorized by the backend. */
+/** Production policy governing project media generation and assembly. */
 public enum ProductionMode {
-  IMAGE_MOTION
+  IMAGE_MOTION,
+  VIDEO_FIRST,
+  LEGACY_IMAGE
 }

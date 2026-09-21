@@ -39,7 +39,8 @@ public class ComputeEventApplicationService {
 
     // Invariant: Idempotent receipt deduplication
     if (computeEventReceiptRepository.existsByEventId(request.eventId())) {
-      log.info("Duplicate event {} received for task {}; skipping", request.eventId(), request.taskId());
+      log.info(
+          "Duplicate event {} received for task {}; skipping", request.eventId(), request.taskId());
       return ProcessingOutcome.DUPLICATE;
     }
 
@@ -115,7 +116,7 @@ public class ComputeEventApplicationService {
       case "SUCCEEDED" -> {
         generationJobRepository.save(job);
         Optional<ComputeResultFinalizer> finalizerOpt =
-            finalizerRegistry.findFinalizer(job.getType());
+            finalizerRegistry.findFinalizer(job.getType(), job.getProductionMode());
         if (finalizerOpt.isPresent()) {
           finalizerOpt.get().finalizeResult(job, request.toObservationDto());
         } else {
@@ -123,8 +124,7 @@ public class ComputeEventApplicationService {
           job = job.markCompleted("COMPUTE_SUCCEEDED");
           generationJobRepository.save(job);
         }
-        GenerationJob finalJob =
-            generationJobRepository.findByJobId(job.getJobId()).orElse(job);
+        GenerationJob finalJob = generationJobRepository.findByJobId(job.getJobId()).orElse(job);
         eventBroadcaster.broadcastJobEvent(finalJob);
         return ProcessingOutcome.PROCESSED;
       }

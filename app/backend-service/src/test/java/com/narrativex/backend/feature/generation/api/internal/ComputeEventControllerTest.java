@@ -2,13 +2,11 @@ package com.narrativex.backend.feature.generation.api.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.application.service.ComputeEventApplicationService;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;

@@ -10,7 +10,7 @@ export function buildRenderPreflightInput(
   projectId: string,
   timeline: DesktopTimeline,
   resolution: RenderResolution,
-  frameRate: RenderFrameRate = 30,
+  frameRate: RenderFrameRate = 24,
 ): LocalRenderPreflightInput {
   const assets: LocalRenderPreflightAssetInput[] = [];
 
@@ -43,7 +43,7 @@ export function buildRenderPreflightInput(
 export function estimateRenderOutputBytes(
   totalDurationMs: number,
   resolution: RenderResolution,
-  frameRate: RenderFrameRate = 30,
+  frameRate: RenderFrameRate = 24,
 ): number {
   const frameRateFactor = frameRate / 30;
   return Math.max(

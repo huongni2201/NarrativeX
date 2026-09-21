@@ -23,6 +23,177 @@ export interface DesktopAudioCue {
   rowVersion: number;
 }
 
+export type DramaticIntent =
+  | "SETUP"
+  | "QUESTION"
+  | "TENSION"
+  | "ESCALATION"
+  | "REVEAL"
+  | "REACTION"
+  | "PAYOFF"
+  | "RELIEF"
+  | "TRANSITION"
+  | "CLIFFHANGER";
+
+export type RetentionRole =
+  | "HOOK"
+  | "INCITING"
+  | "ESCALATION"
+  | "MIDPOINT_SHIFT"
+  | "CLIMAX"
+  | "TWIST"
+  | "RESOLUTION"
+  | "COOLDOWN";
+
+export type AttentionEventType =
+  | "NEW_INFORMATION"
+  | "QUESTION"
+  | "REVEAL"
+  | "CONFLICT"
+  | "CHARACTER_ENTRANCE"
+  | "LOCATION_CHANGE"
+  | "VISUAL_CHANGE"
+  | "SOUND_CHANGE"
+  | "REACTION"
+  | "PAYOFF"
+  | "PACING_RISK";
+
+export interface AttentionEvent {
+  eventType: AttentionEventType;
+  timeOffsetMs: number;
+  description: string;
+  severity?: "INFO" | "WARNING" | "CRITICAL";
+}
+
+export interface HookPlan {
+  id: string;
+  chapterId: string;
+  promise: string;
+  conflict: string;
+  curiosityQuestion: string;
+  visualHook: string;
+  dialogueHook: string;
+  withheldInformation: string;
+  payoffBeatId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RetentionMap {
+  id: string;
+  chapterId: string;
+  tensionCurve: number[];
+  openQuestions: string[];
+  resolvedQuestions: string[];
+  attentionEvents: AttentionEvent[];
+  pacingWarnings: string[];
+}
+
+export type GenerationStrategy =
+  | "TEXT_TO_VIDEO"
+  | "IMAGE_TO_VIDEO"
+  | "FIRST_LAST_FRAME"
+  | "MULTI_KEYFRAME"
+  | "VIDEO_EXTEND"
+  | "VIDEO_RETAKE";
+
+export type ShotStatus =
+  | "PLANNED"
+  | "REFERENCE_PREPARING"
+  | "READY"
+  | "QUEUED"
+  | "GENERATING"
+  | "GENERATED"
+  | "VALIDATING"
+  | "PASSED"
+  | "FAILED"
+  | "RETRY_READY"
+  | "MANUAL_REVIEW"
+  | "SELECTED";
+
+export type TakeValidationStatus =
+  | "PENDING"
+  | "RUNNING"
+  | "GENERATED"
+  | "VALIDATING"
+  | "PASSED"
+  | "FAILED";
+
+export type VideoQAFailureCategory =
+  | "FACE_IDENTITY"
+  | "CHARACTER_CONSISTENCY"
+  | "ANATOMY"
+  | "MOTION"
+  | "TEMPORAL_ARTIFACT"
+  | "CAMERA"
+  | "COMPOSITION"
+  | "PROMPT_ADHERENCE"
+  | "CONTINUITY"
+  | "DURATION"
+  | "TECHNICAL_OUTPUT";
+
+export interface TakeValidationResult {
+  passed: boolean;
+  failureCategory?: VideoQAFailureCategory | null;
+  failureReason?: string | null;
+  retryRecommendation?: string | null;
+  score?: number | null;
+}
+
+export interface DesktopTake {
+  id: string;
+  shotId: string;
+  attemptNumber: number;
+  provider: string;
+  model: string;
+  generationMode: GenerationStrategy;
+  outputAssetId?: string | null;
+  sourceDurationMs?: number | null;
+  validationResult?: TakeValidationResult | null;
+  status: TakeValidationStatus;
+  createdAt?: string;
+}
+
+export interface DesktopSelectedTake {
+  shotId: string;
+  takeId: string;
+  sourceInMs: number;
+  sourceOutMs: number;
+}
+
+export interface DesktopShot {
+  id: string;
+  sequenceId: string;
+  orderIndex: number;
+  narrativePurpose: string;
+  retentionRole?: RetentionRole | null;
+  subjects: string[];
+  locationRef?: string | null;
+  startState: string;
+  action: string;
+  endState: string;
+  composition: string;
+  camera: string;
+  subjectMotion: string;
+  cameraMotion: string;
+  environmentMotion: string;
+  targetDurationMs: number;
+  generationStrategy: GenerationStrategy;
+  qualityProfile: string;
+  continuityFromShotId?: string | null;
+  continuityToShotId?: string | null;
+  status: ShotStatus;
+  takes: DesktopTake[];
+  selectedTake?: DesktopSelectedTake | null;
+}
+
+export interface DesktopShotSequence {
+  id: string;
+  visualBeatId: string;
+  orderIndex: number;
+  shots: DesktopShot[];
+}
+
 export interface DesktopStoryVisualBeat {
   id: string;
   sceneId: string;
@@ -34,7 +205,11 @@ export interface DesktopStoryVisualBeat {
   visualDescription?: string | null;
   visualDirectionJson?: string | null;
   reviewStatus: StoryBeatReviewStatus;
-  motionMode: "STILL" | "PAN" | "ZOOM_IN" | "ZOOM_OUT" | "DYNAMIC";
+  dramaticIntent?: DramaticIntent;
+  emotion?: string | null;
+  retentionRole?: RetentionRole | null;
+  shotSequence?: DesktopShotSequence | null;
+  motionMode?: "STILL" | "PAN" | "ZOOM_IN" | "ZOOM_OUT" | "DYNAMIC";
   relativeWeight: number;
   visualFocus: string;
   aspectRatioOverride?: string | null;

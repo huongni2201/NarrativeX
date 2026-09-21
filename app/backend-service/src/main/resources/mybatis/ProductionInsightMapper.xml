@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProductionInsightMapper">
+
+  <insert id="insert">
+    INSERT INTO production_insights (
+      id, row_version, created_at, project_id, chapter_id, observation_json, recommendation_text, status
+    ) VALUES (
+      #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{rowVersion},
+      #{createdAt},
+      #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      CAST(#{observationJson} AS JSONB),
+      #{recommendationText},
+      #{status}
+    )
+  </insert>
+
+  <select id="findById" resultType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProductionInsightRow">
+    SELECT id,
+           row_version AS rowVersion,
+           created_at AS createdAt,
+           project_id AS projectId,
+           chapter_id AS chapterId,
+           observation_json::text AS observationJson,
+           recommendation_text AS recommendationText,
+           status
+      FROM production_insights
+     WHERE id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+  </select>
+
+  <select id="findByProjectId" resultType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProductionInsightRow">
+    SELECT id,
+           row_version AS rowVersion,
+           created_at AS createdAt,
+           project_id AS projectId,
+           chapter_id AS chapterId,
+           observation_json::text AS observationJson,
+           recommendation_text AS recommendationText,
+           status
+      FROM production_insights
+     WHERE project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+     ORDER BY created_at DESC
+  </select>
+
+  <select id="findByChapterId" resultType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProductionInsightRow">
+    SELECT id,
+           row_version AS rowVersion,
+           created_at AS createdAt,
+           project_id AS projectId,
+           chapter_id AS chapterId,
+           observation_json::text AS observationJson,
+           recommendation_text AS recommendationText,
+           status
+      FROM production_insights
+     WHERE chapter_id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+     ORDER BY created_at DESC
+  </select>
+
+  <update id="updateStatus">
+    UPDATE production_insights
+       SET status = #{status},
+           row_version = row_version + 1
+     WHERE id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND row_version = #{expectedRowVersion}
+  </update>
+
+</mapper>

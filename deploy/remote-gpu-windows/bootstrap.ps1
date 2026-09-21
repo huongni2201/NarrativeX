@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Automated bootstrap for NarrativeX remote GPU worker on Windows RTX 3090.
+    Automated bootstrap for NarrativeX remote GPU worker on Windows (NVIDIA GeForce RTX 5090 32GB target; RTX 3090 24GB baseline).
 
 .DESCRIPTION
-    Installs pinned Python 3.12 via uv, sets up PyTorch with CUDA 12.4,
-    prepares runtimes (VieNeu, ComfyUI, WhisperX), and configures generation-service.
+    Installs pinned Python 3.14 via uv, sets up PyTorch with CUDA 13.0,
+    prepares runtimes (LTX Video, VieNeu, ComfyUI, WhisperX), and configures generation-service.
 
 .PARAMETER InstallDir
     Base installation directory. If omitted, automatically selects drive with most free space.
@@ -30,7 +30,7 @@ param (
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "NarrativeX Remote GPU Runtime Bootstrap (Windows RTX 3090)" -ForegroundColor Cyan
+Write-Host "NarrativeX Remote GPU Runtime Bootstrap (Windows RTX 5090 / RTX 3090)" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Architecture and OS check
@@ -49,8 +49,8 @@ $gpuInfo = & nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,noun
 Write-Host "Detected GPU: $gpuInfo" -ForegroundColor Green
 
 $gpuTotalMb = [int]($gpuInfo.Split(",")[1].Trim())
-if ($gpuTotalMb -lt 20000) {
-    Write-Warning "Detected GPU VRAM is $gpuTotalMb MB. An RTX 3090 (24GB VRAM) is recommended for heavy generative workloads."
+if ($gpuTotalMb -lt 24000) {
+    Write-Warning "Detected GPU VRAM is $gpuTotalMb MB. An NVIDIA GeForce RTX 5090 (32GB VRAM) or RTX 3090 (24GB VRAM baseline) is recommended for heavy generative workloads."
 }
 
 # 3. Disk selection and directory layout

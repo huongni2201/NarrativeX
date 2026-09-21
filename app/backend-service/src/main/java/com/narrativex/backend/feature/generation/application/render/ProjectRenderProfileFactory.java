@@ -7,8 +7,8 @@ public final class ProjectRenderProfileFactory {
   private ProjectRenderProfileFactory() {}
 
   public static String create(int fps, boolean subtitlesEnabled, boolean watermarkRequired) {
-    if (fps != 30 && fps != 60) {
-      throw new IllegalArgumentException("fps must be 30 or 60");
+    if (fps != 24 && fps != 30 && fps != 60) {
+      throw new IllegalArgumentException("fps must be 24, 30, or 60");
     }
     String subtitleMode = subtitlesEnabled ? "burn_in" : "none";
     String watermarkMode = watermarkRequired ? "required" : "none";

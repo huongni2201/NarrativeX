@@ -2,11 +2,14 @@ package com.narrativex.backend.feature.storyboard.domain.entity;
 
 import com.narrativex.backend.feature.common.domain.DomainEntity;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
+import com.narrativex.backend.feature.storyboard.domain.enums.DramaticIntent;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
+import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.Objects;
 import java.util.UUID;
 
+/** Visual dramatic beat within a Scene. Contains dramatic intent and maps to a ShotSequence. */
 public final class VisualBeat extends DomainEntity {
   private static final int MAX_TITLE_LENGTH = 200;
   private static final int MAX_VISUAL_INTENT_LENGTH = 8000;
@@ -26,6 +29,9 @@ public final class VisualBeat extends DomainEntity {
   private final Integer textStart;
   private final Integer textEnd;
   private final String sourceAnchorJson;
+  private final DramaticIntent dramaticIntent;
+  private final String emotion;
+  private final RetentionRole retentionRole;
   private VisualBeatReviewStatus reviewStatus;
   private UUID previewMediaAssetId;
 
@@ -104,6 +110,48 @@ public final class VisualBeat extends DomainEntity {
       Integer textEnd,
       String sourceAnchorJson,
       VisualBeatReviewStatus reviewStatus) {
+    this(
+        id,
+        rowVersion,
+        sceneId,
+        storyBeatId,
+        orderIndex,
+        title,
+        visualIntent,
+        visualDirectionJson,
+        motionMode,
+        aspectRatioOverride,
+        relativeWeight,
+        visualFocus,
+        textStart,
+        textEnd,
+        sourceAnchorJson,
+        DramaticIntent.SETUP,
+        null,
+        null,
+        reviewStatus);
+  }
+
+  private VisualBeat(
+      UUID id,
+      long rowVersion,
+      UUID sceneId,
+      UUID storyBeatId,
+      int orderIndex,
+      String title,
+      String visualIntent,
+      String visualDirectionJson,
+      MotionMode motionMode,
+      AspectRatio aspectRatioOverride,
+      double relativeWeight,
+      String visualFocus,
+      Integer textStart,
+      Integer textEnd,
+      String sourceAnchorJson,
+      DramaticIntent dramaticIntent,
+      String emotion,
+      RetentionRole retentionRole,
+      VisualBeatReviewStatus reviewStatus) {
     super(id, rowVersion);
     this.sceneId = Objects.requireNonNull(sceneId, "sceneId");
     this.storyBeatId = storyBeatId;
@@ -124,6 +172,9 @@ public final class VisualBeat extends DomainEntity {
     this.textStart = textStart;
     this.textEnd = textEnd;
     this.sourceAnchorJson = sourceAnchorJson;
+    this.dramaticIntent = dramaticIntent != null ? dramaticIntent : DramaticIntent.SETUP;
+    this.emotion = emotion;
+    this.retentionRole = retentionRole;
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus");
   }
 
@@ -174,6 +225,48 @@ public final class VisualBeat extends DomainEntity {
       Integer textEnd,
       String sourceAnchorJson,
       VisualBeatReviewStatus reviewStatus) {
+    return rehydrate(
+        id,
+        rowVersion,
+        sceneId,
+        storyBeatId,
+        orderIndex,
+        title,
+        visualIntent,
+        visualDirectionJson,
+        motionMode,
+        aspectRatioOverride,
+        relativeWeight,
+        visualFocus,
+        textStart,
+        textEnd,
+        sourceAnchorJson,
+        DramaticIntent.SETUP,
+        null,
+        null,
+        reviewStatus);
+  }
+
+  public static VisualBeat rehydrate(
+      UUID id,
+      long rowVersion,
+      UUID sceneId,
+      UUID storyBeatId,
+      int orderIndex,
+      String title,
+      String visualIntent,
+      String visualDirectionJson,
+      MotionMode motionMode,
+      AspectRatio aspectRatioOverride,
+      double relativeWeight,
+      String visualFocus,
+      Integer textStart,
+      Integer textEnd,
+      String sourceAnchorJson,
+      DramaticIntent dramaticIntent,
+      String emotion,
+      RetentionRole retentionRole,
+      VisualBeatReviewStatus reviewStatus) {
     return new VisualBeat(
         id,
         rowVersion,
@@ -190,7 +283,22 @@ public final class VisualBeat extends DomainEntity {
         textStart,
         textEnd,
         sourceAnchorJson,
+        dramaticIntent,
+        emotion,
+        retentionRole,
         reviewStatus);
+  }
+
+  public DramaticIntent getDramaticIntent() {
+    return dramaticIntent;
+  }
+
+  public String getEmotion() {
+    return emotion;
+  }
+
+  public RetentionRole getRetentionRole() {
+    return retentionRole;
   }
 
   public void changeReviewStatus(VisualBeatReviewStatus newStatus) {

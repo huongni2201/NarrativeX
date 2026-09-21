@@ -91,7 +91,7 @@ export function chooseMediaFit(
     return {
       fitMode: "TRIM",
       trimStartMs: 0,
-      reason: "Still image follows narration duration; motion is handled by FFmpeg.",
+      reason: "Legacy image mode follows narration duration; motion is handled by FFmpeg.",
     };
   }
 

@@ -13,7 +13,8 @@ public class MotionStrategyResolver {
     Objects.requireNonNull(productionMode, "productionMode");
     Objects.requireNonNull(motionIntent, "motionIntent");
     return switch (productionMode) {
-      case IMAGE_MOTION -> MotionStrategy.BASIC_IMAGE_MOTION;
+      case IMAGE_MOTION, LEGACY_IMAGE -> MotionStrategy.BASIC_IMAGE_MOTION;
+      case VIDEO_FIRST -> MotionStrategy.IMAGE_TO_VIDEO;
     };
   }
 }

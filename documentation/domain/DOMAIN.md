@@ -64,8 +64,8 @@ FinalArtifact metadata -> immutable final-video metadata; MP4 bytes in Desktop s
 - **BR-30**: VisualBeat represents a continuous visual intent and is the primary unit of visual generation within its StoryBeat.
 - **BR-31**: `visual_beats` stores source-text anchors (`text_start`, `text_end`), not duplicate audio timestamps. Runtime audio spans are mapped dynamically from narration alignment via NarrationTextClockMapper.
 - **BR-32**: `visual_direction_json` is the sole structured camera and composition authority.
-- **BR-33**: VisualGenerationMode supports IMAGE through ComfyUI. VIDEO is retained as a visual/editor intent; no active NarrativeX video-generation provider runtime exists.
-- **BR-34**: Production mode is IMAGE_MOTION (keyframe plus deterministic camera motion).
+- **BR-33**: VisualGenerationMode defaults to VIDEO through native video foundation models (LTX-2.5) via provider-neutral `video.generate` compute protocol. IMAGE is retained in a supporting role (reference conditioning, character portraits, keyframes, thumbnails).
+- **BR-34**: Production mode is VIDEO_FIRST (Shot sequence generation with Takes, multi-take review, and selectedTake persistence). Legacy IMAGE_MOTION is retained for backward-compatible project inspection.
 
 ### 5. Provider Durability and Safety
 

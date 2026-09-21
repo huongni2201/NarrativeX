@@ -4,16 +4,20 @@ import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.character.domain.entity.CharacterAppearance;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.feature.character.domain.entity.CharacterVoiceProfile;
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
+import com.narrativex.backend.feature.character.domain.enums.CharacterVoiceProfileStatus;
 import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
 import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterAppearanceRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionRow;
+import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVoiceProfileRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.OutfitVersionRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterRow;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -32,7 +36,8 @@ public class CharacterMyBatisRowMapper {
         row.getRowVersion(),
         row.getCanonicalName(),
         read(row.getAliasesJson(), STRINGS),
-        CharacterStatus.valueOf(row.getStatus()));
+        CharacterStatus.valueOf(row.getStatus()),
+        row.getPinnedVoiceProfileId());
   }
 
   public CharacterVersion toDomain(CharacterVersionRow row) {
@@ -102,6 +107,24 @@ public class CharacterMyBatisRowMapper {
         ProjectCharacterStatus.valueOf(row.getStatus()));
   }
 
+  public CharacterVoiceProfile toDomain(CharacterVoiceProfileRow row) {
+    return CharacterVoiceProfile.rehydrate(
+        row.getId(),
+        row.getRowVersion(),
+        row.getCharacterId(),
+        row.getVersionNumber(),
+        row.getReferenceAssetId(),
+        row.getReferenceScope() != null
+            ? VoiceReferenceScope.valueOf(row.getReferenceScope())
+            : VoiceReferenceScope.GLOBAL_LOCAL,
+        row.getLanguage(),
+        row.getAccent(),
+        row.getVoiceDescription(),
+        row.getDeliveryBaseline(),
+        CharacterVoiceProfileStatus.valueOf(row.getStatus()),
+        row.getLockedAt());
+  }
+
   public CharacterRow row(Character value, InstantPair timestamps) {
     CharacterRow row = new CharacterRow();
     row.setId(value.getId());
@@ -111,6 +134,26 @@ public class CharacterMyBatisRowMapper {
     row.setCanonicalName(value.getCanonicalName());
     row.setAliasesJson(write(value.getAliases()));
     row.setStatus(value.getStatus().name());
+    row.setPinnedVoiceProfileId(value.getPinnedVoiceProfileId());
+    return row;
+  }
+
+  public CharacterVoiceProfileRow row(CharacterVoiceProfile value, InstantPair timestamps) {
+    CharacterVoiceProfileRow row = new CharacterVoiceProfileRow();
+    row.setId(value.getId());
+    row.setRowVersion(value.getRowVersion());
+    row.setCreatedAt(timestamps.createdAt());
+    row.setUpdatedAt(timestamps.updatedAt());
+    row.setCharacterId(value.getCharacterId());
+    row.setVersionNumber(value.getVersionNumber());
+    row.setReferenceAssetId(value.getReferenceAssetId());
+    row.setReferenceScope(value.getReferenceScope().name());
+    row.setLanguage(value.getLanguage());
+    row.setAccent(value.getAccent());
+    row.setVoiceDescription(value.getVoiceDescription());
+    row.setDeliveryBaseline(value.getDeliveryBaseline());
+    row.setStatus(value.getStatus().name());
+    row.setLockedAt(value.getLockedAt());
     return row;
   }
 

@@ -135,6 +135,29 @@ export function EditorInspectorPanel({
                 </span>
               </div>
 
+              {selectedBeat?.takeId && (
+                <div className="rounded bg-surface-2 p-2 border border-border-subtle space-y-1 text-[10px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-dim">Video Shot</span>
+                    <span className="font-mono font-medium text-foreground">
+                      Shot {selectedBeat.shotId?.slice(0, 8) ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-dim">Selected Take</span>
+                    <span className="font-mono font-medium text-primary">
+                      Take {selectedBeat.takeId.slice(0, 8)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-dim">Take Preflight</span>
+                    <span className="font-mono font-medium text-success">
+                      {selectedBeat.assetReady ? "READY" : "CHECKING"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="relative">
                 <Button
                   variant="outline"
@@ -366,7 +389,8 @@ function InfoCell({ label, value }: Readonly<{ label: string; value: string }>) 
 }
 
 function mediaSourceLabel(beat: DesktopTimelineBeat): string {
-  if (!beat.mediaSelectionActive) return "Generated";
+  if (beat.takeId) return `Master Video Take (${beat.takeId.slice(0, 8)})`;
+  if (!beat.mediaSelectionActive) return beat.mediaType === "VIDEO" ? "Generated Video" : "Generated";
   if (beat.mediaType === "VIDEO") return "Video override";
   if (beat.mediaType === "IMAGE") return "Image override";
   return "Generated";

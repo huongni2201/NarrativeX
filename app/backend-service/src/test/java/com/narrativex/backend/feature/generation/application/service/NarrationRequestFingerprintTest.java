@@ -2,9 +2,9 @@ package com.narrativex.backend.feature.generation.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -63,7 +63,7 @@ class NarrationRequestFingerprintTest {
             "vi-VN",
             BigDecimal.ONE,
             "sentence-v1",
-            new VoiceReferenceSelection(VoiceReferenceScope.ACCOUNT, referenceAssetId));
+            new VoiceReferenceSelection(VoiceReferenceScope.GLOBAL_LOCAL, referenceAssetId));
 
     assertThat(edited).isNotEqualTo(base);
     assertThat(otherVoice).isNotEqualTo(base);

@@ -1,6 +1,6 @@
 # NarrativeX
 
-NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
+NarrativeX is a desktop-first, video-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
 
 The Electron application is the only supported editor client. Spring Boot is the authoritative control plane for business state, policy, durable jobs and metadata. Project media and final rendering are local-first on Desktop.
 

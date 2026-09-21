@@ -20,5 +20,6 @@ public class ProjectCharacterRow {
   private String storyMetadata;
   private String groupsJson;
   private UUID pinnedCharacterVersionId;
+  private UUID pinnedVoiceProfileId;
   private String status;
 }

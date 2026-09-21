@@ -52,6 +52,18 @@ Decisions that define the current architecture and implementation boundaries:
   StoryBeat as the semantic parent of AudioCue and VisualBeat, governed by Gemini as Story Director with Spring Boot validation, assembled narration scripts, and audio-driven visual timing.
 - **[ADR-0025: Event-Driven Compute Orchestration, Worker Callback Outbox, and Scheduled State Reconciliation](./ADR-0025-event-driven-compute-orchestration-and-reconciliation.md)**
   Non-blocking worker callbacks with HMAC signatures, durable job state machine, SQLite worker outbox, scheduled non-blocking reconciliation fallback, and SSE desktop stream without extra message brokers.
+- **[ADR-0026: Video-First LTX Audio-Native Production Runtime and Hardware Baseline](./ADR-0026-video-first-ltx-audio-native-production-runtime.md)**
+  Video-first moving footage production pipeline with synchronized audio, RTX 5090 32GB production target, WhisperX QC, VieNeu auxiliary fallback, and FFmpeg master composition.
+- **[ADR-0027: Shot as the Atomic Production Unit](./ADR-0027-shot-as-production-unit.md)**
+  VisualBeat refactored into dramatic beat; Shot established as the sole atomic production unit for generation, leasing, retries, and quality assurance.
+- **[ADR-0028: Image Generation Restricted to References and Keyframes Only](./ADR-0028-image-generator-reference-only.md)**
+  ComfyUI image generation repurposed exclusively for character references, location references, start/end frames, and keyframes.
+- **[ADR-0029: Generation Router and Model-Agnostic Video Strategies](./ADR-0029-generation-router-and-video-strategies.md)**
+  Domain-agnostic GenerationRouter assigning T2V, I2V, FIRST_LAST_FRAME, MULTI_KEYFRAME, VIDEO_EXTEND, and VIDEO_RETAKE; LTX-2.5 isolated in GPU worker adapter.
+- **[ADR-0030: Take / SelectedTake In/Out Trimming and Editing Decision List Pipeline](./ADR-0030-take-selected-take-and-editing-director.md)**
+  Multi-take generation, 11-category Video QA validation, SelectedTake in/out duration trimming, and EditingDirector EDL compilation.
+- **[ADR-0031: Retention-Driven Narrative Planning and Post-Publish Feedback Loop](./ADR-0031-retention-driven-narrative-planning.md)**
+  Pre-generation HookPlan and RetentionMap; attention event detector with pacing risk guardrails; post-publish YouTube retention feedback loop.
 
 ### PARTIALLY SUPERSEDED
 
@@ -61,8 +73,8 @@ Decisions whose core technical decisions remain valid, but specific sections hav
   *Active:* Spring Boot control plane, MyBatis/PostgreSQL persistence, durable jobs/leases/provider operations.
   *Superseded:* Direct worker polling superseded by ADR-0018; monetary cost authorization superseded by ADR-0020.
 - **[ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows](./ADR-0002-storyboard-character-continuity-and-production-workflows.md)**
-  *Active:* Chapter-first workflow, reusable Character identity, revision/history rules and VisualBeat/motion models.
-  *Superseded:* Historical translation-lineage portion is superseded by the translation-free Chapter source baseline.
+  *Active:* Chapter-first workflow, reusable Character identity, revision/history rules.
+  *Superseded:* Historical translation-lineage portion is superseded by the translation-free Chapter source baseline; still image motion models, Ken Burns zoompan, and single-image-per-beat assumptions superseded by ADR-0026 and ADR-0027.
 - **[ADR-0014: PostgreSQL-only MVP runtime state](./ADR-0014-postgresql-only-mvp-runtime-state.md)**
   *Active:* PostgreSQL as the sole state store (no Redis).
   *Superseded:* Direct worker polling of PostgreSQL superseded by ADR-0018 Compute Protocol. Session state in PostgreSQL superseded by ADR-0020.
@@ -82,7 +94,7 @@ reused by active ADR files; use the active section and linked files above for cu
 - Historical local-AI production-stack decision: superseded by ADR-0020, ADR-0022, and ADR-0023.
 - Historical VoiceStudio-only TTS decision: superseded by ADR-0023.
 - Historical domain-neutral text-generation boundary: superseded by ADR-0022.
-- Historical reference-conditioned GPU video-generation decision: deferred; video generation remains out of scope.
+- Historical reference-conditioned GPU video-generation decision: superseded by ADR-0026 through ADR-0029.
 
 ---
 
@@ -96,6 +108,9 @@ reused by active ADR files; use the active section and linked files above for cu
 - ADR-0022 supersedes the historical text-generation compute boundary preserved in Git history and Qwen chapter analysis; backend control plane owns Vertex Gemini integration.
 - ADR-0023 supersedes the historical VoiceStudio decision preserved in Git history; VieNeu is the production TTS engine.
 - ADR-0018 supersedes direct PostgreSQL polling by workers in ADR-0014 and relocates executors behind the Compute Protocol into `app/generation-service`.
+- ADR-0026 and ADR-0027 supersede the still-image motion and single-image beat portions of ADR-0002.
+- ADR-0028, ADR-0029, and ADR-0030 govern video generation routing, multi-take validation, and timeline editing.
+- ADR-0031 establishes retention planning as a pre-generation constraint.
 - The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 

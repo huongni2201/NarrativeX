@@ -59,7 +59,8 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
-  public java.util.List<GenerationJob> findJobsDueForReconciliation(java.time.Instant now, int limit) {
+  public java.util.List<GenerationJob> findJobsDueForReconciliation(
+      java.time.Instant now, int limit) {
     java.util.List<GenerationJobRow> rows = mapper.findJobsDueForReconciliation(now, limit);
     return rows == null
         ? java.util.List.of()

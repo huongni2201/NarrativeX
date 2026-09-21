@@ -16,9 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Finalizes image generation jobs upon compute success (callback or reconciliation).
- */
+/** Finalizes image generation jobs upon compute success (callback or reconciliation). */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -33,11 +31,24 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
   }
 
   @Override
+  public boolean supports(
+      JobType jobType,
+      com.narrativex.backend.feature.generation.domain.enums.ProductionMode productionMode) {
+    return jobType == JobType.CHAPTER_GENERATE
+        && (productionMode == null
+            || productionMode
+                == com.narrativex.backend.feature.generation.domain.enums.ProductionMode
+                    .IMAGE_MOTION);
+  }
+
+  @Override
   @Transactional
   public void finalizeResult(GenerationJob job, ComputeObservationDto observation) {
     if (job.getStatus().isTerminal()) {
       log.debug(
-          "Job {} is already terminal ({}), skipping finalization", job.getJobId(), job.getStatus());
+          "Job {} is already terminal ({}), skipping finalization",
+          job.getJobId(),
+          job.getStatus());
       return;
     }
 
@@ -79,8 +90,7 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
             produced.sha256(),
             null));
 
-    GenerationJob freshJob =
-        generationJobRepository.findByJobId(job.getJobId()).orElse(job);
+    GenerationJob freshJob = generationJobRepository.findByJobId(job.getJobId()).orElse(job);
     if (!freshJob.getStatus().isTerminal()) {
       GenerationJob completed = freshJob.markCompleted("MEDIA_READY");
       generationJobRepository.save(completed);

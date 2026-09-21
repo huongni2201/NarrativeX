@@ -13,9 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-/**
- * Delivers realtime Server-Sent Events (SSE) for generation jobs scoped to a project.
- */
+/** Delivers realtime Server-Sent Events (SSE) for generation jobs scoped to a project. */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -24,7 +22,9 @@ public class ProjectGenerationEventController {
 
   private final GenerationJobEventBroadcaster broadcaster;
 
-  @GetMapping(value = "/{projectId}/generation/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  @GetMapping(
+      value = "/{projectId}/generation/events",
+      produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public ResponseEntity<SseEmitter> streamProjectEvents(@PathVariable UUID projectId) {
     log.debug("Connecting SSE stream for project {}", projectId);
     return ResponseEntity.ok()

@@ -3,8 +3,8 @@ package com.narrativex.backend.feature.generation.application.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,8 @@ class GenerateChapterNarrationCommandTest {
                     chapterId,
                     "vieneu-default",
                     BigDecimal.ONE,
-                    new VoiceReferenceSelection(VoiceReferenceScope.ACCOUNT, UUID.randomUUID()),
+                    new VoiceReferenceSelection(
+                        VoiceReferenceScope.GLOBAL_LOCAL, UUID.randomUUID()),
                     "a".repeat(501)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("500");

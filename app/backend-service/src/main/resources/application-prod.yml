@@ -21,3 +21,8 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+
+narrativex:
+  compute:
+    machine-token: ${NARRATIVEX_COMPUTE_MACHINE_TOKEN}
+    callback-secret: ${NARRATIVEX_COMPUTE_CALLBACK_SECRET:${NARRATIVEX_COMPUTE_MACHINE_TOKEN}}

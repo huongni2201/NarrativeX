@@ -21,10 +21,12 @@ def test_production_catalog_registers_all_compute_workloads(tmp_path: Path) -> N
         capabilities = {item.name: item for item in components.executor_catalog.capabilities()}
         assert set(capabilities) == {
             "comfyui",
+            "ltx",
             "media-validator",
             "vieneu",
             "whisperx",
         }
+        assert capabilities["ltx"].ready is True
         assert capabilities["comfyui"].ready is True
         assert capabilities["vieneu"].ready is True
         assert capabilities["whisperx"].ready is settings.whisperx_available

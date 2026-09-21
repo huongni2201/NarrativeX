@@ -15,7 +15,6 @@ import com.narrativex.backend.feature.generation.application.model.compute.Compu
 import com.narrativex.backend.feature.generation.application.model.compute.InputArtifactRefDto;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
-import com.narrativex.backend.feature.generation.application.model.compute.SubmitTaskResult;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.domain.enums.AlignmentStatus;
@@ -79,7 +78,8 @@ class ComputeNarrationAlignmentAdapterTest {
         .thenAnswer(
             invocation -> {
               ComputeTaskRequest req = invocation.getArgument(0);
-              return new com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt(
+              return new com.narrativex.backend.feature.generation.application.model.compute
+                  .ComputeSubmissionReceipt(
                   req.taskId(), req.attemptId(), "whisperx:handle", "ACCEPTED", 1L);
             });
 

@@ -1,4 +1,4 @@
-import { Volume2, Image as ImageIcon, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Volume2, Film, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import type { DesktopStoryBeat } from "@narrativex/client-contracts";
 
 export interface StoryBeatCardProps {
@@ -87,7 +87,7 @@ export function StoryBeatCard({ beat, selected, onSelect }: StoryBeatCardProps) 
         </p>
       )}
 
-      {/* Cues & Visual Preview Grid */}
+      {/* Cues & Cinematic Shot Preview Grid */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/60 text-[12px]">
         {/* Audio / Dialogue Snippet */}
         <div className="flex items-start gap-1.5 min-w-0 rounded bg-surface-dark/70 p-2">
@@ -102,15 +102,15 @@ export function StoryBeatCard({ beat, selected, onSelect }: StoryBeatCardProps) 
           </div>
         </div>
 
-        {/* Visual Preview Snippet */}
+        {/* Cinematic Shot Plan Snippet */}
         <div className="flex items-start gap-1.5 min-w-0 rounded bg-surface-dark/70 p-2">
-          <ImageIcon size={13} className="shrink-0 text-primary mt-0.5" />
+          <Film size={13} className="shrink-0 text-primary mt-0.5" />
           <div className="min-w-0 flex-1">
             <span className="block text-[11px] font-medium text-text-muted">
-              {beat.visualBeats.length} Visual Beat{beat.visualBeats.length > 1 ? "s" : ""}
+              {beat.visualBeats.length} Shot Plan{beat.visualBeats.length > 1 ? "s" : ""}
             </span>
             <p className="truncate text-[12px] text-text-secondary">
-              {primaryVisualBeat?.visualIntent || primaryVisualBeat?.title || "Chưa có chỉ đạo hình ảnh"}
+              {primaryVisualBeat?.visualIntent || primaryVisualBeat?.title || "Chưa có chỉ đạo cinematic shot"}
             </p>
           </div>
         </div>

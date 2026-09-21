@@ -22,7 +22,9 @@ public final class FlywayMigrationContract {
           "V5__database_logic_and_triggers.sql",
           "V6__indexes.sql",
           "V7__seed_catalog.sql",
-          "V8__generation_async_orchestration.sql");
+          "V8__generation_async_orchestration.sql",
+          "V9__video_first_retention_production.sql",
+          "V10__character_voice_profiles.sql");
 
   private FlywayMigrationContract() {}
 

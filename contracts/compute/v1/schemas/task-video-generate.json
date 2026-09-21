@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-video-generate.json",
+  "title": "VideoGenerateInputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["prompt", "negativePrompt", "width", "height", "fps", "durationMs", "generationMode", "seed"],
+  "properties": {
+    "prompt": {"type": "string", "minLength": 1, "maxLength": 20000},
+    "negativePrompt": {"type": "string", "maxLength": 10000},
+    "width": {"type": "integer", "minimum": 64, "maximum": 8192},
+    "height": {"type": "integer", "minimum": 64, "maximum": 8192},
+    "fps": {"type": "integer", "minimum": 1, "maximum": 120},
+    "durationMs": {"type": "integer", "minimum": 100, "maximum": 60000},
+    "generationMode": {
+      "type": "string",
+      "enum": [
+        "TEXT_TO_VIDEO",
+        "IMAGE_TO_VIDEO",
+        "FIRST_LAST_FRAME",
+        "MULTI_KEYFRAME",
+        "VIDEO_EXTEND",
+        "VIDEO_RETAKE"
+      ]
+    },
+    "seed": {"type": "integer", "minimum": 0},
+    "referenceAssets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetId", "referenceType"],
+        "properties": {
+          "assetId": {"type": "string", "format": "uuid"},
+          "referenceType": {"type": "string"},
+          "weight": {"type": "number", "minimum": 0.0, "maximum": 2.0}
+        }
+      }
+    },
+    "referenceAssetIds": {
+      "type": "array",
+      "items": {"type": "string", "format": "uuid"}
+    },
+    "voiceReference": {
+      "type": ["object", "null"],
+      "properties": {
+        "assetId": {"type": "string", "format": "uuid"},
+        "scope": {"type": "string", "enum": ["PROJECT", "GLOBAL_LOCAL"]},
+        "language": {"type": "string"},
+        "accent": {"type": "string"},
+        "voiceDescription": {"type": "string"},
+        "deliveryBaseline": {"type": "string"}
+      }
+    },
+    "dialogue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "speaker": {"type": "string"},
+          "text": {"type": "string"},
+          "startOffsetMs": {"type": "integer", "minimum": 0},
+          "endOffsetMs": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "cameraIntent": {
+      "type": "object",
+      "properties": {
+        "framing": {"type": "string"},
+        "movement": {"type": "string"},
+        "angle": {"type": "string"},
+        "speed": {"type": "string"}
+      }
+    },
+    "motionIntent": {
+      "type": "object",
+      "properties": {
+        "subjectMotion": {"type": "string"},
+        "speed": {"type": "string"},
+        "dynamics": {"type": "string"}
+      }
+    },
+    "continuity": {
+      "type": "object",
+      "properties": {
+        "incomingShotId": {"type": "string", "format": "uuid"},
+        "outgoingShotId": {"type": "string", "format": "uuid"}
+      }
+    },
+    "providerOptions": {
+      "type": "object"
+    },
+    "motionBucketId": {"type": "integer", "minimum": 1, "maximum": 255}
+  }
+}

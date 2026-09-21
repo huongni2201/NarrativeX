@@ -4,9 +4,9 @@ import { voicesApi } from "../api/voices.api";
 
 const PREVIEW_URL_REFRESH_SKEW_MS = 60_000;
 
-export function useAccountVoiceReferences() {
+export function useGlobalLocalVoiceReferences() {
   return useQuery({
-    queryKey: ["voice-references", "account"],
+    queryKey: ["voice-references", "global-local"],
     queryFn: voicesApi.listReferences,
     staleTime: 30_000,
   });

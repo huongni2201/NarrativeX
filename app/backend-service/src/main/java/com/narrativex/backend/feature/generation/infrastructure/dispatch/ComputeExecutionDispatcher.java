@@ -23,8 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * Thin dispatcher routing queued GenerationJobs to their respective JobHandlers.
- * Does NOT hold open database transactions across remote provider/compute calls.
+ * Thin dispatcher routing queued GenerationJobs to their respective JobHandlers. Does NOT hold open
+ * database transactions across remote provider/compute calls.
  */
 @Slf4j
 @Service
@@ -163,8 +163,8 @@ public class ComputeExecutionDispatcher {
   }
 
   /**
-   * Dispatches a queued generation job to its designated handler.
-   * Execution happens asynchronously or with short per-step transactions.
+   * Dispatches a queued generation job to its designated handler. Execution happens asynchronously
+   * or with short per-step transactions.
    */
   public void dispatchJob(UUID jobId) {
     Optional<GenerationJob> jobOpt = generationJobRepository.findByJobId(jobId);
@@ -180,7 +180,7 @@ public class ComputeExecutionDispatcher {
       return;
     }
 
-    Optional<GenerationJobHandler> handlerOpt = handlerRegistry.findHandler(job.getType());
+    Optional<GenerationJobHandler> handlerOpt = handlerRegistry.findHandler(job);
     if (handlerOpt.isPresent()) {
       handlerOpt.get().execute(jobId);
     } else {

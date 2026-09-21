@@ -60,7 +60,7 @@ export const productionApi = {
     projectId: string,
     beatOverrides: ProjectRenderBeatOverride[] = [],
     resolution: RenderResolution = "1080p",
-    frameRate: RenderFrameRate = 30,
+    frameRate: RenderFrameRate = 24,
     subtitlesEnabled = true,
   ) => {
     const status = await prepareLocalRenderExecutor(localRenderExecutorDependencies());

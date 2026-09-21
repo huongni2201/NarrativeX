@@ -740,11 +740,7 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public GenerationJob markRunningWithCompute(
-      String step,
-      int progress,
-      Long sequence,
-      String computeState,
-      String executionHandle) {
+      String step, int progress, Long sequence, String computeState, String executionHandle) {
     Instant now = Instant.now();
     return toBuilder()
         .status(JobStatus.RUNNING)
@@ -797,11 +793,7 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public GenerationJob markUnknown(String errorCode, String step) {
-    return toBuilder()
-        .status(JobStatus.UNKNOWN)
-        .errorCode(errorCode)
-        .currentStep(step)
-        .build();
+    return toBuilder().status(JobStatus.UNKNOWN).errorCode(errorCode).currentStep(step).build();
   }
 
   public GenerationJob markUnknown(String errorCode, String step, Instant nextReconcileAt) {
@@ -917,43 +909,190 @@ public final class GenerationJob extends AggregateRoot {
     private Long lastEventSequence;
     private Instant callbackReceivedAt;
 
-    public Builder id(UUID id) { this.id = id; return this; }
-    public Builder rowVersion(long rowVersion) { this.rowVersion = rowVersion; return this; }
-    public Builder jobId(UUID jobId) { this.jobId = jobId; return this; }
-    public Builder projectId(UUID projectId) { this.projectId = projectId; return this; }
-    public Builder type(JobType type) { this.type = type; return this; }
-    public Builder status(JobStatus status) { this.status = status; return this; }
-    public Builder resourceClass(ResourceClass resourceClass) { this.resourceClass = resourceClass; return this; }
-    public Builder progress(int progress) { this.progress = progress; return this; }
-    public Builder currentStep(String currentStep) { this.currentStep = currentStep; return this; }
-    public Builder errorCode(String errorCode) { this.errorCode = errorCode; return this; }
-    public Builder storyVersionId(UUID storyVersionId) { this.storyVersionId = storyVersionId; return this; }
-    public Builder chapterId(UUID chapterId) { this.chapterId = chapterId; return this; }
-    public Builder storyboardRevisionId(UUID storyboardRevisionId) { this.storyboardRevisionId = storyboardRevisionId; return this; }
-    public Builder chapterRowVersion(Long chapterRowVersion) { this.chapterRowVersion = chapterRowVersion; return this; }
-    public Builder sourceHash(String sourceHash) { this.sourceHash = sourceHash; return this; }
-    public Builder sourceText(String sourceText) { this.sourceText = sourceText; return this; }
-    public Builder sourceLanguage(String sourceLanguage) { this.sourceLanguage = sourceLanguage; return this; }
-    public Builder idempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; return this; }
-    public Builder mediaPlanId(UUID mediaPlanId) { this.mediaPlanId = mediaPlanId; return this; }
-    public Builder mediaPlanRevision(Integer mediaPlanRevision) { this.mediaPlanRevision = mediaPlanRevision; return this; }
-    public Builder productionMode(ProductionMode productionMode) { this.productionMode = productionMode; return this; }
-    public Builder analysisVisualGenerationMode(String mode) { this.analysisVisualGenerationMode = mode; return this; }
-    public Builder analysisImageProvider(String provider) { this.analysisImageProvider = provider; return this; }
-    public Builder submissionState(String submissionState) { this.submissionState = submissionState; return this; }
-    public Builder computeAttemptId(UUID computeAttemptId) { this.computeAttemptId = computeAttemptId; return this; }
-    public Builder computeExecutionHandle(String handle) { this.computeExecutionHandle = handle; return this; }
-    public Builder computeSequence(Long computeSequence) { this.computeSequence = computeSequence; return this; }
-    public Builder lastComputeState(String lastComputeState) { this.lastComputeState = lastComputeState; return this; }
-    public Builder submittedAt(Instant submittedAt) { this.submittedAt = submittedAt; return this; }
-    public Builder startedAt(Instant startedAt) { this.startedAt = startedAt; return this; }
-    public Builder completedAt(Instant completedAt) { this.completedAt = completedAt; return this; }
-    public Builder lastReconciledAt(Instant lastReconciledAt) { this.lastReconciledAt = lastReconciledAt; return this; }
-    public Builder nextReconcileAt(Instant nextReconcileAt) { this.nextReconcileAt = nextReconcileAt; return this; }
-    public Builder reconcileAttemptCount(int count) { this.reconcileAttemptCount = count; return this; }
-    public Builder lastEventId(String lastEventId) { this.lastEventId = lastEventId; return this; }
-    public Builder lastEventSequence(Long lastEventSequence) { this.lastEventSequence = lastEventSequence; return this; }
-    public Builder callbackReceivedAt(Instant receivedAt) { this.callbackReceivedAt = receivedAt; return this; }
+    public Builder id(UUID id) {
+      this.id = id;
+      return this;
+    }
+
+    public Builder rowVersion(long rowVersion) {
+      this.rowVersion = rowVersion;
+      return this;
+    }
+
+    public Builder jobId(UUID jobId) {
+      this.jobId = jobId;
+      return this;
+    }
+
+    public Builder projectId(UUID projectId) {
+      this.projectId = projectId;
+      return this;
+    }
+
+    public Builder type(JobType type) {
+      this.type = type;
+      return this;
+    }
+
+    public Builder status(JobStatus status) {
+      this.status = status;
+      return this;
+    }
+
+    public Builder resourceClass(ResourceClass resourceClass) {
+      this.resourceClass = resourceClass;
+      return this;
+    }
+
+    public Builder progress(int progress) {
+      this.progress = progress;
+      return this;
+    }
+
+    public Builder currentStep(String currentStep) {
+      this.currentStep = currentStep;
+      return this;
+    }
+
+    public Builder errorCode(String errorCode) {
+      this.errorCode = errorCode;
+      return this;
+    }
+
+    public Builder storyVersionId(UUID storyVersionId) {
+      this.storyVersionId = storyVersionId;
+      return this;
+    }
+
+    public Builder chapterId(UUID chapterId) {
+      this.chapterId = chapterId;
+      return this;
+    }
+
+    public Builder storyboardRevisionId(UUID storyboardRevisionId) {
+      this.storyboardRevisionId = storyboardRevisionId;
+      return this;
+    }
+
+    public Builder chapterRowVersion(Long chapterRowVersion) {
+      this.chapterRowVersion = chapterRowVersion;
+      return this;
+    }
+
+    public Builder sourceHash(String sourceHash) {
+      this.sourceHash = sourceHash;
+      return this;
+    }
+
+    public Builder sourceText(String sourceText) {
+      this.sourceText = sourceText;
+      return this;
+    }
+
+    public Builder sourceLanguage(String sourceLanguage) {
+      this.sourceLanguage = sourceLanguage;
+      return this;
+    }
+
+    public Builder idempotencyKey(String idempotencyKey) {
+      this.idempotencyKey = idempotencyKey;
+      return this;
+    }
+
+    public Builder mediaPlanId(UUID mediaPlanId) {
+      this.mediaPlanId = mediaPlanId;
+      return this;
+    }
+
+    public Builder mediaPlanRevision(Integer mediaPlanRevision) {
+      this.mediaPlanRevision = mediaPlanRevision;
+      return this;
+    }
+
+    public Builder productionMode(ProductionMode productionMode) {
+      this.productionMode = productionMode;
+      return this;
+    }
+
+    public Builder analysisVisualGenerationMode(String mode) {
+      this.analysisVisualGenerationMode = mode;
+      return this;
+    }
+
+    public Builder analysisImageProvider(String provider) {
+      this.analysisImageProvider = provider;
+      return this;
+    }
+
+    public Builder submissionState(String submissionState) {
+      this.submissionState = submissionState;
+      return this;
+    }
+
+    public Builder computeAttemptId(UUID computeAttemptId) {
+      this.computeAttemptId = computeAttemptId;
+      return this;
+    }
+
+    public Builder computeExecutionHandle(String handle) {
+      this.computeExecutionHandle = handle;
+      return this;
+    }
+
+    public Builder computeSequence(Long computeSequence) {
+      this.computeSequence = computeSequence;
+      return this;
+    }
+
+    public Builder lastComputeState(String lastComputeState) {
+      this.lastComputeState = lastComputeState;
+      return this;
+    }
+
+    public Builder submittedAt(Instant submittedAt) {
+      this.submittedAt = submittedAt;
+      return this;
+    }
+
+    public Builder startedAt(Instant startedAt) {
+      this.startedAt = startedAt;
+      return this;
+    }
+
+    public Builder completedAt(Instant completedAt) {
+      this.completedAt = completedAt;
+      return this;
+    }
+
+    public Builder lastReconciledAt(Instant lastReconciledAt) {
+      this.lastReconciledAt = lastReconciledAt;
+      return this;
+    }
+
+    public Builder nextReconcileAt(Instant nextReconcileAt) {
+      this.nextReconcileAt = nextReconcileAt;
+      return this;
+    }
+
+    public Builder reconcileAttemptCount(int count) {
+      this.reconcileAttemptCount = count;
+      return this;
+    }
+
+    public Builder lastEventId(String lastEventId) {
+      this.lastEventId = lastEventId;
+      return this;
+    }
+
+    public Builder lastEventSequence(Long lastEventSequence) {
+      this.lastEventSequence = lastEventSequence;
+      return this;
+    }
+
+    public Builder callbackReceivedAt(Instant receivedAt) {
+      this.callbackReceivedAt = receivedAt;
+      return this;
+    }
 
     public GenerationJob build() {
       return new GenerationJob(
