@@ -1,6 +1,6 @@
 # Image Generation Workflow
 
-Image generation produces immutable image MediaAssets for VisualBeats within StoryBeat and AudioCue timing context. NarrativeX is image-first, but image generation is separate from final FFmpeg motion/rendering and from optional I2V.
+Image generation produces immutable image MediaAssets for VisualBeats within StoryBeat and AudioCue timing context. Under ADR-0026, NarrativeX is video-first, and image generation produces reference keyframes, posters, and fallback stills while remaining separate from final FFmpeg master composition.
 
 ## Admission and editor flow
 

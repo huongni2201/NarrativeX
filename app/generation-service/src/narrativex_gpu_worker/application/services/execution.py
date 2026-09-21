@@ -11,6 +11,7 @@ from narrativex_gpu_worker.application.errors import (
     CapacityError,
     DeadlineExceededError,
     ExecutionCanceledError,
+    ExecutorExecutionError,
     ExecutorNotSupportedError,
     FingerprintConflictError,
     MissingDurableContextError,
@@ -354,6 +355,27 @@ class ExecutionApplicationService:
                     "RESIDENCY_TRANSITION_FAILED",
                     ErrorCategory.CAPACITY,
                     str(exc) or "Failed to acquire GPU runtime model residency",
+                    sequence=next_seq,
+                )
+            except ExecutorExecutionError as exc:
+                LOGGER.warning(
+                    "Executor execution error taskId=%s attemptId=%s code=%s message=%s",
+                    task.task_id,
+                    task.attempt_id,
+                    exc.code,
+                    exc.message,
+                )
+                next_seq = await self._next_sequence(task.task_id, task.attempt_id)
+                category = (
+                    ErrorCategory(exc.category)
+                    if isinstance(exc.category, str)
+                    else exc.category
+                )
+                completed = self._failure(
+                    task,
+                    exc.code,
+                    category,
+                    str(exc) or "Executor execution failed",
                     sequence=next_seq,
                 )
             except Exception:

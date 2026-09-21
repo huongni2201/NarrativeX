@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVoiceProfileMapper">
+  <resultMap id="characterVoiceProfileRow" type="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVoiceProfileRow">
+    <id property="id" column="id"/><result property="rowVersion" column="row_version"/><result property="createdAt" column="created_at"/><result property="updatedAt" column="updated_at"/>
+    <result property="characterId" column="character_id"/><result property="versionNumber" column="version_number"/>
+    <result property="referenceAssetId" column="reference_asset_id"/><result property="referenceScope" column="reference_scope"/>
+    <result property="language" column="language"/><result property="accent" column="accent"/>
+    <result property="voiceDescription" column="voice_description"/><result property="deliveryBaseline" column="delivery_baseline"/>
+    <result property="status" column="status"/><result property="lockedAt" column="locked_at"/>
+  </resultMap>
+
+  <select id="findById" resultMap="characterVoiceProfileRow">
+    SELECT id, row_version, created_at, updated_at, character_id, version_number,
+           reference_asset_id, reference_scope, language, accent, voice_description,
+           delivery_baseline, status, locked_at
+    FROM character_voice_profiles
+    WHERE id = #{id}
+  </select>
+
+  <select id="findPinnedByCharacterId" resultMap="characterVoiceProfileRow">
+    SELECT cvp.id, cvp.row_version, cvp.created_at, cvp.updated_at, cvp.character_id, cvp.version_number,
+           cvp.reference_asset_id, cvp.reference_scope, cvp.language, cvp.accent, cvp.voice_description,
+           cvp.delivery_baseline, cvp.status, cvp.locked_at
+    FROM character_voice_profiles cvp
+    JOIN characters c ON c.pinned_voice_profile_id = cvp.id
+    WHERE c.id = #{characterId}
+  </select>
+
+  <select id="findByCharacterId" resultMap="characterVoiceProfileRow">
+    SELECT id, row_version, created_at, updated_at, character_id, version_number,
+           reference_asset_id, reference_scope, language, accent, voice_description,
+           delivery_baseline, status, locked_at
+    FROM character_voice_profiles
+    WHERE character_id = #{characterId}
+    ORDER BY version_number ASC
+  </select>
+
+  <select id="maxVoiceProfileVersion" resultType="int">
+    SELECT COALESCE(MAX(version_number), 0)
+    FROM character_voice_profiles
+    WHERE character_id = #{characterId}
+  </select>
+
+  <select id="insertVoiceProfile" parameterType="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVoiceProfileRow" resultType="java.util.UUID" affectData="true">
+    INSERT INTO character_voice_profiles (
+      row_version, created_at, updated_at, character_id, version_number,
+      reference_asset_id, reference_scope, language, accent, voice_description,
+      delivery_baseline, status, locked_at
+    ) VALUES (
+      #{rowVersion}, #{createdAt}, #{updatedAt}, #{characterId}, #{versionNumber},
+      #{referenceAssetId}, #{referenceScope}, #{language}, #{accent}, #{voiceDescription},
+      #{deliveryBaseline}, #{status}, #{lockedAt}
+    ) RETURNING id
+  </select>
+
+  <update id="updateVoiceProfile">
+    UPDATE character_voice_profiles
+    SET reference_asset_id = #{referenceAssetId},
+        reference_scope = #{referenceScope},
+        language = #{language},
+        accent = #{accent},
+        voice_description = #{voiceDescription},
+        delivery_baseline = #{deliveryBaseline},
+        status = #{status},
+        locked_at = #{lockedAt},
+        updated_at = #{updatedAt},
+        row_version = row_version + 1
+    WHERE id = #{id} AND row_version = #{rowVersion}
+  </update>
+</mapper>

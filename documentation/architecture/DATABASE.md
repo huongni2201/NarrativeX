@@ -1,15 +1,15 @@
 # NarrativeX Database Architecture and Baseline Policy
 
 **Status:** maintained database contract  
-**Authority:** Spring Boot backend Flyway migrations (V1–V9), integration tests, and active ADRs (ADR-0020, ADR-0021, ADR-0025, ADR-0026 to ADR-0031)
+**Authority:** Spring Boot backend Flyway migrations (V1–V10), integration tests, and active ADRs (ADR-0020, ADR-0021, ADR-0025, ADR-0026 to ADR-0031)
 
 ## PostgreSQL Authority and Flyway Ownership
 
 PostgreSQL is the single authoritative store for business state, admission control, durable generation jobs, device leases, and artifact metadata. The Spring Boot backend owns Flyway and manages the relational schema. `app/generation-service` and Electron Desktop have zero direct access to PostgreSQL.
 
-## Current Canonical Baseline (V1–V9)
+## Current Canonical Baseline (V1–V10)
 
-NarrativeX maintains a clean, squashed pre-production baseline. A fresh database applies exactly nine responsibility-separated migrations:
+NarrativeX maintains a clean, squashed pre-production baseline. A fresh database applies exactly ten responsibility-separated migrations:
 
 | Migration | Responsibility |
 |---|---|
@@ -22,8 +22,9 @@ NarrativeX maintains a clean, squashed pre-production baseline. A fresh database
 | V7__seed_catalog.sql | Deterministic system and catalog seed data only |
 | V8__generation_async_orchestration.sql | Compute attempt handles, callback metadata, event receipts, and reconciliation indexes |
 | V9__video_first_retention_production.sql | Video-first production schema, hook plans, retention maps, attention events, shot sequences, shots, takes, selected takes, generation references, and production insights |
+| V10__character_voice_profiles.sql | Character voice profiles, pinned voice profile pointers, and voice identity isolation |
 
-A clean database applies **V1 through V9** directly. There are no obsolete patch migrations; former patch work was folded into the baseline.
+A clean database applies **V1 through V10** directly. There are no obsolete patch migrations; former patch work was folded into the baseline.
 
 ## Video-First Retention Production Schema (V9)
 

@@ -350,9 +350,9 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
     if version_by_name:
         versions = set(version_by_name.values())
         highest = max(versions)
-        if highest != 9:
+        if highest != 10:
             errors.append(
-                f"Flyway pre-production baseline highest version must be V9, found V{highest}"
+                f"Flyway pre-production baseline highest version must be V10, found V{highest}"
             )
         missing_versions = sorted(set(range(1, highest + 1)) - versions)
         if missing_versions:

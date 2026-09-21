@@ -530,16 +530,16 @@ class SqliteExecutionJournalAdapter:
                 (ts, event_id),
             )
 
-    async def mark_outbox_event_failed(
-        self, event_id: str, error: str | None, next_attempt_at: datetime
+    async def record_outbox_delivery_failure(
+        self, event_id: str, next_attempt_at: datetime
     ) -> None:
         async with self._lock:
             await asyncio.to_thread(
-                self._mark_outbox_event_failed_sync, event_id, error, next_attempt_at
+                self._record_outbox_delivery_failure_sync, event_id, next_attempt_at
             )
 
-    def _mark_outbox_event_failed_sync(
-        self, event_id: str, error: str | None, next_attempt_at: datetime
+    def _record_outbox_delivery_failure_sync(
+        self, event_id: str, next_attempt_at: datetime
     ) -> None:
         with self._connect() as connection:
             connection.execute(
@@ -549,11 +549,6 @@ class SqliteExecutionJournalAdapter:
                    WHERE event_id = ?""",
                 (next_attempt_at.isoformat(), event_id),
             )
-
-    async def record_outbox_delivery_failure(
-        self, event_id: str, next_attempt_at: datetime
-    ) -> None:
-        await self.mark_outbox_event_failed(event_id, None, next_attempt_at)
 
 
 __all__ = ["SqliteExecutionJournalAdapter"]

@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationOperationRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationOperationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow;
@@ -65,7 +65,7 @@ public class MyBatisNarrationPersistenceAdapter
         selection != null && selection.scope() == VoiceReferenceScope.PROJECT
             ? selection.assetId()
             : null,
-        selection != null && selection.scope() == VoiceReferenceScope.ACCOUNT
+        selection != null && selection.scope() == VoiceReferenceScope.GLOBAL_LOCAL
             ? selection.assetId()
             : null);
   }
@@ -79,7 +79,7 @@ public class MyBatisNarrationPersistenceAdapter
     } else if (row.accountVoiceReferenceAssetId() != null) {
       selection =
           new VoiceReferenceSelection(
-              VoiceReferenceScope.ACCOUNT, row.accountVoiceReferenceAssetId());
+              VoiceReferenceScope.GLOBAL_LOCAL, row.accountVoiceReferenceAssetId());
     }
     return new NarrationRequest(
         row.id(),

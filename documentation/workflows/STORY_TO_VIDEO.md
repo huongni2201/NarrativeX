@@ -4,7 +4,7 @@
 **Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021, ADR-0024, ADR-0025)
 
 
-NarrativeX is Desktop-only at the editor boundary, single-user local-first, Project-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
+NarrativeX is Desktop-only at the editor boundary, single-user local-first, Project-first, audio-timeline-first and video-first while allowing image keyframe references or fallback media per VisualBeat. Duration and visual density are adaptive.
 
 ## Entry and workspace behavior
 

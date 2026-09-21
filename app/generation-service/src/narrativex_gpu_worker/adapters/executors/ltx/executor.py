@@ -10,6 +10,7 @@ from narrativex_gpu_worker.adapters.executors.comfyui.client import (
 )
 from narrativex_gpu_worker.application.errors import (
     ExecutionCanceledError,
+    ExecutorExecutionError,
     MissingDurableContextError,
 )
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
@@ -40,6 +41,7 @@ class LtxVideoExecutor:
     models = (
         ModelRef(executor="ltx", model="ltx-2.5-nvfp4", revision="1.0"),
         ModelRef(executor="ltx", model="ltx-2.5", revision="1.0"),
+        ModelRef(executor="ltx", model="ltx-2.5", revision="nvfp4"),
     )
 
     def __init__(
@@ -71,9 +73,38 @@ class LtxVideoExecutor:
         if cancel.is_set():
             raise ExecutionCanceledError("LTX execution canceled before submit")
 
+        if not any(m.model == task.model.model for m in self.models):
+            raise ExecutorExecutionError(
+                code="VIDEO_MODEL_UNAVAILABLE",
+                message=(
+                    f"Model {task.model.model} revision {task.model.revision} "
+                    "is not supported by LTX executor"
+                ),
+                category="PERMANENT",
+            )
+
         start_time = time.perf_counter()
         inputs = task.inputs
         assert isinstance(inputs, VideoGenerateInputs)
+
+        # Resolve input reference artifacts if provided
+        for input_ref in task.artifacts.inputs:
+            if cancel.is_set():
+                raise ExecutionCanceledError("LTX execution canceled during reference resolution")
+            try:
+                ref_bytes = await self._artifact_adapter.download(input_ref)
+                if not ref_bytes:
+                    raise ValueError(
+                        f"Downloaded reference artifact {input_ref.artifact_id} is empty"
+                    )
+            except Exception as exc:
+                raise ExecutorExecutionError(
+                    code="VIDEO_REFERENCE_INVALID",
+                    message=(
+                        f"Failed to resolve input reference artifact {input_ref.artifact_id}: {exc}"
+                    ),
+                    category="PERMANENT",
+                ) from exc
 
         prompt_id: str | None = None
         if (
@@ -105,20 +136,58 @@ class LtxVideoExecutor:
                 seed=inputs.seed,
                 generation_mode=inputs.generation_mode,
                 motion_bucket_id=inputs.motion_bucket_id,
+                dialogue=inputs.dialogue,
+                camera_intent=inputs.camera_intent,
+                motion_intent=inputs.motion_intent,
+                voice_reference=inputs.voice_reference,
+                provider_options=inputs.provider_options,
             )
             client_id = f"narrativex-video-{str(task.task_id)[:8]}"
-            prompt_id = await self._client.submit_prompt(
-                workflow=workflow,
-                client_id=client_id,
-            )
-            await context.save_handle(f"ltx:{prompt_id}")
+            try:
+                prompt_id = await self._client.submit_prompt(
+                    workflow=workflow,
+                    client_id=client_id,
+                )
+                await context.save_handle(f"ltx:{prompt_id}")
+            except ComfyUIClientError as exc:
+                raise ExecutorExecutionError(
+                    code="VIDEO_GENERATION_FAILED",
+                    message=f"ComfyUI prompt submission failed: {exc}",
+                    category="TRANSIENT",
+                ) from exc
         else:
             client_id = f"narrativex-video-{str(task.task_id)[:8]}"
 
-        record = await self._client.wait_for_completion(prompt_id, client_id, cancel)
+        try:
+            record = await self._client.wait_for_completion(prompt_id, client_id, cancel)
+        except ExecutionCanceledError:
+            raise
+        except ComfyUIClientError as exc:
+            raise ExecutorExecutionError(
+                code="VIDEO_GENERATION_FAILED",
+                message=f"ComfyUI video generation execution failed: {exc}",
+                category="TRANSIENT",
+            ) from exc
+
         if cancel.is_set():
             raise ExecutionCanceledError("LTX execution canceled before artifact upload")
-        video_bytes = await self._download_record_video(record)
+
+        try:
+            video_bytes = await self._download_record_video(record)
+        except ComfyUIClientError as exc:
+            raise ExecutorExecutionError(
+                code="VIDEO_GENERATION_FAILED",
+                message=f"Failed to retrieve video artifact from ComfyUI: {exc}",
+                category="TRANSIENT",
+            ) from exc
+
+        if not video_bytes or len(video_bytes) < 32:
+            raise ExecutorExecutionError(
+                code="VIDEO_GENERATION_FAILED",
+                message="ComfyUI returned empty or invalid video output",
+                category="TRANSIENT",
+            )
+
         if cancel.is_set():
             raise ExecutionCanceledError("LTX execution canceled before artifact upload")
 

@@ -6,7 +6,7 @@
 
 ## Product definition
 
-NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, single-user local-first, Project-first, review-first, audio-timeline-first, image-first and local-media-first.
+NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, single-user local-first, Project-first, review-first, audio-timeline-first, video-first and local-media-first.
 
 Project creation and Chapter saving persist metadata and source text only. Analysis, narration/audio processing, image generation and final rendering are explicit user operations.
 
@@ -107,8 +107,8 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Character / Location continuity | IMPLEMENTED foundation | Richer review/reference locking remains partial |
 | Scene / VisualBeat storyboard | IMPLEMENTED foundation | Review + generation preparation |
 | `IMAGE` visual intent | IMPLEMENTED | Backend/generation-service image workflows (ComfyUI) |
-| `VIDEO` visual intent | IMPLEMENTED foundation | Retained as an editor intent; no active video-generation runtime |
-| Python / Wan video provider | DEFERRED / NOT IMPLEMENTED | Video generation deferred; no active Wan/I2V/T2V pipeline |
+| `VIDEO` visual intent | IMPLEMENTED | Primary video-first media mode; LTX-2.5 video runtime with native dialogue/audio |
+| LTX Video Generation | IMPLEMENTED foundation | Provider-neutral video.generate workload via LTX Video executor (ADR-0026) |
 | VieNeu narration | IMPLEMENTED foundation | Segmented headless TTS persists a project-local WAV master |
 | User-provided narration | IMPLEMENTED foundation | Native import + logical audio clock |
 | Compute Protocol v1 | IMPLEMENTED | JSON Schema contracts in `contracts/compute/v1/` |

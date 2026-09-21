@@ -65,8 +65,8 @@ class OutboxDeliveryService:
                 delay_idx = min(attempt_count, len(BACKOFF_DELAYS) - 1)
                 delay_seconds = BACKOFF_DELAYS[delay_idx]
                 next_attempt = datetime.now(UTC) + timedelta(seconds=delay_seconds)
-                await self._journal.mark_outbox_event_failed(
-                    event_id, "Delivery failed", next_attempt
+                await self._journal.record_outbox_delivery_failure(
+                    event_id, next_attempt
                 )
                 LOGGER.warning(
                     "Outbox event %s delivery failed (attempt %d); retrying in %ds",

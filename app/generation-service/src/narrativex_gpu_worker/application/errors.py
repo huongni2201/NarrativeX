@@ -37,11 +37,27 @@ class ResidencyTransitionError(RuntimeError):
     """Failed to transition or release GPU runtime model residency."""
 
 
+class ExecutorExecutionError(RuntimeError):
+    """Specific error raised by an executor adapter with explicit code and category."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        category: str = "TRANSIENT",
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.category = category
+
+
 __all__ = [
     "AmbiguousOutcomeError",
     "CapacityError",
     "DeadlineExceededError",
     "ExecutionCanceledError",
+    "ExecutorExecutionError",
     "ExecutorNotSupportedError",
     "FingerprintConflictError",
     "MissingDurableContextError",

@@ -1,7 +1,8 @@
 {
   "schema_version": "1.0",
   "target_platform": "windows-x86_64",
-  "target_gpu": "NVIDIA GeForce RTX 3090 (24GB VRAM)",
+  "target_gpu": "NVIDIA GeForce RTX 5090 (32GB VRAM)",
+  "benchmark_baseline_gpu": "NVIDIA GeForce RTX 3090 (24GB VRAM)",
   "components": {
     "python": {
       "version": "3.14.7"

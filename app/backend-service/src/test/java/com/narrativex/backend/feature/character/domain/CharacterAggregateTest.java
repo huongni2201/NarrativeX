@@ -132,4 +132,33 @@ class CharacterAggregateTest {
 
     assertEquals(versionId, assignment.getPinnedCharacterVersionId());
   }
+
+  @Test
+  void characterVoiceProfileCanBeCreatedAndPinned() {
+    UUID characterId = UuidV7.random();
+    UUID assetId = UuidV7.random();
+    UUID voiceProfileId = UuidV7.random();
+    Character character =
+        Character.rehydrate(characterId, 0L, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
+
+    com.narrativex.backend.feature.character.domain.entity.CharacterVoiceProfile profile =
+        character.createVoiceProfile(
+            1,
+            assetId,
+            com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope.GLOBAL_LOCAL,
+            "vi-VN",
+            "Northern",
+            "Warm confident female voice",
+            "Steady natural pacing");
+
+    assertEquals(characterId, profile.getCharacterId());
+    assertEquals(1, profile.getVersionNumber());
+    assertEquals("vi-VN", profile.getLanguage());
+
+    character.pinVoiceProfile(voiceProfileId);
+    assertEquals(voiceProfileId, character.getPinnedVoiceProfileId());
+
+    character.unpinVoiceProfile();
+    org.junit.jupiter.api.Assertions.assertNull(character.getPinnedVoiceProfileId());
+  }
 }

@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import java.util.UUID;
 
 public interface VoiceReferenceAssetAccess {

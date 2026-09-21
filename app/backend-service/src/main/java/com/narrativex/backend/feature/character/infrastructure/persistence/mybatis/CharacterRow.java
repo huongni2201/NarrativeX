@@ -15,4 +15,5 @@ public class CharacterRow {
   private String canonicalName;
   private String aliasesJson;
   private String status;
+  private UUID pinnedVoiceProfileId;
 }

@@ -91,11 +91,23 @@ public class CreateMediaJobUseCase {
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
-    var imageProfile = imageGenerationCatalog.resolve();
-    generationJobRepository.acquireImageCapacityLock();
-    if (generationJobRepository.countActiveImageJobs() >= limits.getMaxConcurrentExpensiveJobs()) {
-      throw new GenerationAdmissionDeniedException(
-          "CAPACITY_EXHAUSTED", "Image generation capacity is exhausted.");
+    boolean isVideoFirst = "VIDEO_FIRST".equals(command.productionMode());
+    String providerKey;
+    String modelKey;
+
+    if (isVideoFirst) {
+      providerKey = "ltx";
+      modelKey = "ltx-2.5-nvfp4";
+    } else {
+      var imageProfile = imageGenerationCatalog.resolve();
+      providerKey = imageProfile.providerKey();
+      modelKey = imageProfile.model();
+      generationJobRepository.acquireImageCapacityLock();
+      if (generationJobRepository.countActiveImageJobs()
+          >= limits.getMaxConcurrentExpensiveJobs()) {
+        throw new GenerationAdmissionDeniedException(
+            "CAPACITY_EXHAUSTED", "Image generation capacity is exhausted.");
+      }
     }
 
     var plan =
@@ -105,8 +117,8 @@ public class CreateMediaJobUseCase {
                 command.chapterId(),
                 ProductionMode.valueOf(command.productionMode()),
                 command.aspectRatio(),
-                imageProfile.providerKey(),
-                imageProfile.model(),
+                providerKey,
+                modelKey,
                 command.imageStyle()));
 
     GenerationJob job =
@@ -120,7 +132,8 @@ public class CreateMediaJobUseCase {
                 idempotencyKey));
     chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
 
-    stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
+    String stageName = isVideoFirst ? "SHOT_VIDEO_GENERATE" : STAGE_NAME;
+    stageAttemptRepository.create(StageAttempt.create(job.getId(), stageName, 1));
     for (var scene : plan.scenes()) {
       for (var beat : scene.beats()) {
         String itemKey = "beat-" + beat.visualBeatId();
@@ -136,12 +149,13 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created shot-image media job id={} planId={} beats={} provider={} model={} projectId={} chapterId={}",
+        "Created {} media job id={} planId={} beats={} provider={} model={} projectId={} chapterId={}",
+        isVideoFirst ? "shot-video" : "shot-image",
         job.getId(),
         plan.id(),
         beatCount,
-        imageProfile.providerKey(),
-        imageProfile.model(),
+        providerKey,
+        modelKey,
         command.projectId(),
         command.chapterId());
     return job;

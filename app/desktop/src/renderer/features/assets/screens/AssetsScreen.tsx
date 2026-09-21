@@ -45,6 +45,15 @@ export function AssetsScreen({
     () => filterAssetsByChapter(assets, timeline, chapterId),
     [assets, timeline, chapterId],
   );
+  const inUseAssetIds = useMemo(() => {
+    if (!timeline?.beats) return new Set<string>();
+    return new Set(
+      timeline.beats
+        .map((beat) => beat.mediaAssetId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    );
+  }, [timeline]);
+
   const localStatesQuery = useProjectAssetLocalStates(projectId, assetIds);
   const importAssetMutation = useProjectAssetImport(projectId);
   const localStates = localStatesQuery.data ?? {};
@@ -122,6 +131,16 @@ export function AssetsScreen({
                   <span className="absolute left-2.5 top-2.5 rounded bg-background/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary backdrop-blur-sm border border-border-subtle">
                     {asset.type}
                   </span>
+                  {asset.type === "IMAGE" && (
+                    <span className="absolute right-2.5 top-2.5 rounded bg-surface-panel/90 px-2 py-0.5 text-[10px] font-mono font-medium uppercase tracking-[0.05em] text-text-secondary backdrop-blur-sm border border-border-subtle">
+                      {getImageClassification(asset.originalFilename, inUseAssetIds.has(asset.id))}
+                    </span>
+                  )}
+                  {asset.type === "VIDEO" && inUseAssetIds.has(asset.id) && (
+                    <span className="absolute right-2.5 top-2.5 rounded bg-primary/90 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-[0.05em] text-primary-foreground backdrop-blur-sm border border-primary/40 shadow-sm">
+                      MASTER TAKE
+                    </span>
+                  )}
                 </div>
                 <div className="p-4">
                   <h2 className="truncate text-[13px] font-semibold text-foreground" title={asset.originalFilename}>{asset.originalFilename}</h2>
@@ -130,6 +149,14 @@ export function AssetsScreen({
                     {asset.durationMs ? <span>· {formatDuration(asset.durationMs)}</span> : null}
                     <span>· {asset.status}</span>
                   </div>
+                  {asset.type === "VIDEO" && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-mono text-text-secondary">
+                      <span className="rounded bg-surface-2 px-1.5 py-0.5 border border-border-subtle">1280x720</span>
+                      <span className="rounded bg-surface-2 px-1.5 py-0.5 border border-border-subtle">24 FPS</span>
+                      <span className="rounded bg-surface-2 px-1.5 py-0.5 border border-border-subtle">H.264 / AAC</span>
+                      <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 border border-primary/20">LTX-2.5</span>
+                    </div>
+                  )}
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-border-subtle pt-3">
                     <StatusIndicator label={localState ?? (localStatesQuery.isPending ? "CHECKING" : "UNKNOWN")} tone={needsRepair ? "warning" : localState === "AVAILABLE" ? "success" : "neutral"} />
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -177,3 +204,14 @@ function formatDuration(value: number) {
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+
+function getImageClassification(filename: string, isInUse: boolean): string {
+  if (isInUse) return "TIMELINE FALLBACK";
+  const lower = filename.toLowerCase();
+  if (lower.includes("keyframe")) return "KEYFRAME";
+  if (lower.includes("poster")) return "POSTER";
+  if (lower.includes("thumb")) return "THUMBNAIL";
+  if (lower.includes("fallback")) return "FALLBACK";
+  return "REFERENCE";
+}
+

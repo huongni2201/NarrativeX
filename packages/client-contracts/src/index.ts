@@ -7,6 +7,7 @@ export type {
   DesktopCharacterDetail,
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
+  DesktopCharacterVoiceProfile,
 } from "./character";
 export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, RegisterLocalAssetRequest } from "./asset";
 export type {

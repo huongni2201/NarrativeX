@@ -28,8 +28,9 @@ class FlywayBaselineStructureTest {
     String v7 = read("V7__seed_catalog.sql");
     String v8 = read("V8__generation_async_orchestration.sql");
     String v9 = read("V9__video_first_retention_production.sql");
+    String v10 = read("V10__character_voice_profiles.sql");
 
-    for (String schema : new String[] {v1, v2, v3, v4, v5, v9}) {
+    for (String schema : new String[] {v1, v2, v3, v4, v5, v9, v10}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     }
     assertFalse(v6.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
@@ -204,6 +205,13 @@ class FlywayBaselineStructureTest {
     assertTrue(v9.contains("CREATE TABLE production_insights"));
     assertTrue(
         v9.contains("CHECK (production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE'))"));
+  }
+
+  @Test
+  void v10CharacterVoiceProfilesConforms() throws IOException {
+    String v10 = read("V10__character_voice_profiles.sql");
+    assertTrue(v10.contains("CREATE TABLE character_voice_profiles"));
+    assertTrue(v10.contains("pinned_voice_profile_id"));
   }
 
   private static String read(String name) throws IOException {

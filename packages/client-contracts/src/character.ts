@@ -1,3 +1,19 @@
+import type { VoiceReferenceScope } from "./narration";
+
+export interface DesktopCharacterVoiceProfile {
+  id?: string | null;
+  characterId: string;
+  versionNumber: number;
+  referenceAssetId?: string | null;
+  referenceScope: VoiceReferenceScope;
+  language: string;
+  accent?: string | null;
+  voiceDescription?: string | null;
+  deliveryBaseline?: string | null;
+  status?: string | null;
+  lockedAt?: string | null;
+}
+
 export interface DesktopCharacter {
   id: string;
   canonicalName: string;
@@ -5,6 +21,9 @@ export interface DesktopCharacter {
   sceneCount?: number;
   status?: string;
   pinnedCharacterVersionId?: string | null;
+  pinnedVoiceProfileId?: string | null;
+  voiceProfile?: DesktopCharacterVoiceProfile | null;
+  voiceProfiles?: DesktopCharacterVoiceProfile[];
   aliases?: string[];
   projectAliases?: string[];
   importance?: number;

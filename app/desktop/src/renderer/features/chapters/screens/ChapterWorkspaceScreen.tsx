@@ -258,7 +258,6 @@ export function ChapterWorkspaceScreen({
               chapter={activeChapter}
               story={story ?? null}
               onGenerateVideoShots={handleGenerateVideoShots}
-              onGenerateMissing={handleGenerateVideoShots}
               isGenerating={createMediaJob.isPending}
             />
           )}

@@ -7,19 +7,19 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ProjectCharacterRow {
+public class CharacterVoiceProfileRow {
   private UUID id;
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
-  private UUID projectId;
   private UUID characterId;
-  private String role;
-  private String importance;
-  private String projectAliasesJson;
-  private String storyMetadata;
-  private String groupsJson;
-  private UUID pinnedCharacterVersionId;
-  private UUID pinnedVoiceProfileId;
+  private int versionNumber;
+  private UUID referenceAssetId;
+  private String referenceScope;
+  private String language;
+  private String accent;
+  private String voiceDescription;
+  private String deliveryBaseline;
   private String status;
+  private Instant lockedAt;
 }

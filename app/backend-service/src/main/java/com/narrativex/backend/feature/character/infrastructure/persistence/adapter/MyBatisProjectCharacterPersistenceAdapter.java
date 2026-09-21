@@ -19,6 +19,11 @@ public class MyBatisProjectCharacterPersistenceAdapter implements ProjectCharact
   private final CharacterMyBatisRowMapper rowMapper;
 
   @Override
+  public Optional<ProjectCharacter> findById(UUID id) {
+    return Optional.ofNullable(mapper.findProjectCharacter(id)).map(rowMapper::toDomain);
+  }
+
+  @Override
   public Optional<ProjectCharacter> findByProjectAndCharacterForUpdate(
       UUID projectId, UUID characterId) {
     return Optional.ofNullable(

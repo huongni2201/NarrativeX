@@ -24,10 +24,73 @@
       ]
     },
     "seed": {"type": "integer", "minimum": 0},
-    "motionBucketId": {"type": "integer", "minimum": 1, "maximum": 255},
+    "referenceAssets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetId", "referenceType"],
+        "properties": {
+          "assetId": {"type": "string", "format": "uuid"},
+          "referenceType": {"type": "string"},
+          "weight": {"type": "number", "minimum": 0.0, "maximum": 2.0}
+        }
+      }
+    },
     "referenceAssetIds": {
       "type": "array",
       "items": {"type": "string", "format": "uuid"}
-    }
+    },
+    "voiceReference": {
+      "type": ["object", "null"],
+      "properties": {
+        "assetId": {"type": "string", "format": "uuid"},
+        "scope": {"type": "string", "enum": ["PROJECT", "GLOBAL_LOCAL"]},
+        "language": {"type": "string"},
+        "accent": {"type": "string"},
+        "voiceDescription": {"type": "string"},
+        "deliveryBaseline": {"type": "string"}
+      }
+    },
+    "dialogue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "speaker": {"type": "string"},
+          "text": {"type": "string"},
+          "startOffsetMs": {"type": "integer", "minimum": 0},
+          "endOffsetMs": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "cameraIntent": {
+      "type": "object",
+      "properties": {
+        "framing": {"type": "string"},
+        "movement": {"type": "string"},
+        "angle": {"type": "string"},
+        "speed": {"type": "string"}
+      }
+    },
+    "motionIntent": {
+      "type": "object",
+      "properties": {
+        "subjectMotion": {"type": "string"},
+        "speed": {"type": "string"},
+        "dynamics": {"type": "string"}
+      }
+    },
+    "continuity": {
+      "type": "object",
+      "properties": {
+        "incomingShotId": {"type": "string", "format": "uuid"},
+        "outgoingShotId": {"type": "string", "format": "uuid"}
+      }
+    },
+    "providerOptions": {
+      "type": "object"
+    },
+    "motionBucketId": {"type": "integer", "minimum": 1, "maximum": 255}
   }
 }

@@ -154,6 +154,19 @@
                       AND ma.sha256 IS NOT NULL
                  ) OR EXISTS (
                    SELECT 1
+                     FROM shot_sequences ss
+                     JOIN shots sh ON sh.sequence_id = ss.id
+                     JOIN selected_takes st ON st.shot_id = sh.id
+                     JOIN takes t ON t.id = st.take_id
+                     JOIN media_assets ma ON ma.id = t.output_asset_id
+                    WHERE ss.visual_beat_id = vb.id
+                      AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+                      AND ma.status = 'READY'
+                      AND ma.deleted_at IS NULL
+                      AND ma.size_bytes > 0
+                      AND ma.sha256 IS NOT NULL
+                 ) OR EXISTS (
+                   SELECT 1
                      FROM media_assets ma
                     WHERE ma.id = vb.preview_media_asset_id
                       AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
@@ -210,15 +223,23 @@
            'GENERATE_NEW' AS asset_strategy,
            cb.text_start,
            cb.text_end,
-           COALESCE(chosen.media_asset_id, preview.media_asset_id) AS media_asset_id,
-           COALESCE(chosen.media_type, preview.media_type) AS media_type,
-           COALESCE(chosen.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
-           CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode ELSE 'TRIM' END AS fit_mode,
-           CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms ELSE 0 END AS trim_start_ms,
-           (chosen.media_asset_id IS NOT NULL) AS media_selection_active,
-           COALESCE(chosen.storage_key, preview.storage_key) AS storage_key,
-           COALESCE(chosen.size_bytes, preview.size_bytes) AS size_bytes,
-           COALESCE(chosen.checksum, preview.checksum) AS checksum
+           COALESCE(chosen.media_asset_id, selected_video.media_asset_id, preview.media_asset_id) AS media_asset_id,
+           COALESCE(chosen.media_type, selected_video.media_type, preview.media_type) AS media_type,
+           COALESCE(chosen.source_duration_ms, selected_video.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
+           CASE
+             WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode
+             WHEN selected_video.media_asset_id IS NOT NULL THEN selected_video.fit_mode
+             ELSE 'TRIM'
+           END AS fit_mode,
+           CASE
+             WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms
+             WHEN selected_video.media_asset_id IS NOT NULL THEN selected_video.trim_start_ms
+             ELSE 0
+           END AS trim_start_ms,
+           (chosen.media_asset_id IS NOT NULL OR selected_video.media_asset_id IS NOT NULL) AS media_selection_active,
+           COALESCE(chosen.storage_key, selected_video.storage_key, preview.storage_key) AS storage_key,
+           COALESCE(chosen.size_bytes, selected_video.size_bytes, preview.size_bytes) AS size_bytes,
+           COALESCE(chosen.checksum, selected_video.checksum, preview.checksum) AS checksum
       FROM current_beats cb
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
@@ -241,6 +262,29 @@
            AND ma.sha256 IS NOT NULL
          LIMIT 1
       ) chosen ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT ma.id AS media_asset_id,
+               ma.asset_type AS media_type,
+               COALESCE(st.source_out_ms - st.source_in_ms, t.source_duration_ms, ma.duration_ms) AS source_duration_ms,
+               'TRIM' AS fit_mode,
+               st.source_in_ms AS trim_start_ms,
+               ma.storage_key,
+               ma.size_bytes,
+               ma.sha256 AS checksum
+          FROM shot_sequences ss
+          JOIN shots sh ON sh.sequence_id = ss.id
+          JOIN selected_takes st ON st.shot_id = sh.id
+          JOIN takes t ON t.id = st.take_id
+          JOIN media_assets ma ON ma.id = t.output_asset_id
+         WHERE ss.visual_beat_id = cb.visual_beat_id
+           AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND ma.status = 'READY'
+           AND ma.deleted_at IS NULL
+           AND ma.size_bytes > 0
+           AND ma.sha256 IS NOT NULL
+         ORDER BY sh.order_index ASC
+         LIMIT 1
+      ) selected_video ON TRUE
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,

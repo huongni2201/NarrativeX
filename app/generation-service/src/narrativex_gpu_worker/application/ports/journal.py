@@ -58,6 +58,6 @@ class OutboxJournalPort(Protocol):
         self, event_id: str, delivered_at: datetime | None = None
     ) -> None: ...
 
-    async def mark_outbox_event_failed(
-        self, event_id: str, error: str | None, next_attempt_at: datetime
+    async def record_outbox_delivery_failure(
+        self, event_id: str, next_attempt_at: datetime
     ) -> None: ...

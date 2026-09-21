@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -82,6 +82,46 @@ class TextGenerateInputs(ProtocolModel):
     response_format: Literal["text", "json_object"] = "text"
 
 
+class VideoReferenceAsset(ProtocolModel):
+    asset_id: UUID
+    reference_type: str
+    weight: float = 1.0
+
+
+class VideoVoiceReference(ProtocolModel):
+    asset_id: UUID | None = None
+    scope: Literal["PROJECT", "GLOBAL_LOCAL"] | None = None
+    language: str | None = None
+    accent: str | None = None
+    voice_description: str | None = None
+    delivery_baseline: str | None = None
+
+
+class VideoDialogueLine(ProtocolModel):
+    speaker: str | None = None
+    text: str
+    start_offset_ms: int | None = None
+    end_offset_ms: int | None = None
+
+
+class VideoCameraIntent(ProtocolModel):
+    framing: str | None = None
+    movement: str | None = None
+    angle: str | None = None
+    speed: str | None = None
+
+
+class VideoMotionIntent(ProtocolModel):
+    subject_motion: str | None = None
+    speed: str | None = None
+    dynamics: str | None = None
+
+
+class VideoContinuity(ProtocolModel):
+    incoming_shot_id: UUID | None = None
+    outgoing_shot_id: UUID | None = None
+
+
 class VideoGenerateInputs(ProtocolModel):
     prompt: Annotated[str, Field(min_length=1, max_length=20000)]
     negative_prompt: Annotated[str, Field(max_length=10000)]
@@ -98,10 +138,15 @@ class VideoGenerateInputs(ProtocolModel):
         "VIDEO_RETAKE",
     ]
     seed: Annotated[int, Field(ge=0)]
+    reference_assets: list[VideoReferenceAsset] = Field(default_factory=list)
+    reference_asset_ids: list[UUID] = Field(default_factory=list)
+    voice_reference: VideoVoiceReference | None = None
+    dialogue: list[VideoDialogueLine] = Field(default_factory=list)
+    camera_intent: VideoCameraIntent | None = None
+    motion_intent: VideoMotionIntent | None = None
+    continuity: VideoContinuity | None = None
+    provider_options: dict[str, Any] = Field(default_factory=dict)
     motion_bucket_id: Annotated[int | None, Field(ge=1, le=255)] = None
-    reference_asset_ids: Annotated[list[UUID], Field(default_factory=list)] = Field(
-        default_factory=list
-    )
 
 
 TaskInputs = (
@@ -156,6 +201,12 @@ __all__ = [
     "TaskDescriptor",
     "TaskInputs",
     "TextGenerateInputs",
+    "VideoCameraIntent",
+    "VideoContinuity",
+    "VideoDialogueLine",
     "VideoGenerateInputs",
+    "VideoMotionIntent",
+    "VideoReferenceAsset",
+    "VideoVoiceReference",
     "VoiceSelection",
 ]

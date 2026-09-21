@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -20,7 +21,6 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
-import com.narrativex.backend.feature.generation.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.math.BigDecimal;
@@ -232,10 +232,9 @@ public class GenerateChapterNarrationUseCase {
         || !asset.sha256().matches("^[0-9a-fA-F]{64}$")) {
       throw new IllegalArgumentException("Voice reference asset integrity metadata is invalid");
     }
-    if (asset.scope() == VoiceReferenceScope.ACCOUNT
+    if (asset.scope() == VoiceReferenceScope.GLOBAL_LOCAL
         && (asset.storageKey() == null || asset.storageKey().isBlank())) {
-      throw new IllegalArgumentException(
-          "Account voice reference asset is missing R2 storage metadata");
+      throw new IllegalArgumentException("Global voice reference asset is missing storage key");
     }
   }
 

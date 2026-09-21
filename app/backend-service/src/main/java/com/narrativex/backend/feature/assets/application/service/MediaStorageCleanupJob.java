@@ -13,7 +13,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Deletes rejected or duplicate R2 voice objects only after their durable DB decision commits. */
+/**
+ * Deletes rejected or duplicate voice-reference objects only after their durable DB decision
+ * commits.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j

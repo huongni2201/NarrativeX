@@ -8,7 +8,7 @@ export interface DesktopVoice {
 }
 
 export type ExecutionPreference = "AUTO" | "CLOUD" | "LOCAL";
-export type VoiceReferenceScope = "PROJECT" | "ACCOUNT";
+export type VoiceReferenceScope = "PROJECT" | "GLOBAL_LOCAL";
 
 export interface VoiceReferenceInput {
   scope: VoiceReferenceScope;
