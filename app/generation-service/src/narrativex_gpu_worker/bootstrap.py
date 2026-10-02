@@ -129,11 +129,21 @@ def build_application(
         )
         supervisor = RuntimeProcessSupervisor(vram_probe=vram_probe, http_client=client)
         if settings.comfyui_command.strip():
+            comfy_cmd = tuple(shlex.split(settings.comfyui_command))
+            comfy_health = f"{settings.comfyui_base_url.rstrip('/')}/system_stats"
             supervisor.register_runtime(
                 ProcessSpec(
                     family=RuntimeFamily.COMFYUI_IMAGE,
-                    command=tuple(shlex.split(settings.comfyui_command)),
-                    health_url=f"{settings.comfyui_base_url.rstrip('/')}/system_stats",
+                    command=comfy_cmd,
+                    health_url=comfy_health,
+                    startup_timeout_seconds=settings.residency_transition_timeout_seconds,
+                )
+            )
+            supervisor.register_runtime(
+                ProcessSpec(
+                    family=RuntimeFamily.LTX_VIDEO,
+                    command=comfy_cmd,
+                    health_url=comfy_health,
                     startup_timeout_seconds=settings.residency_transition_timeout_seconds,
                 )
             )
@@ -158,6 +168,7 @@ def build_application(
             RuntimeFamily.VIENEU,
             RuntimeFamily.COMFYUI_IMAGE,
             RuntimeFamily.WHISPERX,
+            RuntimeFamily.LTX_VIDEO,
         )
         residency_manager = GpuResidencyManager(
             transition_timeout_seconds=settings.residency_transition_timeout_seconds,

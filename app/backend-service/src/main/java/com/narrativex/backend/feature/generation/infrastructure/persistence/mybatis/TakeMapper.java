@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Param;
 public interface TakeMapper extends NarrativeXMyBatisMapper {
   List<TakeRow> findByShotId(@Param("shotId") UUID shotId);
 
+  List<TakeRow> findByShotIds(@Param("shotIds") List<UUID> shotIds);
+
   TakeRow findById(@Param("id") UUID id);
 
   TakeRow findByShotIdAndAttempt(
@@ -20,6 +22,10 @@ public interface TakeMapper extends NarrativeXMyBatisMapper {
   int updateStatus(@Param("id") UUID id, @Param("status") String status);
 
   int updateValidation(TakeRow row);
+
+  List<TakeRow> findByJobId(@Param("generationJobId") String generationJobId);
+
+  TakeRow findByTaskId(@Param("computeTaskId") String computeTaskId);
 
   int deleteById(@Param("id") UUID id);
 }

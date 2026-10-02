@@ -12,6 +12,8 @@ import {
 export interface ShotActionToolbarProps {
   currentStrategy: GenerationStrategy;
   isGenerating?: boolean;
+  isBlocked?: boolean;
+  blockedReason?: string;
   takeCount: number;
   onGenerate: () => void;
   onRetake: () => void;
@@ -22,6 +24,8 @@ export interface ShotActionToolbarProps {
 export function ShotActionToolbar({
   currentStrategy,
   isGenerating,
+  isBlocked,
+  blockedReason,
   takeCount,
   onGenerate,
   onRetake,
@@ -42,9 +46,15 @@ export function ShotActionToolbar({
           <SelectItem value="TEXT_TO_VIDEO">Text to Video</SelectItem>
           <SelectItem value="IMAGE_TO_VIDEO">Image to Video</SelectItem>
           <SelectItem value="FIRST_LAST_FRAME">First/Last Frame</SelectItem>
-          <SelectItem value="MULTI_KEYFRAME">Multi-Keyframe</SelectItem>
-          <SelectItem value="VIDEO_EXTEND">Video Extend</SelectItem>
-          <SelectItem value="VIDEO_RETAKE">Video Retake</SelectItem>
+          <SelectItem value="MULTI_KEYFRAME" disabled>
+            Multi-Keyframe (Chưa hỗ trợ)
+          </SelectItem>
+          <SelectItem value="VIDEO_EXTEND" disabled>
+            Video Extend (Chưa hỗ trợ)
+          </SelectItem>
+          <SelectItem value="VIDEO_RETAKE" disabled>
+            Video Retake (Chưa hỗ trợ)
+          </SelectItem>
         </SelectContent>
       </Select>
 
@@ -53,8 +63,9 @@ export function ShotActionToolbar({
         size="sm"
         variant="default"
         className="h-7 text-[11px] px-2.5"
-        disabled={isGenerating}
+        disabled={isGenerating || isBlocked}
         onClick={onGenerate}
+        title={isBlocked ? (blockedReason ?? "Generation blocked") : undefined}
       >
         {isGenerating ? (
           <Loader2 size={12} className="animate-spin" />

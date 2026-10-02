@@ -33,6 +33,20 @@
     ORDER BY attempt_number ASC, id ASC
   </select>
 
+  <select id="findByShotIds" resultMap="take">
+    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+           generation_mode, output_asset_id, source_duration_ms,
+           metrics_json::text AS metrics_json, validation_status,
+           validation_failure_category, validation_failure_reason,
+           validation_retry_recommendation, status
+    FROM takes
+    WHERE shot_id IN
+    <foreach collection="shotIds" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+    ORDER BY shot_id ASC, attempt_number ASC, id ASC
+  </select>
+
   <select id="findById" resultMap="take">
     SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
@@ -99,6 +113,28 @@
         row_version = row_version + 1
     WHERE id = #{id}
   </update>
+
+  <select id="findByJobId" resultMap="take">
+    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+           generation_mode, output_asset_id, source_duration_ms,
+           metrics_json::text AS metrics_json, validation_status,
+           validation_failure_category, validation_failure_reason,
+           validation_retry_recommendation, status
+    FROM takes
+    WHERE metrics_json->>'generationJobId' = #{generationJobId}
+    ORDER BY attempt_number ASC, id ASC
+  </select>
+
+  <select id="findByTaskId" resultMap="take">
+    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+           generation_mode, output_asset_id, source_duration_ms,
+           metrics_json::text AS metrics_json, validation_status,
+           validation_failure_category, validation_failure_reason,
+           validation_retry_recommendation, status
+    FROM takes
+    WHERE metrics_json->>'computeTaskId' = #{computeTaskId}
+    LIMIT 1
+  </select>
 
   <delete id="deleteById">
     DELETE FROM takes WHERE id = #{id}

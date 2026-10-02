@@ -1,15 +1,36 @@
-import { useState } from "react";
-import type { DesktopShot, DesktopTake, DesktopTimelineBeat, GenerationStrategy } from "@narrativex/client-contracts";
-import { Check, Clapperboard, Copy, Film, ImagePlus, Loader2, Play, RotateCcw, Video } from "lucide-react";
+import { useMemo, useState } from "react";
+import type {
+  DesktopSelectedTake,
+  DesktopShot,
+  DesktopTake,
+  DesktopTimelineBeat,
+  GenerationStrategy,
+} from "@narrativex/client-contracts";
+import {
+  Check,
+  Clapperboard,
+  Copy,
+  Film,
+  ImagePlus,
+  Loader2,
+  Play,
+  RotateCcw,
+  Video,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { StoryboardVisualBeat, VisualBeatReviewStatus } from "../api/storyboard.api";
+import {
+  useChapterProductionMutations,
+  useChapterProductionQuery,
+} from "../queries/chapter-production.queries";
 import { useStoryboardImagePreview } from "../queries/storyboard-media.queries";
 import { ShotActionToolbar } from "./ShotActionToolbar";
 import { TakeSelectorDrawer } from "./TakeSelectorDrawer";
 
 export interface VideoShotboardProps {
   projectId: string;
+  chapterId?: string | null;
   beats: StoryboardVisualBeat[];
   hasSelectedScene: boolean;
   selectedSceneBeatCount: number;
@@ -20,10 +41,13 @@ export interface VideoShotboardProps {
   onReview: (beat: StoryboardVisualBeat, status: VisualBeatReviewStatus) => void;
   onCopyPrompt: (beat: StoryboardVisualBeat) => void;
   onImport: (beat: StoryboardVisualBeat) => void;
+  onGenerateShot?: (beat: StoryboardVisualBeat, shot: DesktopShot) => void;
+  onRetakeShot?: (beat: StoryboardVisualBeat, shot: DesktopShot) => void;
 }
 
 export function VideoShotboard({
   projectId,
+  chapterId,
   beats,
   hasSelectedScene,
   selectedSceneBeatCount,
@@ -34,40 +58,58 @@ export function VideoShotboard({
   onReview,
   onCopyPrompt,
   onImport,
+  onGenerateShot,
+  onRetakeShot,
 }: Readonly<VideoShotboardProps>) {
   const [activeDrawerBeatId, setActiveDrawerBeatId] = useState<string | null>(null);
+
+  // Authoritative Chapter Production query and mutations
+  const { data: production } = useChapterProductionQuery(projectId, chapterId ?? null);
+  const { generateTake, selectTake, updateStrategy } = useChapterProductionMutations(
+    projectId,
+    chapterId ?? null,
+  );
+
+  const shotByBeatId = useMemo(() => {
+    const map = new Map<string, DesktopShot>();
+    if (production) {
+      for (const scene of production.scenes) {
+        for (const vb of scene.visualBeats) {
+          if (vb.shotSequence?.shots?.length) {
+            map.set(vb.id, vb.shotSequence.shots[0]);
+          }
+        }
+      }
+    }
+    for (const b of beats) {
+      if (!map.has(b.id) && b.shotSequence?.shots?.length) {
+        map.set(b.id, b.shotSequence.shots[0]);
+      }
+    }
+    return map;
+  }, [production, beats]);
 
   if (!hasSelectedScene) return <EmptyState title="Chọn scene để xem Video Shotboard" />;
   if (!selectedSceneBeatCount) return <EmptyState title="Scene chưa có Visual Beat / Shot" />;
   if (!beats.length) return <EmptyState title="Không có Shot nào phù hợp bộ lọc" />;
 
   const drawerBeat = beats.find((b) => b.id === activeDrawerBeatId) ?? null;
-  const drawerTimelineBeat = drawerBeat ? timelineBeats.get(drawerBeat.id) ?? null : null;
-
-  // Synthesize desktop shot from beat for drawer
   const drawerShot: DesktopShot | null = drawerBeat
-    ? {
-        id: drawerBeat.id,
-        sequenceId: drawerBeat.id,
-        orderIndex: 0,
-        narrativePurpose: drawerBeat.visualIntent,
-        retentionRole: drawerBeat.retentionRole as any,
-        subjects: [],
-        startState: "Start pose",
-        action: drawerBeat.visualIntent,
-        endState: "End pose",
-        composition: "Cinematic medium",
-        camera: "35mm eye-level",
-        subjectMotion: "Fluid movement",
-        cameraMotion: "Smooth pan",
-        environmentMotion: "Atmospheric",
-        targetDurationMs: drawerTimelineBeat?.durationMs ?? 4000,
-        generationStrategy: "IMAGE_TO_VIDEO",
-        qualityProfile: "720p_24fps_standard",
-        status: "PLANNED",
-        takes: [],
-      }
+    ? shotByBeatId.get(drawerBeat.id) ??
+      (drawerBeat.shotSequence?.shots?.length ? drawerBeat.shotSequence.shots[0] : null)
     : null;
+
+  const drawerTakes: DesktopTake[] = drawerShot?.takes ?? [];
+  const drawerSelectedTake: DesktopSelectedTake | null = drawerShot?.selectedTake ?? null;
+
+  const handleSelectTake = (takeId: string, sourceInMs: number, sourceOutMs: number) => {
+    if (drawerShot) {
+      selectTake.mutate({
+        shotId: drawerShot.id,
+        input: { takeId, sourceInMs, sourceOutMs },
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -75,8 +117,19 @@ export function VideoShotboard({
         {beats.map((beat) => {
           const timelineBeat = timelineBeats.get(beat.id) ?? null;
           const isApproved = beat.reviewStatus === "APPROVED";
-          const isBusy = mediaBusyBeatId === beat.id;
-          const isVideo = timelineBeat?.mediaType === "VIDEO";
+          const shot = shotByBeatId.get(beat.id);
+          const currentStrategy = shot?.generationStrategy ?? "IMAGE_TO_VIDEO";
+          const takes = shot?.takes ?? [];
+          const takeCount = takes.length > 0 ? takes.length : timelineBeat?.mediaType === "VIDEO" ? 1 : 0;
+          const isShotGenerating =
+            shot?.status === "QUEUED" ||
+            shot?.status === "GENERATING" ||
+            shot?.status === "VALIDATING" ||
+            takes.some((t) => t.status === "PENDING" || t.status === "RUNNING");
+          const isBusy = mediaBusyBeatId === beat.id || isShotGenerating;
+          const isVideo =
+            timelineBeat?.mediaType === "VIDEO" ||
+            Boolean(shot?.selectedTake && shot?.status === "SELECTED");
 
           return (
             <article
@@ -89,6 +142,7 @@ export function VideoShotboard({
                   projectId={projectId}
                   beat={beat}
                   timelineBeat={timelineBeat}
+                  shot={shot}
                 />
 
                 {/* Top Badges */}
@@ -142,14 +196,56 @@ export function VideoShotboard({
 
                 {/* Shot Actions */}
                 <div className="border-t border-border-subtle pt-2 mt-1">
+                  {shot?.preflight && !shot.preflight.ready && shot.preflight.blockers.length > 0 && (
+                    <div className="mb-1 text-[10px] text-destructive bg-destructive/10 p-1.5 rounded border border-destructive/20 font-mono">
+                      Blocker: {shot.preflight.blockers[0]}
+                    </div>
+                  )}
                   <ShotActionToolbar
-                    currentStrategy="IMAGE_TO_VIDEO"
-                    takeCount={isVideo ? 1 : 0}
+                    currentStrategy={currentStrategy}
+                    takeCount={takeCount}
                     isGenerating={isBusy}
-                    onGenerate={() => onImport(beat)}
-                    onRetake={() => onImport(beat)}
+                    isBlocked={shot?.status === "BLOCKED" || Boolean(shot?.preflight && !shot.preflight.ready)}
+                    blockedReason={
+                      shot?.preflight?.blockers?.[0] ??
+                      (shot?.status === "BLOCKED" ? "Shot is blocked" : undefined)
+                    }
+                    onGenerate={() => {
+                      if (!shot) return;
+                      if (onGenerateShot) {
+                        onGenerateShot(beat, shot);
+                      } else {
+                        generateTake.mutate({
+                          shotId: shot.id,
+                          input: { strategy: currentStrategy },
+                        });
+                      }
+                    }}
+                    onRetake={() => {
+                      if (!shot || takes.length === 0) return;
+                      if (onRetakeShot) {
+                        onRetakeShot(beat, shot);
+                      } else {
+                        const latestTake = takes[takes.length - 1];
+                        generateTake.mutate({
+                          shotId: shot.id,
+                          input: {
+                            strategy: currentStrategy,
+                            retryFromTakeId: latestTake?.id,
+                            retryReason: "USER_RETAKE",
+                          },
+                        });
+                      }
+                    }}
                     onOpenTakeSelector={() => setActiveDrawerBeatId(beat.id)}
-                    onStrategyChange={() => {}}
+                    onStrategyChange={(newStrategy) => {
+                      if (shot) {
+                        updateStrategy.mutate({
+                          shotId: shot.id,
+                          strategy: newStrategy,
+                        });
+                      }
+                    }}
                   />
                 </div>
 
@@ -214,12 +310,13 @@ export function VideoShotboard({
 
       {/* Take Selector Drawer */}
       <TakeSelectorDrawer
+        projectId={projectId}
         shot={drawerShot}
-        takes={[]}
-        selectedTake={null}
-        isOpen={Boolean(activeDrawerBeatId)}
+        takes={drawerTakes}
+        selectedTake={drawerSelectedTake}
+        isOpen={Boolean(activeDrawerBeatId && drawerShot)}
         onClose={() => setActiveDrawerBeatId(null)}
-        onSelectTake={() => {}}
+        onSelectTake={handleSelectTake}
       />
     </div>
   );
@@ -229,15 +326,25 @@ function BeatMediaPreview({
   projectId,
   beat,
   timelineBeat,
+  shot,
 }: Readonly<{
   projectId: string;
   beat: StoryboardVisualBeat;
   timelineBeat: DesktopTimelineBeat | null;
+  shot?: DesktopShot | null;
 }>) {
   const [failed, setFailed] = useState(false);
+  const isVideo =
+    timelineBeat?.mediaType === "VIDEO" ||
+    Boolean(shot?.selectedTake && shot?.status === "SELECTED");
+  const selectedTakeRecord = shot?.selectedTake
+    ? shot.takes.find((t) => t.id === shot.selectedTake?.takeId)
+    : null;
   const assetId =
+    selectedTakeRecord?.outputAssetId ??
     beat.previewMediaAssetId ??
     (timelineBeat?.mediaType === "IMAGE" ? timelineBeat.mediaAssetId : null);
+
   const preview = useStoryboardImagePreview({
     projectId,
     assetId,
@@ -258,6 +365,18 @@ function BeatMediaPreview({
       <div className="grid aspect-video place-items-center bg-surface-dark text-[10px] text-text-muted">
         Preview unavailable
       </div>
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <video
+        src={preview.data.url}
+        controls
+        preload="metadata"
+        className="aspect-video w-full object-cover"
+        onError={() => setFailed(true)}
+      />
     );
   }
 

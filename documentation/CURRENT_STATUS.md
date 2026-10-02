@@ -17,21 +17,20 @@ Source code, migrations, and automated tests establish implementation facts. Acc
 - **Audio generation**: VieNeu TTS and WhisperX forced alignment are implemented through the generation service ([ADR-0023](decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md)).
 - **Image generation (reference-conditioned)**: Reference-conditioned image generation is maintained through ComfyUI (`ComfyUiAdapter`) for character references, keyframes, and concept frames ([ADR-0028](decisions/ADR-0028-image-generator-reference-only.md)).
 - **Video generation & Shot production**: Moving-video-first generation pipeline backed by LTX-2.5 (`video.generate`), shot sequencing, and multi-take models in V9 schema ([ADR-0026](decisions/ADR-0026-video-first-production.md), [ADR-0027](decisions/ADR-0027-shot-as-production-unit.md)).
+- **Multi-Take & SelectedTake Pipeline**: Authoritative take lifecycle, candidate take holding with reason-aware retry, SelectedTake in/out trimming, WhisperX audio QC alignment validation, and Chapter Production API ([ADR-0030](decisions/ADR-0030-take-selected-take-and-editing-director.md)).
 - **Timeline composition and final render**: Narration-aligned timing and selected visual media are rendered into a final MP4 locally within Electron using FFmpeg with a 24 FPS cinematic baseline default.
-- **Desktop UI Video-First Cut-Over**: Pruned obsolete still-image screens (`ImagesScreen`, standalone `StoryboardScreen`, `VisualBeatGrid`, old `ChaptersScreen` stack) and legacy route aliases (`storyboard`, `characters`, `images`, `voice`). The canonical workstation workflow is anchored around `ChapterWorkspaceScreen` (Story, Audio, Video Production stages), `ProjectCanonScreen`, `AssetsScreen` (with video preview), and `Editor`.
+- **Desktop UI Video-First Cut-Over**: Pruned obsolete still-image screens (`ImagesScreen`, standalone `StoryboardScreen`, `VisualBeatGrid`, old `ChaptersScreen` stack) and legacy route aliases (`storyboard`, `characters`, `images`, `voice`). The canonical workstation workflow is anchored around `ChapterWorkspaceScreen` (Story, Audio, Video Production stages), `ProjectCanonScreen`, `AssetsScreen` (with video preview), and `Editor`. Desktop video shotboard features real take generation, retake mutations, strategy updates, and take preview.
 
 ## Partial
 
-- **GPU residency arbitration**: `GpuResidencyManager` implements logical domain mutual exclusion (`audio_alignment`, `tts`, `image`, `video`), with `RuntimeProcessSupervisor` and `GpuVramProbe` wired into `bootstrap.py`. Production strictness and Windows runtime verification remain in progress.
+- **GPU residency arbitration**: `GpuResidencyManager` implements logical domain mutual exclusion (`COMFYUI_IMAGE`, `LTX_VIDEO`, `VIENEU`, `WHISPERX`), with `RuntimeProcessSupervisor` and `GpuVramProbe` wired into `bootstrap.py`. Active target is RTX 5090 (32GB VRAM); production strictness and full Windows worker validation remain in progress.
 - **Canonical StoryBeat materialization**: StoryBeat/AudioCue/VisualBeat domain boundaries and grouped reads are implemented, but nullable legacy/manual VisualBeat rows remain supported and not every existing analysis/manual row is proven to be attached to a StoryBeat.
 
 ## Target / Active Cut-Over
 
-- **Video-First Retention Architecture**: Transitioning from image-first (`Story -> VisualBeat -> Image -> Ken Burns -> Timeline`) to video-first, retention-driven production (`Story -> Retention Plan -> VisualBeat -> ShotSequence -> Shot -> GenerationStrategy -> Moving Video -> Take -> SelectedTake -> Editing -> Final Video -> Retention Feedback`) ([ADR-0026](decisions/ADR-0026-video-first-production.md) through [ADR-0031](decisions/ADR-0031-retention-driven-narrative-planning.md)).
-- **Shot as Production Unit**: VisualBeat is a dramatic beat; Shot is the atomic unit for generation, leasing, retries, and editing ([ADR-0027](decisions/ADR-0027-shot-as-production-unit.md)).
-- **Image Generation as Reference Only**: ComfyUI RealVisXL is repurposed for character references, location references, start/end frames, and keyframes ([ADR-0028](decisions/ADR-0028-image-generator-reference-only.md)).
-- **Generation Router & LTX Adapter**: Model-agnostic routing across T2V, I2V, First/Last Frame, Multi-Keyframe, Extend, and Retake, isolating LTX-2.5 in worker adapters ([ADR-0029](decisions/ADR-0029-generation-router-and-video-strategies.md)).
-- **Multi-Take & Editing Decision List**: Reason-aware Video QA validation, multi-take holding, SelectedTake in/out trimming, and EditingDirector EDL compilation ([ADR-0030](decisions/ADR-0030-take-selected-take-and-editing-director.md)).
+- **Video-First Retention Architecture**: Transitioning from image-first (`Story -> VisualBeat -> Image -> Ken Burns -> Timeline`) to video-first, retention-driven production (`Story -> Retention Plan -> VisualBeat -> ShotSequence -> Shot -> GenerationStrategy -> Moving Video -> Take -> SelectedTake -> Editing -> Final Video -> Retention Feedback`) ([ADR-0026](decisions/ADR-0026-video-first-production.md) through [ADR-0032](decisions/ADR-0032-video-first-ltx-audio-native-production-runtime.md)).
+- **Generation Router & Extended Video Strategies**: Model-agnostic routing active for T2V, I2V, First/Last Frame; Multi-Keyframe, Extend, and Retake video-to-video strategies remain planned for subsequent engine iterations ([ADR-0029](decisions/ADR-0029-generation-router-and-video-strategies.md)).
+- **Editing Decision List & Final Multi-Track Assembly**: Advanced EDL export and non-linear transitions compilation ([ADR-0030](decisions/ADR-0030-take-selected-take-and-editing-director.md)).
 
 ## Deferred / Not Implemented
 
@@ -40,7 +39,7 @@ Source code, migrations, and automated tests establish implementation facts. Acc
 
 ## Known Drift
 
-- **Remote GPU deployment**: `deploy/remote-gpu/docker-compose.yml` reflects a legacy Linux Docker prototype, while the active target execution environment is a disposable Windows RTX 3090/5090 workstation (see [REMOTE_GPU_RUNTIME.md](operations/REMOTE_GPU_RUNTIME.md)).
+- **Remote GPU deployment**: `deploy/remote-gpu/docker-compose.yml` reflects a legacy Linux Docker prototype, while the active target execution environment is a disposable Windows RTX 5090 (32GB VRAM) workstation with RTX 3090 (24GB VRAM) as benchmark baseline (see [REMOTE_GPU_RUNTIME.md](operations/REMOTE_GPU_RUNTIME.md)).
 - **Environment configuration**: Template defaults in `app/generation-service/.env.example` require alignment with disposable workstation setup scripts.
 - **Legacy VisualBeat rows**: Nullable `visual_beats.story_beat_id` is an intentional compatibility path, not evidence that the canonical hierarchy is the old Scene-to-VisualBeat model.
 
@@ -62,3 +61,4 @@ Key decisions governing active architecture:
 - [ADR-0029](decisions/ADR-0029-generation-router-and-video-strategies.md): Generation Router and Model-Agnostic Video Strategies
 - [ADR-0030](decisions/ADR-0030-take-selected-take-and-editing-director.md): Take / SelectedTake In/Out Trimming and Editing Decision List Pipeline
 - [ADR-0031](decisions/ADR-0031-retention-driven-narrative-planning.md): Retention-Driven Narrative Planning and Post-Publish Feedback Loop
+- [ADR-0032](decisions/ADR-0032-video-first-ltx-audio-native-production-runtime.md): LTX 2.5 Audio-Native Production Runtime and RTX 5090 Baseline

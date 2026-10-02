@@ -66,6 +66,10 @@ def compose_ltx_positive_prompt(
     return " -- ".join(parts) if len(parts) > 1 else parts[0]
 
 
+SUPPORTED_STRATEGIES = frozenset({"TEXT_TO_VIDEO", "IMAGE_TO_VIDEO", "FIRST_LAST_FRAME"})
+UNSUPPORTED_STRATEGIES = frozenset({"MULTI_KEYFRAME", "VIDEO_EXTEND", "VIDEO_RETAKE"})
+
+
 def build_ltx_video_workflow(
     prompt: str,
     negative_prompt: str | None,
@@ -85,8 +89,16 @@ def build_ltx_video_workflow(
     steps: int = 30,
     cfg: float = 3.0,
     filename_prefix: str = "NarrativeX_Shot",
+    start_image: str | None = None,
+    end_image: str | None = None,
+    voice_audio: str | None = None,
 ) -> dict[str, Any]:
-    """Construct LTX-2.5 video generation workflow graph with rich semantic conditioning."""
+    """Construct LTX-2.5 audio-native video generation workflow graph
+    with rich semantic conditioning.
+    """
+    if generation_mode in UNSUPPORTED_STRATEGIES:
+        raise ValueError(f"Unsupported generation strategy: {generation_mode}")
+
     neg = negative_prompt or DEFAULT_NEGATIVE_PROMPT
     frame_count = max(16, int(round((duration_ms / 1000.0) * fps)))
 
@@ -106,7 +118,7 @@ def build_ltx_video_workflow(
     sampler_name = str(options.get("sampler_name", "euler"))
     scheduler = str(options.get("scheduler", "normal"))
 
-    return {
+    workflow: dict[str, Any] = {
         "1": {
             "class_type": "CheckpointLoaderSimple",
             "inputs": {"ckpt_name": ckpt_file},
@@ -119,7 +131,50 @@ def build_ltx_video_workflow(
             "class_type": "CLIPTextEncode",
             "inputs": {"text": neg, "clip": ["1", 1]},
         },
-        "4": {
+    }
+
+    # Strategy-specific video latent preparation
+    if generation_mode == "IMAGE_TO_VIDEO":
+        if not start_image:
+            raise ValueError("IMAGE_TO_VIDEO requires start_image")
+        workflow["8"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": start_image},
+        }
+        workflow["4"] = {
+            "class_type": "LTXImageToVideo",
+            "inputs": {
+                "image": ["8", 0],
+                "vae": ["1", 2],
+                "width": width,
+                "height": height,
+                "length": frame_count,
+            },
+        }
+    elif generation_mode == "FIRST_LAST_FRAME":
+        if not start_image or not end_image:
+            raise ValueError("FIRST_LAST_FRAME requires both start_image and end_image")
+        workflow["8"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": start_image},
+        }
+        workflow["9"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": end_image},
+        }
+        workflow["4"] = {
+            "class_type": "LTXFirstLastFrame",
+            "inputs": {
+                "start_image": ["8", 0],
+                "end_image": ["9", 0],
+                "vae": ["1", 2],
+                "width": width,
+                "height": height,
+                "length": frame_count,
+            },
+        }
+    else:  # TEXT_TO_VIDEO or default
+        workflow["4"] = {
             "class_type": "EmptyLatentVideo",
             "inputs": {
                 "width": width,
@@ -127,34 +182,55 @@ def build_ltx_video_workflow(
                 "length": frame_count,
                 "batch_size": 1,
             },
-        },
-        "5": {
-            "class_type": "KSampler",
-            "inputs": {
-                "seed": seed,
-                "steps": effective_steps,
-                "cfg": effective_cfg,
-                "sampler_name": sampler_name,
-                "scheduler": scheduler,
-                "denoise": 1.0,
-                "model": ["1", 0],
-                "positive": ["2", 0],
-                "negative": ["3", 0],
-                "latent_image": ["4", 0],
-            },
-        },
-        "6": {
-            "class_type": "VAEDecode",
-            "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
-        },
-        "7": {
-            "class_type": "SaveVideo",
-            "inputs": {
-                "images": ["6", 0],
-                "filename_prefix": filename_prefix,
-                "fps": fps,
-                "format": "video/mp4",
-                "codec": "h264",
-            },
+        }
+
+    # KSampler with A/V diffusion conditioning
+    workflow["5"] = {
+        "class_type": "KSampler",
+        "inputs": {
+            "seed": seed,
+            "steps": effective_steps,
+            "cfg": effective_cfg,
+            "sampler_name": sampler_name,
+            "scheduler": scheduler,
+            "denoise": 1.0,
+            "model": ["1", 0],
+            "positive": ["2", 0],
+            "negative": ["3", 0],
+            "latent_image": ["4", 0],
         },
     }
+
+    # VAE Decode
+    workflow["6"] = {
+        "class_type": "VAEDecode",
+        "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
+    }
+
+    # SaveVideo with synchronized audio muxing
+    save_inputs: dict[str, Any] = {
+        "images": ["6", 0],
+        "filename_prefix": filename_prefix,
+        "fps": fps,
+        "format": "video/mp4",
+        "codec": "h264",
+    }
+
+    # Audio conditioning via voice reference
+    if voice_audio:
+        workflow["11"] = {
+            "class_type": "LoadAudio",
+            "inputs": {"audio": voice_audio},
+        }
+        workflow["12"] = {
+            "class_type": "LTXAudioConditioning",
+            "inputs": {"audio": ["11", 0], "vae": ["1", 2]},
+        }
+        save_inputs["audio"] = ["11", 0]
+
+    workflow["7"] = {
+        "class_type": "SaveVideo",
+        "inputs": save_inputs,
+    }
+
+    return workflow

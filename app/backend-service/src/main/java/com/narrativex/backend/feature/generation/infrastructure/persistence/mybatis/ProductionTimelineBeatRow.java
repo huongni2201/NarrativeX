@@ -18,6 +18,8 @@ public class ProductionTimelineBeatRow {
   private int sceneIndex;
   private int beatIndex;
   private UUID visualBeatId;
+  private UUID shotId;
+  private UUID takeId;
   private String title;
   private String visualIntent;
   private String cameraMovement;

@@ -1,8 +1,8 @@
-# Remote GPU Runtime Deployment (Windows RTX 3090)
+# Remote GPU Runtime Deployment (Windows RTX 5090 / RTX 3090 Baseline)
 
-> **Status: IMPLEMENTED / ACTIVE.** This package describes the Windows target running Python 3.14.7 and PyTorch 2.14.0 with CUDA 13.0, synchronized with `runtime.lock.json` and ADR-0025 callback/outbox configuration.
+> **Status: IMPLEMENTED / ACTIVE.** This package describes the Windows target running Python 3.14.7 and PyTorch 2.14.0 with CUDA 13.0, synchronized with `runtime.lock.json`, ADR-0025 callback/outbox configuration, and ADR-0032. The primary operational target is the **NVIDIA GeForce RTX 5090 (32GB VRAM)**; the **RTX 3090 (24GB VRAM)** is maintained as a historical deployment baseline.
 
-This directory provides the production deployment package for running the NarrativeX GPU execution plane (`generation-service`) on a leased or dedicated **Windows RTX 3090** (24GB VRAM) machine (e.g. Vast.ai, RunPod, TensorDock, or bare-metal Windows server).
+This directory provides the production deployment package for running the NarrativeX GPU execution plane (`generation-service`) on a leased or dedicated **Windows RTX 5090** (32GB VRAM) machine or **RTX 3090** (24GB VRAM baseline) node (e.g. Vast.ai, RunPod, TensorDock, or bare-metal Windows server).
 
 ---
 
@@ -23,7 +23,7 @@ Under **ADR-0018**, **ADR-0019**, **ADR-0023**, and **ADR-0025**:
 
 ---
 
-## 2. Quick Setup on Leased RTX 3090 Windows Node
+## 2. Quick Setup on Windows Node (RTX 5090 / RTX 3090)
 
 ### Step 1: Clone or Copy the Repository
 ```powershell
@@ -36,7 +36,7 @@ cd C:\NarrativeX\deploy\remote-gpu-windows
 .\bootstrap.ps1
 ```
 The bootstrap script will automatically:
-1. Verify `nvidia-smi` and confirm RTX 3090 (>= 24GB VRAM).
+1. Verify `nvidia-smi` and confirm GPU (RTX 5090 32GB target or RTX 3090 >= 24GB VRAM baseline).
 2. Detect the drive with greatest free space and set up `C:\NarrativeXRuntime`.
 3. Install standalone `uv` package manager.
 4. Install Python 3.14.7 and PyTorch 2.14.0 with CUDA 13.0 wheels.

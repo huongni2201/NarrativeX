@@ -173,6 +173,14 @@
     WHERE id = #{id}
   </update>
 
+  <update id="updateStrategy">
+    UPDATE shots
+    SET generation_strategy = #{strategy},
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE id = #{id}
+  </update>
+
   <delete id="deleteById">
     DELETE FROM shots WHERE id = #{id}
   </delete>
@@ -215,6 +223,18 @@
            sh.environment_motion_json::text AS environment_motion_json,
            sh.target_duration_ms, sh.generation_strategy, sh.quality_profile,
            sh.continuity_from_shot_id, sh.continuity_to_shot_id, sh.status
+    FROM shots sh
+    JOIN shot_sequences sq ON sq.id = sh.sequence_id
+    JOIN visual_beats vb ON vb.id = sq.visual_beat_id
+    JOIN scenes sc ON sc.id = vb.scene_id
+    JOIN chapters ch ON ch.id = sc.chapter_id
+    WHERE sc.project_id = #{projectId}
+      AND sh.id = #{shotId}
+      AND ch.deleted_at IS NULL
+  </select>
+
+  <select id="findChapterIdByShotId" resultType="java.util.UUID">
+    SELECT sc.chapter_id
     FROM shots sh
     JOIN shot_sequences sq ON sq.id = sh.sequence_id
     JOIN visual_beats vb ON vb.id = sq.visual_beat_id

@@ -17,6 +17,7 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react(), tailwindcss()],
+    cacheDir: path.resolve(__dirname, "node_modules/.vite_cache"),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "src/renderer"),

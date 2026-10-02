@@ -7,6 +7,8 @@ import org.apache.ibatis.annotations.Param;
 public interface SelectedTakeMapper extends NarrativeXMyBatisMapper {
   SelectedTakeRow findByShotId(@Param("shotId") UUID shotId);
 
+  java.util.List<SelectedTakeRow> findByShotIds(@Param("shotIds") java.util.List<UUID> shotIds);
+
   int insert(SelectedTakeRow row);
 
   int update(SelectedTakeRow row);

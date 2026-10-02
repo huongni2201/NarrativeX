@@ -231,6 +231,8 @@ public class GetProductionTimelineUseCase {
         source.sceneIndex(),
         source.beatIndex(),
         source.visualBeatId(),
+        source.shotId(),
+        source.takeId(),
         source.title(),
         source.visualIntent(),
         source.cameraMovement(),

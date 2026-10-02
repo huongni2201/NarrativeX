@@ -32,6 +32,40 @@ class ComfyUIClient:
         self.timeout = timeout
         self._client = client
 
+    async def upload_file(
+        self,
+        filename: str,
+        content: bytes,
+        mime_type: str = "image/png",
+        subfolder: str = "",
+        overwrite: bool = True,
+    ) -> str:
+        """Upload file content to ComfyUI input directory via multipart/form-data.
+
+        Returns the filename assigned by ComfyUI.
+        """
+        files = {"image": (filename, content, mime_type)}
+        data: dict[str, str] = {"overwrite": "true" if overwrite else "false"}
+        if subfolder:
+            data["subfolder"] = subfolder
+
+        url = f"{self.base_url}/upload/image"
+        if self._client is not None:
+            response = await self._client.post(
+                url, files=files, data=data, timeout=self.timeout
+            )
+        else:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(url, files=files, data=data)
+
+        if response.is_error:
+            raise ComfyUIClientError(
+                f"ComfyUI file upload failed with HTTP {response.status_code}: {response.text}"
+            )
+        res_json = response.json()
+        name = res_json.get("name", filename)
+        return str(name)
+
     async def submit_prompt(self, workflow: dict[str, Any], client_id: str) -> str:
         body = {"prompt": workflow, "client_id": client_id}
         if self._client is not None:

@@ -1,6 +1,6 @@
-package com.narrativex.backend.feature.storyboard.domain.enums;
+package com.narrativex.backend.feature.common.domain.enums;
 
-/** Video generation strategy assigned to a shot. */
+/** Video generation strategy assigned to a shot and executed in a take. */
 public enum GenerationStrategy {
   TEXT_TO_VIDEO,
   IMAGE_TO_VIDEO,

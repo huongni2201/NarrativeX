@@ -19,8 +19,8 @@ Set `GENERATION_SERVICE_MACHINE_TOKEN` to a non-empty machine credential and run
 python -m narrativex_gpu_worker
 ```
 
-The production bootstrap registers ComfyUI (`image.generate`), VieNeu (`audio.synthesize`),
-WhisperX (`audio.align`), and media validation (`media.validate`). Capability
+The production bootstrap registers ComfyUI (`image.generate`), LTX Video (`video.generate`),
+VieNeu (`audio.synthesize`), WhisperX (`audio.align`), and media validation (`media.validate`). Capability
 readiness is advertised per adapter: endpoint-backed adapters require a configured endpoint, the
 VieNeu adapter also requires its endpoint/API key, and WhisperX requires the optional local dependency.
 The service starts with unavailable optional capabilities marked `ready=false`; the backend must
@@ -50,8 +50,8 @@ bootstrap.py    composition root; the only place that wires concrete adapters
 
 ## GPU Model Residency & Mutual Exclusion
 
-In resource-constrained GPU host environments (such as a single 24GB RTX 3090 host running ComfyUI / VieNeu / WhisperX), `GpuResidencyManager` provides:
-- Strict logical mutual exclusion between generative runtime families (`COMFYUI_IMAGE`, `VIENEU`, `WHISPERX`).
+In resource-constrained GPU host environments (NVIDIA GeForce RTX 5090 32GB target; RTX 3090 24GB baseline running LTX Video / ComfyUI / VieNeu / WhisperX), `GpuResidencyManager` provides:
+- Strict logical mutual exclusion between generative runtime families (`LTX_VIDEO`, `COMFYUI_IMAGE`, `VIENEU`, `WHISPERX`).
 - Automatic draining of in-flight leases before transitioning runtime families.
 - Lifecycle management via `RuntimeProcessSupervisor`, loader/unloader lifecycle hooks, and `GpuVramProbe` wired into `bootstrap.py`; runtime process commands can be configured via environment settings. Production strictness hardening and full Windows worker validation remain in progress.
 - Timeout-bounded fail-closed transitions: if a transition exceeds `GENERATION_SERVICE_RESIDENCY_TRANSITION_TIMEOUT_SECONDS`, the residency manager enters a poisoned state to prevent cascading host crashes.

@@ -20,12 +20,16 @@ public interface ShotMapper extends NarrativeXMyBatisMapper {
 
   int updateStatus(@Param("id") UUID id, @Param("status") String status);
 
+  int updateStrategy(@Param("id") UUID id, @Param("strategy") String strategy);
+
   int deleteById(@Param("id") UUID id);
 
   List<ShotRow> findCurrentShotsByChapter(
       @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
 
   ShotRow findShotByIdAndProject(@Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
+
+  UUID findChapterIdByShotId(@Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
 
   ShotSequenceRow findSequenceByBeatIdAndProject(
       @Param("projectId") UUID projectId, @Param("visualBeatId") UUID visualBeatId);

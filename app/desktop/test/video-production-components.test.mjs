@@ -77,3 +77,56 @@ test("ProjectsScreen and ChapterWorkspaceScreen maintain consistent navigation a
   assert.doesNotMatch(projectsScreen, /mockProjects|fakeProjects/);
   assert.doesNotMatch(chapterWorkspaceScreen, /mockChapters|fakeChapters/);
 });
+
+test("ChapterWorkspaceScreen integrates authoritative media jobs and production status", () => {
+  const source = readSource("features/chapters/screens/ChapterWorkspaceScreen.tsx");
+
+  assert.match(source, /useCurrentMediaJob/);
+  assert.match(source, /useGenerationJob/);
+  assert.match(source, /useChapterProductionStatus/);
+  assert.match(source, /crypto\.randomUUID\(\)/);
+  assert.match(source, /productionStatus=\{productionStatus\.data \?\? null\}/);
+});
+
+test("ChapterProductionStage enforces backend-authoritative status and avoids local 80 percent heuristics", () => {
+  const source = readSource("features/chapters/components/stages/ChapterProductionStage.tsx");
+
+  assert.doesNotMatch(
+    source,
+    /Math\.ceil\(totalShots \* 0\.8\)/,
+    "ChapterProductionStage must not calculate editor readiness with local 80% heuristic",
+  );
+  assert.match(source, /productionStatus(?:\?\.|\.)timelineReady/);
+  assert.match(source, /productionStatus(?:\?\.|\.)overallProgressPercent/);
+});
+
+test("VideoShotboard uses authoritative shots without local fake shot synthesis", () => {
+  const source = readSource("features/storyboard/components/VideoShotboard.tsx");
+
+  assert.doesNotMatch(
+    source,
+    /takes:\s*\[\],\s*status:\s*"PLANNED"/,
+    "VideoShotboard must not synthesize fake DesktopShot objects with empty takes and hardcoded status",
+  );
+  assert.match(source, /drawerShot/);
+  assert.match(source, /isBlocked/);
+  assert.match(source, /blockedReason/);
+});
+
+test("videoProductionApi and query hooks are provided under features/production", () => {
+  const apiSource = readSource("features/production/api/video-production.api.ts");
+  const queriesSource = readSource("features/production/queries/video-production.queries.ts");
+
+  assert.match(apiSource, /getProductionStatus/);
+  assert.match(apiSource, /getProduction/);
+  assert.match(apiSource, /generateTake/);
+  assert.match(apiSource, /selectTake/);
+  assert.match(apiSource, /updateStrategy/);
+
+  assert.match(queriesSource, /useChapterProductionStatus/);
+  assert.match(queriesSource, /useChapterProduction/);
+  assert.match(queriesSource, /useGenerateShot/);
+  assert.match(queriesSource, /useSelectTake/);
+  assert.match(queriesSource, /useUpdateShotStrategy/);
+});
+

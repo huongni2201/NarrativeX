@@ -14,7 +14,14 @@ import type {
 } from "@narrativex/client-contracts";
 import { useChapterStoryQuery, useUpdateStoryBeatReviewStatus } from "../../story/queries/story.queries";
 import { useCreateChapter, useUpdateChapter } from "../queries/chapters.queries";
-import { useAnalyzeChapter, useCreateMediaJob } from "../../generation/queries/generation.queries";
+import {
+  useAnalyzeChapter,
+  useCreateMediaJob,
+  useCurrentMediaJob,
+  useGenerationJob,
+} from "../../generation/queries/generation.queries";
+import { isActiveGenerationJobStatus } from "../../generation/generation-status";
+import { useChapterProductionStatus } from "../../production/queries/video-production.queries";
 import { ChapterRail } from "../components/ChapterRail";
 import { ChapterSourceStage } from "../components/stages/ChapterSourceStage";
 import { ChapterCanonStage } from "../components/stages/ChapterCanonStage";
@@ -50,6 +57,19 @@ export function ChapterWorkspaceScreen({
   const analyzeChapter = useAnalyzeChapter();
   const createMediaJob = useCreateMediaJob();
   const updateBeatStatus = useUpdateStoryBeatReviewStatus(projectId, selectedChapterId ?? "");
+
+  // Authoritative media job and generation status
+  const currentMediaJob = useCurrentMediaJob(projectId, selectedChapterId);
+  const activeJobId =
+    createMediaJob.data?.jobId ??
+    currentMediaJob.data?.jobId ??
+    null;
+  const generationJob = useGenerationJob(activeJobId);
+  const productionStatus = useChapterProductionStatus(projectId, selectedChapterId);
+
+  const isGenerating =
+    createMediaJob.isPending ||
+    (generationJob.data ? isActiveGenerationJobStatus(generationJob.data.status) : false);
 
   // Load authoritative Chapter Story
   const { data: story, isLoading: storyLoading, refetch: refetchStory } = useChapterStoryQuery(
@@ -101,13 +121,14 @@ export function ChapterWorkspaceScreen({
 
   const handleAnalyze = async () => {
     if (!activeChapter) return;
+    const idempotencyKey = `analyze-${activeChapter.id}-${crypto.randomUUID()}`;
     await analyzeChapter.mutateAsync({
       projectId,
       chapterId: activeChapter.id,
       request: {
         visualGenerationMode: "VIDEO",
       },
-      idempotencyKey: `analyze-${activeChapter.id}-${Date.now()}`,
+      idempotencyKey,
     });
     // Switch to Canon stage to view results
     setCurrentStage("canon");
@@ -116,6 +137,7 @@ export function ChapterWorkspaceScreen({
 
   const handleGenerateVideoShots = async () => {
     if (!activeChapter) return;
+    const idempotencyKey = `media-${activeChapter.id}-${crypto.randomUUID()}`;
     await createMediaJob.mutateAsync({
       projectId,
       chapterId: activeChapter.id,
@@ -124,9 +146,8 @@ export function ChapterWorkspaceScreen({
         visualGenerationMode: "VIDEO",
         aspectRatio: "16:9",
       },
-      idempotencyKey: `media-${activeChapter.id}-${Date.now()}`,
+      idempotencyKey,
     });
-    void refetchStory();
   };
 
   const handleCreateNewChapter = async () => {
@@ -257,8 +278,10 @@ export function ChapterWorkspaceScreen({
             <ChapterProductionStage
               chapter={activeChapter}
               story={story ?? null}
+              productionStatus={productionStatus.data ?? null}
+              activeGenerationJob={generationJob.data ?? null}
               onGenerateVideoShots={handleGenerateVideoShots}
-              isGenerating={createMediaJob.isPending}
+              isGenerating={isGenerating}
             />
           )}
         </div>

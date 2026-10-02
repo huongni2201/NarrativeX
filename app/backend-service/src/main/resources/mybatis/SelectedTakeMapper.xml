@@ -17,6 +17,15 @@
     WHERE shot_id = #{shotId}
   </select>
 
+  <select id="findByShotIds" resultMap="selectedTake">
+    SELECT shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at
+    FROM selected_takes
+    WHERE shot_id IN
+    <foreach collection="shotIds" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </select>
+
   <insert id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeRow">
     INSERT INTO selected_takes (shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at)
     VALUES (#{shotId}, #{takeId}, #{sourceInMs}, #{sourceOutMs}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP))

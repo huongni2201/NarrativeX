@@ -52,8 +52,8 @@ Decisions that define the current architecture and implementation boundaries:
   StoryBeat as the semantic parent of AudioCue and VisualBeat, governed by Gemini as Story Director with Spring Boot validation, assembled narration scripts, and audio-driven visual timing.
 - **[ADR-0025: Event-Driven Compute Orchestration, Worker Callback Outbox, and Scheduled State Reconciliation](./ADR-0025-event-driven-compute-orchestration-and-reconciliation.md)**
   Non-blocking worker callbacks with HMAC signatures, durable job state machine, SQLite worker outbox, scheduled non-blocking reconciliation fallback, and SSE desktop stream without extra message brokers.
-- **[ADR-0026: Video-First LTX Audio-Native Production Runtime and Hardware Baseline](./ADR-0026-video-first-ltx-audio-native-production-runtime.md)**
-  Video-first moving footage production pipeline with synchronized audio, RTX 5090 32GB production target, WhisperX QC, VieNeu auxiliary fallback, and FFmpeg master composition.
+- **[ADR-0026: Video-First Production Architecture and Legacy Still Motion Deprecation](./ADR-0026-video-first-production.md)**
+  Transition to video-first production architecture, moving video footage on timeline, deprecation of still-image-first Ken Burns motion, and retention of image generation exclusively for references and keyframes.
 - **[ADR-0027: Shot as the Atomic Production Unit](./ADR-0027-shot-as-production-unit.md)**
   VisualBeat refactored into dramatic beat; Shot established as the sole atomic production unit for generation, leasing, retries, and quality assurance.
 - **[ADR-0028: Image Generation Restricted to References and Keyframes Only](./ADR-0028-image-generator-reference-only.md)**
@@ -64,6 +64,8 @@ Decisions that define the current architecture and implementation boundaries:
   Multi-take generation, 11-category Video QA validation, SelectedTake in/out duration trimming, and EditingDirector EDL compilation.
 - **[ADR-0031: Retention-Driven Narrative Planning and Post-Publish Feedback Loop](./ADR-0031-retention-driven-narrative-planning.md)**
   Pre-generation HookPlan and RetentionMap; attention event detector with pacing risk guardrails; post-publish YouTube retention feedback loop.
+- **[ADR-0032: Video-First LTX Audio-Native Production Runtime and Hardware Baseline](./ADR-0032-video-first-ltx-audio-native-production-runtime.md)**
+  Video-first moving footage production pipeline with synchronized audio, RTX 5090 32GB production target, WhisperX QC, VieNeu auxiliary fallback, and FFmpeg master composition.
 
 ### PARTIALLY SUPERSEDED
 

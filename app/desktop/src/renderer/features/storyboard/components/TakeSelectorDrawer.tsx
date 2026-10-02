@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
+
 export interface TakeSelectorDrawerProps {
+  projectId?: string;
   shot: DesktopShot | null;
   takes: DesktopTake[];
   selectedTake: DesktopSelectedTake | null;
@@ -15,6 +18,7 @@ export interface TakeSelectorDrawerProps {
 }
 
 export function TakeSelectorDrawer({
+  projectId,
   shot,
   takes,
   selectedTake,
@@ -141,6 +145,31 @@ export function TakeSelectorDrawer({
                           {retryRecommendation}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {take.whisperXSummary && (
+                    <div className="mt-2 text-[10px] p-2 bg-info/10 text-info-foreground border border-info/20 rounded space-y-1">
+                      <div className="flex items-center justify-between font-semibold">
+                        <span>WhisperX Dialogue QA</span>
+                        <span className="font-mono">
+                          {(take.whisperXSummary.confidence * 100).toFixed(0)}% conf · {(take.whisperXSummary.coverage * 100).toFixed(0)}% cov
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-text-secondary">
+                        <div><span className="font-bold">Expected:</span> "{take.whisperXSummary.expectedText}"</div>
+                        <div><span className="font-bold">Recognized:</span> "{take.whisperXSummary.recognizedText}"</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {projectId && take.outputAssetId && isSelected && (
+                    <div className="mt-2 overflow-hidden rounded border border-border-soft aspect-video bg-black">
+                      <video
+                        src={localAssetPreviewUrl(projectId, take.outputAssetId)}
+                        controls
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                   )}
                 </div>

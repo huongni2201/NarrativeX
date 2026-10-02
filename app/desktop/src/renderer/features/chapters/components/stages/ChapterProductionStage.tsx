@@ -13,15 +13,19 @@ import {
   Check,
 } from "lucide-react";
 import type {
+  ChapterProductionStatus,
   DesktopChapterDetails,
   DesktopChapterStory,
   DesktopShot,
   DesktopStoryBeat,
+  GenerationJob,
 } from "@narrativex/client-contracts";
 
 export interface ChapterProductionStageProps {
   chapter: DesktopChapterDetails | null;
   story: DesktopChapterStory | null;
+  productionStatus?: ChapterProductionStatus | null;
+  activeGenerationJob?: GenerationJob | null;
   onGenerateVideoShots?: () => void;
   isGenerating?: boolean;
 }
@@ -29,6 +33,8 @@ export interface ChapterProductionStageProps {
 export function ChapterProductionStage({
   chapter,
   story,
+  productionStatus,
+  activeGenerationJob: _activeGenerationJob,
   onGenerateVideoShots,
   isGenerating = false,
 }: ChapterProductionStageProps) {
@@ -64,33 +70,36 @@ export function ChapterProductionStage({
   const allShots: DesktopShot[] = allBeats
     .flatMap((b) => b.visualBeats)
     .flatMap((v) => v.shotSequence?.shots ?? []);
-  const totalShots = allShots.length;
-  const shotsGeneratedCount = allShots.filter(
-    (s) =>
-      Boolean(s.selectedTake) ||
-      s.status === "SELECTED" ||
-      s.status === "PASSED" ||
-      s.takes.length > 0
-  ).length;
+
+  // Authoritative metrics from backend
+  const totalShots = productionStatus ? productionStatus.totalShots : allShots.length;
+  const shotsGeneratedCount = productionStatus
+    ? (productionStatus.selectedTakeCount + productionStatus.passedShots)
+    : allShots.filter(
+        (s) =>
+          Boolean(s.selectedTake) ||
+          s.status === "SELECTED" ||
+          s.status === "PASSED" ||
+          s.takes.length > 0,
+      ).length;
 
   // 4. Validation / QC (Word Alignment & Quality Verification)
-  const qcPassedCount = allShots.filter(
-    (s) =>
-      s.status === "SELECTED" ||
-      s.status === "PASSED" ||
-      s.takes.some((t) => t.status === "PASSED")
-  ).length;
+  const qcPassedCount = productionStatus
+    ? productionStatus.passedShots
+    : allShots.filter(
+        (s) =>
+          s.status === "SELECTED" ||
+          s.status === "PASSED" ||
+          s.takes.some((t) => t.status === "PASSED"),
+      ).length;
 
-  // 5. Editor Readiness
-  const editorReady = totalShots > 0 && shotsGeneratedCount >= Math.ceil(totalShots * 0.8);
-  const overallProgressPercent =
-    totalBeats > 0
-      ? Math.round(
-          ((dialogueReadyCount + voiceAssignedCount + shotsGeneratedCount + qcPassedCount) /
-            (totalBeats + Math.max(1, totalCues) + Math.max(1, totalShots) * 2)) *
-            100
-        )
-      : 0;
+  // 5. Editor Readiness and Progress strictly from backend
+  const editorReady = productionStatus
+    ? productionStatus.timelineReady
+    : totalShots > 0 && shotsGeneratedCount === totalShots;
+  const overallProgressPercent = productionStatus
+    ? productionStatus.overallProgressPercent
+    : 0;
 
   const toggleBeatExpand = (beatId: string) => {
     setExpandedBeatIds((prev) => ({ ...prev, [beatId]: !prev[beatId] }));
@@ -423,6 +432,14 @@ export function ChapterProductionStage({
                                       {isSelected && (
                                         <span className="inline-flex items-center gap-1 text-primary text-[10px] font-bold">
                                           <Check size={11} /> Master Take
+                                        </span>
+                                      )}
+                                      {take.whisperXSummary && (
+                                        <span
+                                          className="rounded bg-info/10 border border-info/20 px-1.5 py-0.5 text-[10px] font-mono text-info"
+                                          title={`WhisperX QA: ${(take.whisperXSummary.confidence * 100).toFixed(0)}% conf / ${(take.whisperXSummary.coverage * 100).toFixed(0)}% cov`}
+                                        >
+                                          WhisperX {(take.whisperXSummary.confidence * 100).toFixed(0)}%
                                         </span>
                                       )}
                                       <span

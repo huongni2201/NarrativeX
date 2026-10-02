@@ -3,6 +3,7 @@ export type BeatMediaType = "IMAGE" | "VIDEO";
 export type AutoEditStyle = "AUTO" | "CINEMATIC" | "BALANCED" | "DYNAMIC";
 export type RenderResolution = "720p" | "1080p" | "1440p";
 export type RenderFrameRate = 24 | 30 | 60;
+export type SeedPolicy = "AUTO_RANDOM" | "DETERMINISTIC_FROM_TAKE" | "USER_FIXED";
 
 export interface EditDecisionTransition {
   type: "CUT" | "DISSOLVE" | "FADE_BLACK";
@@ -22,6 +23,14 @@ export interface EditDecision {
   transition?: EditDecisionTransition;
 }
 
+export type AudioClockSource =
+  | "GENERATED_TAKE_AUDIO"
+  | "SCRIPT_LOCK"
+  | "EXTERNAL_MASTER"
+  | "TTS_FALLBACK"
+  | "VIENEU_MASTER"
+  | "SCRIPTLOCK";
+
 export interface EditDecisionList {
   schemaVersion: "1.0";
   projectId: string;
@@ -30,7 +39,7 @@ export interface EditDecisionList {
   totalDurationMs: number;
   fps: RenderFrameRate;
   resolution: { width: number; height: number };
-  audioClockSource: "VIENEU_MASTER" | "SCRIPTLOCK";
+  audioClockSource: AudioClockSource;
   audioAssetId: string;
   decisions: EditDecision[];
 }
@@ -129,3 +138,25 @@ export interface LocalRenderPreflight {
   estimatedOutputBytes: number;
   requiredTemporaryBytes: number;
 }
+
+export interface ChapterProductionStatus {
+  chapterId: string;
+  storyReady: boolean;
+  audioReady: boolean;
+  voiceReady: boolean;
+  totalShots: number;
+  queuedShots: number;
+  generatingShots: number;
+  validatingShots: number;
+  passedShots: number;
+  failedShots: number;
+  blockedShots: number;
+  manualReviewShots: number;
+  selectedTakeCount: number;
+  generationReady: boolean;
+  timelineReady: boolean;
+  renderReady: boolean;
+  overallProgressPercent: number;
+  activeGenerationJobId?: string | null;
+}
+

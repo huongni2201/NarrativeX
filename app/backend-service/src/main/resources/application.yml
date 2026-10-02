@@ -51,6 +51,10 @@ narrativex:
       provider-key: ${NARRATIVEX_IMAGE_PROVIDER_KEY:realvisxl}
       model: ${NARRATIVEX_IMAGE_MODEL:realvisxl-checkpoint.safetensors}
       execution-mode: ${NARRATIVEX_IMAGE_EXECUTION_MODE:BATCH}
+  video:
+    default-provider: ${NARRATIVEX_VIDEO_DEFAULT_PROVIDER:ltx}
+    default-model: ${NARRATIVEX_VIDEO_DEFAULT_MODEL:ltx-2.5-nvfp4}
+    default-quality-profile: ${NARRATIVEX_VIDEO_DEFAULT_QUALITY_PROFILE:720p_24fps_standard}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}

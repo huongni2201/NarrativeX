@@ -1,8 +1,8 @@
-# ADR-0026: Video-First LTX Audio-Native Production Runtime and Hardware Baseline
+# ADR-0032: Video-First LTX Audio-Native Production Runtime and Hardware Baseline
 
 ## Status
 
-Accepted (Supersedes ADR-0026 still-motion portion and updates runtime baseline of ADR-0023).
+Accepted (Complements ADR-0026 video-first architecture and updates runtime baseline of ADR-0023).
 
 ## Context
 

@@ -44,6 +44,9 @@ public class CreateMediaJobUseCase {
   private final GenerationOutboxRepository generationOutboxRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final ImageGenerationCatalog imageGenerationCatalog;
+  private final com.narrativex.backend.feature.generation.application.port.out
+          .VideoGenerationCatalog
+      videoGenerationCatalog;
   private final NarrativeXLimitsProperties limits;
 
   @Transactional
@@ -96,8 +99,8 @@ public class CreateMediaJobUseCase {
     String modelKey;
 
     if (isVideoFirst) {
-      providerKey = "ltx";
-      modelKey = "ltx-2.5-nvfp4";
+      providerKey = videoGenerationCatalog.defaultProvider();
+      modelKey = videoGenerationCatalog.defaultModel();
     } else {
       var imageProfile = imageGenerationCatalog.resolve();
       providerKey = imageProfile.providerKey();

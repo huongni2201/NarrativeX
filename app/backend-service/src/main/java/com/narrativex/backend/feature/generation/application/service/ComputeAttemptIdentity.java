@@ -13,4 +13,10 @@ public final class ComputeAttemptIdentity {
         ("narrativex:compute-attempt:" + jobType.name() + ":" + jobId)
             .getBytes(StandardCharsets.UTF_8));
   }
+
+  public static UUID forTake(UUID takeId, int attemptNumber) {
+    return UUID.nameUUIDFromBytes(
+        ("narrativex:compute-attempt:take:" + takeId + ":" + attemptNumber)
+            .getBytes(StandardCharsets.UTF_8));
+  }
 }

@@ -62,6 +62,13 @@ public class MyBatisStoryboardShotAccessAdapter implements StoryboardShotAccess 
     shotMapper.updateStatus(shotId, status.name());
   }
 
+  @Override
+  public void updateShotStrategy(UUID shotId, GenerationStrategy strategy) {
+    Objects.requireNonNull(shotId, "shotId must not be null");
+    Objects.requireNonNull(strategy, "strategy must not be null");
+    shotMapper.updateStrategy(shotId, strategy.name());
+  }
+
   private ShotView toShotView(ShotRow row) {
     if (row == null) {
       return null;

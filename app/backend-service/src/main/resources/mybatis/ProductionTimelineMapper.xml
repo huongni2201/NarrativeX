@@ -30,6 +30,8 @@
 
   <resultMap id="beatRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineBeatRow">
     <id property="visualBeatId" column="visual_beat_id" />
+    <result property="shotId" column="shot_id" />
+    <result property="takeId" column="take_id" />
     <result property="chapterId" column="chapter_id" />
     <result property="chapterOrderIndex" column="chapter_order_index" />
     <result property="mediaPlanId" column="media_plan_id" />
@@ -217,6 +219,8 @@
            cb.scene_index,
            cb.beat_index,
            cb.visual_beat_id,
+           selected_video.shot_id,
+           selected_video.take_id,
            COALESCE(cb.title, CONCAT('Beat ', cb.beat_index + 1)) AS title,
            cb.visual_intent,
            cb.camera_movement,
@@ -265,6 +269,8 @@
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
+               sh.id AS shot_id,
+               t.id AS take_id,
                COALESCE(st.source_out_ms - st.source_in_ms, t.source_duration_ms, ma.duration_ms) AS source_duration_ms,
                'TRIM' AS fit_mode,
                st.source_in_ms AS trim_start_ms,

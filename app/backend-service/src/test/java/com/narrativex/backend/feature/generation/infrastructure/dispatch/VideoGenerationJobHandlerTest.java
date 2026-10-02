@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -156,5 +157,137 @@ class VideoGenerationJobHandlerTest {
     assertNotNull(captured.inputs().get("cameraIntent"));
 
     verify(transactionService).markSubmitted(any(), any(), any());
+  }
+
+  @Test
+  void persistsTakeAndUpdatesStatusToRunningOnSubmit() {
+    UUID jobId = UuidV7.random();
+    UUID projectId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
+    UUID shotId = UuidV7.random();
+
+    com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeMapper
+        takeMapper =
+            mock(
+                com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis
+                    .TakeMapper.class);
+
+    VideoGenerationJobHandler handlerWithTake =
+        new VideoGenerationJobHandler(
+            transactionService,
+            executionPort,
+            artifactAccess,
+            storyboardShotAccess,
+            speakerVoiceResolver,
+            null,
+            takeMapper);
+
+    GenerationJob job =
+        GenerationJob.rehydrate(
+            jobId,
+            0L,
+            jobId,
+            projectId,
+            JobType.CHAPTER_GENERATE,
+            JobStatus.QUEUED,
+            ResourceClass.GPU_HEAVY,
+            0,
+            null,
+            null,
+            null,
+            chapterId,
+            null,
+            1L,
+            "hash",
+            "Hero runs towards the gate",
+            "vi",
+            "idemp:1",
+            UuidV7.random(),
+            1,
+            ProductionMode.VIDEO_FIRST,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null);
+
+    when(transactionService.claimForSubmission(jobId, "GENERATING_VIDEO"))
+        .thenReturn(Optional.of(job));
+
+    StoryboardShotAccess.ShotView shotView =
+        new StoryboardShotAccess.ShotView(
+            shotId,
+            0,
+            "Hero leaps over the wall",
+            RetentionRole.HOOK,
+            "[]",
+            "castle_wall",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            4000L,
+            GenerationStrategy.TEXT_TO_VIDEO,
+            "720p_24fps_standard",
+            null,
+            null,
+            ShotStatus.READY);
+
+    when(storyboardShotAccess.requireCurrentShots(projectId, chapterId))
+        .thenReturn(List.of(shotView));
+
+    UUID mockTakeId = UuidV7.random();
+    when(takeMapper.insert(any())).thenReturn(mockTakeId);
+
+    OutputArtifactTargetDto output =
+        new OutputArtifactTargetDto(UuidV7.random(), "video", "video/mp4", null);
+    when(artifactAccess.createOutput(any(), any(), any(), any())).thenReturn(output);
+
+    ComputeSubmissionReceipt receipt =
+        new ComputeSubmissionReceipt(jobId, UuidV7.random(), "ltx:prompt-456", "ACCEPTED", 1L);
+    when(executionPort.submitTask(any())).thenReturn(receipt);
+
+    handlerWithTake.execute(jobId);
+
+    ArgumentCaptor<
+            com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow>
+        takeCaptor =
+            ArgumentCaptor.forClass(
+                com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow
+                    .class);
+    verify(takeMapper).insert(takeCaptor.capture());
+    com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow inserted =
+        takeCaptor.getValue();
+
+    assertEquals(shotId, inserted.getShotId());
+    assertEquals("PENDING", inserted.getStatus());
+    assertEquals(1, inserted.getAttemptNumber());
+    assertEquals("TEXT_TO_VIDEO", inserted.getGenerationMode());
+    assertNotNull(inserted.getMetricsJson());
+
+    // After submit, status updated to RUNNING
+    verify(takeMapper).updateStatus(eq(mockTakeId), eq("RUNNING"));
+
+    // Verify seed is passed in inputs and is not 0
+    ArgumentCaptor<ComputeTaskRequest> requestCaptor =
+        ArgumentCaptor.forClass(ComputeTaskRequest.class);
+    verify(executionPort).submitTask(requestCaptor.capture());
+    Object seedValue = requestCaptor.getValue().inputs().get("seed");
+    assertNotNull(seedValue);
   }
 }

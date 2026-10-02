@@ -55,6 +55,8 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
                     row.getSceneIndex(),
                     row.getBeatIndex(),
                     row.getVisualBeatId(),
+                    row.getShotId(),
+                    row.getTakeId(),
                     row.getTitle(),
                     row.getVisualIntent(),
                     row.getCameraMovement(),

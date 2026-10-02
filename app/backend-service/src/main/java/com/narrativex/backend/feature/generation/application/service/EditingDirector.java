@@ -73,6 +73,25 @@ public class EditingDirector {
       UUID audioAssetId,
       long audioMasterDurationMs,
       List<SelectedTakeCut> cuts) {
+    return assembleEditDecisionList(
+        projectId,
+        storyVersionId,
+        chapterId,
+        audioAssetId,
+        audioMasterDurationMs,
+        com.narrativex.backend.feature.generation.domain.enums.AudioClockSource.SCRIPT_LOCK,
+        cuts);
+  }
+
+  /** Compiles an EditDecisionList with an explicit AudioClockSource. */
+  public CompiledEditDecisionList assembleEditDecisionList(
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID audioAssetId,
+      long audioMasterDurationMs,
+      com.narrativex.backend.feature.generation.domain.enums.AudioClockSource clockSource,
+      List<SelectedTakeCut> cuts) {
     Objects.requireNonNull(projectId, "projectId must not be null");
     Objects.requireNonNull(chapterId, "chapterId must not be null");
     Objects.requireNonNull(audioAssetId, "audioAssetId must not be null");
@@ -105,6 +124,7 @@ public class EditingDirector {
     }
 
     long finalDuration = Math.max(currentTimelineMs, audioMasterDurationMs);
+    String clock = clockSource != null ? clockSource.name() : "SCRIPT_LOCK";
 
     return new CompiledEditDecisionList(
         "1.0",
@@ -115,7 +135,7 @@ public class EditingDirector {
         24,
         1280,
         720,
-        "VIENEU_MASTER",
+        clock,
         audioAssetId,
         decisions);
   }

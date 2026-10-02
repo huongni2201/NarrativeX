@@ -46,7 +46,7 @@ class EditingDirectorTest {
     assertThat(edl.fps()).isEqualTo(24);
     assertThat(edl.width()).isEqualTo(1280);
     assertThat(edl.height()).isEqualTo(720);
-    assertThat(edl.audioClockSource()).isEqualTo("VIENEU_MASTER");
+    assertThat(edl.audioClockSource()).isEqualTo("SCRIPT_LOCK");
     assertThat(edl.totalDurationMs()).isEqualTo(7000L);
     assertThat(edl.decisions()).hasSize(2);
 
@@ -64,6 +64,31 @@ class EditingDirectorTest {
     assertThat(d2.timelineInMs()).isEqualTo(3000L);
     assertThat(d2.timelineOutMs()).isEqualTo(7000L);
     assertThat(d2.transitionType()).isEqualTo("DISSOLVE");
+  }
+
+  @Test
+  void assembleEditDecisionList_supportsGeneratedTakeAudioClock() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID audioAssetId = UUID.randomUUID();
+
+    var cut =
+        new EditingDirector.SelectedTakeCut(
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 0L, 4000L, "CUT", 0L);
+
+    var edl =
+        director.assembleEditDecisionList(
+            projectId,
+            null,
+            chapterId,
+            audioAssetId,
+            4000L,
+            com.narrativex.backend.feature.generation.domain.enums.AudioClockSource
+                .GENERATED_TAKE_AUDIO,
+            List.of(cut));
+
+    assertThat(edl.audioClockSource()).isEqualTo("GENERATED_TAKE_AUDIO");
+    assertThat(edl.totalDurationMs()).isEqualTo(4000L);
   }
 
   @Test

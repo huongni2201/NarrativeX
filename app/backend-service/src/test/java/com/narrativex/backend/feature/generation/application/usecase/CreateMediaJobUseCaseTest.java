@@ -53,6 +53,11 @@ class CreateMediaJobUseCaseTest {
   @Mock private GenerationOutboxRepository generationOutboxRepository;
   @Mock private StageAttemptRepository stageAttemptRepository;
   @Mock private ImageGenerationCatalog imageGenerationCatalog;
+
+  @Mock
+  private com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog
+      videoGenerationCatalog;
+
   @Mock private NarrativeXLimitsProperties limits;
   @Mock private GenerationJob activeJob;
   @Mock private GenerationJob existingJob;

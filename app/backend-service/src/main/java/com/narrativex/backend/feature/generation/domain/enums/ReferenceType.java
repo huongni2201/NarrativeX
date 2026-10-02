@@ -8,6 +8,8 @@ public enum ReferenceType {
   START_FRAME,
   END_FRAME,
   KEYFRAME,
+  VOICE_REFERENCE,
+  CONTINUITY_VIDEO,
   THUMBNAIL,
   POSTER
 }

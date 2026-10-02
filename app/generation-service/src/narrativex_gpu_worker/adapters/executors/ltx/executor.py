@@ -30,7 +30,10 @@ from narrativex_gpu_worker.contracts import (
     VideoGenerateInputs,
 )
 
-from .workflow import build_ltx_video_workflow
+from .workflow import (
+    UNSUPPORTED_STRATEGIES,
+    build_ltx_video_workflow,
+)
 
 
 class LtxVideoExecutor:
@@ -87,7 +90,22 @@ class LtxVideoExecutor:
         inputs = task.inputs
         assert isinstance(inputs, VideoGenerateInputs)
 
-        # Resolve input reference artifacts if provided
+        # Preflight strategy validation
+        if inputs.generation_mode in UNSUPPORTED_STRATEGIES:
+            raise ExecutorExecutionError(
+                code="UNSUPPORTED_GENERATION_STRATEGY",
+                message=(
+                    f"Generation strategy '{inputs.generation_mode}' "
+                    "is not supported by LTX executor"
+                ),
+                category="PERMANENT",
+            )
+
+        start_image: str | None = None
+        end_image: str | None = None
+        voice_audio: str | None = None
+
+        # Resolve and materialize input reference artifacts into ComfyUI
         for input_ref in task.artifacts.inputs:
             if cancel.is_set():
                 raise ExecutionCanceledError("LTX execution canceled during reference resolution")
@@ -97,7 +115,42 @@ class LtxVideoExecutor:
                     raise ValueError(
                         f"Downloaded reference artifact {input_ref.artifact_id} is empty"
                     )
+
+                role = (input_ref.role or "").lower()
+                media_type = (input_ref.media_type or "").lower()
+
+                if "voice" in role or "audio" in media_type:
+                    filename = f"voice_{input_ref.artifact_id}.wav"
+                    uploaded = await self._client.upload_file(
+                        filename=filename,
+                        content=ref_bytes,
+                        mime_type=input_ref.media_type or "audio/wav",
+                    )
+                    voice_audio = uploaded
+                elif "end" in role:
+                    filename = f"end_{input_ref.artifact_id}.png"
+                    uploaded = await self._client.upload_file(
+                        filename=filename,
+                        content=ref_bytes,
+                        mime_type=input_ref.media_type or "image/png",
+                    )
+                    end_image = uploaded
+                elif (
+                    "start" in role
+                    or inputs.generation_mode == "IMAGE_TO_VIDEO"
+                    or "image" in media_type
+                ):
+                    filename = f"ref_{input_ref.artifact_id}.png"
+                    uploaded = await self._client.upload_file(
+                        filename=filename,
+                        content=ref_bytes,
+                        mime_type=input_ref.media_type or "image/png",
+                    )
+                    if start_image is None:
+                        start_image = uploaded
             except Exception as exc:
+                if isinstance(exc, (ExecutionCanceledError, ExecutorExecutionError)):
+                    raise
                 raise ExecutorExecutionError(
                     code="VIDEO_REFERENCE_INVALID",
                     message=(
@@ -105,6 +158,25 @@ class LtxVideoExecutor:
                     ),
                     category="PERMANENT",
                 ) from exc
+
+        if inputs.generation_mode == "IMAGE_TO_VIDEO" and not start_image:
+            raise ExecutorExecutionError(
+                code="VIDEO_REFERENCE_INVALID",
+                message=(
+                    "IMAGE_TO_VIDEO strategy requires a start_frame or image reference artifact"
+                ),
+                category="PERMANENT",
+            )
+
+        if inputs.generation_mode == "FIRST_LAST_FRAME" and (not start_image or not end_image):
+            raise ExecutorExecutionError(
+                code="VIDEO_REFERENCE_INVALID",
+                message=(
+                    "FIRST_LAST_FRAME strategy requires both "
+                    "start_frame and end_frame reference artifacts"
+                ),
+                category="PERMANENT",
+            )
 
         prompt_id: str | None = None
         if (
@@ -141,6 +213,9 @@ class LtxVideoExecutor:
                 motion_intent=inputs.motion_intent,
                 voice_reference=inputs.voice_reference,
                 provider_options=inputs.provider_options,
+                start_image=start_image,
+                end_image=end_image,
+                voice_audio=voice_audio,
             )
             client_id = f"narrativex-video-{str(task.task_id)[:8]}"
             try:

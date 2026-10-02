@@ -34,6 +34,7 @@ export interface StoryboardVisualBeat {
   dramaticIntent?: string | null;
   emotion?: string | null;
   retentionRole?: string | null;
+  shotSequence?: import("@narrativex/client-contracts").DesktopShotSequence | null;
   rowVersion: number;
 }
 

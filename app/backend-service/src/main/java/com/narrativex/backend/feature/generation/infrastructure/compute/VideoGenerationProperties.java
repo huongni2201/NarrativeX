@@ -1,0 +1,39 @@
+package com.narrativex.backend.feature.generation.infrastructure.compute;
+
+import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
+import com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog;
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Getter
+@Setter
+@Component
+@ConfigurationProperties(prefix = "narrativex.video")
+public class VideoGenerationProperties implements VideoGenerationCatalog {
+  private String defaultProvider = "ltx";
+  private String defaultModel = "ltx-2.5-nvfp4";
+  private String defaultQualityProfile = "720p_24fps_standard";
+  private List<GenerationStrategy> supportedStrategies =
+      List.of(
+          GenerationStrategy.TEXT_TO_VIDEO,
+          GenerationStrategy.IMAGE_TO_VIDEO,
+          GenerationStrategy.FIRST_LAST_FRAME);
+
+  @Override
+  public String defaultProvider() {
+    return defaultProvider;
+  }
+
+  @Override
+  public String defaultModel() {
+    return defaultModel;
+  }
+
+  @Override
+  public String defaultQualityProfile() {
+    return defaultQualityProfile;
+  }
+}

@@ -97,6 +97,9 @@ export type GenerationStrategy =
   | "VIDEO_EXTEND"
   | "VIDEO_RETAKE";
 
+export type GenerationStrategyPreference = "AUTO" | GenerationStrategy;
+
+
 export type ShotStatus =
   | "PLANNED"
   | "REFERENCE_PREPARING"
@@ -107,6 +110,7 @@ export type ShotStatus =
   | "VALIDATING"
   | "PASSED"
   | "FAILED"
+  | "BLOCKED"
   | "RETRY_READY"
   | "MANUAL_REVIEW"
   | "SELECTED";
@@ -140,6 +144,15 @@ export interface TakeValidationResult {
   score?: number | null;
 }
 
+export interface WhisperXSummary {
+  expectedText: string;
+  recognizedText: string;
+  coverage: number;
+  confidence: number;
+  timingMatch: boolean;
+  status: "PASSED" | "WARNING" | "FAILED";
+}
+
 export interface DesktopTake {
   id: string;
   shotId: string;
@@ -152,6 +165,8 @@ export interface DesktopTake {
   validationResult?: TakeValidationResult | null;
   status: TakeValidationStatus;
   createdAt?: string;
+  metricsJson?: string | null;
+  whisperXSummary?: WhisperXSummary | null;
 }
 
 export interface DesktopSelectedTake {
@@ -159,6 +174,37 @@ export interface DesktopSelectedTake {
   takeId: string;
   sourceInMs: number;
   sourceOutMs: number;
+  rowVersion?: number;
+  selectedAt?: string;
+  updatedAt?: string;
+}
+
+export interface DesktopShotGenerationAttempt {
+  id: string;
+  shotId: string;
+  attemptNumber: number;
+  strategy: GenerationStrategy;
+  provider: string;
+  model: string;
+  status:
+    | "QUEUED"
+    | "GENERATING"
+    | "VALIDATING"
+    | "PASSED"
+    | "FAILED"
+    | "BLOCKED"
+    | "MANUAL_REVIEW";
+  progress?: number | null;
+  currentStep?: string | null;
+  failureCategory?: VideoQAFailureCategory | null;
+  failureReason?: string | null;
+  outputMediaAssetId?: string | null;
+}
+
+export interface ShotPreflight {
+  ready: boolean;
+  blockers: string[];
+  warnings: string[];
 }
 
 export interface DesktopShot {
@@ -185,6 +231,57 @@ export interface DesktopShot {
   status: ShotStatus;
   takes: DesktopTake[];
   selectedTake?: DesktopSelectedTake | null;
+  activeAttempt?: DesktopShotGenerationAttempt | null;
+  preflight?: ShotPreflight | null;
+}
+
+export interface ChapterProductionAudioCue {
+  id: string;
+  storyBeatId: string;
+  orderIndex: number;
+  cueType: AudioCueType;
+  speakerProjectCharacterId?: string | null;
+  speakerName?: string | null;
+  adaptedText?: string | null;
+  characterId?: string | null;
+  voiceProfileId?: string | null;
+  voiceReferenceAssetId?: string | null;
+  voiceReady: boolean;
+}
+
+export interface ChapterProductionVisualBeat {
+  id: string;
+  sceneId: string;
+  storyBeatId?: string | null;
+  orderIndex: number;
+  title: string;
+  visualIntent: string;
+  dramaticIntent?: DramaticIntent;
+  retentionRole?: RetentionRole | null;
+  reviewStatus: StoryBeatReviewStatus;
+  previewMediaAssetId?: string | null;
+  prompt?: string | null;
+  audioCues: ChapterProductionAudioCue[];
+  shotSequence?: DesktopShotSequence | null;
+}
+
+export interface ChapterProductionScene {
+  id: string;
+  orderIndex: number;
+  title: string;
+  visualBeats: ChapterProductionVisualBeat[];
+}
+
+export interface ChapterProductionResponse {
+  chapterId: string;
+  chapterTitle: string;
+  chapterOrderIndex: number;
+  totalShots: number;
+  readyShots: number;
+  selectedShots: number;
+  overallProgressPercent: number;
+  status: string;
+  scenes: ChapterProductionScene[];
 }
 
 export interface DesktopShotSequence {

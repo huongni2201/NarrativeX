@@ -325,6 +325,38 @@ public final class GenerationJob extends AggregateRoot {
         null);
   }
 
+  public static GenerationJob createShotVideoGeneration(
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      String sourceText,
+      String idempotencyKey) {
+    return new GenerationJob(
+        null,
+        0L,
+        UuidV7.random(),
+        projectId,
+        JobType.CHAPTER_GENERATE,
+        JobStatus.QUEUED,
+        ResourceClass.PROVIDER_BATCH,
+        0,
+        "QUEUED",
+        null,
+        storyVersionId,
+        chapterId,
+        null,
+        null,
+        null,
+        sourceText,
+        "en",
+        idempotencyKey,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
+
   public static GenerationJob rehydrate(
       UUID id,
       long rowVersion,

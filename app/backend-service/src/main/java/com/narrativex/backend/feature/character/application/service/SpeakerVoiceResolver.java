@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.character.application.service;
 
+import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVoiceProfileRepository;
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterRepository;
@@ -7,7 +8,6 @@ import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVoiceProfile;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVoiceProfileStatus;
-import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,22 +22,12 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SpeakerVoiceResolver {
+public class SpeakerVoiceResolver implements SpeakerVoiceAccess {
   private final ProjectCharacterRepository projectCharacterRepository;
   private final CharacterRepository characterRepository;
   private final CharacterVoiceProfileRepository voiceProfileRepository;
 
-  public record ResolvedSpeakerVoice(
-      UUID characterId,
-      String characterName,
-      UUID voiceProfileId,
-      UUID referenceAssetId,
-      VoiceReferenceScope referenceScope,
-      String language,
-      String accent,
-      String voiceDescription,
-      String deliveryBaseline) {}
-
+  @Override
   public Optional<ResolvedSpeakerVoice> resolveSpeakerVoice(UUID speakerProjectCharacterId) {
     if (speakerProjectCharacterId == null) {
       return Optional.empty();

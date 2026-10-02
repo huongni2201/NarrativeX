@@ -3,7 +3,7 @@
 
 Performs end-to-end Compute Protocol v1 health, capability negotiation, task
 submission, observation polling, and artifact transport checks against a running
-generation-service instance (local or remote RTX 3090).
+generation-service instance (local or remote RTX 5090 target; RTX 3090 baseline).
 """
 
 from __future__ import annotations

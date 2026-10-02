@@ -135,4 +135,6 @@ public interface StoryboardShotAccess {
   Optional<ShotSequenceView> findSequenceByBeatId(UUID projectId, UUID visualBeatId);
 
   void updateShotStatus(UUID shotId, ShotStatus status);
+
+  void updateShotStrategy(UUID shotId, GenerationStrategy strategy);
 }

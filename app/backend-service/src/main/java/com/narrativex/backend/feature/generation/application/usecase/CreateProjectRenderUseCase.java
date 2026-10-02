@@ -256,6 +256,8 @@ public class CreateProjectRenderUseCase {
                 beat.sceneIndex(),
                 beat.beatIndex(),
                 beat.visualBeatId(),
+                beat.shotId(),
+                beat.takeId(),
                 beat.title(),
                 beat.visualIntent(),
                 cameraMovement,
