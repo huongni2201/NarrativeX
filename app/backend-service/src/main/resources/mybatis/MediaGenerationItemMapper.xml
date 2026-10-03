@@ -9,6 +9,12 @@
     <result property="generationJobId" column="generation_job_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="mediaPlanId" column="media_plan_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="visualBeatId" column="visual_beat_id"/>
+    <result property="shotId" column="shot_id"/>
+    <result property="orderIndex" column="order_index"/>
+    <result property="leafGenerationJobId" column="leaf_generation_job_id"/>
+    <result property="takeId" column="take_id"/>
+    <result property="frozenInputJson" column="frozen_input_json"/>
+    <result property="frozenInputFingerprint" column="frozen_input_fingerprint"/>
     <result property="itemKey" column="item_key"/>
     <result property="attemptNumber" column="attempt_number"/>
     <result property="executionStatus" column="execution_status"/>
@@ -20,18 +26,27 @@
     <result property="reviewStatus" column="review_status"/>
     <result property="reviewedAt" column="reviewed_at"/>
   </resultMap>
-  <sql id="columns">id, row_version, generation_job_id, media_plan_id, visual_beat_id, item_key, attempt_number, execution_status, provider_operation_id, media_asset_id, request_fingerprint, error_code, error_detail_ref, review_status, reviewed_at, created_at, updated_at</sql>
+  <sql id="columns">id, row_version, generation_job_id, media_plan_id, visual_beat_id, item_key, attempt_number, execution_status, provider_operation_id, media_asset_id, request_fingerprint, error_code, error_detail_ref, review_status, reviewed_at, created_at, updated_at, shot_id, order_index, leaf_generation_job_id, take_id, frozen_input_json, frozen_input_fingerprint</sql>
   <select id="insert" resultType="java.util.UUID" affectData="true">
     INSERT INTO media_generation_items
-      (id, generation_job_id, media_plan_id, visual_beat_id, item_key, attempt_number, execution_status, provider_operation_id, media_asset_id, request_fingerprint, error_code, error_detail_ref, review_status, reviewed_at)
+      (id, generation_job_id, media_plan_id, visual_beat_id, item_key, attempt_number, execution_status, provider_operation_id, media_asset_id, request_fingerprint, error_code, error_detail_ref, review_status, reviewed_at, shot_id, order_index, frozen_input_json, frozen_input_fingerprint)
     VALUES
-      (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{visualBeatId}, #{itemKey}, #{attemptNumber}, #{executionStatus}, #{providerOperationId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{requestFingerprint}, #{errorCode}, #{errorDetailRef}, #{reviewStatus}, #{reviewedAt})
+      (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{visualBeatId}, #{itemKey}, #{attemptNumber}, #{executionStatus}, #{providerOperationId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{requestFingerprint}, #{errorCode}, #{errorDetailRef}, #{reviewStatus}, #{reviewedAt}, #{shotId}, #{orderIndex}, #{frozenInputJson}::jsonb, #{frozenInputFingerprint})
     RETURNING id
   </select>
   <select id="findById" resultMap="itemRow">SELECT <include refid="columns"/> FROM media_generation_items WHERE id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}</select>
   <select id="findByJobId" resultMap="itemRow">
-    SELECT i.* FROM media_generation_items i JOIN generation_jobs j ON j.id = i.generation_job_id JOIN projects p ON p.id = j.project_id WHERE i.generation_job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AND p.archived_at IS NULL ORDER BY i.item_key, i.attempt_number
+    SELECT i.* FROM media_generation_items i JOIN generation_jobs j ON j.id = i.generation_job_id JOIN projects p ON p.id = j.project_id WHERE i.generation_job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AND p.archived_at IS NULL ORDER BY i.order_index, i.item_key, i.attempt_number
   </select>
+  <update id="bindLeaf">
+    UPDATE media_generation_items SET leaf_generation_job_id = #{leafJobId}, take_id = #{takeId}, row_version = row_version + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id} AND leaf_generation_job_id IS NULL AND shot_id IS NOT NULL AND execution_status = 'QUEUED'
+  </update>
+  <update id="updateExecution">
+    UPDATE media_generation_items SET execution_status = #{status}, media_asset_id = #{assetId}, error_code = #{errorCode}, row_version = row_version + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id} AND shot_id IS NOT NULL AND execution_status NOT IN ('READY','FAILED','CANCELED')
+      AND (execution_status, media_asset_id, error_code) IS DISTINCT FROM (#{status}, #{assetId}::uuid, #{errorCode})
+  </update>
   <update id="review">
     UPDATE media_generation_items i SET review_status = #{decision}, reviewed_at = CURRENT_TIMESTAMP, row_version = i.row_version + 1, updated_at = CURRENT_TIMESTAMP
     FROM generation_jobs j JOIN projects p ON p.id = j.project_id

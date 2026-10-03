@@ -1,6 +1,4 @@
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+export { isRecord } from "../../shared/api-envelope.ts";
 
 export function isString(value: unknown): value is string {
   return typeof value === "string";

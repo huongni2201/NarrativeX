@@ -14,6 +14,15 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MediaGenerationItemRow {
+  public MediaGenerationItemRow(UUID id, long rowVersion, UUID generationJobId, UUID mediaPlanId,
+      UUID visualBeatId, String itemKey, int attemptNumber, MediaGenerationExecutionStatus executionStatus,
+      UUID providerOperationId, UUID mediaAssetId, String requestFingerprint, String errorCode,
+      String errorDetailRef, MediaGenerationReviewStatus reviewStatus, Instant reviewedAt,
+      Instant createdAt, Instant updatedAt) {
+    this(id,rowVersion,generationJobId,mediaPlanId,visualBeatId,itemKey,attemptNumber,executionStatus,
+        providerOperationId,mediaAssetId,requestFingerprint,errorCode,errorDetailRef,reviewStatus,
+        reviewedAt,createdAt,updatedAt,null,0,null,null,null,null);
+  }
   private UUID id;
   private long rowVersion;
   private UUID generationJobId;
@@ -31,4 +40,10 @@ public class MediaGenerationItemRow {
   private Instant reviewedAt;
   private Instant createdAt;
   private Instant updatedAt;
+  private UUID shotId;
+  private int orderIndex;
+  private UUID leafGenerationJobId;
+  private UUID takeId;
+  private String frozenInputJson;
+  private String frozenInputFingerprint;
 }

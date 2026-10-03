@@ -127,7 +127,11 @@ public class VertexGeminiClient {
             + "Characters must include stable ai_name, canonical_name, aliases, role (PROTAGONIST, ANTAGONIST, SUPPORTING, EXTRA), importance (PRIMARY, SECONDARY, BACKGROUND), description, and detailed visual_prompt. "
             + "Locations must include ai_name, name, aliases, description, and visual_prompt. "
             + "Scenes must reference location_ai_name and character_ai_names. "
-            + "Every visual beat MUST include an exact verbatim source_anchor present in the chapter text, referenced character_ai_names, and detailed visual_direction.";
+            + "Every visual beat MUST include an exact verbatim source_anchor present in the chapter text, referenced character_ai_names, and detailed visual_direction. "
+            + "Provide ordered audio_cues for what the audience hears: NARRATOR, DIALOGUE, INNER_MONOLOGUE, or SYSTEM. "
+            + "Every cue needs an exact source_anchor within its visual beat, adaptation_action, adapted_text, and delivery_hint. "
+            + "DIALOGUE and INNER_MONOLOGUE require speaker_ai_name from canon.characters. "
+            + "KEEP_EXACT text must equal the cue source_anchor; proposed edits use LIGHT_EDIT or COMPRESS and remain subject to review.";
 
     Map<String, Object> responseSchema = buildStoryboardResponseSchema();
 
@@ -174,12 +178,37 @@ public class VertexGeminiClient {
             Map.entry("movement_intensity", Map.of("type", "STRING")),
             Map.entry("crop_safe_area", Map.of("type", "STRING")));
 
+    Map<String, Object> audioCueSchema =
+        Map.of(
+            "type",
+            "OBJECT",
+            "required",
+            List.of("cue_type", "source_anchor", "adaptation_action", "adapted_text"),
+            "properties",
+            Map.of(
+                "cue_type",
+                    Map.of(
+                        "type",
+                        "STRING",
+                        "enum",
+                        List.of("NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM")),
+                "speaker_ai_name", Map.of("type", "STRING"),
+                "source_anchor", Map.of("type", "STRING"),
+                "adaptation_action",
+                    Map.of(
+                        "type",
+                        "STRING",
+                        "enum",
+                        List.of("KEEP_EXACT", "LIGHT_EDIT", "COMPRESS", "VISUAL_PRIMARY")),
+                "adapted_text", Map.of("type", "STRING"),
+                "delivery_hint", Map.of("type", "STRING")));
+
     Map<String, Object> visualBeatSchema =
         Map.of(
             "type",
             "OBJECT",
             "required",
-            List.of("title", "visual_intent", "source_anchor", "visual_direction"),
+            List.of("title", "visual_intent", "source_anchor", "visual_direction", "audio_cues"),
             "properties",
             Map.of(
                 "title",
@@ -188,6 +217,8 @@ public class VertexGeminiClient {
                 Map.of("type", "STRING"),
                 "source_anchor",
                 Map.of("type", "STRING"),
+                "audio_cues",
+                Map.of("type", "ARRAY", "items", audioCueSchema),
                 "character_ai_names",
                 Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                 "visual_direction",

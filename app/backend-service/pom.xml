@@ -18,6 +18,7 @@
     <description>NarrativeX Backend Service - Core Application and Domain Authority</description>
 
     <properties>
+        <narrativex.buildDirectory>${project.basedir}/target</narrativex.buildDirectory>
         <java.version>25</java.version>
         <lombok.version>1.18.46</lombok.version>
         <testcontainers.version>1.21.4</testcontainers.version>
@@ -128,6 +129,7 @@
     </dependencies>
 
     <build>
+        <directory>${narrativex.buildDirectory}</directory>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

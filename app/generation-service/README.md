@@ -21,8 +21,9 @@ python -m narrativex_gpu_worker
 
 The production bootstrap registers ComfyUI (`image.generate`), LTX Video (`video.generate`),
 VieNeu (`audio.synthesize`), WhisperX (`audio.align`), and media validation (`media.validate`). Capability
-readiness is advertised per adapter: endpoint-backed adapters require a configured endpoint, the
-VieNeu adapter also requires its endpoint/API key, and WhisperX requires the optional local dependency.
+readiness is advertised per adapter. LTX remains `ready=false` until a pinned native AV
+runtime/model preflight is implemented; a configured ComfyUI URL is insufficient. Other
+endpoint-backed adapters require a configured endpoint, and WhisperX requires the optional local dependency.
 The service starts with unavailable optional capabilities marked `ready=false`; the backend must
 not dispatch a task until its advertised executor is ready.
 

@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
+import { parseSuccessEnvelope, isRecord } from "../../shared/api-envelope.ts";
+import { sha256File } from "./file-integrity.ts";
+import { createWriteStream } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
@@ -230,11 +231,10 @@ export class RemoteAssetMaterializer {
   }
 }
 
-async function sha256File(path: string): Promise<string> { return await new Promise((resolvePromise, reject) => { const hash = createHash("sha256"); const stream = createReadStream(path); stream.on("error", reject); stream.on("data", (chunk) => hash.update(chunk)); stream.on("end", () => resolvePromise(hash.digest("hex"))); }); }
+
 function safeExtension(filename: string): string { const extension = extname(basename(filename)).toLowerCase(); return /^\.[a-z0-9]{1,10}$/.test(extension) ? extension : ".bin"; }
 function isLoopbackHost(hostname: string): boolean { return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"; }
 
-function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 
 function validateInputId(value: string, pattern: RegExp, label: string): void {
   if (!pattern.test(value)) throw new Error(`${label} contains unsupported characters.`);
@@ -242,8 +242,8 @@ function validateInputId(value: string, pattern: RegExp, label: string): void {
 
 function parseApiData(status: number, bodyText: string): unknown {
   if (status < 200 || status >= 300) throw new Error(`Backend asset request failed (${status}).`);
-  let envelope: unknown;
-  try { envelope = JSON.parse(bodyText); } catch { throw new Error("Backend asset response is not valid JSON."); }
-  if (!isRecord(envelope) || envelope.success !== true || !("data" in envelope)) throw new Error("Backend asset response is invalid.");
+  let envelope;
+  try { envelope = parseSuccessEnvelope(bodyText); } catch { throw new Error("Backend asset response is invalid."); }
+  if (!("data" in envelope)) throw new Error("Backend asset response is invalid.");
   return envelope.data;
 }

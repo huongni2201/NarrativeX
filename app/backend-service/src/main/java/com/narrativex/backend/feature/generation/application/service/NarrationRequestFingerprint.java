@@ -1,11 +1,8 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.common.hashing.Sha256;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -54,12 +51,6 @@ public class NarrationRequestFingerprint {
             speakingRate.stripTrailingZeros().toPlainString(),
             segmentationVersion,
             voiceReferenceKey);
-    try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(digest);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
-    }
+    return Sha256.hexUtf8(payload);
   }
 }

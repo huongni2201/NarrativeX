@@ -16,5 +16,31 @@ public interface SpeakerVoiceAccess {
       String language,
       String accent,
       String voiceDescription,
-      String deliveryBaseline) {}
+      String deliveryBaseline,
+      int versionNumber,
+      long rowVersion) {
+    public ResolvedSpeakerVoice(
+        UUID characterId,
+        String characterName,
+        UUID voiceProfileId,
+        UUID referenceAssetId,
+        VoiceReferenceScope referenceScope,
+        String language,
+        String accent,
+        String voiceDescription,
+        String deliveryBaseline) {
+      this(
+          characterId,
+          characterName,
+          voiceProfileId,
+          referenceAssetId,
+          referenceScope,
+          language,
+          accent,
+          voiceDescription,
+          deliveryBaseline,
+          0,
+          0L);
+    }
+  }
 }

@@ -47,6 +47,16 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
     return mapper.review(itemId, rowVersion, decision) == 1;
   }
 
+  @Override
+  public void bindLeaf(UUID itemId, UUID leafJobId, UUID takeId) {
+    if (mapper.bindLeaf(itemId, leafJobId, takeId) != 1) throw new IllegalStateException("Batch item already bound");
+  }
+
+  @Override
+  public void updateExecution(UUID itemId, String status, UUID assetId, String errorCode) {
+    mapper.updateExecution(itemId, status, assetId, errorCode);
+  }
+
   private static MediaGenerationItemRow toRow(MediaGenerationItem item) {
     return new MediaGenerationItemRow(
         item.getId(),
@@ -65,7 +75,8 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
         item.getReviewStatus(),
         item.getReviewedAt(),
         null,
-        null);
+        null, item.getShotId(), item.getOrderIndex(), item.getLeafGenerationJobId(), item.getTakeId(),
+        item.getFrozenInputJson(), item.getFrozenInputFingerprint());
   }
 
   private static MediaGenerationItem toDomain(MediaGenerationItemRow row) {
@@ -85,6 +96,7 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
         row.getErrorCode(),
         row.getErrorDetailRef(),
         row.getReviewStatus(),
-        row.getReviewedAt());
+        row.getReviewedAt(), row.getShotId(), row.getOrderIndex(), row.getLeafGenerationJobId(),
+        row.getTakeId(), row.getFrozenInputJson(), row.getFrozenInputFingerprint());
   }
 }

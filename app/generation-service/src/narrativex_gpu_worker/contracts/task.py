@@ -22,7 +22,7 @@ class TaskDescriptor(ProtocolModel):
         "text.generate",
         "video.generate",
     ]
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
 
 
 class ModelRef(ProtocolModel):
@@ -149,6 +149,38 @@ class VideoGenerateInputs(ProtocolModel):
     motion_bucket_id: Annotated[int | None, Field(ge=1, le=255)] = None
 
 
+class NativeVoiceDescription(ProtocolModel):
+    language: Annotated[str | None, Field(max_length=40)] = None
+    accent: Annotated[str | None, Field(max_length=200)] = None
+    voice_description: Annotated[str | None, Field(max_length=2000)] = None
+    delivery_baseline: Annotated[str | None, Field(max_length=1000)] = None
+
+
+class NativeDialogueLine(ProtocolModel):
+    speaker: Annotated[str | None, Field(max_length=200)] = None
+    text: Annotated[str, Field(min_length=1, max_length=10000)]
+    voice_description: Annotated[str | None, Field(max_length=2000)] = None
+
+
+class NativeVideoGenerateInputs(ProtocolModel):
+    workflow_profile_id: Literal["ltx-2.5-22b-distilled-int8-native-av-v1"]
+    audio_mode: Literal["NATIVE_AV"]
+    prompt: Annotated[str, Field(min_length=1, max_length=20000)]
+    negative_prompt: Annotated[str, Field(max_length=10000)]
+    width: Literal[1280]
+    height: Literal[720]
+    fps: Literal[24]
+    duration_ms: Annotated[int, Field(ge=100, le=10000)]
+    generation_mode: Literal["TEXT_TO_VIDEO"]
+    seed: Annotated[int, Field(ge=0, le=18446744073709551615)]
+    dialogue: Annotated[list[NativeDialogueLine], Field(max_length=32)] = Field(
+        default_factory=list
+    )
+    voice_reference: NativeVoiceDescription | None = None
+    camera_intent: VideoCameraIntent | None = None
+    motion_intent: VideoMotionIntent | None = None
+
+
 TaskInputs = (
     AudioSynthesizeInputs
     | AudioAlignInputs
@@ -156,6 +188,7 @@ TaskInputs = (
     | MediaValidateInputs
     | TextGenerateInputs
     | VideoGenerateInputs
+    | NativeVideoGenerateInputs
 )
 
 
@@ -175,6 +208,12 @@ class ComputeTask(ProtocolModel):
 
     @model_validator(mode="after")
     def input_schema_matches_task_type(self) -> ComputeTask:
+        if self.task.schema_version == "1.1":
+            if self.task.type != "video.generate" or not isinstance(
+                self.inputs, NativeVideoGenerateInputs
+            ):
+                raise ValueError("schema 1.1 requires closed native video inputs")
+            return self
         expected = {
             "audio.synthesize": AudioSynthesizeInputs,
             "audio.align": AudioAlignInputs,

@@ -4,32 +4,138 @@
   "title": "WorkerCapabilities",
   "type": "object",
   "additionalProperties": false,
-  "required": ["protocolVersions", "workerVersion", "executors", "limits"],
+  "required": [
+    "protocolVersions",
+    "workerVersion",
+    "executors",
+    "limits"
+  ],
   "properties": {
-    "protocolVersions": {"type": "array", "items": {"const": "1.0"}, "minItems": 1},
-    "workerVersion": {"type": "string", "minLength": 1, "maxLength": 64},
+    "protocolVersions": {
+      "type": "array",
+      "items": {
+        "const": "1.0"
+      },
+      "minItems": 1
+    },
+    "workerVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
     "executors": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "taskTypes", "models", "ready"],
+        "required": [
+          "name",
+          "taskTypes",
+          "models",
+          "ready"
+        ],
         "properties": {
-          "name": {"type": "string"},
-          "taskTypes": {"type": "array", "items": {"type": "string"}},
-          "models": {"type": "array", "items": {"$ref": "model-ref.json"}},
-          "ready": {"type": "boolean"}
+          "name": {
+            "type": "string"
+          },
+          "taskTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "model-ref.json"
+            }
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "taskSchemaVersions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "1.0",
+                  "1.1"
+                ]
+              }
+            }
+          },
+          "workflowProfiles": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "profileId": {
+                  "title": "Profileid",
+                  "type": "string"
+                },
+                "nativeAudio": {
+                  "title": "Nativeaudio",
+                  "type": "boolean"
+                },
+                "voiceConditioning": {
+                  "title": "Voiceconditioning",
+                  "type": "boolean"
+                },
+                "voiceDescription": {
+                  "title": "Voicedescription",
+                  "type": "boolean"
+                },
+                "t2v": {
+                  "title": "T2V",
+                  "type": "boolean"
+                },
+                "i2v": {
+                  "title": "I2V",
+                  "type": "boolean"
+                },
+                "firstLastFrame": {
+                  "title": "Firstlastframe",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "profileId",
+                "nativeAudio",
+                "voiceConditioning",
+                "voiceDescription",
+                "t2v",
+                "i2v",
+                "firstLastFrame"
+              ],
+              "title": "WorkflowProfileCapability",
+              "type": "object"
+            }
+          }
         }
       }
     },
     "limits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["maxConcurrentTasks", "maxRequestBytes", "maxArtifactBytes"],
+      "required": [
+        "maxConcurrentTasks",
+        "maxRequestBytes",
+        "maxArtifactBytes"
+      ],
       "properties": {
-        "maxConcurrentTasks": {"type": "integer", "minimum": 1},
-        "maxRequestBytes": {"type": "integer", "minimum": 1},
-        "maxArtifactBytes": {"type": "integer", "minimum": 1}
+        "maxConcurrentTasks": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxRequestBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxArtifactBytes": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }

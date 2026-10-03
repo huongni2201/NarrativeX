@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
@@ -26,6 +27,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import tools.jackson.databind.JsonNode;
@@ -132,11 +135,65 @@ public final class ChapterAnalysisArtifactMaterializer {
     if (job.getSourceText() == null || job.getSourceText().isBlank()) {
       throw invalid("analysis job source text is missing");
     }
+    ChapterRow chapter = chapterMapper.findById(job.getChapterId());
+    if (chapter == null) throw invalid("analysis chapter materialization target is missing");
+    if (!Objects.equals(chapter.getSourceHash(), job.getSourceHash())
+        || (job.getChapterRowVersion() != null
+            && chapter.getRowVersion() != job.getChapterRowVersion())) {
+      throw invalid("analysis chapter source changed before materialization");
+    }
     if (!storyboardMapper.findCurrentScenes(job.getChapterId()).isEmpty()) {
       throw invalid("storyboard revision already contains materialized scenes");
     }
 
     Instant now = Instant.now();
+
+    // Pass 1: Pre-validate all scenes, directions, and collect ordered source anchors
+    List<String> orderedAnchors = new ArrayList<>();
+    for (int sceneIndex = 0; sceneIndex < scenes.size(); sceneIndex++) {
+      JsonNode scene = object(scenes.get(sceneIndex), "scene " + sceneIndex);
+      requiredText(scene, "title", "scene " + sceneIndex + " title");
+      JsonNode beats = firstArray(scene, "visual_beats", "visualBeats");
+      if (beats == null || beats.isEmpty()) {
+        throw invalid("scene " + sceneIndex + " must contain visual beats");
+      }
+      for (int beatIndex = 0; beatIndex < beats.size(); beatIndex++) {
+        JsonNode beat = object(beats.get(beatIndex), "scene " + sceneIndex + " beat " + beatIndex);
+        requiredText(beat, "title", "visual beat title");
+        requiredText(beat, "visual_intent", "visual beat visual_intent");
+        String anchor =
+            requiredText(
+                beat,
+                "source_anchor",
+                "scene " + sceneIndex + " beat " + beatIndex + " source_anchor");
+        orderedAnchors.add(anchor);
+        JsonNode direction = firstObject(beat, "visual_direction", "visualDirection");
+        if (direction == null) {
+          throw invalid("visual beat is missing visual_direction");
+        }
+        for (String field : REQUIRED_DIRECTION_FIELDS) {
+          requiredValue(direction, field, "visual_direction." + field);
+        }
+      }
+    }
+
+    // Deterministically resolve all anchors before performing any database writes
+    List<
+            com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
+                .ResolvedSourceAnchor>
+        resolvedAnchors =
+            sourceAnchorResolver.resolveAll(
+                job.getSourceText(), job.getSourceHash(), orderedAnchors);
+
+    ChapterCanon parsedCanon = parseCanon(root.get("canon"));
+    List<List<PreparedAudioCue>> audioPlans = new ArrayList<>();
+    int audioBeatIndex = 0;
+    for (JsonNode scene : scenes) {
+      for (JsonNode beat : firstArray(scene, "visual_beats", "visualBeats")) {
+        audioPlans.add(
+            prepareAudioCues(job, beat, resolvedAnchors.get(audioBeatIndex++), parsedCanon));
+      }
+    }
 
     // Materialize Hook Plan if present
     if (hookPlanMapper != null && (root.has("hook_plan") || root.has("hookPlan"))) {
@@ -226,41 +283,6 @@ public final class ChapterAnalysisArtifactMaterializer {
       }
     }
 
-    // Pass 1: Pre-validate all scenes, directions, and collect ordered source anchors
-    List<String> orderedAnchors = new ArrayList<>();
-    for (int sceneIndex = 0; sceneIndex < scenes.size(); sceneIndex++) {
-      JsonNode scene = object(scenes.get(sceneIndex), "scene " + sceneIndex);
-      requiredText(scene, "title", "scene " + sceneIndex + " title");
-      JsonNode beats = firstArray(scene, "visual_beats", "visualBeats");
-      if (beats == null || beats.isEmpty()) {
-        throw invalid("scene " + sceneIndex + " must contain visual beats");
-      }
-      for (int beatIndex = 0; beatIndex < beats.size(); beatIndex++) {
-        JsonNode beat = object(beats.get(beatIndex), "scene " + sceneIndex + " beat " + beatIndex);
-        String anchor =
-            requiredText(
-                beat,
-                "source_anchor",
-                "scene " + sceneIndex + " beat " + beatIndex + " source_anchor");
-        orderedAnchors.add(anchor);
-        JsonNode direction = firstObject(beat, "visual_direction", "visualDirection");
-        if (direction == null) {
-          throw invalid("visual beat is missing visual_direction");
-        }
-        for (String field : REQUIRED_DIRECTION_FIELDS) {
-          requiredValue(direction, field, "visual_direction." + field);
-        }
-      }
-    }
-
-    // Deterministically resolve all anchors before performing any database writes
-    List<
-            com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
-                .ResolvedSourceAnchor>
-        resolvedAnchors =
-            sourceAnchorResolver.resolveAll(
-                job.getSourceText(), job.getSourceHash(), orderedAnchors);
-
     // Pass 2: Materialize scenes, visual beats, shots, and character bindings with validated UTF-16
     // ranges
     int globalBeatIndex = 0;
@@ -281,7 +303,7 @@ public final class ChapterAnalysisArtifactMaterializer {
       sceneRow.setCreatedAt(now);
       sceneRow.setUpdatedAt(now);
 
-      String locationRef = text(scene, "location", null);
+      String locationRef = text(scene, "location", text(scene, "location_ai_name", null));
       if (locationRef != null && !locationRef.isBlank()) {
         sceneRow.setLocationText(locationRef);
         if (reconciled != null) {
@@ -292,7 +314,8 @@ public final class ChapterAnalysisArtifactMaterializer {
 
       // Materialize scene_characters
       if (canonMapper != null && reconciled != null) {
-        JsonNode sceneCharacters = firstArray(scene, "characters", "scene_characters");
+        JsonNode sceneCharacters =
+            firstArray(scene, "characters", "scene_characters", "character_ai_names");
         if (sceneCharacters != null && sceneCharacters.isArray()) {
           int charOrder = 0;
           Set<UUID> addedSceneChars = new HashSet<>();
@@ -332,6 +355,31 @@ public final class ChapterAnalysisArtifactMaterializer {
         storyBeatRow.setUpdatedAt(now);
         UUID storyBeatId = storyboardMapper.insertStoryBeat(storyBeatRow);
 
+        for (PreparedAudioCue cue : audioPlans.get(globalBeatIndex - 1)) {
+          UUID speakerId =
+              cue.speakerName() != null && reconciled != null
+                  ? reconciled.findCharacterId(cue.speakerName())
+                  : null;
+          if (cue.speakerName() != null && speakerId == null) {
+            throw invalid("audio cue speaker could not be resolved to a participating character");
+          }
+          AudioCueRow cueRow = new AudioCueRow();
+          cueRow.setStoryBeatId(storyBeatId);
+          cueRow.setOrderIndex(cue.orderIndex());
+          cueRow.setCueType(cue.cueType());
+          cueRow.setSpeakerProjectCharacterId(speakerId);
+          cueRow.setSourceStart(cue.sourceStart());
+          cueRow.setSourceEnd(cue.sourceEnd());
+          cueRow.setSourceAnchorJson(cue.sourceAnchorJson());
+          cueRow.setAdaptationAction(cue.adaptationAction());
+          cueRow.setAdaptedText(cue.adaptedText());
+          cueRow.setDeliveryHint(cue.deliveryHint());
+          cueRow.setStatus("DRAFT");
+          cueRow.setCreatedAt(now);
+          cueRow.setUpdatedAt(now);
+          storyboardMapper.insertAudioCue(cueRow);
+        }
+
         VisualBeatRow beatRow = new VisualBeatRow();
         beatRow.setSceneId(sceneId);
         beatRow.setStoryBeatId(storyBeatId);
@@ -354,7 +402,8 @@ public final class ChapterAnalysisArtifactMaterializer {
 
         // Materialize visual_beat_characters
         if (canonMapper != null && reconciled != null) {
-          JsonNode beatCharacters = firstArray(beat, "characters", "beat_characters");
+          JsonNode beatCharacters =
+              firstArray(beat, "characters", "beat_characters", "character_ai_names");
           if (beatCharacters != null && beatCharacters.isArray()) {
             Set<UUID> addedBeatChars = new HashSet<>();
             for (JsonNode charNode : beatCharacters) {
@@ -523,12 +572,111 @@ public final class ChapterAnalysisArtifactMaterializer {
         }
       }
     }
-    ChapterRow chapter = chapterMapper.findById(job.getChapterId());
-    if (chapter == null) throw invalid("analysis chapter materialization target is missing");
     chapter.setCurrentStoryboardRevisionId(job.getStoryboardRevisionId());
     if (chapterMapper.update(chapter) == 0) {
       throw invalid("analysis chapter changed before storyboard activation");
     }
+  }
+
+  private record PreparedAudioCue(
+      int orderIndex,
+      String cueType,
+      String speakerName,
+      int sourceStart,
+      int sourceEnd,
+      String sourceAnchorJson,
+      String adaptationAction,
+      String adaptedText,
+      String deliveryHint) {}
+
+  private List<PreparedAudioCue> prepareAudioCues(
+      GenerationJob job,
+      JsonNode beat,
+      com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
+              .ResolvedSourceAnchor
+          parent,
+      ChapterCanon canon) {
+    JsonNode cues = firstArray(beat, "audio_cues", "audioCues");
+    if (cues == null) {
+      if (beat.has("audio_cues") || beat.has("audioCues")) {
+        throw invalid("audio_cues must be an array");
+      }
+      return List.of();
+    }
+    if (cues.isEmpty()) return List.of();
+    Set<String> names = new HashSet<>();
+    for (var character : canon.characters()) {
+      names.add(character.aiName().trim().toLowerCase(Locale.ROOT));
+      names.add(character.canonicalName().trim().toLowerCase(Locale.ROOT));
+      for (String alias : character.aliases()) names.add(alias.trim().toLowerCase(Locale.ROOT));
+    }
+    Set<String> fields =
+        Set.of(
+            "cue_type",
+            "speaker_ai_name",
+            "source_anchor",
+            "adaptation_action",
+            "adapted_text",
+            "delivery_hint");
+    List<String> anchors = new ArrayList<>();
+    for (JsonNode rawCue : cues) {
+      JsonNode cue = object(rawCue, "audio cue");
+      long knownFields = fields.stream().filter(cue::has).count();
+      if (knownFields != cue.size()) throw invalid("audio cue contains unknown fields");
+      String type = requiredText(cue, "cue_type", "audio cue type");
+      if (!Set.of("NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM").contains(type)) {
+        throw invalid("unsupported audio cue type");
+      }
+      String action = requiredText(cue, "adaptation_action", "audio cue adaptation_action");
+      if (!Set.of("KEEP_EXACT", "LIGHT_EDIT", "COMPRESS", "VISUAL_PRIMARY").contains(action)) {
+        throw invalid("unsupported audio cue adaptation action");
+      }
+      String speaker = text(cue, "speaker_ai_name", null);
+      for (String optional : List.of("speaker_ai_name", "delivery_hint")) {
+        if (cue.has(optional) && !cue.get(optional).isNull() && !cue.get(optional).isTextual()) {
+          throw invalid("audio cue " + optional + " must be text");
+        }
+      }
+      if (("DIALOGUE".equals(type) || "INNER_MONOLOGUE".equals(type))
+          && (speaker == null || speaker.isBlank())) {
+        throw invalid("spoken character cue requires a speaker");
+      }
+      if (speaker != null && !names.contains(speaker.trim().toLowerCase(Locale.ROOT))) {
+        throw invalid("audio cue speaker is not present in the chapter canon");
+      }
+      String anchor = requiredText(cue, "source_anchor", "audio cue source_anchor");
+      String adapted = requiredText(cue, "adapted_text", "audio cue adapted_text");
+      if ("KEEP_EXACT".equals(action)
+          && !adapted
+              .replace("\r\n", "\n")
+              .replace('\r', '\n')
+              .equals(anchor.replace("\r\n", "\n").replace('\r', '\n'))) {
+        throw invalid("KEEP_EXACT audio cue text differs from its source");
+      }
+      anchors.add(anchor);
+    }
+    String source = job.getSourceText().replace("\r\n", "\n").replace('\r', '\n');
+    var ranges =
+        sourceAnchorResolver.resolveAll(
+            source.substring(parent.textStart(), parent.textEnd()), parent.sourceHash(), anchors);
+    List<PreparedAudioCue> prepared = new ArrayList<>();
+    for (int index = 0; index < cues.size(); index++) {
+      JsonNode cue = cues.get(index);
+      int start = parent.textStart() + ranges.get(index).textStart();
+      int end = parent.textStart() + ranges.get(index).textEnd();
+      prepared.add(
+          new PreparedAudioCue(
+              index,
+              cue.get("cue_type").asText(),
+              text(cue, "speaker_ai_name", null),
+              start,
+              end,
+              sourceAnchorResolver.buildSourceAnchorJson(start, end, parent.sourceHash()),
+              text(cue, "adaptation_action", "KEEP_EXACT"),
+              cue.get("adapted_text").asText(),
+              text(cue, "delivery_hint", null)));
+    }
+    return List.copyOf(prepared);
   }
 
   private static ChapterCanon parseCanon(JsonNode node) {

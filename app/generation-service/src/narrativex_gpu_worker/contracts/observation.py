@@ -64,11 +64,23 @@ class ComputeObservation(ProtocolModel):
         return self
 
 
+class WorkflowProfileCapability(ProtocolModel):
+    profile_id: str
+    native_audio: bool
+    voice_conditioning: bool
+    voice_description: bool
+    t2v: bool
+    i2v: bool
+    first_last_frame: bool
+
+
 class ExecutorCapability(ProtocolModel):
     name: str
     task_types: list[str]
     models: list[ModelRef]
     ready: bool
+    task_schema_versions: dict[str, list[str]] = Field(default_factory=dict)
+    workflow_profiles: list[WorkflowProfileCapability] = Field(default_factory=list)
 
 
 class WorkerLimits(ProtocolModel):

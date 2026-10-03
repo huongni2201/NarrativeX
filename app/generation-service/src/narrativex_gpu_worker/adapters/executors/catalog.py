@@ -28,9 +28,27 @@ class ExecutorCatalog:
                 task_types=sorted(executor.task_types),
                 models=list(executor.models),
                 ready=executor.ready,
+                task_schema_versions=getattr(executor, "task_schema_versions", {}),
+                workflow_profiles=getattr(executor, "workflow_profiles", []),
             )
             for executor in self._executors.values()
         ]
+
+    async def preflight(self) -> None:
+        for executor in self._executors.values():
+            probe = getattr(executor, "preflight", None)
+            if probe is not None:
+                await probe()
+
+    async def recover_handle(self, task: ComputeTask) -> str | None:
+        executor = self._executors.get(task.model.executor)
+        if executor is None or task.model not in executor.models:
+            return None
+        lookup = getattr(executor, "recover_handle", None)
+        if lookup is None:
+            return None
+        handle: str | None = await lookup(task)
+        return handle
 
 
 __all__ = ["ExecutorCatalog"]

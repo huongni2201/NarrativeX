@@ -39,7 +39,7 @@ test("render profile v3 preserves the explicit composition, quality, and waterma
 test("render profile v3 malformed quality fields fall back to current defaults", () => {
   const profile = parseRenderProfile(JSON.stringify({
     schemaVersion: 3,
-    fps: 15,
+    fps: 30,
     video: {
       x264Preset: "ultrafast",
       crf: -2,
@@ -68,7 +68,7 @@ test("invalid, legacy, or policy-free render profiles fail explicitly after the 
     /Unsupported render profile schema/,
   );
   assert.throws(
-    () => parseRenderProfile('{"schemaVersion":3}'),
+    () => parseRenderProfile('{"schemaVersion":3,"fps":30}'),
     /Invalid render watermark policy/,
   );
 });

@@ -16,14 +16,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class CancelGenerationJobUseCase {
   private final GenerationJobRepository generationJobRepository;
   private final GenerationExecutionPort executionPort;
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService batches;
 
-  @Transactional
+  @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
   public GenerationJob execute(java.util.UUID jobId) {
     GenerationJob job =
         generationJobRepository
             .findByJobId(jobId)
             .orElseThrow(() -> new ResourceNotFoundException("Generation job not found"));
     if (isTerminal(job.getStatus())) return job;
+    if (job.isChapterVideoBatch()) return batches.cancel(jobId);
 
     if (job.getStatus() != JobStatus.QUEUED) {
       try {

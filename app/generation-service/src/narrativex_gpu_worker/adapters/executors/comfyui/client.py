@@ -10,7 +10,7 @@ from urllib.parse import quote
 import httpx
 import websockets
 
-from narrativex_gpu_worker.application.errors import ExecutionCanceledError
+from narrativex_gpu_worker.application.errors import AmbiguousOutcomeError, ExecutionCanceledError
 
 LOGGER = logging.getLogger("narrativex.gpu_worker.comfyui")
 
@@ -51,9 +51,7 @@ class ComfyUIClient:
 
         url = f"{self.base_url}/upload/image"
         if self._client is not None:
-            response = await self._client.post(
-                url, files=files, data=data, timeout=self.timeout
-            )
+            response = await self._client.post(url, files=files, data=data, timeout=self.timeout)
         else:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(url, files=files, data=data)
@@ -66,25 +64,65 @@ class ComfyUIClient:
         name = res_json.get("name", filename)
         return str(name)
 
-    async def submit_prompt(self, workflow: dict[str, Any], client_id: str) -> str:
+    async def submit_prompt(
+        self, workflow: dict[str, Any], client_id: str, prompt_id: str | None = None
+    ) -> str:
         body = {"prompt": workflow, "client_id": client_id}
-        if self._client is not None:
-            response = await self._client.post(
-                f"{self.base_url}/prompt", json=body, timeout=self.timeout
+        if prompt_id is not None:
+            body["prompt_id"] = prompt_id
+        try:
+            response = await self._request("POST", "/prompt", json=body)
+        except httpx.HTTPError as exc:
+            if prompt_id is not None and await self.find_prompt(prompt_id):
+                return prompt_id
+            raise AmbiguousOutcomeError("ComfyUI submission acknowledgment was lost") from exc
+        if response.status_code == 400:
+            raise ComfyUIClientError("ComfyUI rejected the prompt graph")
+        try:
+            acknowledged = response.json().get("prompt_id")
+        except ValueError, AttributeError:
+            acknowledged = None
+        if response.is_error or not isinstance(acknowledged, str) or not acknowledged:
+            if prompt_id is not None and await self.find_prompt(prompt_id):
+                return prompt_id
+            raise AmbiguousOutcomeError(
+                f"ComfyUI submission outcome is unresolved (HTTP {response.status_code})"
             )
-        else:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(f"{self.base_url}/prompt", json=body)
+        if prompt_id is not None and acknowledged != prompt_id:
+            raise AmbiguousOutcomeError("ComfyUI returned a different prompt correlation")
+        return acknowledged
 
-        if response.is_error:
-            raise ComfyUIClientError(
-                f"ComfyUI prompt submission failed with HTTP {response.status_code}"
+    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        if self._client is not None:
+            return await self._client.request(
+                method, f"{self.base_url}{path}", timeout=self.timeout, **kwargs
             )
-        data = response.json()
-        prompt_id = data.get("prompt_id")
-        if not isinstance(prompt_id, str) or not prompt_id:
-            raise ComfyUIClientError("ComfyUI response did not return a valid prompt_id")
-        return prompt_id
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            return await client.request(method, f"{self.base_url}{path}", **kwargs)
+
+    async def object_info(self) -> dict[str, Any]:
+        response = await self._request("GET", "/object_info")
+        response.raise_for_status()
+        data: dict[str, Any] = response.json()
+        return data
+
+    async def find_prompt(self, prompt_id: str) -> bool:
+        """A missing history row is not permission to repeat POST /prompt."""
+        try:
+            response = await self._request("GET", f"/history/{quote(prompt_id, safe='')}")
+            response.raise_for_status()
+            if prompt_id in response.json():
+                return True
+            response = await self._request("GET", "/queue")
+            response.raise_for_status()
+            queue = response.json()
+            return any(
+                len(item) > 1 and item[1] == prompt_id
+                for key in ("queue_running", "queue_pending")
+                for item in queue.get(key, [])
+            )
+        except httpx.HTTPError, ValueError, TypeError, AttributeError:
+            return False
 
     async def get_history(self, prompt_id: str) -> dict[str, Any] | None:
         """Fetch history record once for durable reconciliation."""
@@ -100,13 +138,9 @@ class ComfyUIClient:
             if prompt_id in history:
                 record = history[prompt_id]
                 status = record.get("status", {})
-                if status.get("completed") or status.get("status_str") == "success":
-                    return record  # type: ignore[no-any-return]
                 if status.get("status_str") in {"error", "failed"}:
-                    raise ComfyUIClientError(
-                        f"ComfyUI execution failed: {status.get('messages')}"
-                    )
-                if record.get("outputs"):
+                    raise ComfyUIClientError(f"ComfyUI execution failed: {status.get('messages')}")
+                if status.get("completed") or status.get("status_str") == "success":
                     return record  # type: ignore[no-any-return]
         return None
 
@@ -120,7 +154,7 @@ class ComfyUIClient:
 
         try:
             return await self._wait_via_websocket(prompt_id, client_id, cancel)
-        except (ExecutionCanceledError, ComfyUIClientError):
+        except AmbiguousOutcomeError, ExecutionCanceledError, ComfyUIClientError:
             raise
         except Exception as exc:
             LOGGER.debug("ComfyUI WebSocket failed (%s); falling back to History API polling", exc)
@@ -165,34 +199,24 @@ class ComfyUIClient:
                         return history
                     return await self.poll_history(prompt_id, cancel, poll_interval=0.1)
 
-            raise ExecutionCanceledError("ComfyUI execution canceled")
+            raise AmbiguousOutcomeError("ComfyUI cancellation is unconfirmed")
 
     async def poll_history(
         self, prompt_id: str, cancel: asyncio.Event, poll_interval: float = 1.0
     ) -> dict[str, Any]:
-        url = f"{self.base_url}/history/{quote(prompt_id, safe='')}"
-        while not cancel.is_set():
-            if self._client is not None:
-                response = await self._client.get(url, timeout=self.timeout)
-            else:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.get(url)
-
-            if response.status_code == 200:
-                history = response.json()
-                if prompt_id in history:
-                    record = history[prompt_id]
-                    status = record.get("status", {})
-                    if status.get("completed") or status.get("status_str") == "success":
-                        return record  # type: ignore[no-any-return]
-                    if status.get("status_str") in {"error", "failed"}:
-                        raise ComfyUIClientError(
-                            f"ComfyUI execution failed: {status.get('messages')}"
-                        )
-                    if record.get("outputs"):
-                        return record  # type: ignore[no-any-return]
-            await asyncio.sleep(poll_interval)
-        raise ExecutionCanceledError("ComfyUI execution canceled")
+        interval = max(0.5, poll_interval)
+        for _ in range(600):
+            if cancel.is_set():
+                raise AmbiguousOutcomeError("ComfyUI cancellation is unconfirmed")
+            record = await self.get_history(prompt_id)
+            if record is not None:
+                return record
+            try:
+                await asyncio.wait_for(cancel.wait(), timeout=interval)
+            except TimeoutError:
+                pass
+            interval = min(5.0, interval * 1.5)
+        raise AmbiguousOutcomeError("ComfyUI completion remains unresolved")
 
     async def download_image_stream(
         self,

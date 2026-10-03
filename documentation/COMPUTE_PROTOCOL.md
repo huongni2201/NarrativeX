@@ -226,11 +226,18 @@ local paths.
 The worker distinguishes between overall execution deadlines and individual execution timeouts:
 
 - `DEADLINE_EXCEEDED` (`category: PERMANENT`):
-  - Emitted when `constraints.deadline` expires.
+  - Emitted when `constraints.deadline` expires before external submission.
   - Validated prior to `ACCEPTED` admission (returns HTTP 422 if already in the past).
-  - Validated on worker recovery/restart: if a recovered task's deadline has already elapsed, the attempt is transitioned immediately to `FAILED` with `DEADLINE_EXCEEDED` without executing.
+  - On recovery this terminal transition is permitted only for checkpoint `NOT_SUBMITTED`.
 - `EXECUTION_TIMEOUT` (`category: TRANSIENT`):
-  - Emitted when the attempt runtime exceeds the effective timeout computed from `min(deadline - now, maxRuntimeSeconds)`.
+  - Emitted before external submission when the attempt exceeds `min(deadline - now, maxRuntimeSeconds)`.
+
+Once submission intent is committed, a timeout or elapsed deadline cannot prove external failure.
+The worker keeps checkpoint `UNKNOWN` and emits nonterminal `RUNNING` with bounded
+`AMBIGUOUS_OUTCOME` diagnostics (`TRANSIENT`). The attempt continues to reserve capacity.
+An existing handle can be polled with `max_runtime_seconds` as a bounded observation budget,
+even after the original deadline. Without a handle, verified correlation lookup is required;
+when unavailable, reconciliation/manual action remains necessary and replay never resubmits.
 
 ## HTTP contract
 
@@ -295,6 +302,7 @@ and terminal snapshots are handled by the Desktop transport.
 1. **Journal-before-memory flow**: The worker persists `cancel_requested = 1` in its SQLite execution journal before canceling running in-memory tasks.
 2. **Terminal state immutability**: If an attempt has already reached a terminal state (`SUCCEEDED`, `FAILED`, or `CANCELED`), the cancel request is a safe no-op and returns the existing observation without altering terminal state.
 3. **Controlled shutdown**: Graceful worker shutdown or task interruption does NOT persist cancellation. Interrupted attempts remain in `ACCEPTED` or `RUNNING` in the journal, allowing them to be safely recovered and resumed or reconciled upon worker restart.
+4. **External cancellation**: A local cancellation request after submission intent is not confirmation that the engine stopped. Recovery keeps unresolved attempts nonterminal until the adapter verifies outcome or engine cancellation; expiry does not release the no-retry fence.
 
 ### Lifecycle & State Transitions
 

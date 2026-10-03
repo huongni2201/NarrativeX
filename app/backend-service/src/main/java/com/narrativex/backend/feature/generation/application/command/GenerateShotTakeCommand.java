@@ -9,4 +9,6 @@ public record GenerateShotTakeCommand(
     GenerationStrategy strategy,
     Long seed,
     UUID retryFromTakeId,
-    String retryReason) {}
+    String retryReason,
+    String idempotencyKey,
+    String audioMode) {}

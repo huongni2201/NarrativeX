@@ -33,4 +33,8 @@ public interface GenerationJobRepository {
   int countActiveImageJobs();
 
   int countActiveJobs();
+
+  int countActiveVideoExecutions();
+
+  List<GenerationJob> findActiveChapterVideoBatches(int limit);
 }

@@ -124,6 +124,9 @@ export function buildBeatRenderArgs(
       manifest,
     );
     return [
+      ...(beat.cameraMovement?.trim().toUpperCase() === "NONE"
+        ? ["-loop", "1", "-framerate", String(manifest.fps)]
+        : []),
       "-i",
       beat.localPath,
       "-vf",

@@ -1,0 +1,238 @@
+{
+  "5570": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ltx-2.5-audio-vae-bf16.safetensors"
+    }
+  },
+  "5571": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ltx-2.5-video-vae-bf16.safetensors"
+    }
+  },
+  "5569": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "5572": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "type": "ltxv",
+      "device": "default"
+    }
+  },
+  "2612": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": [
+        "5572",
+        0
+      ]
+    }
+  },
+  "2483": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": [
+        "5572",
+        0
+      ]
+    }
+  },
+  "1241": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": [
+        "2612",
+        0
+      ],
+      "negative": [
+        "2483",
+        0
+      ],
+      "frame_rate": 24
+    }
+  },
+  "3059": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "inputs": {
+      "width": 1280,
+      "height": 736,
+      "length": 73,
+      "batch_size": 1
+    }
+  },
+  "3980": {
+    "class_type": "LTXVEmptyLatentAudio",
+    "inputs": {
+      "frames_number": 73,
+      "frame_rate": 24,
+      "batch_size": 1,
+      "audio_vae": [
+        "5570",
+        0
+      ]
+    }
+  },
+  "4528": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "3059",
+        0
+      ],
+      "audio_latent": [
+        "3980",
+        0
+      ]
+    }
+  },
+  "4832": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 0
+    }
+  },
+  "4828": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "5569",
+        0
+      ],
+      "positive": [
+        "1241",
+        0
+      ],
+      "negative": [
+        "1241",
+        1
+      ],
+      "cfg": 1.0
+    }
+  },
+  "4831": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    }
+  },
+  "4984": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
+    }
+  },
+  "4829": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "4832",
+        0
+      ],
+      "guider": [
+        "4828",
+        0
+      ],
+      "sampler": [
+        "4831",
+        0
+      ],
+      "sigmas": [
+        "4984",
+        0
+      ],
+      "latent_image": [
+        "4528",
+        0
+      ]
+    }
+  },
+  "4845": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "4829",
+        0
+      ]
+    }
+  },
+  "5538": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "4845",
+        0
+      ],
+      "vae": [
+        "5571",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 128,
+      "temporal_overlap": 32
+    }
+  },
+  "4848": {
+    "class_type": "LTXVAudioVAEDecode",
+    "inputs": {
+      "samples": [
+        "4845",
+        1
+      ],
+      "audio_vae": [
+        "5570",
+        0
+      ]
+    }
+  },
+  "9001": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "5538",
+        0
+      ],
+      "width": 1280,
+      "height": 720,
+      "x": 0,
+      "y": 8
+    }
+  },
+  "4849": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "9001",
+        0
+      ],
+      "audio": [
+        "4848",
+        0
+      ],
+      "fps": 24,
+      "bit_depth": 8,
+      "codec": "h264"
+    }
+  },
+  "4852": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "4849",
+        0
+      ],
+      "filename_prefix": "NarrativeX_Shot",
+      "format": "mp4",
+      "format.codec": "auto"
+    }
+  }
+}

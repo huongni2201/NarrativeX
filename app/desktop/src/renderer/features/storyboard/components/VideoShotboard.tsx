@@ -21,9 +21,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { StoryboardVisualBeat, VisualBeatReviewStatus } from "../api/storyboard.api";
 import {
-  useChapterProductionMutations,
-  useChapterProductionQuery,
-} from "../queries/chapter-production.queries";
+  useChapterProduction,
+  useGenerateShot,
+  useSelectTake,
+  useUpdateShotStrategy,
+} from "../../production/queries/video-production.queries";
 import { useStoryboardImagePreview } from "../queries/storyboard-media.queries";
 import { ShotActionToolbar } from "./ShotActionToolbar";
 import { TakeSelectorDrawer } from "./TakeSelectorDrawer";
@@ -64,11 +66,10 @@ export function VideoShotboard({
   const [activeDrawerBeatId, setActiveDrawerBeatId] = useState<string | null>(null);
 
   // Authoritative Chapter Production query and mutations
-  const { data: production } = useChapterProductionQuery(projectId, chapterId ?? null);
-  const { generateTake, selectTake, updateStrategy } = useChapterProductionMutations(
-    projectId,
-    chapterId ?? null,
-  );
+  const { data: production } = useChapterProduction(projectId, chapterId ?? null);
+  const generateTake = useGenerateShot(projectId, chapterId);
+  const selectTake = useSelectTake(projectId, chapterId);
+  const updateStrategy = useUpdateShotStrategy(projectId, chapterId);
 
   const shotByBeatId = useMemo(() => {
     const map = new Map<string, DesktopShot>();

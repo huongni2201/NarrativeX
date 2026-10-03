@@ -6,29 +6,30 @@ import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
 
 /** The definitive atomic production unit for video generation, leasing, QA, and editing. */
 public final class Shot extends DomainEntity {
-  private final UUID sequenceId;
-  private final int orderIndex;
-  private final String narrativePurpose;
-  private final RetentionRole retentionRole;
-  private final String subjectsJson;
-  private final String locationRef;
-  private final String startStateJson;
-  private final String actionJson;
-  private final String endStateJson;
-  private final String compositionJson;
-  private final String cameraJson;
-  private final String subjectMotionJson;
-  private final String cameraMotionJson;
-  private final String environmentMotionJson;
-  private final long targetDurationMs;
-  private final GenerationStrategy generationStrategy;
-  private final String qualityProfile;
-  private final UUID continuityFromShotId;
-  private final UUID continuityToShotId;
-  private final ShotStatus status;
+  @Getter private final UUID sequenceId;
+  @Getter private final int orderIndex;
+  @Getter private final String narrativePurpose;
+  @Getter private final RetentionRole retentionRole;
+  @Getter private final String subjectsJson;
+  @Getter private final String locationRef;
+  @Getter private final String startStateJson;
+  @Getter private final String actionJson;
+  @Getter private final String endStateJson;
+  @Getter private final String compositionJson;
+  @Getter private final String cameraJson;
+  @Getter private final String subjectMotionJson;
+  @Getter private final String cameraMotionJson;
+  @Getter private final String environmentMotionJson;
+  @Getter private final long targetDurationMs;
+  @Getter private final GenerationStrategy generationStrategy;
+  @Getter private final String qualityProfile;
+  @Getter private final UUID continuityFromShotId;
+  @Getter private final UUID continuityToShotId;
+  @Getter private final ShotStatus status;
 
   public Shot(
       UUID sequenceId,
@@ -151,85 +152,5 @@ public final class Shot extends DomainEntity {
         this.continuityFromShotId,
         this.continuityToShotId,
         newStatus);
-  }
-
-  public UUID getSequenceId() {
-    return sequenceId;
-  }
-
-  public int getOrderIndex() {
-    return orderIndex;
-  }
-
-  public String getNarrativePurpose() {
-    return narrativePurpose;
-  }
-
-  public RetentionRole getRetentionRole() {
-    return retentionRole;
-  }
-
-  public String getSubjectsJson() {
-    return subjectsJson;
-  }
-
-  public String getLocationRef() {
-    return locationRef;
-  }
-
-  public String getStartStateJson() {
-    return startStateJson;
-  }
-
-  public String getActionJson() {
-    return actionJson;
-  }
-
-  public String getEndStateJson() {
-    return endStateJson;
-  }
-
-  public String getCompositionJson() {
-    return compositionJson;
-  }
-
-  public String getCameraJson() {
-    return cameraJson;
-  }
-
-  public String getSubjectMotionJson() {
-    return subjectMotionJson;
-  }
-
-  public String getCameraMotionJson() {
-    return cameraMotionJson;
-  }
-
-  public String getEnvironmentMotionJson() {
-    return environmentMotionJson;
-  }
-
-  public long getTargetDurationMs() {
-    return targetDurationMs;
-  }
-
-  public GenerationStrategy getGenerationStrategy() {
-    return generationStrategy;
-  }
-
-  public String getQualityProfile() {
-    return qualityProfile;
-  }
-
-  public UUID getContinuityFromShotId() {
-    return continuityFromShotId;
-  }
-
-  public UUID getContinuityToShotId() {
-    return continuityToShotId;
-  }
-
-  public ShotStatus getStatus() {
-    return status;
   }
 }

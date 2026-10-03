@@ -12,8 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
-import com.narrativex.backend.feature.generation.api.response.ChapterProductionResponse;
 import com.narrativex.backend.feature.generation.api.response.TakeResponse;
+import com.narrativex.backend.feature.generation.application.query.ChapterProductionView;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateShotTakeUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetChapterProductionUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.SelectTakeUseCase;
@@ -47,6 +47,8 @@ class ChapterProductionControllerTest {
                     generateShotTakeUseCase,
                     selectTakeUseCase,
                     updateShotStrategyUseCase))
+            .setControllerAdvice(
+                new com.narrativex.backend.feature.common.api.ApiExceptionHandler())
             .build();
   }
 
@@ -55,8 +57,8 @@ class ChapterProductionControllerTest {
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
 
-    ChapterProductionResponse response =
-        new ChapterProductionResponse(chapterId, "Chapter 1", 1, 10, 5, 2, 50, "READY", List.of());
+    ChapterProductionView response =
+        new ChapterProductionView(chapterId, "Chapter 1", 1, 10, 5, 2, 50, "READY", List.of());
     when(getChapterProductionUseCase.execute(projectId, chapterId)).thenReturn(response);
 
     mockMvc
@@ -78,27 +80,11 @@ class ChapterProductionControllerTest {
     UUID projectId = UUID.randomUUID();
     UUID chapterId = UUID.randomUUID();
 
-    com.narrativex.backend.feature.generation.api.response.ChapterProductionStatusResponse
+    com.narrativex.backend.feature.generation.application.query.ChapterProductionStatusView
         statusResponse =
-            new com.narrativex.backend.feature.generation.api.response
-                .ChapterProductionStatusResponse(
-                chapterId,
-                true,
-                true,
-                true,
-                6,
-                0,
-                2,
-                1,
-                2,
-                1,
-                0,
-                0,
-                2,
-                true,
-                false,
-                false,
-                58,
+            new com.narrativex.backend.feature.generation.application.query
+                .ChapterProductionStatusView(
+                chapterId, true, true, true, 6, 0, 2, 1, 2, 1, 0, 0, 2, true, false, false, 58,
                 null);
     when(getChapterProductionUseCase.getStatus(projectId, chapterId)).thenReturn(statusResponse);
 
@@ -138,7 +124,7 @@ class ChapterProductionControllerTest {
             null,
             null,
             null,
-            "RUNNING",
+            "PENDING",
             Instant.now(),
             jobId);
 
@@ -151,6 +137,7 @@ class ChapterProductionControllerTest {
     mockMvc
         .perform(
             post("/api/v1/projects/{projectId}/shots/{shotId}/takes", projectId, shotId)
+                .header("Idempotency-Key", "transport-attempt-1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"strategy\":\"TEXT_TO_VIDEO\",\"seed\":42}"))
         .andExpect(status().isAccepted())
@@ -158,7 +145,43 @@ class ChapterProductionControllerTest {
         .andExpect(jsonPath("$.data.id").value(takeId.toString()))
         .andExpect(jsonPath("$.data.shotId").value(shotId.toString()))
         .andExpect(jsonPath("$.data.provider").value("ltx"))
-        .andExpect(jsonPath("$.data.jobId").value(jobId.toString()));
+        .andExpect(jsonPath("$.data.jobId").value(jobId.toString()))
+        .andExpect(jsonPath("$.data.generationJobId").value(jobId.toString()))
+        .andExpect(jsonPath("$.data.status").value("PENDING"));
+    verify(generateShotTakeUseCase)
+        .execute(
+            org.mockito.ArgumentMatchers.argThat(
+                command ->
+                    "transport-attempt-1".equals(command.idempotencyKey())
+                        && Long.valueOf(42).equals(command.seed())));
+  }
+
+  @Test
+  void missingTakeIdempotencyHeaderIsBadRequest() throws Exception {
+    mockMvc
+        .perform(
+            post(
+                "/api/v1/projects/{projectId}/shots/{shotId}/takes",
+                UUID.randomUUID(),
+                UUID.randomUUID()))
+        .andExpect(status().isBadRequest());
+    org.mockito.Mockito.verifyNoInteractions(generateShotTakeUseCase);
+  }
+
+  @Test
+  void takeReplayConflictReturns409() throws Exception {
+    when(generateShotTakeUseCase.execute(any()))
+        .thenThrow(
+            new com.narrativex.backend.feature.common.exception.ResourceConflictException(
+                "Idempotency-Key reused with different shot inputs"));
+    mockMvc
+        .perform(
+            post(
+                    "/api/v1/projects/{projectId}/shots/{shotId}/takes",
+                    UUID.randomUUID(),
+                    UUID.randomUUID())
+                .header("Idempotency-Key", "stable-key"))
+        .andExpect(status().isConflict());
   }
 
   @Test

@@ -18,6 +18,35 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
     importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchUnitDependencyRulesTest {
   @ArchTest
+  static final ArchRule production_read_does_not_depend_on_transport_responses =
+      noClasses()
+          .that()
+          .haveSimpleName("GetChapterProductionUseCase")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..api.response..");
+
+  @ArchTest
+  static final ArchRule common_does_not_depend_on_business_features =
+      classes()
+          .that()
+          .resideInAPackage("..feature.common..")
+          .should(
+              new ArchCondition<JavaClass>("only depend on common within feature packages") {
+                @Override
+                public void check(JavaClass item, ConditionEvents events) {
+                  for (Dependency dependency : item.getDirectDependenciesFromSelf()) {
+                    String target = dependency.getTargetClass().getPackageName();
+                    if (target.startsWith("com.narrativex.backend.feature.")
+                        && !target.startsWith("com.narrativex.backend.feature.common.")) {
+                      events.add(
+                          new SimpleConditionEvent(dependency, false, dependency.getDescription()));
+                    }
+                  }
+                }
+              });
+
+  @ArchTest
   static final ArchRule domain_is_framework_free =
       noClasses()
           .that()

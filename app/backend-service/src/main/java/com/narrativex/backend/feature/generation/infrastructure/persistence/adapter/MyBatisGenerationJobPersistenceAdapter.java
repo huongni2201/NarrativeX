@@ -110,6 +110,16 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
     return mapper.countActiveJobs();
   }
 
+  @Override
+  public int countActiveVideoExecutions() {
+    return mapper.countActiveVideoExecutions();
+  }
+
+  @Override
+  public java.util.List<GenerationJob> findActiveChapterVideoBatches(int limit) {
+    return mapper.findActiveChapterVideoBatches(limit).stream().map(MyBatisGenerationJobPersistenceAdapter::toDomain).toList();
+  }
+
   private GenerationJob requireInserted(UUID id) {
     GenerationJobRow inserted = mapper.findById(id);
     if (inserted == null)

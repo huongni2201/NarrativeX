@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,50 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class VideoGenerationJobHandlerTest {
+  @Test
+  void malformedSnapshotHeaderFailsClosedBeforeExternalSubmit() {
+    UUID project = UUID.randomUUID(), chapter = UUID.randomUUID();
+    var job =
+        GenerationJob.createShotVideoGeneration(
+            project, UUID.randomUUID(), chapter, "{\"schemaVersion\":1,", "broken-snapshot");
+    when(transactionService.claimForSubmission(job.getJobId(), "GENERATING_VIDEO"))
+        .thenReturn(Optional.of(job));
+    when(artifactAccess.createOutput(any(), any(), any(), any()))
+        .thenReturn(new OutputArtifactTargetDto(UUID.randomUUID(), "video", "video/mp4", null));
+
+    handler.execute(job.getJobId());
+
+    verify(executionPort, never()).submitTask(any());
+    verify(transactionService)
+        .markSubmissionFailed(
+            job.getJobId(), "VIDEO_DISPATCH_ERROR", "Malformed persisted video input");
+  }
+
+  @Test
+  void literalStoryMentioningSchemaVersionIsNotAComputeSnapshot() {
+    UUID project = UUID.randomUUID(), chapter = UUID.randomUUID();
+    var job =
+        GenerationJob.createShotVideoGeneration(
+            project,
+            UUID.randomUUID(),
+            chapter,
+            "The sign says \"schemaVersion\" in this story.",
+            "legacy");
+    when(transactionService.claimForSubmission(job.getJobId(), "GENERATING_VIDEO"))
+        .thenReturn(Optional.of(job));
+    when(storyboardShotAccess.requireCurrentShots(project, chapter)).thenReturn(List.of());
+    when(artifactAccess.createOutput(any(), any(), any(), any()))
+        .thenReturn(new OutputArtifactTargetDto(UUID.randomUUID(), "video", "video/mp4", null));
+    when(executionPort.submitTask(any()))
+        .thenReturn(
+            new ComputeSubmissionReceipt(
+                job.getJobId(), UUID.randomUUID(), "handle", "ACCEPTED", 1L));
+    handler.execute(job.getJobId());
+    var request = ArgumentCaptor.forClass(ComputeTaskRequest.class);
+    verify(executionPort).submitTask(request.capture());
+    assertEquals(job.getSourceText(), request.getValue().inputs().get("prompt"));
+  }
+
   private GenerationJobTransactionService transactionService;
   private GenerationExecutionPort executionPort;
   private ComputeArtifactAccess artifactAccess;
@@ -53,7 +98,15 @@ class VideoGenerationJobHandlerTest {
             executionPort,
             artifactAccess,
             storyboardShotAccess,
-            speakerVoiceResolver);
+            speakerVoiceResolver,
+            org.mockito.Mockito.mock(
+                com.narrativex.backend.feature.generation.application.service.GenerationRouter
+                    .class),
+            org.mockito.Mockito.mock(
+                com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis
+                    .TakeMapper.class),
+            new com.narrativex.backend.feature.generation.infrastructure.compute
+                .VideoGenerationProperties());
   }
 
   @Test
@@ -180,7 +233,9 @@ class VideoGenerationJobHandlerTest {
             storyboardShotAccess,
             speakerVoiceResolver,
             null,
-            takeMapper);
+            takeMapper,
+            new com.narrativex.backend.feature.generation.infrastructure.compute
+                .VideoGenerationProperties());
 
     GenerationJob job =
         GenerationJob.rehydrate(

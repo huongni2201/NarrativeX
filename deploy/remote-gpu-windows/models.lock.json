@@ -1,5 +1,6 @@
 {
   "schema_version": "1.0",
+  "ltx_manifest_status": "NOT_PROVISIONED",
   "models": [
     {
       "runtime_family": "COMFYUI_IMAGE",
@@ -30,6 +31,51 @@
       "source_url": "https://huggingface.co/nguyenvulebinh/wav2vec2-base-vietnamese-250h/resolve/main/model.safetensors",
       "sha256": "9b1c7a8d8e23f0512837bc901ef4682079173db4591a27e7161b960b772c5e03",
       "size_bytes": 377983692
+    },
+    {
+      "runtime_family": "LTX_VIDEO",
+      "executor": "ltx",
+      "model_id": "ltx-2.5-22b-distilled-int8",
+      "revision": "5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+      "filename": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "target_subpath": "ComfyUI/models/diffusion_models",
+      "source_url": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "sha256": "c4279eeff115cbeaca494bd2183e7d768c38fe85a184dc6afbb7159157c44334",
+      "size_bytes": 21504034224
+    },
+    {
+      "runtime_family": "LTX_VIDEO",
+      "executor": "ltx",
+      "model_id": "ltx-2.5-22b-distilled-int8",
+      "revision": "5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+      "filename": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "target_subpath": "ComfyUI/models/text_encoders",
+      "source_url": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "sha256": "6ce688a0aa98a5fa36a9f1e6c3f42152a498cc2b53ee8c15674c64244f91487f",
+      "size_bytes": 15372969374
+    },
+    {
+      "runtime_family": "LTX_VIDEO",
+      "executor": "ltx",
+      "model_id": "ltx-2.5-22b-distilled-int8",
+      "revision": "5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+      "filename": "ltx-2.5-audio-vae-bf16.safetensors",
+      "target_subpath": "ComfyUI/models/vae",
+      "source_url": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "sha256": "c52733d37f6a7fb7949c3dc0fb468c6cb2169e4d836983a73babb9f0d54837a5",
+      "size_bytes": 364866540
+    },
+    {
+      "runtime_family": "LTX_VIDEO",
+      "executor": "ltx",
+      "model_id": "ltx-2.5-22b-distilled-int8",
+      "revision": "5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+      "filename": "ltx-2.5-video-vae-bf16.safetensors",
+      "target_subpath": "ComfyUI/models/vae",
+      "source_url": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/vae/ltx-2.5-video-vae-bf16.safetensors",
+      "sha256": "847e14ca7f3355debca0cea4eaa24ac0fbcdf0061da054ac89ca638a869ddba3",
+      "size_bytes": 1472223346
     }
-  ]
+  ],
+  "ltx_profile_id": "ltx-2.5-22b-distilled-int8-native-av-v1"
 }

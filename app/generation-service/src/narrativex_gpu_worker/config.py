@@ -78,6 +78,7 @@ class WorkerSettings(BaseSettings):
         default="http://127.0.0.1:8188",
         validation_alias="GENERATION_SERVICE_COMFYUI_BASE_URL",
     )
+    ltx_runtime_directory: Path | None = None
     comfyui_timeout_seconds: float = Field(
         default=120.0,
         gt=0,

@@ -12,5 +12,9 @@ public interface MediaGenerationItemRepository {
 
   List<MediaGenerationItem> findByJobId(UUID jobId);
 
+  void bindLeaf(UUID itemId, UUID leafJobId, UUID takeId);
+
+  void updateExecution(UUID itemId, String status, UUID assetId, String errorCode);
+
   boolean review(UUID itemId, long rowVersion, String decision);
 }

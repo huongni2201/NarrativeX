@@ -6,7 +6,7 @@ export interface ParsedRenderProfile {
   schemaVersion: 3;
   rendererVersion: "project-image-motion-v3-composition";
   compositionPolicyVersion: 1;
-  fps: 30 | 60;
+  fps: 24 | 30 | 60;
   subtitleMode: "burn_in" | "none";
   video: VideoQualityProfile;
   colorMode: RenderColorMode;
@@ -74,8 +74,9 @@ function watermarkPolicy(
   return { mode: watermark.mode, policyVersion: 1 };
 }
 
-function supportedFps(value: unknown): 30 | 60 {
-  return value === 60 ? 60 : 30;
+function supportedFps(value: unknown): 24 | 30 | 60 {
+  if (value === 24 || value === 30 || value === 60) return value;
+  throw new Error(`Unsupported render frame rate: ${String(value)}.`);
 }
 
 function subtitleMode(raw: Record<string, unknown>): "burn_in" | "none" {

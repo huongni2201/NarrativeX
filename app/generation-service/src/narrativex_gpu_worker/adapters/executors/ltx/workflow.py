@@ -1,6 +1,10 @@
 """Workflow builder for LTX-2.5 moving video generation."""
+
 from __future__ import annotations
 
+import hashlib
+import json
+from pathlib import Path
 from typing import Any
 
 DEFAULT_NEGATIVE_PROMPT = (
@@ -50,7 +54,9 @@ def compose_ltx_positive_prompt(
             speaker = getattr(line, "speaker", None)
             text = getattr(line, "text", "")
             if text:
-                dlg_lines.append(f'{speaker + ": " if speaker else ""}"{text}"')
+                description = getattr(line, "voice_description", None)
+                voice = f" (voice: {description})" if description else ""
+                dlg_lines.append(f'{speaker + voice + ": " if speaker else ""}"{text}"')
         if dlg_lines:
             parts.append(f"[Dialogue: {' | '.join(dlg_lines)}]")
 
@@ -60,14 +66,24 @@ def compose_ltx_positive_prompt(
             voice_hints.append(f"tone: {voice_reference.voice_description}")
         if getattr(voice_reference, "delivery_baseline", None):
             voice_hints.append(f"delivery: {voice_reference.delivery_baseline}")
+        if getattr(voice_reference, "language", None):
+            voice_hints.append(f"language: {voice_reference.language}")
+        if getattr(voice_reference, "accent", None):
+            voice_hints.append(f"accent: {voice_reference.accent}")
         if voice_hints:
             parts.append(f"[Voice Identity: {', '.join(voice_hints)}]")
 
     return " -- ".join(parts) if len(parts) > 1 else parts[0]
 
 
-SUPPORTED_STRATEGIES = frozenset({"TEXT_TO_VIDEO", "IMAGE_TO_VIDEO", "FIRST_LAST_FRAME"})
-UNSUPPORTED_STRATEGIES = frozenset({"MULTI_KEYFRAME", "VIDEO_EXTEND", "VIDEO_RETAKE"})
+SUPPORTED_STRATEGIES = frozenset({"TEXT_TO_VIDEO"})
+UNSUPPORTED_STRATEGIES = frozenset(
+    {"IMAGE_TO_VIDEO", "FIRST_LAST_FRAME", "MULTI_KEYFRAME", "VIDEO_EXTEND", "VIDEO_RETAKE"}
+)
+WORKFLOWS = Path(__file__).with_name("workflows")
+MANIFEST: dict[str, Any] = json.loads((WORKFLOWS / "native-av.manifest.json").read_text())
+PROFILE_ID: str = MANIFEST["profileId"]
+CHECKPOINT = "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors"
 
 
 def build_ltx_video_workflow(
@@ -86,151 +102,36 @@ def build_ltx_video_workflow(
     motion_intent: Any | None = None,
     voice_reference: Any | None = None,
     provider_options: dict[str, Any] | None = None,
-    steps: int = 30,
-    cfg: float = 3.0,
-    filename_prefix: str = "NarrativeX_Shot",
     start_image: str | None = None,
     end_image: str | None = None,
     voice_audio: str | None = None,
 ) -> dict[str, Any]:
-    """Construct LTX-2.5 audio-native video generation workflow graph
-    with rich semantic conditioning.
-    """
-    if generation_mode in UNSUPPORTED_STRATEGIES:
+    """Bind the allowlisted T2V profile; never accept caller-supplied graphs or models."""
+    if generation_mode not in SUPPORTED_STRATEGIES:
         raise ValueError(f"Unsupported generation strategy: {generation_mode}")
-
-    neg = negative_prompt or DEFAULT_NEGATIVE_PROMPT
-    frame_count = max(16, int(round((duration_ms / 1000.0) * fps)))
-
-    enriched_prompt = compose_ltx_positive_prompt(
-        base_prompt=prompt,
-        dialogue=dialogue,
-        camera_intent=camera_intent,
-        motion_intent=motion_intent,
-        voice_reference=voice_reference,
-    )
-
-    ckpt_file = checkpoint if checkpoint.endswith(".safetensors") else f"{checkpoint}.safetensors"
-
-    options = provider_options or {}
-    effective_steps = int(options.get("steps", steps))
-    effective_cfg = float(options.get("cfg", cfg))
-    sampler_name = str(options.get("sampler_name", "euler"))
-    scheduler = str(options.get("scheduler", "normal"))
-
-    workflow: dict[str, Any] = {
-        "1": {
-            "class_type": "CheckpointLoaderSimple",
-            "inputs": {"ckpt_name": ckpt_file},
-        },
-        "2": {
-            "class_type": "CLIPTextEncode",
-            "inputs": {"text": enriched_prompt, "clip": ["1", 1]},
-        },
-        "3": {
-            "class_type": "CLIPTextEncode",
-            "inputs": {"text": neg, "clip": ["1", 1]},
-        },
-    }
-
-    # Strategy-specific video latent preparation
-    if generation_mode == "IMAGE_TO_VIDEO":
-        if not start_image:
-            raise ValueError("IMAGE_TO_VIDEO requires start_image")
-        workflow["8"] = {
-            "class_type": "LoadImage",
-            "inputs": {"image": start_image},
-        }
-        workflow["4"] = {
-            "class_type": "LTXImageToVideo",
-            "inputs": {
-                "image": ["8", 0],
-                "vae": ["1", 2],
-                "width": width,
-                "height": height,
-                "length": frame_count,
-            },
-        }
-    elif generation_mode == "FIRST_LAST_FRAME":
-        if not start_image or not end_image:
-            raise ValueError("FIRST_LAST_FRAME requires both start_image and end_image")
-        workflow["8"] = {
-            "class_type": "LoadImage",
-            "inputs": {"image": start_image},
-        }
-        workflow["9"] = {
-            "class_type": "LoadImage",
-            "inputs": {"image": end_image},
-        }
-        workflow["4"] = {
-            "class_type": "LTXFirstLastFrame",
-            "inputs": {
-                "start_image": ["8", 0],
-                "end_image": ["9", 0],
-                "vae": ["1", 2],
-                "width": width,
-                "height": height,
-                "length": frame_count,
-            },
-        }
-    else:  # TEXT_TO_VIDEO or default
-        workflow["4"] = {
-            "class_type": "EmptyLatentVideo",
-            "inputs": {
-                "width": width,
-                "height": height,
-                "length": frame_count,
-                "batch_size": 1,
-            },
-        }
-
-    # KSampler with A/V diffusion conditioning
-    workflow["5"] = {
-        "class_type": "KSampler",
-        "inputs": {
-            "seed": seed,
-            "steps": effective_steps,
-            "cfg": effective_cfg,
-            "sampler_name": sampler_name,
-            "scheduler": scheduler,
-            "denoise": 1.0,
-            "model": ["1", 0],
-            "positive": ["2", 0],
-            "negative": ["3", 0],
-            "latent_image": ["4", 0],
-        },
-    }
-
-    # VAE Decode
-    workflow["6"] = {
-        "class_type": "VAEDecode",
-        "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
-    }
-
-    # SaveVideo with synchronized audio muxing
-    save_inputs: dict[str, Any] = {
-        "images": ["6", 0],
-        "filename_prefix": filename_prefix,
-        "fps": fps,
-        "format": "video/mp4",
-        "codec": "h264",
-    }
-
-    # Audio conditioning via voice reference
     if voice_audio:
-        workflow["11"] = {
-            "class_type": "LoadAudio",
-            "inputs": {"audio": voice_audio},
-        }
-        workflow["12"] = {
-            "class_type": "LTXAudioConditioning",
-            "inputs": {"audio": ["11", 0], "vae": ["1", 2]},
-        }
-        save_inputs["audio"] = ["11", 0]
-
-    workflow["7"] = {
-        "class_type": "SaveVideo",
-        "inputs": save_inputs,
-    }
-
+        raise ValueError("Audio reference conditioning is not verified for this profile")
+    if start_image or end_image:
+        raise ValueError("Image conditioning is not verified for this profile")
+    if checkpoint != CHECKPOINT:
+        raise ValueError("Checkpoint does not match the pinned workflow profile")
+    if provider_options or motion_bucket_id is not None:
+        raise ValueError("Provider controls are not supported by the pinned profile")
+    if (width, height, fps) != (1280, 720, 24) or not 100 <= duration_ms <= 10000:
+        raise ValueError("Native profile requires 1280x720, 24 FPS, and at most 10 seconds")
+    if not 0 <= seed <= 18446744073709551615:
+        raise ValueError("Seed must be an unsigned 64-bit integer")
+    raw = (WORKFLOWS / "native-av.json").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != MANIFEST["graphSha256"]:
+        raise ValueError("Pinned workflow digest mismatch")
+    workflow: dict[str, Any] = json.loads(raw)
+    frames = 1 + (duration_ms * fps // 8000) * 8
+    workflow["2612"]["inputs"]["text"] = compose_ltx_positive_prompt(
+        prompt, dialogue, camera_intent, motion_intent, voice_reference
+    )
+    workflow["2483"]["inputs"]["text"] = negative_prompt or DEFAULT_NEGATIVE_PROMPT
+    workflow["3059"]["inputs"]["length"] = frames
+    workflow["3980"]["inputs"]["frames_number"] = frames
+    workflow["4832"]["inputs"]["noise_seed"] = seed
+    # The output prefix is internal and cannot be a caller-supplied machine path.
     return workflow

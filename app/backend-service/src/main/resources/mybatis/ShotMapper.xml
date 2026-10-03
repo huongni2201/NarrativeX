@@ -256,4 +256,39 @@
       AND ch.deleted_at IS NULL
   </select>
 
+  <select id="findAdmissionContextLocked" resultType="string">
+    SELECT jsonb_build_object(
+      'sourceLanguage', project.source_language, 'narrationLanguage', project.narration_language,
+      'projectId', sc.project_id, 'chapterId', ch.id, 'storyVersionId', ch.story_version_id,
+      'chapterRowVersion', ch.row_version, 'sourceHash', ch.source_hash,
+      'sourceText', ch.source_text, 'storyboardRevisionId', sc.storyboard_revision_id,
+      'visualBeatId', vb.id, 'visualBeatReviewStatus', vb.review_status,
+      'shotRowVersion', sh.row_version, 'subjects', sh.subjects_json,
+      'shot', to_jsonb(sh) - 'created_at' - 'updated_at' - 'status',
+      'cues', COALESCE((SELECT jsonb_agg(to_jsonb(ac) ORDER BY ac.order_index, ac.id)
+        FROM audio_cues ac WHERE ac.story_beat_id = vb.story_beat_id), '[]'::jsonb),
+      'characters', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'projectCharacterId', pc.id, 'characterId', pc.character_id,
+          'characterVersionId', cv.id, 'versionNumber', cv.version_number,
+          'status', cv.status, 'bible', cv.bible, 'visualPrompt', cv.visual_prompt)
+          ORDER BY pc.id)
+        FROM project_characters pc
+        LEFT JOIN character_versions cv ON cv.id = pc.pinned_character_version_id
+          AND cv.character_id = pc.character_id
+        WHERE pc.project_id = #{projectId} AND pc.status = 'ACTIVE' AND (
+          EXISTS (SELECT 1 FROM visual_beat_characters vc WHERE vc.visual_beat_id = vb.id
+            AND vc.project_character_id = pc.id)
+          OR EXISTS (SELECT 1 FROM scene_characters scene_participant WHERE scene_participant.scene_id = sc.id
+            AND scene_participant.project_character_id = pc.id)
+          OR EXISTS (SELECT 1 FROM audio_cues ac WHERE ac.story_beat_id = vb.story_beat_id
+            AND ac.speaker_project_character_id = pc.id))), '[]'::jsonb)
+    )::text
+    FROM shots sh JOIN shot_sequences sq ON sq.id = sh.sequence_id
+    JOIN visual_beats vb ON vb.id = sq.visual_beat_id JOIN scenes sc ON sc.id = vb.scene_id
+    JOIN chapters ch ON ch.id = sc.chapter_id
+    JOIN projects project ON project.id = sc.project_id AND project.archived_at IS NULL
+    WHERE sh.id = #{shotId} AND sc.project_id = #{projectId} AND ch.deleted_at IS NULL
+      AND sc.storyboard_revision_id = ch.current_storyboard_revision_id
+    FOR UPDATE OF sh, ch
+  </select>
 </mapper>

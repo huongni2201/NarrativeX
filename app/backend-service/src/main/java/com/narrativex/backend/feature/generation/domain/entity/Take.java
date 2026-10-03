@@ -5,22 +5,23 @@ import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
 
 /** Individual generation attempt for a Shot. */
 public final class Take extends DomainEntity {
-  private final UUID shotId;
-  private final int attemptNumber;
-  private final String provider;
-  private final String model;
-  private final GenerationStrategy generationMode;
-  private final UUID outputAssetId;
-  private final Long sourceDurationMs;
-  private final String metricsJson;
-  private final String validationStatus;
-  private final VideoQAFailureCategory validationFailureCategory;
-  private final String validationFailureReason;
-  private final String validationRetryRecommendation;
-  private final String status;
+  @Getter private final UUID shotId;
+  @Getter private final int attemptNumber;
+  @Getter private final String provider;
+  @Getter private final String model;
+  @Getter private final GenerationStrategy generationMode;
+  @Getter private final UUID outputAssetId;
+  @Getter private final Long sourceDurationMs;
+  @Getter private final String metricsJson;
+  @Getter private final String validationStatus;
+  @Getter private final VideoQAFailureCategory validationFailureCategory;
+  @Getter private final String validationFailureReason;
+  @Getter private final String validationRetryRecommendation;
+  @Getter private final String status;
 
   public Take(
       UUID shotId,
@@ -85,57 +86,5 @@ public final class Take extends DomainEntity {
     this.validationFailureReason = validationFailureReason;
     this.validationRetryRecommendation = validationRetryRecommendation;
     this.status = status != null ? status.trim() : "PENDING";
-  }
-
-  public UUID getShotId() {
-    return shotId;
-  }
-
-  public int getAttemptNumber() {
-    return attemptNumber;
-  }
-
-  public String getProvider() {
-    return provider;
-  }
-
-  public String getModel() {
-    return model;
-  }
-
-  public GenerationStrategy getGenerationMode() {
-    return generationMode;
-  }
-
-  public UUID getOutputAssetId() {
-    return outputAssetId;
-  }
-
-  public Long getSourceDurationMs() {
-    return sourceDurationMs;
-  }
-
-  public String getMetricsJson() {
-    return metricsJson;
-  }
-
-  public String getValidationStatus() {
-    return validationStatus;
-  }
-
-  public VideoQAFailureCategory getValidationFailureCategory() {
-    return validationFailureCategory;
-  }
-
-  public String getValidationFailureReason() {
-    return validationFailureReason;
-  }
-
-  public String getValidationRetryRecommendation() {
-    return validationRetryRecommendation;
-  }
-
-  public String getStatus() {
-    return status;
   }
 }

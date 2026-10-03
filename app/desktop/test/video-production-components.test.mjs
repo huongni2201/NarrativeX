@@ -96,8 +96,10 @@ test("ChapterProductionStage enforces backend-authoritative status and avoids lo
     /Math\.ceil\(totalShots \* 0\.8\)/,
     "ChapterProductionStage must not calculate editor readiness with local 80% heuristic",
   );
-  assert.match(source, /productionStatus(?:\?\.|\.)timelineReady/);
-  assert.match(source, /productionStatus(?:\?\.|\.)overallProgressPercent/);
+  assert.match(source, /productionStageStatus\(productionStatus\)/);
+  const statusModel = readSource("features/chapters/model/production-stage-status.ts");
+  assert.match(statusModel, /status\?\.timelineReady === true/);
+  assert.match(statusModel, /status\?\.overallProgressPercent/);
 });
 
 test("VideoShotboard uses authoritative shots without local fake shot synthesis", () => {
@@ -129,4 +131,3 @@ test("videoProductionApi and query hooks are provided under features/production"
   assert.match(queriesSource, /useSelectTake/);
   assert.match(queriesSource, /useUpdateShotStrategy/);
 });
-

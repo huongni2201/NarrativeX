@@ -32,6 +32,8 @@ public class ComputeExecutionDispatcher {
 
   private final GenerationJobRepository generationJobRepository;
   private final GenerationJobHandlerRegistry handlerRegistry;
+  @Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService batches;
 
   @Autowired
   public ComputeExecutionDispatcher(
@@ -174,6 +176,11 @@ public class ComputeExecutionDispatcher {
     }
 
     GenerationJob job = jobOpt.get();
+    if (job.isChapterVideoBatch()) {
+      if (batches == null) throw new IllegalStateException("Chapter batch scheduler unavailable");
+      batches.resume(jobId);
+      return;
+    }
     if (job.getStatus() != JobStatus.QUEUED) {
       log.debug(
           "Job {} is not in QUEUED state (current: {}), skipping dispatch", jobId, job.getStatus());

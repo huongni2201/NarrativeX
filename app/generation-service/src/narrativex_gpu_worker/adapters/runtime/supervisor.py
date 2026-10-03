@@ -156,6 +156,7 @@ class RuntimeProcessSupervisor:
             *spec.command,
             cwd=str(spec.cwd) if spec.cwd else None,
             env=merged_env,
+            stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

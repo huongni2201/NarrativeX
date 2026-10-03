@@ -4,15 +4,11 @@ import type {
   DesktopSelectedTake,
   DesktopTake,
   GenerationStrategy,
+  GenerateShotTakeInput,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
+import { apiCommand, apiRequest } from "../../../api/client.ts";
 
-export interface GenerateShotTakeInput {
-  strategy?: GenerationStrategy;
-  seed?: number;
-  retryFromTakeId?: string;
-  retryReason?: string;
-}
+export type { GenerateShotTakeInput } from "@narrativex/client-contracts";
 
 export interface SelectTakeInput {
   takeId: string;
@@ -32,14 +28,18 @@ export const videoProductionApi = {
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/production`,
     ),
 
-  generateTake: (projectId: string, shotId: string, input: GenerateShotTakeInput = {}) =>
-    apiRequest<DesktopTake>(
+  generateTake: (projectId: string, shotId: string, input: GenerateShotTakeInput = {}) => {
+    input.idempotencyKey ??= crypto.randomUUID();
+    const { idempotencyKey, ...body } = input;
+    return apiRequest<DesktopTake>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/shots/${encodeURIComponent(shotId)}/takes`,
       {
         method: "POST",
-        body: JSON.stringify(input),
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(body),
       },
-    ),
+    );
+  },
 
   selectTake: (projectId: string, shotId: string, input: SelectTakeInput) =>
     apiRequest<DesktopSelectedTake>(
@@ -51,7 +51,7 @@ export const videoProductionApi = {
     ),
 
   updateStrategy: (projectId: string, shotId: string, strategy: GenerationStrategy) =>
-    apiRequest<void>(
+    apiCommand(
       `/api/v1/projects/${encodeURIComponent(projectId)}/shots/${encodeURIComponent(shotId)}/strategy`,
       {
         method: "PUT",

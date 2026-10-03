@@ -184,6 +184,13 @@ class ChapterCanonMaterializationIntegrationTest {
                   "visual_intent": "Elena examining glowing relic on bench",
                   "source_anchor": "Once upon a time in a faraway realm",
                   "characters": ["char_elena"],
+                  "audio_cues": [{
+                    "cue_type": "DIALOGUE",
+                    "speaker_ai_name": "char_elena",
+                    "source_anchor": "Once upon a time",
+                    "adaptation_action": "KEEP_EXACT",
+                    "adapted_text": "Once upon a time"
+                  }],
                   "visual_direction": {
                     "shot_size": "CLOSE_UP",
                     "camera_angle": "EYE_LEVEL",
@@ -281,6 +288,14 @@ class ChapterCanonMaterializationIntegrationTest {
     List<VisualBeatCharacterRow> beat0Chars = canonMapper.findVisualBeatCharacters(beat0.getId());
     assertEquals(1, beat0Chars.size(), "Beat 0 should have 1 character");
     assertEquals(elena.getProjectCharacterId(), beat0Chars.get(0).getProjectCharacterId());
+    var audioCues = storyboardMapper.findAudioCues(List.of(beat0.getStoryBeatId()));
+    assertEquals(1, audioCues.size());
+    assertEquals(
+        elena.getProjectCharacterId(), audioCues.getFirst().getSpeakerProjectCharacterId());
+    assertEquals(0, audioCues.getFirst().getSourceStart());
+    assertEquals(16, audioCues.getFirst().getSourceEnd());
+    assertEquals("Once upon a time", audioCues.getFirst().getAdaptedText());
+    assertEquals("DRAFT", audioCues.getFirst().getStatus());
 
     VisualBeatRow beat1 = beats.get(1);
     List<VisualBeatCharacterRow> beat1Chars = canonMapper.findVisualBeatCharacters(beat1.getId());

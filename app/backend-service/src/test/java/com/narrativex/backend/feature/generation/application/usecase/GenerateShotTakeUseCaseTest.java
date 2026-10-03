@@ -1,239 +1,231 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.generation.api.response.TakeResponse;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.application.command.GenerateShotTakeCommand;
-import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
-import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
-import com.narrativex.backend.feature.generation.application.port.out.TakeRepository.TakeRecord;
-import com.narrativex.backend.feature.generation.application.port.out.VideoJobDispatcher;
-import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.AudioCueInfo;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.ChapterInfo;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.ShotInfo;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.ShotSequenceInfo;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.VisualBeatInfo;
+import com.narrativex.backend.feature.generation.application.port.out.*;
+import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
+import com.narrativex.backend.feature.generation.domain.aggregate.*;
+import com.narrativex.backend.feature.storyboard.application.port.in.*;
 import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 class GenerateShotTakeUseCaseTest {
-  private final StoryboardProductionAccess storyboardAccess =
-      mock(StoryboardProductionAccess.class);
-  private final SpeakerVoiceAccess speakerVoiceAccess = mock(SpeakerVoiceAccess.class);
-  private final TakeRepository takeRepository = mock(TakeRepository.class);
-  private final GenerationJobRepository generationJobRepository =
-      mock(GenerationJobRepository.class);
-  private final VideoJobDispatcher videoJobDispatcher = mock(VideoJobDispatcher.class);
-
-  private final GenerateShotTakeUseCase useCase =
+  StoryboardProductionAccess storyboard = mock(StoryboardProductionAccess.class);
+  StoryboardShotAccess shots = mock(StoryboardShotAccess.class);
+  SpeakerVoiceAccess voices = mock(SpeakerVoiceAccess.class);
+  TakeRepository takes = mock(TakeRepository.class);
+  GenerationJobRepository jobs = mock(GenerationJobRepository.class);
+  OperationPlanRepository plans = mock(OperationPlanRepository.class);
+  StageAttemptRepository stages = mock(StageAttemptRepository.class);
+  GenerationOutboxRepository outbox = mock(GenerationOutboxRepository.class);
+  VideoGenerationCatalog catalog =
+      new com.narrativex.backend.feature.generation.infrastructure.compute
+          .VideoGenerationProperties();
+  UUID projectId = UUID.randomUUID(), shotId = UUID.randomUUID();
+  GenerateShotTakeUseCase useCase =
       new GenerateShotTakeUseCase(
-          storyboardAccess,
-          speakerVoiceAccess,
-          takeRepository,
-          generationJobRepository,
-          videoJobDispatcher);
+          storyboard,
+          shots,
+          voices,
+          mock(VoiceReferenceAssetAccess.class),
+          takes,
+          jobs,
+          plans,
+          stages,
+          outbox,
+          catalog,
+          new VideoPromptCompiler(JsonMapper.builder().build()),
+          new NarrativeXLimitsProperties());
 
-  @Test
-  void generatesShotTakeSuccessfully() {
-    UUID projectId = UUID.randomUUID();
-    UUID shotId = UUID.randomUUID();
-    UUID chapterId = UUID.randomUUID();
-    UUID storyVersionId = UUID.randomUUID();
-    UUID seqId = UUID.randomUUID();
+  @BeforeEach
+  void setup() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(
+            "{\"chapterId\":\""
+                + UUID.randomUUID()
+                + "\",\"storyVersionId\":\""
+                + UUID.randomUUID()
+                + "\",\"sourceText\":\"story\",\"chapterRowVersion\":0,\"sourceHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"sourceLanguage\":\"en\",\"storyboardRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"characters\":[],\"cues\":[]}");
+    when(shots.findShotById(projectId, shotId))
+        .thenReturn(
+            Optional.of(
+                new StoryboardShotAccess.ShotView(
+                    shotId,
+                    1,
+                    "Hero moves",
+                    null,
+                    "[]",
+                    null,
+                    "{}",
+                    "{}",
+                    "{}",
+                    "{}",
+                    "{}",
+                    "{}",
+                    "{}",
+                    "{}",
+                    4000,
+                    GenerationStrategy.TEXT_TO_VIDEO,
+                    "720p_24fps_standard",
+                    null,
+                    null,
+                    null)));
+    when(plans.save(any()))
+        .thenAnswer(
+            i -> {
+              OperationPlan plan = i.getArgument(0);
+              return OperationPlan.rehydrate(
+                  UUID.randomUUID(),
+                  0L,
+                  projectId,
+                  plan.getGenerationJobId(),
+                  plan.getOperationType(),
+                  plan.getScopeId(),
+                  plan.getInputFingerprint());
+            });
+    when(jobs.save(any()))
+        .thenAnswer(
+            i -> ((GenerationJob) i.getArgument(0)).toBuilder().id(UUID.randomUUID()).build());
+    when(takes.createPending(
+            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenAnswer(
+            i ->
+                new TakeRepository.TakeRecord(
+                    UUID.randomUUID(),
+                    shotId,
+                    i.getArgument(1),
+                    "ltx",
+                    "ltx-2.5-nvfp4",
+                    i.getArgument(4),
+                    null,
+                    null,
+                    "{}",
+                    "PENDING",
+                    null,
+                    null,
+                    null,
+                    "PENDING",
+                    Instant.now(),
+                    i.getArgument(5),
+                    i.getArgument(6),
+                    i.getArgument(7),
+                    i.getArgument(8),
+                    i.getArgument(9),
+                    i.getArgument(10)));
+  }
 
-    when(storyboardAccess.findChapterIdByShotId(projectId, shotId)).thenReturn(chapterId);
-
-    ShotInfo shot =
-        new ShotInfo(
-            shotId,
-            seqId,
-            1,
-            "Close up hero",
-            "HOOK",
-            List.of(),
-            null,
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            4000L,
-            GenerationStrategy.TEXT_TO_VIDEO,
-            "STANDARD",
-            "READY");
-    when(storyboardAccess.findShot(projectId, shotId)).thenReturn(Optional.of(shot));
-
-    ChapterInfo chapter = new ChapterInfo(chapterId, storyVersionId, "Chapter 1", 1);
-    when(storyboardAccess.findChapter(chapterId)).thenReturn(Optional.of(chapter));
-    when(storyboardAccess.findSequenceById(seqId)).thenReturn(Optional.empty());
-
-    when(generationJobRepository.save(any(GenerationJob.class)))
-        .thenAnswer(inv -> inv.getArgument(0));
-
-    TakeRecord createdTake =
-        new TakeRecord(
-            UUID.randomUUID(),
-            shotId,
-            1,
-            "comfyui",
-            "ltx",
-            GenerationStrategy.TEXT_TO_VIDEO,
-            UUID.randomUUID(),
-            4000L,
-            "{}",
-            "PASSED",
-            null,
-            null,
-            null,
-            "COMPLETED",
-            Instant.now());
-    when(takeRepository.findByShotId(shotId)).thenReturn(List.of(createdTake));
-
-    GenerateShotTakeCommand command =
-        new GenerateShotTakeCommand(
-            projectId, shotId, GenerationStrategy.TEXT_TO_VIDEO, 12345L, null, null);
-    TakeResponse response = useCase.execute(command);
-
-    assertThat(response).isNotNull();
-    assertThat(response.shotId()).isEqualTo(shotId);
-    assertThat(response.attemptNumber()).isEqualTo(1);
-    verify(videoJobDispatcher).dispatch(any(UUID.class));
+  GenerateShotTakeCommand command(GenerationStrategy strategy, Long seed) {
+    return new GenerateShotTakeCommand(
+        projectId, shotId, strategy, seed, null, null, "stable-key", "LTX_NATIVE_AV");
   }
 
   @Test
-  void blocksWhenUnsupportedStrategyRequested() {
-    UUID projectId = UUID.randomUUID();
-    UUID shotId = UUID.randomUUID();
-    UUID chapterId = UUID.randomUUID();
+  void createsPendingTakeAndOutboxWithoutExternalIo() {
+    var response = useCase.execute(command(null, null));
+    assertThat(response.id()).isNotNull();
+    assertThat(response.jobId()).isNotNull();
+    assertThat(response.status()).isEqualTo("PENDING");
+    assertThat(response.sourceDurationMs()).isNull();
+    verify(outbox).enqueue(any());
+    verify(stages).create(any());
+  }
 
-    when(storyboardAccess.findChapterIdByShotId(projectId, shotId)).thenReturn(chapterId);
-
-    ShotInfo shot =
-        new ShotInfo(
+  @Test
+  void replaysSameTakeWithoutSecondOutbox() {
+    var response = useCase.execute(command(null, 55L));
+    var capture = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(jobs).save(capture.capture());
+    var job = capture.getValue();
+    var takeCapture = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(takes)
+        .createPending(
+            any(),
+            anyInt(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            takeCapture.capture(),
+            any());
+    var existing =
+        new TakeRepository.TakeRecord(
+            response.id(),
             shotId,
-            UUID.randomUUID(),
             1,
-            "Close up hero",
-            "HOOK",
-            List.of(),
+            "ltx",
+            "ltx-2.5-nvfp4",
+            GenerationStrategy.TEXT_TO_VIDEO,
+            null,
             null,
             "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            4000L,
-            GenerationStrategy.TEXT_TO_VIDEO,
-            "STANDARD",
-            "READY");
-    when(storyboardAccess.findShot(projectId, shotId)).thenReturn(Optional.of(shot));
+            "PENDING",
+            null,
+            null,
+            null,
+            "PENDING",
+            Instant.now(),
+            null,
+            null,
+            null,
+            null,
+            takeCapture.getValue(),
+            null);
+    when(jobs.findByIdempotencyKey(any())).thenReturn(Optional.of(job));
+    when(takes.findByGenerationJobId(any())).thenReturn(Optional.of(existing));
+    assertThat(useCase.execute(command(null, 55L)).id()).isEqualTo(response.id());
+    verify(outbox, times(1)).enqueue(any());
+    assertThatThrownBy(() -> useCase.execute(command(null, 56L)))
+        .isInstanceOf(ResourceConflictException.class);
+  }
 
-    GenerateShotTakeCommand command =
-        new GenerateShotTakeCommand(
-            projectId, shotId, GenerationStrategy.MULTI_KEYFRAME, null, null, null);
-
-    assertThatThrownBy(() -> useCase.execute(command))
+  @Test
+  void blocksUnsupportedStrategyBeforeWrites() {
+    assertThatThrownBy(() -> useCase.execute(command(GenerationStrategy.MULTI_KEYFRAME, null)))
         .isInstanceOf(DomainValidationException.class)
         .hasMessageContaining("UNSUPPORTED_STRATEGY");
+    verifyNoInteractions(outbox);
   }
 
   @Test
-  void blocksDialogueWhenSpeakerVoiceMissing() {
-    UUID projectId = UUID.randomUUID();
-    UUID shotId = UUID.randomUUID();
-    UUID chapterId = UUID.randomUUID();
-    UUID seqId = UUID.randomUUID();
-    UUID visualBeatId = UUID.randomUUID();
-    UUID storyBeatId = UUID.randomUUID();
-    UUID speakerId = UUID.randomUUID();
-
-    when(storyboardAccess.findChapterIdByShotId(projectId, shotId)).thenReturn(chapterId);
-
-    ShotInfo shot =
-        new ShotInfo(
-            shotId,
-            seqId,
-            1,
-            "Dialogue hero",
-            "HOOK",
-            List.of(),
-            null,
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            "{}",
-            4000L,
-            GenerationStrategy.TEXT_TO_VIDEO,
-            "STANDARD",
-            "READY");
-    when(storyboardAccess.findShot(projectId, shotId)).thenReturn(Optional.of(shot));
-
-    ShotSequenceInfo seq = new ShotSequenceInfo(seqId, visualBeatId, 1);
-    when(storyboardAccess.findSequenceById(seqId)).thenReturn(Optional.of(seq));
-
-    VisualBeatInfo vb =
-        new VisualBeatInfo(
-            visualBeatId,
-            UUID.randomUUID(),
-            storyBeatId,
-            1,
-            "Beat",
-            "intent",
-            "APPROVED",
-            null,
-            "prompt");
-    when(storyboardAccess.findVisualBeat(visualBeatId)).thenReturn(Optional.of(vb));
-
-    AudioCueInfo cue = new AudioCueInfo(UUID.randomUUID(), storyBeatId, 1, "DIALOGUE", speakerId);
-    when(storyboardAccess.findAudioCues(List.of(storyBeatId))).thenReturn(List.of(cue));
-
-    when(speakerVoiceAccess.resolveSpeakerVoice(speakerId)).thenReturn(Optional.empty());
-
-    GenerateShotTakeCommand command =
-        new GenerateShotTakeCommand(
-            projectId, shotId, GenerationStrategy.TEXT_TO_VIDEO, null, null, null);
-
-    assertThatThrownBy(() -> useCase.execute(command))
+  void blocksMissingImageReferenceBeforeWrites() {
+    assertThatThrownBy(() -> useCase.execute(command(GenerationStrategy.IMAGE_TO_VIDEO, null)))
         .isInstanceOf(DomainValidationException.class)
-        .hasMessageContaining("MISSING_VOICE_REFERENCE");
+        .hasMessageContaining("MISSING_REFERENCE");
+    verifyNoInteractions(outbox);
   }
 
   @Test
-  void throwsNotFoundWhenShotMissing() {
-    UUID projectId = UUID.randomUUID();
-    UUID shotId = UUID.randomUUID();
+  void abortsWhenTakeInsertFails() {
+    when(takes.createPending(
+            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new IllegalStateException("insert failed"));
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .hasMessageContaining("insert failed");
+    verifyNoInteractions(stages, outbox);
+  }
 
-    when(storyboardAccess.findChapterIdByShotId(projectId, shotId)).thenReturn(null);
-
-    GenerateShotTakeCommand command =
-        new GenerateShotTakeCommand(
-            projectId, shotId, GenerationStrategy.TEXT_TO_VIDEO, null, null, null);
-
-    assertThatThrownBy(() -> useCase.execute(command))
-        .isInstanceOf(ResourceNotFoundException.class);
+  @Test
+  void requiresStableTransportKey() {
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    new GenerateShotTakeCommand(
+                        projectId, shotId, null, null, null, null, "", null)))
+        .isInstanceOf(IllegalArgumentException.class);
+    verifyNoInteractions(storyboard);
   }
 }

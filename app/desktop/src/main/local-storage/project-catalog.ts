@@ -1,3 +1,4 @@
+import { isMissingFile } from "./file-integrity.ts";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -338,8 +339,4 @@ async function atomicJsonWrite(path: string, value: unknown): Promise<void> {
   const temporaryPath = `${path}.${randomUUID()}.tmp`;
   await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   await rename(temporaryPath, path);
-}
-
-function isMissingFile(error: unknown): boolean {
-  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
 }

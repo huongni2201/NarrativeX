@@ -50,6 +50,9 @@ def create_app(state: AppState) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        preflight = getattr(state.executor_catalog, "preflight", None)
+        if preflight is not None:
+            await preflight()
         await state.execution.start()
         if state.outbox is not None:
             await state.outbox.start()

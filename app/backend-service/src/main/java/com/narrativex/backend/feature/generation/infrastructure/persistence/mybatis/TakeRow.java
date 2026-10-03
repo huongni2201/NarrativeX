@@ -12,6 +12,12 @@ public class TakeRow {
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
+  private UUID generationJobId;
+  private UUID computeTaskId;
+  private UUID computeAttemptId;
+  private UUID operationPlanId;
+  private String inputSnapshotJson;
+  private String inputFingerprint;
   private UUID shotId;
   private int attemptNumber;
   private String provider;

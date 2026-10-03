@@ -1,3 +1,17 @@
+import type { GenerationStrategy } from "./story";
+
+export type VideoAudioMode = "LTX_NATIVE_AV" | "AUDIO_FIRST";
+
+export interface GenerateShotTakeInput {
+  strategy?: GenerationStrategy;
+  seed?: number;
+  retryFromTakeId?: string;
+  retryReason?: string;
+  audioMode?: VideoAudioMode;
+  /** Keep this key for transport replay; use a new input/key for regeneration. */
+  idempotencyKey?: string;
+}
+
 export type DesktopRenderJobStatus =
   | "QUEUED"
   | "RUNNING"

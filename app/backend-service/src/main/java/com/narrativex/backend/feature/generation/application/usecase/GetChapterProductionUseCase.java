@@ -3,11 +3,12 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.generation.api.response.ChapterProductionResponse;
-import com.narrativex.backend.feature.generation.api.response.ChapterProductionStatusResponse;
 import com.narrativex.backend.feature.generation.application.port.out.SelectedTakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository.TakeRecord;
+import com.narrativex.backend.feature.generation.application.query.ChapterProductionStatusView;
+import com.narrativex.backend.feature.generation.application.query.ChapterProductionView;
+import com.narrativex.backend.feature.generation.application.service.GenerationPreflightEvaluator;
 import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess;
@@ -18,9 +19,11 @@ import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardP
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.ShotSequenceInfo;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.VisualBeatInfo;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -42,24 +45,10 @@ public class GetChapterProductionUseCase {
   private final SelectedTakeRepository selectedTakeRepository;
   private final SpeakerVoiceAccess speakerVoiceAccess;
   private final GetCurrentMediaJobUseCase getCurrentMediaJobUseCase;
-
-  public GetChapterProductionUseCase(
-      StoryboardProductionAccess storyboardAccess,
-      StoryVersionAccess storyVersionAccess,
-      TakeRepository takeRepository,
-      SelectedTakeRepository selectedTakeRepository,
-      SpeakerVoiceAccess speakerVoiceAccess) {
-    this(
-        storyboardAccess,
-        storyVersionAccess,
-        takeRepository,
-        selectedTakeRepository,
-        speakerVoiceAccess,
-        null);
-  }
+  private final GetProductionTimelineUseCase getProductionTimelineUseCase;
 
   @Transactional(readOnly = true)
-  public ChapterProductionResponse execute(UUID projectId, UUID chapterId) {
+  public ChapterProductionView execute(UUID projectId, UUID chapterId) {
     Objects.requireNonNull(projectId, "projectId must not be null");
     Objects.requireNonNull(chapterId, "chapterId must not be null");
 
@@ -71,7 +60,7 @@ public class GetChapterProductionUseCase {
 
     List<SceneInfo> sceneRows = storyboardAccess.findScenes(chapterId);
     if (sceneRows.isEmpty()) {
-      return new ChapterProductionResponse(
+      return new ChapterProductionView(
           chapter.id(), chapter.title(), chapter.orderIndex(), 0, 0, 0, 0, "PLANNED", List.of());
     }
 
@@ -116,15 +105,16 @@ public class GetChapterProductionUseCase {
         selectedTakes.stream()
             .collect(Collectors.toMap(SelectedTake::shotId, s -> s, (s1, s2) -> s1));
 
+    Map<UUID, Optional<SpeakerVoiceAccess.ResolvedSpeakerVoice>> voices = new HashMap<>();
     int totalShots = shotRows.size();
     int readyShots = 0;
     int selectedShots = 0;
 
-    List<ChapterProductionResponse.ProductionSceneItem> sceneItems = new ArrayList<>();
+    List<ChapterProductionView.ProductionSceneItem> sceneItems = new ArrayList<>();
 
     for (SceneInfo scene : sceneRows) {
       List<VisualBeatInfo> sceneVisuals = visualsByScene.getOrDefault(scene.id(), List.of());
-      List<ChapterProductionResponse.ProductionVisualBeatItem> beatItems = new ArrayList<>();
+      List<ChapterProductionView.ProductionVisualBeatItem> beatItems = new ArrayList<>();
 
       for (VisualBeatInfo vb : sceneVisuals) {
         List<AudioCueInfo> cues =
@@ -132,41 +122,34 @@ public class GetChapterProductionUseCase {
                 ? cuesByBeat.getOrDefault(vb.storyBeatId(), List.of())
                 : List.of();
 
-        List<ChapterProductionResponse.ProductionAudioCueItem> cueItems = new ArrayList<>();
-        boolean dialogueVoiceReady = true;
-        boolean anyDialogueNeedsVoice = false;
+        List<ChapterProductionView.ProductionAudioCueItem> cueItems = new ArrayList<>();
 
         for (AudioCueInfo cue : cues) {
-          boolean voiceReady = true;
+          if (cue.speakerProjectCharacterId() != null) {
+            voices.computeIfAbsent(
+                cue.speakerProjectCharacterId(), speakerVoiceAccess::resolveSpeakerVoice);
+          }
+          boolean voiceReady = GenerationPreflightEvaluator.voiceReady(cue, voices);
           UUID charId = null;
           UUID profileId = null;
           UUID refAssetId = null;
           String speakerName = null;
 
           if (cue.speakerProjectCharacterId() != null) {
-            var voiceOpt = speakerVoiceAccess.resolveSpeakerVoice(cue.speakerProjectCharacterId());
+            var voiceOpt = voices.get(cue.speakerProjectCharacterId());
             if (voiceOpt.isPresent()) {
               var v = voiceOpt.get();
               charId = v.characterId();
               speakerName = v.characterName();
               profileId = v.voiceProfileId();
               refAssetId = v.referenceAssetId();
-              voiceReady = refAssetId != null;
             } else {
               voiceReady = false;
             }
           }
 
-          if ("DIALOGUE".equalsIgnoreCase(cue.cueType())
-              || "VOICEOVER".equalsIgnoreCase(cue.cueType())) {
-            anyDialogueNeedsVoice = true;
-            if (!voiceReady) {
-              dialogueVoiceReady = false;
-            }
-          }
-
           cueItems.add(
-              new ChapterProductionResponse.ProductionAudioCueItem(
+              new ChapterProductionView.ProductionAudioCueItem(
                   cue.id(),
                   cue.storyBeatId(),
                   cue.orderIndex(),
@@ -182,11 +165,11 @@ public class GetChapterProductionUseCase {
 
         // Shot Sequence
         ShotSequenceInfo seqRow = sequenceByBeatId.get(vb.id());
-        ChapterProductionResponse.ProductionShotSequenceItem seqItem = null;
+        ChapterProductionView.ProductionShotSequenceItem seqItem = null;
 
         if (seqRow != null) {
           List<ShotInfo> sequenceShots = shotsBySequenceId.getOrDefault(seqRow.id(), List.of());
-          List<ChapterProductionResponse.ProductionShotItem> shotItems = new ArrayList<>();
+          List<ChapterProductionView.ProductionShotItem> shotItems = new ArrayList<>();
 
           for (ShotInfo shot : sequenceShots) {
             List<TakeRecord> takes = takesByShotId.getOrDefault(shot.id(), List.of());
@@ -197,23 +180,9 @@ public class GetChapterProductionUseCase {
                     ? shot.generationStrategy()
                     : GenerationStrategy.TEXT_TO_VIDEO;
 
-            // Preflight check
-            List<String> blockers = new ArrayList<>();
-            List<String> warnings = new ArrayList<>();
-
-            if (strategy == GenerationStrategy.MULTI_KEYFRAME
-                || strategy == GenerationStrategy.VIDEO_EXTEND
-                || strategy == GenerationStrategy.VIDEO_RETAKE) {
-              blockers.add(
-                  "UNSUPPORTED_STRATEGY: Strategy "
-                      + strategy
-                      + " is not supported by current video runtime.");
-            }
-
-            if (anyDialogueNeedsVoice && !dialogueVoiceReady) {
-              blockers.add(
-                  "MISSING_VOICE_REFERENCE: Dialogue shot requires an active character voice profile with reference audio.");
-            }
+            var preflight = GenerationPreflightEvaluator.evaluate(strategy, cues, voices);
+            List<String> blockers = preflight.blockers();
+            List<String> warnings = new ArrayList<>(preflight.warnings());
 
             if (strategy == GenerationStrategy.IMAGE_TO_VIDEO
                 && (shot.locationRef() == null || shot.locationRef().isBlank())
@@ -230,17 +199,17 @@ public class GetChapterProductionUseCase {
               selectedShots++;
             }
 
-            ChapterProductionResponse.ProductionSelectedTakeItem selItem =
+            ChapterProductionView.ProductionSelectedTakeItem selItem =
                 sel != null
-                    ? new ChapterProductionResponse.ProductionSelectedTakeItem(
+                    ? new ChapterProductionView.ProductionSelectedTakeItem(
                         sel.shotId(), sel.takeId(), sel.sourceInMs(), sel.sourceOutMs())
                     : null;
 
-            List<ChapterProductionResponse.ProductionTakeItem> takeItems =
+            List<ChapterProductionView.ProductionTakeItem> takeItems =
                 takes.stream().map(this::toTakeItem).toList();
 
             shotItems.add(
-                new ChapterProductionResponse.ProductionShotItem(
+                new ChapterProductionView.ProductionShotItem(
                     shot.id(),
                     shot.sequenceId(),
                     shot.orderIndex(),
@@ -262,17 +231,17 @@ public class GetChapterProductionUseCase {
                     shot.status(),
                     takeItems,
                     selItem,
-                    new ChapterProductionResponse.ProductionPreflightItem(
+                    new ChapterProductionView.ProductionPreflightItem(
                         shotReady, blockers, warnings)));
           }
 
           seqItem =
-              new ChapterProductionResponse.ProductionShotSequenceItem(
+              new ChapterProductionView.ProductionShotSequenceItem(
                   seqRow.id(), seqRow.visualBeatId(), seqRow.orderIndex(), shotItems);
         }
 
         beatItems.add(
-            new ChapterProductionResponse.ProductionVisualBeatItem(
+            new ChapterProductionView.ProductionVisualBeatItem(
                 vb.id(),
                 vb.sceneId(),
                 vb.storyBeatId(),
@@ -289,7 +258,7 @@ public class GetChapterProductionUseCase {
       }
 
       sceneItems.add(
-          new ChapterProductionResponse.ProductionSceneItem(
+          new ChapterProductionView.ProductionSceneItem(
               scene.id(), scene.orderIndex(), scene.title(), beatItems));
     }
 
@@ -300,7 +269,7 @@ public class GetChapterProductionUseCase {
             ? "READY_FOR_EDITOR"
             : selectedShots > 0 ? "IN_PROGRESS" : "PLANNED";
 
-    return new ChapterProductionResponse(
+    return new ChapterProductionView(
         chapter.id(),
         chapter.title(),
         chapter.orderIndex(),
@@ -313,8 +282,8 @@ public class GetChapterProductionUseCase {
   }
 
   @Transactional(readOnly = true)
-  public ChapterProductionStatusResponse getStatus(UUID projectId, UUID chapterId) {
-    ChapterProductionResponse production = execute(projectId, chapterId);
+  public ChapterProductionStatusView getStatus(UUID projectId, UUID chapterId) {
+    ChapterProductionView production = execute(projectId, chapterId);
 
     int queuedShots = 0;
     int generatingShots = 0;
@@ -327,17 +296,17 @@ public class GetChapterProductionUseCase {
     boolean anyScene = !production.scenes().isEmpty();
     boolean storyReady =
         anyScene && production.scenes().stream().anyMatch(s -> !s.visualBeats().isEmpty());
-    boolean allDialogueHasVoice = true;
-    boolean hasDialogue = false;
+    boolean allRequiredVoicesReady = true;
+    boolean hasVoiceRequirements = false;
 
     for (var scene : production.scenes()) {
       for (var vb : scene.visualBeats()) {
         for (var cue : vb.audioCues()) {
-          if ("DIALOGUE".equalsIgnoreCase(cue.cueType())
-              || "VOICEOVER".equalsIgnoreCase(cue.cueType())) {
-            hasDialogue = true;
+          if (GenerationPreflightEvaluator.requiresVoiceProfile(
+              cue.cueType(), cue.speakerProjectCharacterId())) {
+            hasVoiceRequirements = true;
             if (!cue.voiceReady()) {
-              allDialogueHasVoice = false;
+              allRequiredVoicesReady = false;
             }
           }
         }
@@ -366,26 +335,44 @@ public class GetChapterProductionUseCase {
       }
     }
 
-    boolean audioReady = storyReady;
-    boolean voiceReady = !hasDialogue || allDialogueHasVoice;
+    var timeline = getProductionTimelineUseCase.execute(projectId);
+    var timelineChapter =
+        timeline == null
+            ? null
+            : timeline.chapters().stream()
+                .filter(c -> chapterId.equals(c.chapterId()))
+                .findFirst()
+                .orElse(null);
+    boolean audioReady =
+        timelineChapter != null
+            && timelineChapter.audioDurationMs() != null
+            && timelineChapter.audioDurationMs() > 0
+            && timelineChapter.audioSizeBytes() != null
+            && timelineChapter.audioSizeBytes() > 0
+            && timelineChapter.audioStorageKey() != null
+            && !timelineChapter.audioStorageKey().isBlank()
+            && timelineChapter.audioChecksum() != null
+            && !timelineChapter.audioChecksum().isBlank();
+    boolean voiceReady = !hasVoiceRequirements || allRequiredVoicesReady;
     int totalShots = production.totalShots();
     int selectedTakeCount = production.selectedShots();
     boolean generationReady = totalShots > 0 && blockedShots == 0 && storyReady && voiceReady;
-    boolean timelineReady = totalShots > 0 && selectedTakeCount == totalShots;
-    boolean renderReady = timelineReady;
+    boolean timelineReady =
+        totalShots > 0
+            && selectedTakeCount == totalShots
+            && timelineChapter != null
+            && timelineChapter.readyForRender();
+    boolean renderReady = timelineReady && timeline.readyForRender();
 
     UUID activeJobId = null;
     if (getCurrentMediaJobUseCase != null) {
       try {
-        var currentJob = getCurrentMediaJobUseCase.execute(projectId, chapterId);
-        if (currentJob != null) {
-          activeJobId = currentJob.jobId();
-        }
+        activeJobId = getCurrentMediaJobUseCase.findCurrentJobId(projectId, chapterId);
       } catch (Exception ignored) {
       }
     }
 
-    return new ChapterProductionStatusResponse(
+    return new ChapterProductionStatusView(
         chapterId,
         storyReady,
         audioReady,
@@ -406,11 +393,10 @@ public class GetChapterProductionUseCase {
         activeJobId);
   }
 
-  private ChapterProductionResponse.ProductionTakeItem toTakeItem(TakeRecord row) {
-    ChapterProductionResponse.WhisperXSummaryItem whisperX =
-        extractWhisperXSummary(row.metricsJson());
+  private ChapterProductionView.ProductionTakeItem toTakeItem(TakeRecord row) {
+    ChapterProductionView.WhisperXSummaryItem whisperX = extractWhisperXSummary(row.metricsJson());
 
-    return new ChapterProductionResponse.ProductionTakeItem(
+    return new ChapterProductionView.ProductionTakeItem(
         row.id(),
         row.shotId(),
         row.attemptNumber(),
@@ -429,7 +415,7 @@ public class GetChapterProductionUseCase {
         whisperX);
   }
 
-  private ChapterProductionResponse.WhisperXSummaryItem extractWhisperXSummary(String metricsJson) {
+  private ChapterProductionView.WhisperXSummaryItem extractWhisperXSummary(String metricsJson) {
     if (metricsJson == null || metricsJson.isBlank() || "{}".equals(metricsJson.trim())) {
       return null;
     }
@@ -447,7 +433,7 @@ public class GetChapterProductionUseCase {
         Double conf = wx.get("confidence") instanceof Number n ? n.doubleValue() : null;
         Boolean tm = (Boolean) wx.get("timingMatch");
         String st = (String) wx.get("status");
-        return new ChapterProductionResponse.WhisperXSummaryItem(
+        return new ChapterProductionView.WhisperXSummaryItem(
             expected, recognized, cov, conf, tm, st);
       }
     } catch (Exception ignored) {

@@ -1,3 +1,4 @@
+import { parseSuccessEnvelope } from "../../shared/api-envelope.ts";
 import type { ApiResponse, FieldViolation } from "@narrativex/client-contracts";
 import { isRecord, isString } from "./guards.ts";
 
@@ -49,16 +50,11 @@ export class DesktopApiProtocolError extends Error {
 }
 
 export function parseApiResponseBody<T>(path: string, bodyText: string): ApiResponse<T> {
-  const value = parseJson(bodyText);
-  if (
-    !isRecord(value) ||
-    value.success !== true ||
-    !isString(value.message) ||
-    !isString(value.timestamp)
-  ) {
+  try {
+    return parseSuccessEnvelope(bodyText) as ApiResponse<T>;
+  } catch {
     throw new DesktopApiProtocolError(path);
   }
-  return value as unknown as ApiResponse<T>;
 }
 
 export async function apiRequest<T>(

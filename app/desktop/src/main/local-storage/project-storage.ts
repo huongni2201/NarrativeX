@@ -1,5 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { sha256File, isMissingFile } from "./file-integrity.ts";
+import { randomUUID } from "node:crypto";
 import {
   copyFile,
   cp,
@@ -952,28 +952,12 @@ async function fileMatches(path: string, sizeBytes: number, checksumSha256: stri
   }
 }
 
-async function sha256File(path: string): Promise<string> {
-  return await new Promise<string>((resolvePromise, reject) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(path);
-    stream.on("error", reject);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolvePromise(hash.digest("hex")));
-  });
-}
 
 function toManifestPath(value: string): string {
   return value.replaceAll("\\", "/");
 }
 
-function isMissingFile(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "ENOENT"
-  );
-}
+
 
 function isPathInside(parent: string, candidate: string): boolean {
   const parentPath = resolve(parent);

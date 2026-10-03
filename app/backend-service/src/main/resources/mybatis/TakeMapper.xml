@@ -7,6 +7,12 @@
     <result property="rowVersion" column="row_version"/>
     <result property="createdAt" column="created_at"/>
     <result property="updatedAt" column="updated_at"/>
+    <result property="generationJobId" column="generation_job_id"/>
+    <result property="computeTaskId" column="compute_task_id"/>
+    <result property="computeAttemptId" column="compute_attempt_id"/>
+    <result property="operationPlanId" column="operation_plan_id"/>
+    <result property="inputSnapshotJson" column="input_snapshot_json"/>
+    <result property="inputFingerprint" column="input_fingerprint"/>
     <result property="shotId" column="shot_id"/>
     <result property="attemptNumber" column="attempt_number"/>
     <result property="provider" column="provider"/>
@@ -23,7 +29,7 @@
   </resultMap>
 
   <select id="findByShotId" resultMap="take">
-    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
            metrics_json::text AS metrics_json, validation_status,
            validation_failure_category, validation_failure_reason,
@@ -34,7 +40,7 @@
   </select>
 
   <select id="findByShotIds" resultMap="take">
-    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
            metrics_json::text AS metrics_json, validation_status,
            validation_failure_category, validation_failure_reason,
@@ -48,7 +54,7 @@
   </select>
 
   <select id="findById" resultMap="take">
-    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
            metrics_json::text AS metrics_json, validation_status,
            validation_failure_category, validation_failure_reason,
@@ -58,7 +64,7 @@
   </select>
 
   <select id="findByShotIdAndAttempt" resultMap="take">
-    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
            metrics_json::text AS metrics_json, validation_status,
            validation_failure_category, validation_failure_reason,
@@ -68,11 +74,11 @@
   </select>
 
   <select id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow" resultType="java.util.UUID" affectData="true">
-    INSERT INTO takes (row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    INSERT INTO takes (generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json, input_fingerprint, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
                       generation_mode, output_asset_id, source_duration_ms, metrics_json,
                       validation_status, validation_failure_category, validation_failure_reason,
                       validation_retry_recommendation, status)
-    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP),
+    VALUES (#{generationJobId}, #{computeTaskId}, #{computeAttemptId}, #{operationPlanId}, #{inputSnapshotJson}::jsonb, #{inputFingerprint}, #{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP),
             #{shotId}, #{attemptNumber}, #{provider}, #{model}, #{generationMode}, #{outputAssetId},
             #{sourceDurationMs}, COALESCE(#{metricsJson}::jsonb, '{}'::jsonb),
             COALESCE(#{validationStatus}, 'PENDING'), #{validationFailureCategory},
@@ -101,6 +107,7 @@
         updated_at = CURRENT_TIMESTAMP,
         row_version = row_version + 1
     WHERE id = #{id}
+      AND (#{status} != 'RUNNING' OR status = 'PENDING')
   </update>
 
   <update id="updateValidation">
@@ -115,24 +122,26 @@
   </update>
 
   <select id="findByJobId" resultMap="take">
-    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
            metrics_json::text AS metrics_json, validation_status,
            validation_failure_category, validation_failure_reason,
            validation_retry_recommendation, status
     FROM takes
-    WHERE metrics_json->>'generationJobId' = #{generationJobId}
+    WHERE generation_job_id = (SELECT id FROM generation_jobs WHERE job_id = #{generationJobId}::uuid)
+       OR (generation_job_id IS NULL AND metrics_json->>'generationJobId' = #{generationJobId})
     ORDER BY attempt_number ASC, id ASC
   </select>
 
   <select id="findByTaskId" resultMap="take">
-    SELECT id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
+    SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,
            metrics_json::text AS metrics_json, validation_status,
            validation_failure_category, validation_failure_reason,
            validation_retry_recommendation, status
     FROM takes
-    WHERE metrics_json->>'computeTaskId' = #{computeTaskId}
+    WHERE compute_task_id = #{computeTaskId}::uuid
+       OR (compute_task_id IS NULL AND metrics_json->>'computeTaskId' = #{computeTaskId}::text)
     LIMIT 1
   </select>
 
@@ -140,4 +149,15 @@
     DELETE FROM takes WHERE id = #{id}
   </delete>
 
+  <select id="findByGenerationJobId" resultMap="take">
+    SELECT *, input_snapshot_json::text AS input_snapshot_json, metrics_json::text AS metrics_json
+    FROM takes WHERE generation_job_id = #{generationJobId}
+  </select>
+  <select id="findReferences" resultType="com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot$Reference">
+    SELECT ma.id AS asset_id, CASE WHEN ma.project_id = #{projectId} AND ma.status = 'READY'
+      THEN lower(replace(gr.reference_type, '_', '-')) ELSE 'INVALID' END AS role,
+      ma.sha256, ma.size_bytes, ma.content_type AS media_type, gr.weight::double precision AS weight
+    FROM generation_references gr JOIN media_assets ma ON ma.id = gr.media_asset_id
+    WHERE gr.shot_id = #{shotId} ORDER BY gr.reference_type, ma.id
+  </select>
 </mapper>

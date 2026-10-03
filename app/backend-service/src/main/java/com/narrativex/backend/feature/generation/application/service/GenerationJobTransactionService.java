@@ -32,6 +32,22 @@ public class GenerationJobTransactionService {
       return Optional.empty();
     }
     GenerationJob job = jobOpt.get();
+    if (job.isChapterVideoBatch()) return Optional.empty();
+    if (job.getType()
+            == com.narrativex.backend.feature.generation.domain.enums.JobType.CHAPTER_GENERATE
+        && (job.getResourceClass()
+                == com.narrativex.backend.feature.generation.domain.enums.ResourceClass.GPU_HEAVY
+            || job.getProductionMode()
+                == com.narrativex.backend.feature.generation.domain.enums.ProductionMode
+                    .VIDEO_FIRST)) {
+      generationJobRepository.acquireAnalysisCapacityLock();
+      if (generationJobRepository.countActiveVideoExecutions() > 0
+          && job.getStatus() == JobStatus.QUEUED) {
+        throw new com.narrativex.backend.feature.generation.domain.exception
+            .GenerationAdmissionDeniedException(
+            "GPU_CAPACITY", "Video execution slot is occupied; queued intent remains pending");
+      }
+    }
     if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.SUBMITTING)) {
       log.debug("Job {} is in state {}, cannot transition to SUBMITTING", jobId, job.getStatus());
       return Optional.empty();
@@ -48,6 +64,7 @@ public class GenerationJobTransactionService {
       return Optional.empty();
     }
     GenerationJob job = jobOpt.get();
+    if (job.isChapterVideoBatch()) return Optional.empty();
     if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.RUNNING)) {
       log.debug("Job {} is in state {}, cannot transition to RUNNING", jobId, job.getStatus());
       return Optional.empty();
@@ -66,6 +83,12 @@ public class GenerationJobTransactionService {
     if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.SUBMITTED)) {
       log.warn("Cannot transition job {} from {} to SUBMITTED", jobId, job.getStatus());
       return job;
+    }
+    if (job.getComputeAttemptId() != null
+        && (!job.getJobId().equals(receipt.taskId())
+            || !job.getComputeAttemptId().equals(receipt.attemptId()))) {
+      throw new IllegalArgumentException(
+          "Compute receipt does not match the admitted task/attempt");
     }
     GenerationJob submitted =
         job.markSubmitted(
@@ -102,6 +125,19 @@ public class GenerationJobTransactionService {
       return job;
     }
     return generationJobRepository.save(job.markUnknown(errorCode, message, nextReconcileAt));
+  }
+
+  @Transactional
+  public GenerationJob completeAnalysis(UUID jobId, Runnable materialization) {
+    GenerationJob job =
+        generationJobRepository
+            .findByJobId(jobId)
+            .orElseThrow(() -> new IllegalStateException("Job " + jobId + " disappeared"));
+    if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.COMPLETED)) {
+      return job;
+    }
+    materialization.run();
+    return markCompleted(jobId, "STORYBOARD_READY");
   }
 
   @Transactional

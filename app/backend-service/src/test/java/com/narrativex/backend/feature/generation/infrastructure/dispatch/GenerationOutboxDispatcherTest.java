@@ -40,6 +40,27 @@ class GenerationOutboxDispatcherTest {
     verify(mapper).markPublished(2L);
   }
 
+  @Test
+  void occupiedGpuLeavesOutboxPendingAndDoesNotBlockOtherRows() {
+    GenerationOutboxMapper mapper = mock(GenerationOutboxMapper.class);
+    ComputeExecutionDispatcher execution = mock(ComputeExecutionDispatcher.class);
+    var first = row(1L);
+    var second = row(2L);
+    java.util.UUID firstJob = java.util.UUID.randomUUID();
+    java.util.UUID secondJob = java.util.UUID.randomUUID();
+    first.setAggregateId(firstJob.toString());
+    second.setAggregateId(secondJob.toString());
+    when(mapper.reserveBatch(anyLong())).thenReturn(List.of(first, second));
+    org.mockito.Mockito.doThrow(
+            new com.narrativex.backend.feature.generation.domain.exception
+                .GenerationAdmissionDeniedException("GPU_CAPACITY", "slot occupied"))
+        .when(execution)
+        .dispatchJob(firstJob);
+    new GenerationOutboxDispatcher(mapper, transactionManager(), execution).dispatchPending();
+    verify(mapper, org.mockito.Mockito.never()).markPublished(1L);
+    verify(mapper).markPublished(2L);
+  }
+
   private static PlatformTransactionManager transactionManager() {
     PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));

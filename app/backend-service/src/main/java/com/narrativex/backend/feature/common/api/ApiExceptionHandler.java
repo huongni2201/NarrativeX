@@ -148,16 +148,10 @@ public class ApiExceptionHandler {
   ResponseEntity<ErrorResponse> handleDomainConflict(
       DomainConflictException exception, HttpServletRequest request) {
     ApiErrorCode code = ApiErrorCode.RESOURCE_CONFLICT;
-    if (exception
-        instanceof
-        com.narrativex.backend.feature.generation.domain.exception
-                .GenerationAdmissionDeniedException
-            admission) {
-      try {
-        code = ApiErrorCode.valueOf(admission.getCode());
-      } catch (IllegalArgumentException ignored) {
-        // Keep the safe conflict code for unknown admission reasons.
-      }
+    try {
+      if (exception.getCode() != null) code = ApiErrorCode.valueOf(exception.getCode());
+    } catch (IllegalArgumentException ignored) {
+      // Keep the safe conflict code for unknown reasons.
     }
     return error(HttpStatus.CONFLICT, code, exception.getMessage(), request);
   }

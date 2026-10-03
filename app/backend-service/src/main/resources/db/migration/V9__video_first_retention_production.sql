@@ -101,6 +101,17 @@ CREATE TABLE takes (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     shot_id UUID NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
     attempt_number INTEGER NOT NULL,
+    generation_job_id UUID REFERENCES generation_jobs(id),
+    compute_task_id UUID,
+    compute_attempt_id UUID,
+    operation_plan_id UUID REFERENCES operation_plans(id),
+    input_snapshot_json JSONB,
+    input_fingerprint VARCHAR(64),
+    CONSTRAINT ck_takes_admission_identity CHECK (
+      (generation_job_id IS NULL AND compute_task_id IS NULL AND compute_attempt_id IS NULL
+       AND operation_plan_id IS NULL AND input_snapshot_json IS NULL AND input_fingerprint IS NULL)
+      OR (generation_job_id IS NOT NULL AND compute_task_id IS NOT NULL AND compute_attempt_id IS NOT NULL
+       AND operation_plan_id IS NOT NULL AND input_snapshot_json IS NOT NULL AND input_fingerprint IS NOT NULL)),
     provider VARCHAR(64) NOT NULL DEFAULT 'ltx',
     model VARCHAR(64) NOT NULL DEFAULT 'ltx-2.5-nvfp4',
     generation_mode VARCHAR(32) NOT NULL DEFAULT 'TEXT_TO_VIDEO',
@@ -113,6 +124,8 @@ CREATE TABLE takes (
     validation_retry_recommendation TEXT,
     status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     CONSTRAINT uk_takes_shot_attempt UNIQUE (shot_id, attempt_number),
+    CONSTRAINT uk_takes_generation_job UNIQUE (generation_job_id),
+    CONSTRAINT uk_takes_compute_attempt UNIQUE (compute_attempt_id),
     CONSTRAINT ck_takes_status CHECK (status IN ('PENDING', 'RUNNING', 'GENERATED', 'VALIDATING', 'PASSED', 'FAILED'))
 );
 
@@ -164,3 +177,22 @@ ALTER TABLE visual_beats
     FOREIGN KEY (scene_id, story_beat_id)
     REFERENCES story_beats(scene_id, id)
     ON DELETE CASCADE;
+
+-- Frozen admission metadata survives result/status updates.
+CREATE FUNCTION protect_take_inputs() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF (OLD.generation_job_id, OLD.compute_task_id, OLD.compute_attempt_id, OLD.operation_plan_id,
+      OLD.input_snapshot_json, OLD.input_fingerprint, OLD.shot_id, OLD.attempt_number, OLD.provider, OLD.model, OLD.generation_mode)
+    IS DISTINCT FROM
+     (NEW.generation_job_id, NEW.compute_task_id, NEW.compute_attempt_id, NEW.operation_plan_id,
+      NEW.input_snapshot_json, NEW.input_fingerprint, NEW.shot_id, NEW.attempt_number, NEW.provider, NEW.model, NEW.generation_mode) THEN
+    RAISE EXCEPTION 'Take admission inputs are immutable';
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER takes_frozen_inputs BEFORE UPDATE ON takes
+  FOR EACH ROW EXECUTE FUNCTION protect_take_inputs();
+
+ALTER TABLE media_generation_items
+    ADD CONSTRAINT fk_media_generation_items_shot FOREIGN KEY (shot_id) REFERENCES shots(id),
+    ADD CONSTRAINT fk_media_generation_items_take FOREIGN KEY (take_id) REFERENCES takes(id);

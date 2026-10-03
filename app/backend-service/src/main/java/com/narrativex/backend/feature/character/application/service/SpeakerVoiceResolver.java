@@ -73,6 +73,8 @@ public class SpeakerVoiceResolver implements SpeakerVoiceAccess {
     }
 
     CharacterVoiceProfile profile = profileOpt.get();
+    if (profile.getStatus() != CharacterVoiceProfileStatus.ACTIVE
+        || !character.getId().equals(profile.getCharacterId())) return Optional.empty();
     return Optional.of(
         new ResolvedSpeakerVoice(
             character.getId(),
@@ -83,6 +85,8 @@ public class SpeakerVoiceResolver implements SpeakerVoiceAccess {
             profile.getLanguage(),
             profile.getAccent(),
             profile.getVoiceDescription(),
-            profile.getDeliveryBaseline()));
+            profile.getDeliveryBaseline(),
+            profile.getVersionNumber(),
+            profile.getRowVersion()));
   }
 }

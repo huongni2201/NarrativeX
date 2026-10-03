@@ -23,34 +23,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-class VisualBeatSourceAnchorPersistenceIntegrationTest {
-
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:18-alpine")
-          .withDatabaseName("narrativex_anchor_test")
-          .withUsername("narrativex")
-          .withPassword("narrativex");
-
-  @DynamicPropertySource
-  static void postgresProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-    registry.add("spring.datasource.username", POSTGRES::getUsername);
-    registry.add("spring.datasource.password", POSTGRES::getPassword);
-    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    registry.add("spring.flyway.enabled", () -> true);
-    registry.add("spring.flyway.baseline-on-migrate", () -> false);
-  }
+class VisualBeatSourceAnchorPersistenceIntegrationTest
+    extends com.narrativex.backend.support.PostgreSqlIntegrationTestSupport {
 
   @Autowired private StoryboardMapper storyboardMapper;
   @Autowired private ChapterMapper chapterMapper;

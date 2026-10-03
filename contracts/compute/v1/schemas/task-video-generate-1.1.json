@@ -1,0 +1,302 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "workflowProfileId": {
+      "const": "ltx-2.5-22b-distilled-int8-native-av-v1",
+      "title": "Workflowprofileid",
+      "type": "string"
+    },
+    "audioMode": {
+      "const": "NATIVE_AV",
+      "title": "Audiomode",
+      "type": "string"
+    },
+    "prompt": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+    },
+    "negativePrompt": {
+      "maxLength": 10000,
+      "title": "Negativeprompt",
+      "type": "string"
+    },
+    "width": {
+      "const": 1280,
+      "title": "Width",
+      "type": "integer"
+    },
+    "height": {
+      "const": 720,
+      "title": "Height",
+      "type": "integer"
+    },
+    "fps": {
+      "const": 24,
+      "title": "Fps",
+      "type": "integer"
+    },
+    "durationMs": {
+      "maximum": 10000,
+      "minimum": 100,
+      "title": "Durationms",
+      "type": "integer"
+    },
+    "generationMode": {
+      "const": "TEXT_TO_VIDEO",
+      "title": "Generationmode",
+      "type": "string"
+    },
+    "seed": {
+      "maximum": 18446744073709551615,
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "dialogue": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "speaker": {
+            "default": null,
+            "title": "Speaker",
+            "oneOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "voiceDescription": {
+            "default": null,
+            "title": "Voicedescription",
+            "oneOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "NativeDialogueLine",
+        "type": "object"
+      },
+      "maxItems": 32,
+      "title": "Dialogue",
+      "type": "array"
+    },
+    "voiceReference": {
+      "default": null,
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "default": null,
+              "title": "Language",
+              "oneOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "accent": {
+              "default": null,
+              "title": "Accent",
+              "oneOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "voiceDescription": {
+              "default": null,
+              "title": "Voicedescription",
+              "oneOf": [
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "deliveryBaseline": {
+              "default": null,
+              "title": "Deliverybaseline",
+              "oneOf": [
+                {
+                  "maxLength": 1000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "title": "NativeVoiceDescription",
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cameraIntent": {
+      "default": null,
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "framing": {
+              "default": null,
+              "title": "Framing",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "movement": {
+              "default": null,
+              "title": "Movement",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "angle": {
+              "default": null,
+              "title": "Angle",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "speed": {
+              "default": null,
+              "title": "Speed",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "title": "VideoCameraIntent",
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "motionIntent": {
+      "default": null,
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "subjectMotion": {
+              "default": null,
+              "title": "Subjectmotion",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "speed": {
+              "default": null,
+              "title": "Speed",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dynamics": {
+              "default": null,
+              "title": "Dynamics",
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "title": "VideoMotionIntent",
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "workflowProfileId",
+    "audioMode",
+    "prompt",
+    "negativePrompt",
+    "width",
+    "height",
+    "fps",
+    "durationMs",
+    "generationMode",
+    "seed"
+  ],
+  "title": "NativeVideoGenerateInputs",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/compute/v1/task-video-generate-1.1.json"
+}

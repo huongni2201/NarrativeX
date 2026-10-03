@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.hashing.Sha256;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
@@ -10,9 +11,6 @@ import com.narrativex.backend.feature.storyboard.application.command.CreateChapt
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterWithStoryCommand;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterCreationIdempotencyRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -96,14 +94,6 @@ public class CreateChapterWithStoryUseCase {
             String.valueOf(command.orderIndex()),
             command.title() == null ? "" : command.title().trim(),
             command.sourceText() == null ? "" : command.sourceText().trim());
-    try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-      StringBuilder hex = new StringBuilder(digest.length * 2);
-      for (byte item : digest) hex.append(String.format("%02x", item));
-      return hex.toString();
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is unavailable", exception);
-    }
+    return Sha256.hexUtf8(value);
   }
 }

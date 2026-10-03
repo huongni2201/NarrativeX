@@ -4,15 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.generation.api.response.ChapterProductionResponse;
 import com.narrativex.backend.feature.generation.application.port.out.SelectedTakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository.TakeRecord;
+import com.narrativex.backend.feature.generation.application.query.ChapterProductionView;
 import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess;
@@ -28,12 +30,58 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class GetChapterProductionUseCaseTest {
+  @Test
+  void memoizesEvenMissingVoicesAcrossRepeatedCuesAndVisuals() {
+    UUID project = UUID.randomUUID(),
+        chapter = UUID.randomUUID(),
+        scene = UUID.randomUUID(),
+        beat = UUID.randomUUID(),
+        speaker = UUID.randomUUID();
+    when(storyboardAccess.findChapter(chapter))
+        .thenReturn(Optional.of(new ChapterInfo(chapter, UUID.randomUUID(), "Chapter", 0)));
+    when(storyboardAccess.findScenes(chapter))
+        .thenReturn(List.of(new SceneInfo(scene, 0, "Scene")));
+    when(storyboardAccess.findVisualBeats(any()))
+        .thenReturn(
+            List.of(
+                new VisualBeatInfo(
+                    UUID.randomUUID(), scene, beat, 0, "First", "Intent", "APPROVED", null, null),
+                new VisualBeatInfo(
+                    UUID.randomUUID(), scene, beat, 1, "Second", "Intent", "APPROVED", null, null),
+                new VisualBeatInfo(
+                    UUID.randomUUID(),
+                    scene,
+                    null,
+                    2,
+                    "Legacy",
+                    "Intent",
+                    "APPROVED",
+                    null,
+                    null)));
+    when(storyboardAccess.findAudioCues(List.of(beat)))
+        .thenReturn(
+            java.util.stream.IntStream.range(0, 100)
+                .mapToObj(
+                    i ->
+                        new StoryboardProductionAccess.AudioCueInfo(
+                            UUID.randomUUID(), beat, i, "INNER_MONOLOGUE", speaker))
+                .toList());
+    when(speakerVoiceAccess.resolveSpeakerVoice(speaker)).thenReturn(Optional.empty());
+    var result = useCase.execute(project, chapter);
+    verify(speakerVoiceAccess, times(1)).resolveSpeakerVoice(speaker);
+    assertThat(result.scenes().getFirst().visualBeats().get(2).audioCues()).isEmpty();
+    assertThat(result.scenes().getFirst().visualBeats().getFirst().audioCues())
+        .allMatch(c -> !c.voiceReady());
+    assertThat(useCase.getStatus(project, chapter).voiceReady()).isFalse();
+  }
+
   private final StoryboardProductionAccess storyboardAccess =
       mock(StoryboardProductionAccess.class);
   private final StoryVersionAccess storyVersionAccess = mock(StoryVersionAccess.class);
   private final TakeRepository takeRepository = mock(TakeRepository.class);
   private final SelectedTakeRepository selectedTakeRepository = mock(SelectedTakeRepository.class);
   private final SpeakerVoiceAccess speakerVoiceAccess = mock(SpeakerVoiceAccess.class);
+  private final GetProductionTimelineUseCase timeline = mock(GetProductionTimelineUseCase.class);
 
   private final GetChapterProductionUseCase useCase =
       new GetChapterProductionUseCase(
@@ -41,7 +89,9 @@ class GetChapterProductionUseCaseTest {
           storyVersionAccess,
           takeRepository,
           selectedTakeRepository,
-          speakerVoiceAccess);
+          speakerVoiceAccess,
+          mock(GetCurrentMediaJobUseCase.class),
+          timeline);
 
   @Test
   void assemblesCompleteProductionResponse() {
@@ -122,7 +172,7 @@ class GetChapterProductionUseCaseTest {
     SelectedTake selectedTake = new SelectedTake(shotId, takeId, 0L, 3000L);
     when(selectedTakeRepository.findByShotIds(List.of(shotId))).thenReturn(List.of(selectedTake));
 
-    ChapterProductionResponse response = useCase.execute(projectId, chapterId);
+    ChapterProductionView response = useCase.execute(projectId, chapterId);
 
     assertThat(response).isNotNull();
     assertThat(response.chapterId()).isEqualTo(chapterId);
@@ -144,8 +194,8 @@ class GetChapterProductionUseCaseTest {
     assertThat(status.chapterId()).isEqualTo(chapterId);
     assertThat(status.totalShots()).isEqualTo(1);
     assertThat(status.selectedTakeCount()).isEqualTo(1);
-    assertThat(status.timelineReady()).isTrue();
-    assertThat(status.renderReady()).isTrue();
+    assertThat(status.timelineReady()).isFalse();
+    assertThat(status.renderReady()).isFalse();
     assertThat(status.overallProgressPercent()).isEqualTo(100);
   }
 

@@ -1,7 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  ChapterProductionResponse,
-  ChapterProductionStatus,
   GenerationStrategy,
 } from "@narrativex/client-contracts";
 import {
@@ -10,24 +8,12 @@ import {
   videoProductionApi,
 } from "../api/video-production.api";
 
-export const videoProductionQueryKeys = {
-  all: ["video-production"] as const,
-
-  chapterStatus: (projectId: string, chapterId: string) =>
-    ["video-production", "chapter", projectId, chapterId, "status"] as const,
-
-  chapterProduction: (projectId: string, chapterId: string) =>
-    ["video-production", "chapter", projectId, chapterId, "production"] as const,
-
-  shot: (projectId: string, shotId: string) =>
-    ["video-production", "shot", projectId, shotId] as const,
-
-  shotTakes: (projectId: string, shotId: string) =>
-    ["video-production", "shot", projectId, shotId, "takes"] as const,
-};
+import { videoProductionQueryKeys, refreshProduction, productionPollInterval } from "./production-cache.ts";
+import { isProjectSseActive } from "../../generation/realtime/project-event-subscription.ts";
+export { videoProductionQueryKeys } from "./production-cache.ts";
 
 export function useChapterProductionStatus(projectId: string, chapterId: string | null) {
-  return useQuery<ChapterProductionStatus>({
+  return useQuery(queryOptions({
     queryKey: videoProductionQueryKeys.chapterStatus(projectId, chapterId ?? ""),
     queryFn: () => {
       if (!chapterId) throw new Error("Chưa chọn chapter.");
@@ -36,16 +22,16 @@ export function useChapterProductionStatus(projectId: string, chapterId: string 
     enabled: Boolean(projectId && chapterId),
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (!data) return false;
+      if (!data) return 15_000;
       const isBusy =
         data.generatingShots > 0 || data.validatingShots > 0 || data.queuedShots > 0;
-      return isBusy ? 3000 : false;
+      return productionPollInterval(isBusy, isProjectSseActive(projectId));
     },
-  });
+  }));
 }
 
 export function useChapterProduction(projectId: string, chapterId: string | null) {
-  return useQuery<ChapterProductionResponse>({
+  return useQuery(queryOptions({
     queryKey: videoProductionQueryKeys.chapterProduction(projectId, chapterId ?? ""),
     queryFn: () => {
       if (!chapterId) throw new Error("Chưa chọn chapter.");
@@ -54,7 +40,7 @@ export function useChapterProduction(projectId: string, chapterId: string | null
     enabled: Boolean(projectId && chapterId),
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (!data) return false;
+      if (!data) return 15_000;
       const isBusy = data.scenes.some((scene) =>
         scene.visualBeats.some((vb) =>
           vb.shotSequence?.shots.some((s) =>
@@ -65,36 +51,20 @@ export function useChapterProduction(projectId: string, chapterId: string | null
           ),
         ),
       );
-      return isBusy ? 3000 : false;
+      return productionPollInterval(isBusy, isProjectSseActive(projectId));
     },
-  });
+  }));
 }
 
 export function useGenerateShot(projectId: string, chapterId?: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ shotId, input = {} }: { shotId: string; input?: GenerateShotTakeInput }) =>
-      videoProductionApi.generateTake(projectId, shotId, input),
-    onSettled: async () => {
-      const promises: Promise<unknown>[] = [
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      ];
-      if (chapterId) {
-        promises.push(
-          queryClient.invalidateQueries({
-            queryKey: videoProductionQueryKeys.chapterStatus(projectId, chapterId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: videoProductionQueryKeys.chapterProduction(projectId, chapterId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: ["projects", projectId, "chapters", chapterId, "production"],
-          }),
-        );
-      }
-      await Promise.all(promises);
+    mutationFn: (variables: { shotId: string; input?: GenerateShotTakeInput }) => {
+      variables.input ??= {};
+      return videoProductionApi.generateTake(projectId, variables.shotId, variables.input);
     },
+    onSettled: () => refreshProduction(queryClient, projectId, chapterId),
   });
 }
 
@@ -108,25 +78,7 @@ export function useSelectTake(projectId: string, chapterId?: string | null) {
   return useMutation({
     mutationFn: ({ shotId, input }: { shotId: string; input: SelectTakeInput }) =>
       videoProductionApi.selectTake(projectId, shotId, input),
-    onSettled: async () => {
-      const promises: Promise<unknown>[] = [
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      ];
-      if (chapterId) {
-        promises.push(
-          queryClient.invalidateQueries({
-            queryKey: videoProductionQueryKeys.chapterStatus(projectId, chapterId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: videoProductionQueryKeys.chapterProduction(projectId, chapterId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: ["projects", projectId, "chapters", chapterId, "production"],
-          }),
-        );
-      }
-      await Promise.all(promises);
-    },
+    onSettled: () => refreshProduction(queryClient, projectId, chapterId),
   });
 }
 
@@ -136,20 +88,6 @@ export function useUpdateShotStrategy(projectId: string, chapterId?: string | nu
   return useMutation({
     mutationFn: ({ shotId, strategy }: { shotId: string; strategy: GenerationStrategy }) =>
       videoProductionApi.updateStrategy(projectId, shotId, strategy),
-    onSettled: async () => {
-      if (chapterId) {
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: videoProductionQueryKeys.chapterStatus(projectId, chapterId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: videoProductionQueryKeys.chapterProduction(projectId, chapterId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: ["projects", projectId, "chapters", chapterId, "production"],
-          }),
-        ]);
-      }
-    },
+    onSettled: () => refreshProduction(queryClient, projectId, chapterId),
   });
 }

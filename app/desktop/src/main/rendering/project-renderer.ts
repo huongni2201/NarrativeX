@@ -105,7 +105,7 @@ export class ProjectRenderer {
       try {
         const finalPath = await this.storage.resolveArtifact(prepared.projectId, prepared.jobId);
         const metadata = await probeVideo(this.runtime.ffprobePath, finalPath);
-        validateRenderSync(metadata, expectedDurationMs, manifest.fps);
+        validateRenderSync(metadata, expectedDurationMs, manifest.fps, manifest);
         return completion(manifest.renderFingerprint, metadata, await this.storage.artifactEntry(prepared.projectId, prepared.jobId));
       } catch (error) {
         const failure = asRenderFailure("RENDER_COMPLETED_ARTIFACT_INVALID", error);
@@ -119,7 +119,7 @@ export class ProjectRenderer {
       try {
         if (await isFile(finalPath)) {
           const metadata = await probeVideo(this.runtime.ffprobePath, finalPath);
-          validateRenderSync(metadata, expectedDurationMs, manifest.fps);
+          validateRenderSync(metadata, expectedDurationMs, manifest.fps, manifest);
           if (journal.stage === "VERIFY") {
             journal = await this.journals.advance(journal, "REGISTER");
           }
@@ -190,7 +190,7 @@ export class ProjectRenderer {
       let metadata: Awaited<ReturnType<typeof probeVideo>>;
       try {
         metadata = await probeVideo(this.runtime.ffprobePath, renderedFinalPath);
-        validateRenderSync(metadata, expectedDurationMs, manifest.fps);
+        validateRenderSync(metadata, expectedDurationMs, manifest.fps, manifest);
       } catch (error) {
         throw asRenderFailure("RENDER_VERIFY_FAILED", error);
       }

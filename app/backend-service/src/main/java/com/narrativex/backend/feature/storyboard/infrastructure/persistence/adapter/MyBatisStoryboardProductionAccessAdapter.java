@@ -31,6 +31,11 @@ public class MyBatisStoryboardProductionAccessAdapter implements StoryboardProdu
   private final ShotSequenceMapper shotSequenceMapper;
 
   @Override
+  public String findAdmissionContextLocked(UUID projectId, UUID shotId) {
+    return shotMapper.findAdmissionContextLocked(projectId, shotId);
+  }
+
+  @Override
   public UUID findChapterIdByShotId(UUID projectId, UUID shotId) {
     return shotMapper.findChapterIdByShotId(projectId, shotId);
   }

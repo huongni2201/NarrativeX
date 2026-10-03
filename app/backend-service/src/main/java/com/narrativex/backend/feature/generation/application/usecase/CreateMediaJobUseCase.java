@@ -48,6 +48,8 @@ public class CreateMediaJobUseCase {
           .VideoGenerationCatalog
       videoGenerationCatalog;
   private final NarrativeXLimitsProperties limits;
+  private final com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess storyboardAccess;
+  private final GenerateShotTakeUseCase shotAdmission;
 
   @Transactional
   public GenerationJob execute(CreateMediaJobCommand command) {
@@ -72,7 +74,7 @@ public class CreateMediaJobUseCase {
               .anyMatch(
                   item ->
                       !itemFingerprint(
-                              requestFingerprint, item.getMediaPlanId(), item.getVisualBeatId())
+                              requestFingerprint, item.getMediaPlanId(), item.getShotId() == null ? item.getVisualBeatId() : item.getShotId())
                           .equals(item.getRequestFingerprint()))) {
         throw idempotencyConflict();
       }
@@ -130,12 +132,28 @@ public class CreateMediaJobUseCase {
                 command.projectId(),
                 chapter.storyVersionId(),
                 plan,
-                ResourceClass.PROVIDER_BATCH,
+                isVideoFirst ? ResourceClass.BACKGROUND : ResourceClass.PROVIDER_BATCH,
                 project.getSourceLanguage(),
                 idempotencyKey));
     chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
 
-    String stageName = isVideoFirst ? "SHOT_VIDEO_GENERATE" : STAGE_NAME;
+    if (isVideoFirst) {
+      var shotRows = storyboardAccess.findShotsByChapter(command.projectId(), command.chapterId());
+      if (shotRows.isEmpty()) throw new GenerationAdmissionDeniedException("STORYBOARD_NOT_READY", "Chapter has no current shots");
+      int order = 0;
+      for (var shot : shotRows) {
+        UUID beatId = storyboardAccess.findSequenceById(shot.sequenceId()).orElseThrow().visualBeatId();
+        var leafCommand = new com.narrativex.backend.feature.generation.application.command.GenerateShotTakeCommand(
+            command.projectId(), shot.id(), null, null, null, null, "batch:" + job.getJobId() + ":shot-" + shot.id(), null);
+        var frozen = shotAdmission.freeze(leafCommand);
+        mediaGenerationItemRepository.save(MediaGenerationItem.createShot(job.getId(), plan.id(), beatId,
+            shot.id(), order++, itemFingerprint(requestFingerprint, plan.id(), shot.id()),
+            frozen.inputJson(), frozen.requestFingerprint()));
+      }
+      generationOutboxRepository.enqueue(job);
+      return job;
+    }
+    String stageName = STAGE_NAME;
     stageAttemptRepository.create(StageAttempt.create(job.getId(), stageName, 1));
     for (var scene : plan.scenes()) {
       for (var beat : scene.beats()) {

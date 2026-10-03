@@ -102,12 +102,13 @@ test("settings groups runtime diagnostics and project defaults", () => {
 test("project creation opens in an accessible dialog instead of expanding the project list", () => {
   const projects = source("features/projects/screens/ProjectsScreen.tsx");
 
-  assert.match(projects, /<Dialog\s+open=\{isCreating\}/);
-  assert.match(projects, /aria-describedby="create-project-description"/);
-  assert.match(projects, /<DialogTitle[^>]*>Create project<\/DialogTitle>/);
-  assert.match(projects, /id="create-project-description"/);
+  assert.match(projects, /<CreateProjectDialog open=\{isCreating\}/);
+  const dialogs = source("features/projects/components/ProjectDialogs.tsx");
+  assert.match(dialogs, /<DialogTitle[^>]*>Create project<\/DialogTitle>/);
+  assert.match(dialogs, /aria-describedby="create-project-description"/);
+  assert.match(dialogs, /id="create-project-description"/);
   assert.doesNotMatch(projects, /Dùng cho storyboard, ảnh và bản render của project\./);
-  assert.match(projects, /<Textarea[\s\S]*?className="min-h-24"/);
+  assert.match(dialogs, /<Textarea[\s\S]*?className="min-h-24"/);
 });
 
 test("chapter workspace delegates focused stage responsibilities", () => {

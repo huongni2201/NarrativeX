@@ -19,11 +19,16 @@ public class GetCurrentMediaJobUseCase {
 
   @Transactional(readOnly = true)
   public CurrentMediaJobResponse execute(UUID projectId, UUID chapterId) {
+    return new CurrentMediaJobResponse(findCurrentJobId(projectId, chapterId));
+  }
+
+  @Transactional(readOnly = true)
+  public UUID findCurrentJobId(UUID projectId, UUID chapterId) {
     projectAccess.findProject(projectId);
 
     var internalJobId = chapterMediaHeadRepository.findCurrentJobId(chapterId);
     if (internalJobId.isEmpty()) {
-      return new CurrentMediaJobResponse(null);
+      return null;
     }
 
     var job =
@@ -33,6 +38,6 @@ public class GetCurrentMediaJobUseCase {
     if (!projectId.equals(job.getProjectId()) || !chapterId.equals(job.getChapterId())) {
       throw new ResourceNotFoundException("Current media job not found");
     }
-    return new CurrentMediaJobResponse(job.getJobId());
+    return job.getJobId();
   }
 }

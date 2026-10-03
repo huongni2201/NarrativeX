@@ -9,19 +9,21 @@
         <result property="projectId" column="project_id" />
         <result property="generationJobId" column="generation_job_id" />
         <result property="operationType" column="operation_type" />
+        <result property="scopeId" column="scope_id" />
+        <result property="inputFingerprint" column="input_fingerprint" />
     </resultMap>
 
     <sql id="columns">
-        id, row_version, project_id, generation_job_id, operation_type
+        id, row_version, project_id, generation_job_id, operation_type, scope_id, input_fingerprint
     </sql>
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow"
             resultType="java.util.UUID" affectData="true">
         INSERT INTO operation_plans
-            (project_id, generation_job_id, operation_type)
+            (project_id, generation_job_id, operation_type, scope_id, input_fingerprint)
         VALUES
-            (#{projectId}, #{generationJobId}, #{operationType})
+            (#{projectId}, #{generationJobId}, #{operationType}, #{scopeId}, #{inputFingerprint})
         RETURNING id
     </select>
 

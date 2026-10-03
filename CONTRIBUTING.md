@@ -25,6 +25,9 @@ For faster iteration, run only the narrow checks relevant to the files being cha
 cd app/backend-service
 ./mvnw.cmd test
 
+# Use a separate output directory when an IDE also compiles into target/:
+./mvnw.cmd test '-Dnarrativex.buildDirectory=target/verification/target'
+
 # Generation service
 cd ../generation-service
 python -m pytest

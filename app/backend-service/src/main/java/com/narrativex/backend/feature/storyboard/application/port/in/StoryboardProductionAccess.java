@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface StoryboardProductionAccess {
+  String findAdmissionContextLocked(UUID projectId, UUID shotId);
+
   UUID findChapterIdByShotId(UUID projectId, UUID shotId);
 
   Optional<ChapterInfo> findChapter(UUID chapterId);

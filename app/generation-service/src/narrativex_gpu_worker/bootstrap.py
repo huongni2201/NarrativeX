@@ -99,7 +99,9 @@ def build_executor_catalog(
                     client=client,
                 ),
                 artifacts,
-                ready=bool(settings.comfyui_base_url.strip()),
+                # Readiness stays false until pinned runtime/model/schema preflight succeeds.
+                runtime_directory=settings.ltx_runtime_directory,
+                max_artifact_bytes=settings.max_artifact_bytes,
             ),
             MediaValidationExecutor(artifacts, ready=True),
         )

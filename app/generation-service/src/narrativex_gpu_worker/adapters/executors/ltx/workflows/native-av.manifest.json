@@ -1,0 +1,109 @@
+{
+  "profileId": "ltx-2.5-22b-distilled-int8-native-av-v1",
+  "modelId": "ltx-2.5-22b-distilled-int8",
+  "modelRevision": "5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+  "runtimeCommit": "ee71d5c4993f29086b27fde1629a945ae48425bf",
+  "sourceUrl": "https://github.com/Lightricks/ComfyUI-LTXVideo/blob/b9446f5972d33ebeda7d970eb89b80b687db7626/example_workflows/2.5/LTX-2.5_T2V_I2V_Single_Stage_Distilled.json",
+  "sourceSha256": "e264b203ec4b0ff1dfd448121c96ceb5d45dfe84b70fcac9a03e5bc700338f25",
+  "graphSha256": "9b288f8604cf59ecc35055f6d3fe9b8019ec8ede9f2cd942bdf91d8c7d7125a9",
+  "adaptations": [
+    "Explicit T2V branch, local text encoding, no prompt enhancement or API key",
+    "Official split INT8 transformer/text encoder instead of BF16",
+    "ImageCrop node 9001 added: center crop decoded 1280x736 to 1280x720",
+    "CreateVideo h264; SaveVideo format=mp4 and format.codec=auto; optional top-level codec omitted"
+  ],
+  "capabilities": {
+    "nativeAudio": true,
+    "voiceConditioning": false,
+    "voiceDescription": true,
+    "t2v": true,
+    "i2v": false,
+    "firstLastFrame": false
+  },
+  "outputNode": "4852",
+  "outputSlot": "images",
+  "outputs": {
+    "VAELoader": [
+      "VAE"
+    ],
+    "UNETLoader": [
+      "MODEL"
+    ],
+    "CLIPLoader": [
+      "CLIP"
+    ],
+    "CLIPTextEncode": [
+      "CONDITIONING"
+    ],
+    "LTXVConditioning": [
+      "CONDITIONING",
+      "CONDITIONING"
+    ],
+    "EmptyLTXVLatentVideo": [
+      "LATENT"
+    ],
+    "LTXVEmptyLatentAudio": [
+      "LATENT"
+    ],
+    "LTXVConcatAVLatent": [
+      "LATENT"
+    ],
+    "RandomNoise": [
+      "NOISE"
+    ],
+    "CFGGuider": [
+      "GUIDER"
+    ],
+    "KSamplerSelect": [
+      "SAMPLER"
+    ],
+    "ManualSigmas": [
+      "SIGMAS"
+    ],
+    "SamplerCustomAdvanced": [
+      "LATENT",
+      "LATENT"
+    ],
+    "LTXVSeparateAVLatent": [
+      "LATENT",
+      "LATENT"
+    ],
+    "VAEDecodeTiled": [
+      "IMAGE"
+    ],
+    "LTXVAudioVAEDecode": [
+      "AUDIO"
+    ],
+    "ImageCrop": [
+      "IMAGE"
+    ],
+    "CreateVideo": [
+      "VIDEO"
+    ],
+    "SaveVideo": [
+      "VIDEO"
+    ]
+  },
+  "models": [
+    {
+      "path": "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "sha256": "c4279eeff115cbeaca494bd2183e7d768c38fe85a184dc6afbb7159157c44334",
+      "sizeBytes": 21504034224
+    },
+    {
+      "path": "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "sha256": "6ce688a0aa98a5fa36a9f1e6c3f42152a498cc2b53ee8c15674c64244f91487f",
+      "sizeBytes": 15372969374
+    },
+    {
+      "path": "vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "sha256": "c52733d37f6a7fb7949c3dc0fb468c6cb2169e4d836983a73babb9f0d54837a5",
+      "sizeBytes": 364866540
+    },
+    {
+      "path": "vae/ltx-2.5-video-vae-bf16.safetensors",
+      "sha256": "847e14ca7f3355debca0cea4eaa24ac0fbcdf0061da054ac89ca638a869ddba3",
+      "sizeBytes": 1472223346
+    }
+  ]
+}

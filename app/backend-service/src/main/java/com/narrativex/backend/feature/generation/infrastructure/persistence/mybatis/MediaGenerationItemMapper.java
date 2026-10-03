@@ -12,6 +12,11 @@ public interface MediaGenerationItemMapper extends NarrativeXMyBatisMapper {
 
   List<MediaGenerationItemRow> findByJobId(@Param("jobId") UUID jobId);
 
+  int bindLeaf(@Param("id") UUID id, @Param("leafJobId") UUID leafJobId, @Param("takeId") UUID takeId);
+
+  int updateExecution(@Param("id") UUID id, @Param("status") String status,
+      @Param("assetId") UUID assetId, @Param("errorCode") String errorCode);
+
   int review(
       @Param("id") UUID id,
       @Param("rowVersion") long rowVersion,

@@ -17,6 +17,48 @@ public class MyBatisTakeRepository implements TakeRepository {
   private final TakeMapper mapper;
 
   @Override
+  public TakeRecord createPending(
+      UUID shotId,
+      int attemptNumber,
+      String provider,
+      String model,
+      GenerationStrategy strategy,
+      UUID generationJobId,
+      UUID computeTaskId,
+      UUID computeAttemptId,
+      UUID operationPlanId,
+      String snapshot,
+      String fingerprint) {
+    TakeRow row = new TakeRow();
+    row.setShotId(shotId);
+    row.setAttemptNumber(attemptNumber);
+    row.setProvider(provider);
+    row.setModel(model);
+    row.setGenerationMode(strategy.name());
+    row.setGenerationJobId(generationJobId);
+    row.setComputeTaskId(computeTaskId);
+    row.setComputeAttemptId(computeAttemptId);
+    row.setOperationPlanId(operationPlanId);
+    row.setInputSnapshotJson(snapshot);
+    row.setInputFingerprint(fingerprint);
+    UUID id = mapper.insert(row);
+    if (id == null) throw new IllegalStateException("Take insert did not return an ID");
+    return findById(id).orElseThrow(() -> new IllegalStateException("Inserted take disappeared"));
+  }
+
+  @Override
+  public Optional<TakeRecord> findByGenerationJobId(UUID generationJobId) {
+    return Optional.ofNullable(toRecord(mapper.findByGenerationJobId(generationJobId)));
+  }
+
+  @Override
+  public List<
+          com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot.Reference>
+      findReferences(UUID projectId, UUID shotId) {
+    return mapper.findReferences(projectId, shotId);
+  }
+
+  @Override
   public Optional<TakeRecord> findById(UUID id) {
     TakeRow row = mapper.findById(id);
     return Optional.ofNullable(toRecord(row));
@@ -68,6 +110,12 @@ public class MyBatisTakeRepository implements TakeRepository {
         row.getValidationFailureReason(),
         row.getValidationRetryRecommendation(),
         row.getStatus(),
-        row.getCreatedAt());
+        row.getCreatedAt(),
+        row.getGenerationJobId(),
+        row.getComputeTaskId(),
+        row.getComputeAttemptId(),
+        row.getOperationPlanId(),
+        row.getInputSnapshotJson(),
+        row.getInputFingerprint());
   }
 }

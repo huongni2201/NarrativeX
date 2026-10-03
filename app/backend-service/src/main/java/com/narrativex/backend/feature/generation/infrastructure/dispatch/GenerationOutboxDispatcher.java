@@ -29,6 +29,8 @@ public class GenerationOutboxDispatcher {
   private final GenerationOutboxMapper mapper;
   private final TransactionTemplate transactionTemplate;
   private final ComputeExecutionDispatcher executionDispatcher;
+  @Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService batches;
 
   public GenerationOutboxDispatcher(
       GenerationOutboxMapper mapper, PlatformTransactionManager transactionManager) {
@@ -47,17 +49,11 @@ public class GenerationOutboxDispatcher {
 
   @Scheduled(fixedDelayString = "${narrativex.generation.outbox-dispatch-delay-ms:1000}")
   public void dispatchPending() {
+    if (batches != null) batches.resumePending();
     for (OutboxDispatchRow row : reserveBatch()) {
       try {
         if (executionDispatcher != null && row.getAggregateId() != null) {
-          try {
-            executionDispatcher.dispatchJob(UUID.fromString(row.getAggregateId()));
-          } catch (Exception e) {
-            log.warn(
-                "Failed to dispatch execution job for outbox row {}: {}",
-                row.getId(),
-                e.getMessage());
-          }
+          executionDispatcher.dispatchJob(UUID.fromString(row.getAggregateId()));
         }
         int updated = mapper.markPublished(row.getId());
         if (updated == 0) {

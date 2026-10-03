@@ -31,7 +31,6 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Handler for CHAPTER_ANALYZE generation jobs. Enforces that the Vertex Gemini AI call executes
@@ -131,8 +130,8 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
             job.getStoryboardRevisionId(),
             job.getSourceText(),
             job.getSourceLanguage(),
-            "1.0",
-            "1.0",
+            "1.1",
+            "1.1",
             null,
             null);
 
@@ -171,22 +170,21 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
     }
   }
 
-  @Transactional
   public void materializeAndComplete(
       GenerationJob job, ChapterAnalysisRequest request, ChapterAnalysisResult result) {
     byte[] payload = result.rawJson().getBytes(StandardCharsets.UTF_8);
 
-    // Strict validation and materialization into PostgreSQL
-    analysisMaterializer.materialize(job, payload);
-
-    // Persist durable chapter analysis telemetry and provenance (ADR-0022)
-    persistAnalysisRun(job, request, result);
-
-    GenerationJob freshJob =
-        generationJobRepository
-            .findByJobId(job.getJobId())
-            .orElseThrow(() -> new IllegalStateException("Job disappeared"));
-    generationJobRepository.save(freshJob.markCompleted("STORYBOARD_READY"));
+    GenerationJob completed =
+        transactionService.completeAnalysis(
+            job.getJobId(),
+            () -> {
+              analysisMaterializer.materialize(job, payload);
+              persistAnalysisRun(job, request, result);
+            });
+    if (completed.getStatus()
+        != com.narrativex.backend.feature.generation.domain.enums.JobStatus.COMPLETED) {
+      return;
+    }
 
     log.info(
         "Chapter analysis successfully completed for job {} using model {} (tokens: prompt={}, thinking={}, output={}, total={})",

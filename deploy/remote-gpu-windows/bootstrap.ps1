@@ -28,6 +28,8 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$runtimeLock = Get-Content -LiteralPath "$scriptDir\runtime.lock.json" -Raw | ConvertFrom-Json
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "NarrativeX Remote GPU Runtime Bootstrap (Windows RTX 5090 / RTX 3090)" -ForegroundColor Cyan
@@ -97,29 +99,36 @@ Write-Host "Using uv at: $uvExe" -ForegroundColor Green
 # 5. Setup Python 3.14 environment and PyTorch CUDA 13.0
 Write-Host "[4/6] Creating Python 3.14.7 environment and installing PyTorch cu130..." -ForegroundColor Yellow
 $venvDir = "$InstallDir\.venv"
-& uv venv "$venvDir" --python 3.14.7 --seed
+& $uvExe venv "$venvDir" --python $runtimeLock.components.python.version --seed
+if ($LASTEXITCODE) { throw "Could not create the runtime Python environment." }
 $pythonExe = "$venvDir\Scripts\python.exe"
 
 # Install PyTorch with CUDA 13.0 wheels
 Write-Host "Installing torch 2.14.0+cu130 and torchaudio..."
-& uv pip install --python "$pythonExe" torch==2.14.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu130
+& $uvExe pip install --python "$pythonExe" "torch==$($runtimeLock.components.pytorch.version)" "torchaudio==$($runtimeLock.components.pytorch.torchaudio_version)" --index-url $runtimeLock.components.pytorch.index_url
+if ($LASTEXITCODE) { throw "Could not install the pinned PyTorch runtime." }
 
 # Install generation-service package using frozen lock
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Resolve-Path "$scriptDir\..\..").Path
 $genServiceDir = "$repoRoot\app\generation-service"
 
 if (Test-Path "$genServiceDir\pyproject.toml") {
     Write-Host "Installing generation-service from $genServiceDir using uv sync --frozen..."
     Push-Location "$genServiceDir"
+    $previousProjectEnvironment = $env:UV_PROJECT_ENVIRONMENT
     try {
-        & uv sync --frozen --no-dev
+        $env:UV_PROJECT_ENVIRONMENT = $venvDir
+        & $uvExe sync --frozen --no-dev --inexact --python "$pythonExe"
+        if ($LASTEXITCODE) { throw "Could not install the locked generation service." }
     } finally {
+        $env:UV_PROJECT_ENVIRONMENT = $previousProjectEnvironment
         Pop-Location
     }
 } else {
-    Write-Warning "Source directory not found at $genServiceDir. Please run from clone or copy app/generation-service."
+    throw "Source directory not found at $genServiceDir. Run bootstrap from the repository clone."
 }
+& $pythonExe -c "import narrativex_gpu_worker.__main__"
+if ($LASTEXITCODE) { throw "Generation service is not importable in $venvDir." }
 
 # 6. Generate Machine Token and .env
 Write-Host "[5/6] Generating configuration (.env)..." -ForegroundColor Yellow
@@ -140,6 +149,7 @@ GENERATION_SERVICE_RESIDENCY_TIMEOUT_SECONDS=30
 GENERATION_SERVICE_RESIDENCY_MAX_VRAM_IDLE_MB=1500
 GENERATION_SERVICE_VIENEU_BASE_URL=http://127.0.0.1:8008
 GENERATION_SERVICE_COMFYUI_BASE_URL=http://127.0.0.1:8188
+GENERATION_SERVICE_LTX_RUNTIME_DIRECTORY=$InstallDir\runtimes\ComfyUI
 GENERATION_SERVICE_WHISPERX_DEVICE=cuda
 "@
 
@@ -156,9 +166,9 @@ if ($SkipModelDownload) {
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "Bootstrap completed successfully!" -ForegroundColor Green
+Write-Host "Worker environment installed. Executor readiness still requires configured runtimes and model weights." -ForegroundColor Green
 Write-Host "Install Directory : $InstallDir"
 Write-Host "Port              : $Port"
-Write-Host "Machine Token     : $MachineToken"
+Write-Host "Machine Token     : stored in .env"
 Write-Host "To start worker   : .\start.ps1 -InstallDir `"$InstallDir`""
 Write-Host "==========================================================" -ForegroundColor Green

@@ -51,7 +51,11 @@ def video_task() -> ComputeTask:
         idempotency_key="compute:video:1",
         request_fingerprint="0" * 64,
         task=TaskDescriptor(type="video.generate", schema_version="1.0"),
-        model=ModelRef(executor="ltx", model="ltx-2.5-nvfp4", revision="1.0"),
+        model=ModelRef(
+            executor="ltx",
+            model="ltx-2.5-22b-distilled-int8",
+            revision="5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+        ),
         constraints=TaskConstraints(
             deadline=datetime.now(UTC) + timedelta(minutes=10),
             max_runtime_seconds=600,
@@ -65,9 +69,7 @@ def video_task() -> ComputeTask:
             duration_ms=4000,
             generation_mode="TEXT_TO_VIDEO",
             seed=42,
-            dialogue=[
-                VideoDialogueLine(speaker="Warrior", text="We must keep moving!")
-            ],
+            dialogue=[VideoDialogueLine(speaker="Warrior", text="We must keep moving!")],
             camera_intent=VideoCameraIntent(
                 framing="medium-close", movement="tracking", angle="low-angle"
             ),
@@ -102,8 +104,9 @@ def test_ltx_executor_metadata() -> None:
 
     assert executor.name == "ltx"
     assert "video.generate" in executor.task_types
-    assert any(m.model == "ltx-2.5-nvfp4" for m in executor.models)
+    assert any(m.model == "ltx-2.5-22b-distilled-int8" for m in executor.models)
     assert executor.runtime_requirement.vram_budget_mb >= 16384
+    assert not executor.ready
 
 
 def test_compose_ltx_positive_prompt() -> None:
@@ -130,7 +133,7 @@ def test_build_ltx_video_workflow() -> None:
     wf = build_ltx_video_workflow(
         prompt="A hero leaping across rooftops",
         negative_prompt="blurry",
-        checkpoint="ltx-2.5-nvfp4.safetensors",
+        checkpoint="ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         width=1280,
         height=720,
         fps=24,
@@ -139,14 +142,12 @@ def test_build_ltx_video_workflow() -> None:
         camera_intent=VideoCameraIntent(movement="pan-right"),
     )
 
-    assert "4" in wf
-    assert wf["4"]["class_type"] == "EmptyLatentVideo"
-    assert wf["4"]["inputs"]["length"] == 72
-    assert wf["4"]["inputs"]["width"] == 1280
-    assert wf["4"]["inputs"]["height"] == 720
-    assert wf["7"]["class_type"] == "SaveVideo"
-    assert wf["7"]["inputs"]["fps"] == 24
-    assert "pan-right" in wf["2"]["inputs"]["text"]
+    assert wf["3059"]["class_type"] == "EmptyLTXVLatentVideo"
+    assert wf["3059"]["inputs"]["length"] == 73
+    assert wf["3059"]["inputs"]["height"] == 736
+    assert wf["9001"]["inputs"]["height"] == 720
+    assert wf["4849"]["inputs"]["fps"] == 24
+    assert "pan-right" in wf["2612"]["inputs"]["text"]
 
 
 @pytest.mark.asyncio
@@ -155,14 +156,19 @@ async def test_ltx_execute_success(video_task: ComputeTask) -> None:
     client.submit_prompt.return_value = "prompt-ltx-123"
     client.wait_for_completion.return_value = {
         "outputs": {
-            "7": {
-                "videos": [
+            "4852": {
+                "animated": [True],
+                "images": [
                     {"filename": "NarrativeX_Shot_00001.mp4", "subfolder": "", "type": "output"}
-                ]
+                ],
             }
         }
     }
-    client.download_image.return_value = b"fake-mp4-video-stream-content-with-valid-header"
+
+    async def stream(*args, **kwargs):
+        yield b"\x00\x00\x00\x20ftypisom" + b"0" * 32
+
+    client.download_image_stream = stream
 
     artifact_adapter = AsyncMock(spec=ArtifactPort)
     artifact_adapter.upload.return_value = ProducedArtifact(
@@ -183,10 +189,84 @@ async def test_ltx_execute_success(video_task: ComputeTask) -> None:
 
     output = await executor.execute(video_task, cancel, context)
 
-    assert output.execution_handle == "ltx:prompt-ltx-123"
+    assert output.execution_handle == f"ltx:{executor.prompt_id(video_task)}"
+    assert context.save_handle.await_count == 2
     assert len(output.outputs) == 1
     assert output.outputs[0].role == "target-video"
     artifact_adapter.upload.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_ltx_persists_uuid_before_post_and_resumes_without_post(video_task):
+    client = AsyncMock(spec=ComfyUIClient)
+    artifacts = AsyncMock(spec=ArtifactPort)
+    executor = LtxVideoExecutor(client, artifacts)
+    events = []
+    handle = f"ltx:{executor.prompt_id(video_task)}"
+
+    async def save_handle(value):
+        events.append(("handle", value))
+
+    async def save_submitting():
+        events.append(("submitting", None))
+
+    async def submit(*args, **kwargs):
+        assert events == [("handle", handle), ("submitting", None)]
+        assert kwargs["prompt_id"] == handle[4:]
+        raise ComfyUIClientError("Rejected graph")
+
+    client.submit_prompt.side_effect = submit
+    with pytest.raises(ExecutorExecutionError):
+        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
+            save_handle=save_handle, save_submitting=save_submitting
+        ))
+    client.submit_prompt.reset_mock()
+    client.wait_for_completion.side_effect = ComfyUIClientError("Known engine failure")
+    with pytest.raises(ExecutorExecutionError):
+        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
+            existing_execution_handle=handle
+        ))
+    client.submit_prompt.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("output", [
+    {"7": {"videos": [{"filename": "fake.mp4"}]}},
+    {"4852": {"images": [{"filename": "fake.png"}], "animated": [True]}},
+    {"4852": {"images": [{"filename": "fake.mp4"}]}},
+])
+async def test_ltx_rejects_arbitrary_history_outputs(video_task, output):
+    client = AsyncMock(spec=ComfyUIClient)
+    artifacts = AsyncMock(spec=ArtifactPort)
+    executor = LtxVideoExecutor(client, artifacts)
+    client.wait_for_completion.return_value = {"outputs": output}
+    with pytest.raises(ExecutorExecutionError) as error:
+        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
+            existing_execution_handle=f"ltx:{executor.prompt_id(video_task)}"
+        ))
+    assert error.value.code == "VIDEO_OUTPUT_INVALID"
+    artifacts.upload.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ltx_limits_downloaded_output_bytes(video_task):
+    client = AsyncMock(spec=ComfyUIClient)
+    artifacts = AsyncMock(spec=ArtifactPort)
+    executor = LtxVideoExecutor(client, artifacts, max_artifact_bytes=32)
+    client.wait_for_completion.return_value = {"outputs": {"4852": {
+        "images": [{"filename": "out.mp4", "subfolder": "", "type": "output"}],
+        "animated": [True],
+    }}}
+
+    async def stream(*args):
+        yield b"\x00\x00\x00\x20ftypisom" + b"0" * 32
+
+    client.download_image_stream = stream
+    with pytest.raises(ExecutorExecutionError, match="byte limit"):
+        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
+            existing_execution_handle=f"ltx:{executor.prompt_id(video_task)}"
+        ))
+    artifacts.upload.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -259,69 +339,52 @@ async def test_ltx_execute_generation_failure(video_task: ComputeTask) -> None:
 
 
 def test_build_ltx_video_workflow_i2v() -> None:
-    wf = build_ltx_video_workflow(
-        prompt="A car driving along coastline",
-        negative_prompt=None,
-        checkpoint="ltx-2.5-nvfp4.safetensors",
-        width=1280,
-        height=720,
-        fps=24,
-        duration_ms=4000,
-        seed=42,
-        generation_mode="IMAGE_TO_VIDEO",
-        start_image="start_frame.png",
-    )
-    assert "8" in wf
-    assert wf["8"]["class_type"] == "LoadImage"
-    assert wf["8"]["inputs"]["image"] == "start_frame.png"
-    assert "4" in wf
-    assert wf["4"]["class_type"] == "LTXImageToVideo"
-    assert wf["4"]["inputs"]["image"] == ["8", 0]
-    assert wf["5"]["inputs"]["latent_image"] == ["4", 0]
+    with pytest.raises(ValueError):
+        build_ltx_video_workflow(
+            "prompt",
+            "",
+            "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+            1280,
+            720,
+            24,
+            3000,
+            0,
+            generation_mode="IMAGE_TO_VIDEO",
+            start_image="start.png",
+        )
 
 
 def test_build_ltx_video_workflow_first_last_frame() -> None:
-    wf = build_ltx_video_workflow(
-        prompt="Character walking into house",
-        negative_prompt=None,
-        checkpoint="ltx-2.5-nvfp4.safetensors",
-        width=1280,
-        height=720,
-        fps=24,
-        duration_ms=3000,
-        seed=99,
-        generation_mode="FIRST_LAST_FRAME",
-        start_image="start.png",
-        end_image="end.png",
-    )
-    assert "8" in wf
-    assert wf["8"]["inputs"]["image"] == "start.png"
-    assert "9" in wf
-    assert wf["9"]["inputs"]["image"] == "end.png"
-    assert wf["4"]["class_type"] == "LTXFirstLastFrame"
-    assert wf["4"]["inputs"]["start_image"] == ["8", 0]
-    assert wf["4"]["inputs"]["end_image"] == ["9", 0]
+    with pytest.raises(ValueError):
+        build_ltx_video_workflow(
+            "prompt",
+            "",
+            "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+            1280,
+            720,
+            24,
+            3000,
+            0,
+            generation_mode="FIRST_LAST_FRAME",
+            start_image="start.png",
+            end_image="end.png",
+        )
 
 
 def test_build_ltx_video_workflow_with_voice_audio() -> None:
-    wf = build_ltx_video_workflow(
-        prompt="Warrior shouting a battle cry",
-        negative_prompt=None,
-        checkpoint="ltx-2.5-nvfp4.safetensors",
-        width=1280,
-        height=720,
-        fps=24,
-        duration_ms=2000,
-        seed=77,
-        voice_audio="warrior_voice.wav",
-    )
-    assert "11" in wf
-    assert wf["11"]["class_type"] == "LoadAudio"
-    assert wf["11"]["inputs"]["audio"] == "warrior_voice.wav"
-    assert "12" in wf
-    assert wf["12"]["class_type"] == "LTXAudioConditioning"
-    assert "audio" in wf["7"]["inputs"]
-    assert wf["7"]["inputs"]["audio"] == ["11", 0]
+    with pytest.raises(ValueError):
+        build_ltx_video_workflow(
+            "prompt",
+            "",
+            "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+            1280,
+            720,
+            24,
+            3000,
+            0,
+            generation_mode="TEXT_TO_VIDEO",
+            voice_audio="voice.wav",
+        )
 
 
 def test_build_ltx_video_workflow_unsupported_strategy() -> None:
@@ -329,7 +392,7 @@ def test_build_ltx_video_workflow_unsupported_strategy() -> None:
         build_ltx_video_workflow(
             prompt="Extend this scene",
             negative_prompt=None,
-            checkpoint="ltx-2.5-nvfp4.safetensors",
+            checkpoint="ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
             width=1280,
             height=720,
             fps=24,
@@ -346,10 +409,11 @@ async def test_ltx_execute_i2v_success(video_task: ComputeTask) -> None:
     client.submit_prompt.return_value = "prompt-ltx-i2v"
     client.wait_for_completion.return_value = {
         "outputs": {
-            "7": {
-                "videos": [
+            "4852": {
+                "animated": [True],
+                "images": [
                     {"filename": "NarrativeX_Shot_00002.mp4", "subfolder": "", "type": "output"}
-                ]
+                ],
             }
         }
     }
@@ -391,14 +455,11 @@ async def test_ltx_execute_i2v_success(video_task: ComputeTask) -> None:
         }
     )
 
-    context = ExecutionContext(save_submitting=AsyncMock(), save_handle=AsyncMock())
-    output = await executor.execute(i2v_task, cancel, context)
-
-    assert output.execution_handle == "ltx:prompt-ltx-i2v"
-    client.upload_file.assert_awaited_once()
-    assert client.submit_prompt.call_count == 1
-    submitted_wf = client.submit_prompt.call_args[1]["workflow"]
-    assert submitted_wf["4"]["class_type"] == "LTXImageToVideo"
+    with pytest.raises(ExecutorExecutionError) as error:
+        await executor.execute(i2v_task, cancel)
+    assert error.value.code == "UNSUPPORTED_GENERATION_STRATEGY"
+    client.upload_file.assert_not_awaited()
+    client.submit_prompt.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -408,16 +469,15 @@ async def test_ltx_execute_with_voice_reference_upload(video_task: ComputeTask) 
     client.submit_prompt.return_value = "prompt-ltx-voice"
     client.wait_for_completion.return_value = {
         "outputs": {
-            "7": {
-                "videos": [
+            "4852": {
+                "animated": [True],
+                "images": [
                     {"filename": "NarrativeX_Shot_00003.mp4", "subfolder": "", "type": "output"}
-                ]
+                ],
             }
         }
     }
-    client.download_image.return_value = (
-        b"video-with-audio-stream-content-full-32bytes"
-    )
+    client.download_image.return_value = b"video-with-audio-stream-content-full-32bytes"
 
     artifact_adapter = AsyncMock(spec=ArtifactPort)
     artifact_adapter.download.return_value = b"fake-voice-wav-bytes"
@@ -454,15 +514,11 @@ async def test_ltx_execute_with_voice_reference_upload(video_task: ComputeTask) 
         }
     )
 
-    context = ExecutionContext(save_submitting=AsyncMock(), save_handle=AsyncMock())
-    output = await executor.execute(voice_task, cancel, context)
-
-    assert output.execution_handle == "ltx:prompt-ltx-voice"
-    client.upload_file.assert_awaited_once()
-    submitted_wf = client.submit_prompt.call_args[1]["workflow"]
-    assert "11" in submitted_wf
-    assert submitted_wf["11"]["class_type"] == "LoadAudio"
-    assert "audio" in submitted_wf["7"]["inputs"]
+    with pytest.raises(ExecutorExecutionError) as error:
+        await executor.execute(voice_task, cancel)
+    assert error.value.code == "VIDEO_REFERENCE_INVALID"
+    client.upload_file.assert_not_awaited()
+    client.submit_prompt.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -496,5 +552,4 @@ async def test_ltx_execute_i2v_missing_reference_rejected(video_task: ComputeTas
     )
     with pytest.raises(ExecutorExecutionError) as exc_info:
         await executor.execute(i2v_no_ref_task, cancel)
-    assert exc_info.value.code == "VIDEO_REFERENCE_INVALID"
-
+    assert exc_info.value.code == "UNSUPPORTED_GENERATION_STRATEGY"

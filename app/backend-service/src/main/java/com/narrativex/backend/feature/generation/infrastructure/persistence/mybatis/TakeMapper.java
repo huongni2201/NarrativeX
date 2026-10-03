@@ -15,6 +15,11 @@ public interface TakeMapper extends NarrativeXMyBatisMapper {
   TakeRow findByShotIdAndAttempt(
       @Param("shotId") UUID shotId, @Param("attemptNumber") int attemptNumber);
 
+  TakeRow findByGenerationJobId(@Param("generationJobId") UUID generationJobId);
+
+  List<com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot.Reference>
+      findReferences(@Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
+
   UUID insert(TakeRow row);
 
   int update(TakeRow row);
@@ -25,7 +30,7 @@ public interface TakeMapper extends NarrativeXMyBatisMapper {
 
   List<TakeRow> findByJobId(@Param("generationJobId") String generationJobId);
 
-  TakeRow findByTaskId(@Param("computeTaskId") String computeTaskId);
+  TakeRow findByTaskId(@Param("computeTaskId") UUID computeTaskId);
 
   int deleteById(@Param("id") UUID id);
 }

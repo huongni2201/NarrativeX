@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { productionStageStatus } from "../../model/production-stage-status";
 import {
   Sparkles,
   Volume2,
@@ -54,52 +55,12 @@ export function ChapterProductionStage({
   const allBeats: DesktopStoryBeat[] = story.scenes.flatMap((s) => s.storyBeats);
   const totalBeats = allBeats.length;
 
-  // 1. Story / Dialogue Readiness & Narration Audio
-  const dialogueReadyCount = allBeats.filter(
-    (b) => b.audioCues.length > 0 && b.timing.durationMs !== null
-  ).length;
-
-  // 2. Voice Identity Readiness
-  const allAudioCues = allBeats.flatMap((b) => b.audioCues);
-  const totalCues = allAudioCues.length;
-  const voiceAssignedCount = allAudioCues.filter(
-    (c) => Boolean(c.speakerProjectCharacterId) || Boolean(c.speakerName)
-  ).length;
-
   // 3. Video Shot Generation
   const allShots: DesktopShot[] = allBeats
     .flatMap((b) => b.visualBeats)
     .flatMap((v) => v.shotSequence?.shots ?? []);
 
-  // Authoritative metrics from backend
-  const totalShots = productionStatus ? productionStatus.totalShots : allShots.length;
-  const shotsGeneratedCount = productionStatus
-    ? (productionStatus.selectedTakeCount + productionStatus.passedShots)
-    : allShots.filter(
-        (s) =>
-          Boolean(s.selectedTake) ||
-          s.status === "SELECTED" ||
-          s.status === "PASSED" ||
-          s.takes.length > 0,
-      ).length;
-
-  // 4. Validation / QC (Word Alignment & Quality Verification)
-  const qcPassedCount = productionStatus
-    ? productionStatus.passedShots
-    : allShots.filter(
-        (s) =>
-          s.status === "SELECTED" ||
-          s.status === "PASSED" ||
-          s.takes.some((t) => t.status === "PASSED"),
-      ).length;
-
-  // 5. Editor Readiness and Progress strictly from backend
-  const editorReady = productionStatus
-    ? productionStatus.timelineReady
-    : totalShots > 0 && shotsGeneratedCount === totalShots;
-  const overallProgressPercent = productionStatus
-    ? productionStatus.overallProgressPercent
-    : 0;
+  const { audioReady, totalShots, shotsGeneratedCount, qcPassedCount, editorReady, generationReady, overallProgressPercent, voiceReady } = productionStageStatus(productionStatus);
 
   const toggleBeatExpand = (beatId: string) => {
     setExpandedBeatIds((prev) => ({ ...prev, [beatId]: !prev[beatId] }));
@@ -137,7 +98,7 @@ export function ChapterProductionStage({
         <button
           type="button"
           onClick={onGenerateVideoShots}
-          disabled={isGenerating}
+          disabled={isGenerating || !generationReady}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition-all hover:bg-primary-hover shadow-md disabled:opacity-50"
           title="Sinh Video Shots tự động với mô hình LTX-2.5 video-first cho toàn bộ chapter"
         >
@@ -160,9 +121,9 @@ export function ChapterProductionStage({
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-[18px] font-bold text-foreground font-mono">
-              {dialogueReadyCount} / {totalBeats}
+              {audioReady === null ? "—" : audioReady ? "Ready" : "Pending"}
             </span>
-            <span className="text-[11px] text-text-secondary">Beats sẵn sàng</span>
+            <span className="text-[11px] text-text-secondary">Narration asset</span>
           </div>
         </div>
 
@@ -174,9 +135,9 @@ export function ChapterProductionStage({
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-[18px] font-bold text-foreground font-mono">
-              {voiceAssignedCount} / {Math.max(1, totalCues)}
+              {voiceReady === null ? "—" : voiceReady ? "Ready" : "Blocked"}
             </span>
-            <span className="text-[11px] text-text-secondary">Cues có voice</span>
+            <span className="text-[11px] text-text-secondary">Required profile check</span>
           </div>
         </div>
 

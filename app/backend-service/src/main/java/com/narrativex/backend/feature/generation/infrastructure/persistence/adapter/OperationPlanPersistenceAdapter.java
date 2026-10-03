@@ -55,7 +55,9 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
         plan.getRowVersion(),
         plan.getProjectId(),
         plan.getGenerationJobId(),
-        plan.getOperationType());
+        plan.getOperationType(),
+        plan.getScopeId(),
+        plan.getInputFingerprint());
   }
 
   private static OperationPlan toDomain(OperationPlanRow row) {
@@ -64,6 +66,8 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
         row.getRowVersion(),
         row.getProjectId(),
         row.getGenerationJobId(),
-        row.getOperationType());
+        row.getOperationType(),
+        row.getScopeId(),
+        row.getInputFingerprint());
   }
 }

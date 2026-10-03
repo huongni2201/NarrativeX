@@ -1,6 +1,6 @@
 # Remote GPU Runtime Deployment (Windows RTX 5090 / RTX 3090 Baseline)
 
-> **Status: IMPLEMENTED / ACTIVE.** This package describes the Windows target running Python 3.14.7 and PyTorch 2.14.0 with CUDA 13.0, synchronized with `runtime.lock.json`, ADR-0025 callback/outbox configuration, and ADR-0032. The primary operational target is the **NVIDIA GeForce RTX 5090 (32GB VRAM)**; the **RTX 3090 (24GB VRAM)** is maintained as a historical deployment baseline.
+> **Status: PARTIAL / runtime validation pending.** Bootstrap installs the worker and PyTorch in the same installation environment. ComfyUI, VieNeu, LTX model weights and callback routing must be provisioned and verified separately; the model manifest does not yet provision LTX. The primary target is **RTX 5090 (32GB VRAM)**; RTX 3090 (24GB) remains a benchmark baseline.
 
 This directory provides the production deployment package for running the NarrativeX GPU execution plane (`generation-service`) on a leased or dedicated **Windows RTX 5090** (32GB VRAM) machine or **RTX 3090** (24GB VRAM baseline) node (e.g. Vast.ai, RunPod, TensorDock, or bare-metal Windows server).
 
@@ -48,11 +48,13 @@ The bootstrap script will automatically:
 .\start.ps1
 ```
 The worker will start in the background on port `8010`. Logs are written to `C:\NarrativeXRuntime\logs\worker.log`.
+Startup verifies that the installed package is importable and waits for `/health` before saving the PID. A live service is not proof that an executor/model is ready.
 
 ### Step 4: Verify Health & Capabilities
 ```powershell
 .\healthcheck.ps1
 ```
+The probe uses authenticated Compute Protocol v1 capabilities and exits nonzero unless LTX video generation is advertised as ready and the model manifest is provisioned. The current unprovisioned LTX manifest fails closed even if a worker claims readiness; the production catalog also keeps LTX unavailable pending the pinned runtime preflight. Use `-RequiredExecutors @()` only to inspect service liveness. Install the required runtimes/weights and configure reachable backend artifact/callback URLs before generation; loopback URLs on the remote node do not reach a backend on another machine.
 
 ---
 

@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.character.application.service.SpeakerVoiceResolver;
+import com.narrativex.backend.feature.generation.application.model.VideoGenerationIntent;
 import com.narrativex.backend.feature.generation.application.model.compute.CanonicalFingerprintCalculator;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
@@ -22,6 +23,7 @@ import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ReferenceType;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeClientException;
+import com.narrativex.backend.feature.generation.infrastructure.compute.VideoGenerationProperties;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess;
@@ -34,10 +36,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -49,6 +54,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJobDispatcher {
   private static final String PROTOCOL_VERSION = "1.0";
+  private static final Pattern STRUCTURED_INPUT_HEADER =
+      Pattern.compile("^\\s*\\{\\s*\\\"(?:schemaVersion|shotId)\\\"\\s*:");
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   @Override
@@ -64,9 +71,7 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
   private final GenerationRouter generationRouter;
   private final TakeMapper takeMapper;
 
-  @Autowired(required = false)
-  private com.narrativex.backend.feature.generation.infrastructure.compute.VideoGenerationProperties
-      videoProperties;
+  private final VideoGenerationProperties videoProperties;
 
   @Autowired
   public VideoGenerationJobHandler(
@@ -76,7 +81,8 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
       StoryboardShotAccess storyboardShotAccess,
       SpeakerVoiceResolver speakerVoiceResolver,
       GenerationRouter generationRouter,
-      TakeMapper takeMapper) {
+      TakeMapper takeMapper,
+      VideoGenerationProperties videoProperties) {
     this.transactionService = transactionService;
     this.executionPort = executionPort;
     this.artifactAccess = artifactAccess;
@@ -84,23 +90,7 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
     this.speakerVoiceResolver = speakerVoiceResolver;
     this.generationRouter = generationRouter;
     this.takeMapper = takeMapper;
-  }
-
-  // Backward-compatible constructor for existing tests
-  public VideoGenerationJobHandler(
-      GenerationJobTransactionService transactionService,
-      GenerationExecutionPort executionPort,
-      ComputeArtifactAccess artifactAccess,
-      StoryboardShotAccess storyboardShotAccess,
-      SpeakerVoiceResolver speakerVoiceResolver) {
-    this(
-        transactionService,
-        executionPort,
-        artifactAccess,
-        storyboardShotAccess,
-        speakerVoiceResolver,
-        null,
-        null);
+    this.videoProperties = Objects.requireNonNull(videoProperties);
   }
 
   @Override
@@ -117,6 +107,19 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
       return;
     }
     GenerationJob job = jobOpt.get();
+
+    JsonNode sourceInput;
+    try {
+      sourceInput = readJobInput(job.getSourceText());
+    } catch (IllegalArgumentException exception) {
+      transactionService.markSubmissionFailed(
+          jobId, "VIDEO_DISPATCH_ERROR", "Malformed persisted video input");
+      return;
+    }
+    if (sourceInput != null && sourceInput.isObject() && sourceInput.has("schemaVersion")) {
+      executeFrozen(job);
+      return;
+    }
 
     UUID taskId = job.getJobId();
     UUID attemptId = ComputeAttemptIdentity.forJob(job.getJobId(), job.getType());
@@ -164,20 +167,16 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
     UUID targetShotId = null;
     Long explicitSeed = null;
     String explicitStrategy = null;
-    if (job.getSourceText() != null && job.getSourceText().trim().startsWith("{")) {
+    if (sourceInput != null && sourceInput.isObject() && sourceInput.has("shotId")) {
       try {
-        Map<String, Object> meta =
-            JSON.readValue(job.getSourceText(), new TypeReference<Map<String, Object>>() {});
-        if (meta.containsKey("shotId")) {
-          targetShotId = UUID.fromString((String) meta.get("shotId"));
-        }
-        if (meta.containsKey("seed") && meta.get("seed") instanceof Number n) {
-          explicitSeed = n.longValue();
-        }
-        if (meta.containsKey("strategy")) {
-          explicitStrategy = (String) meta.get("strategy");
-        }
-      } catch (Exception ignored) {
+        var intent = JSON.treeToValue(sourceInput, VideoGenerationIntent.class);
+        targetShotId = Objects.requireNonNull(intent.shotId(), "Legacy intent needs shotId");
+        explicitSeed = intent.seed();
+        explicitStrategy = intent.strategy() == null ? null : intent.strategy().name();
+      } catch (RuntimeException exception) {
+        transactionService.markSubmissionFailed(
+            jobId, "VIDEO_DISPATCH_ERROR", "Invalid legacy video intent");
+        return;
       }
     }
 
@@ -374,15 +373,102 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
     }
   }
 
+  private void executeFrozen(GenerationJob job) {
+    boolean submissionStarted = false;
+    try {
+      var snapshot =
+          JSON.readValue(
+              job.getSourceText(),
+              com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot.class);
+      if (snapshot.schemaVersion() != 1)
+        throw new IllegalArgumentException("Unsupported Take snapshot version");
+      if (takeMapper == null) throw new IllegalStateException("Durable take storage unavailable");
+      TakeRow take = takeMapper.findByGenerationJobId(job.getId());
+      if (take == null
+          || !snapshot.inputFingerprint().equals(take.getInputFingerprint())
+          || !JSON.readTree(job.getSourceText())
+              .equals(JSON.readTree(take.getInputSnapshotJson()))) {
+        throw new IllegalStateException("Frozen take intent is missing or inconsistent");
+      }
+      List<InputArtifactRefDto> inputs = new ArrayList<>();
+      for (var ref : snapshot.references()) {
+        var artifact = artifactAccess.createInput(job.getProjectId(), ref.assetId(), ref.role());
+        if (!ref.sha256().equals(artifact.sha256()) || ref.sizeBytes() != artifact.sizeBytes()) {
+          throw new IllegalStateException("Frozen reference integrity changed");
+        }
+        inputs.add(artifact);
+      }
+      UUID outputId =
+          UUID.nameUUIDFromBytes(
+              (take.getComputeAttemptId() + ":video")
+                  .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      var output =
+          artifactAccess.getOrCreateTarget(
+              take.getComputeTaskId(), take.getComputeAttemptId(), outputId, "video", "video/mp4");
+      var task = new TaskDescriptorDto("video.generate", "1.0");
+      var model = new ModelRefDto(snapshot.provider(), snapshot.model(), snapshot.modelRevision());
+      var constraints = new TaskConstraintsDto(snapshot.deadline(), 1200);
+      var artifacts = new TaskArtifactsDto(inputs, List.of(output));
+      var workerInputs = new HashMap<>(snapshot.inputs());
+      if (!snapshot.references().isEmpty()) {
+        workerInputs.put(
+            "referenceAssets",
+            snapshot.references().stream()
+                .map(
+                    r ->
+                        Map.of(
+                            "assetId",
+                            r.assetId().toString(),
+                            "referenceType",
+                            r.role().replace('-', '_').toUpperCase(),
+                            "weight",
+                            r.weight()))
+                .toList());
+      }
+      var request =
+          new ComputeTaskRequest(
+              PROTOCOL_VERSION,
+              take.getComputeTaskId(),
+              take.getComputeAttemptId(),
+              "compute:shot-take:" + take.getComputeAttemptId(),
+              CanonicalFingerprintCalculator.calculateFingerprint(
+                  PROTOCOL_VERSION, task, model, constraints, workerInputs, artifacts),
+              task,
+              model,
+              constraints,
+              workerInputs,
+              artifacts);
+      submissionStarted = true;
+      var receipt = executionPort.submitTask(request);
+      transactionService.markSubmitted(job.getJobId(), receipt, Instant.now().plusSeconds(2));
+      takeMapper.updateStatus(take.getId(), "RUNNING");
+    } catch (RuntimeException e) {
+      if (submissionStarted && isOutcomeAmbiguous(e)) {
+        transactionService.markSubmissionUnknown(
+            job.getJobId(),
+            "COMPUTE_OUTCOME_UNKNOWN",
+            "Video dispatch outcome unknown",
+            Instant.now().plusSeconds(2));
+      } else {
+        transactionService.markSubmissionFailed(
+            job.getJobId(), "VIDEO_DISPATCH_ERROR", "Failed to dispatch frozen video inputs");
+      }
+    }
+  }
+
   private StoryboardShotAccess.ShotView selectTargetShot(
       List<StoryboardShotAccess.ShotView> shots) {
     if (takeMapper != null) {
-      for (StoryboardShotAccess.ShotView s : shots) {
-        List<TakeRow> takes = takeMapper.findByShotId(s.id());
-        boolean hasPassed = takes.stream().anyMatch(t -> "PASSED".equalsIgnoreCase(t.getStatus()));
-        if (!hasPassed) {
-          return s;
-        }
+      var takesByShot =
+          takeMapper
+              .findByShotIds(shots.stream().map(StoryboardShotAccess.ShotView::id).toList())
+              .stream()
+              .collect(Collectors.groupingBy(TakeRow::getShotId));
+      for (var shot : shots) {
+        boolean hasPassed =
+            takesByShot.getOrDefault(shot.id(), List.of()).stream()
+                .anyMatch(take -> "PASSED".equalsIgnoreCase(take.getStatus()));
+        if (!hasPassed) return shot;
       }
     }
     return shots.get(0);
@@ -447,14 +533,13 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
       takeRow.setProvider(takeProvider);
       takeRow.setModel(takeModel);
       takeRow.setGenerationMode(generationMode);
-      takeRow.setSourceDurationMs(shot.targetDurationMs());
+      takeRow.setSourceDurationMs(null);
       takeRow.setMetricsJson(JSON.writeValueAsString(metrics));
       takeRow.setValidationStatus("PENDING");
       takeRow.setStatus("PENDING");
       return takeMapper.insert(takeRow);
     } catch (Exception e) {
-      log.warn("Could not persist initial Take record for shot {}: {}", shot.id(), e.getMessage());
-      return null;
+      throw new IllegalStateException("Could not persist initial Take record", e);
     }
   }
 
@@ -487,6 +572,19 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
       case THUMBNAIL -> "thumbnail";
       case POSTER -> "poster";
     };
+  }
+
+  private static JsonNode readJobInput(String source) {
+    if (source == null || source.isBlank()) return null;
+    try {
+      return JSON.readTree(source);
+    } catch (RuntimeException ignored) {
+      if (STRUCTURED_INPUT_HEADER.matcher(source).find()) {
+        throw new IllegalArgumentException("Malformed persisted video input");
+      }
+      // Legacy source text is ordinary story data, not necessarily JSON intent.
+      return null;
+    }
   }
 
   private Map<String, Object> parseJsonMap(String json) {

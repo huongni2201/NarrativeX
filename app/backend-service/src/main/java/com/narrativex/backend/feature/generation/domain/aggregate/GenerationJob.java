@@ -9,46 +9,47 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
 
 /** Durable generation job aggregate. */
 public final class GenerationJob extends AggregateRoot {
-  private final UUID jobId;
-  private final UUID projectId;
-  private final JobType type;
-  private JobStatus status;
-  private final ResourceClass resourceClass;
-  private final int progress;
-  private final String currentStep;
-  private final String errorCode;
-  private final UUID storyVersionId;
-  private final UUID chapterId;
-  private final UUID storyboardRevisionId;
-  private final Long chapterRowVersion;
-  private final String sourceHash;
-  private final String sourceText;
-  private final String sourceLanguage;
-  private final String idempotencyKey;
-  private final UUID mediaPlanId;
-  private final Integer mediaPlanRevision;
-  private final ProductionMode productionMode;
-  private final String analysisVisualGenerationMode;
-  private final String analysisImageProvider;
+  @Getter private final UUID jobId;
+  @Getter private final UUID projectId;
+  @Getter private final JobType type;
+  @Getter private JobStatus status;
+  @Getter private final ResourceClass resourceClass;
+  @Getter private final int progress;
+  @Getter private final String currentStep;
+  @Getter private final String errorCode;
+  @Getter private final UUID storyVersionId;
+  @Getter private final UUID chapterId;
+  @Getter private final UUID storyboardRevisionId;
+  @Getter private final Long chapterRowVersion;
+  @Getter private final String sourceHash;
+  @Getter private final String sourceText;
+  @Getter private final String sourceLanguage;
+  @Getter private final String idempotencyKey;
+  @Getter private final UUID mediaPlanId;
+  @Getter private final Integer mediaPlanRevision;
+  @Getter private final ProductionMode productionMode;
+  @Getter private final String analysisVisualGenerationMode;
+  @Getter private final String analysisImageProvider;
 
   // Orchestration and reconciliation fields
-  private final String submissionState;
-  private final UUID computeAttemptId;
-  private final String computeExecutionHandle;
-  private final Long computeSequence;
-  private final String lastComputeState;
-  private final Instant submittedAt;
-  private final Instant startedAt;
-  private final Instant completedAt;
-  private final Instant lastReconciledAt;
-  private final Instant nextReconcileAt;
-  private final int reconcileAttemptCount;
-  private final String lastEventId;
-  private final Long lastEventSequence;
-  private final Instant callbackReceivedAt;
+  @Getter private final String submissionState;
+  @Getter private final UUID computeAttemptId;
+  @Getter private final String computeExecutionHandle;
+  @Getter private final Long computeSequence;
+  @Getter private final String lastComputeState;
+  @Getter private final Instant submittedAt;
+  @Getter private final Instant startedAt;
+  @Getter private final Instant completedAt;
+  @Getter private final Instant lastReconciledAt;
+  @Getter private final Instant nextReconcileAt;
+  @Getter private final int reconcileAttemptCount;
+  @Getter private final String lastEventId;
+  @Getter private final Long lastEventSequence;
+  @Getter private final Instant callbackReceivedAt;
 
   private GenerationJob(
       UUID id,
@@ -114,9 +115,10 @@ public final class GenerationJob extends AggregateRoot {
         null);
   }
 
+  @lombok.Builder(toBuilder = true, builderClassName = "Builder", builderMethodName = "")
   private GenerationJob(
-      UUID id,
-      long rowVersion,
+      @lombok.Builder.ObtainVia(method = "getId") UUID id,
+      @lombok.Builder.ObtainVia(method = "getRowVersion") long rowVersion,
       UUID jobId,
       UUID projectId,
       JobType type,
@@ -172,7 +174,7 @@ public final class GenerationJob extends AggregateRoot {
     this.sourceText = sourceText;
     this.sourceLanguage = sourceLanguage;
     this.idempotencyKey = idempotencyKey;
-    requireCompleteMediaPlanPointer(mediaPlanId, mediaPlanRevision, productionMode);
+    requireCompleteMediaPlanPointer(mediaPlanId, mediaPlanRevision, productionMode, resourceClass);
     requireAnalysisPreferences(type, analysisVisualGenerationMode, analysisImageProvider);
     this.mediaPlanId = mediaPlanId;
     this.mediaPlanRevision = mediaPlanRevision;
@@ -338,7 +340,7 @@ public final class GenerationJob extends AggregateRoot {
         projectId,
         JobType.CHAPTER_GENERATE,
         JobStatus.QUEUED,
-        ResourceClass.PROVIDER_BATCH,
+        ResourceClass.GPU_HEAVY,
         0,
         "QUEUED",
         null,
@@ -352,7 +354,7 @@ public final class GenerationJob extends AggregateRoot {
         idempotencyKey,
         null,
         null,
-        null,
+        ProductionMode.VIDEO_FIRST,
         null,
         null);
   }
@@ -592,146 +594,6 @@ public final class GenerationJob extends AggregateRoot {
         callbackReceivedAt);
   }
 
-  public UUID getJobId() {
-    return jobId;
-  }
-
-  public UUID getProjectId() {
-    return projectId;
-  }
-
-  public JobType getType() {
-    return type;
-  }
-
-  public JobStatus getStatus() {
-    return status;
-  }
-
-  public ResourceClass getResourceClass() {
-    return resourceClass;
-  }
-
-  public int getProgress() {
-    return progress;
-  }
-
-  public String getCurrentStep() {
-    return currentStep;
-  }
-
-  public String getErrorCode() {
-    return errorCode;
-  }
-
-  public UUID getStoryVersionId() {
-    return storyVersionId;
-  }
-
-  public UUID getChapterId() {
-    return chapterId;
-  }
-
-  public UUID getStoryboardRevisionId() {
-    return storyboardRevisionId;
-  }
-
-  public Long getChapterRowVersion() {
-    return chapterRowVersion;
-  }
-
-  public String getSourceHash() {
-    return sourceHash;
-  }
-
-  public String getSourceText() {
-    return sourceText;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getIdempotencyKey() {
-    return idempotencyKey;
-  }
-
-  public UUID getMediaPlanId() {
-    return mediaPlanId;
-  }
-
-  public Integer getMediaPlanRevision() {
-    return mediaPlanRevision;
-  }
-
-  public ProductionMode getProductionMode() {
-    return productionMode;
-  }
-
-  public String getAnalysisVisualGenerationMode() {
-    return analysisVisualGenerationMode;
-  }
-
-  public String getAnalysisImageProvider() {
-    return analysisImageProvider;
-  }
-
-  public String getSubmissionState() {
-    return submissionState;
-  }
-
-  public UUID getComputeAttemptId() {
-    return computeAttemptId;
-  }
-
-  public String getComputeExecutionHandle() {
-    return computeExecutionHandle;
-  }
-
-  public Long getComputeSequence() {
-    return computeSequence;
-  }
-
-  public String getLastComputeState() {
-    return lastComputeState;
-  }
-
-  public Instant getSubmittedAt() {
-    return submittedAt;
-  }
-
-  public Instant getStartedAt() {
-    return startedAt;
-  }
-
-  public Instant getCompletedAt() {
-    return completedAt;
-  }
-
-  public Instant getLastReconciledAt() {
-    return lastReconciledAt;
-  }
-
-  public Instant getNextReconcileAt() {
-    return nextReconcileAt;
-  }
-
-  public int getReconcileAttemptCount() {
-    return reconcileAttemptCount;
-  }
-
-  public String getLastEventId() {
-    return lastEventId;
-  }
-
-  public Long getLastEventSequence() {
-    return lastEventSequence;
-  }
-
-  public Instant getCallbackReceivedAt() {
-    return callbackReceivedAt;
-  }
-
   public GenerationJob markSubmitting(String step) {
     return toBuilder()
         .status(JobStatus.SUBMITTING)
@@ -758,6 +620,13 @@ public final class GenerationJob extends AggregateRoot {
         .nextReconcileAt(nextReconcileAt)
         .reconcileAttemptCount(0)
         .build();
+  }
+
+  public boolean isChapterVideoBatch() {
+    return type == JobType.CHAPTER_GENERATE
+        && productionMode == ProductionMode.VIDEO_FIRST
+        && resourceClass == ResourceClass.BACKGROUND
+        && mediaPlanId != null;
   }
 
   public GenerationJob markRunning(String step, int progress) {
@@ -861,318 +730,28 @@ public final class GenerationJob extends AggregateRoot {
         .build();
   }
 
-  public Builder toBuilder() {
-    return new Builder()
-        .id(getId())
-        .rowVersion(getRowVersion())
-        .jobId(this.jobId)
-        .projectId(this.projectId)
-        .type(this.type)
-        .status(this.status)
-        .resourceClass(this.resourceClass)
-        .progress(this.progress)
-        .currentStep(this.currentStep)
-        .errorCode(this.errorCode)
-        .storyVersionId(this.storyVersionId)
-        .chapterId(this.chapterId)
-        .storyboardRevisionId(this.storyboardRevisionId)
-        .chapterRowVersion(this.chapterRowVersion)
-        .sourceHash(this.sourceHash)
-        .sourceText(this.sourceText)
-        .sourceLanguage(this.sourceLanguage)
-        .idempotencyKey(this.idempotencyKey)
-        .mediaPlanId(this.mediaPlanId)
-        .mediaPlanRevision(this.mediaPlanRevision)
-        .productionMode(this.productionMode)
-        .analysisVisualGenerationMode(this.analysisVisualGenerationMode)
-        .analysisImageProvider(this.analysisImageProvider)
-        .submissionState(this.submissionState)
-        .computeAttemptId(this.computeAttemptId)
-        .computeExecutionHandle(this.computeExecutionHandle)
-        .computeSequence(this.computeSequence)
-        .lastComputeState(this.lastComputeState)
-        .submittedAt(this.submittedAt)
-        .startedAt(this.startedAt)
-        .completedAt(this.completedAt)
-        .lastReconciledAt(this.lastReconciledAt)
-        .nextReconcileAt(this.nextReconcileAt)
-        .reconcileAttemptCount(this.reconcileAttemptCount)
-        .lastEventId(this.lastEventId)
-        .lastEventSequence(this.lastEventSequence)
-        .callbackReceivedAt(this.callbackReceivedAt);
-  }
-
   public static final class Builder {
-    private UUID id;
-    private long rowVersion;
-    private UUID jobId;
-    private UUID projectId;
-    private JobType type;
-    private JobStatus status;
-    private ResourceClass resourceClass;
-    private int progress;
-    private String currentStep;
-    private String errorCode;
-    private UUID storyVersionId;
-    private UUID chapterId;
-    private UUID storyboardRevisionId;
-    private Long chapterRowVersion;
-    private String sourceHash;
-    private String sourceText;
-    private String sourceLanguage;
-    private String idempotencyKey;
-    private UUID mediaPlanId;
-    private Integer mediaPlanRevision;
-    private ProductionMode productionMode;
-    private String analysisVisualGenerationMode;
-    private String analysisImageProvider;
-    private String submissionState;
-    private UUID computeAttemptId;
-    private String computeExecutionHandle;
-    private Long computeSequence;
-    private String lastComputeState;
-    private Instant submittedAt;
-    private Instant startedAt;
-    private Instant completedAt;
-    private Instant lastReconciledAt;
-    private Instant nextReconcileAt;
-    private int reconcileAttemptCount;
-    private String lastEventId;
-    private Long lastEventSequence;
-    private Instant callbackReceivedAt;
+    public Builder() {}
 
-    public Builder id(UUID id) {
-      this.id = id;
-      return this;
-    }
-
-    public Builder rowVersion(long rowVersion) {
-      this.rowVersion = rowVersion;
-      return this;
-    }
-
-    public Builder jobId(UUID jobId) {
-      this.jobId = jobId;
-      return this;
-    }
-
-    public Builder projectId(UUID projectId) {
-      this.projectId = projectId;
-      return this;
-    }
-
-    public Builder type(JobType type) {
-      this.type = type;
-      return this;
-    }
-
-    public Builder status(JobStatus status) {
-      this.status = status;
-      return this;
-    }
-
-    public Builder resourceClass(ResourceClass resourceClass) {
-      this.resourceClass = resourceClass;
-      return this;
-    }
-
-    public Builder progress(int progress) {
-      this.progress = progress;
-      return this;
-    }
-
-    public Builder currentStep(String currentStep) {
-      this.currentStep = currentStep;
-      return this;
-    }
-
-    public Builder errorCode(String errorCode) {
-      this.errorCode = errorCode;
-      return this;
-    }
-
-    public Builder storyVersionId(UUID storyVersionId) {
-      this.storyVersionId = storyVersionId;
-      return this;
-    }
-
-    public Builder chapterId(UUID chapterId) {
-      this.chapterId = chapterId;
-      return this;
-    }
-
-    public Builder storyboardRevisionId(UUID storyboardRevisionId) {
-      this.storyboardRevisionId = storyboardRevisionId;
-      return this;
-    }
-
-    public Builder chapterRowVersion(Long chapterRowVersion) {
-      this.chapterRowVersion = chapterRowVersion;
-      return this;
-    }
-
-    public Builder sourceHash(String sourceHash) {
-      this.sourceHash = sourceHash;
-      return this;
-    }
-
-    public Builder sourceText(String sourceText) {
-      this.sourceText = sourceText;
-      return this;
-    }
-
-    public Builder sourceLanguage(String sourceLanguage) {
-      this.sourceLanguage = sourceLanguage;
-      return this;
-    }
-
-    public Builder idempotencyKey(String idempotencyKey) {
-      this.idempotencyKey = idempotencyKey;
-      return this;
-    }
-
-    public Builder mediaPlanId(UUID mediaPlanId) {
-      this.mediaPlanId = mediaPlanId;
-      return this;
-    }
-
-    public Builder mediaPlanRevision(Integer mediaPlanRevision) {
-      this.mediaPlanRevision = mediaPlanRevision;
-      return this;
-    }
-
-    public Builder productionMode(ProductionMode productionMode) {
-      this.productionMode = productionMode;
-      return this;
-    }
-
-    public Builder analysisVisualGenerationMode(String mode) {
-      this.analysisVisualGenerationMode = mode;
-      return this;
-    }
-
-    public Builder analysisImageProvider(String provider) {
-      this.analysisImageProvider = provider;
-      return this;
-    }
-
-    public Builder submissionState(String submissionState) {
-      this.submissionState = submissionState;
-      return this;
-    }
-
-    public Builder computeAttemptId(UUID computeAttemptId) {
-      this.computeAttemptId = computeAttemptId;
-      return this;
-    }
-
-    public Builder computeExecutionHandle(String handle) {
-      this.computeExecutionHandle = handle;
-      return this;
-    }
-
-    public Builder computeSequence(Long computeSequence) {
-      this.computeSequence = computeSequence;
-      return this;
-    }
-
-    public Builder lastComputeState(String lastComputeState) {
-      this.lastComputeState = lastComputeState;
-      return this;
-    }
-
-    public Builder submittedAt(Instant submittedAt) {
-      this.submittedAt = submittedAt;
-      return this;
-    }
-
-    public Builder startedAt(Instant startedAt) {
-      this.startedAt = startedAt;
-      return this;
-    }
-
-    public Builder completedAt(Instant completedAt) {
-      this.completedAt = completedAt;
-      return this;
-    }
-
-    public Builder lastReconciledAt(Instant lastReconciledAt) {
-      this.lastReconciledAt = lastReconciledAt;
-      return this;
-    }
-
-    public Builder nextReconcileAt(Instant nextReconcileAt) {
-      this.nextReconcileAt = nextReconcileAt;
-      return this;
-    }
-
-    public Builder reconcileAttemptCount(int count) {
-      this.reconcileAttemptCount = count;
-      return this;
-    }
-
-    public Builder lastEventId(String lastEventId) {
-      this.lastEventId = lastEventId;
-      return this;
-    }
-
-    public Builder lastEventSequence(Long lastEventSequence) {
-      this.lastEventSequence = lastEventSequence;
-      return this;
-    }
-
-    public Builder callbackReceivedAt(Instant receivedAt) {
-      this.callbackReceivedAt = receivedAt;
-      return this;
-    }
-
-    public GenerationJob build() {
-      return new GenerationJob(
-          id,
-          rowVersion,
-          jobId,
-          projectId,
-          type,
-          status,
-          resourceClass,
-          progress,
-          currentStep,
-          errorCode,
-          storyVersionId,
-          chapterId,
-          storyboardRevisionId,
-          chapterRowVersion,
-          sourceHash,
-          sourceText,
-          sourceLanguage,
-          idempotencyKey,
-          mediaPlanId,
-          mediaPlanRevision,
-          productionMode,
-          analysisVisualGenerationMode,
-          analysisImageProvider,
-          submissionState,
-          computeAttemptId,
-          computeExecutionHandle,
-          computeSequence,
-          lastComputeState,
-          submittedAt,
-          startedAt,
-          completedAt,
-          lastReconciledAt,
-          nextReconcileAt,
-          reconcileAttemptCount,
-          lastEventId,
-          lastEventSequence,
-          callbackReceivedAt);
+    @Override
+    public String toString() {
+      return "GenerationJob.Builder";
     }
   }
 
   private static void requireCompleteMediaPlanPointer(
-      UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
+      ProductionMode productionMode,
+      ResourceClass resourceClass) {
     boolean allNull = mediaPlanId == null && mediaPlanRevision == null && productionMode == null;
     boolean allPresent = mediaPlanId != null && mediaPlanRevision != null && productionMode != null;
-    if (!allNull && !allPresent) {
+    boolean standaloneVideo =
+        mediaPlanId == null
+            && mediaPlanRevision == null
+            && productionMode == ProductionMode.VIDEO_FIRST
+            && resourceClass == ResourceClass.GPU_HEAVY;
+    if (!allNull && !allPresent && !standaloneVideo) {
       throw new IllegalArgumentException(
           "mediaPlanId, mediaPlanRevision, and productionMode must be set together");
     }

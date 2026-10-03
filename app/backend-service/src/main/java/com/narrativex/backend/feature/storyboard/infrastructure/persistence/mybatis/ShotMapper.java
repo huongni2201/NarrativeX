@@ -29,6 +29,9 @@ public interface ShotMapper extends NarrativeXMyBatisMapper {
 
   ShotRow findShotByIdAndProject(@Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
 
+  String findAdmissionContextLocked(
+      @Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
+
   UUID findChapterIdByShotId(@Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
 
   ShotSequenceRow findSequenceByBeatIdAndProject(

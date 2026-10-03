@@ -1,4 +1,4 @@
-package com.narrativex.backend.feature.generation.api.response;
+package com.narrativex.backend.feature.generation.application.query;
 
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
@@ -11,7 +11,7 @@ import java.util.UUID;
  * sequences, shots, candidate takes, authoritative SelectedTake bindings, QA metrics, and preflight
  * readiness.
  */
-public record ChapterProductionResponse(
+public record ChapterProductionView(
     UUID chapterId,
     String chapterTitle,
     int chapterOrderIndex,

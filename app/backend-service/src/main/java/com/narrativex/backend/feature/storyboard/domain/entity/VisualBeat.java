@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
 
 /** Visual dramatic beat within a Scene. Contains dramatic intent and maps to a ShotSequence. */
 public final class VisualBeat extends DomainEntity {
@@ -16,24 +17,24 @@ public final class VisualBeat extends DomainEntity {
   private static final int MAX_VISUAL_DIRECTION_LENGTH = 16000;
   private static final int MAX_VISUAL_FOCUS_LENGTH = 64;
 
-  private final UUID sceneId;
-  private final UUID storyBeatId;
-  private final int orderIndex;
-  private final String title;
-  private final String visualIntent;
-  private final String visualDirectionJson;
-  private final MotionMode motionMode;
-  private final AspectRatio aspectRatioOverride;
-  private final double relativeWeight;
-  private final String visualFocus;
-  private final Integer textStart;
-  private final Integer textEnd;
-  private final String sourceAnchorJson;
-  private final DramaticIntent dramaticIntent;
-  private final String emotion;
-  private final RetentionRole retentionRole;
-  private VisualBeatReviewStatus reviewStatus;
-  private UUID previewMediaAssetId;
+  @Getter private final UUID sceneId;
+  @Getter private final UUID storyBeatId;
+  @Getter private final int orderIndex;
+  @Getter private final String title;
+  @Getter private final String visualIntent;
+  @Getter private final String visualDirectionJson;
+  @Getter private final MotionMode motionMode;
+  @Getter private final AspectRatio aspectRatioOverride;
+  @Getter private final double relativeWeight;
+  @Getter private final String visualFocus;
+  @Getter private final Integer textStart;
+  @Getter private final Integer textEnd;
+  @Getter private final String sourceAnchorJson;
+  @Getter private final DramaticIntent dramaticIntent;
+  @Getter private final String emotion;
+  @Getter private final RetentionRole retentionRole;
+  @Getter private VisualBeatReviewStatus reviewStatus;
+  @Getter private UUID previewMediaAssetId;
 
   public VisualBeat(UUID sceneId, int orderIndex, String visualIntent) {
     this(sceneId, orderIndex, defaultTitle(visualIntent), visualIntent);
@@ -289,80 +290,8 @@ public final class VisualBeat extends DomainEntity {
         reviewStatus);
   }
 
-  public DramaticIntent getDramaticIntent() {
-    return dramaticIntent;
-  }
-
-  public String getEmotion() {
-    return emotion;
-  }
-
-  public RetentionRole getRetentionRole() {
-    return retentionRole;
-  }
-
   public void changeReviewStatus(VisualBeatReviewStatus newStatus) {
     reviewStatus = Objects.requireNonNull(newStatus, "newStatus");
-  }
-
-  public UUID getSceneId() {
-    return sceneId;
-  }
-
-  public UUID getStoryBeatId() {
-    return storyBeatId;
-  }
-
-  public int getOrderIndex() {
-    return orderIndex;
-  }
-
-  public String getTitle() {
-    return title;
-  }
-
-  public String getVisualIntent() {
-    return visualIntent;
-  }
-
-  public String getVisualDirectionJson() {
-    return visualDirectionJson;
-  }
-
-  public MotionMode getMotionMode() {
-    return motionMode;
-  }
-
-  public AspectRatio getAspectRatioOverride() {
-    return aspectRatioOverride;
-  }
-
-  public double getRelativeWeight() {
-    return relativeWeight;
-  }
-
-  public String getVisualFocus() {
-    return visualFocus;
-  }
-
-  public Integer getTextStart() {
-    return textStart;
-  }
-
-  public Integer getTextEnd() {
-    return textEnd;
-  }
-
-  public String getSourceAnchorJson() {
-    return sourceAnchorJson;
-  }
-
-  public VisualBeatReviewStatus getReviewStatus() {
-    return reviewStatus;
-  }
-
-  public UUID getPreviewMediaAssetId() {
-    return previewMediaAssetId;
   }
 
   public void attachPreviewMediaAsset(UUID previewMediaAssetId) {

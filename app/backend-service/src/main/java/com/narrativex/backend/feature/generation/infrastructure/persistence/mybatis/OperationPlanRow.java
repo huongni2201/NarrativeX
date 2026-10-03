@@ -16,4 +16,10 @@ public class OperationPlanRow {
   private UUID projectId;
   private UUID generationJobId;
   private String operationType;
+  private UUID scopeId;
+  private String inputFingerprint;
+
+  public OperationPlanRow(UUID id, long rowVersion, UUID projectId, UUID jobId, String type) {
+    this(id, rowVersion, projectId, jobId, type, null, null);
+  }
 }

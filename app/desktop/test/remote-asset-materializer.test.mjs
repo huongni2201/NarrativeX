@@ -15,9 +15,9 @@ function backendApi(downloadUrl, requestedPaths = []) {
     async request({ path }) {
       requestedPaths.push(path);
       if (path.includes("/download-url?")) {
-        return { status: 200, bodyText: JSON.stringify({ success: true, data: { url: downloadUrl, filename: "image.png" } }) };
+        return { status: 200, bodyText: JSON.stringify({ success: true, message: "OK", timestamp: "2026-10-03T00:00:00Z", data: { url: downloadUrl, filename: "image.png" } }) };
       }
-      return { status: 200, bodyText: JSON.stringify({ success: true, data: { id: "asset-1", type: "IMAGE", contentType: "image/png", sizeBytes: 1, sha256: "a".repeat(64), status: "READY" } }) };
+      return { status: 200, bodyText: JSON.stringify({ success: true, message: "OK", timestamp: "2026-10-03T00:00:00Z", data: { id: "asset-1", type: "IMAGE", contentType: "image/png", sizeBytes: 1, sha256: "a".repeat(64), status: "READY" } }) };
     },
   };
 }
@@ -87,13 +87,13 @@ test("project materialization repairs a missing local file from backend bytes", 
       if (path.includes("/download-url?")) {
         return {
           status: 200,
-          bodyText: JSON.stringify({ success: true, data: { url: downloadUrl, filename: "image.png" } }),
+          bodyText: JSON.stringify({ success: true, message: "OK", timestamp: "2026-10-03T00:00:00Z", data: { url: downloadUrl, filename: "image.png" } }),
         };
       }
       return {
         status: 200,
         bodyText: JSON.stringify({
-          success: true,
+          success: true, message: "OK", timestamp: "2026-10-03T00:00:00Z",
           data: {
             id: "asset-1",
             type: "IMAGE",
@@ -146,7 +146,7 @@ test("chapter narration materialization resolves the project-local audio through
       return {
         status: 200,
         bodyText: JSON.stringify({
-          success: true,
+          success: true, message: "OK", timestamp: "2026-10-03T00:00:00Z",
           data: {
             pipeline: {
               audio: { status: "READY", audioUrl },

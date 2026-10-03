@@ -5,7 +5,7 @@ export function renderWorkingDimensions(
   height: number,
   moving: boolean,
   cameraMovement = "NONE",
-  fps: 30 | 60 = 30,
+  fps: 24 | 30 | 60 = 30,
 ): { width: number; height: number } {
   if (!moving) return { width: even(width), height: even(height) };
   const movement = cameraMovement.trim().toUpperCase();

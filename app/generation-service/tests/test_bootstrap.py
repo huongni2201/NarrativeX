@@ -26,7 +26,8 @@ def test_production_catalog_registers_all_compute_workloads(tmp_path: Path) -> N
             "vieneu",
             "whisperx",
         }
-        assert capabilities["ltx"].ready is True
+        # The default ComfyUI URL cannot establish a pinned LTX runtime/model installation.
+        assert capabilities["ltx"].ready is False
         assert capabilities["comfyui"].ready is True
         assert capabilities["vieneu"].ready is True
         assert capabilities["whisperx"].ready is settings.whisperx_available

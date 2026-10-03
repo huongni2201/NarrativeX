@@ -47,6 +47,9 @@ CREATE TABLE generation_jobs (
     CONSTRAINT ck_generation_jobs_media_plan_pointer CHECK (
         (media_plan_id IS NULL AND media_plan_revision IS NULL AND production_mode IS NULL)
         OR
+        (media_plan_id IS NULL AND media_plan_revision IS NULL AND production_mode = 'VIDEO_FIRST'
+         AND resource_class = 'GPU_HEAVY')
+        OR
         (media_plan_id IS NOT NULL AND media_plan_revision IS NOT NULL AND production_mode IS NOT NULL)
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
@@ -129,7 +132,9 @@ CREATE TABLE operation_plans (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     project_id UUID NOT NULL REFERENCES projects(id),
     generation_job_id UUID REFERENCES generation_jobs(id),
-    operation_type VARCHAR(40) NOT NULL
+    operation_type VARCHAR(40) NOT NULL,
+    scope_id UUID,
+    input_fingerprint VARCHAR(64)
 );
 
 -- -----------------------------------------------------------------------------

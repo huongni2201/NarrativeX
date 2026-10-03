@@ -14,6 +14,12 @@ public final class MediaGenerationItem {
   private final UUID generationJobId;
   private final UUID mediaPlanId;
   private final UUID visualBeatId;
+  private final UUID shotId;
+  private final int orderIndex;
+  private final UUID leafGenerationJobId;
+  private final UUID takeId;
+  private final String frozenInputJson;
+  private final String frozenInputFingerprint;
   private final String itemKey;
   private final int attemptNumber;
   private MediaGenerationExecutionStatus executionStatus;
@@ -40,7 +46,8 @@ public final class MediaGenerationItem {
       String errorCode,
       String errorDetailRef,
       MediaGenerationReviewStatus reviewStatus,
-      Instant reviewedAt) {
+      Instant reviewedAt, UUID shotId, int orderIndex, UUID leafGenerationJobId, UUID takeId,
+      String frozenInputJson, String frozenInputFingerprint) {
     this.id = Objects.requireNonNull(id, "id");
     this.rowVersion = rowVersion;
     this.generationJobId = Objects.requireNonNull(generationJobId, "generationJobId");
@@ -57,6 +64,12 @@ public final class MediaGenerationItem {
     this.errorDetailRef = errorDetailRef;
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus");
     this.reviewedAt = reviewedAt;
+    this.shotId = shotId;
+    this.orderIndex = orderIndex;
+    this.leafGenerationJobId = leafGenerationJobId;
+    this.takeId = takeId;
+    this.frozenInputJson = frozenInputJson;
+    this.frozenInputFingerprint = frozenInputFingerprint;
   }
 
   public static MediaGenerationItem create(
@@ -81,7 +94,7 @@ public final class MediaGenerationItem {
         null,
         null,
         MediaGenerationReviewStatus.NOT_READY,
-        null);
+        null, null, 0, null, null, null, null);
   }
 
   public static MediaGenerationItem rehydrate(
@@ -99,7 +112,8 @@ public final class MediaGenerationItem {
       String errorCode,
       String errorDetailRef,
       MediaGenerationReviewStatus reviewStatus,
-      Instant reviewedAt) {
+      Instant reviewedAt, UUID shotId, int orderIndex, UUID leafGenerationJobId, UUID takeId,
+      String frozenInputJson, String frozenInputFingerprint) {
     return new MediaGenerationItem(
         id,
         rowVersion,
@@ -115,8 +129,33 @@ public final class MediaGenerationItem {
         errorCode,
         errorDetailRef,
         reviewStatus,
-        reviewedAt);
+        reviewedAt, shotId, orderIndex, leafGenerationJobId, takeId, frozenInputJson, frozenInputFingerprint);
   }
+
+  public static MediaGenerationItem createShot(UUID jobId, UUID planId, UUID beatId, UUID shotId,
+      int orderIndex, String requestFingerprint, String frozenInputJson, String frozenInputFingerprint) {
+    return new MediaGenerationItem(UuidV7.random(), 0L, jobId, planId, beatId, "shot-" + shotId,
+        1, MediaGenerationExecutionStatus.QUEUED, null, null, requestFingerprint, null, null,
+        MediaGenerationReviewStatus.NOT_READY, null, shotId, orderIndex, null, null,
+        frozenInputJson, frozenInputFingerprint);
+  }
+
+  public static MediaGenerationItem rehydrate(UUID id, long rowVersion, UUID generationJobId,
+      UUID mediaPlanId, UUID visualBeatId, String itemKey, int attemptNumber,
+      MediaGenerationExecutionStatus executionStatus, UUID providerOperationId, UUID mediaAssetId,
+      String requestFingerprint, String errorCode, String errorDetailRef,
+      MediaGenerationReviewStatus reviewStatus, Instant reviewedAt) {
+    return rehydrate(id, rowVersion, generationJobId, mediaPlanId, visualBeatId, itemKey, attemptNumber,
+        executionStatus, providerOperationId, mediaAssetId, requestFingerprint, errorCode,
+        errorDetailRef, reviewStatus, reviewedAt, null, 0, null, null, null, null);
+  }
+
+  public UUID getShotId() { return shotId; }
+  public int getOrderIndex() { return orderIndex; }
+  public UUID getLeafGenerationJobId() { return leafGenerationJobId; }
+  public UUID getTakeId() { return takeId; }
+  public String getFrozenInputJson() { return frozenInputJson; }
+  public String getFrozenInputFingerprint() { return frozenInputFingerprint; }
 
   public UUID getGenerationJobId() {
     return generationJobId;

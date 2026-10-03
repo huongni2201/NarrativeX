@@ -192,7 +192,10 @@ class ComputeExecutionDispatcherTest {
     when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
     when(storyboardMapper.insertScene(any(SceneRow.class))).thenReturn(UuidV7.random());
     when(storyboardMapper.insertVisualBeat(any(VisualBeatRow.class))).thenReturn(UuidV7.random());
-    when(chapterMapper.findById(chapterId)).thenReturn(new ChapterRow());
+    ChapterRow currentChapter = new ChapterRow();
+    currentChapter.setSourceHash(sourceHash);
+    currentChapter.setRowVersion(1L);
+    when(chapterMapper.findById(chapterId)).thenReturn(currentChapter);
     when(chapterMapper.update(any(ChapterRow.class))).thenReturn(1);
 
     dispatcher.dispatchJob(job.getJobId());

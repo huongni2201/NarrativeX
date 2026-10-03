@@ -155,6 +155,8 @@ export interface WhisperXSummary {
 
 export interface DesktopTake {
   id: string;
+  jobId?: string | null;
+  generationJobId?: string | null;
   shotId: string;
   attemptNumber: number;
   provider: string;

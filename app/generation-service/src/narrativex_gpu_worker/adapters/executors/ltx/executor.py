@@ -1,298 +1,243 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import time
-from typing import Any
+from pathlib import Path, PurePosixPath
+from uuid import NAMESPACE_URL, uuid5
+
+import httpx
 
 from narrativex_gpu_worker.adapters.executors.comfyui.client import (
     ComfyUIClient,
     ComfyUIClientError,
 )
 from narrativex_gpu_worker.application.errors import (
+    AmbiguousOutcomeError,
     ExecutionCanceledError,
     ExecutorExecutionError,
     MissingDurableContextError,
 )
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
-from narrativex_gpu_worker.application.ports.execution import (
-    ExecutionContext,
-    ExecutionOutput,
-)
-from narrativex_gpu_worker.application.ports.residency import (
-    RuntimeFamily,
-    RuntimeRequirement,
-)
+from narrativex_gpu_worker.application.ports.execution import ExecutionContext, ExecutionOutput
+from narrativex_gpu_worker.application.ports.residency import RuntimeFamily, RuntimeRequirement
 from narrativex_gpu_worker.contracts import (
     ComputeTask,
     ExecutionMetrics,
     ModelRef,
-    ProducedArtifact,
     VideoGenerateInputs,
 )
+from narrativex_gpu_worker.contracts.task import NativeVideoGenerateInputs
 
+from .preflight import baseline_graph, validate_object_info, verify_runtime_files
 from .workflow import (
-    UNSUPPORTED_STRATEGIES,
+    CHECKPOINT,
+    MANIFEST,
+    PROFILE_ID,
+    SUPPORTED_STRATEGIES,
     build_ltx_video_workflow,
 )
 
 
 class LtxVideoExecutor:
-    """Executor adapter for LTX-2.5 moving video generation."""
+    """Pinned joint AV executor. Static profile availability is separate from readiness."""
 
     name = "ltx"
     task_types = frozenset({"video.generate"})
     models = (
-        ModelRef(executor="ltx", model="ltx-2.5-nvfp4", revision="1.0"),
-        ModelRef(executor="ltx", model="ltx-2.5", revision="1.0"),
-        ModelRef(executor="ltx", model="ltx-2.5", revision="nvfp4"),
+        ModelRef(executor="ltx", model=MANIFEST["modelId"], revision=MANIFEST["modelRevision"]),
     )
+    task_schema_versions = {"video.generate": ["1.0", "1.1"]}
+    workflow_profiles = [dict(profile_id=PROFILE_ID, **MANIFEST["capabilities"])]
 
     def __init__(
         self,
         client: ComfyUIClient,
         artifact_adapter: ArtifactPort,
-        ready: bool = True,
+        runtime_directory: Path | None = None,
+        max_artifact_bytes: int = 2_147_483_648,
     ) -> None:
         self._client = client
         self._artifact_adapter = artifact_adapter
-        self._ready = ready
+        self._ready = False
+        self._runtime_directory = runtime_directory
+        self._max_artifact_bytes = max_artifact_bytes
+        self._next_recovery: dict[str, float] = {}
+        self.readiness_error = "Runtime preflight has not passed"
 
     @property
     def ready(self) -> bool:
         return self._ready
 
+    async def preflight(self) -> None:
+        self._ready = False
+        if self._runtime_directory is None:
+            return
+        try:
+            await asyncio.to_thread(verify_runtime_files, self._runtime_directory)
+            validate_object_info(await self._client.object_info(), baseline_graph())
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            subprocess.SubprocessError,
+            httpx.HTTPError,
+        ) as exc:
+            self.readiness_error = str(exc)
+            return
+        self.readiness_error = ""
+        self._ready = True
+
     @property
     def runtime_requirement(self) -> RuntimeRequirement:
-        return RuntimeRequirement(
-            family=RuntimeFamily.LTX_VIDEO, vram_budget_mb=16384
-        )
+        # INT8 fit on the target workstation still requires a real measured run.
+        return RuntimeRequirement(family=RuntimeFamily.LTX_VIDEO, vram_budget_mb=32768)
+
+    async def recover_handle(self, task: ComputeTask) -> str | None:
+        prompt = self.prompt_id(task)
+        now = time.monotonic()
+        if now < self._next_recovery.get(prompt, 0):
+            return None
+        self._next_recovery[prompt] = now + 5
+        return f"ltx:{prompt}" if await self._client.find_prompt(prompt) else None
+
+    @staticmethod
+    def prompt_id(task: ComputeTask) -> str:
+        return str(uuid5(NAMESPACE_URL, f"narrativex:ltx:{task.task_id}:{task.attempt_id}"))
 
     async def execute(
-        self,
-        task: ComputeTask,
-        cancel: asyncio.Event,
-        context: ExecutionContext | None = None,
+        self, task: ComputeTask, cancel: asyncio.Event, context: ExecutionContext | None = None
     ) -> ExecutionOutput:
+        resume = context.existing_execution_handle if context else None
         if cancel.is_set():
-            raise ExecutionCanceledError("LTX execution canceled before submit")
-
-        if not any(m.model == task.model.model for m in self.models):
+            if resume:
+                raise AmbiguousOutcomeError("LTX cancellation remains unconfirmed")
+            raise ExecutionCanceledError("LTX canceled before submit")
+        if task.model not in self.models:
             raise ExecutorExecutionError(
-                code="VIDEO_MODEL_UNAVAILABLE",
-                message=(
-                    f"Model {task.model.model} revision {task.model.revision} "
-                    "is not supported by LTX executor"
-                ),
-                category="PERMANENT",
+                "VIDEO_MODEL_UNAVAILABLE", "Pinned model revision required", "PERMANENT"
             )
-
-        start_time = time.perf_counter()
         inputs = task.inputs
-        assert isinstance(inputs, VideoGenerateInputs)
-
-        # Preflight strategy validation
-        if inputs.generation_mode in UNSUPPORTED_STRATEGIES:
+        assert isinstance(inputs, (VideoGenerateInputs, NativeVideoGenerateInputs))
+        if inputs.generation_mode not in SUPPORTED_STRATEGIES:
             raise ExecutorExecutionError(
-                code="UNSUPPORTED_GENERATION_STRATEGY",
-                message=(
-                    f"Generation strategy '{inputs.generation_mode}' "
-                    "is not supported by LTX executor"
-                ),
-                category="PERMANENT",
+                "UNSUPPORTED_GENERATION_STRATEGY", "Only verified T2V is available", "PERMANENT"
             )
-
-        start_image: str | None = None
-        end_image: str | None = None
-        voice_audio: str | None = None
-
-        # Resolve and materialize input reference artifacts into ComfyUI
-        for input_ref in task.artifacts.inputs:
-            if cancel.is_set():
-                raise ExecutionCanceledError("LTX execution canceled during reference resolution")
-            try:
-                ref_bytes = await self._artifact_adapter.download(input_ref)
-                if not ref_bytes:
-                    raise ValueError(
-                        f"Downloaded reference artifact {input_ref.artifact_id} is empty"
-                    )
-
-                role = (input_ref.role or "").lower()
-                media_type = (input_ref.media_type or "").lower()
-
-                if "voice" in role or "audio" in media_type:
-                    filename = f"voice_{input_ref.artifact_id}.wav"
-                    uploaded = await self._client.upload_file(
-                        filename=filename,
-                        content=ref_bytes,
-                        mime_type=input_ref.media_type or "audio/wav",
-                    )
-                    voice_audio = uploaded
-                elif "end" in role:
-                    filename = f"end_{input_ref.artifact_id}.png"
-                    uploaded = await self._client.upload_file(
-                        filename=filename,
-                        content=ref_bytes,
-                        mime_type=input_ref.media_type or "image/png",
-                    )
-                    end_image = uploaded
-                elif (
-                    "start" in role
-                    or inputs.generation_mode == "IMAGE_TO_VIDEO"
-                    or "image" in media_type
-                ):
-                    filename = f"ref_{input_ref.artifact_id}.png"
-                    uploaded = await self._client.upload_file(
-                        filename=filename,
-                        content=ref_bytes,
-                        mime_type=input_ref.media_type or "image/png",
-                    )
-                    if start_image is None:
-                        start_image = uploaded
-            except Exception as exc:
-                if isinstance(exc, (ExecutionCanceledError, ExecutorExecutionError)):
-                    raise
+        if task.artifacts.inputs:
+            raise ExecutorExecutionError(
+                "VIDEO_REFERENCE_INVALID", "Reference conditioning is unverified", "PERMANENT"
+            )
+        if len(task.artifacts.outputs) != 1 or task.artifacts.outputs[0].media_type != "video/mp4":
+            raise ExecutorExecutionError(
+                "VIDEO_OUTPUT_INVALID", "Exactly one MP4 output target required", "PERMANENT"
+            )
+        if isinstance(inputs, NativeVideoGenerateInputs):
+            if inputs.workflow_profile_id != PROFILE_ID:
                 raise ExecutorExecutionError(
-                    code="VIDEO_REFERENCE_INVALID",
-                    message=(
-                        f"Failed to resolve input reference artifact {input_ref.artifact_id}: {exc}"
-                    ),
-                    category="PERMANENT",
-                ) from exc
-
-        if inputs.generation_mode == "IMAGE_TO_VIDEO" and not start_image:
-            raise ExecutorExecutionError(
-                code="VIDEO_REFERENCE_INVALID",
-                message=(
-                    "IMAGE_TO_VIDEO strategy requires a start_frame or image reference artifact"
-                ),
-                category="PERMANENT",
-            )
-
-        if inputs.generation_mode == "FIRST_LAST_FRAME" and (not start_image or not end_image):
-            raise ExecutorExecutionError(
-                code="VIDEO_REFERENCE_INVALID",
-                message=(
-                    "FIRST_LAST_FRAME strategy requires both "
-                    "start_frame and end_frame reference artifacts"
-                ),
-                category="PERMANENT",
-            )
-
-        prompt_id: str | None = None
-        if (
-            context
-            and context.existing_execution_handle
-            and context.existing_execution_handle.startswith("ltx:")
-        ):
-            prompt_id = context.existing_execution_handle.split(":", 1)[1]
-
-        if prompt_id is None:
-            if (
-                context is None
-                or context.save_submitting is None
-                or context.save_handle is None
-            ):
-                raise MissingDurableContextError(
-                    "Durable context with save_submitting and save_handle is required "
-                    "for remote side-effect executor"
+                    "VIDEO_PROFILE_UNAVAILABLE", "Pinned workflow profile required", "PERMANENT"
                 )
-            await context.save_submitting()
+            options = {}
+            motion_bucket = None
+        else:
+            options = inputs.provider_options
+            motion_bucket = inputs.motion_bucket_id
+            if (
+                inputs.reference_assets
+                or inputs.reference_asset_ids
+                or inputs.continuity
+                or (inputs.voice_reference and inputs.voice_reference.asset_id)
+            ):
+                raise ExecutorExecutionError(
+                    "VIDEO_REFERENCE_INVALID",
+                    "Domain reference fields require a verified profile",
+                    "PERMANENT",
+                )
+        try:
             workflow = build_ltx_video_workflow(
-                prompt=inputs.prompt,
-                negative_prompt=inputs.negative_prompt,
-                checkpoint=f"{task.model.model}.safetensors",
-                width=inputs.width,
-                height=inputs.height,
-                fps=inputs.fps,
-                duration_ms=inputs.duration_ms,
-                seed=inputs.seed,
-                generation_mode=inputs.generation_mode,
-                motion_bucket_id=inputs.motion_bucket_id,
+                inputs.prompt,
+                inputs.negative_prompt,
+                CHECKPOINT,
+                inputs.width,
+                inputs.height,
+                inputs.fps,
+                inputs.duration_ms,
+                inputs.seed,
+                inputs.generation_mode,
+                motion_bucket_id=motion_bucket,
                 dialogue=inputs.dialogue,
                 camera_intent=inputs.camera_intent,
                 motion_intent=inputs.motion_intent,
                 voice_reference=inputs.voice_reference,
-                provider_options=inputs.provider_options,
-                start_image=start_image,
-                end_image=end_image,
-                voice_audio=voice_audio,
+                provider_options=options,
             )
-            client_id = f"narrativex-video-{str(task.task_id)[:8]}"
+        except ValueError as exc:
+            raise ExecutorExecutionError("VIDEO_PROFILE_INVALID", str(exc), "PERMANENT") from exc
+        started = time.perf_counter()
+        prompt = self.prompt_id(task)
+        client_id = f"narrativex-{prompt}"
+        if resume:
+            if not resume.startswith("ltx:") or resume[4:] != prompt:
+                raise AmbiguousOutcomeError("Persisted handle differs from pinned correlation")
+        else:
+            if context is None or context.save_submitting is None or context.save_handle is None:
+                raise MissingDurableContextError("Durable submission callbacks are required")
+            # Persist correlation before network I/O. Recovery only queries this identifier.
+            await context.save_handle(f"ltx:{prompt}")
+            await context.save_submitting()
             try:
-                prompt_id = await self._client.submit_prompt(
-                    workflow=workflow,
-                    client_id=client_id,
-                )
-                await context.save_handle(f"ltx:{prompt_id}")
+                await self._client.submit_prompt(workflow, client_id, prompt_id=prompt)
+                await context.save_handle(f"ltx:{prompt}")
             except ComfyUIClientError as exc:
                 raise ExecutorExecutionError(
-                    code="VIDEO_GENERATION_FAILED",
-                    message=f"ComfyUI prompt submission failed: {exc}",
-                    category="TRANSIENT",
+                    "VIDEO_GENERATION_FAILED", str(exc), "PERMANENT"
                 ) from exc
-        else:
-            client_id = f"narrativex-video-{str(task.task_id)[:8]}"
-
         try:
-            record = await self._client.wait_for_completion(prompt_id, client_id, cancel)
-        except ExecutionCanceledError:
-            raise
+            record = await self._client.wait_for_completion(prompt, client_id, cancel)
         except ComfyUIClientError as exc:
-            raise ExecutorExecutionError(
-                code="VIDEO_GENERATION_FAILED",
-                message=f"ComfyUI video generation execution failed: {exc}",
-                category="TRANSIENT",
-            ) from exc
-
+            raise ExecutorExecutionError("VIDEO_GENERATION_FAILED", str(exc), "PERMANENT") from exc
+        except httpx.HTTPError as exc:
+            raise AmbiguousOutcomeError("LTX completion transport is unresolved") from exc
         if cancel.is_set():
-            raise ExecutionCanceledError("LTX execution canceled before artifact upload")
-
-        try:
-            video_bytes = await self._download_record_video(record)
-        except ComfyUIClientError as exc:
+            raise AmbiguousOutcomeError("LTX cancellation remains unconfirmed")
+        output = record.get("outputs", {}).get(MANIFEST["outputNode"], {})
+        files = output.get(MANIFEST["outputSlot"], [])
+        if len(files) != 1 or not output.get("animated"):
             raise ExecutorExecutionError(
-                code="VIDEO_GENERATION_FAILED",
-                message=f"Failed to retrieve video artifact from ComfyUI: {exc}",
-                category="TRANSIENT",
-            ) from exc
-
-        if not video_bytes or len(video_bytes) < 32:
-            raise ExecutorExecutionError(
-                code="VIDEO_GENERATION_FAILED",
-                message="ComfyUI returned empty or invalid video output",
-                category="TRANSIENT",
+                "VIDEO_OUTPUT_INVALID", "Pinned SaveVideo output missing", "PERMANENT"
             )
-
+        file = files[0]
+        filename = file.get("filename", "")
+        folder = file.get("subfolder", "")
+        if (
+            PurePosixPath(filename).name != filename
+            or "\\" in filename
+            or not filename.lower().endswith(".mp4")
+            or file.get("type") != "output"
+            or PurePosixPath(folder).is_absolute()
+            or ".." in PurePosixPath(folder).parts
+            or "\\" in folder
+            or ":" in folder
+        ):
+            raise ExecutorExecutionError(
+                "VIDEO_OUTPUT_INVALID", "Invalid SaveVideo artifact key", "PERMANENT"
+            )
+        data = bytearray()
+        async for chunk in self._client.download_image_stream(filename, folder, "output"):
+            data.extend(chunk)
+            if len(data) > self._max_artifact_bytes:
+                raise ExecutorExecutionError(
+                    "VIDEO_OUTPUT_INVALID", "Video exceeds worker byte limit", "PERMANENT"
+                )
+        if len(data) < 32 or data[4:8] != b"ftyp":
+            raise ExecutorExecutionError(
+                "VIDEO_OUTPUT_INVALID", "SaveVideo returned invalid MP4 bytes", "PERMANENT"
+            )
         if cancel.is_set():
-            raise ExecutionCanceledError("LTX execution canceled before artifact upload")
-
-        runtime_ms = int((time.perf_counter() - start_time) * 1000)
-        outputs: list[ProducedArtifact] = []
-
-        if task.artifacts.outputs:
-            target = task.artifacts.outputs[0]
-            produced = await self._artifact_adapter.upload(target, video_bytes)
-            outputs.append(produced)
-
+            raise AmbiguousOutcomeError("LTX cancellation remains unconfirmed")
+        produced = await self._artifact_adapter.upload(task.artifacts.outputs[0], bytes(data))
         return ExecutionOutput(
-            outputs=outputs,
-            metrics=ExecutionMetrics(runtime_ms=runtime_ms),
-            execution_handle=f"ltx:{prompt_id}",
+            outputs=[produced],
+            execution_handle=f"ltx:{prompt}",
+            metrics=ExecutionMetrics(runtime_ms=int((time.perf_counter() - started) * 1000)),
         )
-
-    async def _download_record_video(self, record: dict[str, Any]) -> bytes:
-        outputs = record.get("outputs", {})
-        for node_output in outputs.values():
-            for key in ("videos", "images", "gifs"):
-                files = node_output.get(key, [])
-                if files:
-                    first = files[0]
-                    return await self._client.download_image(
-                        filename=first["filename"],
-                        subfolder=first.get("subfolder", ""),
-                        folder_type=first.get("type", "output"),
-                    )
-        raise ComfyUIClientError("ComfyUI history record contained no output video or frames")
-
-
-__all__ = ["LtxVideoExecutor"]

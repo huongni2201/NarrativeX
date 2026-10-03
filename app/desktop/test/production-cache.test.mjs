@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { QueryClient } from "@tanstack/react-query";
+import { refreshProduction, videoProductionQueryKeys, productionPollInterval } from "../src/renderer/features/production/queries/production-cache.ts";
+import { subscribeProjectEvents, isProjectSseActive } from "../src/renderer/features/generation/realtime/project-event-subscription.ts";
+
+test("mutation refresh invalidates production, status and timeline only in its project/chapter", async () => {
+  const client = new QueryClient();
+  const keys = [videoProductionQueryKeys.chapterStatus("p", "c"), videoProductionQueryKeys.chapterProduction("p", "c"), ["projects", "p", "timeline"], videoProductionQueryKeys.chapterProduction("other", "c"), videoProductionQueryKeys.chapterProduction("p", "other")];
+  keys.forEach(key => client.setQueryData(key, {}));
+  await refreshProduction(client, "p", "c");
+  assert.deepEqual(keys.map(key => client.getQueryState(key).isInvalidated), [true, true, true, false, false]);
+  client.clear();
+});
+
+test("SSE reconnect refreshes snapshots, duplicate connected events are balanced and progress stays local", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const client = new QueryClient();
+  let callbacks, unsubscribed = 0;
+  const api = { subscribe(_path, handlers) { callbacks = handlers; return () => unsubscribed++; } };
+  const stop = subscribeProjectEvents(client, "p", api, () => {});
+  callbacks.onEvent({ event: "connected", data: "{}" });
+  callbacks.onEvent({ event: "connected", data: "{}" });
+  assert.equal(isProjectSseActive("p"), true);
+  callbacks.onError(new Error("lost"));
+  assert.equal(isProjectSseActive("p"), false);
+  const production = videoProductionQueryKeys.chapterProduction("p", "c");
+  const other = videoProductionQueryKeys.chapterProduction("other", "c");
+  const ownJob = ["generation", "generation-job", "j"];
+  const otherJob = ["generation", "generation-job", "other"];
+  const story = ["story", "chapter", "p", "c"];
+  const otherStory = ["story", "chapter", "other", "c"];
+  for (const key of [production, other, ownJob, otherJob, story, otherStory]) client.setQueryData(key, {});
+  callbacks.onEvent({ event: "job.updated", data: JSON.stringify({ projectId: "p", jobId: "j", status: "RUNNING", terminal: false }) });
+  assert.equal(client.getQueryState(ownJob).isInvalidated, false);
+  t.mock.timers.tick(250);
+  assert.equal(client.getQueryState(production).isInvalidated, false);
+  assert.equal(client.getQueryState(ownJob).isInvalidated, true);
+  assert.equal(client.getQueryState(otherJob).isInvalidated, false);
+  callbacks.onEvent({ event: "connected", data: "{}" });
+  assert.equal(client.getQueryState(production).isInvalidated, true);
+  assert.equal(client.getQueryState(other).isInvalidated, false);
+  client.setQueryData(production, {});
+  callbacks.onEvent({ event: "job.completed", data: JSON.stringify({ projectId: "p", jobId: "j", status: "COMPLETED", terminal: true, type: "CHAPTER_ANALYZE" }) });
+  assert.equal(client.getQueryState(production).isInvalidated, true);
+  assert.equal(client.getQueryState(story).isInvalidated, true);
+  assert.equal(client.getQueryState(otherStory).isInvalidated, false);
+  stop(); stop();
+  assert.equal(unsubscribed, 1);
+  assert.equal(isProjectSseActive("p"), false);
+  assert.equal(productionPollInterval(false, false), 15_000);
+  assert.equal(productionPollInterval(false, true), false);
+  assert.equal(productionPollInterval(true, false), 3_000);
+  client.clear();
+});

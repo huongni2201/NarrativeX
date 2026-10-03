@@ -22,6 +22,8 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
   List<GenerationJobRow> findJobsDueForReconciliation(
       @Param("now") Instant now, @Param("limit") int limit);
 
+  List<GenerationJobRow> findActiveChapterVideoBatches(@Param("limit") int limit);
+
   AnalysisProgressRow findAnalysisProgressByJobId(@Param("jobId") UUID jobId);
 
   GenerationJobRow findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
@@ -44,7 +46,7 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
        WHERE job_type = 'CHAPTER_GENERATE'
          AND production_mode = 'IMAGE_MOTION'
          AND resource_class = 'PROVIDER_BATCH'
-         AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
+         AND status IN ('QUEUED', 'SUBMITTING', 'SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING', 'STALLED')
       """)
   int countActiveImageJobs();
 
@@ -52,7 +54,17 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
       """
       SELECT COUNT(*)::int
         FROM generation_jobs
-       WHERE status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED')
+       WHERE NOT (job_type = 'CHAPTER_GENERATE' AND production_mode = 'VIDEO_FIRST' AND resource_class = 'BACKGROUND' AND media_plan_id IS NOT NULL)
+         AND status IN ('QUEUED', 'SUBMITTING', 'SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING', 'STALLED')
       """)
   int countActiveJobs();
+
+  @Select(
+      """
+      SELECT COUNT(*)::int FROM generation_jobs
+      WHERE job_type = 'CHAPTER_GENERATE' AND (production_mode = 'VIDEO_FIRST' OR resource_class = 'GPU_HEAVY')
+        AND NOT (resource_class = 'BACKGROUND' AND production_mode = 'VIDEO_FIRST' AND media_plan_id IS NOT NULL)
+        AND status IN ('SUBMITTING', 'SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING', 'STALLED')
+      """)
+  int countActiveVideoExecutions();
 }

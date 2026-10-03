@@ -36,6 +36,8 @@ export type {
   DesktopRenderJobStatus,
   GenerationJob,
   GenerationJobStatus,
+  GenerateShotTakeInput,
+  VideoAudioMode,
   ImageGenerationProvider,
   MediaAspectRatio,
   MediaGenerationItem,

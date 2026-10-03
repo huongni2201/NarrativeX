@@ -1,4 +1,7 @@
 export interface RenderSyncProbe {
+  fps: number;
+  width: number;
+  height: number;
   durationMs: number;
   videoStartMs: number;
   videoDurationMs: number;
@@ -10,12 +13,19 @@ export function validateRenderSync(
   probe: RenderSyncProbe,
   expectedDurationMs: number,
   fps: number,
+  dimensions?: { width: number; height: number },
 ): void {
   if (!Number.isFinite(expectedDurationMs) || expectedDurationMs <= 0) {
     throw new Error("Expected render duration is invalid.");
   }
   if (!Number.isFinite(fps) || fps <= 0) {
     throw new Error("Render frame rate is invalid.");
+  }
+  if (!Number.isFinite(probe.fps) || Math.abs(probe.fps - fps) > 0.000001) {
+    throw new Error("Final video frame rate does not match the render profile.");
+  }
+  if (dimensions && (probe.width !== dimensions.width || probe.height !== dimensions.height)) {
+    throw new Error("Final video dimensions do not match the render profile.");
   }
 
   const frameMs = 1000 / fps;

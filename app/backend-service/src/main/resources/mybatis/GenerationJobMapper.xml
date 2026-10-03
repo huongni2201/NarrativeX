@@ -270,4 +270,11 @@
          ORDER BY next_reconcile_at ASC
          LIMIT #{limit}
     </select>
+    <select id="findActiveChapterVideoBatches" resultMap="generationJobRow">
+      SELECT <include refid="qualifiedColumns"/> FROM generation_jobs j JOIN projects p ON p.id = j.project_id
+      WHERE j.job_type = 'CHAPTER_GENERATE' AND j.production_mode = 'VIDEO_FIRST'
+        AND j.resource_class = 'BACKGROUND' AND j.media_plan_id IS NOT NULL AND p.archived_at IS NULL
+        AND j.status IN ('QUEUED','RUNNING','UNKNOWN','RECONCILING','STALLED')
+      ORDER BY j.updated_at ASC, j.id ASC LIMIT #{limit}
+    </select>
 </mapper>

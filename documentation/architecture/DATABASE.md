@@ -62,17 +62,17 @@ Migration V9 introduces the tables required for video-first, retention-driven pr
 Until the first production deployment:
 
 - The baseline is treated as a development contract optimized for final schema clarity.
-- Schema modifications are folded directly into the owning domain migration (V1–V5), indexes into V6, deterministic seed data into V7, and asynchronous orchestration schema into V8.
+- Schema modifications are folded directly into the owning migration: V1–V5 for the original domains, V8 for asynchronous orchestration, V9 for shot/take production, and V10 for voice profiles. Indexes belong to the owning migration when its tables are created after V6; earlier access paths belong to V6. V7 contains deterministic seed data.
 - Do not create patch migrations that alter or drop schema introduced earlier in the same baseline.
-- When the baseline changes, development and test databases are recreated from scratch.
+- Recreate a development database only after its data has explicitly been confirmed disposable. Source inventory is not evidence that an installed database can be reset.
 - Never place application test content or non-deterministic data in Flyway migrations.
 
 ## Post-Production Append-Only Rule
 
-Immediately prior to the first production release, the V1–V8 baseline is frozen and made immutable. From that point forward:
+Immediately prior to the first production release, freeze the complete baseline present at that release. The current repository inventory is V1–V10; this does not establish the applied versions or freeze status of any installed database. From the freeze point forward:
 
 - Applied migrations must never be modified or deleted.
-- All future schema, index, backfill, and catalog changes must be append-only forward migrations starting at **V9**.
+- All future schema, index, backfill, and catalog changes must be append-only forward migrations after the last frozen version (**V11** if V1–V10 is the frozen baseline).
 - Forward migrations must preserve backward compatibility for active installations.
 
 ## Critical Schema Invariants
@@ -83,6 +83,7 @@ Immediately prior to the first production release, the V1–V8 baseline is froze
 
 2. **Non-Monetary Capacity Limits:**
    - Only CAPACITY and LONGFORM_EXPORT reservation kinds exist.
+   - Standalone shot jobs use GPU_HEAVY/VIDEO_FIRST without a MediaPlan pointer; planned media/image jobs still require the complete MediaPlan pointer. Queue admission and the single active video execution slot are separate checks under the shared advisory lock.
    - No user credit balances, pricing tables, cost estimations, monetary ledger columns, or per-user quota state exist.
 
 3. **Storyboard hierarchy:**
@@ -105,6 +106,7 @@ Immediately prior to the first production release, the V1–V8 baseline is froze
 
 6. **Immutable Snapshots:**
    - `project_render_input_snapshots`, `chapter_continuity_plans`, and `regeneration_plans` are immutable once written.
+   - V9 Take admission stores typed job/task/attempt/OperationPlan links and a frozen input snapshot/fingerprint; a trigger rejects changes to that identity or snapshot. PENDING takes have no fabricated source duration. V2 OperationPlans carry the shot scope and fingerprint. V9 owns Take unique constraints (and their PostgreSQL indexes) because V6 runs before the Take table exists.
    - Project render admission requires a paired `assigned_local_device_id`; there is no server-side Chapter render or cloud render fallback.
 
 ## Verification Commands

@@ -24,7 +24,7 @@ export interface LocalRenderManifest {
   readonly compositionPolicyVersion: 1;
   readonly width: number;
   readonly height: number;
-  readonly fps: 30 | 60;
+  readonly fps: 24 | 30 | 60;
   readonly videoEncoder: VideoEncoder;
   readonly videoQuality: VideoQualityProfile;
   readonly colorMode: RenderColorMode;

@@ -12,6 +12,8 @@ In the video-first pipeline, video editing is distinct from video generation. Ge
 
 The `EditingDirector` compiles an immutable `EditDecisionList` (EDL) from `SelectedTake` entities and the master narration clock (VieNeu).
 
+**IMPLEMENTED renderer check:** Desktop preserves explicit 24/30/60 FPS and rejects unsupported frame rates. Final artifact verification compares probed FPS and dimensions with the immutable render profile on initial completion and recovery. A real FFmpeg regression verifies 1280×720 H.264 with 24 decoded frames for a one-second static segment. Native take-audio assembly and the expanded shot/audio snapshot remain PARTIAL until their integration gates pass.
+
 ---
 
 ## 2. EditDecisionList (EDL) Contract

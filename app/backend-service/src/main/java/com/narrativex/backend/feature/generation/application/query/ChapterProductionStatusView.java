@@ -1,12 +1,12 @@
-package com.narrativex.backend.feature.generation.api.response;
+package com.narrativex.backend.feature.generation.application.query;
 
 import java.util.UUID;
 
 /**
- * Authoritative production status summary for a chapter.
- * Exposes readiness, shot counts by lifecycle status, and overall pipeline progress.
+ * Authoritative production status summary for a chapter. Exposes readiness, shot counts by
+ * lifecycle status, and overall pipeline progress.
  */
-public record ChapterProductionStatusResponse(
+public record ChapterProductionStatusView(
     UUID chapterId,
     boolean storyReady,
     boolean audioReady,

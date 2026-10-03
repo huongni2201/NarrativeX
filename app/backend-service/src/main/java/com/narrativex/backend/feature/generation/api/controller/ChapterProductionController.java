@@ -4,9 +4,9 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.GenerateShotTakeRequest;
 import com.narrativex.backend.feature.generation.api.request.SelectTakeRequest;
 import com.narrativex.backend.feature.generation.api.request.UpdateShotStrategyRequest;
-import com.narrativex.backend.feature.generation.api.response.ChapterProductionResponse;
-import com.narrativex.backend.feature.generation.api.response.ChapterProductionStatusResponse;
 import com.narrativex.backend.feature.generation.api.response.TakeResponse;
+import com.narrativex.backend.feature.generation.application.query.ChapterProductionStatusView;
+import com.narrativex.backend.feature.generation.application.query.ChapterProductionView;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateShotTakeUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetChapterProductionUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.SelectTakeUseCase;
@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,16 +40,16 @@ public class ChapterProductionController {
   private final UpdateShotStrategyUseCase updateShotStrategyUseCase;
 
   @GetMapping("/chapters/{chapterId}/production")
-  public ResponseEntity<ApiResponse<ChapterProductionResponse>> getProduction(
+  public ResponseEntity<ApiResponse<ChapterProductionView>> getProduction(
       @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    ChapterProductionResponse response = getChapterProductionUseCase.execute(projectId, chapterId);
+    ChapterProductionView response = getChapterProductionUseCase.execute(projectId, chapterId);
     return ResponseEntity.ok(ApiResponse.success(response));
   }
 
   @GetMapping("/chapters/{chapterId}/production/status")
-  public ResponseEntity<ApiResponse<ChapterProductionStatusResponse>> getProductionStatus(
+  public ResponseEntity<ApiResponse<ChapterProductionStatusView>> getProductionStatus(
       @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    ChapterProductionStatusResponse response =
+    ChapterProductionStatusView response =
         getChapterProductionUseCase.getStatus(projectId, chapterId);
     return ResponseEntity.ok(ApiResponse.success(response));
   }
@@ -57,6 +58,7 @@ public class ChapterProductionController {
   public ResponseEntity<ApiResponse<TakeResponse>> generateTake(
       @PathVariable UUID projectId,
       @PathVariable UUID shotId,
+      @RequestHeader("Idempotency-Key") String idempotencyKey,
       @Valid @RequestBody(required = false) GenerateShotTakeRequest request) {
     TakeResponse response =
         generateShotTakeUseCase.execute(
@@ -67,7 +69,9 @@ public class ChapterProductionController {
                 request != null ? request.strategy() : null,
                 request != null ? request.seed() : null,
                 request != null ? request.retryFromTakeId() : null,
-                request != null ? request.retryReason() : null));
+                request != null ? request.retryReason() : null,
+                idempotencyKey,
+                request != null ? request.audioMode() : null));
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(response));
   }
 

@@ -323,21 +323,25 @@ async def test_runtime_bounds_executor_runtime_timeout(
 async def test_runtime_bounds_executor_deadline_exceeded(
     tmp_path: Path, compute_task: ComputeTask
 ) -> None:
-    # deadline is short (0.2s), max_runtime_seconds is large (100s)
-    compute_task.constraints.deadline = datetime.now(UTC) + timedelta(milliseconds=200)
+    clock = [datetime.now(UTC)]
+    compute_task.constraints.deadline = clock[0] + timedelta(milliseconds=200)
     compute_task.constraints.max_runtime_seconds = 100
     compute_task.request_fingerprint = request_fingerprint(compute_task)
 
+    executor = FakeExecutor(asyncio.Event())
     runtime = ExecutionApplicationService(
         SqliteExecutionJournalAdapter(tmp_path / "journal.sqlite3"),
-        ExecutorCatalog(
-            (FakeExecutor(asyncio.Event()),),
-        ),
+        ExecutorCatalog((executor,)),
         1,
+        now_fn=lambda: clock[0],
     )
     await runtime.start()
     try:
         await runtime.submit(compute_task)
+        async with asyncio.timeout(1):
+            while executor.last_context is None:
+                await asyncio.sleep(0)
+        clock[0] = compute_task.constraints.deadline + timedelta(milliseconds=1)
         await wait_for_state(runtime, compute_task, ExecutionState.FAILED)
         failed = await runtime.get(compute_task.task_id, compute_task.attempt_id)
         assert failed is not None and failed.error is not None
@@ -489,7 +493,7 @@ async def test_recovery_does_not_false_cancel_ambiguous_attempt(
         await runtime.stop()
 
 
-async def test_timeout_after_dispatch_is_ambiguous_permanent(
+async def test_timeout_after_dispatch_is_held_for_reconciliation(
     tmp_path: Path, compute_task: ComputeTask
 ) -> None:
     compute_task.constraints.max_runtime_seconds = 1
@@ -518,15 +522,18 @@ async def test_timeout_after_dispatch_is_ambiguous_permanent(
     await runtime.start()
     try:
         await runtime.submit(compute_task)
-        await wait_for_state(runtime, compute_task, ExecutionState.FAILED)
-        failed = await runtime.get(compute_task.task_id, compute_task.attempt_id)
-        assert failed is not None and failed.error is not None
-        assert failed.error.code == "EXECUTION_TIMEOUT"
-        assert failed.error.category == ErrorCategory.PERMANENT
+        async with asyncio.timeout(5):
+            while True:
+                held = await runtime.get(compute_task.task_id, compute_task.attempt_id)
+                if held is not None and held.error is not None:
+                    break
+                await asyncio.sleep(0.01)
+        assert held.state == ExecutionState.RUNNING
+        assert held.error.code == "AMBIGUOUS_OUTCOME"
+        assert held.error.category == ErrorCategory.TRANSIENT
         assert (
             await journal.load_submission_state(compute_task.task_id, compute_task.attempt_id)
             == SubmissionState.UNKNOWN
         )
     finally:
         await runtime.stop()
-

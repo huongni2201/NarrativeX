@@ -6,5 +6,6 @@ public enum MediaGenerationExecutionStatus {
   VALIDATING,
   READY,
   FAILED,
+  CANCELED,
   UNKNOWN
 }

@@ -21,4 +21,9 @@ public record TakeResponse(
     String validationRetryRecommendation,
     String status,
     Instant createdAt,
-    UUID jobId) {}
+    UUID jobId) {
+  @com.fasterxml.jackson.annotation.JsonProperty("generationJobId")
+  public UUID generationJobId() {
+    return jobId;
+  }
+}

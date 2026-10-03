@@ -39,12 +39,13 @@ Separate internal submission checkpoints from wire `ExecutionState`:
 ### 3. Recovery Invariants
 
 On worker startup or attempt recovery:
-1. **Deadline Check**: If `constraints.deadline` has elapsed, immediately transition to `FAILED` with code `DEADLINE_EXCEEDED` and category `PERMANENT`.
-2. **Cancellation Check**: If `cancel_requested` is set, transition to `CANCELED`.
-3. **Checkpoint Evaluation**:
-   - `NOT_SUBMITTED`: Resume execution pipeline.
+1. **Checkpoint Evaluation comes first**: An external submission checkpoint cannot be erased by deadline expiry or a local cancellation request.
+2. **Before submission**: `NOT_SUBMITTED` may transition to `FAILED` with `DEADLINE_EXCEEDED` when its deadline has elapsed, or to `CANCELED` when cancellation was requested. Otherwise resume execution.
+3. **After submission intent**:
    - `SUBMITTED`: Pass `existing_execution_handle` to executor to resume polling without resubmitting.
    - `SUBMITTING` / `UNKNOWN`: If the executor adapter supports verifiable lookup/deduplication (e.g., querying ComfyUI history by deterministic prompt/client ID), reconcile. If reconciliation cannot prove non-execution, maintain `UNKNOWN` without creating new external work.
+
+Deadline and runtime limits bound dispatch and individual observation attempts; they do not prove that the external engine stopped. A known handle can be polled with a bounded runtime budget after the original deadline. Cancellation after external submission becomes terminal only with a confirmed outcome or confirmed engine cancellation. An unresolved attempt retains its admission reservation and no-retry fence; when lookup is unavailable, expose reconciliation/manual action instead of inventing failure.
 
 ### 4. Database Migration & Backward Compatibility
 
@@ -59,7 +60,7 @@ Migration of existing records:
 
 ### 5. Wire Protocol Compatibility
 
-Compute Protocol v1 wire states remain `ACCEPTED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`. Internal submission checkpoints remain execution-local. Ambiguous outcomes report current sequenced observations during reconciliation or transient failure with detailed error categories without altering protocol wire specifications.
+Compute Protocol v1 wire states remain `ACCEPTED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`. Internal submission checkpoints remain execution-local. Ambiguous outcomes report nonterminal `RUNNING` observations with bounded `AMBIGUOUS_OUTCOME` diagnostics (`TRANSIENT` category); this category does not authorize a new attempt. Polling a stored handle may resolve the same attempt without another submission.
 
 ## Consequences
 

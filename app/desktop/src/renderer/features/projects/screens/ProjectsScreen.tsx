@@ -1,12 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
-  Clapperboard,
-  Film,
-  Layers,
   Plus,
   RefreshCw,
   Search,
-  Sparkles,
   Star,
   Trash2,
 } from "lucide-react";
@@ -14,24 +10,12 @@ import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-cont
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogCloseButton,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
+
+import { CreateProjectDialog, DeleteProjectDialog } from "../components/ProjectDialogs";
+import { FeaturePage } from "../../workspace/components/FeaturePage";
+import { ProjectsEmptyState } from "../components/ProjectsEmptyState";
 import { ProjectCard } from "../components/ProjectCard";
 import {
   useCreateProject,
@@ -40,17 +24,6 @@ import {
   useToggleProjectFavorite,
 } from "../queries/projects.queries";
 import { useProjectSessionStore } from "../store/project-session.store";
-
-const ASPECT_RATIOS: ReadonlyArray<{
-  value: ProjectAspectRatio;
-  label: string;
-}> = [
-  { value: "16:9", label: "16:9 · Ngang" },
-  { value: "9:16", label: "9:16 · Dọc" },
-  { value: "1:1", label: "1:1 · Vuông" },
-  { value: "4:3", label: "4:3 · Ngang cổ điển" },
-  { value: "3:4", label: "3:4 · Dọc cổ điển" },
-];
 
 export function ProjectsScreen() {
   const navigate = useNavigate();
@@ -216,148 +189,10 @@ export function ProjectsScreen() {
         )}
 
         {projectCount === 0 ? (
-          /* Creative Studio Launchpad for Empty State on 24-inch Screens */
-          <div className="mx-auto max-w-5xl py-4 sm:py-6">
-            {/* Hero Launchpad Card */}
-            <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-surface-elevated/90 via-surface-panel/80 to-surface-dark/95 p-8 sm:p-10 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7)] backdrop-blur-sm">
-              <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 size-72 rounded-full bg-primary/15 blur-3xl" />
-
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="mb-4 inline-flex size-14 items-center justify-center rounded-2xl border border-primary/30 bg-primary-muted text-primary shadow-lg shadow-primary/20">
-                  <Sparkles size={28} />
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                  Chào mừng đến với NarrativeX Studio
-                </h2>
-                <p className="mt-2.5 max-w-xl text-[14px] leading-relaxed text-text-muted">
-                  Không gian làm việc kịch bản, nhân vật, hình ảnh AI và dựng video tự động. Khởi tạo project để bắt đầu workflow trên desktop.
-                </p>
-
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                  <Button size="lg" className="shadow-primary px-6 text-[14px]" onClick={() => setIsCreating(true)}>
-                    <Plus size={16} /> Tạo project mới
-                  </Button>
-                  <Button variant="outline" size="lg" className="px-5 text-[14px]" onClick={() => void projects.refetch()}>
-                    <RefreshCw size={14} /> Tải lại danh sách
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick-Start Aspect Ratio Starter Templates */}
-            <div className="mt-8">
-              <div className="mb-3.5">
-                <h3 className="text-[14px] font-semibold text-foreground">Bắt đầu nhanh theo định dạng khung hình</h3>
-                <p className="text-[12px] text-text-muted">Chọn định dạng video phù hợp để khởi tạo project ngay lập tức.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* 16:9 Card */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageAspectRatio("16:9");
-                    setIsCreating(true);
-                  }}
-                  className="group flex flex-col rounded-xl border border-border bg-surface-card p-5 text-left transition-all duration-200 hover:border-primary/50 hover:bg-surface-2 hover:shadow-lg cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex size-10 items-center justify-center rounded-lg border border-border-subtle bg-surface-dark text-text-secondary group-hover:border-primary/40 group-hover:text-primary">
-                      <Film size={20} />
-                    </div>
-                    <span className="rounded-md border border-border-subtle bg-surface-dark px-2 py-0.5 font-mono text-[11px] font-semibold text-text-secondary">
-                      16:9
-                    </span>
-                  </div>
-                  <strong className="mt-3.5 text-[15px] font-semibold text-foreground group-hover:text-primary transition-colors">
-                    Video Ngang Cinematic
-                  </strong>
-                  <p className="mt-1 text-[12.5px] leading-relaxed text-text-muted">
-                    Tối ưu cho YouTube, phim ngắn, tài liệu diễn họa và màn hình ngang tiêu chuẩn.
-                  </p>
-                </button>
-
-                {/* 9:16 Card */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageAspectRatio("9:16");
-                    setIsCreating(true);
-                  }}
-                  className="group flex flex-col rounded-xl border border-border bg-surface-card p-5 text-left transition-all duration-200 hover:border-primary/50 hover:bg-surface-2 hover:shadow-lg cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex size-10 items-center justify-center rounded-lg border border-border-subtle bg-surface-dark text-text-secondary group-hover:border-primary/40 group-hover:text-primary">
-                      <Clapperboard size={20} />
-                    </div>
-                    <span className="rounded-md border border-border-subtle bg-surface-dark px-2 py-0.5 font-mono text-[11px] font-semibold text-text-secondary">
-                      9:16
-                    </span>
-                  </div>
-                  <strong className="mt-3.5 text-[15px] font-semibold text-foreground group-hover:text-primary transition-colors">
-                    Video Dọc Shorts & Reels
-                  </strong>
-                  <p className="mt-1 text-[12.5px] leading-relaxed text-text-muted">
-                    Tối ưu cho TikTok, YouTube Shorts và Instagram Reels với phụ đề dynamic.
-                  </p>
-                </button>
-
-                {/* 1:1 Card */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageAspectRatio("1:1");
-                    setIsCreating(true);
-                  }}
-                  className="group flex flex-col rounded-xl border border-border bg-surface-card p-5 text-left transition-all duration-200 hover:border-primary/50 hover:bg-surface-2 hover:shadow-lg cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex size-10 items-center justify-center rounded-lg border border-border-subtle bg-surface-dark text-text-secondary group-hover:border-primary/40 group-hover:text-primary">
-                      <Layers size={20} />
-                    </div>
-                    <span className="rounded-md border border-border-subtle bg-surface-dark px-2 py-0.5 font-mono text-[11px] font-semibold text-text-secondary">
-                      1:1 / 4:3
-                    </span>
-                  </div>
-                  <strong className="mt-3.5 text-[15px] font-semibold text-foreground group-hover:text-primary transition-colors">
-                    Khung Vuông & Cổ Điển
-                  </strong>
-                  <p className="mt-1 text-[12.5px] leading-relaxed text-text-muted">
-                    Phù hợp cho mạng xã hội, poster nghệ thuật, visual podcast và phong cách retro.
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Workflow Steps Infographic */}
-            <div className="mt-8 rounded-xl border border-border-subtle bg-surface-dark/40 p-5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-dim">Quy trình sản xuất 3 bước</span>
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[12.5px]">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-[12px]">1</span>
-                  <div>
-                    <strong className="block text-foreground font-medium">Soạn kịch bản & phân tích</strong>
-                    <span className="text-text-muted text-[12px]">Tự động tách cảnh, trích xuất nhân vật và định hình bối cảnh.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-[12px]">2</span>
-                  <div>
-                    <strong className="block text-foreground font-medium">Duyệt Canon & giọng đọc</strong>
-                    <span className="text-text-muted text-[12px]">Khoá diện mạo nhân vật và thiết lập giọng đọc lồng tiếng chuẩn xác.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-[12px]">3</span>
-                  <div>
-                    <strong className="block text-foreground font-medium">Visual Beats & Render</strong>
-                    <span className="text-text-muted text-[12px]">Sinh ảnh AI theo nhịp thời gian narration và xuất video thành phẩm.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ProjectsEmptyState onCreate={(ratio) => {
+            if (ratio) setImageAspectRatio(ratio);
+            setIsCreating(true);
+          }} onRefresh={() => void projects.refetch()} />
         ) : filteredProjects.length === 0 ? (
           <div className="grid min-h-60 place-items-center text-center">
             <div className="max-w-sm rounded-xl border border-border bg-surface-card p-6">
@@ -439,170 +274,12 @@ export function ProjectsScreen() {
         )}
       </FeaturePage>
 
-      <Dialog
-        open={isCreating}
-        onOpenChange={(open) => {
-          if (!open && !createProject.isPending) setIsCreating(false);
-        }}
-      >
-        <DialogContent
-          className="w-[min(680px,calc(100vw-32px))] gap-5 bg-surface-panel p-6"
-          aria-describedby="create-project-description"
-        >
-          <DialogCloseButton disabled={createProject.isPending} />
-          <DialogHeader className="pr-6 text-left">
-            <DialogTitle className="text-[18px] font-bold text-foreground">Create project</DialogTitle>
-            <DialogDescription id="create-project-description" className="text-[13px] leading-relaxed text-text-muted">
-              Khởi tạo workspace mới rồi mở thẳng vào Editor.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form className="grid gap-4" onSubmit={submitProject}>
-            <div className="grid gap-4 md:grid-cols-[minmax(240px,1.2fr)_minmax(200px,.8fr)]">
-              <label className="grid gap-2 text-[12px] font-medium text-text-secondary">
-                <span>Tên project</span>
-                <Input
-                  autoFocus
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={160}
-                  placeholder="My next story"
-                  className="h-10 text-[13.5px]"
-                />
-              </label>
-              <div className="grid content-start gap-2 text-[12px] font-medium text-text-secondary">
-                <label htmlFor="project-aspect-ratio">Khung hình</label>
-                <div className="grid grid-cols-5 gap-1.5 mb-1">
-                  {ASPECT_RATIOS.map((ratio) => {
-                    const isSelected = imageAspectRatio === ratio.value;
-                    return (
-                      <button
-                        key={ratio.value}
-                        type="button"
-                        onClick={() => setImageAspectRatio(ratio.value)}
-                        className={`group flex flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-center transition-all cursor-pointer ${
-                          isSelected
-                            ? "border-primary bg-primary/10 text-primary shadow-xs"
-                            : "border-border-subtle bg-surface-dark text-text-muted hover:border-border hover:bg-surface-3 hover:text-text-secondary"
-                        }`}
-                        title={ratio.label}
-                      >
-                        <div className="flex h-5 items-center justify-center">
-                          <div
-                            className={`rounded-xs border transition-colors ${
-                              isSelected
-                                ? "border-primary bg-primary/25"
-                                : "border-border-subtle bg-surface-2 group-hover:border-border"
-                            }`}
-                            style={{
-                              width: ratio.value === "16:9" ? "22px" : ratio.value === "9:16" ? "12px" : ratio.value === "1:1" ? "16px" : ratio.value === "4:3" ? "20px" : "15px",
-                              height: ratio.value === "16:9" ? "12px" : ratio.value === "9:16" ? "20px" : ratio.value === "1:1" ? "16px" : ratio.value === "4:3" ? "15px" : "19px",
-                            }}
-                          />
-                        </div>
-                        <span className="font-mono text-[10px] font-semibold">{ratio.value}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <Select
-                  value={imageAspectRatio}
-                  onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}
-                >
-                  <SelectTrigger id="project-aspect-ratio" className="w-full h-10 text-[13px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ASPECT_RATIOS.map((ratio) => (
-                      <SelectItem key={ratio.value} value={ratio.value}>
-                        {ratio.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <label className="grid gap-2 text-[12px] font-medium text-text-secondary md:col-span-2">
-                <span>Mô tả (tuỳ chọn)</span>
-                <Textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  maxLength={2000}
-                  placeholder="Mô tả tóm tắt về nội dung dự án..."
-                  className="min-h-24"
-                />
-              </label>
-            </div>
-
-            {createProject.isError && (
-              <p className="m-0 border-l-2 border-danger bg-danger-bg px-3 py-2 text-[12px] text-danger" role="alert">
-                {createProject.error.message}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-3 border-t border-border-subtle pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="default"
-                disabled={createProject.isPending}
-                onClick={() => setIsCreating(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="default" disabled={createProject.isPending || !name.trim()}>
-                {createProject.isPending ? "Creating…" : "Create project"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={projectToDelete !== null}
-        onOpenChange={(open) => {
-          if (!open && !deleteProject.isPending) setProjectToDelete(null);
-        }}
-      >
-        <DialogContent
-          className="w-[min(460px,calc(100vw-32px))] gap-4 bg-surface-panel p-6"
-          aria-describedby="delete-project-description"
-        >
-          <DialogCloseButton disabled={deleteProject.isPending} />
-          <DialogHeader className="pr-6 text-left">
-            <DialogTitle className="text-[16px] font-bold text-foreground">Xoá project?</DialogTitle>
-            <DialogDescription id="delete-project-description" className="text-[13px] leading-relaxed text-text-muted">
-              Project <strong className="font-semibold text-foreground">{projectToDelete?.name}</strong>{" "}
-              sẽ biến mất khỏi workspace. Dữ liệu local vẫn được giữ lại để backup hoặc khôi phục.
-            </DialogDescription>
-          </DialogHeader>
-
-          {deleteProject.isError && (
-            <p className="m-0 border-l-2 border-danger bg-danger-bg px-3 py-2 text-[12px] text-danger" role="alert">
-              Không thể xoá project: {deleteProject.error.message}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3 border-t border-border-subtle pt-4">
-            <Button
-              variant="outline"
-              size="default"
-              disabled={deleteProject.isPending}
-              onClick={() => setProjectToDelete(null)}
-            >
-              Huỷ
-            </Button>
-            <Button
-              variant="destructive"
-              size="default"
-              disabled={deleteProject.isPending}
-              onClick={confirmDeleteProject}
-            >
-              <Trash2 size={14} />
-              {deleteProject.isPending ? "Đang xoá…" : "Xoá project"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CreateProjectDialog open={isCreating} onOpenChange={setIsCreating}
+        name={name} setName={setName} description={description} setDescription={setDescription}
+        imageAspectRatio={imageAspectRatio} setImageAspectRatio={setImageAspectRatio}
+        isPending={createProject.isPending} error={createProject.error} onSubmit={submitProject} />
+      <DeleteProjectDialog project={projectToDelete} onClose={() => setProjectToDelete(null)}
+        isPending={deleteProject.isPending} error={deleteProject.error} onConfirm={confirmDeleteProject} />
     </>
   );
 }

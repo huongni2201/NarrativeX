@@ -1,8 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import com.narrativex.backend.feature.common.hashing.Sha256;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -111,17 +109,7 @@ public class SourceAnchorResolver {
     if (sourceHash != null && SHA256_HEX_PATTERN.matcher(sourceHash).matches()) {
       return sourceHash;
     }
-    return sha256Hex(normalizedSource);
-  }
-
-  private static String sha256Hex(String value) {
-    try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-      return java.util.HexFormat.of().formatHex(digest);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
-    }
+    return Sha256.hexUtf8(normalizedSource);
   }
 
   private record SourceAnchorJsonPayload(int textStart, int textEnd, String sourceHash) {}

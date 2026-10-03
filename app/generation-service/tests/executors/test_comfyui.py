@@ -11,10 +11,10 @@ import pytest
 
 from narrativex_gpu_worker.adapters.executors.comfyui.client import (
     ComfyUIClient,
-    ComfyUIClientError,
 )
 from narrativex_gpu_worker.adapters.executors.comfyui.executor import ComfyUIExecutor
 from narrativex_gpu_worker.application.errors import (
+    AmbiguousOutcomeError,
     ExecutionCanceledError,
     MissingDurableContextError,
 )
@@ -240,7 +240,7 @@ async def test_comfyui_client_error_redacts_sensitive_payload() -> None:
     client = httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8188")
     comfy_client = ComfyUIClient(client=client)
 
-    with pytest.raises(ComfyUIClientError) as exc_info:
+    with pytest.raises(AmbiguousOutcomeError) as exc_info:
         await comfy_client.submit_prompt(
             workflow={"prompt": "SECRET_PROMPT_TEXT"}, client_id="test"
         )
@@ -310,7 +310,7 @@ async def test_comfyui_executor_cancellation_during_poll_records_handle_and_skip
     assert recorded_handle == "comfyui:comfy-cancel-123"
     cancel.set()
 
-    with pytest.raises(ExecutionCanceledError):
+    with pytest.raises(AmbiguousOutcomeError):
         await task_coro
 
     artifact_adapter.upload.assert_not_called()
@@ -324,5 +324,3 @@ async def test_comfyui_client_wait_for_completion_fallback_to_history() -> None:
     record = await client.wait_for_completion("comfy-test-123", "test-client", cancel)
     assert record["status"]["completed"] is True
     assert any("/history/comfy-test-123" in req["url"] for req in requests_log)
-
-

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.narrativex.backend.feature.common.domain.exception.DomainConflictException;
 import com.narrativex.backend.feature.common.exception.InvalidDeviceCredentialsException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -74,6 +75,26 @@ class ApiExceptionHandlerTest {
     assertEquals(409, error.status());
     assertEquals("CAPACITY_LIMIT", error.code());
     assertEquals("corr-test-123", error.correlationId());
+  }
+
+  @Test
+  void commonConflictUsesItsOwnCodeWithoutKnowingFeatureSubtypes() {
+    var conflict =
+        new DomainConflictException("Capacity exhausted") {
+          public String getCode() {
+            return "CAPACITY_LIMIT";
+          }
+        };
+    var error = body(handler.handleDomainConflict(conflict, request));
+    assertEquals("CAPACITY_LIMIT", error.code());
+    assertEquals(409, error.status());
+    assertEquals("Capacity exhausted", error.message());
+    assertEquals("corr-test-123", error.correlationId());
+    assertEquals(
+        "RESOURCE_CONFLICT",
+        body(handler.handleDomainConflict(
+                new GenerationAdmissionDeniedException("UNKNOWN_REASON", "Held"), request))
+            .code());
   }
 
   @Test

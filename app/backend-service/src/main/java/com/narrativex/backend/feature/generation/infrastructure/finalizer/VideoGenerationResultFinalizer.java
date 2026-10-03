@@ -174,7 +174,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
     if (takeMapper != null) {
       List<TakeRow> takes = takeMapper.findByJobId(job.getJobId().toString());
       if (takes.isEmpty()) {
-        TakeRow byTaskId = takeMapper.findByTaskId(taskId.toString());
+        TakeRow byTaskId = takeMapper.findByTaskId(taskId);
         if (byTaskId != null) {
           takes = List.of(byTaskId);
         }
@@ -243,9 +243,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
                 shotMapper.updateStatus(take.getShotId(), "SELECTED");
               }
               log.info(
-                  "Auto-selected first PASSED take {} for shot {}",
-                  take.getId(),
-                  take.getShotId());
+                  "Auto-selected first PASSED take {} for shot {}", take.getId(), take.getShotId());
             }
           }
         } else {
