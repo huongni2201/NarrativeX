@@ -75,13 +75,49 @@ export function WorkspaceShell({
         </div>
 
         <div className="flex shrink-0 items-center gap-3.5">
-          <ComputeStatusIndicator status="Ready" />
-          <JobStatusIndicator projectId={projectId} activeCount={0} />
+          <ComputeStatusIndicator />
+          <JobStatusIndicator projectId={projectId} />
 
-          <span className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success-bg px-3 py-1 text-[12px] font-medium text-success">
-            <span className="size-2 rounded-full bg-success animate-pulse" aria-hidden="true" />
-            {workspace.status || "Ready"}
-          </span>
+          {(() => {
+            const statusConfig = {
+              loading: {
+                colorClass: "border-border-subtle bg-surface-2 text-text-muted",
+                dotClass: "bg-text-muted animate-pulse",
+                label: "Loading",
+              },
+              ready: {
+                colorClass: "border-success/20 bg-success-bg text-success",
+                dotClass: "bg-success animate-pulse",
+                label: "Ready",
+              },
+              partial: {
+                colorClass: "border-warning/30 bg-warning-bg text-warning",
+                dotClass: "bg-warning",
+                label: "Partial",
+              },
+              error: {
+                colorClass: "border-destructive/30 bg-danger-bg text-destructive",
+                dotClass: "bg-destructive",
+                label: "Error",
+              },
+              empty: {
+                colorClass: "border-border-subtle bg-surface-2 text-text-secondary",
+                dotClass: "bg-text-dim",
+                label: "Empty",
+              },
+            }[workspace.status ?? "ready"] ?? {
+              colorClass: "border-success/20 bg-success-bg text-success",
+              dotClass: "bg-success animate-pulse",
+              label: "Ready",
+            };
+
+            return (
+              <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium ${statusConfig.colorClass}`}>
+                <span className={`size-2 rounded-full ${statusConfig.dotClass}`} aria-hidden="true" />
+                {statusConfig.label}
+              </span>
+            );
+          })()}
         </div>
       </header>
 

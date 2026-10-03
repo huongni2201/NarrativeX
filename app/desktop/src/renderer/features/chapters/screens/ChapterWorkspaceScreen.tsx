@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   FileText,
   Compass,
@@ -49,6 +49,16 @@ export function ChapterWorkspaceScreen({
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     chapters[0]?.id ?? null
   );
+
+  useEffect(() => {
+    if (chapters.length > 0) {
+      if (!selectedChapterId || !chapters.some((c) => c.id === selectedChapterId)) {
+        setSelectedChapterId(chapters[0].id);
+      }
+    } else if (selectedChapterId) {
+      setSelectedChapterId(null);
+    }
+  }, [chapters, selectedChapterId]);
   const [currentStage, setCurrentStage] = useState<ChapterStage>(initialStage);
   const [selectedBeatId, setSelectedBeatId] = useState<string | null>(null);
 
@@ -144,7 +154,6 @@ export function ChapterWorkspaceScreen({
       request: {
         productionMode: "VIDEO_FIRST",
         visualGenerationMode: "VIDEO",
-        aspectRatio: "16:9",
       },
       idempotencyKey,
     });
@@ -276,8 +285,10 @@ export function ChapterWorkspaceScreen({
 
           {currentStage === "production" && (
             <ChapterProductionStage
+              projectId={projectId}
               chapter={activeChapter}
               story={story ?? null}
+              timeline={timeline}
               productionStatus={productionStatus.data ?? null}
               activeGenerationJob={generationJob.data ?? null}
               onGenerateVideoShots={handleGenerateVideoShots}

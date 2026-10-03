@@ -16,13 +16,23 @@ public class VideoGenerationProperties implements VideoGenerationCatalog {
   private String defaultProvider = "ltx";
   private String defaultModel = "ltx-2.5-nvfp4";
   private String defaultQualityProfile = "720p_24fps_standard";
+  private String defaultProfile = "ltx-2.5-22b-distilled-int8-native-av-v1";
   private String modelRevision = "1.0";
   private String workflowRevision = "video.generate:1.0";
   private List<GenerationStrategy> supportedStrategies =
-      List.of(
-          GenerationStrategy.TEXT_TO_VIDEO,
-          GenerationStrategy.IMAGE_TO_VIDEO,
-          GenerationStrategy.FIRST_LAST_FRAME);
+      List.of(GenerationStrategy.TEXT_TO_VIDEO);
+
+  @Override
+  public String defaultProfile() {
+    return defaultProfile;
+  }
+
+  @Override
+  public List<GenerationStrategy> supportedStrategies() {
+    return supportedStrategies != null && !supportedStrategies.isEmpty()
+        ? supportedStrategies
+        : List.of(GenerationStrategy.TEXT_TO_VIDEO);
+  }
 
   @Override
   public String modelRevision() {

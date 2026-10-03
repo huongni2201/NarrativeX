@@ -143,3 +143,25 @@ export interface MediaReviewInput {
   decision: "APPROVED" | "REJECTED";
   rowVersion: number;
 }
+
+export interface ResolutionProfile {
+  width: number;
+  height: number;
+  fps: number;
+}
+
+export interface VideoRuntimeCapability {
+  available: boolean;
+  provider: string;
+  model: string;
+  profile: string;
+  strategies: GenerationStrategy[];
+  supportedAspectRatios: string[];
+  resolutionProfiles: ResolutionProfile[];
+  audioModes: string[];
+}
+
+export interface RuntimeCapabilityView {
+  videoGeneration: VideoRuntimeCapability;
+}
+

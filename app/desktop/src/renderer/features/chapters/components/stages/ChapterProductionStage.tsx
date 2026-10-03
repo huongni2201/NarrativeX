@@ -1,30 +1,34 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { productionStageStatus } from "../../model/production-stage-status";
 import {
   Sparkles,
   Volume2,
-  CheckCircle2,
-  AlertTriangle,
   Film,
   Clock,
-  ChevronDown,
-  ChevronRight,
   UserCheck,
   ShieldCheck,
-  Check,
 } from "lucide-react";
 import type {
   ChapterProductionStatus,
   DesktopChapterDetails,
   DesktopChapterStory,
-  DesktopShot,
   DesktopStoryBeat,
+  DesktopTimeline,
+  DesktopTimelineBeat,
   GenerationJob,
 } from "@narrativex/client-contracts";
+import type {
+  StoryboardVisualBeat,
+  VisualBeatReviewStatus,
+} from "../../../storyboard/api/storyboard.api";
+import { VideoShotboard } from "../../../storyboard/components/VideoShotboard";
+import { useUpdateStoryBeatReviewStatus } from "../../../story/queries/story.queries";
 
 export interface ChapterProductionStageProps {
+  projectId?: string;
   chapter: DesktopChapterDetails | null;
   story: DesktopChapterStory | null;
+  timeline?: DesktopTimeline | null;
   productionStatus?: ChapterProductionStatus | null;
   activeGenerationJob?: GenerationJob | null;
   onGenerateVideoShots?: () => void;
@@ -32,14 +36,57 @@ export interface ChapterProductionStageProps {
 }
 
 export function ChapterProductionStage({
+  projectId = "",
   chapter,
   story,
+  timeline,
   productionStatus,
   activeGenerationJob: _activeGenerationJob,
   onGenerateVideoShots,
   isGenerating = false,
 }: ChapterProductionStageProps) {
-  const [expandedBeatIds, setExpandedBeatIds] = useState<Record<string, boolean>>({});
+  const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
+  const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
+
+  const updateBeatReview = useUpdateStoryBeatReviewStatus(projectId, chapter?.id ?? "");
+
+  const allBeats: DesktopStoryBeat[] = useMemo(
+    () => (story ? story.scenes.flatMap((s) => s.storyBeats) : []),
+    [story]
+  );
+
+  const visualBeats: StoryboardVisualBeat[] = useMemo(() => {
+    return allBeats.flatMap((b) =>
+      b.visualBeats.map((vb) => ({
+        id: vb.id,
+        sceneId: vb.sceneId,
+        orderIndex: vb.orderIndex,
+        title: vb.title,
+        visualIntent: vb.visualIntent,
+        visualDirectionJson: vb.visualDirectionJson ?? null,
+        prompt: vb.prompt ?? null,
+        motionMode: vb.motionMode ?? "DYNAMIC",
+        reviewStatus: (vb.reviewStatus === "APPROVED" ? "APPROVED" : "NEEDS_REVIEW") as VisualBeatReviewStatus,
+        aspectRatioOverride: vb.aspectRatioOverride ?? null,
+        previewMediaAssetId: vb.previewMediaAssetId ?? null,
+        dramaticIntent: vb.dramaticIntent ?? null,
+        emotion: vb.emotion ?? null,
+        retentionRole: vb.retentionRole ?? null,
+        shotSequence: vb.shotSequence ?? null,
+        rowVersion: vb.rowVersion,
+      }))
+    );
+  }, [allBeats]);
+
+  const timelineBeats = useMemo(() => {
+    const map = new Map<string, DesktopTimelineBeat>();
+    if (timeline?.beats) {
+      for (const b of timeline.beats) {
+        map.set(b.id, b);
+      }
+    }
+    return map;
+  }, [timeline]);
 
   if (!chapter || !story) {
     return (
@@ -52,18 +99,52 @@ export function ChapterProductionStage({
     );
   }
 
-  const allBeats: DesktopStoryBeat[] = story.scenes.flatMap((s) => s.storyBeats);
-  const totalBeats = allBeats.length;
+  const {
+    audioReady,
+    totalShots,
+    shotsGeneratedCount,
+    qcPassedCount,
+    editorReady,
+    generationReady,
+    overallProgressPercent,
+    voiceReady,
+  } = productionStageStatus(productionStatus);
 
-  // 3. Video Shot Generation
-  const allShots: DesktopShot[] = allBeats
-    .flatMap((b) => b.visualBeats)
-    .flatMap((v) => v.shotSequence?.shots ?? []);
+  const handleReview = (beat: StoryboardVisualBeat, status: VisualBeatReviewStatus) => {
+    updateBeatReview.mutate({
+      storyBeatId: beat.id,
+      status,
+      rowVersion: beat.rowVersion,
+    });
+  };
 
-  const { audioReady, totalShots, shotsGeneratedCount, qcPassedCount, editorReady, generationReady, overallProgressPercent, voiceReady } = productionStageStatus(productionStatus);
+  const handleCopyPrompt = (beat: StoryboardVisualBeat) => {
+    if (beat.prompt) {
+      void navigator.clipboard.writeText(beat.prompt);
+      setCopiedPromptBeatId(beat.id);
+      setTimeout(() => setCopiedPromptBeatId(null), 2000);
+    }
+  };
 
-  const toggleBeatExpand = (beatId: string) => {
-    setExpandedBeatIds((prev) => ({ ...prev, [beatId]: !prev[beatId] }));
+  const handleImport = async (beat: StoryboardVisualBeat) => {
+    setMediaBusyBeatId(beat.id);
+    try {
+      if (window.narrativex?.dialog?.showOpenDialog) {
+        const result = await window.narrativex.dialog.showOpenDialog({
+          title: `Chọn media thay thế cho ${beat.title}`,
+          filters: [{ name: "Video / Image", extensions: ["mp4", "webm", "png", "jpg", "jpeg"] }],
+          properties: ["openFile"],
+        });
+        if (!result.canceled && result.filePaths.length > 0) {
+          const filePath = result.filePaths[0];
+          await window.narrativex.localProjects.importMedia(projectId, filePath);
+        }
+      }
+    } catch {
+      // Handled silently
+    } finally {
+      setMediaBusyBeatId(null);
+    }
   };
 
   return (
@@ -187,246 +268,22 @@ export function ChapterProductionStage({
         </div>
       </div>
 
-      {/* Beats & Video Shots Control List */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3">
-        <h4 className="text-[12px] font-semibold uppercase tracking-wider text-text-muted mb-2 px-1">
-          Danh sách điều khiển StoryBeats & Video Shots ({totalBeats} beats)
-        </h4>
-
-        {allBeats.map((beat) => {
-          const hasAudio = beat.audioCues.length > 0;
-          const isAudioAligned = beat.timing.durationMs !== null;
-          const visualBeats = beat.visualBeats;
-          const shots = visualBeats.flatMap((v) => v.shotSequence?.shots ?? []);
-          const isExpanded = Boolean(expandedBeatIds[beat.id]);
-
-          return (
-            <div
-              key={beat.id}
-              className="rounded-lg border border-border-subtle bg-surface overflow-hidden transition-colors hover:border-border"
-            >
-              {/* Beat Row Header */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleBeatExpand(beat.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleBeatExpand(beat.id);
-                  }
-                }}
-                className="flex items-center justify-between p-3 cursor-pointer select-none bg-surface-panel/40 hover:bg-surface-panel/70"
-              >
-                <div className="flex items-center gap-3 min-w-0 max-w-[45%]">
-                  {isExpanded ? (
-                    <ChevronDown size={16} className="text-text-muted shrink-0" />
-                  ) : (
-                    <ChevronRight size={16} className="text-text-muted shrink-0" />
-                  )}
-                  <span className="font-mono text-[11px] font-bold text-primary shrink-0">
-                    #{beat.orderIndex + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <span className="text-[13px] font-semibold text-foreground truncate block">
-                      {beat.title || beat.purpose || `Beat #${beat.orderIndex + 1}`}
-                    </span>
-                    <span className="text-[11px] text-text-muted truncate block">
-                      {beat.summary}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-5 text-[12px]">
-                  {/* Audio Status */}
-                  <div className="flex items-center gap-1.5">
-                    <Volume2
-                      size={14}
-                      className={hasAudio ? "text-info" : "text-text-dim"}
-                    />
-                    <span
-                      className={
-                        hasAudio ? "text-foreground font-medium" : "text-text-muted"
-                      }
-                    >
-                      {hasAudio ? (isAudioAligned ? "Audio OK" : "Chờ Align") : "Thiếu Audio"}
-                    </span>
-                  </div>
-
-                  {/* Video Shots Count */}
-                  <div className="flex items-center gap-1.5">
-                    <Film
-                      size={14}
-                      className={shots.length > 0 ? "text-primary" : "text-text-dim"}
-                    />
-                    <span className="font-mono">
-                      {shots.filter((s) => Boolean(s.selectedTake)).length} / {shots.length} Takes
-                    </span>
-                  </div>
-
-                  {/* Review Badge */}
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${
-                      beat.reviewStatus === "APPROVED"
-                        ? "border-success/30 bg-success-bg text-success"
-                        : "border-warning/30 bg-warning-bg text-warning"
-                    }`}
-                  >
-                    {beat.reviewStatus === "APPROVED" ? (
-                      <CheckCircle2 size={11} />
-                    ) : (
-                      <AlertTriangle size={11} />
-                    )}
-                    <span>{beat.reviewStatus === "APPROVED" ? "Hoàn tất" : "Cần duyệt"}</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Collapsible Shot Detail Area */}
-              {isExpanded && (
-                <div className="p-3 border-t border-border-subtle bg-surface-dark/30 space-y-3">
-                  {/* Audio Cues preview */}
-                  {beat.audioCues.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
-                        Lời thoại & Audio Cues:
-                      </span>
-                      <div className="space-y-1">
-                        {beat.audioCues.map((cue) => (
-                          <div
-                            key={cue.id}
-                            className="text-[12px] rounded bg-surface px-2.5 py-1.5 border border-border-subtle flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2 truncate">
-                              <span className="font-semibold text-primary">
-                                {cue.speakerName || "Người dẫn chuyện"}:
-                              </span>
-                              <span className="italic text-text-secondary truncate">
-                                "{cue.adaptedText}"
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-mono text-text-dim shrink-0">
-                              {cue.cueType}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Planned Video Shots & Takes */}
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
-                      Video Shots (Kế hoạch cảnh quay LTX):
-                    </span>
-                    {shots.length === 0 ? (
-                      <div className="text-[12px] text-text-muted italic p-2 bg-surface rounded border border-border-subtle">
-                        Chưa có cảnh quay nào được phân bổ cho StoryBeat này.
-                      </div>
-                    ) : (
-                      shots.map((shot) => (
-                        <div
-                          key={shot.id}
-                          className="rounded border border-border-subtle bg-surface p-2.5 space-y-2"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-[11px] font-bold text-foreground">
-                                Shot #{shot.orderIndex + 1}
-                              </span>
-                              {shot.retentionRole && (
-                                <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-mono text-primary font-medium">
-                                  {shot.retentionRole}
-                                </span>
-                              )}
-                              <span className="text-[12px] text-foreground font-medium">
-                                {shot.narrativePurpose}
-                              </span>
-                            </div>
-
-                            <span
-                              className={`rounded px-2 py-0.5 text-[10px] font-mono font-medium uppercase border ${
-                                shot.status === "SELECTED" || shot.status === "PASSED"
-                                  ? "border-success/30 bg-success-bg text-success"
-                                  : shot.status === "GENERATING"
-                                  ? "border-info/30 bg-info-bg text-info"
-                                  : "border-border-subtle bg-surface-2 text-text-muted"
-                              }`}
-                            >
-                              {shot.status}
-                            </span>
-                          </div>
-
-                          {/* Camera & Motion Meta */}
-                          <div className="flex items-center gap-4 text-[11px] text-text-muted font-mono">
-                            <span>Thời lượng: {shot.targetDurationMs}ms</span>
-                            {shot.camera && <span>Camera: {shot.camera}</span>}
-                            {shot.subjectMotion && <span>Chuyển động: {shot.subjectMotion}</span>}
-                          </div>
-
-                          {/* Takes List */}
-                          {shot.takes.length > 0 && (
-                            <div className="mt-1 space-y-1 pt-1 border-t border-border-subtle">
-                              <span className="text-[10px] uppercase tracking-wider text-text-dim font-medium">
-                                Danh sách Takes ({shot.takes.length} attempts):
-                              </span>
-                              {shot.takes.map((take) => {
-                                const isSelected = shot.selectedTake?.takeId === take.id;
-                                return (
-                                  <div
-                                    key={take.id}
-                                    className={`flex items-center justify-between rounded px-2 py-1 text-[11px] border ${
-                                      isSelected
-                                        ? "border-primary/50 bg-primary/5 text-foreground"
-                                        : "border-border-subtle bg-surface-2 text-text-secondary"
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2 font-mono">
-                                      <span className="font-bold">Attempt #{take.attemptNumber}</span>
-                                      <span>({take.provider} / {take.model})</span>
-                                      {take.sourceDurationMs && (
-                                        <span>{take.sourceDurationMs}ms</span>
-                                      )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                      {isSelected && (
-                                        <span className="inline-flex items-center gap-1 text-primary text-[10px] font-bold">
-                                          <Check size={11} /> Master Take
-                                        </span>
-                                      )}
-                                      {take.whisperXSummary && (
-                                        <span
-                                          className="rounded bg-info/10 border border-info/20 px-1.5 py-0.5 text-[10px] font-mono text-info"
-                                          title={`WhisperX QA: ${(take.whisperXSummary.confidence * 100).toFixed(0)}% conf / ${(take.whisperXSummary.coverage * 100).toFixed(0)}% cov`}
-                                        >
-                                          WhisperX {(take.whisperXSummary.confidence * 100).toFixed(0)}%
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                                          take.status === "PASSED"
-                                            ? "bg-success-bg text-success"
-                                            : "bg-surface-3 text-text-muted"
-                                        }`}
-                                      >
-                                        {take.status}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Main Canonical Production Workspace: VideoShotboard */}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <VideoShotboard
+          projectId={projectId}
+          chapterId={chapter.id}
+          beats={visualBeats}
+          hasSelectedScene={allBeats.length > 0}
+          selectedSceneBeatCount={allBeats.length}
+          timelineBeats={timelineBeats}
+          updating={updateBeatReview.isPending}
+          mediaBusyBeatId={mediaBusyBeatId}
+          copiedPromptBeatId={copiedPromptBeatId}
+          onReview={handleReview}
+          onCopyPrompt={handleCopyPrompt}
+          onImport={handleImport}
+        />
       </div>
     </div>
   );

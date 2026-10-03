@@ -45,6 +45,21 @@ export function ChapterSourceStage({
     }
   };
 
+  const handleSaveAndAnalyze = async () => {
+    if (isAnalyzing || isSaving) return;
+    if (isDirty) {
+      setIsSaving(true);
+      try {
+        await onSave(title, sourceText);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 2000);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+    onAnalyze();
+  };
+
   if (!chapter) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-surface-dark/25">
@@ -108,13 +123,19 @@ export function ChapterSourceStage({
 
           <button
             type="button"
-            onClick={onAnalyze}
-            disabled={isAnalyzing}
+            onClick={handleSaveAndAnalyze}
+            disabled={isAnalyzing || isSaving}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-1.5 text-[13px] font-semibold text-primary-foreground transition-all hover:bg-primary-hover shadow-sm disabled:opacity-50"
-            title="Sử dụng Gemini 3.8 Flash Story Director để phân tích cấu trúc, nhân vật, bối cảnh và StoryBeats"
+            title="Lưu văn bản mới nhất (nếu có thay đổi) và phân tích cấu trúc kịch bản bằng Gemini Story Director"
           >
             <Sparkles size={15} className={isAnalyzing ? "animate-spin" : ""} />
-            <span>{isAnalyzing ? "Đang phân tích..." : "Analyze Chapter"}</span>
+            <span>
+              {isAnalyzing
+                ? "Đang phân tích..."
+                : isDirty
+                ? "Save & Analyze"
+                : "Analyze Chapter"}
+            </span>
           </button>
         </div>
       </div>

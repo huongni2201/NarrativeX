@@ -14,25 +14,30 @@ from narrativex_gpu_worker.adapters.executors.ltx.workflow import MANIFEST
 def info_for_graph(graph):
     info = {}
     for node in graph.values():
-        ports = {}
+        class_type = node["class_type"]
+        if class_type not in info:
+            info[class_type] = {
+                "output": MANIFEST["outputs"][class_type],
+                "input": {"required": {}},
+            }
+        req_ports = info[class_type]["input"]["required"]
         for name, value in node["inputs"].items():
-            if isinstance(value, list):
+            if name in {"vae_name", "unet_name", "clip_name"}:
+                if name not in req_ports:
+                    req_ports[name] = [[value]]
+                elif value not in req_ports[name][0]:
+                    req_ports[name][0].append(value)
+            elif isinstance(value, list):
                 outputs = MANIFEST["outputs"][graph[value[0]]["class_type"]]
-                ports[name] = [outputs[value[1]]]
+                req_ports[name] = [outputs[value[1]]]
             else:
-                ports[name] = [
+                req_ports[name] = [
                     "INT"
                     if isinstance(value, int)
                     else "FLOAT"
                     if isinstance(value, float)
                     else "STRING"
                 ]
-            if name in {"vae_name", "unet_name", "clip_name"}:
-                ports[name] = [[value]]
-        info[node["class_type"]] = {
-            "output": MANIFEST["outputs"][node["class_type"]],
-            "input": {"required": ports},
-        }
     return info
 
 

@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.character.application.port.in.SpeakerVoice
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.AudioCueInfo;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -12,6 +13,11 @@ import java.util.UUID;
 
 /** Shared, I/O-free rules for production reads and shot admission. */
 public final class GenerationPreflightEvaluator {
+  public static final Set<GenerationStrategy> CURRENT_SUPPORTED_STRATEGIES =
+      Set.of(GenerationStrategy.TEXT_TO_VIDEO);
+  public static final Set<String> CURRENT_SUPPORTED_ASPECT_RATIOS =
+      Set.of("16:9");
+
   private GenerationPreflightEvaluator() {}
 
   public record Preflight(boolean ready, List<String> blockers, List<String> warnings) {}
@@ -20,17 +26,39 @@ public final class GenerationPreflightEvaluator {
       GenerationStrategy strategy,
       List<AudioCueInfo> cues,
       Map<UUID, Optional<ResolvedSpeakerVoice>> voices) {
+    return evaluate(strategy, CURRENT_SUPPORTED_STRATEGIES, null, cues, voices);
+  }
+
+  public static Preflight evaluate(
+      GenerationStrategy strategy,
+      Collection<GenerationStrategy> supportedStrategies,
+      List<AudioCueInfo> cues,
+      Map<UUID, Optional<ResolvedSpeakerVoice>> voices) {
+    return evaluate(strategy, supportedStrategies, null, cues, voices);
+  }
+
+  public static Preflight evaluate(
+      GenerationStrategy strategy,
+      Collection<GenerationStrategy> supportedStrategies,
+      String aspectRatio,
+      List<AudioCueInfo> cues,
+      Map<UUID, Optional<ResolvedSpeakerVoice>> voices) {
     var blockers = new ArrayList<String>();
-    if (strategy != null
-        && !Set.of(
-                GenerationStrategy.TEXT_TO_VIDEO,
-                GenerationStrategy.IMAGE_TO_VIDEO,
-                GenerationStrategy.FIRST_LAST_FRAME)
-            .contains(strategy)) {
+    Set<GenerationStrategy> allowed =
+        supportedStrategies != null && !supportedStrategies.isEmpty()
+            ? Set.copyOf(supportedStrategies)
+            : CURRENT_SUPPORTED_STRATEGIES;
+    if (strategy != null && !allowed.contains(strategy)) {
       blockers.add(
           "UNSUPPORTED_STRATEGY: Strategy "
               + strategy
               + " is not supported by current video runtime.");
+    }
+    if (aspectRatio != null && !aspectRatio.isBlank() && !CURRENT_SUPPORTED_ASPECT_RATIOS.contains(aspectRatio)) {
+      blockers.add(
+          "UNSUPPORTED_ASPECT_RATIO: Aspect ratio "
+              + aspectRatio
+              + " is not supported by current video runtime (currently supports 16:9).");
     }
     if (cues.stream().anyMatch(cue -> !voiceReady(cue, voices))) {
       blockers.add(

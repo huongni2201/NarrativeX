@@ -43,6 +43,21 @@ class GenerationPreflightEvaluatorTest {
         .isFalse();
     assertThat(
             GenerationPreflightEvaluator.evaluate(
+                    GenerationStrategy.IMAGE_TO_VIDEO,
+                    List.of(cue),
+                    Map.of(speaker, Optional.of(voice)))
+                .ready())
+        .isFalse();
+    assertThat(
+            GenerationPreflightEvaluator.evaluate(
+                    GenerationStrategy.IMAGE_TO_VIDEO,
+                    List.of(GenerationStrategy.TEXT_TO_VIDEO, GenerationStrategy.IMAGE_TO_VIDEO),
+                    List.of(cue),
+                    Map.of(speaker, Optional.of(voice)))
+                .ready())
+        .isTrue();
+    assertThat(
+            GenerationPreflightEvaluator.evaluate(
                     GenerationStrategy.TEXT_TO_VIDEO,
                     List.of(cue),
                     Map.of(speaker, Optional.empty()))
@@ -62,4 +77,40 @@ class GenerationPreflightEvaluatorTest {
                 .ready())
         .isTrue();
   }
+
+  @Test
+  void aspectRatioPreflightAccepts16x9AndRejectsOtherRatios() {
+    assertThat(
+            GenerationPreflightEvaluator.evaluate(
+                    GenerationStrategy.TEXT_TO_VIDEO,
+                    List.of(GenerationStrategy.TEXT_TO_VIDEO),
+                    "16:9",
+                    List.of(),
+                    Map.of())
+                .ready())
+        .isTrue();
+
+    var rejected9x16 =
+        GenerationPreflightEvaluator.evaluate(
+            GenerationStrategy.TEXT_TO_VIDEO,
+            List.of(GenerationStrategy.TEXT_TO_VIDEO),
+            "9:16",
+            List.of(),
+            Map.of());
+    assertThat(rejected9x16.ready()).isFalse();
+    assertThat(rejected9x16.blockers())
+        .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("9:16"));
+
+    var rejected1x1 =
+        GenerationPreflightEvaluator.evaluate(
+            GenerationStrategy.TEXT_TO_VIDEO,
+            List.of(GenerationStrategy.TEXT_TO_VIDEO),
+            "1:1",
+            List.of(),
+            Map.of());
+    assertThat(rejected1x1.ready()).isFalse();
+    assertThat(rejected1x1.blockers())
+        .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("1:1"));
+  }
 }
+

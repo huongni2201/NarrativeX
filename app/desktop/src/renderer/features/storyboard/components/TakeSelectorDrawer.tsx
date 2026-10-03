@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "@narrativex/client-contracts";
-import { AlertCircle, CheckCircle2, Clapperboard, Film, Scissors, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clapperboard, Film, Loader2, RotateCcw, Scissors, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ export interface TakeSelectorDrawerProps {
   selectedTake: DesktopSelectedTake | null;
   isOpen: boolean;
   onClose: () => void;
-  onSelectTake: (takeId: string, sourceInMs: number, sourceOutMs: number) => void;
+  onSelectTake: (takeId: string, sourceInMs: number, sourceOutMs: number) => Promise<void> | void;
 }
 
 export function TakeSelectorDrawer({
@@ -33,23 +33,47 @@ export function TakeSelectorDrawer({
   const [sourceOutMs, setSourceOutMs] = useState<number>(
     selectedTake?.sourceOutMs ?? shot?.targetDurationMs ?? 4000
   );
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Synchronize internal state whenever drawer opens or active shot/selected take changes
+  useEffect(() => {
+    if (isOpen && shot) {
+      const initialTakeId = selectedTake?.takeId ?? takes[0]?.id ?? "";
+      setActiveTakeId(initialTakeId);
+      const initialTake = takes.find((t) => t.id === initialTakeId) ?? takes[0];
+      const maxDur = initialTake?.sourceDurationMs ?? shot.targetDurationMs ?? 4000;
+      setSourceInMs(selectedTake?.sourceInMs ?? 0);
+      setSourceOutMs(selectedTake?.sourceOutMs ?? maxDur);
+      setSaveError(null);
+    }
+  }, [isOpen, shot?.id, selectedTake?.takeId, takes]);
 
   if (!isOpen || !shot) return null;
 
   const currentTake = takes.find((t) => t.id === activeTakeId) ?? takes[0];
-  const maxDuration = currentTake?.sourceDurationMs ?? shot.targetDurationMs;
+  const maxDuration = Math.max(100, currentTake?.sourceDurationMs ?? shot.targetDurationMs ?? 4000);
 
   const handleSelectTake = (take: DesktopTake) => {
     setActiveTakeId(take.id);
-    const duration = take.sourceDurationMs ?? shot.targetDurationMs;
+    const duration = Math.max(100, take.sourceDurationMs ?? shot.targetDurationMs ?? 4000);
     setSourceInMs(0);
     setSourceOutMs(duration);
+    setSaveError(null);
   };
 
-  const handleSaveSelection = () => {
-    if (activeTakeId && sourceOutMs > sourceInMs) {
-      onSelectTake(activeTakeId, sourceInMs, sourceOutMs);
+  const handleSaveSelection = async () => {
+    if (!activeTakeId || sourceOutMs <= sourceInMs || isSaving) return;
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      await onSelectTake(activeTakeId, sourceInMs, sourceOutMs);
       onClose();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Không thể áp dụng take vào timeline edit.";
+      setSaveError(msg);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -181,10 +205,90 @@ export function TakeSelectorDrawer({
         {/* Trimming Section */}
         {currentTake && (
           <div className="mt-4 border-t border-border-subtle pt-4">
-            <div className="flex items-center gap-1.5 font-semibold text-[12px] mb-2 text-foreground">
-              <Scissors size={14} className="text-primary" />
-              <span>Edit Decision Trimming (In / Out)</span>
+            <div className="flex items-center justify-between font-semibold text-[12px] mb-2 text-foreground">
+              <div className="flex items-center gap-1.5">
+                <Scissors size={14} className="text-primary" />
+                <span>Edit Decision Trimming (In / Out)</span>
+              </div>
+              <span className="text-[10px] text-text-muted font-mono">
+                {sourceInMs}ms — {sourceOutMs}ms / {maxDuration}ms
+              </span>
             </div>
+
+            {/* Visual Trim Rail */}
+            <div className="space-y-1.5 mb-3 bg-surface-dark p-2.5 rounded border border-border-soft">
+              <div className="relative h-5 bg-background/80 border border-border-subtle rounded overflow-hidden select-none">
+                {/* Active trimmed window */}
+                <div
+                  className="absolute top-0 bottom-0 bg-primary/30 border-x-2 border-primary transition-all duration-75"
+                  style={{
+                    left: `${Math.min(100, Math.max(0, (sourceInMs / maxDuration) * 100))}%`,
+                    width: `${Math.max(0, Math.min(100, (sourceOutMs / maxDuration) * 100) - Math.min(100, Math.max(0, (sourceInMs / maxDuration) * 100)))}%`,
+                  }}
+                />
+              </div>
+
+              {/* Sliders */}
+              <div className="flex items-center gap-2 pt-1">
+                <div className="flex-1 flex flex-col gap-0.5">
+                  <span className="text-[9px] text-text-dim">In: {sourceInMs}ms</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, sourceOutMs - 100)}
+                    step={50}
+                    value={sourceInMs}
+                    disabled={isSaving}
+                    onChange={(e) => setSourceInMs(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full h-1 bg-surface-panel rounded appearance-none cursor-pointer accent-primary"
+                    title="Trim In Point"
+                  />
+                </div>
+                <div className="flex-1 flex flex-col gap-0.5">
+                  <span className="text-[9px] text-text-dim">Out: {sourceOutMs}ms</span>
+                  <input
+                    type="range"
+                    min={Math.min(maxDuration, sourceInMs + 100)}
+                    max={maxDuration}
+                    step={50}
+                    value={sourceOutMs}
+                    disabled={isSaving}
+                    onChange={(e) => setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0))}
+                    className="w-full h-1 bg-surface-panel rounded appearance-none cursor-pointer accent-primary"
+                    title="Trim Out Point"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => {
+                    setSourceInMs(0);
+                    setSourceOutMs(maxDuration);
+                  }}
+                  className="text-[10px] text-primary hover:underline cursor-pointer"
+                >
+                  Reset (Full {maxDuration}ms)
+                </button>
+                {maxDuration > shot.targetDurationMs && (
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => {
+                      setSourceInMs(0);
+                      setSourceOutMs(shot.targetDurationMs);
+                    }}
+                    className="text-[10px] text-primary hover:underline cursor-pointer"
+                  >
+                    Match Target ({shot.targetDurationMs}ms)
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] uppercase text-text-dim font-bold block mb-1">
@@ -195,6 +299,7 @@ export function TakeSelectorDrawer({
                   min={0}
                   max={sourceOutMs - 100}
                   value={sourceInMs}
+                  disabled={isSaving}
                   onChange={(e) => setSourceInMs(Math.max(0, parseInt(e.target.value) || 0))}
                   className="h-8 text-[11px]"
                 />
@@ -208,6 +313,7 @@ export function TakeSelectorDrawer({
                   min={sourceInMs + 100}
                   max={maxDuration}
                   value={sourceOutMs}
+                  disabled={isSaving}
                   onChange={(e) =>
                     setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0))
                   }
@@ -224,18 +330,36 @@ export function TakeSelectorDrawer({
           </div>
         )}
 
+        {/* Inline Error Message */}
+        {saveError && (
+          <div className="mt-3 p-2.5 rounded bg-destructive/10 border border-destructive/20 text-destructive text-[11px] flex items-start gap-2">
+            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-semibold">Lỗi lưu take: </span>
+              {saveError}
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="mt-4 pt-3 border-t border-border-subtle flex gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose} className="flex-1">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={isSaving} className="flex-1">
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleSaveSelection}
-            disabled={!activeTakeId || sourceOutMs <= sourceInMs}
+            disabled={!activeTakeId || sourceOutMs <= sourceInMs || isSaving}
             className="flex-1"
           >
-            Apply Take to Edit
+            {isSaving ? (
+              <>
+                <Loader2 size={13} className="animate-spin mr-1.5" />
+                <span>Applying Take...</span>
+              </>
+            ) : (
+              <span>Apply Take to Edit</span>
+            )}
           </Button>
         </div>
       </aside>

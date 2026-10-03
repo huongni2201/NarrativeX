@@ -45,6 +45,9 @@ export type {
   MediaJobDetails,
   MediaReviewInput,
   RegenerationPlan,
+  ResolutionProfile,
+  RuntimeCapabilityView,
+  VideoRuntimeCapability,
   VisualGenerationMode,
 } from "./generation";
 export type {

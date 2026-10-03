@@ -1,7 +1,10 @@
-import { Layers3, Play } from "lucide-react";
+import { Layers3, Play, ArrowRight } from "lucide-react";
 import type { DesktopProject } from "@narrativex/client-contracts";
+import { resolveProjectContinuation } from "../model/project-continuation";
 
 export function ProjectCard({ project, onOpen }: Readonly<{ project: DesktopProject; onOpen: () => void }>) {
+  const continuation = resolveProjectContinuation(project);
+
   return (
     <button
       type="button"
@@ -23,6 +26,12 @@ export function ProjectCard({ project, onOpen }: Readonly<{ project: DesktopProj
           <span className="rounded border border-border-subtle bg-surface-dark/90 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wider text-text-secondary backdrop-blur-xs">
             {project.imageAspectRatio ?? "16:9"}
           </span>
+        </div>
+
+        {/* Workflow Continuation Badge */}
+        <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded bg-surface-dark/90 px-2 py-0.5 text-[10px] font-medium text-primary border border-border-subtle backdrop-blur-xs">
+          <span>{continuation.label}</span>
+          <ArrowRight size={10} />
         </div>
       </div>
 
@@ -51,3 +60,4 @@ export function ProjectCard({ project, onOpen }: Readonly<{ project: DesktopProj
     </button>
   );
 }
+

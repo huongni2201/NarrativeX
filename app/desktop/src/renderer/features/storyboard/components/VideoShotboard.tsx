@@ -29,6 +29,7 @@ import {
 import { useStoryboardImagePreview } from "../queries/storyboard-media.queries";
 import { ShotActionToolbar } from "./ShotActionToolbar";
 import { TakeSelectorDrawer } from "./TakeSelectorDrawer";
+import { useRuntimeCapabilities } from "../../runtime/queries/runtime-capabilities.queries.ts";
 
 export interface VideoShotboardProps {
   projectId: string;
@@ -67,6 +68,7 @@ export function VideoShotboard({
 
   // Authoritative Chapter Production query and mutations
   const { data: production } = useChapterProduction(projectId, chapterId ?? null);
+  const { supportedStrategies, isAvailable } = useRuntimeCapabilities();
   const generateTake = useGenerateShot(projectId, chapterId);
   const selectTake = useSelectTake(projectId, chapterId);
   const updateStrategy = useUpdateShotStrategy(projectId, chapterId);
@@ -103,9 +105,9 @@ export function VideoShotboard({
   const drawerTakes: DesktopTake[] = drawerShot?.takes ?? [];
   const drawerSelectedTake: DesktopSelectedTake | null = drawerShot?.selectedTake ?? null;
 
-  const handleSelectTake = (takeId: string, sourceInMs: number, sourceOutMs: number) => {
+  const handleSelectTake = async (takeId: string, sourceInMs: number, sourceOutMs: number) => {
     if (drawerShot) {
-      selectTake.mutate({
+      await selectTake.mutateAsync({
         shotId: drawerShot.id,
         input: { takeId, sourceInMs, sourceOutMs },
       });
@@ -204,12 +206,19 @@ export function VideoShotboard({
                   )}
                   <ShotActionToolbar
                     currentStrategy={currentStrategy}
+                    supportedStrategies={supportedStrategies}
                     takeCount={takeCount}
                     isGenerating={isBusy}
-                    isBlocked={shot?.status === "BLOCKED" || Boolean(shot?.preflight && !shot.preflight.ready)}
+                    isBlocked={
+                      !isAvailable ||
+                      shot?.status === "BLOCKED" ||
+                      Boolean(shot?.preflight && !shot.preflight.ready)
+                    }
                     blockedReason={
-                      shot?.preflight?.blockers?.[0] ??
-                      (shot?.status === "BLOCKED" ? "Shot is blocked" : undefined)
+                      !isAvailable
+                        ? "Hệ thống AI video (LTX) hiện chưa sẵn sàng"
+                        : (shot?.preflight?.blockers?.[0] ??
+                          (shot?.status === "BLOCKED" ? "Shot is blocked" : undefined))
                     }
                     onGenerate={() => {
                       if (!shot) return;

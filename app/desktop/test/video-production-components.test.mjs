@@ -131,3 +131,31 @@ test("videoProductionApi and query hooks are provided under features/production"
   assert.match(queriesSource, /useSelectTake/);
   assert.match(queriesSource, /useUpdateShotStrategy/);
 });
+
+test("TakeSelectorDrawer provides state synchronization, visual trim rail, and mutation safety", () => {
+  const drawerSource = readSource("features/storyboard/components/TakeSelectorDrawer.tsx");
+
+  // State synchronization via useEffect
+  assert.match(drawerSource, /useEffect\(/);
+  assert.match(drawerSource, /selectedTake\?\.takeId/);
+
+  // Visual trim rail
+  assert.match(drawerSource, /Visual Trim Rail/);
+  assert.match(drawerSource, /type="range"/);
+
+  // Mutation safety & async error handling
+  assert.match(drawerSource, /isSaving/);
+  assert.match(drawerSource, /saveError/);
+  assert.match(drawerSource, /await onSelectTake/);
+  assert.match(drawerSource, /Applying Take\.\.\./);
+});
+
+test("ChapterProductionStage mounts VideoShotboard directly into production stage", () => {
+  const prodStageSource = readSource("features/chapters/components/stages/ChapterProductionStage.tsx");
+
+  assert.match(prodStageSource, /<VideoShotboard/);
+  assert.match(prodStageSource, /projectId=\{projectId\}/);
+  assert.match(prodStageSource, /timelineBeats=\{timelineBeats\}/);
+});
+
+

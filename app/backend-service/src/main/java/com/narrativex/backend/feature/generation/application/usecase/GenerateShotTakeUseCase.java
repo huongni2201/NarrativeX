@@ -254,7 +254,13 @@ public class GenerateShotTakeUseCase {
             .orElseThrow(() -> new ResourceNotFoundException("Shot not found"));
     GenerationStrategy strategy =
         command.strategy() == null ? shot.generationStrategy() : command.strategy();
-    var preflight = GenerationPreflightEvaluator.evaluate(strategy, List.of(), Map.of());
+    String aspectRatio = (String) context.get("aspectRatioOverride");
+    if (aspectRatio == null || aspectRatio.isBlank()) {
+      aspectRatio = (String) context.get("imageAspectRatio");
+    }
+    var preflight =
+        GenerationPreflightEvaluator.evaluate(
+            strategy, catalog.supportedStrategies(), aspectRatio, List.of(), Map.of());
     if (!preflight.ready()) throw new DomainValidationException(preflight.blockers().getFirst());
     String audioMode = command.audioMode() == null ? "LTX_NATIVE_AV" : command.audioMode();
     if (!Set.of("LTX_NATIVE_AV", "AUDIO_FIRST").contains(audioMode)) {

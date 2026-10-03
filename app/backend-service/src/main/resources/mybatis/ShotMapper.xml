@@ -259,6 +259,7 @@
   <select id="findAdmissionContextLocked" resultType="string">
     SELECT jsonb_build_object(
       'sourceLanguage', project.source_language, 'narrationLanguage', project.narration_language,
+      'imageAspectRatio', project.image_aspect_ratio, 'aspectRatioOverride', vb.aspect_ratio_override,
       'projectId', sc.project_id, 'chapterId', ch.id, 'storyVersionId', ch.story_version_id,
       'chapterRowVersion', ch.row_version, 'sourceHash', ch.source_hash,
       'sourceText', ch.source_text, 'storyboardRevisionId', sc.storyboard_revision_id,

@@ -11,6 +11,7 @@ import {
 
 export interface ShotActionToolbarProps {
   currentStrategy: GenerationStrategy;
+  supportedStrategies?: GenerationStrategy[];
   isGenerating?: boolean;
   isBlocked?: boolean;
   blockedReason?: string;
@@ -23,6 +24,7 @@ export interface ShotActionToolbarProps {
 
 export function ShotActionToolbar({
   currentStrategy,
+  supportedStrategies,
   isGenerating,
   isBlocked,
   blockedReason,
@@ -32,6 +34,16 @@ export function ShotActionToolbar({
   onOpenTakeSelector,
   onStrategyChange,
 }: Readonly<ShotActionToolbarProps>) {
+  const isT2VSupported = supportedStrategies
+    ? supportedStrategies.includes("TEXT_TO_VIDEO")
+    : true;
+  const isI2VSupported = supportedStrategies
+    ? supportedStrategies.includes("IMAGE_TO_VIDEO")
+    : false;
+  const isFLFSupported = supportedStrategies
+    ? supportedStrategies.includes("FIRST_LAST_FRAME")
+    : false;
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {/* Strategy selector */}
@@ -43,9 +55,15 @@ export function ShotActionToolbar({
           <SelectValue placeholder="Strategy" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="TEXT_TO_VIDEO">Text to Video</SelectItem>
-          <SelectItem value="IMAGE_TO_VIDEO">Image to Video</SelectItem>
-          <SelectItem value="FIRST_LAST_FRAME">First/Last Frame</SelectItem>
+          <SelectItem value="TEXT_TO_VIDEO" disabled={!isT2VSupported}>
+            Text to Video {!isT2VSupported ? "(Chưa hỗ trợ)" : ""}
+          </SelectItem>
+          <SelectItem value="IMAGE_TO_VIDEO" disabled={!isI2VSupported}>
+            Image to Video {!isI2VSupported ? "(Chưa hỗ trợ)" : ""}
+          </SelectItem>
+          <SelectItem value="FIRST_LAST_FRAME" disabled={!isFLFSupported}>
+            First/Last Frame {!isFLFSupported ? "(Chưa hỗ trợ)" : ""}
+          </SelectItem>
           <SelectItem value="MULTI_KEYFRAME" disabled>
             Multi-Keyframe (Chưa hỗ trợ)
           </SelectItem>

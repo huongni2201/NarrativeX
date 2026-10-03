@@ -24,6 +24,7 @@ import {
   useToggleProjectFavorite,
 } from "../queries/projects.queries";
 import { useProjectSessionStore } from "../store/project-session.store";
+import { resolveProjectContinuation } from "../model/project-continuation";
 
 export function ProjectsScreen() {
   const navigate = useNavigate();
@@ -99,7 +100,7 @@ export function ProjectsScreen() {
           setImageAspectRatio("16:9");
           setIsCreating(false);
           setActiveProject(project.id);
-          navigate(`/projects/${project.id}/editor`);
+          navigate(`/projects/${project.id}/chapters`);
         },
       },
     );
@@ -222,7 +223,7 @@ export function ProjectsScreen() {
                 <span>•</span>
                 <span>Đang hoạt động: <strong className="font-semibold text-success">{allProjects.filter((p) => p.status === "ACTIVE").length}</strong></span>
               </div>
-              <span className="text-[12px] text-text-dim">Mẹo: Bấm vào thẻ để mở thẳng vào timeline dựng video</span>
+              <span className="text-[12px] text-text-dim">Mẹo: Bấm vào thẻ để tiếp tục luồng sản xuất của dự án</span>
             </div>
 
             <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-6">
@@ -232,7 +233,8 @@ export function ProjectsScreen() {
                     project={project}
                     onOpen={() => {
                       setActiveProject(project.id);
-                      navigate(`/projects/${project.id}/editor`);
+                      const continuation = resolveProjectContinuation(project);
+                      navigate(continuation.destination);
                     }}
                   />
                   <div className="absolute right-4 top-4 flex items-center gap-1.5">
