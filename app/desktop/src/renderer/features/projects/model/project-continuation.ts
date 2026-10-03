@@ -14,28 +14,72 @@ export interface ProjectContinuationResult {
  * - Has chapters -> if status indicates production readiness or timeline editing, go to editor; otherwise chapters
  */
 export function resolveProjectContinuation(project: DesktopProject): ProjectContinuationResult {
+  const workflow = project.workflow;
   const totalChapters = project.metrics?.totalChapters ?? 0;
 
-  if (totalChapters === 0) {
+  if (workflow) {
+    if (workflow.renderInProgress) {
+      return {
+        destination: `/projects/${project.id}/editor`,
+        label: "Xem tiến độ Render",
+      };
+    }
+    if (workflow.editorReady) {
+      return {
+        destination: `/projects/${project.id}/editor`,
+        label: "Mở Timeline dựng phim",
+      };
+    }
+    if (workflow.productionStarted || workflow.storyReady) {
+      return {
+        destination: `/projects/${project.id}/chapters?stage=production`,
+        label: "Tiếp tục sản xuất",
+        stage: "production",
+      };
+    }
+    if (workflow.canonReady) {
+      return {
+        destination: `/projects/${project.id}/chapters?stage=story`,
+        label: "Tiếp tục Storyboard",
+        stage: "story",
+      };
+    }
+    if (workflow.analysisReady) {
+      return {
+        destination: `/projects/${project.id}/chapters?stage=canon`,
+        label: "Tiếp tục Canon",
+        stage: "canon",
+      };
+    }
     return {
-      destination: `/projects/${project.id}/chapters`,
+      destination: `/projects/${project.id}/chapters?stage=source`,
       label: "Bắt đầu viết kịch bản",
       stage: "source",
     };
   }
 
-  // If project is explicitly READY or COMPLETED, open timeline Editor
-  if (project.status === "READY" || project.status === "COMPLETED") {
+  // Fallback when workflow is not provided
+  if (totalChapters === 0) {
     return {
-      destination: `/projects/${project.id}/editor`,
-      label: "Mở Timeline dựng phim",
+      destination: `/projects/${project.id}/chapters?stage=source`,
+      label: "Bắt đầu viết kịch bản",
+      stage: "source",
     };
   }
 
-  // Default for in-progress project with chapters: Chapters workspace
+  // If scenes exist, production is ready or started
+  const totalScenes = project.metrics?.totalScenes ?? 0;
+  if (totalScenes > 0) {
+    return {
+      destination: `/projects/${project.id}/chapters?stage=production`,
+      label: "Tiếp tục sản xuất",
+      stage: "production",
+    };
+  }
+
   return {
-    destination: `/projects/${project.id}/chapters`,
-    label: "Tiếp tục sản xuất",
-    stage: "production",
+    destination: `/projects/${project.id}/chapters?stage=source`,
+    label: "Tiếp tục viết kịch bản",
+    stage: "source",
   };
 }

@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.generation.application.query.JobHistoryVie
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.JobHistoryMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.JobHistoryRow;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,9 +16,10 @@ public class MyBatisJobHistoryQueryAdapter implements JobHistoryQueryRepository 
   private final JobHistoryMapper mapper;
 
   @Override
-  public List<JobHistoryView> list(UuidCursorKey cursor, int fetchLimit) {
+  public List<JobHistoryView> list(UUID projectId, UuidCursorKey cursor, int fetchLimit) {
     return mapper
         .list(
+            projectId,
             cursor == null ? null : cursor.updatedAt(),
             cursor == null ? null : cursor.id(),
             fetchLimit)

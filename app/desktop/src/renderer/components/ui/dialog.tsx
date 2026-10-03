@@ -89,6 +89,16 @@ function DialogCloseButton({ className, children, ...props }: React.ComponentPro
   );
 }
 
+function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-footer"
+      className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2", className)}
+      {...props}
+    />
+  );
+}
+
 export {
   Dialog,
   DialogTrigger,
@@ -98,6 +108,7 @@ export {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
   DialogClose,
   DialogCloseButton,
 };

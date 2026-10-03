@@ -43,6 +43,16 @@ public final class GenerationPreflightEvaluator {
       String aspectRatio,
       List<AudioCueInfo> cues,
       Map<UUID, Optional<ResolvedSpeakerVoice>> voices) {
+    return evaluate(strategy, supportedStrategies, aspectRatio, CURRENT_SUPPORTED_ASPECT_RATIOS, cues, voices);
+  }
+
+  public static Preflight evaluate(
+      GenerationStrategy strategy,
+      Collection<GenerationStrategy> supportedStrategies,
+      String aspectRatio,
+      Collection<String> supportedAspectRatios,
+      List<AudioCueInfo> cues,
+      Map<UUID, Optional<ResolvedSpeakerVoice>> voices) {
     var blockers = new ArrayList<String>();
     Set<GenerationStrategy> allowed =
         supportedStrategies != null && !supportedStrategies.isEmpty()
@@ -54,10 +64,16 @@ public final class GenerationPreflightEvaluator {
               + strategy
               + " is not supported by current video runtime.");
     }
-    if (aspectRatio != null && !aspectRatio.isBlank() && !CURRENT_SUPPORTED_ASPECT_RATIOS.contains(aspectRatio)) {
+    String normalizedRatio =
+        com.narrativex.backend.feature.project.domain.enums.AspectRatio.normalize(aspectRatio);
+    Set<String> allowedRatios =
+        supportedAspectRatios != null && !supportedAspectRatios.isEmpty()
+            ? Set.copyOf(supportedAspectRatios)
+            : CURRENT_SUPPORTED_ASPECT_RATIOS;
+    if (normalizedRatio != null && !normalizedRatio.isBlank() && !allowedRatios.contains(normalizedRatio)) {
       blockers.add(
           "UNSUPPORTED_ASPECT_RATIO: Aspect ratio "
-              + aspectRatio
+              + normalizedRatio
               + " is not supported by current video runtime (currently supports 16:9).");
     }
     if (cues.stream().anyMatch(cue -> !voiceReady(cue, voices))) {

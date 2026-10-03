@@ -15,11 +15,15 @@ public interface VideoGenerationCatalog {
   }
 
   default String modelRevision() {
-    return "1.0";
+    return "5e6e71018ee1756ed329b697a7b4aedc934dfce9";
   }
 
   default String workflowRevision() {
-    return "video.generate:1.0";
+    return "video.generate:1.1";
+  }
+
+  default String taskSchemaVersion() {
+    return "1.1";
   }
 
   default List<GenerationStrategy> supportedStrategies() {

@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.generation.application.port.out.JobHistoryQueryRepository;
 import com.narrativex.backend.feature.generation.application.query.JobHistoryView;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,10 +17,15 @@ public class ListJobHistoryUseCase {
 
   @Transactional(readOnly = true)
   public CursorPage<JobHistoryView> execute(String cursor, int limit) {
+    return execute(null, cursor, limit);
+  }
+
+  @Transactional(readOnly = true)
+  public CursorPage<JobHistoryView> execute(UUID projectId, String cursor, int limit) {
     if (limit < 1 || limit > 100)
       throw new IllegalArgumentException("limit must be between 1 and 100");
     var cursorKey = CursorCodec.decodeUuid(cursor);
-    List<JobHistoryView> rows = repository.list(cursorKey, limit + 1);
+    List<JobHistoryView> rows = repository.list(projectId, cursorKey, limit + 1);
     boolean hasNext = rows.size() > limit;
     List<JobHistoryView> content = hasNext ? rows.subList(0, limit) : rows;
     String nextCursor = null;

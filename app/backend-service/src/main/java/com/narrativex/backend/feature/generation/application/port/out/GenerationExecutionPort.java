@@ -30,4 +30,14 @@ public interface GenerationExecutionPort {
    * @param attemptId the attempt id
    */
   void cancelTask(UUID taskId, UUID attemptId);
+
+  /**
+   * Query current worker capabilities from the compute service.
+   *
+   * @return capabilities if available, or empty if worker is unreachable
+   */
+  default java.util.Optional<com.narrativex.backend.feature.generation.application.model.compute.WorkerCapabilitiesDto>
+      fetchCapabilities() {
+    return java.util.Optional.empty();
+  }
 }

@@ -7,6 +7,9 @@ import {
   Clock,
   UserCheck,
   ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from "lucide-react";
 import type {
   ChapterProductionStatus,
@@ -21,8 +24,11 @@ import type {
   StoryboardVisualBeat,
   VisualBeatReviewStatus,
 } from "../../../storyboard/api/storyboard.api";
+import { storyboardApi } from "../../../storyboard/api/storyboard.api";
 import { VideoShotboard } from "../../../storyboard/components/VideoShotboard";
-import { useUpdateStoryBeatReviewStatus } from "../../../story/queries/story.queries";
+import { useUpdateVisualBeatReview } from "../../../storyboard/queries/storyboard.queries";
+import { importLocalMedia } from "../../../assets/services/import-local-media";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface ChapterProductionStageProps {
   projectId?: string;
@@ -45,10 +51,12 @@ export function ChapterProductionStage({
   onGenerateVideoShots,
   isGenerating = false,
 }: ChapterProductionStageProps) {
+  const queryClient = useQueryClient();
   const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
   const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
+  const [showTechDetails, setShowTechDetails] = useState(false);
 
-  const updateBeatReview = useUpdateStoryBeatReviewStatus(projectId, chapter?.id ?? "");
+  const updateVisualBeatReview = useUpdateVisualBeatReview(projectId, chapter?.id ?? null);
 
   const allBeats: DesktopStoryBeat[] = useMemo(
     () => (story ? story.scenes.flatMap((s) => s.storyBeats) : []),
@@ -82,7 +90,7 @@ export function ChapterProductionStage({
     const map = new Map<string, DesktopTimelineBeat>();
     if (timeline?.beats) {
       for (const b of timeline.beats) {
-        map.set(b.id, b);
+        map.set(b.visualBeatId, b);
       }
     }
     return map;
@@ -111,10 +119,9 @@ export function ChapterProductionStage({
   } = productionStageStatus(productionStatus);
 
   const handleReview = (beat: StoryboardVisualBeat, status: VisualBeatReviewStatus) => {
-    updateBeatReview.mutate({
-      storyBeatId: beat.id,
+    updateVisualBeatReview.mutate({
+      beat,
       status,
-      rowVersion: beat.rowVersion,
     });
   };
 
@@ -127,21 +134,33 @@ export function ChapterProductionStage({
   };
 
   const handleImport = async (beat: StoryboardVisualBeat) => {
+    if (!chapter) return;
     setMediaBusyBeatId(beat.id);
     try {
-      if (window.narrativex?.dialog?.showOpenDialog) {
-        const result = await window.narrativex.dialog.showOpenDialog({
-          title: `Chọn media thay thế cho ${beat.title}`,
-          filters: [{ name: "Video / Image", extensions: ["mp4", "webm", "png", "jpg", "jpeg"] }],
-          properties: ["openFile"],
-        });
-        if (!result.canceled && result.filePaths.length > 0) {
-          const filePath = result.filePaths[0];
-          await window.narrativex.localProjects.importMedia(projectId, filePath);
-        }
+      const result = await importLocalMedia({
+        projectId,
+        allowedKinds: ["IMAGE", "VIDEO"],
+      });
+      if (result) {
+        await storyboardApi.attachPreviewMedia(
+          projectId,
+          chapter.id,
+          beat.sceneId,
+          beat.id,
+          beat.rowVersion,
+          result.assetId,
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["projects", projectId, "storyboard"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["production", "chapter", projectId, chapter.id],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+          queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
+        ]);
       }
-    } catch {
-      // Handled silently
+    } catch (err) {
+      console.warn("Failed to import replacement media:", err);
     } finally {
       setMediaBusyBeatId(null);
     }
@@ -187,103 +206,103 @@ export function ChapterProductionStage({
           <span>
             {isGenerating
               ? "Đang sản xuất video shots..."
-              : "Generate Video Shots (Sản xuất Video LTX)"}
+              : totalShots > 0 && shotsGeneratedCount < totalShots
+              ? "Tạo các shot còn thiếu"
+              : "Sản xuất Video Shots (LTX)"}
           </span>
         </button>
       </div>
 
-      {/* Production Readiness Status Cards (5 Stages) */}
-      <div className="grid grid-cols-5 gap-3 border-b border-border-subtle bg-surface-panel p-4 text-[13px]">
-        {/* 1. Story / Dialogue Readiness (Narration Audio) */}
-        <div className="rounded-lg border border-border-subtle bg-surface p-3">
-          <div className="flex items-center justify-between text-text-muted mb-1 text-[11px] uppercase tracking-wider font-medium">
-            <span>Story & Narration Audio</span>
-            <Volume2 size={14} className="text-info" />
+      {/* Creator-First Production Readiness Strip */}
+      <div className="border-b border-border-subtle bg-surface-panel px-5 py-2.5 text-[12px]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-5 text-text-secondary">
+            {/* Story & Narration Audio */}
+            <div className="flex items-center gap-1.5" title="Trạng thái file âm thanh kể chuyện (Narration Audio)">
+              <Volume2 size={14} className={audioReady ? "text-success" : "text-text-dim"} />
+              <span className="text-text-muted">Narration Audio:</span>
+              <span className={`font-semibold font-mono ${audioReady ? "text-success" : "text-warning"}`}>
+                {audioReady === null ? "—" : audioReady ? "Ready" : "Pending"}
+              </span>
+            </div>
+
+            {/* Voice Profile */}
+            <div className="flex items-center gap-1.5" title="Trạng thái hồ sơ giọng đọc nhân vật">
+              <UserCheck size={14} className={voiceReady ? "text-purple-400" : "text-text-dim"} />
+              <span className="text-text-muted">Voice:</span>
+              <span className={`font-semibold font-mono ${voiceReady ? "text-purple-400" : "text-text-dim"}`}>
+                {voiceReady === null ? "—" : voiceReady ? "Ready" : "Blocked"}
+              </span>
+            </div>
+
+            {/* Video Shots ready */}
+            <div className="flex items-center gap-1.5" title="Số lượng video shots đã sinh hoàn tất">
+              <Film size={14} className="text-primary" />
+              <span className="text-text-muted">Video Shots:</span>
+              <span className="font-semibold font-mono text-foreground">
+                {shotsGeneratedCount} / {Math.max(1, totalShots)}
+              </span>
+            </div>
+
+            {/* Word Alignment QC */}
+            <div className="flex items-center gap-1.5" title="Số lượng shots đã vượt qua kiểm định Word Alignment & QC">
+              <Clock size={14} className={qcPassedCount >= totalShots && totalShots > 0 ? "text-success" : "text-cyan-400"} />
+              <span className="text-text-muted">Word Alignment QC:</span>
+              <span className="font-semibold font-mono text-foreground">
+                {qcPassedCount} / {Math.max(1, totalShots)}
+              </span>
+            </div>
+
+            {/* Editor readiness */}
+            <div className="flex items-center gap-1.5 border-l border-border-subtle pl-4">
+              <ShieldCheck size={14} className={editorReady ? "text-success" : "text-text-dim"} />
+              <span className={editorReady ? "text-success font-semibold" : "text-text-dim font-medium"}>
+                {editorReady ? "Timeline Editor Sẵn sàng" : "Chờ shots"}
+              </span>
+            </div>
           </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[18px] font-bold text-foreground font-mono">
-              {audioReady === null ? "—" : audioReady ? "Ready" : "Pending"}
-            </span>
-            <span className="text-[11px] text-text-secondary">Narration asset</span>
-          </div>
+
+          {/* Technical Details Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowTechDetails((prev) => !prev)}
+            className="inline-flex items-center gap-1 text-[11px] font-mono text-text-dim hover:text-foreground transition-colors"
+          >
+            <Info size={12} />
+            <span>Kỹ thuật LTX</span>
+            {showTechDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
         </div>
 
-        {/* 2. Voice Identity Readiness */}
-        <div className="rounded-lg border border-border-subtle bg-surface p-3">
-          <div className="flex items-center justify-between text-text-muted mb-1 text-[11px] uppercase tracking-wider font-medium">
-            <span>Voice Identity Readiness</span>
-            <UserCheck size={14} className="text-purple-400" />
+        {/* Collapsible Technical Details */}
+        {showTechDetails && (
+          <div className="mt-2 flex items-center gap-4 rounded-md border border-border-subtle bg-surface-dark px-3 py-1.5 font-mono text-[11px] text-text-dim">
+            <span>Model: <strong className="text-foreground">LTX-2.5 22B Distilled (Native AV)</strong></span>
+            <span>Độ phân giải: <strong className="text-foreground">1280x720 (720p)</strong></span>
+            <span>Khung hình: <strong className="text-foreground">24 FPS Cinematic</strong></span>
+            <span>Âm thanh: <strong className="text-foreground">Native AV (Embedded)</strong></span>
           </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[18px] font-bold text-foreground font-mono">
-              {voiceReady === null ? "—" : voiceReady ? "Ready" : "Blocked"}
-            </span>
-            <span className="text-[11px] text-text-secondary">Required profile check</span>
-          </div>
-        </div>
-
-        {/* 3. Video Shot Generation (Video Shots) */}
-        <div className="rounded-lg border border-border-subtle bg-surface p-3">
-          <div className="flex items-center justify-between text-text-muted mb-1 text-[11px] uppercase tracking-wider font-medium">
-            <span>Video Shot Generation (Video Shots)</span>
-            <Film size={14} className="text-primary" />
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[18px] font-bold text-foreground font-mono">
-              {shotsGeneratedCount} / {Math.max(1, totalShots)}
-            </span>
-            <span className="text-[11px] text-text-secondary">Shots sinh xong</span>
-          </div>
-        </div>
-
-        {/* 4. Validation / QC (Word Alignment & Quality Verification) */}
-        <div className="rounded-lg border border-border-subtle bg-surface p-3">
-          <div className="flex items-center justify-between text-text-muted mb-1 text-[11px] uppercase tracking-wider font-medium">
-            <span>Validation / QC (Word Alignment)</span>
-            <Clock size={14} className="text-cyan-400" />
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[18px] font-bold text-foreground font-mono">
-              {qcPassedCount} / {Math.max(1, totalShots)}
-            </span>
-            <span className="text-[11px] text-text-secondary">QC Đạt chuẩn</span>
-          </div>
-        </div>
-
-        {/* 5. Editor Readiness */}
-        <div className="rounded-lg border border-border-subtle bg-surface p-3">
-          <div className="flex items-center justify-between text-text-muted mb-1 text-[11px] uppercase tracking-wider font-medium">
-            <span>Timeline Editor Sẵn sàng</span>
-            <ShieldCheck
-              size={14}
-              className={editorReady ? "text-success" : "text-text-dim"}
-            />
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[18px] font-bold text-foreground font-mono">
-              {editorReady ? "SẴN SÀNG" : "CHỜ SHOTS"}
-            </span>
-            <span className="text-[11px] text-text-secondary">Direct to Timeline</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Main Canonical Production Workspace: VideoShotboard */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <VideoShotboard
-          projectId={projectId}
-          chapterId={chapter.id}
-          beats={visualBeats}
-          hasSelectedScene={allBeats.length > 0}
-          selectedSceneBeatCount={allBeats.length}
-          timelineBeats={timelineBeats}
-          updating={updateBeatReview.isPending}
-          mediaBusyBeatId={mediaBusyBeatId}
-          copiedPromptBeatId={copiedPromptBeatId}
-          onReview={handleReview}
-          onCopyPrompt={handleCopyPrompt}
-          onImport={handleImport}
-        />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="p-4">
+          <VideoShotboard
+            projectId={projectId}
+            chapterId={chapter.id}
+            beats={visualBeats}
+            hasSelectedScene={allBeats.length > 0}
+            selectedSceneBeatCount={allBeats.length}
+            timelineBeats={timelineBeats}
+            updating={updateVisualBeatReview.isPending}
+            mediaBusyBeatId={mediaBusyBeatId}
+            copiedPromptBeatId={copiedPromptBeatId}
+            onReview={handleReview}
+            onCopyPrompt={handleCopyPrompt}
+            onImport={handleImport}
+          />
+        </div>
       </div>
     </div>
   );

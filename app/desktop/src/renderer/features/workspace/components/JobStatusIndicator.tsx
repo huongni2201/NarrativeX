@@ -9,7 +9,7 @@ export interface JobStatusIndicatorProps {
 
 export function JobStatusIndicator({ projectId, activeCount: propActiveCount }: JobStatusIndicatorProps) {
   const navigate = useNavigate();
-  const { data: page } = useJobHistoryQuery(20);
+  const { data: page } = useJobHistoryQuery(projectId, 20);
 
   const activeCount = propActiveCount ?? (
     page?.content?.filter((j) => j.status === "RUNNING" || j.status === "QUEUED").length ?? 0

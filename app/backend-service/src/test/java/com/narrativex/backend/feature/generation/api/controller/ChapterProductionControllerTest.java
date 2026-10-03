@@ -115,7 +115,7 @@ class ChapterProductionControllerTest {
             shotId,
             1,
             "ltx",
-            "ltx-2.5-nvfp4",
+            "ltx-2.5-22b-distilled-int8",
             GenerationStrategy.TEXT_TO_VIDEO,
             null,
             4000L,

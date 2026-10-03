@@ -115,13 +115,19 @@ public class CreateMediaJobUseCase {
       }
     }
 
+    String effectiveAspectRatio = isVideoFirst
+        ? project.getImageAspectRatio().getCode()
+        : (command.aspectRatio() != null && !command.aspectRatio().isBlank()
+            ? com.narrativex.backend.feature.project.domain.enums.AspectRatio.normalize(command.aspectRatio())
+            : project.getImageAspectRatio().getCode());
+
     var plan =
         createMediaPlanUseCase.execute(
             new CreateMediaPlanCommand(
                 command.projectId(),
                 command.chapterId(),
                 ProductionMode.valueOf(command.productionMode()),
-                command.aspectRatio(),
+                effectiveAspectRatio,
                 providerKey,
                 modelKey,
                 command.imageStyle()));

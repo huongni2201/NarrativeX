@@ -11,13 +11,25 @@ function readSource(relPath) {
   return readFileSync(join(rendererRoot, relPath), "utf8");
 }
 
-test("isStrategySupported verifies against capability strategies", () => {
-  assert.equal(isStrategySupported("TEXT_TO_VIDEO", DEFAULT_FALLBACK_CAPABILITY), true);
-  assert.equal(isStrategySupported("IMAGE_TO_VIDEO", DEFAULT_FALLBACK_CAPABILITY), false);
-  assert.equal(isStrategySupported("FIRST_LAST_FRAME", DEFAULT_FALLBACK_CAPABILITY), false);
+test("isStrategySupported verifies against capability strategies and fails closed on fallback", () => {
+  // Fallback capability must fail closed
+  assert.equal(DEFAULT_FALLBACK_CAPABILITY.available, false);
+  assert.equal(isStrategySupported("TEXT_TO_VIDEO", DEFAULT_FALLBACK_CAPABILITY), false);
+
+  const readyCapability = {
+    ...DEFAULT_FALLBACK_CAPABILITY,
+    available: true,
+    status: "READY",
+    strategies: ["TEXT_TO_VIDEO"],
+  };
+  assert.equal(isStrategySupported("TEXT_TO_VIDEO", readyCapability), true);
+  assert.equal(isStrategySupported("IMAGE_TO_VIDEO", readyCapability), false);
+  assert.equal(isStrategySupported("FIRST_LAST_FRAME", readyCapability), false);
 
   const extendedCapability = {
     ...DEFAULT_FALLBACK_CAPABILITY,
+    available: true,
+    status: "READY",
     strategies: ["TEXT_TO_VIDEO", "IMAGE_TO_VIDEO"],
   };
   assert.equal(isStrategySupported("IMAGE_TO_VIDEO", extendedCapability), true);

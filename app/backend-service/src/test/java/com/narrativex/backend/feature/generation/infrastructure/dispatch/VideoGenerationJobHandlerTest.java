@@ -202,8 +202,8 @@ class VideoGenerationJobHandlerTest {
 
     assertEquals("video.generate", captured.task().type());
     assertEquals("ltx", captured.model().executor());
-    assertEquals("ltx-2.5-nvfp4", captured.model().model());
-    assertEquals("1.0", captured.model().revision());
+    assertEquals("ltx-2.5-22b-distilled-int8", captured.model().model());
+    assertEquals("5e6e71018ee1756ed329b697a7b4aedc934dfce9", captured.model().revision());
     assertEquals(
         "Hero leaps over the wall in dramatic slow motion", captured.inputs().get("prompt"));
     assertEquals(5000, captured.inputs().get("durationMs"));

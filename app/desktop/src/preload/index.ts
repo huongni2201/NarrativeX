@@ -70,6 +70,10 @@ const bridge: NarrativeXDesktopBridge = {
     status: () => ipcRenderer.invoke("desktop:render:status"),
     preflight: (input) => ipcRenderer.invoke("desktop:render:preflight", input),
     recoveryStatus: () => ipcRenderer.invoke("desktop:render:recovery-status"),
+    discardRecovery: (input: { projectId: string; jobId: string }) =>
+      ipcRenderer.invoke("desktop:render:discard-recovery", input),
+    resumeRecovery: (input: { projectId: string; jobId: string }) =>
+      ipcRenderer.invoke("desktop:render:resume-recovery", input),
     cancel: (jobId: string) => ipcRenderer.invoke("desktop:render:cancel", jobId),
     chooseDestination: () => ipcRenderer.invoke("desktop:render:choose-destination"),
     bindDestination: (input) => ipcRenderer.invoke("desktop:render:bind-destination", input),

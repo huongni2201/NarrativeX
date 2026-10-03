@@ -110,7 +110,7 @@ export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR" | "CINEMATIC_
 
 export interface CreateMediaJobInput {
   productionMode: "VIDEO_FIRST" | "IMAGE_MOTION" | "LEGACY_IMAGE";
-  aspectRatio: MediaAspectRatio;
+  aspectRatio?: MediaAspectRatio;
   imageStyle?: MediaImageStyle;
   visualGenerationMode: VisualGenerationMode;
   imageProvider?: ImageGenerationProvider | null;
@@ -150,8 +150,16 @@ export interface ResolutionProfile {
   fps: number;
 }
 
+export type RuntimeCapabilityStatus =
+  | "READY"
+  | "BUSY"
+  | "DEGRADED"
+  | "OFFLINE"
+  | "UNAVAILABLE";
+
 export interface VideoRuntimeCapability {
   available: boolean;
+  status?: RuntimeCapabilityStatus;
   provider: string;
   model: string;
   profile: string;
@@ -159,6 +167,7 @@ export interface VideoRuntimeCapability {
   supportedAspectRatios: string[];
   resolutionProfiles: ResolutionProfile[];
   audioModes: string[];
+  reason?: string | null;
 }
 
 export interface RuntimeCapabilityView {

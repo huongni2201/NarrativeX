@@ -68,7 +68,7 @@ export function VideoShotboard({
 
   // Authoritative Chapter Production query and mutations
   const { data: production } = useChapterProduction(projectId, chapterId ?? null);
-  const { supportedStrategies, isAvailable } = useRuntimeCapabilities();
+  const { supportedStrategies, isAvailable, videoCapability } = useRuntimeCapabilities();
   const generateTake = useGenerateShot(projectId, chapterId);
   const selectTake = useSelectTake(projectId, chapterId);
   const updateStrategy = useUpdateShotStrategy(projectId, chapterId);
@@ -216,7 +216,7 @@ export function VideoShotboard({
                     }
                     blockedReason={
                       !isAvailable
-                        ? "Hệ thống AI video (LTX) hiện chưa sẵn sàng"
+                        ? (videoCapability.reason || "Hệ thống AI video (LTX) hiện chưa sẵn sàng")
                         : (shot?.preflight?.blockers?.[0] ??
                           (shot?.status === "BLOCKED" ? "Shot is blocked" : undefined))
                     }
@@ -271,7 +271,7 @@ export function VideoShotboard({
                     }
                   >
                     {isApproved ? <RotateCcw size={12} /> : <Check size={12} />}
-                    <span>{isApproved ? "Re-Review" : "Approve Shot"}</span>
+                    <span>{isApproved ? "Re-Review" : "Approve Visual"}</span>
                   </Button>
                   <Button
                     variant="outline"

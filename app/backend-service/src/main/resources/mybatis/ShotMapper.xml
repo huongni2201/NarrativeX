@@ -259,7 +259,15 @@
   <select id="findAdmissionContextLocked" resultType="string">
     SELECT jsonb_build_object(
       'sourceLanguage', project.source_language, 'narrationLanguage', project.narration_language,
-      'imageAspectRatio', project.image_aspect_ratio, 'aspectRatioOverride', vb.aspect_ratio_override,
+      'imageAspectRatio', CASE project.image_aspect_ratio
+        WHEN 'RATIO_16_9' THEN '16:9'
+        WHEN 'RATIO_9_16' THEN '9:16'
+        WHEN 'RATIO_1_1' THEN '1:1'
+        WHEN 'RATIO_4_3' THEN '4:3'
+        WHEN 'RATIO_3_4' THEN '3:4'
+        ELSE project.image_aspect_ratio
+      END,
+      'aspectRatioOverride', vb.aspect_ratio_override,
       'projectId', sc.project_id, 'chapterId', ch.id, 'storyVersionId', ch.story_version_id,
       'chapterRowVersion', ch.row_version, 'sourceHash', ch.source_hash,
       'sourceText', ch.source_text, 'storyboardRevisionId', sc.storyboard_revision_id,

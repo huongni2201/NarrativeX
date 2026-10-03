@@ -31,7 +31,7 @@ class ChapterVideoBatchPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
         "UPDATE generation_jobs SET status = 'COMPLETED' WHERE idempotency_key LIKE 'shot-take:%'");
     limits.setMaxConcurrentExpensiveJobs(100);
     video.setDefaultProvider("ltx");
-    video.setDefaultModel("ltx-2.5-nvfp4");
+    video.setDefaultModel("ltx-2.5-22b-distilled-int8");
     projectId =
         id(
             "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('admission','DRAFT','en','en','en','RATIO_16_9') RETURNING id");

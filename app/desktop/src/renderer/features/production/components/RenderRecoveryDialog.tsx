@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,8 @@ export interface UnfinishedRenderInfo {
 }
 
 export function RenderRecoveryDialog() {
-  const [unfinished, setUnfinished] = useState<UnfinishedRenderInfo | null>(null);
+  const [unfinishedList, setUnfinishedList] = useState<UnfinishedRenderInfo[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
 
@@ -32,7 +33,8 @@ export function RenderRecoveryDialog() {
       try {
         const result = await window.narrativex.render.recoveryStatus();
         if (result?.unfinished && result.unfinished.length > 0) {
-          setUnfinished(result.unfinished[0]);
+          setUnfinishedList(result.unfinished);
+          setCurrentIndex(0);
           setIsOpen(true);
         }
       } catch (err) {
@@ -43,25 +45,53 @@ export function RenderRecoveryDialog() {
     void checkRecovery();
   }, []);
 
+  const unfinished = unfinishedList[currentIndex] ?? null;
+
   if (!unfinished) return null;
 
   const handleDiscard = async () => {
+    if (!unfinished) return;
     setIsBusy(true);
     try {
-      if (window.narrativex?.render?.cancel) {
+      if (window.narrativex?.render?.discardRecovery) {
+        await window.narrativex.render.discardRecovery({
+          projectId: unfinished.projectId,
+          jobId: unfinished.jobId,
+        });
+      } else if (window.narrativex?.render?.cancel) {
         await window.narrativex.render.cancel(unfinished.jobId);
       }
+      const nextList = unfinishedList.filter((_, idx) => idx !== currentIndex);
+      setUnfinishedList(nextList);
+      if (nextList.length === 0) {
+        setIsOpen(false);
+      } else {
+        setCurrentIndex((prev) => Math.min(prev, nextList.length - 1));
+      }
     } catch (err) {
-      console.warn("Failed to cancel unfinished render job:", err);
+      console.warn("Failed to discard unfinished render job:", err);
     } finally {
       setIsBusy(false);
-      setIsOpen(false);
     }
   };
 
-  const handleResume = () => {
-    setIsOpen(false);
-    window.location.hash = `#/projects/${unfinished.projectId}/editor`;
+  const handleResume = async () => {
+    if (!unfinished) return;
+    setIsBusy(true);
+    try {
+      if (window.narrativex?.render?.resumeRecovery) {
+        await window.narrativex.render.resumeRecovery({
+          projectId: unfinished.projectId,
+          jobId: unfinished.jobId,
+        });
+      }
+      setIsOpen(false);
+      window.location.hash = `#/projects/${unfinished.projectId}/editor`;
+    } catch (err) {
+      console.warn("Failed to resume render job:", err);
+    } finally {
+      setIsBusy(false);
+    }
   };
 
   return (
@@ -71,7 +101,7 @@ export function RenderRecoveryDialog() {
           <div className="flex items-center gap-2 text-warning mb-1">
             <AlertTriangle size={18} />
             <DialogTitle className="text-[16px] font-semibold text-foreground">
-              Phát hiện tiến trình xuất video bị gián đoạn
+              Phát hiện tiến trình xuất video bị gián đoạn {unfinishedList.length > 1 ? `(Tác vụ ${currentIndex + 1}/${unfinishedList.length})` : ""}
             </DialogTitle>
           </div>
           <DialogDescription className="text-[12px] text-text-muted text-left">
@@ -101,6 +131,32 @@ export function RenderRecoveryDialog() {
             <span className="text-text-secondary">{new Date(unfinished.updatedAt).toLocaleString()}</span>
           </div>
         </div>
+
+        {unfinishedList.length > 1 && (
+          <div className="flex items-center justify-between text-xs text-text-dim px-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentIndex === 0 || isBusy}
+              onClick={() => setCurrentIndex((idx) => Math.max(0, idx - 1))}
+              className="h-7 px-2 text-xs"
+            >
+              <ArrowLeft size={12} className="mr-1" />
+              Trước
+            </Button>
+            <span>Tác vụ {currentIndex + 1} trên {unfinishedList.length}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentIndex === unfinishedList.length - 1 || isBusy}
+              onClick={() => setCurrentIndex((idx) => Math.min(unfinishedList.length - 1, idx + 1))}
+              className="h-7 px-2 text-xs"
+            >
+              Sau
+              <ArrowRight size={12} className="ml-1" />
+            </Button>
+          </div>
+        )}
 
         <DialogFooter className="flex gap-2 sm:justify-between">
           <Button

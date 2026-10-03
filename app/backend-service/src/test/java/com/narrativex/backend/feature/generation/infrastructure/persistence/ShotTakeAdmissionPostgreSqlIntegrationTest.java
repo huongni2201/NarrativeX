@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
+import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.api.response.TakeResponse;
 import com.narrativex.backend.feature.generation.application.command.GenerateShotTakeCommand;
@@ -69,7 +70,8 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
         "UPDATE generation_jobs SET status = 'COMPLETED' WHERE idempotency_key LIKE 'shot-take:%'");
     limits.setMaxConcurrentExpensiveJobs(100);
     video.setDefaultProvider("ltx");
-    video.setDefaultModel("ltx-2.5-nvfp4");
+    video.setDefaultModel("ltx-2.5-22b-distilled-int8");
+    video.setSupportedStrategies(List.of(GenerationStrategy.TEXT_TO_VIDEO));
     projectId =
         id(
             "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('admission','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
@@ -115,7 +117,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   @AfterEach
   void resetLimits() {
     limits.setMaxConcurrentExpensiveJobs(2);
-    video.setDefaultModel("ltx-2.5-nvfp4");
+    video.setDefaultModel("ltx-2.5-22b-distilled-int8");
   }
 
   UUID id(String sql, Object... params) {
@@ -319,6 +321,8 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
 
   @Test
   void invalidOrMissingConditioningReferencesRejectBeforeIntent() {
+    video.setSupportedStrategies(
+        List.of(GenerationStrategy.TEXT_TO_VIDEO, GenerationStrategy.IMAGE_TO_VIDEO));
     var i2v =
         new GenerateShotTakeCommand(
             projectId, shotId, GenerationStrategy.IMAGE_TO_VIDEO, null, null, null, "i2v", null);
@@ -576,6 +580,40 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
         .isInstanceOf(ResourceConflictException.class);
     assertThat(admission.execute(command("original", 1L)).id()).isEqualTo(admitted.id());
     assertThat(count("takes")).isEqualTo(1);
+  }
+
+  @Test
+  void ratio16_9_isAdmitted() {
+    jdbc.update("UPDATE projects SET image_aspect_ratio = 'RATIO_16_9' WHERE id = ?", projectId);
+    int initialJobs = count("generation_jobs");
+    var admitted = admission.execute(command("ratio-16-9", 101L));
+    assertThat(admitted).isNotNull();
+    assertThat(admitted.id()).isNotNull();
+    assertThat(count("generation_jobs")).isEqualTo(initialJobs + 1);
+  }
+
+  @Test
+  void unsupportedRatio9_16_isRejectedBeforeOutbox() {
+    jdbc.update("UPDATE projects SET image_aspect_ratio = 'RATIO_9_16' WHERE id = ?", projectId);
+    int initialJobs = count("generation_jobs");
+    int initialTakes = count("takes");
+    assertThatThrownBy(() -> admission.execute(command("ratio-9-16", 102L)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("UNSUPPORTED_ASPECT_RATIO");
+    assertThat(count("generation_jobs")).isEqualTo(initialJobs);
+    assertThat(count("takes")).isEqualTo(initialTakes);
+  }
+
+  @Test
+  void unsupportedRatio1_1_isRejectedBeforeOutbox() {
+    jdbc.update("UPDATE projects SET image_aspect_ratio = 'RATIO_1_1' WHERE id = ?", projectId);
+    int initialJobs = count("generation_jobs");
+    int initialTakes = count("takes");
+    assertThatThrownBy(() -> admission.execute(command("ratio-1-1", 103L)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("UNSUPPORTED_ASPECT_RATIO");
+    assertThat(count("generation_jobs")).isEqualTo(initialJobs);
+    assertThat(count("takes")).isEqualTo(initialTakes);
   }
 
   <T> List<T> concurrently(Callable<T> first, Callable<T> second) throws Exception {

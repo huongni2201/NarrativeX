@@ -124,11 +124,17 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
     UUID taskId = job.getJobId();
     UUID attemptId = ComputeAttemptIdentity.forJob(job.getJobId(), job.getType());
 
-    TaskDescriptorDto task = new TaskDescriptorDto("video.generate", "1.0");
     String provider = videoProperties != null ? videoProperties.getDefaultProvider() : "ltx";
     String modelName =
-        videoProperties != null ? videoProperties.getDefaultModel() : "ltx-2.5-nvfp4";
-    ModelRefDto model = new ModelRefDto(provider, modelName, "1.0");
+        videoProperties != null ? videoProperties.getDefaultModel() : "ltx-2.5-22b-distilled-int8";
+    String revision =
+        videoProperties != null ? videoProperties.getModelRevision() : "5e6e71018ee1756ed329b697a7b4aedc934dfce9";
+    String schemaVersion =
+        videoProperties != null && videoProperties.getWorkflowRevision() != null && videoProperties.getWorkflowRevision().contains(":")
+            ? videoProperties.getWorkflowRevision().split(":")[1]
+            : "1.1";
+    TaskDescriptorDto task = new TaskDescriptorDto("video.generate", schemaVersion);
+    ModelRefDto model = new ModelRefDto(provider, modelName, revision);
     TaskConstraintsDto constraints =
         new TaskConstraintsDto(Instant.now().plus(20, ChronoUnit.MINUTES), 1200);
 
@@ -288,25 +294,52 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
     String idempotencyKey = "compute:video-gen:" + taskId + ":" + attemptNumber;
 
     Map<String, Object> inputs = new HashMap<>();
-    inputs.put("prompt", prompt);
-    inputs.put("negativePrompt", negativePrompt);
-    inputs.put("width", width);
-    inputs.put("height", height);
-    inputs.put("fps", fps);
-    inputs.put("durationMs", durationMs);
-    inputs.put("generationMode", generationMode);
-    inputs.put("seed", seed);
-    if (cameraIntent != null && !cameraIntent.isEmpty()) {
-      inputs.put("cameraIntent", cameraIntent);
-    }
-    if (motionIntent != null && !motionIntent.isEmpty()) {
-      inputs.put("motionIntent", motionIntent);
-    }
-    if (!refAssetsList.isEmpty()) {
-      inputs.put("referenceAssets", refAssetsList);
-    }
-    if (voiceRef != null) {
-      inputs.put("voiceReference", voiceRef);
+    if ("1.1".equals(schemaVersion)) {
+      inputs.put(
+          "workflowProfileId",
+          videoProperties != null && videoProperties.getDefaultProfile() != null
+              ? videoProperties.getDefaultProfile()
+              : "ltx-2.5-22b-distilled-int8-native-av-v1");
+      inputs.put("audioMode", "NATIVE_AV");
+      inputs.put("prompt", prompt);
+      inputs.put("negativePrompt", negativePrompt);
+      inputs.put("width", 1280);
+      inputs.put("height", 720);
+      inputs.put("fps", 24);
+      inputs.put("durationMs", durationMs);
+      inputs.put("generationMode", "TEXT_TO_VIDEO");
+      inputs.put("seed", seed);
+      inputs.put("dialogue", List.of());
+      if (voiceRef != null) {
+        inputs.put("voiceReference", voiceRef);
+      }
+      if (cameraIntent != null && !cameraIntent.isEmpty()) {
+        inputs.put("cameraIntent", cameraIntent);
+      }
+      if (motionIntent != null && !motionIntent.isEmpty()) {
+        inputs.put("motionIntent", motionIntent);
+      }
+    } else {
+      inputs.put("prompt", prompt);
+      inputs.put("negativePrompt", negativePrompt);
+      inputs.put("width", width);
+      inputs.put("height", height);
+      inputs.put("fps", fps);
+      inputs.put("durationMs", durationMs);
+      inputs.put("generationMode", generationMode);
+      inputs.put("seed", seed);
+      if (cameraIntent != null && !cameraIntent.isEmpty()) {
+        inputs.put("cameraIntent", cameraIntent);
+      }
+      if (motionIntent != null && !motionIntent.isEmpty()) {
+        inputs.put("motionIntent", motionIntent);
+      }
+      if (!refAssetsList.isEmpty()) {
+        inputs.put("referenceAssets", refAssetsList);
+      }
+      if (voiceRef != null) {
+        inputs.put("voiceReference", voiceRef);
+      }
     }
 
     OutputArtifactTargetDto output =
@@ -405,12 +438,40 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
       var output =
           artifactAccess.getOrCreateTarget(
               take.getComputeTaskId(), take.getComputeAttemptId(), outputId, "video", "video/mp4");
-      var task = new TaskDescriptorDto("video.generate", "1.0");
+      String schemaVersion = "1.0";
+      if (snapshot.workflowRevision() != null && snapshot.workflowRevision().contains(":")) {
+        schemaVersion = snapshot.workflowRevision().split(":")[1];
+      }
+      var task = new TaskDescriptorDto("video.generate", schemaVersion);
       var model = new ModelRefDto(snapshot.provider(), snapshot.model(), snapshot.modelRevision());
       var constraints = new TaskConstraintsDto(snapshot.deadline(), 1200);
       var artifacts = new TaskArtifactsDto(inputs, List.of(output));
       var workerInputs = new HashMap<>(snapshot.inputs());
-      if (!snapshot.references().isEmpty()) {
+      if ("1.1".equals(schemaVersion)) {
+        if (!workerInputs.containsKey("seed")) {
+          workerInputs.put("seed", snapshot.seed());
+        }
+        if (!workerInputs.containsKey("workflowProfileId")) {
+          workerInputs.put(
+              "workflowProfileId",
+              videoProperties != null && videoProperties.getDefaultProfile() != null
+                  ? videoProperties.getDefaultProfile()
+                  : "ltx-2.5-22b-distilled-int8-native-av-v1");
+        }
+        if (!workerInputs.containsKey("audioMode")) {
+          workerInputs.put("audioMode", "NATIVE_AV");
+        }
+        if (!workerInputs.containsKey("dialogue")) {
+          workerInputs.put("dialogue", List.of());
+        }
+        if (!workerInputs.containsKey("width")) workerInputs.put("width", 1280);
+        if (!workerInputs.containsKey("height")) workerInputs.put("height", 720);
+        if (!workerInputs.containsKey("fps")) workerInputs.put("fps", 24);
+        if (!workerInputs.containsKey("generationMode")) workerInputs.put("generationMode", "TEXT_TO_VIDEO");
+        workerInputs.remove("referenceAssets");
+        workerInputs.remove("referenceAssetIds");
+        workerInputs.remove("providerOptions");
+      } else if ("1.0".equals(schemaVersion) && !snapshot.references().isEmpty()) {
         workerInputs.put(
             "referenceAssets",
             snapshot.references().stream()

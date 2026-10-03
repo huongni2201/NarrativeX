@@ -17,7 +17,7 @@ test("resolveProjectContinuation routes 0 chapter project to chapters workspace 
   };
 
   const continuation = resolveProjectContinuation(newProject);
-  assert.equal(continuation.destination, "/projects/proj-1/chapters");
+  assert.equal(continuation.destination, "/projects/proj-1/chapters?stage=source");
   assert.equal(continuation.stage, "source");
   assert.match(continuation.label, /viết kịch bản/i);
 });
@@ -32,11 +32,11 @@ test("resolveProjectContinuation routes project without metrics to chapters work
   };
 
   const continuation = resolveProjectContinuation(newProject);
-  assert.equal(continuation.destination, "/projects/proj-2/chapters");
+  assert.equal(continuation.destination, "/projects/proj-2/chapters?stage=source");
   assert.equal(continuation.stage, "source");
 });
 
-test("resolveProjectContinuation routes in-progress project to chapters workspace (production stage)", () => {
+test("resolveProjectContinuation routes in-progress project without workflow to chapters workspace (production stage)", () => {
   const inProgressProject = {
     id: "proj-3",
     name: "In Progress",
@@ -51,26 +51,58 @@ test("resolveProjectContinuation routes in-progress project to chapters workspac
   };
 
   const continuation = resolveProjectContinuation(inProgressProject);
-  assert.equal(continuation.destination, "/projects/proj-3/chapters");
+  assert.equal(continuation.destination, "/projects/proj-3/chapters?stage=production");
   assert.equal(continuation.stage, "production");
   assert.match(continuation.label, /sản xuất/i);
 });
 
-test("resolveProjectContinuation routes READY or COMPLETED project to timeline editor", () => {
-  const readyProject = {
+test("resolveProjectContinuation routes based on workflow summary: renderInProgress", () => {
+  const project = {
     id: "proj-4",
-    name: "Ready Film",
+    name: "Rendering Film",
     description: null,
     coverImageUrl: null,
-    status: "READY",
-    metrics: {
-      totalChapters: 3,
-      totalScenes: 8,
-      estimatedDurationSeconds: 300,
+    status: "ACTIVE",
+    workflow: {
+      hasChapter: true,
+      analysisReady: true,
+      canonReady: true,
+      storyReady: true,
+      productionStarted: true,
+      productionReady: true,
+      editorReady: true,
+      renderInProgress: true,
+      latestStage: "RENDER",
     },
   };
 
-  const continuation = resolveProjectContinuation(readyProject);
+  const continuation = resolveProjectContinuation(project);
   assert.equal(continuation.destination, "/projects/proj-4/editor");
-  assert.match(continuation.label, /timeline/i);
+  assert.match(continuation.label, /render/i);
+});
+
+test("resolveProjectContinuation routes based on workflow summary: canonReady to story", () => {
+  const project = {
+    id: "proj-5",
+    name: "Story Planning",
+    description: null,
+    coverImageUrl: null,
+    status: "ACTIVE",
+    workflow: {
+      hasChapter: true,
+      analysisReady: true,
+      canonReady: true,
+      storyReady: false,
+      productionStarted: false,
+      productionReady: false,
+      editorReady: false,
+      renderInProgress: false,
+      latestStage: "CANON",
+    },
+  };
+
+  const continuation = resolveProjectContinuation(project);
+  assert.equal(continuation.destination, "/projects/proj-5/chapters?stage=story");
+  assert.equal(continuation.stage, "story");
+  assert.match(continuation.label, /storyboard/i);
 });

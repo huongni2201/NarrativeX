@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "@narrativex/client-contracts";
-import { AlertCircle, CheckCircle2, Clapperboard, Film, Loader2, RotateCcw, Scissors, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clapperboard, Clock, Film, Loader2, RotateCcw, Scissors, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ export function TakeSelectorDrawer({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Synchronize internal state whenever drawer opens or active shot/selected take changes
+  // Synchronize internal state whenever drawer opens or active shot/selected take changes (without resetting on takes poll refresh)
   useEffect(() => {
     if (isOpen && shot) {
       const initialTakeId = selectedTake?.takeId ?? takes[0]?.id ?? "";
@@ -47,12 +47,64 @@ export function TakeSelectorDrawer({
       setSourceOutMs(selectedTake?.sourceOutMs ?? maxDur);
       setSaveError(null);
     }
-  }, [isOpen, shot?.id, selectedTake?.takeId, takes]);
+  }, [isOpen, shot?.id, selectedTake?.takeId, selectedTake?.sourceInMs, selectedTake?.sourceOutMs]);
 
   if (!isOpen || !shot) return null;
 
+  const isTakeSelectable = (take: DesktopTake | undefined | null): boolean => {
+    if (!take) return false;
+    const status = take.status?.toUpperCase() ?? "";
+    if (status === "PENDING" || status === "RUNNING" || status === "VALIDATING" || status === "FAILED") {
+      return false;
+    }
+    const hasPassed = status === "PASSED" || take.validationResult?.passed === true;
+    const hasAsset = Boolean(take.outputAssetId);
+    const hasValidDuration = Boolean(take.sourceDurationMs && take.sourceDurationMs > 0);
+    return hasPassed && hasAsset && hasValidDuration;
+  };
+
+  const renderTakeStatusBadge = (take: DesktopTake) => {
+    const status = take.status?.toUpperCase() ?? "PENDING";
+    const passed = status === "PASSED" || take.validationResult?.passed === true;
+
+    if (passed) {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-success font-medium">
+          <CheckCircle2 size={12} /> Passed QA
+        </span>
+      );
+    }
+    if (status === "VALIDATING") {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-cyan font-medium">
+          <Loader2 size={12} className="animate-spin" /> Validating QA...
+        </span>
+      );
+    }
+    if (status === "RUNNING" || status === "GENERATING") {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-primary font-medium">
+          <Loader2 size={12} className="animate-spin" /> Generating...
+        </span>
+      );
+    }
+    if (status === "PENDING") {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-text-muted font-medium">
+          <Clock size={12} /> Pending
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-destructive font-medium">
+        <AlertCircle size={12} /> Failed QA
+      </span>
+    );
+  };
+
   const currentTake = takes.find((t) => t.id === activeTakeId) ?? takes[0];
   const maxDuration = Math.max(100, currentTake?.sourceDurationMs ?? shot.targetDurationMs ?? 4000);
+  const isCurrentTakeSelectable = isTakeSelectable(currentTake);
 
   const handleSelectTake = (take: DesktopTake) => {
     setActiveTakeId(take.id);
@@ -63,7 +115,7 @@ export function TakeSelectorDrawer({
   };
 
   const handleSaveSelection = async () => {
-    if (!activeTakeId || sourceOutMs <= sourceInMs || isSaving) return;
+    if (!activeTakeId || sourceOutMs <= sourceInMs || isSaving || !isCurrentTakeSelectable) return;
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -144,15 +196,7 @@ export function TakeSelectorDrawer({
                       Take #{take.attemptNumber}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      {isPassed ? (
-                        <span className="flex items-center gap-1 text-[10px] text-success font-medium">
-                          <CheckCircle2 size={12} /> Passed QA
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-[10px] text-destructive font-medium">
-                          <AlertCircle size={12} /> Failed QA
-                        </span>
-                      )}
+                      {renderTakeStatusBadge(take)}
                     </div>
                   </div>
 
@@ -327,6 +371,13 @@ export function TakeSelectorDrawer({
                 {Math.max(0, sourceOutMs - sourceInMs)}ms
               </span>
             </div>
+
+            {!isCurrentTakeSelectable && (
+              <div className="mt-2.5 rounded bg-warning/10 border border-warning/20 p-2 text-[11px] text-warning flex items-start gap-1.5">
+                <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                <span>Take chưa vượt qua kiểm định kỹ thuật (Passed QA) hoặc chưa có video hoàn chỉnh để đưa vào timeline.</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -349,7 +400,7 @@ export function TakeSelectorDrawer({
           <Button
             size="sm"
             onClick={handleSaveSelection}
-            disabled={!activeTakeId || sourceOutMs <= sourceInMs || isSaving}
+            disabled={!activeTakeId || sourceOutMs <= sourceInMs || isSaving || !isCurrentTakeSelectable}
             className="flex-1"
           >
             {isSaving ? (

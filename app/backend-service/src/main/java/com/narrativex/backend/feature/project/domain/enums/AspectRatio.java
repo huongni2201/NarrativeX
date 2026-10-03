@@ -25,4 +25,17 @@ public enum AspectRatio {
     }
     throw new IllegalArgumentException("Unsupported aspect ratio: " + code);
   }
+
+  public static String normalize(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    String trimmed = value.trim();
+    for (AspectRatio ratio : values()) {
+      if (ratio.name().equalsIgnoreCase(trimmed) || ratio.code.equalsIgnoreCase(trimmed)) {
+        return ratio.code;
+      }
+    }
+    return trimmed;
+  }
 }

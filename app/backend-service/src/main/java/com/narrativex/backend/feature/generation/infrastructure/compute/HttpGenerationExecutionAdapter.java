@@ -189,4 +189,40 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
       throw new ComputeClientException("Interrupted while canceling compute task", e);
     }
   }
+
+  @Override
+  public java.util.Optional<com.narrativex.backend.feature.generation.application.model.compute.WorkerCapabilitiesDto>
+      fetchCapabilities() {
+    String url = resolveBaseUrl("ltx") + "/v1/capabilities";
+    try {
+      HttpRequest.Builder builder =
+          HttpRequest.newBuilder()
+              .uri(URI.create(url))
+              .timeout(properties.getReadTimeout())
+              .header("Accept", COMPUTE_MEDIA_TYPE)
+              .GET();
+
+      String machineToken = resolveMachineToken("ltx");
+      if (machineToken != null && !machineToken.isBlank()) {
+        builder.header("Authorization", "Bearer " + machineToken);
+      }
+
+      HttpResponse<String> response =
+          httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+
+      if (response.statusCode() == 200) {
+        return java.util.Optional.ofNullable(
+            objectMapper.readValue(
+                response.body(),
+                com.narrativex.backend.feature.generation.application.model.compute
+                    .WorkerCapabilitiesDto.class));
+      } else {
+        log.warn("Compute service returned status {} for /v1/capabilities at {}", response.statusCode(), url);
+        return java.util.Optional.empty();
+      }
+    } catch (Exception e) {
+      log.debug("Worker unreachable at {}: {}", url, e.getMessage());
+      return java.util.Optional.empty();
+    }
+  }
 }

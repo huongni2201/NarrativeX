@@ -32,6 +32,9 @@
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
          WHERE p.archived_at IS NULL
+        <if test="projectId != null">
+           AND j.project_id = #{projectId}
+        </if>
         <if test="cursorUpdatedAt != null">
            AND (j.created_at &lt; #{cursorUpdatedAt}
                 OR (j.created_at = #{cursorUpdatedAt} AND j.id &lt; #{cursorId}))

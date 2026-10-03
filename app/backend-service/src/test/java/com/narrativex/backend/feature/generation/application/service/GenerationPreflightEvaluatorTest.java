@@ -85,6 +85,19 @@ class GenerationPreflightEvaluatorTest {
                     GenerationStrategy.TEXT_TO_VIDEO,
                     List.of(GenerationStrategy.TEXT_TO_VIDEO),
                     "16:9",
+                    List.of("16:9"),
+                    List.of(),
+                    Map.of())
+                .ready())
+        .isTrue();
+
+    // Verify DB format RATIO_16_9 is normalized and admitted
+    assertThat(
+            GenerationPreflightEvaluator.evaluate(
+                    GenerationStrategy.TEXT_TO_VIDEO,
+                    List.of(GenerationStrategy.TEXT_TO_VIDEO),
+                    "RATIO_16_9",
+                    List.of("16:9"),
                     List.of(),
                     Map.of())
                 .ready())
@@ -95,10 +108,24 @@ class GenerationPreflightEvaluatorTest {
             GenerationStrategy.TEXT_TO_VIDEO,
             List.of(GenerationStrategy.TEXT_TO_VIDEO),
             "9:16",
+            List.of("16:9"),
             List.of(),
             Map.of());
     assertThat(rejected9x16.ready()).isFalse();
     assertThat(rejected9x16.blockers())
+        .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("9:16"));
+
+    // Verify DB format RATIO_9_16 is normalized and rejected
+    var rejectedDb9x16 =
+        GenerationPreflightEvaluator.evaluate(
+            GenerationStrategy.TEXT_TO_VIDEO,
+            List.of(GenerationStrategy.TEXT_TO_VIDEO),
+            "RATIO_9_16",
+            List.of("16:9"),
+            List.of(),
+            Map.of());
+    assertThat(rejectedDb9x16.ready()).isFalse();
+    assertThat(rejectedDb9x16.blockers())
         .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("9:16"));
 
     var rejected1x1 =
@@ -106,10 +133,24 @@ class GenerationPreflightEvaluatorTest {
             GenerationStrategy.TEXT_TO_VIDEO,
             List.of(GenerationStrategy.TEXT_TO_VIDEO),
             "1:1",
+            List.of("16:9"),
             List.of(),
             Map.of());
     assertThat(rejected1x1.ready()).isFalse();
     assertThat(rejected1x1.blockers())
+        .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("1:1"));
+
+    // Verify DB format RATIO_1_1 is normalized and rejected
+    var rejectedDb1x1 =
+        GenerationPreflightEvaluator.evaluate(
+            GenerationStrategy.TEXT_TO_VIDEO,
+            List.of(GenerationStrategy.TEXT_TO_VIDEO),
+            "RATIO_1_1",
+            List.of("16:9"),
+            List.of(),
+            Map.of());
+    assertThat(rejectedDb1x1.ready()).isFalse();
+    assertThat(rejectedDb1x1.blockers())
         .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("1:1"));
   }
 }

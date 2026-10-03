@@ -8,29 +8,57 @@ import {
   DialogDescription,
 } from "../../../components/ui/dialog";
 import { useProviderHealthQuery } from "../queries/health.queries";
+import { useRuntimeCapabilities } from "../../runtime/queries/runtime-capabilities.queries";
+
+export type ComputeStatus = "Ready" | "Busy" | "Degraded" | "Offline" | "Checking";
 
 export interface ComputeStatusIndicatorProps {
-  status?: "Ready" | "Busy" | "Degraded" | "Offline";
+  status?: ComputeStatus;
 }
 
 export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndicatorProps) {
   const [open, setOpen] = useState(false);
-  const { data: health, isLoading, isError } = useProviderHealthQuery();
+  const { data: health, isLoading: isHealthLoading, isError: isHealthError } = useProviderHealthQuery();
+  const {
+    videoCapability,
+    status: videoStatus,
+    isLoading: isCapLoading,
+    isError: isCapError,
+  } = useRuntimeCapabilities();
 
-  const resolvedStatus: "Ready" | "Busy" | "Degraded" | "Offline" = propStatus ?? (
-    isError
+  const isChecking = isHealthLoading || isCapLoading;
+  const isOffline = isHealthError || isCapError || videoStatus === "OFFLINE";
+  const isDegraded =
+    !isOffline &&
+    (!health?.vertexGemini?.configured ||
+      videoStatus === "DEGRADED" ||
+      videoStatus === "UNAVAILABLE" ||
+      !videoCapability.available);
+  const isBusy =
+    !isOffline &&
+    !isDegraded &&
+    (videoStatus === "BUSY" || health?.vertexGemini?.status === "BUSY");
+
+  const resolvedStatus: ComputeStatus =
+    propStatus ??
+    (isChecking
+      ? "Checking"
+      : isOffline
       ? "Offline"
-      : isLoading
-      ? "Ready"
-      : health?.vertexGemini?.configured && health?.vertexGemini?.status === "READY"
-      ? "Ready"
-      : health?.vertexGemini?.configured
+      : isDegraded
+      ? "Degraded"
+      : isBusy
       ? "Busy"
-      : "Degraded"
-  );
+      : "Ready");
 
   const getStatusBadge = () => {
     switch (resolvedStatus) {
+      case "Checking":
+        return {
+          icon: <RefreshCw size={13} className="animate-spin text-text-muted" />,
+          colorClass: "border-border-subtle bg-surface-2 text-text-muted",
+          label: "Compute: Checking...",
+        };
       case "Busy":
         return {
           icon: <RefreshCw size={13} className="animate-spin text-primary" />,
@@ -75,14 +103,14 @@ export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndi
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[440px] border border-border bg-card p-5 text-card-foreground shadow-2xl">
+        <DialogContent className="max-w-[480px] border border-border bg-card p-5 text-card-foreground shadow-2xl">
           <DialogHeader className="text-left">
             <div className="flex items-center gap-2 text-foreground">
               <Cpu className="size-5 text-primary" />
               <DialogTitle className="text-[16px] font-semibold">Trạng thái hạ tầng tính toán (Compute)</DialogTitle>
             </div>
             <DialogDescription className="text-[13px] text-text-muted">
-              Hệ thống xử lý AI phục vụ phân tích kịch bản Story Director, sinh giọng đọc và tạo hình ảnh.
+              Hệ thống xử lý AI phục vụ phân tích kịch bản Story Director và sinh video Native AV.
             </DialogDescription>
           </DialogHeader>
 
@@ -96,9 +124,16 @@ export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndi
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-dark px-3.5 py-2.5">
-              <span className="text-[13px] font-medium text-text-secondary">Story Analysis Engine</span>
+              <span className="text-[13px] font-medium text-text-secondary">Story Director Engine</span>
               <span className="font-mono text-[12px] text-foreground">
-                {health?.vertexGemini?.model || "Gemini 3.8 Flash (Thinking HIGH)"}
+                {health?.vertexGemini?.model || "Gemini 2.5 Flash"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-dark px-3.5 py-2.5">
+              <span className="text-[13px] font-medium text-text-secondary">Video Generation Model</span>
+              <span className="font-mono text-[12px] text-foreground">
+                {videoCapability.model || "LTX-Video 2.5"}
               </span>
             </div>
 
@@ -108,25 +143,25 @@ export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndi
             </div>
 
             <div className="rounded-lg border border-border-subtle bg-surface-dark p-3.5">
-              <span className="text-[13px] font-medium text-text-secondary block mb-2">Các pipeline khả dụng</span>
-              <ul className="flex flex-col gap-1.5 text-[12px] text-text-muted">
+              <span className="text-[13px] font-medium text-text-secondary block mb-2">Các pipeline AI khả dụng</span>
+              <ul className="flex flex-col gap-2 text-[12px] text-text-muted">
                 <li className="flex items-center justify-between">
-                  <span>Vertex Gemini (Story Director)</span>
-                  <span className={health?.vertexGemini?.configured ? "text-success font-mono" : "text-warning font-mono"}>
-                    {health?.vertexGemini?.configured ? "READY" : "NOT CONFIGURED"}
+                  <div>
+                    <span className="text-foreground font-medium block">Vertex Gemini</span>
+                    <span className="text-[11px] text-text-dim">Story Director & Chapter Analysis</span>
+                  </div>
+                  <span className={health?.vertexGemini?.configured ? "text-success font-mono font-medium" : "text-warning font-mono font-medium"}>
+                    {health?.vertexGemini?.configured ? (health.vertexGemini.status || "READY") : "NOT CONFIGURED"}
                   </span>
                 </li>
-                <li className="flex items-center justify-between">
-                  <span>VieNeu (Vietnamese TTS)</span>
-                  <span className="text-success font-mono">READY</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span>WhisperX (Forced Alignment)</span>
-                  <span className="text-success font-mono">READY</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span>ComfyUI (RealVisXL / Image Gen)</span>
-                  <span className="text-success font-mono">READY</span>
+                <li className="flex items-center justify-between border-t border-border-subtle/50 pt-2">
+                  <div>
+                    <span className="text-foreground font-medium block">LTX Video Worker</span>
+                    <span className="text-[11px] text-text-dim">Native AV Generation (720p 24fps)</span>
+                  </div>
+                  <span className={videoCapability.available ? "text-success font-mono font-medium" : "text-warning font-mono font-medium"}>
+                    {videoStatus}
+                  </span>
                 </li>
               </ul>
             </div>

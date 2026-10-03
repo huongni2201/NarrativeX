@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.api.controller;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.response.JobHistoryResponse;
 import com.narrativex.backend.feature.generation.application.usecase.ListJobHistoryUseCase;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,10 +19,12 @@ public class JobHistoryController {
 
   @GetMapping
   public ResponseEntity<ApiResponse<JobHistoryResponse.Page>> list(
-      @RequestParam(required = false) String cursor, @RequestParam(defaultValue = "20") int limit) {
+      @RequestParam(required = false) UUID projectId,
+      @RequestParam(required = false) String cursor,
+      @RequestParam(defaultValue = "20") int limit) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Job history retrieved successfully",
-            JobHistoryResponse.Page.from(listJobHistoryUseCase.execute(cursor, limit))));
+            JobHistoryResponse.Page.from(listJobHistoryUseCase.execute(projectId, cursor, limit))));
   }
 }

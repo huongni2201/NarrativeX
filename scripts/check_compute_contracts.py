@@ -265,6 +265,47 @@ def check_all() -> list[str]:
         if required not in openapi:
             raise ContractError(f"openapi.yaml is missing {required}")
     checked.append((CONTRACT_ROOT / "openapi.yaml").relative_to(ROOT).as_posix())
+
+    # Verify Backend defaults match Worker LTX manifest exact runtime identity
+    manifest_path = (
+        ROOT
+        / "app"
+        / "generation-service"
+        / "src"
+        / "narrativex_gpu_worker"
+        / "adapters"
+        / "executors"
+        / "ltx"
+        / "workflows"
+        / "native-av.manifest.json"
+    )
+    if not manifest_path.exists():
+        raise ContractError(f"Missing worker manifest: {manifest_path}")
+    manifest = load_json(manifest_path)
+    backend_app_yml = (
+        ROOT
+        / "app"
+        / "backend-service"
+        / "src"
+        / "main"
+        / "resources"
+        / "application.yml"
+    ).read_text(encoding="utf-8")
+
+    expected_checks = [
+        ("default-provider", "ltx"),
+        ("default-model", manifest["modelId"]),
+        ("default-profile", manifest["profileId"]),
+        ("model-revision", manifest["modelRevision"]),
+        ("workflow-revision", "video.generate:1.1"),
+    ]
+    for key, expected_val in expected_checks:
+        pattern = rf"{key}:\s*\${{[^:]*:{re.escape(expected_val)}}}"
+        if not re.search(pattern, backend_app_yml):
+            raise ContractError(
+                f"Backend application.yml video.{key} does not match worker manifest '{expected_val}'"
+            )
+    checked.append(manifest_path.relative_to(ROOT).as_posix())
     return checked
 
 

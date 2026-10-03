@@ -7,10 +7,7 @@ export const RUNTIME_CAPABILITIES_QUERY_KEY = ["runtime", "capabilities"] as con
 export function useRuntimeCapabilities() {
   const query = useQuery({
     queryKey: RUNTIME_CAPABILITIES_QUERY_KEY,
-    queryFn: async () => {
-      const response = await runtimeCapabilitiesApi.getCapabilities();
-      return response.data;
-    },
+    queryFn: () => runtimeCapabilitiesApi.getCapabilities(),
     staleTime: 60_000,
   });
 
@@ -20,7 +17,8 @@ export function useRuntimeCapabilities() {
     ...query,
     capabilities: query.data,
     videoCapability,
-    isAvailable: videoCapability.available,
+    isAvailable: videoCapability.available && query.isSuccess,
+    status: videoCapability.status ?? "UNAVAILABLE",
     supportedStrategies: videoCapability.strategies,
     supportedAspectRatios: videoCapability.supportedAspectRatios,
   };

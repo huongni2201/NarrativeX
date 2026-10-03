@@ -62,6 +62,12 @@ export function ChapterWorkspaceScreen({
   const [currentStage, setCurrentStage] = useState<ChapterStage>(initialStage);
   const [selectedBeatId, setSelectedBeatId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (initialStage) {
+      setCurrentStage(initialStage);
+    }
+  }, [initialStage]);
+
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);
   const analyzeChapter = useAnalyzeChapter();

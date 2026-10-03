@@ -115,6 +115,13 @@ export class RenderJournalStore {
     return result.sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
   }
 
+  async discard(projectId: string, jobId: string): Promise<boolean> {
+    const journal = await this.load(projectId, jobId);
+    if (!journal) return false;
+    await this.advance(journal, "CANCELLED");
+    return true;
+  }
+
   private path(projectId: string, jobId: string): string { return join(this.projectsRoot, projectId, "work", jobId, "render.state.json"); }
 }
 

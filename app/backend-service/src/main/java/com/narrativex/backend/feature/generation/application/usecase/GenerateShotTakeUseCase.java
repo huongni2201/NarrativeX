@@ -34,6 +34,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardS
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -260,7 +261,12 @@ public class GenerateShotTakeUseCase {
     }
     var preflight =
         GenerationPreflightEvaluator.evaluate(
-            strategy, catalog.supportedStrategies(), aspectRatio, List.of(), Map.of());
+            strategy,
+            catalog.supportedStrategies(),
+            aspectRatio,
+            catalog.supportedAspectRatios(),
+            List.of(),
+            Map.of());
     if (!preflight.ready()) throw new DomainValidationException(preflight.blockers().getFirst());
     String audioMode = command.audioMode() == null ? "LTX_NATIVE_AV" : command.audioMode();
     if (!Set.of("LTX_NATIVE_AV", "AUDIO_FIRST").contains(audioMode)) {
@@ -282,9 +288,56 @@ public class GenerateShotTakeUseCase {
     }
     pinVoices(context);
     var compiled = promptCompiler.compile(shot, ImageStyle.CINEMATIC, null);
+    boolean isNativeAv = "LTX_NATIVE_AV".equals(audioMode) || "NATIVE_AV".equals(audioMode);
     StringBuilder prompt = new StringBuilder(compiled.prompt());
-    appendNarration(context, prompt);
+    if (!isNativeAv) {
+      appendNarration(context, prompt);
+    }
+
+    List<Map<String, Object>> dialogue = new ArrayList<>();
+    Map<String, Object> primaryVoiceReference = null;
+    @SuppressWarnings("unchecked")
+    var voicesMap = (Map<String, Object>) context.getOrDefault("voices", Map.of());
+    @SuppressWarnings("unchecked")
+    var cues = (List<Map<String, Object>>) context.getOrDefault("cues", List.of());
+    for (var cue : cues) {
+      Object textObj = cue.get("adapted_text");
+      if (textObj == null || textObj.toString().isBlank()) {
+        textObj = cue.get("text");
+      }
+      if (textObj != null && !textObj.toString().isBlank()) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        Object speakerObj = cue.get("speaker_project_character_id");
+        line.put("speaker", speakerObj != null ? speakerObj.toString() : null);
+        line.put("text", textObj.toString().trim());
+        String voiceDesc = null;
+        if (speakerObj != null && voicesMap.containsKey(speakerObj.toString())) {
+          Object voiceVal = voicesMap.get(speakerObj.toString());
+          if (voiceVal instanceof SpeakerVoiceAccess.ResolvedSpeakerVoice voice) {
+            voiceDesc = voice.voiceDescription();
+            if (primaryVoiceReference == null) {
+              primaryVoiceReference = new LinkedHashMap<>();
+              if (voice.language() != null) primaryVoiceReference.put("language", voice.language());
+              if (voice.accent() != null) primaryVoiceReference.put("accent", voice.accent());
+              if (voice.voiceDescription() != null) primaryVoiceReference.put("voiceDescription", voice.voiceDescription());
+              if (voice.deliveryBaseline() != null) primaryVoiceReference.put("deliveryBaseline", voice.deliveryBaseline());
+            }
+          }
+        }
+        line.put("voiceDescription", voiceDesc);
+        dialogue.add(line);
+      }
+    }
+
     Map<String, Object> inputs = new TreeMap<>();
+    if (isNativeAv) {
+      inputs.put("workflowProfileId", catalog.defaultProfile());
+      inputs.put("audioMode", "NATIVE_AV");
+      inputs.put("dialogue", dialogue);
+      if (primaryVoiceReference != null) {
+        inputs.put("voiceReference", primaryVoiceReference);
+      }
+    }
     inputs.put("prompt", prompt.toString());
     inputs.put("negativePrompt", compiled.negativePrompt());
     inputs.put("width", 1280);

@@ -105,8 +105,8 @@ class GenerateShotTakeUseCaseTest {
                     UUID.randomUUID(),
                     shotId,
                     i.getArgument(1),
-                    "ltx",
-                    "ltx-2.5-nvfp4",
+                    i.getArgument(2),
+                    i.getArgument(3),
                     i.getArgument(4),
                     null,
                     null,
@@ -167,7 +167,7 @@ class GenerateShotTakeUseCaseTest {
             shotId,
             1,
             "ltx",
-            "ltx-2.5-nvfp4",
+            "ltx-2.5-22b-distilled-int8",
             GenerationStrategy.TEXT_TO_VIDEO,
             null,
             null,
@@ -202,10 +202,20 @@ class GenerateShotTakeUseCaseTest {
 
   @Test
   void blocksMissingImageReferenceBeforeWrites() {
-    assertThatThrownBy(() -> useCase.execute(command(GenerationStrategy.IMAGE_TO_VIDEO, null)))
-        .isInstanceOf(DomainValidationException.class)
-        .hasMessageContaining("MISSING_REFERENCE");
-    verifyNoInteractions(outbox);
+    var props =
+        (com.narrativex.backend.feature.generation.infrastructure.compute.VideoGenerationProperties)
+            catalog;
+    var orig = props.getSupportedStrategies();
+    try {
+      props.setSupportedStrategies(
+          List.of(GenerationStrategy.TEXT_TO_VIDEO, GenerationStrategy.IMAGE_TO_VIDEO));
+      assertThatThrownBy(() -> useCase.execute(command(GenerationStrategy.IMAGE_TO_VIDEO, null)))
+          .isInstanceOf(DomainValidationException.class)
+          .hasMessageContaining("MISSING_REFERENCE");
+      verifyNoInteractions(outbox);
+    } finally {
+      props.setSupportedStrategies(orig);
+    }
   }
 
   @Test

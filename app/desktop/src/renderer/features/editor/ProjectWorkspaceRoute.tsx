@@ -34,6 +34,10 @@ export function ProjectWorkspaceRoute() {
 
   if (!projectId) return <Navigate to="/projects" replace />;
 
+  const searchParams = new URLSearchParams(location.search);
+  const queryStage = searchParams.get("stage") as "source" | "canon" | "story" | "production" | null;
+  const initialStage = queryStage ?? (location.pathname.includes("/story") ? "story" : "source");
+
   return (
     <WorkspaceShell projectId={projectId} screen={screen} workspace={workspace}>
       {screen === "chapters" && (
@@ -42,7 +46,7 @@ export function ProjectWorkspaceRoute() {
           projectName={projectName ?? "Project hiện tại"}
           chapters={workspace.chapters}
           timeline={workspace.timeline}
-          initialStage={location.pathname.includes("/story") ? "story" : "source"}
+          initialStage={initialStage}
         />
       )}
       {screen === "canon" && (

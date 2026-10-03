@@ -229,6 +229,8 @@ export interface NarrativeXDesktopBridge {
     status(): Promise<FfmpegRuntimeStatus>;
     preflight(input: LocalRenderPreflightInput): Promise<LocalRenderPreflight>;
     recoveryStatus(): Promise<RenderRecoveryStatus>;
+    discardRecovery(input: { projectId: string; jobId: string }): Promise<boolean>;
+    resumeRecovery(input: { projectId: string; jobId: string }): Promise<boolean>;
     cancel(jobId: string): Promise<boolean>;
     chooseDestination(): Promise<RenderDestinationSelection | null>;
     bindDestination(input: {

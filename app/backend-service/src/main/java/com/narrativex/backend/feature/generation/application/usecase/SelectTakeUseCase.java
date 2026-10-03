@@ -51,7 +51,28 @@ public class SelectTakeUseCase {
       throw new IllegalArgumentException("Take " + takeId + " does not belong to Shot " + shotId);
     }
 
-    // 3. Verify Take has VIDEO output asset
+    // 3. Verify Take status is terminal success
+    String status = take.status() != null ? take.status().toUpperCase() : "";
+    if ("PENDING".equals(status) || "RUNNING".equals(status) || "VALIDATING".equals(status)) {
+      throw new IllegalStateException("Cannot select take currently in progress: " + status);
+    }
+    if ("FAILED".equals(status) || "REJECTED".equals(status)) {
+      throw new IllegalStateException("Cannot select failed or rejected take: " + status);
+    }
+    if (!"PASSED".equals(status) && !"COMPLETED".equals(status) && !"SUCCEEDED".equals(status)) {
+      throw new IllegalStateException("Take is not in a completed terminal state: " + status);
+    }
+
+    // 4. Verify Take technical validation PASS
+    String valStatus = take.validationStatus() != null ? take.validationStatus().toUpperCase() : "";
+    if ("FAIL".equals(valStatus) || "FAILED".equals(valStatus)) {
+      throw new IllegalStateException("Cannot select take with failed QA validation: " + valStatus);
+    }
+    if (!"PASS".equals(valStatus) && !"PASSED".equals(valStatus)) {
+      throw new IllegalStateException("Take technical validation has not passed: " + valStatus);
+    }
+
+    // 5. Verify Take has VIDEO output asset
     if (take.outputAssetId() == null) {
       throw new IllegalStateException("Take has no output asset and cannot be selected");
     }
@@ -63,16 +84,19 @@ public class SelectTakeUseCase {
       throw new IllegalStateException("Take output asset is not a VIDEO asset");
     }
 
-    // 4. Validate trim points
+    // 6. Verify valid source duration
+    if (take.sourceDurationMs() == null || take.sourceDurationMs() <= 0) {
+      throw new IllegalStateException("Take has invalid or missing source duration");
+    }
+
+    // 7. Validate trim points
     if (sourceInMs < 0) {
       throw new IllegalArgumentException("sourceInMs must not be negative");
     }
     if (sourceOutMs <= sourceInMs) {
       throw new IllegalArgumentException("sourceOutMs must be strictly greater than sourceInMs");
     }
-    if (take.sourceDurationMs() != null
-        && take.sourceDurationMs() > 0
-        && sourceOutMs > take.sourceDurationMs()) {
+    if (sourceOutMs > take.sourceDurationMs()) {
       throw new IllegalArgumentException(
           "sourceOutMs ("
               + sourceOutMs
@@ -81,7 +105,7 @@ public class SelectTakeUseCase {
               + "ms)");
     }
 
-    // 5. Persist to selected_takes
+    // 8. Persist to selected_takes
     selectedTakeRepository.saveSelection(shotId, takeId, sourceInMs, sourceOutMs);
 
     // 6. Update Shot status to SELECTED

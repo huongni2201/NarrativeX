@@ -280,6 +280,21 @@ void app.whenReady().then(async () => {
     const unfinished = await renderJournals.listUnfinished();
     return { unfinished: unfinished.map(({ projectId, jobId, stage, updatedAt, renderFingerprint }) => ({ projectId, jobId, stage, recoveryAction: recoveryActionForStage(stage), updatedAt, renderFingerprint })) };
   });
+  registerTrustedIpcHandler("desktop:render:discard-recovery", trustPolicy, async (input) => {
+    if (!input || typeof input !== "object" || typeof (input as any).projectId !== "string" || typeof (input as any).jobId !== "string") {
+      throw new Error("Invalid discard recovery input.");
+    }
+    if (!renderJournals) throw new Error("Render journal is not initialized.");
+    const { projectId, jobId } = input as { projectId: string; jobId: string };
+    requireLocalExecution().cancelProjectRender(jobId);
+    return renderJournals.discard(projectId, jobId);
+  });
+  registerTrustedIpcHandler("desktop:render:resume-recovery", trustPolicy, async (input) => {
+    if (!input || typeof input !== "object" || typeof (input as any).projectId !== "string" || typeof (input as any).jobId !== "string") {
+      throw new Error("Invalid resume recovery input.");
+    }
+    return true;
+  });
   registerTrustedIpcHandler("desktop:render:cancel", trustPolicy, (jobId) => {
     if (typeof jobId !== "string") throw new Error("jobId must be a string.");
     return requireLocalExecution().cancelProjectRender(jobId);

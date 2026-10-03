@@ -68,3 +68,24 @@ test("restart recovery action is deterministic by last checkpoint", () => {
   assert.equal(recoveryActionForStage("REGISTER"), "RECONCILE_REGISTER");
   assert.equal(recoveryActionForStage("FAILED"), "USER_RETRY");
 });
+
+test("render journal discard sets CANCELLED and USER_CANCELLED", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-journal-discard-"));
+  try {
+    const store = new RenderJournalStore(root);
+    const journal = { version: 1, projectId: "00000000-0000-0000-0000-000000000009", jobId: "job-9", renderFingerprint: "fingerprint", stage: "SEGMENT_RENDER", workDirectory: "work", updatedAt: new Date().toISOString() };
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(join(root, journal.projectId, "work", journal.jobId), { recursive: true }));
+    await store.save(journal);
+    assert.equal((await store.listUnfinished()).length, 1);
+
+    const discarded = await store.discard(journal.projectId, journal.jobId);
+    assert.equal(discarded, true);
+    assert.deepEqual(await store.listUnfinished(), []);
+
+    const loaded = await store.load(journal.projectId, journal.jobId);
+    assert.equal(loaded?.stage, "CANCELLED");
+    assert.equal(loaded?.terminalState, "USER_CANCELLED");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

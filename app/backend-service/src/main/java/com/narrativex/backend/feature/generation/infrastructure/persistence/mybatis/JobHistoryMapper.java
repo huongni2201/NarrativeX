@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Param;
 
 public interface JobHistoryMapper extends NarrativeXMyBatisMapper {
   List<JobHistoryRow> list(
+      @Param("projectId") UUID projectId,
       @Param("cursorUpdatedAt") Instant cursorUpdatedAt,
       @Param("cursorId") UUID cursorId,
       @Param("limit") int limit);

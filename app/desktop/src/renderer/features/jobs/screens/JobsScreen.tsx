@@ -23,7 +23,7 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
   const [filter, setFilter] = useState<"ALL" | "RUNNING" | "COMPLETED" | "FAILED">("ALL");
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
-  const { data: page, isLoading, isError, refetch } = useJobHistoryQuery(50);
+  const { data: page, isLoading, isError, refetch } = useJobHistoryQuery(projectId, 50);
   const jobs: DesktopJobHistoryItem[] = page?.content ?? [];
 
   const filteredJobs = jobs.filter((job) => {

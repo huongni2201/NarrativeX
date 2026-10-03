@@ -1,28 +1,36 @@
 import type {
   GenerationStrategy,
+  RuntimeCapabilityStatus,
   RuntimeCapabilityView,
   VideoRuntimeCapability,
 } from "@narrativex/client-contracts";
 
-export type { RuntimeCapabilityView, VideoRuntimeCapability };
+export type { RuntimeCapabilityStatus, RuntimeCapabilityView, VideoRuntimeCapability };
 
 export const DEFAULT_FALLBACK_CAPABILITY: VideoRuntimeCapability = {
-  available: true,
+  available: false,
+  status: "UNAVAILABLE",
   provider: "ltx",
-  model: "ltx-2.5-nvfp4",
+  model: "ltx-2.5-22b-distilled-int8",
   profile: "ltx-2.5-22b-distilled-int8-native-av-v1",
-  strategies: ["TEXT_TO_VIDEO"],
-  supportedAspectRatios: ["16:9"],
-  resolutionProfiles: [{ width: 1280, height: 720, fps: 24 }],
-  audioModes: ["LTX_NATIVE_AV"],
+  strategies: [],
+  supportedAspectRatios: [],
+  resolutionProfiles: [],
+  audioModes: [],
+  reason: "Runtime capability unavailable or worker offline",
 };
 
 export function isStrategySupported(
   strategy: GenerationStrategy,
   capability?: VideoRuntimeCapability | null,
 ): boolean {
-  if (!capability || !capability.strategies || capability.strategies.length === 0) {
-    return strategy === "TEXT_TO_VIDEO";
+  if (
+    !capability ||
+    !capability.available ||
+    !capability.strategies ||
+    capability.strategies.length === 0
+  ) {
+    return false;
   }
   return capability.strategies.includes(strategy);
 }
