@@ -1,6 +1,6 @@
 import type { GenerationStrategy } from "./story";
 
-export type VideoAudioMode = "LTX_NATIVE_AV" | "AUDIO_FIRST";
+export type VideoAudioMode = "LTX_NATIVE_AV";
 
 export interface GenerateShotTakeInput {
   strategy?: GenerationStrategy;

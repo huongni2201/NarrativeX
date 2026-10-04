@@ -113,9 +113,13 @@ export class LocalExecutionBackendClient {
     });
   }
 
-  async claimProjectRender(deviceToken: string): Promise<ClaimedProjectRender | null> {
+  async claimProjectRender(
+    deviceToken: string,
+    jobId?: string,
+  ): Promise<ClaimedProjectRender | null> {
+    const query = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
     const response = await this.fetchWithTimeout(
-      "/api/v1/local-devices/project-renders/claim",
+      `/api/v1/local-devices/project-renders/claim${query}`,
       { method: "POST", headers: { "X-NX-Device-Token": deviceToken } },
     );
     if (response.status === 204) return null;

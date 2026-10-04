@@ -144,8 +144,28 @@ export interface LocalRenderPreflightInput {
   requiredTemporaryBytes: number;
 }
 
+export type RenderRecoveryAction =
+  | "NO_OP"
+  | "RETRY_STAGE"
+  | "RERUN_RENDER"
+  | "RECONCILE_REGISTER"
+  | "USER_RETRY";
+
 export interface RenderRecoveryStatus {
-  unfinished: Array<{ projectId: string; jobId: string; stage: string; recoveryAction: string; updatedAt: string; renderFingerprint: string }>;
+  unfinished: Array<{
+    projectId: string;
+    jobId: string;
+    stage: string;
+    recoveryAction: RenderRecoveryAction;
+    recoverabilityReason: string | null;
+    updatedAt: string;
+    renderFingerprint: string;
+  }>;
+}
+
+export interface RenderDiscardResult {
+  discarded: boolean;
+  backendSynchronized: boolean;
 }
 
 export interface RenderDestinationSelection {
@@ -229,7 +249,7 @@ export interface NarrativeXDesktopBridge {
     status(): Promise<FfmpegRuntimeStatus>;
     preflight(input: LocalRenderPreflightInput): Promise<LocalRenderPreflight>;
     recoveryStatus(): Promise<RenderRecoveryStatus>;
-    discardRecovery(input: { projectId: string; jobId: string }): Promise<boolean>;
+    discardRecovery(input: { projectId: string; jobId: string }): Promise<RenderDiscardResult>;
     resumeRecovery(input: { projectId: string; jobId: string }): Promise<boolean>;
     cancel(jobId: string): Promise<boolean>;
     chooseDestination(): Promise<RenderDestinationSelection | null>;

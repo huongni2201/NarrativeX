@@ -24,8 +24,8 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
   @Override
   @Transactional
   public Optional<ClaimedProjectRender> claimNext(
-      UUID deviceId, String workerId, UUID leaseToken, int leaseSeconds) {
-    var row = mapper.claimNext(deviceId, workerId, leaseToken, leaseSeconds);
+      UUID deviceId, String workerId, UUID leaseToken, int leaseSeconds, UUID jobId) {
+    var row = mapper.claimNext(deviceId, workerId, leaseToken, leaseSeconds, jobId);
     if (row == null) return Optional.empty();
 
     var chapters =

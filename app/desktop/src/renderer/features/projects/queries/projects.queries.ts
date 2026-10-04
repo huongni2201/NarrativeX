@@ -5,6 +5,10 @@ import {
   type ProjectDashboardCounts,
   type ProjectsPage,
 } from "../api/projects.api";
+import {
+  mergeBackendProject,
+  withoutBackendWorkflow,
+} from "../model/project-continuation.ts";
 
 export const projectQueryKeys = {
   all: ["projects"] as const,
@@ -81,12 +85,16 @@ export function useToggleProjectFavorite() {
       }
     },
     onSuccess: (project) => {
-      queryClient.setQueryData<DesktopProject>(projectQueryKeys.detail(project.id), project);
+      const currentDetail = queryClient.getQueryData<DesktopProject>(projectQueryKeys.detail(project.id));
+      const updatedProject = currentDetail ? mergeBackendProject(currentDetail, project) : project;
+      queryClient.setQueryData<DesktopProject>(projectQueryKeys.detail(project.id), updatedProject);
       queryClient.setQueryData<ProjectsPage>(projectQueryKeys.list(), (current) => {
         if (!current) return current;
         return {
           ...current,
-          content: current.content.map((item) => (item.id === project.id ? project : item)),
+          content: current.content.map((item) =>
+            item.id === project.id ? mergeBackendProject(item, project) : item,
+          ),
         };
       });
       return queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
@@ -134,7 +142,24 @@ async function loadDeviceLocalProject(projectId: string): Promise<DesktopProject
 }
 
 async function loadDeviceLocalProjects(): Promise<ProjectsPage> {
-  const content = await readDeviceLocalProjects();
+  const localProjects = await readDeviceLocalProjects();
+  let content = localProjects.map(withoutBackendWorkflow);
+  if (localProjects.length > 0) {
+    try {
+      const backendProjects = await readBackendProjectSummaries(localProjects.map((project) => project.id));
+      content = localProjects.map((localProject) => {
+        const backendProject = backendProjects.get(localProject.id);
+        return backendProject
+          ? mergeBackendProject(localProject, backendProject)
+          : withoutBackendWorkflow(localProject);
+      });
+    } catch (error) {
+      console.warn(
+        "Backend workflow state is unavailable; continuing from the local project catalog conservatively.",
+        error,
+      );
+    }
+  }
   return {
     content,
     nextCursor: null,
@@ -142,6 +167,29 @@ async function loadDeviceLocalProjects(): Promise<ProjectsPage> {
     hasNext: false,
     counts: countProjects(content),
   };
+}
+
+async function readBackendProjectSummaries(projectIds: string[]) {
+  const remaining = new Set(projectIds);
+  const projects = new Map<string, DesktopProject>();
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const page = await projectsApi.dashboard({ limit: 100, cursor });
+    for (const project of page.content) {
+      projects.set(project.id, project);
+      remaining.delete(project.id);
+    }
+    if (remaining.size === 0 || !page.hasNext || !page.nextCursor) break;
+    if (seenCursors.has(page.nextCursor)) {
+      throw new Error("Project dashboard pagination returned a repeated cursor.");
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  } while (true);
+
+  return projects;
 }
 
 async function readDeviceLocalProjects(): Promise<DesktopProject[]> {

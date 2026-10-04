@@ -66,13 +66,13 @@ class LocalProjectRenderControllerTest {
                     "images/beat-1.png",
                     2_048L,
                     "b".repeat(64))));
-    when(useCase.claim("device-token")).thenReturn(Optional.of(claim));
+    when(useCase.claim("device-token", null)).thenReturn(Optional.of(claim));
     when(storage.createDownloadUrl(eq("narration/chapter-1.wav"), any(Instant.class)))
         .thenReturn(URI.create("https://assets.example.test/narration.wav?signature=audio"));
     when(storage.createDownloadUrl(eq("images/beat-1.png"), any(Instant.class)))
         .thenReturn(URI.create("https://assets.example.test/beat.png?signature=image"));
 
-    var response = controller.claim("device-token");
+    var response = controller.claim("device-token", null);
 
     assertThat(response.getBody()).isNotNull();
     var data = response.getBody().data();

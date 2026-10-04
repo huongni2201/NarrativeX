@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { storyboardApi } from "../src/renderer/features/storyboard/api/storyboard.api.ts";
 import { approveVisualBeats } from "../src/renderer/features/storyboard/queries/storyboard.queries.ts";
 
@@ -26,4 +27,14 @@ test("approveVisualBeats preserves partial success counts and row-version inputs
   } finally {
     storyboardApi.updateReviewStatus = original;
   }
+});
+
+test("VisualBeat review refreshes Story, Storyboard and Production caches", () => {
+  const source = readFileSync(
+    new URL("../src/renderer/features/storyboard/queries/storyboard.queries.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /storyboardKeys\.chapter\(projectId, chapterId\)/);
+  assert.match(source, /storyQueryKeys\.chapterStory\(projectId, chapterId\)/);
+  assert.match(source, /videoProductionQueryKeys\.chapter\(projectId, chapterId\)/);
 });

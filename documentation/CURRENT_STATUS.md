@@ -1,6 +1,18 @@
 # Current architecture and migration status
 
-Reviewed against the current `main` worktree on 2026-10-03 following full remediation verification. The commit SHA is intentionally omitted because this document is a working-tree status summary.
+Reviewed against the `main` baseline `932ded2d9b68e5ee16a08dc1c9201b10f67b7a89` on 2026-10-04. The current remediation worktree is uncommitted; its verification results and unavailable gates are recorded below. This document does not claim a full repository gate or production GPU health.
+
+## Verification snapshot — 2026-10-04
+
+The current remediation changes have targeted automated verification, but not full runtime E2E verification:
+
+- Desktop: `npm test` passed (319 passed, 5 skipped); `npm run type-check` and `npm run build` passed.
+- Backend focused Maven suite: 76 tests, 0 failures, 0 errors, 25 skipped. The skipped PostgreSQL integration and migration tests require Docker; the configured `docker_engine` named pipe was unavailable.
+- Compute contracts: `python scripts/check_compute_contracts.py` passed for 30 files; its pytest suite passed (16 tests).
+- Documentation drift check: `python scripts/check-docs-drift.py` passed.
+- Desktop runtime verification remains blocked: Electron's GPU process exited with code `-1073741515`, and no NarrativeX window became available to the UI automation environment. Affected screens, flows, and screenshots therefore remain unverified; remediation E2E is still partial.
+
+These results cover the targeted checks listed above, not the full repository quality gate.
 
 ## Authority
 
@@ -16,11 +28,13 @@ Source code, migrations, and automated tests establish implementation facts. Acc
 - **Event-driven compute orchestration**: Worker state transitions are recorded with outbox events, delivered through signed callbacks, received idempotently in PostgreSQL, and finalized monotonically. A non-blocking scheduled reconciliation fallback handles ambiguous/lost callbacks. Backend generation updates are broadcast to Desktop through project-scoped SSE ([ADR-0025](decisions/ADR-0025-event-driven-compute-orchestration-and-reconciliation.md)).
 - **Audio generation**: VieNeu TTS and WhisperX forced alignment are implemented through the generation service ([ADR-0023](decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md)).
 - **Image generation (reference-conditioned)**: Reference-conditioned image generation is maintained through ComfyUI (`ComfyUiAdapter`) for character references, keyframes, and concept frames ([ADR-0028](decisions/ADR-0028-image-generator-reference-only.md)).
-- **Video generation & LTX Native AV cut-over**: Moving-video-first generation pipeline backed by LTX-2.5 (`video.generate`), shot sequencing, and multi-take models in V9 schema ([ADR-0026](decisions/ADR-0026-video-first-production.md), [ADR-0027](decisions/ADR-0027-shot-as-production-unit.md), [ADR-0032](decisions/ADR-0032-video-first-ltx-audio-native-production-runtime.md)). Schema 1.1 dispatch strictly adopts worker profile `ltx-2.5-22b-distilled-int8-native-av-v1` (revision `5e6e71018ee1756ed329b697a7b4aedc934dfce9`), with structured `dialogue[]` and `voiceReference` built from AudioCues.
+- **Video generation & LTX Native AV cut-over**: Moving-video-first generation pipeline backed by LTX-2.5 (`video.generate`), shot sequencing, and multi-take models in V9 schema ([ADR-0026](decisions/ADR-0026-video-first-production.md), [ADR-0027](decisions/ADR-0027-shot-as-production-unit.md), [ADR-0032](decisions/ADR-0032-video-first-ltx-audio-native-production-runtime.md)). Schema 1.1 dispatch strictly adopts worker profile `ltx-2.5-22b-distilled-int8-native-av-v1` (revision `5e6e71018ee1756ed329b697a7b4aedc934dfce9`), with structured `dialogue[]` and `voiceReference` built from AudioCues. Active support is T2V, 1280x720/24 FPS/16:9; artifact conditioning, I2V, First/Last Frame and `AUDIO_FIRST` are blocked.
 - **Aspect Ratio Normalization**: Normalized project ratios (`RATIO_16_9` to `16:9`) in SQL and preflight evaluation. Preflight fails closed prior to compute job dispatch when aspect ratios are unsupported.
-- **Runtime Capability Truth**: Backend probes GPU worker `/v1/capabilities` and fails closed on fallback (`UNAVAILABLE`, `available: false`). Desktop UI reflects genuine runtime status without faking readiness.
+- **Runtime Capability Truth**: Backend probes GPU worker `/v1/capabilities` and fails closed unless the exact task type, schema 1.1, model/revision and configured workflow profile are advertised and ready. T2V and Native AV readiness are derived from that profile.
 - **Take Validation and Immutable Selection**: Terminal success, positive source duration, and technical validation PASS enforced before take selection ([ADR-0030](decisions/ADR-0030-take-selected-take-and-editing-director.md)). `SelectedTake` remains an immutable editing decision record.
-- **Render Recovery & Project-Scoped Diagnostics**: Startup recovery handles multiple interrupted renders (`Tác vụ 1/N`) with explicit IPC discard (`USER_CANCELLED`) and resume actions. Job history and job indicators are scoped by `projectId`.
+- **Render Recovery & Project-Scoped Diagnostics**: Startup recovery handles multiple interrupted renders (`Tác vụ 1/N`), stage-aware resume/reconcile, per-job backend lease reclaim, checksum/version validation, explicit `USER_RETRY`, and local-first discard (`USER_CANCELLED`). Electron/PostgreSQL end-to-end recovery remains unverified in this environment. Job history and job indicators are scoped by `projectId`.
+- **Backend-authoritative project continuation**: Project dashboard returns workflow progress derived from current backend source, canon, story, shot/take, selected-media and render state. Desktop merges it with local catalog metadata and falls back to Source when the backend is unavailable.
+- **Compute target pinning**: Each compute `(taskId, attemptId)` has one durable target assignment. Submission records it before external I/O; reconcile and cancel use the same target and fail closed if it is unavailable.
 - **Creator-first Production UX**: Compact production readiness strip, creator-friendly "Tạo các shot còn thiếu" action, expandable LTX technical details, and unblocked viewport scrolling for large shot boards.
 - **Timeline composition and final render**: Narration-aligned timing and selected visual media are rendered into a final MP4 locally within Electron using FFmpeg with a 24 FPS cinematic baseline default.
 - **Desktop UI Video-First Cut-Over**: Pruned obsolete still-image screens and legacy route aliases. Canonical workflow is anchored around `ChapterWorkspaceScreen`, `ProjectCanonScreen`, `AssetsScreen`, and `Editor`. Desktop video shotboard features real take generation, retake mutations, strategy updates, and take preview.
@@ -29,6 +43,7 @@ Source code, migrations, and automated tests establish implementation facts. Acc
 
 - **GPU residency arbitration**: `GpuResidencyManager` implements logical domain mutual exclusion (`COMFYUI_IMAGE`, `LTX_VIDEO`, `VIENEU`, `WHISPERX`), with `RuntimeProcessSupervisor` and `GpuVramProbe` wired into `bootstrap.py`. Active target is RTX 5090 (32GB VRAM); production strictness and full Windows worker validation remain in progress.
 - **Canonical StoryBeat materialization**: StoryBeat/AudioCue/VisualBeat domain boundaries and grouped reads are implemented, but nullable legacy/manual VisualBeat rows remain supported and not every existing analysis/manual row is proven to be attached to a StoryBeat.
+- **Full remediation E2E**: Targeted unit and contract checks cover the new boundaries, but the full creator journey and runtime failure-mode flow still require an Electron + PostgreSQL environment.
 
 ## Target / Active Cut-Over
 

@@ -15,6 +15,7 @@ export interface UnfinishedRenderInfo {
   jobId: string;
   stage: string;
   recoveryAction: string;
+  recoverabilityReason: string | null;
   updatedAt: string;
   renderFingerprint: string;
 }
@@ -24,6 +25,7 @@ export function RenderRecoveryDialog() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkRecovery() {
@@ -53,14 +55,32 @@ export function RenderRecoveryDialog() {
     if (!unfinished) return;
     setIsBusy(true);
     try {
-      if (window.narrativex?.render?.discardRecovery) {
-        await window.narrativex.render.discardRecovery({
-          projectId: unfinished.projectId,
-          jobId: unfinished.jobId,
-        });
-      } else if (window.narrativex?.render?.cancel) {
-        await window.narrativex.render.cancel(unfinished.jobId);
+      const result = await window.narrativex.render.discardRecovery({
+        projectId: unfinished.projectId,
+        jobId: unfinished.jobId,
       }
+      );
+      if (!result.discarded) {
+        setActionMessage("Không thể huỷ trạng thái phục hồi này trên thiết bị.");
+        return;
+      }
+      if (!result.backendSynchronized) {
+        setUnfinishedList((current) =>
+          current.map((item, index) =>
+            index === currentIndex
+              ? {
+                  ...item,
+                  recoveryAction: "USER_RETRY",
+                  recoverabilityReason:
+                    "Đã huỷ phục hồi cục bộ; Backend chưa xác nhận quyền sở hữu lease. Mở Editor để kiểm tra tác vụ.",
+                }
+              : item,
+          ),
+        );
+        setActionMessage("Phục hồi đã bị huỷ cục bộ; trạng thái Backend cần được kiểm tra.");
+        return;
+      }
+      setActionMessage(null);
       const nextList = unfinishedList.filter((_, idx) => idx !== currentIndex);
       setUnfinishedList(nextList);
       if (nextList.length === 0) {
@@ -77,18 +97,40 @@ export function RenderRecoveryDialog() {
 
   const handleResume = async () => {
     if (!unfinished) return;
-    setIsBusy(true);
-    try {
-      if (window.narrativex?.render?.resumeRecovery) {
-        await window.narrativex.render.resumeRecovery({
-          projectId: unfinished.projectId,
-          jobId: unfinished.jobId,
-        });
-      }
+    if (unfinished.recoveryAction === "USER_RETRY") {
       setIsOpen(false);
       window.location.hash = `#/projects/${unfinished.projectId}/editor`;
+      return;
+    }
+    setIsBusy(true);
+    try {
+      const resumed = await window.narrativex.render.resumeRecovery({
+        projectId: unfinished.projectId,
+        jobId: unfinished.jobId,
+      });
+      if (!resumed) {
+        setActionMessage(
+          "Backend chưa thể cấp lease cho tác vụ này. Có thể thiết bị khác đang xử lý; hãy thử lại sau.",
+        );
+        const latest = await window.narrativex.render.recoveryStatus();
+        setUnfinishedList(latest.unfinished);
+        setCurrentIndex(0);
+        return;
+      }
+      setActionMessage(null);
+      const latest = await window.narrativex.render.recoveryStatus();
+      setUnfinishedList(latest.unfinished);
+      setCurrentIndex(0);
+      window.location.hash = `#/projects/${unfinished.projectId}/editor`;
+      setIsOpen(latest.unfinished.length > 0);
     } catch (err) {
       console.warn("Failed to resume render job:", err);
+      setActionMessage("Không thể khôi phục tác vụ an toàn. Hãy kiểm tra lại trạng thái rồi thử lại.");
+      const latest = await window.narrativex.render.recoveryStatus().catch(() => null);
+      if (latest) {
+        setUnfinishedList(latest.unfinished);
+        setCurrentIndex(0);
+      }
     } finally {
       setIsBusy(false);
     }
@@ -132,6 +174,17 @@ export function RenderRecoveryDialog() {
           </div>
         </div>
 
+        {unfinished.recoverabilityReason && (
+          <p className="rounded-md border border-warning bg-surface-panel p-3 text-[12px] text-warning" role="status">
+            {unfinished.recoverabilityReason}
+          </p>
+        )}
+        {actionMessage && (
+          <p className="rounded-md border border-danger bg-danger-bg p-3 text-[12px] text-danger" role="alert">
+            {actionMessage}
+          </p>
+        )}
+
         {unfinishedList.length > 1 && (
           <div className="flex items-center justify-between text-xs text-text-dim px-1">
             <Button
@@ -174,7 +227,13 @@ export function RenderRecoveryDialog() {
             onClick={handleResume}
             disabled={isBusy}
           >
-            <span>Mở dự án để xử lý</span>
+            <span>
+              {isBusy
+                ? "Đang khôi phục…"
+                : unfinished.recoveryAction === "USER_RETRY"
+                  ? "Mở Editor để thử lại"
+                  : "Tiếp tục khôi phục"}
+            </span>
             <ArrowRight size={13} className="ml-1.5" />
           </Button>
         </DialogFooter>

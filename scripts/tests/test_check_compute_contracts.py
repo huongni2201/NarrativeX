@@ -26,6 +26,17 @@ def valid_task() -> dict[str, object]:
     )
 
 
+def valid_native_video_task() -> dict[str, object]:
+    return contracts.load_json(
+        ROOT
+        / "contracts"
+        / "compute"
+        / "v1"
+        / "examples"
+        / "video-generate-native-av-1.1-task.json"
+    )
+
+
 def test_checked_in_contracts_are_valid() -> None:
     checked = contracts.check_all()
     assert "contracts/compute/v1/openapi.yaml" in checked
@@ -34,6 +45,19 @@ def test_checked_in_contracts_are_valid() -> None:
 def test_text_generate_example_is_accepted() -> None:
     path = ROOT / "contracts" / "compute" / "v1" / "examples" / "text-generate-task.json"
     contracts.validate_task(contracts.load_json(path))
+
+
+def test_native_video_schema_11_example_is_accepted() -> None:
+    contracts.validate_task(valid_native_video_task())
+
+
+def test_unknown_task_schema_pair_is_rejected() -> None:
+    task = valid_task()
+    task["task"]["schemaVersion"] = "1.1"  # type: ignore[index]
+    task["requestFingerprint"] = contracts.canonical_request_fingerprint(task)
+
+    with pytest.raises(contracts.ContractError, match="Unsupported task schema"):
+        contracts.validate_task(task)
 
 
 @pytest.mark.parametrize(

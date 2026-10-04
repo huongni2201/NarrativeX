@@ -113,7 +113,7 @@ CREATE TABLE takes (
       OR (generation_job_id IS NOT NULL AND compute_task_id IS NOT NULL AND compute_attempt_id IS NOT NULL
        AND operation_plan_id IS NOT NULL AND input_snapshot_json IS NOT NULL AND input_fingerprint IS NOT NULL)),
     provider VARCHAR(64) NOT NULL DEFAULT 'ltx',
-    model VARCHAR(64) NOT NULL DEFAULT 'ltx-2.5-nvfp4',
+    model VARCHAR(64) NOT NULL DEFAULT 'ltx-2.5-22b-distilled-int8',
     generation_mode VARCHAR(32) NOT NULL DEFAULT 'TEXT_TO_VIDEO',
     output_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL,
     source_duration_ms BIGINT,

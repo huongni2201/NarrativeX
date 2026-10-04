@@ -1,5 +1,5 @@
 import type { LocalAssetImportResult } from "../../../../preload/types";
-import { assetsApi } from "../api/assets.api";
+import { assetsApi } from "../api/assets.api.ts";
 
 export interface ImportLocalMediaOptions {
   projectId: string;
@@ -29,12 +29,23 @@ export async function importLocalMedia({
     durationMs: selection.durationMs ?? null,
   });
 
-  await window.narrativex.localStorage.commitSelectedAsset({
-    projectId,
-    assetId: asset.id,
-    kind: selection.kind,
-    selectionToken: selection.selectionToken,
-  });
+  try {
+    await window.narrativex.localStorage.commitSelectedAsset({
+      projectId,
+      assetId: asset.id,
+      kind: selection.kind,
+      selectionToken: selection.selectionToken,
+    });
+  } catch (error) {
+    try {
+      await assetsApi.remove(projectId, asset.id);
+    } catch {
+      throw new Error(`Local media import failed; asset ${asset.id} remains in the Asset Library.`, {
+        cause: error,
+      });
+    }
+    throw error;
+  }
 
   return {
     assetId: asset.id,

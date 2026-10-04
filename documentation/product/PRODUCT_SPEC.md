@@ -22,6 +22,7 @@ NarrativeX boots directly into the local workspace per ADR-0020. There is no use
 - Generated narration plus native user-audio import and TTS-bypass foundations;
 - Generation-service task execution (VieNeu TTS, WhisperX forced alignment, ComfyUI RealVisXL image generation, media validation);
 - Native local image/audio/video registration and ProjectStorage materialization;
+- VisualBeat preview import is image-only; imported video remains in the Asset Library until imported Shot/Take is implemented;
 - Production timeline with narration-aligned timing and explicit beat media selection;
 - Auto Edit planning, render overrides and immutable subtitle snapshots;
 - Backend-assigned Desktop render claim and lease;
@@ -43,8 +44,9 @@ Project
 `VisualGenerationMode` supports `IMAGE` and `VIDEO`.
 
 - `IMAGE` supports backend/generation-service image generation via ComfyUI.
-- `VIDEO` remains available as an analysis/editor visual intent; no active NarrativeX video-generation provider runtime exists.
-- VIDEO intent does not imply an active Python worker video-provider role; video generation runtime is currently deferred / not implemented.
+- `VIDEO` is an implemented production intent backed by the LTX Native AV worker profile.
+- The active contract is narrowly verified for `video.generate:1.1`, text-to-video, 1280x720 at 24 FPS, and 16:9. It accepts structured dialogue and voice descriptions.
+- The current profile does not support reference-asset conditioning, I2V, or First/Last Frame. Backend admission blocks these paths before creating a Take or compute job.
 - The removed Wan/provider-side I2V runtime must not be restored implicitly.
 - A video-selected beat uses trim/fill/video semantics. Image-only camera motion must not be forced onto video media.
 
@@ -107,8 +109,8 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Character / Location continuity | IMPLEMENTED foundation | Richer review/reference locking remains partial |
 | Scene / VisualBeat storyboard | IMPLEMENTED foundation | Review + generation preparation |
 | `IMAGE` visual intent | IMPLEMENTED | Backend/generation-service image workflows (ComfyUI) |
-| `VIDEO` visual intent | IMPLEMENTED | Primary video-first media mode; LTX-2.5 video runtime with native dialogue/audio |
-| LTX Video Generation | IMPLEMENTED foundation | Provider-neutral video.generate workload via LTX Video executor (ADR-0026) |
+| `VIDEO` visual intent | IMPLEMENTED foundation | Video-first shot/take flow backed by the current text-to-video Native AV profile |
+| LTX Video Generation | IMPLEMENTED foundation | `video.generate:1.1`, 1280x720/24 FPS/16:9; reference conditioning and I2V remain unsupported |
 | VieNeu narration | IMPLEMENTED foundation | Segmented headless TTS persists a project-local WAV master |
 | User-provided narration | IMPLEMENTED foundation | Native import + logical audio clock |
 | Compute Protocol v1 | IMPLEMENTED | JSON Schema contracts in `contracts/compute/v1/` |
@@ -134,10 +136,10 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Generated project media via R2 | REMOVED | Images/narration are project-local |
 | Account-scoped voice storage in R2 | REMOVED | Voice assets transition to local storage (`PROJECT` / `GLOBAL_LOCAL`) |
 | MyBatis production persistence | IMPLEMENTED | Explicit PostgreSQL SQL |
-| Flyway clean pre-production baseline | IMPLEMENTED | Clean DB applies squashed V1–V8 final schema directly |
+| Flyway clean pre-production baseline | IMPLEMENTED | Clean DB applies squashed V1–V10 final schema directly |
 | Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | Reconcile/fence before external resubmission |
 | Non-monetary provider usage telemetry | IMPLEMENTED foundation | Diagnostic usage where providers expose it; not pricing/accounting |
-| Abrupt process / OS render recovery UX | PARTIAL | Journals exist; richer resume UX remains |
+| Abrupt process / OS render recovery UX | PARTIAL | Stage-aware journal resume, target lease checks, checksum validation, and discard exist; full Electron journey remains unverified |
 | Adaptive VisualScenePlanner | TARGET | Narration-driven adaptive scene/beat planning |
 | Rich reuse/reframe/edit lineage | DEFERRED fast-follow | Richer asset reuse after core reliability |
 | Packaging/signing/auto-update | TARGET | Release hardening |

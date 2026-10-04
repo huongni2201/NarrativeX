@@ -15,7 +15,18 @@ export interface ProjectsPage extends CursorPage<DesktopProject> {
   counts: ProjectDashboardCounts;
 }
 
+export interface ProjectDashboardQuery {
+  cursor?: string | null;
+  limit?: number;
+}
+
 export const projectsApi = {
+  dashboard: ({ cursor, limit = 100 }: ProjectDashboardQuery = {}) => {
+    const params = new URLSearchParams({ limit: String(limit), sort: "NEWEST" });
+    if (cursor) params.set("cursor", cursor);
+    return apiRequest<ProjectsPage>(`/api/v1/projects/dashboard?${params.toString()}`);
+  },
+
   get: (projectId: string) =>
     apiRequest<DesktopProject>(`/api/v1/projects/${encodeURIComponent(projectId)}`),
 

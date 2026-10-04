@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   storyboardApi,
   storyboardQueryKey,
@@ -6,11 +7,25 @@ import {
   type StoryboardVisualBeat,
   type VisualBeatReviewStatus,
 } from "../api/storyboard.api.ts";
+import { storyQueryKeys } from "../../story/queries/story.queries.ts";
+import { videoProductionQueryKeys } from "../../production/queries/production-cache.ts";
 
 export const storyboardKeys = {
   chapter: (projectId: string, chapterId: string) => storyboardQueryKey(projectId, chapterId),
   idle: (projectId: string) => ["projects", projectId, "storyboard", "idle"] as const,
 };
+
+export function invalidateVisualBeatReviewQueries(
+  queryClient: QueryClient,
+  projectId: string,
+  chapterId: string,
+) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) }),
+    queryClient.invalidateQueries({ queryKey: storyQueryKeys.chapterStory(projectId, chapterId) }),
+    queryClient.invalidateQueries({ queryKey: videoProductionQueryKeys.chapter(projectId, chapterId) }),
+  ]);
+}
 
 export async function approveVisualBeats(
   projectId: string,
@@ -54,7 +69,7 @@ export function useCreateVisualBeat(projectId: string, chapterId: string | null)
     },
     onSuccess: async () => {
       if (!chapterId) return;
-      await queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) });
+      await invalidateVisualBeatReviewQueries(queryClient, projectId, chapterId);
     },
   });
 }
@@ -76,7 +91,7 @@ export function useUpdateVisualBeatReview(projectId: string, chapterId: string |
     },
     onSuccess: async () => {
       if (!chapterId) return;
-      await queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) });
+      await invalidateVisualBeatReviewQueries(queryClient, projectId, chapterId);
     },
   });
 }

@@ -16,6 +16,15 @@
             <arg column="total_chapters" javaType="_int" />
             <arg column="total_scenes" javaType="_int" />
             <arg column="estimated_duration_seconds" javaType="_long" />
+            <arg column="has_chapter" javaType="_boolean" />
+            <arg column="analysis_ready" javaType="_boolean" />
+            <arg column="canon_ready" javaType="_boolean" />
+            <arg column="story_ready" javaType="_boolean" />
+            <arg column="production_started" javaType="_boolean" />
+            <arg column="production_ready" javaType="_boolean" />
+            <arg column="editor_ready" javaType="_boolean" />
+            <arg column="render_in_progress" javaType="_boolean" />
+            <arg column="latest_stage" javaType="java.lang.String" />
         </constructor>
     </resultMap>
 
@@ -71,7 +80,24 @@
                ) AS starred,
                COALESCE(metrics.total_chapters, 0) AS total_chapters,
                COALESCE(metrics.total_scenes, 0) AS total_scenes,
-               COALESCE(metrics.estimated_duration_seconds, 0) AS estimated_duration_seconds
+               COALESCE(metrics.estimated_duration_seconds, 0) AS estimated_duration_seconds,
+               chapter_progress.has_chapter AS has_chapter,
+               chapter_progress.analysis_ready AS analysis_ready,
+               canon_progress.canon_ready AS canon_ready,
+               story_progress.story_ready AS story_ready,
+               production_progress.production_started AS production_started,
+               production_progress.production_ready AS production_ready,
+               production_progress.editor_ready AS editor_ready,
+               render_progress.render_in_progress AS render_in_progress,
+               CASE
+                   WHEN render_progress.render_in_progress THEN 'RENDER'
+                   WHEN production_progress.editor_ready THEN 'EDITOR'
+                   WHEN production_progress.production_started THEN 'PRODUCTION'
+                   WHEN story_progress.story_ready THEN 'PRODUCTION'
+                   WHEN canon_progress.canon_ready THEN 'STORY'
+                   WHEN chapter_progress.analysis_ready THEN 'CANON'
+                   ELSE 'SOURCE'
+               END AS latest_stage
           FROM page_projects p
           LEFT JOIN LATERAL (
               SELECT sv.id
@@ -94,6 +120,163 @@
                WHERE c.story_version_id = latest_story.id
                  AND c.deleted_at IS NULL
           ) metrics ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT
+                  EXISTS (
+                      SELECT 1
+                        FROM chapters c
+                       WHERE c.story_version_id = latest_story.id
+                         AND c.deleted_at IS NULL
+                  ) AS has_chapter,
+                  EXISTS (
+                      SELECT 1
+                        FROM chapters c
+                        JOIN generation_jobs gj
+                          ON gj.chapter_id = c.id
+                         AND gj.job_type = 'CHAPTER_ANALYZE'
+                         AND gj.status = 'COMPLETED'
+                         AND gj.source_hash = c.source_hash
+                         AND gj.chapter_row_version = c.row_version
+                       WHERE c.story_version_id = latest_story.id
+                         AND c.deleted_at IS NULL
+                  ) AS analysis_ready
+          ) chapter_progress ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT chapter_progress.analysis_ready
+                     AND NOT EXISTS (
+                         SELECT 1
+                           FROM project_characters pc
+                           LEFT JOIN character_versions cv
+                             ON cv.id = pc.pinned_character_version_id
+                          WHERE pc.project_id = p.id
+                            AND pc.status = 'ACTIVE'
+                            AND (cv.id IS NULL OR cv.status &lt;&gt; 'LOCKED')
+                     ) AS canon_ready
+          ) canon_progress ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT canon_progress.canon_ready
+                     AND EXISTS (
+                         SELECT 1
+                           FROM chapters c
+                           JOIN scenes s
+                             ON s.chapter_id = c.id
+                            AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                           JOIN story_beats sb ON sb.scene_id = s.id
+                          WHERE c.story_version_id = latest_story.id
+                            AND c.deleted_at IS NULL
+                     )
+                     AND NOT EXISTS (
+                         SELECT 1
+                           FROM chapters c
+                           JOIN scenes s
+                             ON s.chapter_id = c.id
+                            AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                           JOIN story_beats sb ON sb.scene_id = s.id
+                          WHERE c.story_version_id = latest_story.id
+                            AND c.deleted_at IS NULL
+                            AND sb.review_status &lt;&gt; 'APPROVED'
+                     )
+                     AND EXISTS (
+                         SELECT 1
+                           FROM chapters c
+                           JOIN scenes s
+                             ON s.chapter_id = c.id
+                            AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                           JOIN visual_beats vb ON vb.scene_id = s.id
+                          WHERE c.story_version_id = latest_story.id
+                            AND c.deleted_at IS NULL
+                     )
+                     AND NOT EXISTS (
+                         SELECT 1
+                           FROM chapters c
+                           JOIN scenes s
+                             ON s.chapter_id = c.id
+                            AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                           JOIN visual_beats vb ON vb.scene_id = s.id
+                          WHERE c.story_version_id = latest_story.id
+                            AND c.deleted_at IS NULL
+                            AND vb.review_status &lt;&gt; 'APPROVED'
+                     ) AS story_ready
+          ) story_progress ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT
+                  EXISTS (
+                      SELECT 1
+                        FROM chapters c
+                        JOIN scenes s
+                          ON s.chapter_id = c.id
+                         AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                        JOIN visual_beats vb ON vb.scene_id = s.id
+                        JOIN shot_sequences sq ON sq.visual_beat_id = vb.id
+                        JOIN shots sh ON sh.sequence_id = sq.id
+                       WHERE c.story_version_id = latest_story.id
+                         AND c.deleted_at IS NULL
+                  ) AS production_started,
+                  EXISTS (
+                      SELECT 1
+                        FROM chapters c
+                        JOIN scenes s
+                          ON s.chapter_id = c.id
+                         AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                        JOIN visual_beats vb ON vb.scene_id = s.id
+                        JOIN shot_sequences sq ON sq.visual_beat_id = vb.id
+                        JOIN shots sh ON sh.sequence_id = sq.id
+                        JOIN selected_takes st ON st.shot_id = sh.id
+                        JOIN takes t ON t.id = st.take_id
+                        JOIN media_assets ma ON ma.id = t.output_asset_id
+                       WHERE c.story_version_id = latest_story.id
+                         AND c.deleted_at IS NULL
+                         AND t.status = 'PASSED'
+                         AND t.validation_status = 'PASS'
+                         AND t.source_duration_ms > 0
+                         AND ma.asset_type = 'VIDEO'
+                         AND ma.status = 'READY'
+                  ) AS editor_ready,
+                  EXISTS (
+                      SELECT 1
+                        FROM chapters c
+                        JOIN scenes s
+                          ON s.chapter_id = c.id
+                         AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                        JOIN visual_beats vb ON vb.scene_id = s.id
+                        JOIN shot_sequences sq ON sq.visual_beat_id = vb.id
+                        JOIN shots sh ON sh.sequence_id = sq.id
+                       WHERE c.story_version_id = latest_story.id
+                         AND c.deleted_at IS NULL
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                        FROM chapters c
+                        JOIN scenes s
+                          ON s.chapter_id = c.id
+                         AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                        JOIN visual_beats vb ON vb.scene_id = s.id
+                        JOIN shot_sequences sq ON sq.visual_beat_id = vb.id
+                        JOIN shots sh ON sh.sequence_id = sq.id
+                        LEFT JOIN selected_takes st ON st.shot_id = sh.id
+                        LEFT JOIN takes t ON t.id = st.take_id
+                        LEFT JOIN media_assets ma ON ma.id = t.output_asset_id
+                       WHERE c.story_version_id = latest_story.id
+                         AND c.deleted_at IS NULL
+                         AND (st.shot_id IS NULL
+                              OR t.status &lt;&gt; 'PASSED'
+                              OR t.validation_status &lt;&gt; 'PASS'
+                              OR t.source_duration_ms IS NULL
+                              OR t.source_duration_ms &lt;= 0
+                              OR t.output_asset_id IS NULL
+                              OR ma.asset_type &lt;&gt; 'VIDEO'
+                              OR ma.status &lt;&gt; 'READY')
+                  ) AS production_ready
+          ) production_progress ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT EXISTS (
+                  SELECT 1
+                    FROM generation_jobs gj
+                   WHERE gj.project_id = p.id
+                     AND gj.job_type = 'RENDER_PROJECT'
+                     AND gj.status IN ('QUEUED', 'SUBMITTING', 'SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING', 'STALLED')
+              ) AS render_in_progress
+          ) render_progress ON TRUE
          <choose>
              <when test="sort == 'STARRED' or sort == 'FAVORITE'">
                  ORDER BY starred DESC, p.updated_at DESC, p.id DESC

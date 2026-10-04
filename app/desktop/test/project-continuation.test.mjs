@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveProjectContinuation } from "../src/renderer/features/projects/model/project-continuation.ts";
+import {
+  mergeBackendProject,
+  resolveProjectContinuation,
+  withoutBackendWorkflow,
+} from "../src/renderer/features/projects/model/project-continuation.ts";
 
 test("resolveProjectContinuation routes 0 chapter project to chapters workspace (source stage)", () => {
   const newProject = {
@@ -36,7 +40,7 @@ test("resolveProjectContinuation routes project without metrics to chapters work
   assert.equal(continuation.stage, "source");
 });
 
-test("resolveProjectContinuation routes in-progress project without workflow to chapters workspace (production stage)", () => {
+test("resolveProjectContinuation falls back conservatively when backend workflow is unavailable", () => {
   const inProgressProject = {
     id: "proj-3",
     name: "In Progress",
@@ -51,9 +55,9 @@ test("resolveProjectContinuation routes in-progress project without workflow to 
   };
 
   const continuation = resolveProjectContinuation(inProgressProject);
-  assert.equal(continuation.destination, "/projects/proj-3/chapters?stage=production");
-  assert.equal(continuation.stage, "production");
-  assert.match(continuation.label, /sản xuất/i);
+  assert.equal(continuation.destination, "/projects/proj-3/chapters?stage=source");
+  assert.equal(continuation.stage, "source");
+  assert.match(continuation.label, /source/i);
 });
 
 test("resolveProjectContinuation routes based on workflow summary: renderInProgress", () => {
@@ -105,4 +109,54 @@ test("resolveProjectContinuation routes based on workflow summary: canonReady to
   assert.equal(continuation.destination, "/projects/proj-5/chapters?stage=story");
   assert.equal(continuation.stage, "story");
   assert.match(continuation.label, /storyboard/i);
+});
+
+test("backend project state replaces workflow while local-only metadata survives", () => {
+  const local = {
+    id: "proj-6",
+    name: "Old local name",
+    description: null,
+    coverImageUrl: null,
+    status: "DRAFT",
+    imageAspectRatio: "16:9",
+    isStarred: true,
+    lastOpenedAt: "2026-10-01T00:00:00Z",
+    metrics: { totalChapters: 5, totalScenes: 12, estimatedDurationSeconds: 100 },
+    workflow: { latestStage: "PRODUCTION" },
+  };
+  const backend = {
+    id: "proj-6",
+    name: "Current name",
+    description: "Current description",
+    coverImageUrl: null,
+    status: "ACTIVE",
+    isStarred: false,
+    metrics: { totalChapters: 1, totalScenes: 0, estimatedDurationSeconds: 0 },
+    workflow: {
+      hasChapter: true,
+      analysisReady: true,
+      canonReady: false,
+      storyReady: false,
+      productionStarted: false,
+      productionReady: false,
+      editorReady: false,
+      renderInProgress: false,
+      latestStage: "CANON",
+    },
+  };
+
+  const merged = mergeBackendProject(local, backend);
+
+  assert.equal(merged.name, "Current name");
+  assert.equal(merged.status, "ACTIVE");
+  assert.equal(merged.isStarred, false);
+  assert.deepEqual(merged.workflow, backend.workflow);
+  assert.deepEqual(merged.metrics, backend.metrics);
+  assert.equal(merged.imageAspectRatio, "16:9");
+  assert.equal(merged.lastOpenedAt, "2026-10-01T00:00:00Z");
+});
+
+test("local fallback clears stale workflow authority", () => {
+  const local = { id: "proj-7", workflow: { productionStarted: true } };
+  assert.equal(withoutBackendWorkflow(local).workflow, null);
 });

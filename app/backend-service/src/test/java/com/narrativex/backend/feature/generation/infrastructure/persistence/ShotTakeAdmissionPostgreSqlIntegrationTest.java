@@ -320,13 +320,23 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   @Test
-  void invalidOrMissingConditioningReferencesRejectBeforeIntent() {
+  void unsupportedReferencesAndStrategiesRejectBeforeIntent() {
     video.setSupportedStrategies(
-        List.of(GenerationStrategy.TEXT_TO_VIDEO, GenerationStrategy.IMAGE_TO_VIDEO));
-    var i2v =
-        new GenerateShotTakeCommand(
-            projectId, shotId, GenerationStrategy.IMAGE_TO_VIDEO, null, null, null, "i2v", null);
-    assertThatThrownBy(() -> admission.execute(i2v)).hasMessageContaining("MISSING_REFERENCE");
+        List.of(
+            GenerationStrategy.TEXT_TO_VIDEO,
+            GenerationStrategy.IMAGE_TO_VIDEO,
+            GenerationStrategy.FIRST_LAST_FRAME));
+    int initialJobs = count("generation_jobs");
+    int initialTakes = count("takes");
+    int initialOutbox = count("outbox_events");
+    for (var strategy :
+        List.of(GenerationStrategy.IMAGE_TO_VIDEO, GenerationStrategy.FIRST_LAST_FRAME)) {
+      var command =
+          new GenerateShotTakeCommand(
+              projectId, shotId, strategy, null, null, null, strategy.name(), null);
+      assertThatThrownBy(() -> admission.execute(command))
+          .hasMessageContaining("UNSUPPORTED_STRATEGY");
+    }
     UUID other =
         id(
             "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('other','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
@@ -340,16 +350,18 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
         "INSERT INTO generation_references(shot_id,reference_type,media_asset_id) VALUES (?,'START_FRAME',?)",
         shotId,
         asset);
-    assertThatThrownBy(() -> admission.execute(i2v))
+    assertThatThrownBy(() -> admission.execute(command("reference-other-project", null)))
         .hasMessageContaining("READY assets in this Project");
     jdbc.update(
         "UPDATE media_assets SET project_id=?,status='REJECTED' WHERE id=?", projectId, asset);
-    assertThatThrownBy(() -> admission.execute(i2v))
+    assertThatThrownBy(() -> admission.execute(command("reference-rejected", null)))
         .hasMessageContaining("READY assets in this Project");
     jdbc.update("UPDATE media_assets SET status='READY' WHERE id=?", asset);
-    var generated = admission.execute(i2v);
-    assertThat(snapshot(generated).references()).hasSize(1);
-    assertThat(snapshot(generated).references().get(0).sha256()).isEqualTo("b".repeat(64));
+    assertThatThrownBy(() -> admission.execute(command("reference-ready", null)))
+        .hasMessageContaining("UNSUPPORTED_REFERENCE_CONDITIONING");
+    assertThat(count("generation_jobs")).isEqualTo(initialJobs);
+    assertThat(count("takes")).isEqualTo(initialTakes);
+    assertThat(count("outbox_events")).isEqualTo(initialOutbox);
   }
 
   @Test

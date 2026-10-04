@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,8 +37,9 @@ public class LocalProjectRenderController {
 
   @PostMapping("/claim")
   public ResponseEntity<ApiResponse<ClaimResponse>> claim(
-      @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken) {
-    var claimed = useCase.claim(deviceToken);
+      @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken,
+      @RequestParam(required = false) UUID jobId) {
+    var claimed = useCase.claim(deviceToken, jobId);
     if (claimed.isEmpty()) return ResponseEntity.noContent().build();
     return ResponseEntity.ok(
         ApiResponse.success("Desktop project render claimed", toClaimResponse(claimed.get())));

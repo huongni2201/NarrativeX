@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.compute.node;
 
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -29,7 +30,7 @@ public class ComputeTargetRegistry {
               defaultProperties.getBaseUrl(),
               defaultProperties.getMachineToken(),
               ComputeTargetStatus.ONLINE,
-              Set.of("vieneu", "comfyui", "whisperx", "media-validator"),
+              Set.of("vieneu", "comfyui", "whisperx", "media-validator", "ltx"),
               Instant.now()));
     }
   }
@@ -53,6 +54,7 @@ public class ComputeTargetRegistry {
                 t.isReady()
                     && (t.supportedExecutors().isEmpty()
                         || t.supportedExecutors().contains(executor)))
+        .sorted(Comparator.comparing(ComputeTarget::id))
         .findFirst();
   }
 

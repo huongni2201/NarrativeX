@@ -141,6 +141,18 @@ backend-authorized media work
 
 Project image/video/audio media is local-first. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
 
+## Current video Take generation
+
+The active worker profile supports only `TEXT_TO_VIDEO` through `video.generate:1.1`:
+
+- model `ltx-2.5-22b-distilled-int8`, revision `5e6e71018ee1756ed329b697a7b4aedc934dfce9`;
+- profile `ltx-2.5-22b-distilled-int8-native-av-v1`;
+- `LTX_NATIVE_AV` admission mapped to explicit worker `NATIVE_AV`;
+- 1280x720 at 24 FPS, 100–10000 ms, 16:9;
+- structured dialogue, voice descriptions, camera intent and subject motion.
+
+Backend readiness checks the worker's exact task/schema/model/profile capabilities. The current profile does not accept conditioning artifacts or audio-reference bytes. New admission rejects `AUDIO_FIRST`, I2V, First/Last Frame and shot reference assets before creating durable generation work.
+
 ## Production timeline
 
 The backend production timeline reads the current Storyboard revision directly. `VisualBeat.preview_media_asset_id` is the generated/default production source. `production_beat_media_selections` is the explicit Editor override layer, with effective precedence:
@@ -192,7 +204,7 @@ backend admits + assigns local render
   -> preview/export local MP4 directly
 ```
 
-Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Richer crash/restart resume/retry UX remains hardening work.
+Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Recovery reclaims the specific backend render job, checks the frozen render fingerprint, assets and local tool versions, reconciles a checksum-matching artifact at REGISTER, and routes incompatible state to an explicit user retry. PostgreSQL/Testcontainers and Electron runtime verification remain separate completion gates.
 
 ## Local storage
 
@@ -208,7 +220,7 @@ Desktop storage tooling also includes verification/accounting, completed/failed 
 
 ## Remaining creator-loop work
 
-- compute execution through `generation-service` with backend-owned reconciliation and artifact verification;
+- end-to-end runtime verification of the Native AV shot-to-render path without fake-provider production-health claims;
 - adaptive narration-driven `VisualScenePlanner` and richer StoryBeat/VisualBeat review;
 - complete multi-part user-audio alignment/slicing behavior for all production scopes;
 - richer media reuse/reframe/edit/regeneration lineage;

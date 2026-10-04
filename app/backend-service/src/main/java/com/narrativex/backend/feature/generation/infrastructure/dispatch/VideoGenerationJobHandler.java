@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -54,6 +55,34 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJobDispatcher {
   private static final String PROTOCOL_VERSION = "1.0";
+  private static final Set<String> SCHEMA_1_1_REQUIRED_INPUTS =
+      Set.of(
+          "workflowProfileId",
+          "audioMode",
+          "prompt",
+          "negativePrompt",
+          "width",
+          "height",
+          "fps",
+          "durationMs",
+          "generationMode",
+          "seed");
+  private static final Set<String> SCHEMA_1_1_ALLOWED_INPUTS =
+      Set.of(
+          "workflowProfileId",
+          "audioMode",
+          "prompt",
+          "negativePrompt",
+          "width",
+          "height",
+          "fps",
+          "durationMs",
+          "generationMode",
+          "seed",
+          "dialogue",
+          "voiceReference",
+          "cameraIntent",
+          "motionIntent");
   private static final Pattern STRUCTURED_INPUT_HEADER =
       Pattern.compile("^\\s*\\{\\s*\\\"(?:schemaVersion|shotId)\\\"\\s*:");
   private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -128,9 +157,13 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
     String modelName =
         videoProperties != null ? videoProperties.getDefaultModel() : "ltx-2.5-22b-distilled-int8";
     String revision =
-        videoProperties != null ? videoProperties.getModelRevision() : "5e6e71018ee1756ed329b697a7b4aedc934dfce9";
+        videoProperties != null
+            ? videoProperties.getModelRevision()
+            : "5e6e71018ee1756ed329b697a7b4aedc934dfce9";
     String schemaVersion =
-        videoProperties != null && videoProperties.getWorkflowRevision() != null && videoProperties.getWorkflowRevision().contains(":")
+        videoProperties != null
+                && videoProperties.getWorkflowRevision() != null
+                && videoProperties.getWorkflowRevision().contains(":")
             ? videoProperties.getWorkflowRevision().split(":")[1]
             : "1.1";
     TaskDescriptorDto task = new TaskDescriptorDto("video.generate", schemaVersion);
@@ -423,6 +456,11 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
               .equals(JSON.readTree(take.getInputSnapshotJson()))) {
         throw new IllegalStateException("Frozen take intent is missing or inconsistent");
       }
+      String schemaVersion = "1.0";
+      if (snapshot.workflowRevision() != null && snapshot.workflowRevision().contains(":")) {
+        schemaVersion = snapshot.workflowRevision().split(":")[1];
+      }
+      validateFrozenInputs(snapshot, schemaVersion);
       List<InputArtifactRefDto> inputs = new ArrayList<>();
       for (var ref : snapshot.references()) {
         var artifact = artifactAccess.createInput(job.getProjectId(), ref.assetId(), ref.role());
@@ -438,40 +476,12 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
       var output =
           artifactAccess.getOrCreateTarget(
               take.getComputeTaskId(), take.getComputeAttemptId(), outputId, "video", "video/mp4");
-      String schemaVersion = "1.0";
-      if (snapshot.workflowRevision() != null && snapshot.workflowRevision().contains(":")) {
-        schemaVersion = snapshot.workflowRevision().split(":")[1];
-      }
       var task = new TaskDescriptorDto("video.generate", schemaVersion);
       var model = new ModelRefDto(snapshot.provider(), snapshot.model(), snapshot.modelRevision());
       var constraints = new TaskConstraintsDto(snapshot.deadline(), 1200);
       var artifacts = new TaskArtifactsDto(inputs, List.of(output));
       var workerInputs = new HashMap<>(snapshot.inputs());
-      if ("1.1".equals(schemaVersion)) {
-        if (!workerInputs.containsKey("seed")) {
-          workerInputs.put("seed", snapshot.seed());
-        }
-        if (!workerInputs.containsKey("workflowProfileId")) {
-          workerInputs.put(
-              "workflowProfileId",
-              videoProperties != null && videoProperties.getDefaultProfile() != null
-                  ? videoProperties.getDefaultProfile()
-                  : "ltx-2.5-22b-distilled-int8-native-av-v1");
-        }
-        if (!workerInputs.containsKey("audioMode")) {
-          workerInputs.put("audioMode", "NATIVE_AV");
-        }
-        if (!workerInputs.containsKey("dialogue")) {
-          workerInputs.put("dialogue", List.of());
-        }
-        if (!workerInputs.containsKey("width")) workerInputs.put("width", 1280);
-        if (!workerInputs.containsKey("height")) workerInputs.put("height", 720);
-        if (!workerInputs.containsKey("fps")) workerInputs.put("fps", 24);
-        if (!workerInputs.containsKey("generationMode")) workerInputs.put("generationMode", "TEXT_TO_VIDEO");
-        workerInputs.remove("referenceAssets");
-        workerInputs.remove("referenceAssetIds");
-        workerInputs.remove("providerOptions");
-      } else if ("1.0".equals(schemaVersion) && !snapshot.references().isEmpty()) {
+      if ("1.0".equals(schemaVersion) && !snapshot.references().isEmpty()) {
         workerInputs.put(
             "referenceAssets",
             snapshot.references().stream()
@@ -514,6 +524,21 @@ public class VideoGenerationJobHandler implements GenerationJobHandler, VideoJob
         transactionService.markSubmissionFailed(
             job.getJobId(), "VIDEO_DISPATCH_ERROR", "Failed to dispatch frozen video inputs");
       }
+    }
+  }
+
+  private static void validateFrozenInputs(
+      com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot snapshot,
+      String schemaVersion) {
+    if (!"1.1".equals(schemaVersion)) return;
+    var inputs = snapshot.inputs();
+    if (!"LTX_NATIVE_AV".equals(snapshot.audioMode())
+        || inputs == null
+        || !"NATIVE_AV".equals(inputs.get("audioMode"))
+        || !inputs.keySet().containsAll(SCHEMA_1_1_REQUIRED_INPUTS)
+        || !SCHEMA_1_1_ALLOWED_INPUTS.containsAll(inputs.keySet())) {
+      throw new IllegalArgumentException(
+          "Frozen video.generate 1.1 inputs are incomplete or invalid");
     }
   }
 

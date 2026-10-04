@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.character.application.service.SpeakerVoiceResolver;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
@@ -23,10 +24,14 @@ import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeRow;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess;
 import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +56,70 @@ class VideoGenerationJobHandlerTest {
     verify(transactionService)
         .markSubmissionFailed(
             job.getJobId(), "VIDEO_DISPATCH_ERROR", "Malformed persisted video input");
+  }
+
+  @Test
+  void frozenSchema11WithoutAudioModeFailsBeforeExternalSubmit() {
+    assertInvalidFrozenInputs(Map.of("prompt", "A quiet forest"));
+  }
+
+  @Test
+  void frozenSchema11AudioFirstFailsBeforeExternalSubmit() {
+    assertInvalidFrozenInputs(Map.of("audioMode", "AUDIO_FIRST", "prompt", "A quiet forest"));
+  }
+
+  private void assertInvalidFrozenInputs(Map<String, Object> inputs) {
+    UUID project = UUID.randomUUID(), chapter = UUID.randomUUID();
+    var snapshot =
+        new TakeInputSnapshot(
+            1,
+            UUID.randomUUID(),
+            1,
+            "request-fingerprint",
+            "input-fingerprint",
+            "ltx",
+            "ltx-2.5-22b-distilled-int8",
+            "5e6e71018ee1756ed329b697a7b4aedc934dfce9",
+            "video.generate:1.1",
+            "720p_24fps_standard",
+            "LTX_NATIVE_AV",
+            7L,
+            Instant.now().plusSeconds(1200),
+            Map.of(),
+            inputs,
+            List.of());
+    var json =
+        tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(snapshot);
+    var job =
+        GenerationJob.createShotVideoGeneration(
+            project, UUID.randomUUID(), chapter, json, "frozen-invalid-inputs");
+    var takeMapper = mock(TakeMapper.class);
+    var take = mock(TakeRow.class);
+    when(transactionService.claimForSubmission(job.getJobId(), "GENERATING_VIDEO"))
+        .thenReturn(Optional.of(job));
+    when(takeMapper.findByGenerationJobId(job.getId())).thenReturn(take);
+    when(take.getInputFingerprint()).thenReturn("input-fingerprint");
+    when(take.getInputSnapshotJson()).thenReturn(json);
+    when(artifactAccess.getOrCreateTarget(any(), any(), any(), any(), any()))
+        .thenReturn(new OutputArtifactTargetDto(UUID.randomUUID(), "video", "video/mp4", null));
+
+    var handlerWithTake =
+        new VideoGenerationJobHandler(
+            transactionService,
+            executionPort,
+            artifactAccess,
+            storyboardShotAccess,
+            speakerVoiceResolver,
+            null,
+            takeMapper,
+            new com.narrativex.backend.feature.generation.infrastructure.compute
+                .VideoGenerationProperties());
+    handlerWithTake.execute(job.getJobId());
+
+    verify(executionPort, never()).submitTask(any());
+    verify(transactionService)
+        .markSubmissionFailed(
+            job.getJobId(), "VIDEO_DISPATCH_ERROR", "Failed to dispatch frozen video inputs");
   }
 
   @Test

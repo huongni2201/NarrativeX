@@ -14,4 +14,13 @@ public record ProjectDashboardRow(
     boolean starred,
     int totalChapters,
     int totalScenes,
-    long estimatedDurationSeconds) {}
+    long estimatedDurationSeconds,
+    boolean hasChapter,
+    boolean analysisReady,
+    boolean canonReady,
+    boolean storyReady,
+    boolean productionStarted,
+    boolean productionReady,
+    boolean editorReady,
+    boolean renderInProgress,
+    String latestStage) {}

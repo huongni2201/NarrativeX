@@ -3,7 +3,7 @@ import type {
   LocalAssetRegistration,
   RegisterLocalAssetRequest,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client.ts";
+import { apiCommand, apiRequest } from "../../../api/client.ts";
 import { assertContract, isRecord, isString } from "../../../api/guards.ts";
 
 const ASSET_PAGE_LIMIT = 100;
@@ -122,4 +122,7 @@ export const assetsApi = {
       method: "POST",
       body: JSON.stringify(toRegisterLocalAssetRequest(input)),
     }),
+
+  remove: (projectId: string, assetId: string) =>
+    apiCommand(projectAssetPath(projectId, assetId), { method: "DELETE" }),
 };

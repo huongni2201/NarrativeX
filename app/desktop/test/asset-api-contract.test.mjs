@@ -41,4 +41,6 @@ test("asset API paginates safely and scopes every page to the current project", 
   assert.match(source, /listAllByType\(projectId, "AUDIO"\)/);
   assert.match(source, /listAllByType\(projectId, "IMAGE"\)/);
   assert.match(source, /listAllByType\(projectId, "VIDEO"\)/);
+  assert.match(source, /remove: \(projectId: string, assetId: string\)/);
+  assert.match(source, /apiCommand\(projectAssetPath\(projectId, assetId\), \{ method: "DELETE" \}\)/);
 });

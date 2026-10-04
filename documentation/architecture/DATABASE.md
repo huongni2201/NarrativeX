@@ -20,7 +20,7 @@ NarrativeX maintains a clean, squashed pre-production baseline. A fresh database
 | V5__database_logic_and_triggers.sql | Immutability guards, database functions, and generation event triggers |
 | V6__indexes.sql | Access-path, covering, partial, and unique indexes |
 | V7__seed_catalog.sql | Deterministic system and catalog seed data only |
-| V8__generation_async_orchestration.sql | Compute attempt handles, callback metadata, event receipts, and reconciliation indexes |
+| V8__generation_async_orchestration.sql | Compute attempt handles, durable compute-target assignments, callback metadata, event receipts, and reconciliation indexes |
 | V9__video_first_retention_production.sql | Video-first production schema, hook plans, retention maps, attention events, shot sequences, shots, takes, selected takes, generation references, and production insights |
 | V10__character_voice_profiles.sql | Character voice profiles, pinned voice profile pointers, and voice identity isolation |
 
@@ -103,6 +103,7 @@ Immediately prior to the first production release, freeze the complete baseline 
    - `compute_event_receipts.event_id` is the idempotency key for signed worker events.
    - Receipt processing is monotonic by attempt sequence and terminal states are immutable.
    - Remote provider I/O is not performed inside the local receipt/finalization transaction; reconciliation queries the execution plane outside a database transaction and persists the observation in a short local transaction.
+   - `compute_target_assignments` pins one opaque target ID and executor to each `(task_id, attempt_id)` before submit. Reconciliation and cancellation resolve that same target; machine credentials and base URLs are not stored with the assignment.
 
 6. **Immutable Snapshots:**
    - `project_render_input_snapshots`, `chapter_continuity_plans`, and `regeneration_plans` are immutable once written.

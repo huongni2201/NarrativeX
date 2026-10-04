@@ -30,6 +30,12 @@ export interface RenderJournal {
   failedStage?: RenderJournalStage;
   errorDetail?: string;
   retryable?: boolean;
+  recoveryActionOverride?: RenderRecoveryAction;
+  recoverabilityReason?: string;
+  rendererVersion?: string;
+  ffmpegVersion?: string;
+  finalChecksum?: string;
+  finalSizeBytes?: number;
 }
 
 export interface UnfinishedRenderJournal extends RenderJournal {
@@ -42,6 +48,10 @@ export function recoveryActionForStage(stage: RenderJournalStage): RenderRecover
   if (stage === "CLAIMED" || stage === "MATERIALIZING" || stage === "VERIFY") return "RETRY_STAGE";
   if (stage === "COMPLETED") return "NO_OP";
   return "USER_RETRY";
+}
+
+export function recoveryActionForJournal(journal: RenderJournal): RenderRecoveryAction {
+  return journal.recoveryActionOverride ?? recoveryActionForStage(journal.stage);
 }
 
 export class RenderJournalStore {
@@ -92,6 +102,17 @@ export class RenderJournalStore {
       failedStage,
       errorDetail: sanitizeJournalDetail(errorDetail),
       retryable,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.save(next);
+    return next;
+  }
+
+  async requireUserRetry(current: RenderJournal, reason: string): Promise<RenderJournal> {
+    const next: RenderJournal = {
+      ...current,
+      recoveryActionOverride: "USER_RETRY",
+      recoverabilityReason: sanitizeJournalDetail(reason),
       updatedAt: new Date().toISOString(),
     };
     await this.save(next);

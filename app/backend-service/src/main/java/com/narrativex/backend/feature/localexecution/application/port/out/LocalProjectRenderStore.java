@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface LocalProjectRenderStore {
   Optional<ClaimedProjectRender> claimNext(
-      UUID deviceId, String workerId, UUID leaseToken, int leaseSeconds);
+      UUID deviceId, String workerId, UUID leaseToken, int leaseSeconds, UUID jobId);
 
   boolean heartbeat(UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
 

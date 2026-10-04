@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -127,12 +128,26 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     assertTrue(counts.activeCount() >= 2L);
 
     var starredRows = dashboardMapper.findDashboardPage(null, null, "STARRED", 0, 21);
+    var p2Workflow =
+        rows.stream().filter(row -> p2.getId().equals(row.id())).findFirst().orElseThrow();
     assertTrue(starredRows.size() >= 1);
     assertEquals(p1.getId(), starredRows.getFirst().id());
     assertTrue(starredRows.getFirst().starred());
     assertEquals(1, starredRows.getFirst().totalChapters());
     assertEquals(1, starredRows.getFirst().totalScenes());
     assertEquals(47L, starredRows.getFirst().estimatedDurationSeconds());
+    assertTrue(starredRows.getFirst().hasChapter());
+    assertFalse(starredRows.getFirst().analysisReady());
+    assertEquals("SOURCE", starredRows.getFirst().latestStage());
+    assertFalse(p2Workflow.hasChapter());
+    assertFalse(p2Workflow.analysisReady());
+    assertFalse(p2Workflow.canonReady());
+    assertFalse(p2Workflow.storyReady());
+    assertFalse(p2Workflow.productionStarted());
+    assertFalse(p2Workflow.productionReady());
+    assertFalse(p2Workflow.editorReady());
+    assertFalse(p2Workflow.renderInProgress());
+    assertEquals("SOURCE", p2Workflow.latestStage());
   }
 
   private Project newProject() {

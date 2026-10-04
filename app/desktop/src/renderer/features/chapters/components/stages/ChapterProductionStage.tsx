@@ -27,6 +27,7 @@ import type {
 import { storyboardApi } from "../../../storyboard/api/storyboard.api";
 import { VideoShotboard } from "../../../storyboard/components/VideoShotboard";
 import { useUpdateVisualBeatReview } from "../../../storyboard/queries/storyboard.queries";
+import { invalidatePreviewMediaQueries } from "../../../storyboard/queries/storyboard-media.queries";
 import { importLocalMedia } from "../../../assets/services/import-local-media";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -54,6 +55,7 @@ export function ChapterProductionStage({
   const queryClient = useQueryClient();
   const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
   const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
+  const [mediaImportMessage, setMediaImportMessage] = useState<string | null>(null);
   const [showTechDetails, setShowTechDetails] = useState(false);
 
   const updateVisualBeatReview = useUpdateVisualBeatReview(projectId, chapter?.id ?? null);
@@ -136,12 +138,16 @@ export function ChapterProductionStage({
   const handleImport = async (beat: StoryboardVisualBeat) => {
     if (!chapter) return;
     setMediaBusyBeatId(beat.id);
+    setMediaImportMessage(null);
+    let importedAssetId: string | null = null;
+    let previewBound = false;
     try {
       const result = await importLocalMedia({
         projectId,
-        allowedKinds: ["IMAGE", "VIDEO"],
+        allowedKinds: ["IMAGE"],
       });
       if (result) {
+        importedAssetId = result.assetId;
         await storyboardApi.attachPreviewMedia(
           projectId,
           chapter.id,
@@ -150,17 +156,28 @@ export function ChapterProductionStage({
           beat.rowVersion,
           result.assetId,
         );
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["projects", projectId, "storyboard"] }),
-          queryClient.invalidateQueries({
-            queryKey: ["production", "chapter", projectId, chapter.id],
-          }),
-          queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-          queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
-        ]);
+        previewBound = true;
+        setMediaImportMessage(null);
+        await invalidatePreviewMediaQueries(queryClient, projectId, chapter.id);
       }
     } catch (err) {
       console.warn("Failed to import replacement media:", err);
+      const assetRetained =
+        err instanceof Error && err.message.includes("remains in the Asset Library");
+      setMediaImportMessage(
+        importedAssetId && !previewBound
+          ? "Ảnh đã được nhập vào Thư viện nhưng chưa gắn làm ảnh xem trước. Bạn có thể thử lại hoặc xóa ảnh đó trong Thư viện."
+          : previewBound
+            ? "Ảnh đã được gắn nhưng chế độ xem chưa làm mới. Hãy tải lại phòng sản xuất."
+            : assetRetained
+              ? "Không thể hoàn tất nhập ảnh; một asset còn trong Thư viện để bạn kiểm tra hoặc xóa."
+              : "Không thể nhập ảnh xem trước. Hãy kiểm tra file rồi thử lại.",
+      );
+      if ((importedAssetId && !previewBound) || assetRetained) {
+        await invalidatePreviewMediaQueries(queryClient, projectId, chapter.id).catch((refreshError) =>
+          console.warn("Failed to refresh retained preview image", refreshError),
+        );
+      }
     } finally {
       setMediaBusyBeatId(null);
     }
@@ -287,6 +304,14 @@ export function ChapterProductionStage({
 
       {/* Main Canonical Production Workspace: VideoShotboard */}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {mediaImportMessage && (
+          <div
+            className="mx-4 mt-3 rounded-md border border-warning bg-surface-panel p-3 text-[12px] text-warning"
+            role="status"
+          >
+            {mediaImportMessage}
+          </div>
+        )}
         <div className="p-4">
           <VideoShotboard
             projectId={projectId}

@@ -151,6 +151,10 @@ export class ProjectStorage {
 
   rootDirectory(): string { return this.projectsRoot; }
 
+  async hasProject(projectId: string): Promise<boolean> {
+    return (await this.readManifest(projectId)) !== null;
+  }
+
   async ensureProject(projectId: string): Promise<LocalProjectManifest> {
     return this.withProjectLock(projectId, async () => {
       await this.assertSafeDirectoryOrMissing(resolve(this.projectsRoot), "Projects root");

@@ -9,9 +9,7 @@ export interface ProjectContinuationResult {
 /**
  * Determines the recommended workspace destination when a creator clicks "Continue" or opens a project card.
  *
- * Rules:
- * - 0 chapters (or new project) -> chapters workspace (Source stage)
- * - Has chapters -> if status indicates production readiness or timeline editing, go to editor; otherwise chapters
+ * Backend workflow state is authoritative. Missing workflow state falls back to Source.
  */
 export function resolveProjectContinuation(project: DesktopProject): ProjectContinuationResult {
   const workflow = project.workflow;
@@ -58,28 +56,26 @@ export function resolveProjectContinuation(project: DesktopProject): ProjectCont
     };
   }
 
-  // Fallback when workflow is not provided
-  if (totalChapters === 0) {
-    return {
-      destination: `/projects/${project.id}/chapters?stage=source`,
-      label: "Bắt đầu viết kịch bản",
-      stage: "source",
-    };
-  }
-
-  // If scenes exist, production is ready or started
-  const totalScenes = project.metrics?.totalScenes ?? 0;
-  if (totalScenes > 0) {
-    return {
-      destination: `/projects/${project.id}/chapters?stage=production`,
-      label: "Tiếp tục sản xuất",
-      stage: "production",
-    };
-  }
-
   return {
     destination: `/projects/${project.id}/chapters?stage=source`,
-    label: "Tiếp tục viết kịch bản",
+    label: totalChapters > 0 ? "Tiếp tục tại Source" : "Bắt đầu viết kịch bản",
     stage: "source",
   };
+}
+
+export function mergeBackendProject(
+  localProject: DesktopProject,
+  backendProject: DesktopProject,
+): DesktopProject {
+  return {
+    ...localProject,
+    ...backendProject,
+    isStarred: backendProject.isStarred ?? localProject.isStarred,
+    metrics: backendProject.metrics ?? localProject.metrics,
+    workflow: backendProject.workflow ?? localProject.workflow ?? null,
+  };
+}
+
+export function withoutBackendWorkflow(project: DesktopProject): DesktopProject {
+  return { ...project, workflow: null };
 }

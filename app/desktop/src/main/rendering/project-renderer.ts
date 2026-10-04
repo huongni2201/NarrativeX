@@ -1,5 +1,6 @@
 import { mkdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { sha256File } from "../local-storage/file-integrity";
 import type { LocalRenderCompletion } from "../local-execution/backend-client";
 import type { PreparedProjectRender } from "../local-execution/service";
 import type { ProjectStorage } from "../local-storage/project-storage";
@@ -24,7 +25,15 @@ export class ProjectRenderer {
     private readonly runtime: FfmpegRuntimeStatus,
     private readonly storage: ProjectStorage,
     private readonly journals = new RenderJournalStore(storage.rootDirectory()),
+    private readonly rendererVersion = "development",
   ) {}
+
+  async requireUserRetry(projectId: string, jobId: string, reason: string): Promise<boolean> {
+    const journal = await this.journals.load(projectId, jobId);
+    if (!journal) return false;
+    await this.journals.requireUserRetry(journal, reason);
+    return true;
+  }
 
   async render(
     prepared: PreparedProjectRender,
@@ -89,7 +98,9 @@ export class ProjectRenderer {
     await mkdir(workDirectory, { recursive: true });
     let journal = await this.journals.load(prepared.projectId, prepared.jobId);
     if (journal && journal.renderFingerprint !== manifest.renderFingerprint) {
-      throw new RenderExecutionError("RENDER_CHECKPOINT_MISMATCH", "Saved render checkpoint does not match the current render snapshot.", false);
+      const reason = "Saved render checkpoint does not match the current render snapshot.";
+      await this.journals.requireUserRetry(journal, reason);
+      throw new RenderExecutionError("RENDER_CHECKPOINT_MISMATCH", reason, false);
     }
     if (journal?.stage === "FAILED" || journal?.stage === "CANCELLED") {
       throw new RenderExecutionError(
@@ -98,7 +109,17 @@ export class ProjectRenderer {
         false,
       );
     }
-    journal ??= { version: 1, projectId: prepared.projectId, jobId: prepared.jobId, renderFingerprint: manifest.renderFingerprint, stage: "CLAIMED", workDirectory, updatedAt: new Date().toISOString() };
+    journal ??= {
+      version: 1,
+      projectId: prepared.projectId,
+      jobId: prepared.jobId,
+      renderFingerprint: manifest.renderFingerprint,
+      stage: "CLAIMED",
+      workDirectory,
+      rendererVersion: this.rendererVersion,
+      ffmpegVersion: this.runtime.version ?? "unknown",
+      updatedAt: new Date().toISOString(),
+    };
     await this.journals.save(journal);
 
     if (journal.stage === "COMPLETED") {
@@ -114,14 +135,38 @@ export class ProjectRenderer {
       }
     }
 
+    if (
+      journal.rendererVersion !== this.rendererVersion ||
+      !this.runtime.version ||
+      journal.ffmpegVersion !== this.runtime.version
+    ) {
+      const reason =
+        "The saved render uses a different or unverified renderer/FFmpeg version and needs a new render attempt.";
+      await this.journals.requireUserRetry(journal, reason);
+      throw new RenderExecutionError("RENDER_RECOVERY_INCOMPATIBLE", reason, false);
+    }
+
     const finalPath = join(workDirectory, "final.mp4");
     if (journal.stage === "REGISTER" || journal.stage === "VERIFY") {
       try {
         if (await isFile(finalPath)) {
           const metadata = await probeVideo(this.runtime.ffprobePath, finalPath);
           validateRenderSync(metadata, expectedDurationMs, manifest.fps, manifest);
+          const finalStat = await stat(finalPath);
+          const finalChecksum = await sha256File(finalPath);
           if (journal.stage === "VERIFY") {
-            journal = await this.journals.advance(journal, "REGISTER");
+            journal = await this.journals.advance(
+              { ...journal, finalChecksum, finalSizeBytes: finalStat.size },
+              "REGISTER",
+            );
+          } else if (
+            journal.finalChecksum !== finalChecksum ||
+            journal.finalSizeBytes !== finalStat.size
+          ) {
+            const reason =
+              "The saved final MP4 does not match its verified recovery checksum.";
+            await this.journals.requireUserRetry(journal, reason);
+            throw new RenderExecutionError("RENDER_CHECKSUM_MISMATCH", reason, false);
           }
           const artifact = await this.storage.registerArtifact(prepared.projectId, {
             jobId: prepared.jobId,
@@ -136,6 +181,9 @@ export class ProjectRenderer {
         if (isUserCancellation(error) || isUserCancellation(abortReason)) {
           await this.journals.advance(journal, "CANCELLED");
           throw isUserCancellation(abortReason) ? abortReason : error;
+        }
+        if (error instanceof RenderExecutionError && error.code === "RENDER_CHECKSUM_MISMATCH") {
+          throw error;
         }
         if (isResumableInterruption(error)) throw error;
         if (isResumableInterruption(abortReason)) throw abortReason;
@@ -194,7 +242,12 @@ export class ProjectRenderer {
       } catch (error) {
         throw asRenderFailure("RENDER_VERIFY_FAILED", error);
       }
-      await checkpoint("REGISTER");
+      const finalStat = await stat(renderedFinalPath);
+      journal = await this.journals.advance(
+        { ...journal, finalChecksum: await sha256File(renderedFinalPath), finalSizeBytes: finalStat.size },
+        "REGISTER",
+      );
+      currentStage = "REGISTER";
       let artifact;
       try {
         artifact = await this.storage.registerArtifact(prepared.projectId, {

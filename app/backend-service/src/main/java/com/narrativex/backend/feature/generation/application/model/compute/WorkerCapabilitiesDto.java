@@ -18,5 +18,15 @@ public record WorkerCapabilitiesDto(
       List<ModelRefDto> models,
       boolean ready,
       Map<String, List<String>> taskSchemaVersions,
-      List<Map<String, Object>> workflowProfiles) {}
+      List<WorkflowProfileCapabilityDto> workflowProfiles) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WorkflowProfileCapabilityDto(
+      String profileId,
+      boolean nativeAudio,
+      boolean voiceConditioning,
+      boolean voiceDescription,
+      boolean t2v,
+      boolean i2v,
+      boolean firstLastFrame) {}
 }

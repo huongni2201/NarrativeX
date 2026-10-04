@@ -18,7 +18,7 @@ import { registerProjectStorageIpc } from "./local-storage/project-storage-ipc";
 import { resolveFfmpegRuntime, type FfmpegRuntimeStatus } from "./rendering/ffmpeg-runtime";
 import { ProjectRenderer } from "./rendering/project-renderer";
 import { LocalRenderPreflightService } from "./rendering/local-render-preflight";
-import { recoveryActionForStage, RenderJournalStore } from "./rendering/render-journal";
+import { recoveryActionForJournal, RenderJournalStore } from "./rendering/render-journal";
 import { shouldDisableHardwareAcceleration } from "./runtime/gpu-policy";
 import {
   hardenRendererWebContents,
@@ -61,6 +61,10 @@ let ffmpegRuntime: FfmpegRuntimeStatus = {
 };
 let renderPreflight: LocalRenderPreflightService | null = null;
 let renderJournals: RenderJournalStore | null = null;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -239,7 +243,7 @@ void app.whenReady().then(async () => {
     identityStore,
     backendClient,
     projectStorage,
-    new ProjectRenderer(ffmpegRuntime, projectStorage, renderJournals),
+    new ProjectRenderer(ffmpegRuntime, projectStorage, renderJournals, app.getVersion()),
     renderJournals,
   );
 
@@ -278,7 +282,17 @@ void app.whenReady().then(async () => {
   registerTrustedIpcHandler("desktop:render:recovery-status", trustPolicy, async () => {
     if (!renderJournals) throw new Error("Render journal is not initialized.");
     const unfinished = await renderJournals.listUnfinished();
-    return { unfinished: unfinished.map(({ projectId, jobId, stage, updatedAt, renderFingerprint }) => ({ projectId, jobId, stage, recoveryAction: recoveryActionForStage(stage), updatedAt, renderFingerprint })) };
+    return {
+      unfinished: unfinished.map((journal) => ({
+        projectId: journal.projectId,
+        jobId: journal.jobId,
+        stage: journal.stage,
+        recoveryAction: recoveryActionForJournal(journal),
+        recoverabilityReason: journal.recoverabilityReason ?? null,
+        updatedAt: journal.updatedAt,
+        renderFingerprint: journal.renderFingerprint,
+      })),
+    };
   });
   registerTrustedIpcHandler("desktop:render:discard-recovery", trustPolicy, async (input) => {
     if (!input || typeof input !== "object" || typeof (input as any).projectId !== "string" || typeof (input as any).jobId !== "string") {
@@ -286,14 +300,42 @@ void app.whenReady().then(async () => {
     }
     if (!renderJournals) throw new Error("Render journal is not initialized.");
     const { projectId, jobId } = input as { projectId: string; jobId: string };
-    requireLocalExecution().cancelProjectRender(jobId);
-    return renderJournals.discard(projectId, jobId);
+    if (!isUuid(projectId) || !isUuid(jobId)) throw new Error("Invalid render recovery identity.");
+    const discarded = await renderJournals.discard(projectId, jobId);
+    if (!discarded) return { discarded: false, backendSynchronized: false };
+    const backendSynchronized =
+      await requireLocalExecution().discardProjectRenderRecovery(projectId, jobId).catch(() => false);
+    return { discarded: true, backendSynchronized };
   });
   registerTrustedIpcHandler("desktop:render:resume-recovery", trustPolicy, async (input) => {
     if (!input || typeof input !== "object" || typeof (input as any).projectId !== "string" || typeof (input as any).jobId !== "string") {
       throw new Error("Invalid resume recovery input.");
     }
-    return true;
+    if (!renderJournals || !projectStorage) throw new Error("Render recovery is not initialized.");
+    const { projectId, jobId } = input as { projectId: string; jobId: string };
+    if (!isUuid(projectId) || !isUuid(jobId)) throw new Error("Invalid render recovery identity.");
+    const journal = await renderJournals.load(projectId, jobId);
+    if (
+      !journal ||
+      journal.projectId !== projectId ||
+      journal.jobId !== jobId ||
+      journal.stage === "COMPLETED" ||
+      journal.stage === "FAILED" ||
+      journal.stage === "CANCELLED"
+    ) {
+      return false;
+    }
+    if (!/^[0-9a-f]{64}$/i.test(journal.renderFingerprint)) {
+      await renderJournals.requireUserRetry(journal, "The saved render fingerprint is invalid.");
+      return false;
+    }
+    const action = recoveryActionForJournal(journal);
+    if (action === "NO_OP" || action === "USER_RETRY") return false;
+    if (!(await projectStorage.hasProject(projectId))) {
+      await renderJournals.requireUserRetry(journal, "The local project workspace is missing.");
+      return false;
+    }
+    return requireLocalExecution().resumeProjectRender(projectId, jobId);
   });
   registerTrustedIpcHandler("desktop:render:cancel", trustPolicy, (jobId) => {
     if (typeof jobId !== "string") throw new Error("jobId must be a string.");

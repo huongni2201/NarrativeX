@@ -17,7 +17,7 @@ Per [ADR-0018](../decisions/ADR-0018-backend-control-plane-and-domain-agnostic-g
 | Workload | Runtime / Engine | Execution Location | Notes |
 | :--- | :--- | :--- | :--- |
 | **Story / Script Analysis** | Google Vertex AI Gemini 3.8 Flash | Backend Service (`app/backend-service`) | Managed directly in Spring Boot control plane ([ADR-0022](../decisions/ADR-0022-vertex-gemini-chapter-analysis.md)) with thinking level `HIGH`. Not executed on GPU node. |
-| **Video Generation** | LTX Video (`ltx-2.5-nvfp4`) | Generation Service (`app/generation-service`) | Primary generative video runtime ([ADR-0032](../decisions/ADR-0032-video-first-ltx-audio-native-production-runtime.md)). Generates moving shots with native video-conditioned audio. ~18–24 GB VRAM footprint. |
+| **Video Generation** | LTX-2.5 (`ltx-2.5-22b-distilled-int8`, revision `5e6e71018ee1756ed329b697a7b4aedc934dfce9`) | Generation Service (`app/generation-service`) | Native AV profile `ltx-2.5-22b-distilled-int8-native-av-v1`, `video.generate:1.1`, text-to-video, 1280x720/24 FPS/16:9. Reference conditioning, I2V and First/Last Frame are unsupported by this profile. Runtime readiness is capability-based and is not a GPU health measurement. |
 | **Speech Alignment & QC** | WhisperX | Generation Service (`app/generation-service`) | Generates phoneme/word timing alignment, automated transcription QC, and sync validation. ~3–5 GB VRAM footprint. |
 | **Speech Generation (TTS)** | VieNeu (`vieneu-v3-turbo`) | Generation Service (`app/generation-service`) | Voice reference generation and narration preparation ([ADR-0023](../decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md)). ~4–8 GB VRAM footprint. |
 | **Visual Beat Keyframes** | ComfyUI (RealVisXL / SDXL) | Generation Service (`app/generation-service`) | Secondary keyframe, poster, and visual reference generation. ~12–16 GB VRAM footprint. |
@@ -26,7 +26,7 @@ Per [ADR-0018](../decisions/ADR-0018-backend-control-plane-and-domain-agnostic-g
 
 ## 2. Hardware Constraints & Residency Model (RTX 5090 32GB Target)
 
-The active production target is the **NVIDIA GeForce RTX 5090 (32GB VRAM)**, providing high-bandwidth memory for NVFP4 quantized LTX models and native CUDA 13.0 operations. The **NVIDIA GeForce RTX 3090 (24GB VRAM)** is maintained as a historical benchmark baseline.
+The configured workstation target is the **NVIDIA GeForce RTX 5090 (32GB VRAM)**. The **NVIDIA GeForce RTX 3090 (24GB VRAM)** remains a historical benchmark baseline. The current LTX executor uses the pinned INT8 model identity above; deployment readiness and performance still require a successful workstation smoke run.
 
 ### Sequential Residency Rule
 To prevent out-of-memory (OOM) faults across heavy generative models:

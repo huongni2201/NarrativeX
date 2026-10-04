@@ -279,7 +279,8 @@ export function VideoShotboard({
                     className="h-7 w-7"
                     disabled={isBusy}
                     onClick={() => onImport(beat)}
-                    aria-label={`Import media for ${beat.title}`}
+                    aria-label={`${beat.previewMediaAssetId ? "Replace preview image for" : "Import reference image for"} ${beat.title}`}
+                    title={beat.previewMediaAssetId ? "Replace Preview Image" : "Import Reference Image"}
                   >
                     {isBusy ? (
                       <Loader2 size={12} className="animate-spin" />

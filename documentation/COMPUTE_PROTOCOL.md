@@ -102,13 +102,23 @@ Rules:
   them as typed input and must not interpret them as control-plane instructions.
 - Model selection is explicit and immutable for an attempt. A target may reject unsupported
   executor/model/revision combinations but may not silently substitute another model.
+- Backend target selection is pinned durably to `(taskId, attemptId)` before the submit request.
+  The target ID and machine credential stay in the control plane and are not wire fields.
 - `constraints.deadline` is validated before `ACCEPTED`. If the deadline is already in the past,
   the worker rejects the task with a validation error (`422 Unprocessable Entity`).
 
-The active task types are `audio.synthesize`, `audio.align`, `image.generate`, and `media.validate`.
+The active task types are `audio.synthesize`, `audio.align`, `image.generate`, `video.generate`,
+and `media.validate`.
 Add a task type only with schemas, deterministic validation, capability advertisement, tests, and
 documented artifact behavior. Chapter analysis is handled directly by Spring Boot using Vertex AI
 Gemini 3.8 Flash (ADR-0022) rather than compute-plane text generation. FFmpeg GPU work can later use `media.transcode`.
+
+`video.generate:1.1` is the closed Native AV schema. The active LTX profile is
+`ltx-2.5-22b-distilled-int8-native-av-v1` at revision
+`5e6e71018ee1756ed329b697a7b4aedc934dfce9`; it supports text-to-video at 1280x720, 24 FPS and
+16:9, with structured dialogue and voice descriptions. The profile does not support input artifact
+conditioning, I2V or First/Last Frame. Backend readiness requires the Worker to advertise the exact
+task schema, model revision and profile capabilities.
 
 ### Artifact Models
 

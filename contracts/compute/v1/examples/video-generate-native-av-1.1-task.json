@@ -1,0 +1,72 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7ad",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab74",
+  "idempotencyKey": "compute:0199b861-cc3c-7a8e-a915-e5dbff3af7ad:1",
+  "requestFingerprint": "93d16d74d054c1d906582adbeb3ae75f0ff375666f0ee333540ad3d51253ec8c",
+  "task": {
+    "type": "video.generate",
+    "schemaVersion": "1.1"
+  },
+  "model": {
+    "executor": "ltx",
+    "model": "ltx-2.5-22b-distilled-int8",
+    "revision": "5e6e71018ee1756ed329b697a7b4aedc934dfce9"
+  },
+  "constraints": {
+    "deadline": "2026-10-05T00:00:00Z",
+    "maxRuntimeSeconds": 1200
+  },
+  "inputs": {
+    "workflowProfileId": "ltx-2.5-22b-distilled-int8-native-av-v1",
+    "audioMode": "NATIVE_AV",
+    "prompt": "A quiet cinematic walk through a rain-soaked garden",
+    "negativePrompt": "flicker, jitter, text, watermark",
+    "width": 1280,
+    "height": 720,
+    "fps": 24,
+    "durationMs": 4000,
+    "generationMode": "TEXT_TO_VIDEO",
+    "seed": 42,
+    "dialogue": [
+      {
+        "speaker": "Mira",
+        "text": "We should keep moving.",
+        "voiceDescription": "A calm, low voice with clear diction."
+      }
+    ],
+    "voiceReference": {
+      "language": "en",
+      "accent": "General American",
+      "voiceDescription": "A calm, low voice with clear diction.",
+      "deliveryBaseline": "Measured and reassuring."
+    },
+    "cameraIntent": {
+      "framing": "medium shot",
+      "movement": "slow tracking",
+      "angle": "eye level",
+      "speed": "slow"
+    },
+    "motionIntent": {
+      "subjectMotion": "walks through the garden",
+      "speed": "slow",
+      "dynamics": "steady"
+    }
+  },
+  "artifacts": {
+    "inputs": [],
+    "outputs": [
+      {
+        "artifactId": "0199b86a-6db8-75b8-bd98-78442a0177de",
+        "role": "video",
+        "mediaType": "video/mp4",
+        "access": {
+          "method": "PUT",
+          "url": "https://artifact-gateway.example/upload/video-0199b86a",
+          "expiresAt": "2026-10-05T00:15:00Z",
+          "headers": {}
+        }
+      }
+    ]
+  }
+}

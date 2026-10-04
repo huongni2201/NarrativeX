@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.localexecution.application.usecase;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,13 +25,32 @@ class LocalProjectRenderUseCaseTest {
     UUID deviceId = UUID.randomUUID();
     when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
         .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId));
-    when(store.claimNext(eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90)))
+    when(store.claimNext(
+            eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90), isNull(UUID.class)))
         .thenReturn(Optional.empty());
 
     useCase.claim("device-token");
 
     verify(localDeviceAccess).authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY);
-    verify(store).claimNext(eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90));
+    verify(store)
+        .claimNext(
+            eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90), isNull(UUID.class));
+  }
+
+  @Test
+  void claimCanBeScopedToOneRecoveryJob() {
+    UUID deviceId = UUID.randomUUID();
+    UUID jobId = UUID.randomUUID();
+    when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
+        .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId));
+    when(store.claimNext(
+            eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90), eq(jobId)))
+        .thenReturn(Optional.empty());
+
+    useCase.claim("device-token", jobId);
+
+    verify(store)
+        .claimNext(eq(deviceId), eq("desktop:" + deviceId), any(UUID.class), eq(90), eq(jobId));
   }
 
   @Test

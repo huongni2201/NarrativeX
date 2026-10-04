@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recoveryActionForStage, RenderJournalStore } from "../src/main/rendering/render-journal.ts";
+import {
+  recoveryActionForJournal,
+  recoveryActionForStage,
+  RenderJournalStore,
+} from "../src/main/rendering/render-journal.ts";
 
 test("render journal writes atomically and lists unfinished jobs", async () => {
   const root = await mkdtemp(join(tmpdir(), "narrativex-journal-"));
@@ -63,8 +67,13 @@ test("render journal redacts retryable failure secrets", async () => {
 });
 
 test("restart recovery action is deterministic by last checkpoint", () => {
+  assert.equal(recoveryActionForStage("CLAIMED"), "RETRY_STAGE");
   assert.equal(recoveryActionForStage("MATERIALIZING"), "RETRY_STAGE");
+  assert.equal(recoveryActionForStage("VERIFY"), "RETRY_STAGE");
   assert.equal(recoveryActionForStage("SEGMENT_RENDER"), "RERUN_RENDER");
+  assert.equal(recoveryActionForStage("VIDEO_CONCAT"), "RERUN_RENDER");
+  assert.equal(recoveryActionForStage("AUDIO_CONCAT"), "RERUN_RENDER");
+  assert.equal(recoveryActionForStage("MUX"), "RERUN_RENDER");
   assert.equal(recoveryActionForStage("REGISTER"), "RECONCILE_REGISTER");
   assert.equal(recoveryActionForStage("FAILED"), "USER_RETRY");
 });
@@ -85,6 +94,56 @@ test("render journal discard sets CANCELLED and USER_CANCELLED", async () => {
     const loaded = await store.load(journal.projectId, journal.jobId);
     assert.equal(loaded?.stage, "CANCELLED");
     assert.equal(loaded?.terminalState, "USER_CANCELLED");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("incompatible recovery stays visible as USER_RETRY with an explicit reason", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-journal-user-retry-"));
+  try {
+    const store = new RenderJournalStore(root);
+    const journal = {
+      version: 1,
+      projectId: "00000000-0000-0000-0000-000000000010",
+      jobId: "job-10",
+      renderFingerprint: "fingerprint",
+      stage: "REGISTER",
+      workDirectory: "work",
+      updatedAt: new Date().toISOString(),
+    };
+    await store.save(journal);
+
+    const recovery = await store.requireUserRetry(journal, "FFmpeg version changed.");
+
+    assert.equal(recoveryActionForJournal(recovery), "USER_RETRY");
+    assert.equal(recovery.recoverabilityReason, "FFmpeg version changed.");
+    assert.equal((await store.listUnfinished()).length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("discarding one interrupted job leaves another independently recoverable", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-journal-multiple-"));
+  try {
+    const store = new RenderJournalStore(root);
+    const makeJournal = (projectId, jobId, stage) => ({
+      version: 1,
+      projectId,
+      jobId,
+      renderFingerprint: "a".repeat(64),
+      stage,
+      workDirectory: "work",
+      updatedAt: new Date().toISOString(),
+    });
+    await store.save(makeJournal("00000000-0000-0000-0000-000000000011", "job-11", "MATERIALIZING"));
+    await store.save(makeJournal("00000000-0000-0000-0000-000000000012", "job-12", "REGISTER"));
+
+    assert.equal(await store.discard("00000000-0000-0000-0000-000000000011", "job-11"), true);
+    const unfinished = await store.listUnfinished();
+    assert.deepEqual(unfinished.map((journal) => journal.jobId), ["job-12"]);
+    assert.equal(recoveryActionForJournal(unfinished[0]), "RECONCILE_REGISTER");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

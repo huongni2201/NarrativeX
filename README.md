@@ -10,7 +10,7 @@ The Electron application is the only supported editor client. Spring Boot is the
 | --- | --- |
 | `app/desktop` | Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution |
 | `app/backend-service` | Spring Boot modular monolith; control plane, domain metadata, policy, jobs, leases, system capacity limits and Flyway schema |
-| `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (VieNeu, WhisperX, ComfyUI, media validation) |
+| `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (LTX video, VieNeu, WhisperX, ComfyUI, media validation) |
 | `packages/client-contracts` | Shared Desktop/backend contracts |
 | `contracts` | Compute Protocol v1 task schemas and payloads |
 | `documentation` | Product, architecture, workflows, current-state maps and ADRs |
@@ -60,13 +60,16 @@ Business/job/artifact metadata  -> PostgreSQL
 
 `project.manifest.json` maps stable backend IDs to project-relative paths, sizes and SHA-256 checksums. Absolute machine paths never become durable backend identities.
 
+VisualBeat preview import accepts images only. Imported video remains a local Asset Library item; imported video as a Shot/Take is not implemented.
+
 ## Visual generation
 
 Analyze Chapter keeps the visual intent explicit:
 
 - `IMAGE` supports backend/generation-service image generation.
-- `VIDEO` remains a supported visual/media intent in analysis and editing; NarrativeX has no active video-generation provider runtime.
-- The generation service does not host a video-generation/I2V provider role.
+- The active video path is LTX Native AV on the pinned profile `ltx-2.5-22b-distilled-int8-native-av-v1` with model revision `5e6e71018ee1756ed329b697a7b4aedc934dfce9`.
+- The verified contract is `video.generate:1.1`, text-to-video, 1280x720 at 24 FPS, and 16:9. Dialogue and voice descriptions are supported; reference-asset conditioning, I2V, and First/Last Frame are not advertised by the active profile.
+- Backend reports video generation ready only when the worker advertises the exact task type, schema, model revision, and workflow profile and the profile supports T2V and Native AV.
 - Final composition/rendering always uses Electron main + FFmpeg/ffprobe.
 
 Do not reintroduce Wan or another Python video provider as an implicit fallback for the Desktop render path.
@@ -116,9 +119,9 @@ NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 
 ## Database baseline
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V8** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V10** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
 
-At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V9.
+At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V11.
 
 ## Guardrails
 

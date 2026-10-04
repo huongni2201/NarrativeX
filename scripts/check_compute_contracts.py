@@ -18,12 +18,13 @@ SCHEMA_ROOT = CONTRACT_ROOT / "schemas"
 EXAMPLE_ROOT = CONTRACT_ROOT / "examples"
 
 TASK_SCHEMAS = {
-    "audio.synthesize": "task-audio-synthesize.json",
-    "audio.align": "task-audio-align.json",
-    "image.generate": "task-image-generate.json",
-    "video.generate": "task-video-generate.json",
-    "media.validate": "task-media-validate.json",
-    "text.generate": "task-text-generate.json",
+    ("audio.synthesize", "1.0"): "task-audio-synthesize.json",
+    ("audio.align", "1.0"): "task-audio-align.json",
+    ("image.generate", "1.0"): "task-image-generate.json",
+    ("video.generate", "1.0"): "task-video-generate.json",
+    ("video.generate", "1.1"): "task-video-generate-1.1.json",
+    ("media.validate", "1.0"): "task-media-validate.json",
+    ("text.generate", "1.0"): "task-text-generate.json",
 }
 FORBIDDEN_KEYS = {
     "projectId",
@@ -184,10 +185,11 @@ def enforce_protocol_policy(value: Any, location: str = "$") -> None:
 def validate_task(task: dict[str, Any]) -> None:
     validate(task, load_json(SCHEMA_ROOT / "compute-task.json"))
     enforce_protocol_policy(task)
-    task_type = task["task"]["type"]
-    validate(
-        task["inputs"], load_json(SCHEMA_ROOT / TASK_SCHEMAS[task_type]), "$.inputs"
-    )
+    schema_key = (task["task"]["type"], task["task"]["schemaVersion"])
+    schema_name = TASK_SCHEMAS.get(schema_key)
+    if schema_name is None:
+        raise ContractError(f"Unsupported task schema combination: {schema_key}")
+    validate(task["inputs"], load_json(SCHEMA_ROOT / schema_name), "$.inputs")
     if canonical_request_fingerprint(task) != task["requestFingerprint"]:
         raise ContractError(
             "$.requestFingerprint: does not match canonical semantic payload"
@@ -282,6 +284,42 @@ def check_all() -> list[str]:
     if not manifest_path.exists():
         raise ContractError(f"Missing worker manifest: {manifest_path}")
     manifest = load_json(manifest_path)
+    worker_executor_path = (
+        ROOT
+        / "app"
+        / "generation-service"
+        / "src"
+        / "narrativex_gpu_worker"
+        / "adapters"
+        / "executors"
+        / "ltx"
+        / "executor.py"
+    )
+    worker_executor = worker_executor_path.read_text(encoding="utf-8")
+    if not re.search(
+        r'task_schema_versions\s*=\s*\{\s*["\']video\.generate["\']\s*:\s*\[[^\]]*["\']1\.1["\']',
+        worker_executor,
+    ):
+        raise ContractError("Worker LTX executor does not advertise video.generate schema 1.1")
+    if not re.search(
+        r'workflow_profiles\s*=\s*\[\s*dict\(profile_id=PROFILE_ID,\s*\*\*MANIFEST\["capabilities"\]\)\s*\]',
+        worker_executor,
+    ):
+        raise ContractError("Worker LTX executor does not advertise its manifest workflow profile")
+    worker_workflow_path = (
+        ROOT
+        / "app"
+        / "generation-service"
+        / "src"
+        / "narrativex_gpu_worker"
+        / "adapters"
+        / "executors"
+        / "ltx"
+        / "workflow.py"
+    )
+    worker_workflow = worker_workflow_path.read_text(encoding="utf-8")
+    if not re.search(r'PROFILE_ID\s*:\s*str\s*=\s*MANIFEST\["profileId"\]', worker_workflow):
+        raise ContractError("Worker LTX profile ID is not read from its manifest")
     backend_app_yml = (
         ROOT
         / "app"
@@ -306,6 +344,8 @@ def check_all() -> list[str]:
                 f"Backend application.yml video.{key} does not match worker manifest '{expected_val}'"
             )
     checked.append(manifest_path.relative_to(ROOT).as_posix())
+    checked.append(worker_executor_path.relative_to(ROOT).as_posix())
+    checked.append(worker_workflow_path.relative_to(ROOT).as_posix())
     return checked
 
 

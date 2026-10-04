@@ -19,10 +19,14 @@ public class LocalProjectRenderUseCase {
   private final LocalProjectRenderStore store;
 
   public Optional<ClaimedProjectRender> claim(String deviceToken) {
+    return claim(deviceToken, null);
+  }
+
+  public Optional<ClaimedProjectRender> claim(String deviceToken, UUID jobId) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
     UUID leaseToken = UuidV7.random();
     return store
-        .claimNext(device.id(), workerId(device.id()), leaseToken, LEASE_SECONDS)
+        .claimNext(device.id(), workerId(device.id()), leaseToken, LEASE_SECONDS, jobId)
         .map(ClaimedProjectRender::from);
   }
 

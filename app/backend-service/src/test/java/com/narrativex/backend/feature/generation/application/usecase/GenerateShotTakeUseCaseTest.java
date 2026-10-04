@@ -7,9 +7,11 @@ import static org.mockito.Mockito.*;
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.application.command.GenerateShotTakeCommand;
+import com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot;
 import com.narrativex.backend.feature.generation.application.port.out.*;
 import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
 import com.narrativex.backend.feature.generation.domain.aggregate.*;
@@ -24,6 +26,7 @@ class GenerateShotTakeUseCaseTest {
   StoryboardProductionAccess storyboard = mock(StoryboardProductionAccess.class);
   StoryboardShotAccess shots = mock(StoryboardShotAccess.class);
   SpeakerVoiceAccess voices = mock(SpeakerVoiceAccess.class);
+  VoiceReferenceAssetAccess voiceReferenceAssets = mock(VoiceReferenceAssetAccess.class);
   TakeRepository takes = mock(TakeRepository.class);
   GenerationJobRepository jobs = mock(GenerationJobRepository.class);
   OperationPlanRepository plans = mock(OperationPlanRepository.class);
@@ -38,7 +41,6 @@ class GenerateShotTakeUseCaseTest {
           storyboard,
           shots,
           voices,
-          mock(VoiceReferenceAssetAccess.class),
           takes,
           jobs,
           plans,
@@ -46,41 +48,15 @@ class GenerateShotTakeUseCaseTest {
           outbox,
           catalog,
           new VideoPromptCompiler(JsonMapper.builder().build()),
+          new com.narrativex.backend.feature.generation.application.service
+              .NativeVideoInputMapper(),
           new NarrativeXLimitsProperties());
 
   @BeforeEach
   void setup() {
     when(storyboard.findAdmissionContextLocked(projectId, shotId))
-        .thenReturn(
-            "{\"chapterId\":\""
-                + UUID.randomUUID()
-                + "\",\"storyVersionId\":\""
-                + UUID.randomUUID()
-                + "\",\"sourceText\":\"story\",\"chapterRowVersion\":0,\"sourceHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"sourceLanguage\":\"en\",\"storyboardRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"characters\":[],\"cues\":[]}");
-    when(shots.findShotById(projectId, shotId))
-        .thenReturn(
-            Optional.of(
-                new StoryboardShotAccess.ShotView(
-                    shotId,
-                    1,
-                    "Hero moves",
-                    null,
-                    "[]",
-                    null,
-                    "{}",
-                    "{}",
-                    "{}",
-                    "{}",
-                    "{}",
-                    "{}",
-                    "{}",
-                    "{}",
-                    4000,
-                    GenerationStrategy.TEXT_TO_VIDEO,
-                    "720p_24fps_standard",
-                    null,
-                    null,
-                    null)));
+        .thenReturn(admissionContext(0, ""));
+    when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot(4000, "Hero moves")));
     when(plans.save(any()))
         .thenAnswer(
             i -> {
@@ -201,7 +177,24 @@ class GenerateShotTakeUseCaseTest {
   }
 
   @Test
-  void blocksMissingImageReferenceBeforeWrites() {
+  void blocksAudioFirstBeforeCreatingTakeJobOrOutbox() {
+    var audioFirst =
+        new GenerateShotTakeCommand(
+            projectId, shotId, null, null, null, null, "stable-key", "AUDIO_FIRST");
+
+    assertThatThrownBy(() -> useCase.execute(audioFirst))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("UNSUPPORTED_AUDIO_MODE");
+
+    verify(takes, never())
+        .createPending(
+            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(jobs, never()).save(any());
+    verify(outbox, never()).enqueue(any());
+  }
+
+  @Test
+  void blocksImageToVideoBeforeWrites() {
     var props =
         (com.narrativex.backend.feature.generation.infrastructure.compute.VideoGenerationProperties)
             catalog;
@@ -211,11 +204,124 @@ class GenerateShotTakeUseCaseTest {
           List.of(GenerationStrategy.TEXT_TO_VIDEO, GenerationStrategy.IMAGE_TO_VIDEO));
       assertThatThrownBy(() -> useCase.execute(command(GenerationStrategy.IMAGE_TO_VIDEO, null)))
           .isInstanceOf(DomainValidationException.class)
-          .hasMessageContaining("MISSING_REFERENCE");
+          .hasMessageContaining("UNSUPPORTED_STRATEGY");
       verifyNoInteractions(outbox);
     } finally {
       props.setSupportedStrategies(orig);
     }
+  }
+
+  @Test
+  void blocksReferenceConditioningBeforeWrites() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(
+            admissionContext(0, "")
+                .replace(
+                    "\"characters\":[]",
+                    "\"visualBeatReviewStatus\":\"APPROVED\",\"characters\":[]"));
+    when(takes.findReferences(projectId, shotId))
+        .thenReturn(
+            List.of(
+                new TakeInputSnapshot.Reference(
+                    UUID.randomUUID(),
+                    "character-reference",
+                    "a".repeat(64),
+                    100,
+                    "image/png",
+                    1.0)));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("UNSUPPORTED_REFERENCE_CONDITIONING");
+
+    verify(outbox, never()).enqueue(any());
+    verify(jobs, never()).save(any());
+    verify(takes, never())
+        .createPending(
+            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void unusedVoiceReferenceBytesDoNotBlockNativeAvAdmission() {
+    UUID projectCharacterId = UUID.randomUUID();
+    UUID characterVersionId = UUID.randomUUID();
+    UUID voiceReferenceId = UUID.randomUUID();
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(admissionContextWithSpeaker(projectCharacterId, characterVersionId));
+    when(voices.resolveSpeakerVoice(projectCharacterId))
+        .thenReturn(
+            Optional.of(
+                new SpeakerVoiceAccess.ResolvedSpeakerVoice(
+                    UUID.randomUUID(),
+                    "Hero",
+                    UUID.randomUUID(),
+                    voiceReferenceId,
+                    VoiceReferenceScope.PROJECT,
+                    "vi",
+                    "Central Vietnamese",
+                    "Warm, steady voice",
+                    "Measured delivery",
+                    1,
+                    0L)));
+
+    var result = useCase.execute(command(null, null));
+
+    assertThat(result.status()).isEqualTo("PENDING");
+    verifyNoInteractions(voiceReferenceAssets);
+  }
+
+  @Test
+  void blocksDurationOverWorkerLimitBeforeWrites() {
+    when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot(10_001, "Hero moves")));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("INVALID_VIDEO_DURATION");
+
+    verifyNoInteractions(outbox);
+    verify(jobs, never()).save(any());
+    verify(takes, never())
+        .createPending(
+            any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void blocksMoreThan32DialogueLinesBeforeWrites() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(admissionContext(33, "line"));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("INVALID_DIALOGUE_COUNT");
+
+    verifyNoInteractions(outbox);
+    verify(jobs, never()).save(any());
+  }
+
+  @Test
+  void blocksDialogueTextOverWorkerLimitBeforeWrites() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(admissionContext(1, "x".repeat(10_001)));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("INVALID_DIALOGUE_TEXT");
+
+    verifyNoInteractions(outbox);
+    verify(jobs, never()).save(any());
+  }
+
+  @Test
+  void blocksPromptOverWorkerLimitBeforeWrites() {
+    when(shots.findShotById(projectId, shotId))
+        .thenReturn(Optional.of(shot(4_000, "x".repeat(20_001))));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("INVALID_PROMPT");
+
+    verifyNoInteractions(outbox);
+    verify(jobs, never()).save(any());
   }
 
   @Test
@@ -237,5 +343,63 @@ class GenerateShotTakeUseCaseTest {
                         projectId, shotId, null, null, null, null, "", null)))
         .isInstanceOf(IllegalArgumentException.class);
     verifyNoInteractions(storyboard);
+  }
+
+  private String admissionContext(int cueCount, String cueText) {
+    String cues =
+        java.util.stream.IntStream.range(0, cueCount)
+            .mapToObj(
+                index ->
+                    "{\"cue_type\":\"NARRATOR\",\"speaker_project_character_id\":null,\"adapted_text\":\""
+                        + cueText
+                        + "\"}")
+            .collect(java.util.stream.Collectors.joining(","));
+    return "{\"chapterId\":\""
+        + UUID.randomUUID()
+        + "\",\"storyVersionId\":\""
+        + UUID.randomUUID()
+        + "\",\"sourceText\":\"story\",\"chapterRowVersion\":0,\"sourceHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"sourceLanguage\":\"en\",\"storyboardRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"characters\":[],\"cues\":["
+        + cues
+        + "]}";
+  }
+
+  private String admissionContextWithSpeaker(UUID projectCharacterId, UUID characterVersionId) {
+    return "{\"projectId\":\""
+        + projectId
+        + "\",\"chapterId\":\""
+        + UUID.randomUUID()
+        + "\",\"storyVersionId\":\""
+        + UUID.randomUUID()
+        + "\",\"sourceText\":\"story\",\"chapterRowVersion\":0,\"sourceHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"sourceLanguage\":\"en\",\"storyboardRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"visualBeatReviewStatus\":\"APPROVED\",\"characters\":[{\"projectCharacterId\":\""
+        + projectCharacterId
+        + "\",\"characterVersionId\":\""
+        + characterVersionId
+        + "\",\"status\":\"LOCKED\"}],\"cues\":[{\"cue_type\":\"DIALOGUE\",\"speaker_project_character_id\":\""
+        + projectCharacterId
+        + "\",\"adapted_text\":\"Hello\"}]}";
+  }
+
+  private StoryboardShotAccess.ShotView shot(long durationMs, String purpose) {
+    return new StoryboardShotAccess.ShotView(
+        shotId,
+        0,
+        purpose,
+        null,
+        "[]",
+        null,
+        "{}",
+        "{\"action\":\"" + purpose + "\"}",
+        "{}",
+        "{\"composition\":\"wide\"}",
+        "{\"camera\":\"eye level\"}",
+        "{\"subjectMotion\":\"moves\"}",
+        "{\"cameraMotion\":\"slow track\"}",
+        "{}",
+        durationMs,
+        GenerationStrategy.TEXT_TO_VIDEO,
+        "720p_24fps_standard",
+        null,
+        null,
+        null);
   }
 }

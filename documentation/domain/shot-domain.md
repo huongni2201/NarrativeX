@@ -75,11 +75,12 @@ A new regeneration key creates a new attempt, while UNKNOWN attempts require rec
 Take persistence stores typed job/task/attempt/plan links and immutable
 `inputSnapshotJson`/`inputFingerprint`. The snapshot freezes script/source revision,
 shot inputs, real AudioCue text/delivery/status, participating locked CharacterVersions,
-voice description/profile version, optional reference integrity metadata, provider/model,
-configured workflow revision, strategy, seed, deadline and audio mode. Reference frames
-must be READY in the same Project and attached to an approved VisualBeat. I2V needs a
-start frame; First/Last Frame needs both. A voice description can be used without
-reference audio. `sourceDurationMs` stays null until produced media is probed.
+voice description/profile version, provider/model, configured workflow revision,
+strategy, seed, deadline and audio mode. The current Native AV admission rejects
+generation references, I2V and First/Last Frame before creating a Take, job or outbox
+event because the active worker profile does not support artifact conditioning. A voice
+description does not require reference-audio bytes while the profile does not consume
+them. `sourceDurationMs` stays null until produced media is probed.
 
 Queue admission uses the shared system capacity limit; waiting jobs do not occupy the
 single video execution slot. Submission claims serialize that slot across SUBMITTING,
@@ -88,10 +89,12 @@ the outbox event pending. Dispatch consumes only frozen Take inputs and creates 
 artifact capabilities after commit; later Shot, voice or model edits cannot rewrite an
 admitted attempt. Legacy non-shot dispatch remains supported.
 
-Audio mode is pinned as `LTX_NATIVE_AV` (default) or explicit `AUDIO_FIRST`.
-**PARTIAL:** the current `video.generate` wire schema remains 1.0. Native-audio controls
-and capability validation are the subsequent schema 1.1 implementation, not a claim
-of verified joint AV production or GPU health.
+New video Take admission accepts only `LTX_NATIVE_AV`; `AUDIO_FIRST` is rejected before
+durable writes. Dispatch uses `video.generate:1.1` with explicit `audioMode = NATIVE_AV`
+and does not repair missing frozen semantic fields. Runtime readiness requires the exact
+worker task type, schema, model revision and Native AV profile. The active profile is
+text-to-video at 1280x720/24 FPS/16:9; this readiness contract does not assert that a
+GPU execution has been measured or is currently healthy.
 
 ---
 

@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.project.api.response;
 
 import com.narrativex.backend.feature.project.application.query.ProjectDashboardView;
+import com.narrativex.backend.feature.project.application.query.ProjectWorkflowSummaryView;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -27,7 +28,21 @@ public record ProjectDashboardResponse(
         row.updatedAt(),
         row.starred(),
         new ProjectDashboardMetrics(
-            row.totalChapters(), row.totalScenes(), row.estimatedDurationSeconds()));
+            row.totalChapters(), row.totalScenes(), row.estimatedDurationSeconds()),
+        workflow(row.workflow()));
+  }
+
+  private static ProjectWorkflowSummary workflow(ProjectWorkflowSummaryView view) {
+    return new ProjectWorkflowSummary(
+        view.hasChapter(),
+        view.analysisReady(),
+        view.canonReady(),
+        view.storyReady(),
+        view.productionStarted(),
+        view.productionReady(),
+        view.editorReady(),
+        view.renderInProgress(),
+        view.latestStage());
   }
 
   public static ProjectDashboardCounts counts(ProjectDashboardView.Counts row) {
@@ -43,7 +58,19 @@ public record ProjectDashboardResponse(
       Instant createdAt,
       Instant updatedAt,
       boolean isStarred,
-      ProjectDashboardMetrics metrics) {}
+      ProjectDashboardMetrics metrics,
+      ProjectWorkflowSummary workflow) {}
+
+  public record ProjectWorkflowSummary(
+      boolean hasChapter,
+      boolean analysisReady,
+      boolean canonReady,
+      boolean storyReady,
+      boolean productionStarted,
+      boolean productionReady,
+      boolean editorReady,
+      boolean renderInProgress,
+      String latestStage) {}
 
   public record ProjectDashboardMetrics(
       int totalChapters, int totalScenes, long estimatedDurationSeconds) {}

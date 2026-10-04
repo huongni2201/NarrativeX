@@ -20,9 +20,12 @@ import com.narrativex.backend.feature.generation.application.port.out.OperationP
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog;
-import com.narrativex.backend.feature.generation.application.port.out.VoiceReferenceAssetAccess;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.application.service.GenerationPreflightEvaluator;
+import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper;
+import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeDialogueLine;
+import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeVideoInputs;
+import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeVoiceDescription;
 import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
@@ -34,7 +37,6 @@ import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardS
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,7 +58,6 @@ public class GenerateShotTakeUseCase {
   private final StoryboardProductionAccess storyboardAccess;
   private final StoryboardShotAccess shotAccess;
   private final SpeakerVoiceAccess speakerVoiceAccess;
-  private final VoiceReferenceAssetAccess voiceReferenceAssetAccess;
   private final TakeRepository takeRepository;
   private final GenerationJobRepository generationJobRepository;
   private final OperationPlanRepository operationPlanRepository;
@@ -64,6 +65,7 @@ public class GenerateShotTakeUseCase {
   private final GenerationOutboxRepository outboxRepository;
   private final VideoGenerationCatalog catalog;
   private final VideoPromptCompiler promptCompiler;
+  private final NativeVideoInputMapper nativeVideoInputMapper;
   private final NarrativeXLimitsProperties limits;
 
   @Transactional
@@ -255,6 +257,10 @@ public class GenerateShotTakeUseCase {
             .orElseThrow(() -> new ResourceNotFoundException("Shot not found"));
     GenerationStrategy strategy =
         command.strategy() == null ? shot.generationStrategy() : command.strategy();
+    if (strategy != GenerationStrategy.TEXT_TO_VIDEO) {
+      throw new DomainValidationException(
+          "UNSUPPORTED_STRATEGY: Current Native AV profile supports only TEXT_TO_VIDEO");
+    }
     String aspectRatio = (String) context.get("aspectRatioOverride");
     if (aspectRatio == null || aspectRatio.isBlank()) {
       aspectRatio = (String) context.get("imageAspectRatio");
@@ -269,33 +275,22 @@ public class GenerateShotTakeUseCase {
             Map.of());
     if (!preflight.ready()) throw new DomainValidationException(preflight.blockers().getFirst());
     String audioMode = command.audioMode() == null ? "LTX_NATIVE_AV" : command.audioMode();
-    if (!Set.of("LTX_NATIVE_AV", "AUDIO_FIRST").contains(audioMode)) {
-      throw new IllegalArgumentException("Unsupported audioMode");
+    if (!"LTX_NATIVE_AV".equals(audioMode)) {
+      throw new DomainValidationException(
+          "UNSUPPORTED_AUDIO_MODE: Current LTX workflow supports only LTX_NATIVE_AV");
     }
     var references = takeRepository.findReferences(command.projectId(), command.shotId());
     if (references.stream().anyMatch(r -> "INVALID".equals(r.role()))) {
       throw new DomainValidationException("References must be READY assets in this Project");
     }
-    if (!references.isEmpty() && !"APPROVED".equals(context.get("visualBeatReviewStatus"))) {
-      throw new DomainValidationException("Conditioning references require an approved VisualBeat");
-    }
-    boolean start = references.stream().anyMatch(r -> "start-frame".equals(r.role()));
-    boolean end = references.stream().anyMatch(r -> "end-frame".equals(r.role()));
-    if ((strategy == GenerationStrategy.IMAGE_TO_VIDEO && !start)
-        || (strategy == GenerationStrategy.FIRST_LAST_FRAME && !(start && end))) {
+    if (!references.isEmpty()) {
       throw new DomainValidationException(
-          "MISSING_REFERENCE: strategy requires approved start/end frames");
+          "UNSUPPORTED_REFERENCE_CONDITIONING: Current LTX profile does not accept input artifacts");
     }
     pinVoices(context);
     var compiled = promptCompiler.compile(shot, ImageStyle.CINEMATIC, null);
-    boolean isNativeAv = "LTX_NATIVE_AV".equals(audioMode) || "NATIVE_AV".equals(audioMode);
-    StringBuilder prompt = new StringBuilder(compiled.prompt());
-    if (!isNativeAv) {
-      appendNarration(context, prompt);
-    }
-
-    List<Map<String, Object>> dialogue = new ArrayList<>();
-    Map<String, Object> primaryVoiceReference = null;
+    List<NativeDialogueLine> dialogue = new ArrayList<>();
+    NativeVoiceDescription primaryVoiceReference = null;
     @SuppressWarnings("unchecked")
     var voicesMap = (Map<String, Object>) context.getOrDefault("voices", Map.of());
     @SuppressWarnings("unchecked")
@@ -306,47 +301,54 @@ public class GenerateShotTakeUseCase {
         textObj = cue.get("text");
       }
       if (textObj != null && !textObj.toString().isBlank()) {
-        Map<String, Object> line = new LinkedHashMap<>();
         Object speakerObj = cue.get("speaker_project_character_id");
-        line.put("speaker", speakerObj != null ? speakerObj.toString() : null);
-        line.put("text", textObj.toString().trim());
+        String speaker = null;
         String voiceDesc = null;
         if (speakerObj != null && voicesMap.containsKey(speakerObj.toString())) {
           Object voiceVal = voicesMap.get(speakerObj.toString());
           if (voiceVal instanceof SpeakerVoiceAccess.ResolvedSpeakerVoice voice) {
+            speaker = voice.characterName();
             voiceDesc = voice.voiceDescription();
             if (primaryVoiceReference == null) {
-              primaryVoiceReference = new LinkedHashMap<>();
-              if (voice.language() != null) primaryVoiceReference.put("language", voice.language());
-              if (voice.accent() != null) primaryVoiceReference.put("accent", voice.accent());
-              if (voice.voiceDescription() != null) primaryVoiceReference.put("voiceDescription", voice.voiceDescription());
-              if (voice.deliveryBaseline() != null) primaryVoiceReference.put("deliveryBaseline", voice.deliveryBaseline());
+              primaryVoiceReference =
+                  new NativeVoiceDescription(
+                      voice.language(),
+                      voice.accent(),
+                      voice.voiceDescription(),
+                      voice.deliveryBaseline());
             }
           }
         }
-        line.put("voiceDescription", voiceDesc);
-        dialogue.add(line);
+        dialogue.add(new NativeDialogueLine(speaker, textObj.toString().trim(), voiceDesc));
       }
     }
 
+    String prompt = compiled.prompt();
+    String negativePrompt = compiled.negativePrompt() == null ? "" : compiled.negativePrompt();
+    NativeVideoInputs nativeInputs =
+        nativeVideoInputMapper.map(shot, dialogue, primaryVoiceReference);
+    validateNativeVideoInputs(shot.targetDurationMs(), prompt, negativePrompt, nativeInputs);
+
     Map<String, Object> inputs = new TreeMap<>();
-    if (isNativeAv) {
-      inputs.put("workflowProfileId", catalog.defaultProfile());
-      inputs.put("audioMode", "NATIVE_AV");
-      inputs.put("dialogue", dialogue);
-      if (primaryVoiceReference != null) {
-        inputs.put("voiceReference", primaryVoiceReference);
-      }
+    inputs.put("workflowProfileId", catalog.defaultProfile());
+    inputs.put("audioMode", "NATIVE_AV");
+    inputs.put("dialogue", nativeInputs.dialogue());
+    if (nativeInputs.voiceReference() != null) {
+      inputs.put("voiceReference", nativeInputs.voiceReference());
     }
-    inputs.put("prompt", prompt.toString());
-    inputs.put("negativePrompt", compiled.negativePrompt());
+    inputs.put("prompt", prompt);
+    inputs.put("negativePrompt", negativePrompt);
     inputs.put("width", 1280);
     inputs.put("height", 720);
     inputs.put("fps", 24);
     inputs.put("durationMs", shot.targetDurationMs());
     inputs.put("generationMode", strategy.name());
-    inputs.put("cameraIntent", JSON.readValue(shot.cameraMotionJson(), Map.class));
-    inputs.put("motionIntent", JSON.readValue(shot.subjectMotionJson(), Map.class));
+    if (nativeInputs.cameraIntent() != null) {
+      inputs.put("cameraIntent", nativeInputs.cameraIntent());
+    }
+    if (nativeInputs.motionIntent() != null) {
+      inputs.put("motionIntent", nativeInputs.motionIntent());
+    }
     Map<String, Object> semantics = new TreeMap<>();
     semantics.put("context", context);
     semantics.put("inputs", inputs);
@@ -364,6 +366,44 @@ public class GenerateShotTakeUseCase {
         shot, strategy, audioMode, context, inputs, semantics, references, requestFingerprint);
   }
 
+  private static void validateNativeVideoInputs(
+      long durationMs, String prompt, String negativePrompt, NativeVideoInputs inputs) {
+    if (durationMs < 100 || durationMs > 10_000) {
+      throw new DomainValidationException("INVALID_VIDEO_DURATION: Expected 100 to 10000 ms");
+    }
+    if (prompt == null || prompt.isBlank() || prompt.length() > 20_000) {
+      throw new DomainValidationException("INVALID_PROMPT: Expected 1 to 20000 characters");
+    }
+    if (negativePrompt.length() > 10_000) {
+      throw new DomainValidationException("INVALID_NEGATIVE_PROMPT: Maximum is 10000 characters");
+    }
+    if (inputs.dialogue().size() > 32) {
+      throw new DomainValidationException("INVALID_DIALOGUE_COUNT: Maximum is 32 lines");
+    }
+    for (var line : inputs.dialogue()) {
+      if (line.text() == null || line.text().isBlank() || line.text().length() > 10_000) {
+        throw new DomainValidationException(
+            "INVALID_DIALOGUE_TEXT: Expected 1 to 10000 characters");
+      }
+      if (line.speaker() != null && line.speaker().length() > 200) {
+        throw new DomainValidationException("INVALID_DIALOGUE_SPEAKER: Maximum is 200 characters");
+      }
+      if (line.voiceDescription() != null && line.voiceDescription().length() > 2_000) {
+        throw new DomainValidationException(
+            "INVALID_DIALOGUE_VOICE_DESCRIPTION: Maximum is 2000 characters");
+      }
+    }
+    var voice = inputs.voiceReference();
+    if (voice != null
+        && ((voice.language() != null && voice.language().length() > 40)
+            || (voice.accent() != null && voice.accent().length() > 200)
+            || (voice.voiceDescription() != null && voice.voiceDescription().length() > 2_000)
+            || (voice.deliveryBaseline() != null && voice.deliveryBaseline().length() > 1_000))) {
+      throw new DomainValidationException(
+          "INVALID_VOICE_REFERENCE: Field exceeds Native AV limits");
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private void pinVoices(Map<String, Object> context) {
     var characters = (List<Map<String, Object>>) context.getOrDefault("characters", List.of());
@@ -377,7 +417,6 @@ public class GenerateShotTakeUseCase {
     Map<UUID, Optional<SpeakerVoiceAccess.ResolvedSpeakerVoice>> resolvedVoices = new HashMap<>();
     var cueInfos = new ArrayList<StoryboardProductionAccess.AudioCueInfo>();
     var voices = new TreeMap<String, Object>();
-    var voiceReferences = new TreeMap<String, Object>();
     for (var cue : (List<Map<String, Object>>) context.getOrDefault("cues", List.of())) {
       String type = cue.get("cue_type").toString();
       if (!Set.of("NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM").contains(type)) {
@@ -399,52 +438,14 @@ public class GenerateShotTakeUseCase {
                       new DomainValidationException(
                           "MISSING_VOICE_PROFILE: speaker needs a voice description"));
       voices.put(speaker.toString(), voice);
-      if (voice.referenceAssetId() != null && !voiceReferences.containsKey(speaker.toString())) {
-        var reference =
-            voiceReferenceAssetAccess.find(
-                UUID.fromString(context.get("projectId").toString()),
-                new com.narrativex.backend.feature.generation.application.model
-                    .VoiceReferenceSelection(voice.referenceScope(), voice.referenceAssetId()));
-        if (!"READY".equals(reference.status())
-            || reference.sha256() == null
-            || !reference.sha256().matches("[0-9a-fA-F]{64}")
-            || reference.sizeBytes() <= 0) {
-          throw new DomainValidationException(
-              "Voice reference must be READY with integrity metadata");
-        }
-        voiceReferences.put(speaker.toString(), reference);
-      }
     }
     var preflight = GenerationPreflightEvaluator.evaluate(null, cueInfos, resolvedVoices);
     if (!preflight.ready()) throw new DomainValidationException(preflight.blockers().getFirst());
     context.put("voices", voices);
-    context.put("voiceReferences", voiceReferences);
   }
 
   @SuppressWarnings("unchecked")
-  private void appendNarration(Map<String, Object> context, StringBuilder prompt) {
-    for (var cue : (List<Map<String, Object>>) context.getOrDefault("cues", List.of())) {
-      Object text = cue.get("adapted_text");
-      if (text != null && !text.toString().isBlank()) {
-        prompt.append("\n").append(cue.get("cue_type")).append(": ").append(text);
-        if (cue.get("delivery_hint") != null)
-          prompt.append(". Delivery: ").append(cue.get("delivery_hint"));
-      }
-    }
-    for (var voice : ((Map<String, Object>) context.get("voices")).values()) {
-      var v = (SpeakerVoiceAccess.ResolvedSpeakerVoice) voice;
-      prompt
-          .append("\nSpeaker ")
-          .append(v.characterName())
-          .append(": ")
-          .append(v.voiceDescription());
-      if (v.accent() != null) prompt.append(". Accent: ").append(v.accent());
-      if (v.deliveryBaseline() != null) prompt.append(". Delivery: ").append(v.deliveryBaseline());
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static String fingerprint(Map<String, Object> semantics, String provider, String model) {
+  private String fingerprint(Map<String, Object> semantics, String provider, String model) {
     // Normalize records to JSON objects before the existing canonical hasher sorts all map keys.
     Map<String, Object> normalized =
         JSON.readValue(
@@ -461,8 +462,8 @@ public class GenerateShotTakeUseCase {
     }
     return CanonicalFingerprintCalculator.calculateFingerprint(
         "1.0",
-        new TaskDescriptorDto("video.generate", "1.0"),
-        new ModelRefDto(provider, model, "1.0"),
+        new TaskDescriptorDto("video.generate", catalog.taskSchemaVersion()),
+        new ModelRefDto(provider, model, catalog.modelRevision()),
         new TaskConstraintsDto(Instant.EPOCH, 1200),
         normalized,
         TaskArtifactsDto.empty());

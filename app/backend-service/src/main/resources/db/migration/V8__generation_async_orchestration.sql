@@ -47,3 +47,15 @@ CREATE TABLE compute_event_receipts (
 
 CREATE INDEX idx_compute_event_receipts_task_attempt
     ON compute_event_receipts (task_id, attempt_id, sequence);
+
+CREATE TABLE compute_target_assignments (
+    task_id UUID NOT NULL,
+    attempt_id UUID NOT NULL,
+    executor VARCHAR(64) NOT NULL,
+    target_id VARCHAR(128) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (task_id, attempt_id)
+);
+
+CREATE INDEX idx_compute_target_assignments_target
+    ON compute_target_assignments (target_id);

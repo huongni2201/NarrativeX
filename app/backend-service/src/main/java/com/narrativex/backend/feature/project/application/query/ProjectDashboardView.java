@@ -18,7 +18,8 @@ public record ProjectDashboardView(
       boolean starred,
       int totalChapters,
       int totalScenes,
-      long estimatedDurationSeconds) {}
+      long estimatedDurationSeconds,
+      ProjectWorkflowSummaryView workflow) {}
 
   public record Counts(long all, long active, long draft) {}
 }

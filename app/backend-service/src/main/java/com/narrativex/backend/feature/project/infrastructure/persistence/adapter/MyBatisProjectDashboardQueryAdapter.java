@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.project.infrastructure.persistence.adapte
 import com.narrativex.backend.feature.project.application.port.out.ProjectDashboardQueryRepository;
 import com.narrativex.backend.feature.project.application.port.out.ProjectFavoriteRepository;
 import com.narrativex.backend.feature.project.application.query.ProjectDashboardView;
+import com.narrativex.backend.feature.project.application.query.ProjectWorkflowSummaryView;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardCountsRow;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardRow;
@@ -52,7 +53,17 @@ public class MyBatisProjectDashboardQueryAdapter
         row.starred(),
         row.totalChapters(),
         row.totalScenes(),
-        row.estimatedDurationSeconds());
+        row.estimatedDurationSeconds(),
+        new ProjectWorkflowSummaryView(
+            row.hasChapter(),
+            row.analysisReady(),
+            row.canonReady(),
+            row.storyReady(),
+            row.productionStarted(),
+            row.productionReady(),
+            row.editorReady(),
+            row.renderInProgress(),
+            row.latestStage()));
   }
 
   private static ProjectDashboardView.Counts toCounts(ProjectDashboardCountsRow row) {

@@ -1,14 +1,35 @@
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { assetsApi } from "../../assets/api/assets.api";
 import { productionApi } from "../../production/api/production.api";
+import { videoProductionQueryKeys } from "../../production/queries/production-cache.ts";
+import { chapterAnalysisQueryKeys } from "../../chapters/model/chapter-analysis-query-contract.ts";
+import { storyQueryKeys } from "../../story/queries/story.queries.ts";
+import { assetLibraryQueryKey } from "../../workspace/queries/useProjectWorkspace.ts";
 import { storyboardApi, type StoryboardVisualBeat } from "../api/storyboard.api";
 import { resolveStoryboardImagePreview } from "../model/storyboard-image-preview";
 import { runBackgroundRefresh } from "../model/storyboard-media-refresh";
 import { persistStoryboardImage } from "./storyboard-media.mutations";
 import { storyboardKeys } from "./storyboard.queries";
 
-async function invalidate(queryClient: QueryClient, projectId: string, chapterId: string | null) {
-  await Promise.all([queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }), chapterId ? queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) }) : Promise.resolve(), queryClient.invalidateQueries({ queryKey: ["assets", "library"] })]);
+export function invalidatePreviewMediaQueries(
+  queryClient: QueryClient,
+  projectId: string,
+  chapterId: string | null,
+) {
+  return Promise.all([
+    chapterId
+      ? queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) })
+      : Promise.resolve(),
+    chapterId
+      ? queryClient.invalidateQueries({ queryKey: storyQueryKeys.chapterStory(projectId, chapterId) })
+      : Promise.resolve(),
+    chapterId
+      ? queryClient.invalidateQueries({ queryKey: videoProductionQueryKeys.chapter(projectId, chapterId) })
+      : Promise.resolve(),
+    queryClient.invalidateQueries({ queryKey: chapterAnalysisQueryKeys.timeline(projectId) }),
+    queryClient.invalidateQueries({ queryKey: assetLibraryQueryKey(projectId, "all") }),
+    queryClient.invalidateQueries({ queryKey: assetLibraryQueryKey(projectId, "visual") }),
+  ]);
 }
 
 export function useStoryboardMediaMutations(projectId: string, chapterId: string | null) {
@@ -20,7 +41,13 @@ export function useStoryboardMediaMutations(projectId: string, chapterId: string
       if (!selection) return null;
       return { assetId: await persistStoryboardImage({ registerLocal: assetsApi.registerLocal, commitSelectedAsset: window.narrativex.localStorage.commitSelectedAsset, attachBeatPreview: storyboardApi.attachPreviewMedia, updateBeatMedia: productionApi.updateBeatMedia }, { projectId, chapterId, sceneId: beat.sceneId, beatId: beat.id, beatRowVersion: beat.rowVersion, hasProductionTimelineBeat, selection }) };
     },
-    onSettled: () => runBackgroundRefresh(() => invalidate(queryClient, projectId, chapterId), (error) => console.warn("Storyboard media refresh failed", error)),
+    onSettled: () =>
+      runBackgroundRefresh(
+        async () => {
+          await invalidatePreviewMediaQueries(queryClient, projectId, chapterId);
+        },
+        (error) => console.warn("Storyboard media refresh failed", error),
+      ),
   });
   return { importImage };
 }

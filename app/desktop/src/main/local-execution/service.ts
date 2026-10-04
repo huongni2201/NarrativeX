@@ -52,7 +52,12 @@ export class LocalExecutionService extends EventEmitter {
   private lastError: string | null = null;
   private renderPollTimer: NodeJS.Timeout | null = null;
   private renderInFlight = false;
-  private activeRender: { jobId: string; controller: AbortController } | null = null;
+  private activeRender: {
+    jobId: string;
+    controller: AbortController;
+    done: Promise<boolean>;
+    resolveDone: (synchronized: boolean) => void;
+  } | null = null;
   private unfinishedRenderCount = 0;
 
   constructor(
@@ -143,7 +148,9 @@ export class LocalExecutionService extends EventEmitter {
     };
   }
 
-  async executeNextProjectRender(): Promise<LocalRenderCompletion | null> {
+  async executeNextProjectRender(
+    recoveryTarget?: { projectId: string; jobId: string },
+  ): Promise<LocalRenderCompletion | null> {
     const identity = this.identity;
     if (
       !this.projectRenderer ||
@@ -159,16 +166,33 @@ export class LocalExecutionService extends EventEmitter {
     }
 
     const claimEpoch = this.executionEpoch;
-    const claimed = await this.backendClient.claimProjectRender(identity.deviceToken);
+    const claimed = await this.backendClient.claimProjectRender(
+      identity.deviceToken,
+      recoveryTarget?.jobId,
+    );
     if (!claimed) return null;
+    if (
+      recoveryTarget &&
+      (claimed.projectId !== recoveryTarget.projectId || claimed.jobId !== recoveryTarget.jobId)
+    ) {
+      await this.backendClient
+        .cancelProjectRender(identity.deviceToken, claimed.jobId, claimed.leaseToken)
+        .catch(() => undefined);
+      return null;
+    }
     if (!this.claimContextIsCurrent(identity, claimEpoch)) {
       await this.persistCancellation(identity, claimed);
       return null;
     }
 
     const controller = new AbortController();
-    this.activeRender = { jobId: claimed.jobId, controller };
+    let resolveDone!: (synchronized: boolean) => void;
+    const done = new Promise<boolean>((resolvePromise) => {
+      resolveDone = resolvePromise;
+    });
+    this.activeRender = { jobId: claimed.jobId, controller, done, resolveDone };
     let leaseLost = false;
+    let backendSynchronized = false;
     const leaseTimer = setInterval(() => {
       void this.backendClient
         .heartbeatProjectRender(
@@ -245,14 +269,23 @@ export class LocalExecutionService extends EventEmitter {
         claimed.leaseToken,
         completion,
       );
+      backendSynchronized = true;
       return completion;
     } catch (error) {
       if (!leaseLost) {
         if (isRenderCancellation(error)) {
-          await this.persistCancellation(identity, claimed);
+          backendSynchronized = await this.persistCancellation(identity, claimed);
         } else if (!isResumableRenderInterruption(error)) {
+          if (
+            error instanceof RenderExecutionError &&
+            error.code === "LOCAL_ASSET_MISSING_OR_INVALID"
+          ) {
+            await this.projectRenderer
+              ?.requireUserRetry(claimed.projectId, claimed.jobId, error.message)
+              .catch(() => undefined);
+          }
           const failure = renderFailure(error);
-          await this.backendClient
+          backendSynchronized = await this.backendClient
             .failProjectRender(
               identity.deviceToken,
               claimed.jobId,
@@ -260,13 +293,17 @@ export class LocalExecutionService extends EventEmitter {
               failure.code,
               failure.retryable,
             )
-            .catch(() => undefined);
+            .then(() => true)
+            .catch(() => false);
         }
       }
       throw error;
     } finally {
       clearInterval(leaseTimer);
-      if (this.activeRender?.jobId === claimed.jobId) this.activeRender = null;
+      if (this.activeRender?.jobId === claimed.jobId) {
+        this.activeRender.resolveDone(backendSynchronized);
+        this.activeRender = null;
+      }
     }
   }
 
@@ -274,6 +311,59 @@ export class LocalExecutionService extends EventEmitter {
     if (this.activeRender?.jobId !== jobId) return false;
     this.activeRender.controller.abort(
       new RenderExecutionError("RENDER_CANCELLED", "Render was cancelled.", false),
+    );
+    return true;
+  }
+
+  async resumeProjectRender(projectId: string, jobId: string): Promise<boolean> {
+    if (
+      !this.projectRenderer ||
+      !this.config.projectRenderEnabled ||
+      !this.identity ||
+      this.state !== "ONLINE"
+    ) {
+      return false;
+    }
+    if (this.activeRender?.jobId === jobId) return true;
+    if (this.renderInFlight) return false;
+    this.renderInFlight = true;
+    try {
+      return Boolean(
+        await this.executeNextProjectRender({ projectId, jobId }),
+      );
+    } finally {
+      this.renderInFlight = false;
+    }
+  }
+
+  async discardProjectRenderRecovery(projectId: string, jobId: string): Promise<boolean> {
+    const activeRender = this.activeRender?.jobId === jobId ? this.activeRender : null;
+    if (activeRender) {
+      this.cancelProjectRender(jobId);
+      return activeRender.done;
+    }
+    if (
+      !this.projectRenderer ||
+      !this.config.projectRenderEnabled ||
+      !this.identity ||
+      this.state !== "ONLINE" ||
+      this.renderInFlight
+    ) {
+      return false;
+    }
+    const identity = this.identity;
+    const claim = await this.backendClient.claimProjectRender(identity.deviceToken, jobId);
+    if (!claim) return false;
+    if (claim.projectId !== projectId || claim.jobId !== jobId) {
+      await this.backendClient
+        .cancelProjectRender(identity.deviceToken, claim.jobId, claim.leaseToken)
+        .catch(() => undefined);
+      return false;
+    }
+    await this.backendClient.cancelProjectRender(
+      identity.deviceToken,
+      jobId,
+      claim.leaseToken,
     );
     return true;
   }
@@ -304,23 +394,27 @@ export class LocalExecutionService extends EventEmitter {
   private async persistCancellation(
     identity: DeviceIdentity,
     claimed: ClaimedProjectRender,
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       await this.backendClient.cancelProjectRender(
         identity.deviceToken,
         claimed.jobId,
         claimed.leaseToken,
       );
+      return true;
     } catch {
-      await this.backendClient
-        .failProjectRender(
+      try {
+        await this.backendClient.failProjectRender(
           identity.deviceToken,
           claimed.jobId,
           claimed.leaseToken,
           "RENDER_CANCELLED",
           false,
-        )
-        .catch(() => undefined);
+        );
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 

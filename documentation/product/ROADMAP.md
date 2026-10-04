@@ -33,6 +33,8 @@ Desktop single-user local workspace
   -> backup/restore/storage tooling
 ```
 
+The active LTX video foundation is text-to-video only: Compute Protocol `video.generate:1.1`, Native AV profile `ltx-2.5-22b-distilled-int8-native-av-v1`, 1280x720/24 FPS/16:9. Reference conditioning, I2V and First/Last Frame remain blocked until a worker profile advertises them.
+
 ## Track A — Production Desktop release — HIGH
 
 - lock production packaging dependencies and installer reproducibility;
@@ -47,14 +49,12 @@ Desktop single-user local workspace
 
 ## Track B — Local execution recovery and long-form reliability — HIGH
 
-Current foundations include render journals, unfinished-job discovery, segment cache, preflight, lease heartbeat and cancellation.
+Current foundations include render journals, unfinished-job discovery, stage-aware resume/reconcile, targeted backend lease reclaim, checksum/version checks, segment cache, preflight, lease heartbeat and cancellation.
 
 Remaining:
 
-- define resume/retry behavior for each persisted render stage;
-- prove lease-loss and app-crash recovery without duplicate finalization;
+- prove lease-loss and app-crash recovery without duplicate finalization in Electron/PostgreSQL end-to-end runs;
 - recover safely from FFmpeg child-process termination and OS shutdown;
-- expose clear retry/discard/recover UX for discovered unfinished work;
 - add long-duration soak tests for 1–2 hour outputs;
 - add disk-pressure behavior and cleanup policy around active/incomplete work;
 - validate cache invalidation across renderer/version/output-setting changes.
@@ -145,6 +145,6 @@ Remaining:
 
 **Subtitle render:** narration text and alignment are captured in the immutable render input snapshot and emitted as a UTF-8 SRT track during local FFmpeg rendering when renderable cues exist.
 
-**Local render recovery:** an assigned device renders with FFmpeg under a lease, journals progress, survives/reports interruption safely and never double-finalizes after recovery.
+**Local render recovery:** an assigned device renders with FFmpeg under a lease, journals progress, reconciles a registered checksum-matching artifact or reruns from the frozen snapshot, and never finalizes under a lost lease. Full Electron/PostgreSQL end-to-end verification remains required.
 
 **Packaged release:** an installed production build can boot, use the editor and render with bundled/native capabilities without relying on Vite, source checkout or developer-only environment assumptions.
