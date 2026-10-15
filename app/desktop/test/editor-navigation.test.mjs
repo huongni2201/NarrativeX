@@ -9,5 +9,4 @@ test("workspace routes resolve without coupling feature screens to EditorScreen"
   assert.equal(screenFromWorkspacePath("/projects/p1/assets"), "assets");
   assert.equal(screenFromWorkspacePath("/projects/p1/jobs"), "jobs");
   assert.equal(screenFromWorkspacePath("/projects/p1/render"), "render");
-  assert.equal(screenFromWorkspacePath("/projects/p1/settings"), "settings");
 });

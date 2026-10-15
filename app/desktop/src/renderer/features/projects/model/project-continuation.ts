@@ -1,4 +1,4 @@
-import type { DesktopProject } from "@narrativex/client-contracts";
+import type { DesktopProject } from "../../../../shared/api-types";
 
 export interface ProjectContinuationResult {
   destination: string;

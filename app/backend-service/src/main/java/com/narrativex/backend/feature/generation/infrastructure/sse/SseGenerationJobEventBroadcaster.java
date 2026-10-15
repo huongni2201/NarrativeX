@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -18,6 +19,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(
+    name = "narrativex.generation.sse.mode",
+    havingValue = "legacy",
+    matchIfMissing = true)
 public class SseGenerationJobEventBroadcaster implements GenerationJobEventBroadcaster {
   private static final Long DEFAULT_TIMEOUT = 120_000L; // 2 minutes
 
@@ -39,6 +44,8 @@ public class SseGenerationJobEventBroadcaster implements GenerationJobEventBroad
         () -> {
           emitters.remove(emitter);
           log.debug("SSE emitter timed out for project {}", projectId);
+          // Complete, or Spring dispatches AsyncRequestTimeoutException on a committed response.
+          emitter.complete();
         });
     emitter.onError(
         e -> {

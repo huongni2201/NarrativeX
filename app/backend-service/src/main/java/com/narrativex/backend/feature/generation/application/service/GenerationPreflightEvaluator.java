@@ -15,8 +15,7 @@ import java.util.UUID;
 public final class GenerationPreflightEvaluator {
   public static final Set<GenerationStrategy> CURRENT_SUPPORTED_STRATEGIES =
       Set.of(GenerationStrategy.TEXT_TO_VIDEO);
-  public static final Set<String> CURRENT_SUPPORTED_ASPECT_RATIOS =
-      Set.of("16:9");
+  public static final Set<String> CURRENT_SUPPORTED_ASPECT_RATIOS = Set.of("16:9");
 
   private GenerationPreflightEvaluator() {}
 
@@ -43,7 +42,8 @@ public final class GenerationPreflightEvaluator {
       String aspectRatio,
       List<AudioCueInfo> cues,
       Map<UUID, Optional<ResolvedSpeakerVoice>> voices) {
-    return evaluate(strategy, supportedStrategies, aspectRatio, CURRENT_SUPPORTED_ASPECT_RATIOS, cues, voices);
+    return evaluate(
+        strategy, supportedStrategies, aspectRatio, CURRENT_SUPPORTED_ASPECT_RATIOS, cues, voices);
   }
 
   public static Preflight evaluate(
@@ -70,7 +70,9 @@ public final class GenerationPreflightEvaluator {
         supportedAspectRatios != null && !supportedAspectRatios.isEmpty()
             ? Set.copyOf(supportedAspectRatios)
             : CURRENT_SUPPORTED_ASPECT_RATIOS;
-    if (normalizedRatio != null && !normalizedRatio.isBlank() && !allowedRatios.contains(normalizedRatio)) {
+    if (normalizedRatio != null
+        && !normalizedRatio.isBlank()
+        && !allowedRatios.contains(normalizedRatio)) {
       blockers.add(
           "UNSUPPORTED_ASPECT_RATIO: Aspect ratio "
               + normalizedRatio

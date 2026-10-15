@@ -28,29 +28,15 @@ public interface VisualPromptContextRepository {
     return Map.copyOf(contexts);
   }
 
-  record VisualPromptContext(
-      LocationCanon location, List<CharacterCanon> characters, BeatContinuity continuity) {
+  record VisualPromptContext(LocationCanon location, List<CharacterCanon> characters) {
     public VisualPromptContext {
       characters = characters == null ? List.of() : List.copyOf(characters);
     }
 
-    public VisualPromptContext(LocationCanon location, List<CharacterCanon> characters) {
-      this(location, characters, null);
-    }
-
     public static VisualPromptContext empty() {
-      return new VisualPromptContext(null, List.of(), null);
+      return new VisualPromptContext(null, List.of());
     }
   }
-
-  record BeatContinuity(
-      UUID planId,
-      String timelineKey,
-      String entryFactsJson,
-      String visibleFactsJson,
-      String exitFactsJson,
-      String eventKeysJson,
-      String semanticHash) {}
 
   record LocationCanon(UUID locationId, String name, String description, String visualPrompt) {}
 

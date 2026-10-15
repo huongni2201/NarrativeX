@@ -22,7 +22,7 @@ class ConfiguredImageGenerationCatalogTest {
     assertThatThrownBy(() -> new ConfiguredImageGenerationCatalog(" ", "model"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("providerKey");
-    assertThatThrownBy(() -> new ConfiguredImageGenerationCatalog("vertex", " "))
+    assertThatThrownBy(() -> new ConfiguredImageGenerationCatalog("test-provider", " "))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("model");
   }

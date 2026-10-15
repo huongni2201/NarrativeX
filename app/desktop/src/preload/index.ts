@@ -14,6 +14,13 @@ const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
 const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
 
 const bridge: NarrativeXDesktopBridge = {
+  storyAnalysis: {
+    status: () => ipcRenderer.invoke("desktop:story-analysis:status"),
+    refresh: () => ipcRenderer.invoke("desktop:story-analysis:refresh"),
+    models: () => ipcRenderer.invoke("desktop:story-analysis:models"),
+    openAgy: () => ipcRenderer.invoke("desktop:story-analysis:open-agy"),
+    openTerms: () => ipcRenderer.invoke("desktop:story-analysis:open-terms"),
+  },
   appVersion: () => ipcRenderer.invoke("desktop:app-version"),
   api: {
     request: (input: DesktopApiRequest) =>

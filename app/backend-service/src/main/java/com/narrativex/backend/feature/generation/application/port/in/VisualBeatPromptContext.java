@@ -49,7 +49,5 @@ public interface VisualBeatPromptContext {
       UUID visualBeatId,
       UUID sceneId,
       long beatRowVersion,
-      UUID continuityPlanId,
-      String continuitySemanticHash,
       ComposedVisualPrompt composedPrompt) {}
 }

@@ -154,4 +154,3 @@ class GenerationPreflightEvaluatorTest {
         .anyMatch(b -> b.contains("UNSUPPORTED_ASPECT_RATIO") && b.contains("1:1"));
   }
 }
-

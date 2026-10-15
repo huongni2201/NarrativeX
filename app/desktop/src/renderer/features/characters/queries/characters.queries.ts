@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
 import { charactersApi } from "../api/characters.api";
-import { importCharacterIdentityReference } from "../services/character-reference-generation";
+import {
+  importCharacterIdentityReference,
+  importCharacterReferenceSlot,
+} from "../services/character-reference-generation";
 
 function characterDetailKey(projectId: string, characterId: string | null) {
   return ["projects", projectId, "characters", characterId] as const;
@@ -21,7 +24,11 @@ export function useCreateCharacter(projectId: string) {
   return useMutation({
     mutationFn: (input: { canonicalName: string; aliases?: string[] }) => charactersApi.create(input),
     onSuccess: async (character) => {
-      await charactersApi.assign(projectId, { characterId: character.id, role: "SECONDARY" });
+      await charactersApi.assign(projectId, {
+        characterId: character.id,
+        role: "SUPPORTING",
+        importance: 1,
+      });
       await queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters"] });
     },
   });
@@ -102,7 +109,12 @@ export function useCharacterReferenceActions(
   }
 
   const createVersion = useMutation({
-    mutationFn: (input: { bible: string; visualPrompt: string }) => charactersApi.createVersion(characterId, input),
+    mutationFn: (input: {
+      bible: string;
+      visualPrompt?: string;
+      visualProfile?: import("../../../../shared/api-types").DesktopCharacterVisualProfile;
+      basedOnVersionId?: string | null;
+    }) => charactersApi.createVersion(characterId, input),
     onSuccess: refresh,
   });
 
@@ -110,6 +122,14 @@ export function useCharacterReferenceActions(
     mutationFn: () => {
       if (!versionId) throw new Error("Character chưa có version để lưu reference.");
       return importCharacterIdentityReference({ projectId, characterId, versionId });
+    },
+    onSuccess: refresh,
+  });
+
+  const importSlot = useMutation({
+    mutationFn: (slot: import("../../../../shared/api-types").CharacterReferenceSlot) => {
+      if (!versionId) throw new Error("Character chưa có version để lưu reference.");
+      return importCharacterReferenceSlot({ projectId, characterId, versionId, slot });
     },
     onSuccess: refresh,
   });
@@ -139,5 +159,5 @@ export function useCharacterReferenceActions(
     onSettled: refresh,
   });
 
-  return { createVersion, importIdentity, review, pin, lockAndPin };
+  return { createVersion, importIdentity, importSlot, review, pin, lockAndPin };
 }

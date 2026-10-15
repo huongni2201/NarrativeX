@@ -30,7 +30,7 @@ class GenerationJobMediaPlanTest {
             Instant.parse("2026-08-20T00:00:00Z"),
             null,
             "16:9",
-            "vertex",
+            "test-provider",
             "gemini-2.5-flash-image",
             null,
             null);

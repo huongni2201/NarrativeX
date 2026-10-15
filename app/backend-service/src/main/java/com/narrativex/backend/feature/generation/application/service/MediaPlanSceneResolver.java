@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.service;
 
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
@@ -31,6 +32,8 @@ public final class MediaPlanSceneResolver {
     Set<UUID> includedBeatIds = command.includedBeatIds();
     boolean includeAll = includedBeatIds.isEmpty();
     List<MediaScenePlan> resolved = new ArrayList<>();
+    // One configuration for the whole plan: every beat shares the same revision and style.
+    PromptSettings settings = command.promptSettings();
 
     for (var scene : planningSource.scenes()) {
       List<MediaBeatPlan> beats = new ArrayList<>();
@@ -45,11 +48,7 @@ public final class MediaPlanSceneResolver {
                 : beat.aspectRatioOverride();
         var composed =
             visualPromptComposer.compose(
-                command.imageStyle(),
-                beat.visualIntent(),
-                beat.visualDirectionJson(),
-                aspectRatio,
-                context);
+                settings, beat.visualIntent(), beat.visualDirectionJson(), aspectRatio, context);
         String cameraMovement = cameraMovementFor(beat.visualDirectionJson());
         beats.add(
             new MediaBeatPlan(
@@ -59,7 +58,7 @@ public final class MediaPlanSceneResolver {
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
                 GENERATE_NEW,
-                PROMPT_CONTRACT + "-" + command.imageStyle().name().toLowerCase(),
+                PROMPT_CONTRACT + "-" + settings.activeStyleId().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
                 beat.audioStartMs(),
@@ -68,7 +67,7 @@ public final class MediaPlanSceneResolver {
                     ? beat.audioEndMs() - beat.audioStartMs()
                     : null,
                 cameraMovement,
-                renderSettingsJson(command, beat, aspectRatio),
+                renderSettingsJson(settings, beat, aspectRatio),
                 composed.characterSnapshotJson(),
                 null,
                 null));
@@ -110,13 +109,19 @@ public final class MediaPlanSceneResolver {
   }
 
   private static String renderSettingsJson(
-      CreateMediaPlanCommand command, MediaPlanningSource.BeatSnapshot beat, String aspectRatio) {
+      PromptSettings settings, MediaPlanningSource.BeatSnapshot beat, String aspectRatio) {
     String direction = beat.visualDirectionJson();
     return "{\"aspectRatio\":\""
         + aspectRatio
         + "\",\"visualStyle\":\""
-        + command.imageStyle().name()
-        + "\",\"visualDirection\":"
+        + settings.activeStyleId()
+        + "\",\"promptSettings\":{\"revision\":\""
+        + settings.revision()
+        + "\",\"styleId\":\""
+        + settings.activeStyleId()
+        + "\",\"effectiveHash\":\""
+        + settings.effectiveHash()
+        + "\"},\"visualDirection\":"
         + (direction == null ? "null" : direction)
         + "}";
   }

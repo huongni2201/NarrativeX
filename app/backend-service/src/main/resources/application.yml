@@ -11,6 +11,11 @@ spring:
     username: ${DB_USERNAME:narrativex}
     password: ${DB_PASSWORD:narrativex}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${NARRATIVEX_DB_POOL_SIZE:20}
+      minimum-idle: 2
+      connection-timeout: 5000
+      leak-detection-threshold: ${NARRATIVEX_DB_LEAK_DETECTION_MS:0}
   session:
     timeout: ${NARRATIVEX_SESSION_TIMEOUT:7d}
     jdbc:
@@ -36,8 +41,6 @@ server:
 
 narrativex:
   public-base-url: ${NARRATIVEX_PUBLIC_BASE_URL:}
-  cors:
-    allowed-origins: ${NARRATIVEX_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,null}
   compute:
     base-url: ${NARRATIVEX_COMPUTE_BASE_URL:http://localhost:8010}
     machine-token: ${NARRATIVEX_COMPUTE_MACHINE_TOKEN:default-dev-machine-token}
@@ -47,6 +50,16 @@ narrativex:
     max-artifact-bytes: ${NARRATIVEX_MAX_COMPUTE_ARTIFACT_BYTES:268435456}
   generation:
     media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
+    sse:
+      # legacy: per-job polling + in-memory project broadcast. notify: PostgreSQL NOTIFY hub (F3).
+      # Switch to notify only after runtime verification; legacy is removed in a later change.
+      mode: ${NARRATIVEX_SSE_MODE:legacy}
+    dispatch:
+      # Lane-based parallel outbox dispatch. Keep false until the full verification gate passes.
+      parallel-enabled: ${NARRATIVEX_DISPATCH_PARALLEL_ENABLED:false}
+      lanes:
+        analysis: ${NARRATIVEX_DISPATCH_ANALYSIS_LANE:2}
+        media: ${NARRATIVEX_DISPATCH_MEDIA_LANE:4}
     image:
       provider-key: ${NARRATIVEX_IMAGE_PROVIDER_KEY:realvisxl}
       model: ${NARRATIVEX_IMAGE_MODEL:realvisxl-checkpoint.safetensors}
@@ -61,18 +74,6 @@ narrativex:
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}
-  providers:
-    vertex-gemini:
-      enabled: ${VERTEX_GEMINI_ENABLED:false}
-      project-id: ${VERTEX_GEMINI_PROJECT_ID:}
-      location: ${VERTEX_GEMINI_LOCATION:us-central1}
-      model: ${VERTEX_GEMINI_MODEL:gemini-3.8-flash}
-      thinking-level: ${VERTEX_GEMINI_THINKING_LEVEL:HIGH}
-      max-output-tokens: ${VERTEX_GEMINI_MAX_OUTPUT_TOKENS:65536}
-      soft-input-token-limit: ${VERTEX_GEMINI_SOFT_INPUT_TOKEN_LIMIT:800000}
-      timeout-seconds: ${VERTEX_GEMINI_TIMEOUT_SECONDS:900}
-      bearer-token: ${VERTEX_GEMINI_BEARER_TOKEN:}
-      api-key: ${VERTEX_GEMINI_API_KEY:}
   storage:
     upload-intent-ttl: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:15m}
     project-media-local-dir: ${PROJECT_MEDIA_LOCAL_DIR:/data/narrativex/project-media}

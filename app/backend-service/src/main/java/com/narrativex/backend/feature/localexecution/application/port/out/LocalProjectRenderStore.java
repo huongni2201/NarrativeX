@@ -103,7 +103,51 @@ public interface LocalProjectRenderStore {
       long trimStartMs,
       String storageKey,
       long sizeBytes,
-      String checksum) {
+      String checksum,
+      UUID shotId,
+      UUID takeId,
+      Long sourceOutMs,
+      String subtitleWordsJson) {
+    public BeatInput(
+        UUID chapterId,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        UUID mediaAssetId,
+        long globalStartMs,
+        long globalEndMs,
+        long durationMs,
+        String cameraMovement,
+        String mediaType,
+        Long sourceDurationMs,
+        String fitMode,
+        long trimStartMs,
+        String storageKey,
+        long sizeBytes,
+        String checksum) {
+      this(
+          chapterId,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          mediaAssetId,
+          globalStartMs,
+          globalEndMs,
+          durationMs,
+          cameraMovement,
+          mediaType,
+          sourceDurationMs,
+          fitMode,
+          trimStartMs,
+          storageKey,
+          sizeBytes,
+          checksum,
+          null,
+          null,
+          null,
+          null);
+    }
+
     public BeatInput(
         UUID chapterId,
         int sceneIndex,

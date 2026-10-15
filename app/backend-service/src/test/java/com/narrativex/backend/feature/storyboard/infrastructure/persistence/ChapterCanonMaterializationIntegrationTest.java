@@ -86,7 +86,7 @@ class ChapterCanonMaterializationIntegrationTest {
     sourceHash = HexFormat.of().formatHex(digest);
 
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, ?, 'ACTIVE', 'vi', 'vi', 'vi', '16:9')",
+        "INSERT INTO projects (id, name, status, source_language, narration_language, image_aspect_ratio) VALUES (?, ?, 'ACTIVE', 'vi', 'vi', '16:9')",
         projectId,
         "Canon Materialization Project");
     jdbcTemplate.update(

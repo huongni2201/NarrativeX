@@ -7,6 +7,8 @@
                type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow">
         <id property="id" column="id"/>
         <result property="aggregateId" column="aggregate_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="lane" column="lane"/>
     </resultMap>
 
     <insert id="enqueue"
@@ -48,8 +50,51 @@
            SET available_at = CURRENT_TIMESTAMP + (#{reservationMillis} * INTERVAL '1 millisecond')
           FROM candidates
          WHERE event.id = candidates.id
-        RETURNING event.id, event.aggregate_id
+        RETURNING event.id, event.aggregate_id, event.created_at
     </select>
+
+    <select id="reserveLaneBatch" resultMap="outboxDispatchRow">
+        WITH analysis AS (
+            SELECT e.id, 'ANALYSIS' AS lane
+              FROM outbox_events e
+              JOIN generation_jobs j
+                ON j.job_id = CASE WHEN e.aggregate_type = 'GENERATION_JOB'
+                                   THEN CAST(e.aggregate_id AS UUID) END
+             WHERE e.status = 'PENDING'
+               AND e.event_type IN ('GENERATION_JOB_QUEUED', 'MEDIA_VALIDATION_REQUESTED')
+               AND e.available_at &lt;= CURRENT_TIMESTAMP
+               AND j.job_type IN
+                   <foreach collection="analysisJobTypes" item="type" open="(" separator="," close=")">#{type}</foreach>
+             ORDER BY e.id LIMIT #{analysisLimit} FOR UPDATE OF e SKIP LOCKED
+        ), media AS (
+            SELECT e.id, 'MEDIA' AS lane
+              FROM outbox_events e
+              LEFT JOIN generation_jobs j
+                ON j.job_id = CASE WHEN e.aggregate_type = 'GENERATION_JOB'
+                                   THEN CAST(e.aggregate_id AS UUID) END
+             WHERE e.status = 'PENDING'
+               AND e.event_type IN ('GENERATION_JOB_QUEUED', 'MEDIA_VALIDATION_REQUESTED')
+               AND e.available_at &lt;= CURRENT_TIMESTAMP
+               AND (j.job_type IS NULL OR j.job_type NOT IN
+                   <foreach collection="analysisJobTypes" item="type" open="(" separator="," close=")">#{type}</foreach>)
+             ORDER BY e.id LIMIT #{mediaLimit} FOR UPDATE OF e SKIP LOCKED
+        ), candidates AS (
+            SELECT id, lane FROM analysis
+            UNION ALL
+            SELECT id, lane FROM media
+        )
+        UPDATE outbox_events event
+           SET available_at = CURRENT_TIMESTAMP + (#{reservationMillis} * INTERVAL '1 millisecond')
+          FROM candidates
+         WHERE event.id = candidates.id
+        RETURNING event.id, event.aggregate_id, event.created_at, candidates.lane
+    </select>
+
+    <update id="extendReservation">
+        UPDATE outbox_events
+           SET available_at = CURRENT_TIMESTAMP + (#{leaseMillis} * INTERVAL '1 millisecond')
+         WHERE id = #{id} AND status = 'PENDING'
+    </update>
 
     <update id="markPublished">
         UPDATE outbox_events SET status = 'PUBLISHED', attempts = attempts + 1

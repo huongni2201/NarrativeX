@@ -24,7 +24,6 @@ class ProjectAggregateTest {
             ProjectStatus.DRAFT,
             "vi-VN",
             "vi-VN",
-            "vi-VN",
             AspectRatio.RATIO_16_9,
             null);
 
@@ -43,7 +42,6 @@ class ProjectAggregateTest {
             0L,
             "Story",
             ProjectStatus.ARCHIVED,
-            "vi-VN",
             "vi-VN",
             "vi-VN",
             AspectRatio.RATIO_16_9,

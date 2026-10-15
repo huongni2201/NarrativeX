@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -16,6 +19,34 @@ from narrativex_gpu_worker.application.ports.residency import (
     RuntimeFamily,
     RuntimeRequirement,
 )
+
+
+async def test_managed_process_drains_large_logs_and_can_exit(tmp_path: Path) -> None:
+    marker = tmp_path / "progress"
+    supervisor = RuntimeProcessSupervisor()
+    supervisor.register_runtime(
+        ProcessSpec(
+            family=RuntimeFamily.VIENEU,
+            command=(
+                sys.executable,
+                "-c",
+                "import sys,pathlib,time; sys.stdout.write('x'*2000000); sys.stdout.flush(); "
+                "sys.stderr.write('y'*2000000); sys.stderr.flush(); "
+                "pathlib.Path(sys.argv[1]).write_text('done'); time.sleep(10)",
+                str(marker),
+            ),
+        )
+    )
+    await supervisor.start(RuntimeFamily.VIENEU)
+    try:
+        async with asyncio.timeout(2):
+            while not marker.exists():
+                await asyncio.sleep(0.01)
+        assert supervisor._log_tails
+        assert all(len(tail) <= 65536 for tail in supervisor._log_tails.values())
+    finally:
+        await supervisor.stop_all()
+    assert not supervisor._readers
 
 
 async def test_vram_probe_disabled() -> None:
@@ -74,6 +105,7 @@ async def test_supervisor_start_and_stop_process(tmp_path: Path) -> None:
     supervisor = RuntimeProcessSupervisor()
     # Use python executable running a sleep script
     import sys
+
     spec = ProcessSpec(
         family=RuntimeFamily.VIENEU,
         command=(sys.executable, "-c", "import time; time.sleep(10)"),
@@ -93,9 +125,37 @@ async def test_supervisor_start_and_stop_process(tmp_path: Path) -> None:
     assert not supervisor.is_running(RuntimeFamily.VIENEU)
 
 
+async def test_canceled_shutdown_keeps_process_owned_until_retry_confirms_exit() -> None:
+    supervisor = RuntimeProcessSupervisor()
+    waiting = asyncio.Event()
+    exit_process = asyncio.Event()
+    process = SimpleNamespace(pid=123, returncode=None, terminate=lambda: None)
+
+    async def wait() -> int:
+        waiting.set()
+        await exit_process.wait()
+        process.returncode = 0
+        return 0
+
+    process.wait = wait
+    supervisor._processes[RuntimeFamily.VIENEU] = process
+    shutdown = asyncio.create_task(supervisor.stop(RuntimeFamily.VIENEU))
+    await waiting.wait()
+    shutdown.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await shutdown
+
+    assert supervisor.is_running(RuntimeFamily.VIENEU), "Canceled shutdown must retain ownership"
+    exit_process.set()
+    await supervisor.stop_all()
+    assert process.returncode == 0, "Cleanup retry must still reach the owned process"
+    assert not supervisor.is_running(RuntimeFamily.VIENEU)
+
+
 async def test_supervisor_premature_exit() -> None:
     supervisor = RuntimeProcessSupervisor()
     import sys
+
     spec = ProcessSpec(
         family=RuntimeFamily.COMFYUI_IMAGE,
         command=(sys.executable, "-c", "import sys; sys.exit(42)"),

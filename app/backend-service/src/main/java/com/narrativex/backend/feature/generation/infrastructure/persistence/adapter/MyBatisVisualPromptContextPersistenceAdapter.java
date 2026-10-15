@@ -1,15 +1,12 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
-import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.BeatContinuity;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterReference;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityMapper;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContinuityRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow;
 import java.util.Collections;
@@ -26,15 +23,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromptContextRepository {
   private final VisualPromptContextMapper mapper;
-  private final VisualPromptContinuityMapper continuityMapper;
 
   @Override
   public VisualPromptContext findForScene(UUID projectId, UUID sceneId) {
     return toContext(
         mapper.findLocation(projectId, sceneId),
         mapper.findCharacters(projectId, sceneId),
-        mapper.findCharacterReferences(projectId, sceneId),
-        null);
+        mapper.findCharacterReferences(projectId, sceneId));
   }
 
   @Override
@@ -42,8 +37,7 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
     return toContext(
         mapper.findLocationForBeat(projectId, visualBeatId),
         mapper.findCharactersForBeat(projectId, visualBeatId),
-        mapper.findCharacterReferencesForBeat(projectId, visualBeatId),
-        continuityMapper.findForBeat(projectId, visualBeatId));
+        mapper.findCharacterReferencesForBeat(projectId, visualBeatId));
   }
 
   @Override
@@ -65,14 +59,6 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
     Map<UUID, List<VisualPromptReferenceRow>> referencesByBeat =
         mapper.findCharacterReferencesForBeats(projectId, visualBeatIds).stream()
             .collect(Collectors.groupingBy(VisualPromptReferenceRow::getVisualBeatId));
-    Map<UUID, VisualPromptContinuityRow> continuityByBeat =
-        continuityMapper.findForBeats(projectId, visualBeatIds).stream()
-            .collect(
-                Collectors.toMap(
-                    VisualPromptContinuityRow::getVisualBeatId,
-                    Function.identity(),
-                    (left, right) -> left));
-
     Map<UUID, VisualPromptContext> contexts = new LinkedHashMap<>();
     for (UUID visualBeatId : visualBeatIds) {
       contexts.put(
@@ -80,8 +66,7 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
           toContext(
               locationsByBeat.get(visualBeatId),
               charactersByBeat.getOrDefault(visualBeatId, List.of()),
-              referencesByBeat.getOrDefault(visualBeatId, List.of()),
-              continuityByBeat.get(visualBeatId)));
+              referencesByBeat.getOrDefault(visualBeatId, List.of())));
     }
     return Collections.unmodifiableMap(contexts);
   }
@@ -89,8 +74,7 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
   private static VisualPromptContext toContext(
       VisualPromptLocationRow locationRow,
       List<VisualPromptCharacterRow> characterRows,
-      List<VisualPromptReferenceRow> referenceRows,
-      VisualPromptContinuityRow continuityRow) {
+      List<VisualPromptReferenceRow> referenceRows) {
     LocationCanon location =
         locationRow == null || locationRow.getLocationId() == null
             ? null
@@ -135,17 +119,6 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                         referencesByAssignment.getOrDefault(row.getAssignmentId(), List.of())))
             .toList();
 
-    BeatContinuity continuity =
-        continuityRow == null || continuityRow.getPlanId() == null
-            ? null
-            : new BeatContinuity(
-                continuityRow.getPlanId(),
-                continuityRow.getTimelineKey(),
-                continuityRow.getEntryFactsJson(),
-                continuityRow.getVisibleFactsJson(),
-                continuityRow.getExitFactsJson(),
-                continuityRow.getEventKeysJson(),
-                continuityRow.getSemanticHash());
-    return new VisualPromptContext(location, characters, continuity);
+    return new VisualPromptContext(location, characters);
   }
 }

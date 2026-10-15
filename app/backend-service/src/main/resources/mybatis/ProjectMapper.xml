@@ -14,14 +14,13 @@
         <result property="status" column="status" />
         <result property="sourceLanguage" column="source_language" />
         <result property="narrationLanguage" column="narration_language" />
-        <result property="metadataLanguage" column="metadata_language" />
         <result property="imageAspectRatio" column="image_aspect_ratio" />
         <result property="archivedAt" column="archived_at" />
     </resultMap>
 
     <sql id="columns">
         id, row_version, created_at, updated_at, name, description, cover_image_url,
-        status, source_language, narration_language, metadata_language,
+        status, source_language, narration_language,
         image_aspect_ratio, archived_at
     </sql>
 
@@ -31,12 +30,12 @@
             affectData="true">
         INSERT INTO projects (
             row_version, created_at, updated_at, name, description, cover_image_url,
-            status, source_language, narration_language, metadata_language,
+            status, source_language, narration_language,
             image_aspect_ratio, archived_at
         )
         VALUES (
             #{rowVersion}, #{createdAt}, #{updatedAt}, #{name}, #{description}, #{coverImageUrl},
-            #{status}, #{sourceLanguage}, #{narrationLanguage}, #{metadataLanguage},
+            #{status}, #{sourceLanguage}, #{narrationLanguage},
             #{imageAspectRatio}, #{archivedAt}
         )
         RETURNING id
@@ -51,7 +50,6 @@
                status = #{status},
                source_language = #{sourceLanguage},
                narration_language = #{narrationLanguage},
-               metadata_language = #{metadataLanguage},
                image_aspect_ratio = #{imageAspectRatio},
                archived_at = #{archivedAt},
                updated_at = #{updatedAt},

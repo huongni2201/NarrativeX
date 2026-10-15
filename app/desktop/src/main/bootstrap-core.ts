@@ -25,6 +25,7 @@ import {
   registerTrustedIpcHandler,
 } from "./security/renderer-security";
 import { createRendererTrustPolicy } from "./security/renderer-trust-policy";
+import { registerStoryAnalysis } from "./story-analysis/bootstrap";
 
 registerLocalAssetPreviewScheme();
 
@@ -130,7 +131,7 @@ function createWindow() {
     height: Math.max(720, display.workAreaSize.height),
     minWidth: 1180,
     minHeight: 720,
-    backgroundColor: "#080b10",
+    backgroundColor: "#111315",
     title: "NarrativeX",
     icon: iconPath,
     webPreferences: {
@@ -246,6 +247,7 @@ void app.whenReady().then(async () => {
     new ProjectRenderer(ffmpegRuntime, projectStorage, renderJournals, app.getVersion()),
     renderJournals,
   );
+  registerStoryAnalysis(trustPolicy, config.backendBaseUrl, desktopApi, identityStore, localExecution);
 
   registerTrustedIpcHandler("desktop:app-version", trustPolicy, () => app.getVersion());
   registerTrustedIpcHandler("desktop:system:clipboard-write", trustPolicy, async (text) => {

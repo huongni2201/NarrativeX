@@ -1,0 +1,101 @@
+{
+  "type": "object",
+  "required": ["canon", "scenes"],
+  "properties": {
+    "canon": {
+      "type": "object",
+      "required": ["characters", "locations"],
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ai_name", "canonical_name", "role", "importance", "visual_prompt"],
+            "properties": {
+              "ai_name": { "type": "string" },
+              "canonical_name": { "type": "string" },
+              "aliases": { "type": "array", "items": { "type": "string" } },
+              "role": { "type": "string" },
+              "importance": { "type": "string" },
+              "description": { "type": "string" },
+              "visual_prompt": { "type": "string" }
+            }
+          }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ai_name", "name", "visual_prompt"],
+            "properties": {
+              "ai_name": { "type": "string" },
+              "name": { "type": "string" },
+              "aliases": { "type": "array", "items": { "type": "string" } },
+              "description": { "type": "string" },
+              "visual_prompt": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "visual_beats"],
+        "properties": {
+          "title": { "type": "string" },
+          "narration": { "type": "string" },
+          "location_ai_name": { "type": "string" },
+          "character_ai_names": { "type": "array", "items": { "type": "string" } },
+          "visual_beats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["title", "visual_intent", "source_anchor", "visual_direction", "audio_cues"],
+              "properties": {
+                "title": { "type": "string" },
+                "visual_intent": { "type": "string" },
+                "source_anchor": { "type": "string" },
+                "audio_cues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["cue_type", "source_anchor", "adaptation_action", "adapted_text"],
+                    "properties": {
+                      "cue_type": { "type": "string", "enum": ["NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM"] },
+                      "speaker_ai_name": { "type": "string" },
+                      "source_anchor": { "type": "string" },
+                      "adaptation_action": { "type": "string", "enum": ["KEEP_EXACT", "LIGHT_EDIT", "COMPRESS", "VISUAL_PRIMARY"] },
+                      "adapted_text": { "type": "string" },
+                      "delivery_hint": { "type": "string" }
+                    }
+                  }
+                },
+                "character_ai_names": { "type": "array", "items": { "type": "string" } },
+                "visual_direction": {
+                  "type": "object",
+                  "required": ["shot_size", "camera_angle", "lens_mm", "focus_target", "action_phase", "subject_placement", "background", "motivated_light", "palette", "camera_movement", "movement_intensity", "crop_safe_area"],
+                  "properties": {
+                    "shot_size": { "type": "string" },
+                    "camera_angle": { "type": "string" },
+                    "lens_mm": { "type": "integer" },
+                    "focus_target": { "type": "string" },
+                    "action_phase": { "type": "string" },
+                    "subject_placement": { "type": "string" },
+                    "background": { "type": "string" },
+                    "motivated_light": { "type": "string" },
+                    "palette": { "type": "string" },
+                    "camera_movement": { "type": "string" },
+                    "movement_intensity": { "type": "string" },
+                    "crop_safe_area": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

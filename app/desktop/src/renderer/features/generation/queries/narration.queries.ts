@@ -7,7 +7,7 @@ import type {
   GenerateBatchNarrationInput,
   GenerateNarrationInput,
   GenerateVoicePreviewInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { chapterQueryKeys } from "../../chapters/queries/chapters.queries";
 import { narrationApi } from "../api/narration.api";
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildEditorHierarchy,
+  editorBeatIdentity,
   findEditorBeatAtTime,
   resolveEditorScopeWindow,
   sortEditorBeats,
@@ -76,6 +77,14 @@ test("editor playback orders beats before previous/next navigation", () => {
     sortEditorBeats(beats).map((item) => item.visualBeatId),
     ["beat-1", "beat-2", "beat-3", "beat-4"],
   );
+});
+
+test("native cuts sharing a VisualBeat have separate selection identities", () => {
+  const first = { ...beats[0], visualBeatId: "visual-1", shotId: "shot-1", takeId: "take-1" };
+  const second = { ...beats[1], visualBeatId: "visual-1", shotId: "shot-2", takeId: "take-2" };
+
+  assert.notEqual(editorBeatIdentity(first), editorBeatIdentity(second));
+  assert.equal(editorBeatIdentity(first), "visual-1:shot-1:take-1");
 });
 
 test("editor playback resolves boundaries and includes the final endpoint", () => {

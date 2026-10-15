@@ -4,7 +4,7 @@ import type {
   LocalRenderPreflightAsset,
   LocalRenderPreflightAssetInput,
   LocalRenderPreflightBlockerCode,
-} from "@narrativex/client-contracts";
+} from "../../shared/api-types";
 import type { ProjectStorage } from "../local-storage/project-storage";
 import type { FfmpegRuntimeStatus } from "./ffmpeg-runtime";
 import type { LocalExecutionConnectionState } from "../local-execution/service";
@@ -70,7 +70,8 @@ export class LocalRenderPreflightService {
 
     for (const descriptor of descriptors) {
       try {
-        await this.storage.resolveAsset(input.projectId, descriptor.assetId);
+        // Final render keeps full integrity: every byte is hashed.
+        await this.storage.resolveAsset(input.projectId, descriptor.assetId, undefined, "full");
         assets.push({ assetId: descriptor.assetId, state: "AVAILABLE", message: null });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Asset không hợp lệ.";

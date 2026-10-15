@@ -31,6 +31,7 @@ public class ProductionTimelineBeatRow {
   private Long sourceDurationMs;
   private String fitMode;
   private long trimStartMs;
+  private Long sourceOutMs;
   private boolean mediaSelectionActive;
   private String storageKey;
   private Long sizeBytes;

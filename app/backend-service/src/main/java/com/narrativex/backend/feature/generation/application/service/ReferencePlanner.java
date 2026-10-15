@@ -13,7 +13,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Plans and validates conditioning reference assets for video generation according to ADR-0028.
+ * Plans and validates conditioning reference assets for video generation according to ADR-0008.
  * Image generation is strictly channeled into reference conditioning and keyframes, never directly
  * to final timeline playback.
  */

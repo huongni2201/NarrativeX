@@ -3,6 +3,8 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -48,8 +50,11 @@ public class CreateMediaJobUseCase {
           .VideoGenerationCatalog
       videoGenerationCatalog;
   private final NarrativeXLimitsProperties limits;
-  private final com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess storyboardAccess;
+  private final com.narrativex.backend.feature.storyboard.application.port.in
+          .StoryboardProductionAccess
+      storyboardAccess;
   private final GenerateShotTakeUseCase shotAdmission;
+  private final PromptSettingsAccess promptSettingsAccess;
 
   @Transactional
   public GenerationJob execute(CreateMediaJobCommand command) {
@@ -63,6 +68,7 @@ public class CreateMediaJobUseCase {
     String imageProvider = normalizeImageProvider(command.imageProvider());
     String idempotencyKey = requireIdempotencyKey(command.idempotencyKey());
     String requestFingerprint = fingerprint(command, imageProvider);
+    String legacyRequestFingerprint = legacyFingerprint(command, imageProvider);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
@@ -72,10 +78,7 @@ public class CreateMediaJobUseCase {
       if (existingItems.isEmpty()
           || existingItems.stream()
               .anyMatch(
-                  item ->
-                      !itemFingerprint(
-                              requestFingerprint, item.getMediaPlanId(), item.getShotId() == null ? item.getVisualBeatId() : item.getShotId())
-                          .equals(item.getRequestFingerprint()))) {
+                  item -> !replayMatches(item, requestFingerprint, legacyRequestFingerprint))) {
         throw idempotencyConflict();
       }
       return existingJob;
@@ -92,6 +95,20 @@ public class CreateMediaJobUseCase {
     if (activeCurrentJob.isPresent()) {
       throw new GenerationAdmissionDeniedException(
           "MEDIA_JOB_ACTIVE", "A media generation job is already active for this chapter.");
+    }
+
+    // Replay was answered above without reading prompt settings. A new operation resolves the
+    // current configuration exactly once; the plan (and shot snapshots) freeze what it compiles.
+    PromptSettings promptSettings = promptSettingsAccess.current();
+    if (command.expectedPromptRevision() != null
+        && command.expectedPromptRevision() != promptSettings.revision()) {
+      throw new GenerationAdmissionDeniedException(
+          "PROMPT_SETTINGS_CHANGED",
+          "Prompt settings changed from revision "
+              + command.expectedPromptRevision()
+              + " to "
+              + promptSettings.revision()
+              + " after the preview; review the prompt again.");
     }
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
@@ -115,11 +132,13 @@ public class CreateMediaJobUseCase {
       }
     }
 
-    String effectiveAspectRatio = isVideoFirst
-        ? project.getImageAspectRatio().getCode()
-        : (command.aspectRatio() != null && !command.aspectRatio().isBlank()
-            ? com.narrativex.backend.feature.project.domain.enums.AspectRatio.normalize(command.aspectRatio())
-            : project.getImageAspectRatio().getCode());
+    String effectiveAspectRatio =
+        isVideoFirst
+            ? project.getImageAspectRatio().getCode()
+            : (command.aspectRatio() != null && !command.aspectRatio().isBlank()
+                ? com.narrativex.backend.feature.project.domain.enums.AspectRatio.normalize(
+                    command.aspectRatio())
+                : project.getImageAspectRatio().getCode());
 
     var plan =
         createMediaPlanUseCase.execute(
@@ -130,7 +149,7 @@ public class CreateMediaJobUseCase {
                 effectiveAspectRatio,
                 providerKey,
                 modelKey,
-                command.imageStyle()));
+                promptSettings));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -145,16 +164,35 @@ public class CreateMediaJobUseCase {
 
     if (isVideoFirst) {
       var shotRows = storyboardAccess.findShotsByChapter(command.projectId(), command.chapterId());
-      if (shotRows.isEmpty()) throw new GenerationAdmissionDeniedException("STORYBOARD_NOT_READY", "Chapter has no current shots");
+      if (shotRows.isEmpty())
+        throw new GenerationAdmissionDeniedException(
+            "STORYBOARD_NOT_READY", "Chapter has no current shots");
       int order = 0;
       for (var shot : shotRows) {
-        UUID beatId = storyboardAccess.findSequenceById(shot.sequenceId()).orElseThrow().visualBeatId();
-        var leafCommand = new com.narrativex.backend.feature.generation.application.command.GenerateShotTakeCommand(
-            command.projectId(), shot.id(), null, null, null, null, "batch:" + job.getJobId() + ":shot-" + shot.id(), null);
-        var frozen = shotAdmission.freeze(leafCommand);
-        mediaGenerationItemRepository.save(MediaGenerationItem.createShot(job.getId(), plan.id(), beatId,
-            shot.id(), order++, itemFingerprint(requestFingerprint, plan.id(), shot.id()),
-            frozen.inputJson(), frozen.requestFingerprint()));
+        UUID beatId =
+            storyboardAccess.findSequenceById(shot.sequenceId()).orElseThrow().visualBeatId();
+        var leafCommand =
+            new com.narrativex.backend.feature.generation.application.command
+                .GenerateShotTakeCommand(
+                command.projectId(),
+                shot.id(),
+                null,
+                null,
+                null,
+                null,
+                "batch:" + job.getJobId() + ":shot-" + shot.id(),
+                null);
+        var frozen = shotAdmission.freeze(leafCommand, promptSettings);
+        mediaGenerationItemRepository.save(
+            MediaGenerationItem.createShot(
+                job.getId(),
+                plan.id(),
+                beatId,
+                shot.id(),
+                order++,
+                itemFingerprint(requestFingerprint, plan.id(), shot.id()),
+                frozen.inputJson(),
+                frozen.requestFingerprint()));
       }
       generationOutboxRepository.enqueue(job);
       return job;
@@ -202,18 +240,41 @@ public class CreateMediaJobUseCase {
     return normalized;
   }
 
+  /** Request identity for replay: deliberately independent of any prompt configuration. */
   static String fingerprint(CreateMediaJobCommand command, String imageProvider) {
+    return hash(requestPayload(command, imageProvider));
+  }
+
+  /** Identity used before prompt settings existed; keeps replay of older jobs working. */
+  static String legacyFingerprint(CreateMediaJobCommand command, String imageProvider) {
+    return hash(
+        requestPayload(command, imageProvider)
+            + ":"
+            + (command.imageStyle() == null ? "" : command.imageStyle().name()));
+  }
+
+  private static boolean replayMatches(
+      MediaGenerationItem item, String requestFingerprint, String legacyRequestFingerprint) {
+    UUID subject = item.getShotId() == null ? item.getVisualBeatId() : item.getShotId();
+    return itemFingerprint(requestFingerprint, item.getMediaPlanId(), subject)
+            .equals(item.getRequestFingerprint())
+        || itemFingerprint(legacyRequestFingerprint, item.getMediaPlanId(), subject)
+            .equals(item.getRequestFingerprint());
+  }
+
+  private static String requestPayload(CreateMediaJobCommand command, String imageProvider) {
     String visualMode = normalizeVisualMode(command.visualGenerationMode());
-    String payload =
-        String.join(
-            ":",
-            command.projectId().toString(),
-            command.chapterId().toString(),
-            command.productionMode(),
-            visualMode,
-            imageProvider,
-            command.aspectRatio(),
-            command.imageStyle() == null ? "" : command.imageStyle().name());
+    return String.join(
+        ":",
+        command.projectId().toString(),
+        command.chapterId().toString(),
+        command.productionMode(),
+        visualMode,
+        imageProvider,
+        command.aspectRatio());
+  }
+
+  private static String hash(String payload) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
       byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));

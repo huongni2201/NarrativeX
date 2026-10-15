@@ -31,7 +31,6 @@ public final class VisualBeat extends DomainEntity {
   @Getter private final Integer textEnd;
   @Getter private final String sourceAnchorJson;
   @Getter private final DramaticIntent dramaticIntent;
-  @Getter private final String emotion;
   @Getter private final RetentionRole retentionRole;
   @Getter private VisualBeatReviewStatus reviewStatus;
   @Getter private UUID previewMediaAssetId;
@@ -129,7 +128,6 @@ public final class VisualBeat extends DomainEntity {
         sourceAnchorJson,
         DramaticIntent.SETUP,
         null,
-        null,
         reviewStatus);
   }
 
@@ -150,7 +148,6 @@ public final class VisualBeat extends DomainEntity {
       Integer textEnd,
       String sourceAnchorJson,
       DramaticIntent dramaticIntent,
-      String emotion,
       RetentionRole retentionRole,
       VisualBeatReviewStatus reviewStatus) {
     super(id, rowVersion);
@@ -174,7 +171,6 @@ public final class VisualBeat extends DomainEntity {
     this.textEnd = textEnd;
     this.sourceAnchorJson = sourceAnchorJson;
     this.dramaticIntent = dramaticIntent != null ? dramaticIntent : DramaticIntent.SETUP;
-    this.emotion = emotion;
     this.retentionRole = retentionRole;
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus");
   }
@@ -244,7 +240,6 @@ public final class VisualBeat extends DomainEntity {
         sourceAnchorJson,
         DramaticIntent.SETUP,
         null,
-        null,
         reviewStatus);
   }
 
@@ -265,7 +260,6 @@ public final class VisualBeat extends DomainEntity {
       Integer textEnd,
       String sourceAnchorJson,
       DramaticIntent dramaticIntent,
-      String emotion,
       RetentionRole retentionRole,
       VisualBeatReviewStatus reviewStatus) {
     return new VisualBeat(
@@ -285,7 +279,6 @@ public final class VisualBeat extends DomainEntity {
         textEnd,
         sourceAnchorJson,
         dramaticIntent,
-        emotion,
         retentionRole,
         reviewStatus);
   }

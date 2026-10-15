@@ -84,4 +84,8 @@ test("segment cache invalidates when an effective render dependency changes", ()
     ),
     base,
   );
+  assert.notEqual(
+    segmentCacheKey(manifest(), beat(), "libx264", "ffmpeg-1"),
+    segmentCacheKey(manifest(), beat(), "libx264", "ffmpeg-2"),
+  );
 });

@@ -33,7 +33,6 @@
     <result property="summary" column="summary"/>
     <result property="importance" column="importance"/>
     <result property="storyFunctionsJson" column="story_functions_json"/>
-    <result property="continuityStateJson" column="continuity_state_json"/>
     <result property="reviewStatus" column="review_status"/>
   </resultMap>
 
@@ -79,7 +78,6 @@
     <result property="visualFocus" column="visual_focus"/>
     <result property="aspectRatioOverride" column="aspect_ratio_override"/>
     <result property="dramaticIntent" column="dramatic_intent"/>
-    <result property="emotion" column="emotion"/>
     <result property="retentionRole" column="retention_role"/>
     <result property="previewMediaAssetId" column="preview_media_asset_id"/>
     <result property="textStart" column="text_start"/>
@@ -132,20 +130,20 @@
 
   <!-- StoryBeat -->
   <select id="findStoryBeats" resultMap="storyBeat">
-    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json, review_status
+    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, review_status
     FROM story_beats
     WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach>
     ORDER BY scene_id, order_index, id
   </select>
 
   <select id="findStoryBeat" resultMap="storyBeat">
-    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, continuity_state_json::text AS continuity_state_json, review_status
+    SELECT id, row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json::text AS source_anchor_json, purpose, summary, importance, story_functions_json::text AS story_functions_json, review_status
     FROM story_beats
     WHERE id = #{id}
   </select>
 
   <select id="findCurrentStoryBeatByChapter" resultMap="storyBeat">
-    SELECT sb.id, sb.row_version, sb.created_at, sb.updated_at, sb.scene_id, sb.order_index, sb.source_start, sb.source_end, sb.source_anchor_json::text AS source_anchor_json, sb.purpose, sb.summary, sb.importance, sb.story_functions_json::text AS story_functions_json, sb.continuity_state_json::text AS continuity_state_json, sb.review_status
+    SELECT sb.id, sb.row_version, sb.created_at, sb.updated_at, sb.scene_id, sb.order_index, sb.source_start, sb.source_end, sb.source_anchor_json::text AS source_anchor_json, sb.purpose, sb.summary, sb.importance, sb.story_functions_json::text AS story_functions_json, sb.review_status
     FROM story_beats sb
     JOIN scenes s ON s.id = sb.scene_id
     JOIN chapters c ON c.id = s.chapter_id
@@ -156,8 +154,8 @@
   </select>
 
   <select id="insertStoryBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow" resultType="java.util.UUID" affectData="true">
-    INSERT INTO story_beats (row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json, purpose, summary, importance, story_functions_json, continuity_state_json, review_status)
-    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{orderIndex}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{purpose}, #{summary}, #{importance}, COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb), COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb), COALESCE(#{reviewStatus}, 'NEEDS_REVIEW'))
+    INSERT INTO story_beats (row_version, created_at, updated_at, scene_id, order_index, source_start, source_end, source_anchor_json, purpose, summary, importance, story_functions_json, review_status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{orderIndex}, #{sourceStart}, #{sourceEnd}, #{sourceAnchorJson}::jsonb, #{purpose}, #{summary}, #{importance}, COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb), COALESCE(#{reviewStatus}, 'NEEDS_REVIEW'))
     RETURNING id
   </select>
 
@@ -171,7 +169,6 @@
         summary = #{summary},
         importance = #{importance},
         story_functions_json = COALESCE(#{storyFunctionsJson}::jsonb, '[]'::jsonb),
-        continuity_state_json = COALESCE(#{continuityStateJson}::jsonb, '{}'::jsonb),
         review_status = COALESCE(#{reviewStatus}, review_status),
         updated_at = #{updatedAt},
         row_version = row_version + 1
@@ -236,14 +233,14 @@
 
   <!-- VisualBeat -->
   <select id="findVisualBeats" resultMap="beat">
-    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, dramatic_intent, emotion, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
+    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, dramatic_intent, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
     FROM visual_beats
     WHERE scene_id IN <foreach collection="sceneIds" item="id" open="(" separator="," close=")">#{id}</foreach>
     ORDER BY scene_id, order_index, id
   </select>
 
   <select id="findVisualBeat" resultMap="beat">
-    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, dramatic_intent, emotion, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
+    SELECT id, row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, beat_type, visual_summary, visual_description, visual_direction_json, dramatic_intent, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json
     FROM visual_beats
     WHERE id = #{id}
   </select>
@@ -253,8 +250,8 @@
   </select>
 
   <select id="insertVisualBeat" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow" resultType="java.util.UUID" affectData="true">
-    INSERT INTO visual_beats (row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, visual_direction_json, dramatic_intent, emotion, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json)
-    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{storyBeatId}, #{orderIndex}, #{title}, #{visualIntent}, COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb), COALESCE(#{dramaticIntent}, 'SETUP'), #{emotion}, #{retentionRole}, #{reviewStatus}, #{motionMode}, COALESCE(CAST(#{relativeWeight} AS numeric), 1.0), COALESCE(#{visualFocus}, 'SPEAKER'), #{aspectRatioOverride}, #{previewMediaAssetId}, #{textStart}, #{textEnd}, #{audioDurationMs}, #{sourceAnchorJson}::jsonb)
+    INSERT INTO visual_beats (row_version, created_at, updated_at, scene_id, story_beat_id, order_index, title, visual_intent, visual_direction_json, dramatic_intent, retention_role, review_status, motion_mode, relative_weight, visual_focus, aspect_ratio_override, preview_media_asset_id, text_start, text_end, audio_duration_ms, source_anchor_json)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{sceneId}, #{storyBeatId}, #{orderIndex}, #{title}, #{visualIntent}, COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb), COALESCE(#{dramaticIntent}, 'SETUP'), #{retentionRole}, #{reviewStatus}, #{motionMode}, COALESCE(CAST(#{relativeWeight} AS numeric), 1.0), COALESCE(#{visualFocus}, 'SPEAKER'), #{aspectRatioOverride}, #{previewMediaAssetId}, #{textStart}, #{textEnd}, #{audioDurationMs}, #{sourceAnchorJson}::jsonb)
     RETURNING id
   </select>
 
@@ -266,7 +263,6 @@
         visual_intent = #{visualIntent},
         visual_direction_json = COALESCE(#{visualDirectionJson}::jsonb, '{}'::jsonb),
         dramatic_intent = COALESCE(#{dramaticIntent}, dramatic_intent),
-        emotion = #{emotion},
         retention_role = #{retentionRole},
         review_status = #{reviewStatus},
         motion_mode = #{motionMode},

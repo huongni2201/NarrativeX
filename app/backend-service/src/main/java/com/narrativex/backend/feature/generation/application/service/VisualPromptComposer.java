@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterReference;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
@@ -21,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
  * Sole backend owner of the exact still-image prompt sent to image providers.
  *
  * <p>Story semantics and structured shot direction are authored upstream. This composer only
- * combines them with canonical continuity, references and the selected rendering language. Desktop
+ * combines them with canonical character and location context, references and rendering language. Desktop
  * and provider adapters must submit this output verbatim rather than wrapping or re-authoring it.
  */
 @Component
@@ -29,17 +31,30 @@ public final class VisualPromptComposer {
   static final int MAX_REFERENCE_IMAGES = 3;
 
   private final ObjectMapper objectMapper;
-  private final ContinuityPromptSection continuityPromptSection;
-
   public VisualPromptComposer(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
-    this.continuityPromptSection = new ContinuityPromptSection(objectMapper);
   }
 
   /** Compatibility overload for beats created before structured direction was persisted. */
   public ComposedVisualPrompt compose(
       ImageStyle style, String visualIntent, VisualPromptContext context) {
     return compose(style, visualIntent, null, null, context);
+  }
+
+  /** Legacy preset-id overload; resolves the built-in preset text from the defaults. */
+  public ComposedVisualPrompt compose(
+      ImageStyle style,
+      String visualIntent,
+      String visualDirectionJson,
+      String aspectRatio,
+      VisualPromptContext context) {
+    if (style == null) throw new IllegalArgumentException("style must not be null");
+    return compose(
+        PromptSettingsDefaults.settingsFor(style),
+        visualIntent,
+        visualDirectionJson,
+        aspectRatio,
+        context);
   }
 
   /**
@@ -54,13 +69,18 @@ public final class VisualPromptComposer {
     return compose(style, visualIntent, visualDirectionJson, null, context);
   }
 
+  /**
+   * Composes the provider prompt from an already resolved configuration. Callers resolve Prompt
+   * settings once per operation or batch; this composer never reads them itself.
+   */
   public ComposedVisualPrompt compose(
-      ImageStyle style,
+      PromptSettings settings,
       String visualIntent,
       String visualDirectionJson,
       String aspectRatio,
       VisualPromptContext context) {
-    if (style == null) throw new IllegalArgumentException("style must not be null");
+    if (settings == null) throw new IllegalArgumentException("settings must not be null");
+    var style = settings.activeStyle();
     if (visualIntent == null || visualIntent.isBlank()) {
       throw new IllegalArgumentException("visualIntent must not be blank");
     }
@@ -80,16 +100,19 @@ public final class VisualPromptComposer {
     appendShot(prompt, direction);
     appendCharacterLocks(prompt, safeContext.characters());
     appendCurrentState(prompt, safeContext.characters());
-    prompt.append(continuityPromptSection.render(safeContext.continuity()));
     appendEnvironment(prompt, safeContext.location(), direction);
     appendLightAndColor(prompt, direction);
     appendReferenceMap(prompt, selectedReferences);
-    prompt.append("\n\nSTYLE\n").append(styleLanguage(style));
+    prompt.append("\n\nSTYLE\n").append(style.positivePrompt());
+    String creativeDirection = settings.instructions().storyboard();
+    if (!creativeDirection.isBlank()) {
+      prompt.append("\n\nCREATIVE DIRECTION\n").append(creativeDirection);
+    }
     appendHardConstraints(prompt);
 
     return new ComposedVisualPrompt(
         prompt.toString(),
-        shotAwareNegativePrompt(style, direction.shotSize()),
+        shotAwareNegativePrompt(style.negativePrompt(), direction.shotSize()),
         characterSnapshotJson(safeContext.characters(), selectedReferenceIds),
         selectedReferences.stream().map(SelectedReference::toBinding).toList());
   }
@@ -248,17 +271,6 @@ public final class VisualPromptComposer {
         "\nReferences are authoritative identity evidence only. Preserve facial geometry, age, proportions, hair silhouette, skin tone and permanent traits; do not copy reference pose, crop, background, expression, lighting or outfit when CURRENT STATE or PINNED CONTINUITY specifies a different beat state.");
   }
 
-  private static String styleLanguage(ImageStyle style) {
-    return switch (style) {
-      case CINEMATIC_ANIME ->
-          "Premium semi-realistic 3D CGI with a high-budget East Asian animated-feature and cinematic game-cutscene aesthetic: believable proportional faces with subtle anime influence, refined facial planes, strand-level hair, physically based skin and fabric materials, soft subsurface scattering, coherent anatomy and perspective, motivated cinematic light, restrained filmic color, layered depth and creamy bokeh when the shot permits. Preserve canon rather than redesigning identity; never drift into flat 2D illustration or raw live-action photography.";
-      case CINEMATIC ->
-          "Grounded cinematic film-still rendering with coherent perspective, natural texture, motivated lighting, layered depth and restrained filmic color grading.";
-      case STORYBOOK_WATERCOLOR ->
-          "Cohesive storybook watercolor illustration with expressive silhouettes, soft edges, gentle paper texture, readable spatial depth and scene-grounded lighting.";
-    };
-  }
-
   private static void appendHardConstraints(StringBuilder prompt) {
     prompt.append(
         "\n\nHARD CONSTRAINTS"
@@ -269,14 +281,15 @@ public final class VisualPromptComposer {
             + "\nOne full-bleed frame only; no montage, collage, split screen, contact sheet or multiple panels.");
   }
 
-  private static String shotAwareNegativePrompt(ImageStyle style, String shotSize) {
+  private static String shotAwareNegativePrompt(String styleNegativePrompt, String shotSize) {
     Set<String> removed = new LinkedHashSet<>();
     if ("WIDE".equals(shotSize) || "ESTABLISHING".equals(shotSize)) {
       removed.add("character too small in frame");
       removed.add("empty background with no story context");
     }
-    return Arrays.stream(style.negativePrompt().split(",\\s*"))
+    return Arrays.stream(styleNegativePrompt.split(",\\s*"))
         .map(String::trim)
+        .filter(value -> !value.isEmpty())
         .filter(value -> !removed.contains(value))
         .distinct()
         .reduce((left, right) -> left + ", " + right)

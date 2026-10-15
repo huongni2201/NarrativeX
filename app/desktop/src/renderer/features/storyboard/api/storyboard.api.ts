@@ -32,9 +32,8 @@ export interface StoryboardVisualBeat {
   aspectRatioOverride: string | null;
   previewMediaAssetId: string | null;
   dramaticIntent?: string | null;
-  emotion?: string | null;
   retentionRole?: string | null;
-  shotSequence?: import("@narrativex/client-contracts").DesktopShotSequence | null;
+  shotSequence?: import("../../../../shared/api-types").DesktopShotSequence | null;
   rowVersion: number;
 }
 

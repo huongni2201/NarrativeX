@@ -8,7 +8,41 @@ public record ChapterStoryResponse(
     String chapterTitle,
     int chapterOrderIndex,
     UUID storyboardRevisionId,
-    List<StorySceneItem> scenes) {
+    List<StorySceneItem> scenes,
+    HookPlanItem hookPlan,
+    RetentionMapItem retentionMap) {
+
+  public ChapterStoryResponse(
+      UUID chapterId,
+      String chapterTitle,
+      int chapterOrderIndex,
+      UUID storyboardRevisionId,
+      List<StorySceneItem> scenes) {
+    this(chapterId, chapterTitle, chapterOrderIndex, storyboardRevisionId, scenes, null, null);
+  }
+
+  public record HookPlanItem(
+      UUID id,
+      UUID chapterId,
+      String promise,
+      String conflict,
+      String curiosityQuestion,
+      String visualHook,
+      String dialogueHook,
+      String withheldInformation,
+      UUID payoffBeatId) {}
+
+  public record AttentionEventItem(
+      String eventType, long timeOffsetMs, String description, String severity) {}
+
+  public record RetentionMapItem(
+      UUID id,
+      UUID chapterId,
+      List<Double> tensionCurve,
+      List<String> openQuestions,
+      List<String> resolvedQuestions,
+      List<AttentionEventItem> attentionEvents,
+      List<String> pacingWarnings) {}
 
   public record StorySceneItem(
       UUID id,
@@ -16,10 +50,6 @@ public record ChapterStoryResponse(
       int orderIndex,
       String title,
       String status,
-      String summary,
-      String mood,
-      String lighting,
-      String timeOfDay,
       String locationText,
       UUID projectLocationId,
       List<StoryBeatItem> storyBeats,
@@ -38,7 +68,6 @@ public record ChapterStoryResponse(
       Integer sourceEnd,
       String sourceAnchorJson,
       String storyFunctionsJson,
-      String continuityStateJson,
       String reviewStatus,
       List<AudioCueItem> audioCues,
       List<VisualBeatItem> visualBeats,

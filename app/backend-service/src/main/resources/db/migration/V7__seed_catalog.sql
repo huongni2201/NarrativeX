@@ -59,3 +59,5 @@ SET provider = EXCLUDED.provider,
     enabled = TRUE,
     updated_at = CURRENT_TIMESTAMP;
 
+-- Singleton chapter-analysis runtime configuration row (all values use column defaults).
+INSERT INTO analysis_runtime_configuration (singleton_id) VALUES (TRUE);

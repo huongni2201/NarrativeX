@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DesktopChapterStory, StoryBeatReviewStatus } from "@narrativex/client-contracts";
+import type { DesktopChapterStory, StoryBeatReviewStatus } from "../../../../shared/api-types";
 import { storyApi } from "../api/story.api.ts";
 
 export const storyQueryKeys = {

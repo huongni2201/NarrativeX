@@ -19,7 +19,6 @@ public class CreateProjectUseCase {
   public Project execute(CreateProjectCommand command) {
     String sourceLanguage = defaultValue(command.sourceLanguage(), "vi-VN");
     String narrationLanguage = defaultValue(command.narrationLanguage(), sourceLanguage);
-    String metadataLanguage = defaultValue(command.metadataLanguage(), sourceLanguage);
     AspectRatio ratio =
         command.imageAspectRatio() == null || command.imageAspectRatio().isBlank()
             ? AspectRatio.RATIO_16_9
@@ -31,7 +30,6 @@ public class CreateProjectUseCase {
                 command.description(),
                 sourceLanguage,
                 narrationLanguage,
-                metadataLanguage,
                 ratio));
     log.info(
         "Created project id={} (name='{}', sourceLanguage={})",

@@ -11,7 +11,6 @@ public record ProjectResponse(
     String status,
     String sourceLanguage,
     String narrationLanguage,
-    String metadataLanguage,
     String imageAspectRatio,
     long rowVersion) {
   public static ProjectResponse from(Project project) {
@@ -23,7 +22,6 @@ public record ProjectResponse(
         project.getStatus().name(),
         project.getSourceLanguage(),
         project.getNarrationLanguage(),
-        project.getMetadataLanguage(),
         project.getImageAspectRatio().getCode(),
         project.getRowVersion());
   }

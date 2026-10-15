@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const contracts = await readFile(
-  new URL("../../../packages/client-contracts/src/production.ts", import.meta.url),
+  new URL("../src/shared/api-types/production.ts", import.meta.url),
   "utf8",
 );
 const manifest = await readFile(

@@ -2,7 +2,7 @@ import type {
   DesktopProject,
   LocalRenderPreflight,
   LocalRenderPreflightAssetInput,
-} from "@narrativex/client-contracts";
+} from "../shared/api-types";
 
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
@@ -200,6 +200,13 @@ export interface DesktopSseHandlers {
 }
 
 export interface NarrativeXDesktopBridge {
+  storyAnalysis: {
+    status(): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
+    refresh(): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
+    models(): Promise<import("../shared/story-analysis").AgyModel[]>;
+    openAgy(): Promise<void>;
+    openTerms(): Promise<void>;
+  };
   appVersion(): Promise<string>;
   api: {
     request(input: DesktopApiRequest): Promise<DesktopApiResponse>;

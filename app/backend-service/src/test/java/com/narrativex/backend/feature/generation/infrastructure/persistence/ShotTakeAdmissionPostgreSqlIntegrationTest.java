@@ -74,7 +74,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     video.setSupportedStrategies(List.of(GenerationStrategy.TEXT_TO_VIDEO));
     projectId =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('admission','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('admission','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
     UUID story =
         id(
             "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Saved script','en','ACTIVE') RETURNING id",
@@ -134,6 +134,12 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   int count(String table) {
+    if (table.equals("outbox_events")) {
+      return jdbc.queryForObject(
+          "SELECT COUNT(*) FROM outbox_events o JOIN generation_jobs j ON o.aggregate_id = j.job_id::text WHERE o.aggregate_type = 'GENERATION_JOB' AND j.project_id = ?",
+          Integer.class,
+          projectId);
+    }
     return jdbc.queryForObject(
         "SELECT COUNT(*) FROM "
             + table
@@ -308,9 +314,15 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     var take = admission.execute(command("native", null));
     var frozen = snapshot(take);
     assertThat(frozen.audioMode()).isEqualTo("LTX_NATIVE_AV");
-    assertThat(frozen.inputs().get("prompt").toString())
+    assertThat(json.writeValueAsString(frozen.inputs().get("voiceReference")))
+        .contains("Adult warm baritone", "Northern Vietnamese");
+    assertThat(json.writeValueAsString(frozen.inputs().get("dialogue")))
         .contains(
-            "Adult warm baritone", "Northern Vietnamese", "Approved cue 3", "INNER_MONOLOGUE");
+            "Approved cue 0",
+            "Approved cue 1",
+            "Approved cue 2",
+            "Approved cue 3",
+            "Adult warm baritone");
     assertThat(json.writeValueAsString(frozen.context()))
         .contains(version.toString(), voice.toString(), "\"versionNumber\":3");
     jdbc.update(
@@ -339,7 +351,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     }
     UUID other =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('other','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('other','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
     UUID asset = UUID.randomUUID();
     jdbc.update(
         "INSERT INTO media_assets(id,project_id,asset_type,origin,original_filename,content_type,size_bytes,sha256,status) VALUES (?,?,'IMAGE','USER_UPLOAD','frame','image/png',10,?,'READY')",
@@ -400,6 +412,25 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     } catch (GenerationAdmissionDeniedException e) {
       return false;
     }
+  }
+
+  @Test
+  void restartSubmittingReconcilesSameAttempt() {
+    var admitted = admission.execute(command("restart-submitting", 42L));
+    UUID attemptId = jobs.findByJobId(admitted.jobId()).orElseThrow().getComputeAttemptId();
+    assertThat(claim(admitted.jobId())).isTrue();
+    assertThat(jobs.findJobsDueForReconciliation(java.time.Instant.now().plusSeconds(60), 100))
+        .filteredOn(job -> job.getJobId().equals(admitted.jobId()))
+        .singleElement()
+        .satisfies(
+            job -> {
+              assertThat(job.getComputeAttemptId()).isEqualTo(attemptId);
+              assertThat(job.getStatus())
+                  .isEqualTo(
+                      com.narrativex.backend.feature.generation.domain.enums.JobStatus.SUBMITTING);
+            });
+    assertThat(jobs.countActiveVideoExecutions()).isEqualTo(1);
+    assertThat(claim(admitted.jobId())).isFalse();
   }
 
   @Test

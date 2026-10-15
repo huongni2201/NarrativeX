@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -10,6 +11,7 @@ import com.narrativex.backend.feature.generation.application.port.out.Production
 import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.ChapterSource;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -146,6 +148,68 @@ class GetProductionTimelineUseCaseTest {
     assertThat(timeline.beats().getFirst().endMs()).isEqualTo(4_000L);
     assertThat(timeline.readyForRender()).isFalse();
     assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
+  }
+
+  @Test
+  void chapterScopedTimelineMatchesTheChapterEntryOfTheProjectTimeline() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID readyChapterId = UUID.randomUUID();
+    UUID fallbackChapterId = UUID.randomUUID();
+    String words =
+        """
+        [
+          {"index":0,"textStart":0,"textEnd":39,"audioStartMs":0,"audioEndMs":3500,"confidence":0.99},
+          {"index":1,"textStart":40,"textEnd":100,"audioStartMs":4000,"audioEndMs":10000,"confidence":0.98}
+        ]
+        """;
+    ChapterSource ready = chapterWithAlignment(storyVersionId, readyChapterId, 10_000L, words, 2);
+    ChapterSource fallback = chapter(storyVersionId, fallbackChapterId, 6_000L, 2);
+    List<BeatSource> readyBeats =
+        List.of(
+            beatWithText(readyChapterId, 0, 0, 0, 40, "b".repeat(64)),
+            beatWithText(readyChapterId, 0, 1, 40, 100, "c".repeat(64)));
+    List<BeatSource> fallbackBeats =
+        List.of(
+            beatWithText(fallbackChapterId, 1, 0, 0, 40, "d".repeat(64)),
+            beatWithText(fallbackChapterId, 1, 1, 40, 100, "e".repeat(64)));
+    when(sourceRepository.findChapters(projectId)).thenReturn(List.of(ready, fallback));
+    when(sourceRepository.findBeats(projectId))
+        .thenReturn(
+            java.util.stream.Stream.concat(readyBeats.stream(), fallbackBeats.stream()).toList());
+    when(sourceRepository.findChapter(projectId, readyChapterId)).thenReturn(Optional.of(ready));
+    when(sourceRepository.findChapter(projectId, fallbackChapterId))
+        .thenReturn(Optional.of(fallback));
+    when(sourceRepository.findBeats(projectId, readyChapterId)).thenReturn(readyBeats);
+    when(sourceRepository.findBeats(projectId, fallbackChapterId)).thenReturn(fallbackBeats);
+
+    var project = useCase.execute(projectId);
+
+    for (UUID chapterId : List.of(readyChapterId, fallbackChapterId)) {
+      var expected =
+          project.chapters().stream().filter(c -> c.chapterId().equals(chapterId)).findFirst();
+      var scoped = useCase.executeForChapter(projectId, chapterId);
+      assertThat(scoped).isPresent();
+      assertThat(scoped.get().readyForRender()).isEqualTo(expected.get().readyForRender());
+      assertThat(scoped.get().beatCount()).isEqualTo(expected.get().beatCount());
+      assertThat(scoped.get().readyBeatCount()).isEqualTo(expected.get().readyBeatCount());
+      assertThat(scoped.get().audioDurationMs()).isEqualTo(expected.get().audioDurationMs());
+      assertThat(scoped.get().audioChecksum()).isEqualTo(expected.get().audioChecksum());
+      assertThat(scoped.get().endMs() - scoped.get().startMs())
+          .isEqualTo(expected.get().endMs() - expected.get().startMs());
+    }
+    assertThat(project.chapters().get(0).readyForRender()).isTrue();
+    assertThat(project.chapters().get(1).readyForRender()).isFalse();
+  }
+
+  @Test
+  void chapterScopedTimelineIsEmptyForAnUnknownChapter() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    when(sourceRepository.findChapter(projectId, chapterId)).thenReturn(Optional.empty());
+
+    assertThat(useCase.executeForChapter(projectId, chapterId)).isEmpty();
+    verify(sourceRepository, never()).findBeats(projectId, chapterId);
   }
 
   private static ChapterSource chapter(

@@ -32,6 +32,9 @@ public class ProjectCharacterReadRow {
   private String versionStatus;
   private String bible;
   private String visualPrompt;
+  private String referencePolicy;
+  private String visualProfileJson;
+  private UUID basedOnVersionId;
   private String ageState;
   private String hairstyle;
   private String injury;

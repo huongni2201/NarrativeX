@@ -43,13 +43,24 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
   }
 
   @Override
+  public long countQueued(UUID jobId) {
+    return mapper.countQueued(jobId);
+  }
+
+  @Override
+  public Optional<UUID> findBatchJobIdByLeaf(UUID leafGenerationJobId) {
+    return Optional.ofNullable(mapper.findBatchJobIdByLeaf(leafGenerationJobId));
+  }
+
+  @Override
   public boolean review(UUID itemId, long rowVersion, String decision) {
     return mapper.review(itemId, rowVersion, decision) == 1;
   }
 
   @Override
   public void bindLeaf(UUID itemId, UUID leafJobId, UUID takeId) {
-    if (mapper.bindLeaf(itemId, leafJobId, takeId) != 1) throw new IllegalStateException("Batch item already bound");
+    if (mapper.bindLeaf(itemId, leafJobId, takeId) != 1)
+      throw new IllegalStateException("Batch item already bound");
   }
 
   @Override
@@ -75,8 +86,13 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
         item.getReviewStatus(),
         item.getReviewedAt(),
         null,
-        null, item.getShotId(), item.getOrderIndex(), item.getLeafGenerationJobId(), item.getTakeId(),
-        item.getFrozenInputJson(), item.getFrozenInputFingerprint());
+        null,
+        item.getShotId(),
+        item.getOrderIndex(),
+        item.getLeafGenerationJobId(),
+        item.getTakeId(),
+        item.getFrozenInputJson(),
+        item.getFrozenInputFingerprint());
   }
 
   private static MediaGenerationItem toDomain(MediaGenerationItemRow row) {
@@ -96,7 +112,12 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
         row.getErrorCode(),
         row.getErrorDetailRef(),
         row.getReviewStatus(),
-        row.getReviewedAt(), row.getShotId(), row.getOrderIndex(), row.getLeafGenerationJobId(),
-        row.getTakeId(), row.getFrozenInputJson(), row.getFrozenInputFingerprint());
+        row.getReviewedAt(),
+        row.getShotId(),
+        row.getOrderIndex(),
+        row.getLeafGenerationJobId(),
+        row.getTakeId(),
+        row.getFrozenInputJson(),
+        row.getFrozenInputFingerprint());
   }
 }

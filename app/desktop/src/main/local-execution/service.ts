@@ -423,9 +423,10 @@ export class LocalExecutionService extends EventEmitter {
     signal: AbortSignal,
   ): Promise<PreparedProjectRender> {
     try {
+      const nativeAudio = JSON.parse(claimed.renderProfileJson).audioMode === "NATIVE_TAKE";
       const chapters = await mapWithConcurrency(claimed.chapters, 2, async (chapter) => ({
         ...chapter,
-        localPath: await this.resolveRenderAsset(
+        localPath: nativeAudio ? "" : await this.resolveRenderAsset(
           claimed.projectId,
           narrationCacheKey(chapter.narrationAssetId, chapter.checksum),
           "AUDIO",

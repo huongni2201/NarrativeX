@@ -135,7 +135,8 @@ public class CreateProjectRenderUseCase {
         command.localDeviceId(),
         command.fps(),
         command.subtitlesEnabled(),
-        false);
+        false,
+        command.subtitleStyle());
 
     OperationPlan plan =
         operationPlanRepository.save(
@@ -173,6 +174,11 @@ public class CreateProjectRenderUseCase {
   static ProductionTimelineView applyBeatOverrides(
       ProductionTimelineView timeline, List<RenderBeatOverride> overrides) {
     if (overrides == null || overrides.isEmpty()) return timeline;
+    if ("NATIVE_TAKE".equals(timeline.audioMode())) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_RENDER_OVERRIDE",
+          "Native takes use immutable selected-shot In/Out cuts; update shot selection before admission.");
+    }
 
     Set<UUID> seen = new HashSet<>();
     Map<UUID, RenderBeatOverride> overrideByBeat = new LinkedHashMap<>();
@@ -330,7 +336,10 @@ public class CreateProjectRenderUseCase {
             + ":"
             + command.subtitlesEnabled()
             + ":"
-            + overrides);
+            + overrides
+            + (command.subtitleStyle() == null
+                ? ""
+                : ":subtitle-style:" + command.subtitleStyle().toJson()));
   }
 
   private static String idempotencyKey(

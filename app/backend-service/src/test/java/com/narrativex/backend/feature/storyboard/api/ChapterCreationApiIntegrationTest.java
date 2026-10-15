@@ -31,9 +31,9 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
   void seedProjectWithoutStoryVersion() {
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, description, status, source_language,"
-            + " narration_language, metadata_language, image_aspect_ratio)"
+            + " narration_language, image_aspect_ratio)"
             + " VALUES (?, 'P1003', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN',"
-            + " 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
+            + " 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_ID);
   }
 

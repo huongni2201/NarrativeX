@@ -103,8 +103,8 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   private void insertProject(UUID id) {
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, description, status, source_language,"
-            + " narration_language, metadata_language, image_aspect_ratio)"
-            + " VALUES (?, ?, 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')"
+            + " narration_language, image_aspect_ratio)"
+            + " VALUES (?, ?, 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'RATIO_16_9')"
             + " ON CONFLICT (id) DO NOTHING",
         id,
         "Render project " + id);
@@ -119,8 +119,8 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
         projectId);
     jdbcTemplate.update(
         "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash,"
-            + " status, estimated_duration_ms, generation_progress) VALUES (?, ?, 0, 'Chapter',"
-            + " 'Text', repeat('a', 64), 'READY', 1000, 100) ON CONFLICT (id) DO NOTHING",
+            + " status, estimated_duration_ms) VALUES (?, ?, 0, 'Chapter',"
+            + " 'Text', repeat('a', 64), 'READY', 1000) ON CONFLICT (id) DO NOTHING",
         chapterId,
         storyId);
   }

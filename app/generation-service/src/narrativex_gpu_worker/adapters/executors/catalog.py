@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from narrativex_gpu_worker.application.errors import ExecutorNotSupportedError
 from narrativex_gpu_worker.application.ports.execution import ExecutorPort
+from narrativex_gpu_worker.application.ports.residency import RuntimeFamily
 from narrativex_gpu_worker.contracts import ComputeTask, ExecutorCapability
 
 
@@ -39,6 +40,19 @@ class ExecutorCatalog:
             probe = getattr(executor, "preflight", None)
             if probe is not None:
                 await probe()
+
+    async def unload_runtime(self, family: RuntimeFamily) -> None:
+        for executor in self._executors.values():
+            requirement = getattr(executor, "runtime_requirement", None)
+            unload = getattr(executor, "unload", None)
+            if requirement is not None and requirement.family == family and unload is not None:
+                await unload()
+
+    async def refresh_preflight(self) -> None:
+        for executor in self._executors.values():
+            refresh = getattr(executor, "refresh_preflight", None)
+            if refresh is not None:
+                await refresh()
 
     async def recover_handle(self, task: ComputeTask) -> str | None:
         executor = self._executors.get(task.model.executor)

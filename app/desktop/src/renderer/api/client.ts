@@ -1,5 +1,5 @@
 import { parseSuccessEnvelope } from "../../shared/api-envelope.ts";
-import type { ApiResponse, FieldViolation } from "@narrativex/client-contracts";
+import type { ApiResponse, FieldViolation } from "../../shared/api-types";
 import { isRecord, isString } from "./guards.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;

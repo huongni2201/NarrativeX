@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.character.application.query;
 
+import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -24,7 +25,19 @@ public record ProjectCharacterReadModel(
     Appearance appearance) {
 
   public record Version(
-      UUID id, Integer versionNumber, String status, String bible, String visualPrompt) {}
+      UUID id,
+      Integer versionNumber,
+      String status,
+      String bible,
+      String visualPrompt,
+      String referencePolicy,
+      CharacterVisualProfile visualProfile,
+      UUID basedOnVersionId) {
+    public Version(
+        UUID id, Integer versionNumber, String status, String bible, String visualPrompt) {
+      this(id, versionNumber, status, bible, visualPrompt, "LEGACY_IDENTITY_V1", null, null);
+    }
+  }
 
   public record Appearance(
       String ageState,

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import importlib
 import re
+import sys
 import tempfile
 import threading
 from collections.abc import Mapping
@@ -35,6 +37,7 @@ class WhisperXClient:
         self._whisperx_module = whisperx_module
         self._models: dict[str, tuple[Any, Mapping[str, Any]]] = {}
         self._model_lock = threading.Lock()
+        self._inference_lock = asyncio.Lock()
 
     async def align(
         self,
@@ -50,7 +53,37 @@ class WhisperXClient:
             raise WhisperXClientError("Narration script is empty")
         if not language.strip():
             raise WhisperXClientError("WhisperX forced alignment requires a language")
-        return await asyncio.to_thread(self._align_sync, audio_bytes, script, language.lower())
+        async with self._inference_lock:
+            inference = asyncio.create_task(
+                asyncio.to_thread(self._align_sync, audio_bytes, script, language.lower())
+            )
+            try:
+                return await asyncio.shield(inference)
+            except asyncio.CancelledError:
+                # Canceling an awaiter cannot stop CUDA work in a Python thread. Retain
+                # executor capacity and the outer residency lease until that work finishes.
+                while not inference.done():
+                    try:
+                        await asyncio.shield(inference)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not inference.cancelled():
+                    inference.exception()
+                raise
+
+    async def unload(self) -> None:
+        async with self._inference_lock:
+            await asyncio.to_thread(self._unload_sync)
+
+    def _unload_sync(self) -> None:
+        with self._model_lock:
+            self._models.clear()
+        gc.collect()
+        torch = sys.modules.get("torch")
+        if self.device.startswith("cuda") and torch is not None:
+            torch.cuda.empty_cache()
 
     def _align_sync(
         self,

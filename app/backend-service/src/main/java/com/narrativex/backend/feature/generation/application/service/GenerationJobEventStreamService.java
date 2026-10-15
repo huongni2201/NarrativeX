@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -26,6 +27,14 @@ public class GenerationJobEventStreamService {
   private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(15);
 
   private final GenerationJobRepository generationJobRepository;
+
+  /**
+   * {@code legacy}: poll every subscribed job on a short timer. {@code notify}: the realtime hub
+   * pushes changes from PostgreSQL NOTIFY, and the timer only remains as a slow safety net.
+   */
+  @Value("${narrativex.generation.sse.mode:legacy}")
+  private String sseMode;
+
   private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<Subscription>> subscriptions =
       new ConcurrentHashMap<>();
 
@@ -47,13 +56,40 @@ public class GenerationJobEventStreamService {
         });
     emitter.onError(ignored -> remove(jobId, subscription));
 
-    sendSnapshot(jobId, subscription, job, snapshotFor(jobId, job));
+    sendSnapshot(jobId, subscription, job, snapshotFor(job));
     return emitter;
   }
 
   @Scheduled(fixedDelayString = "${narrativex.generation.sse-watch-delay-ms:750}")
   public void publishChanges() {
+    if (notifyMode()) return;
     subscriptions.forEach(this::publishJobChanges);
+  }
+
+  /** Safety net for lost notifications and idle heartbeats; only active in notify mode. */
+  @Scheduled(
+      fixedDelayString = "${narrativex.generation.sse.safety-tick-ms:15000}",
+      initialDelayString = "${narrativex.generation.sse.safety-tick-ms:15000}")
+  public void publishSafetyTick() {
+    if (!notifyMode()) return;
+    subscriptions.forEach(this::publishJobChanges);
+  }
+
+  /** Called by the realtime hub when PostgreSQL announced a change for {@code jobId}. */
+  public void publishChangesFor(UUID jobId) {
+    var jobSubscriptions = subscriptions.get(jobId);
+    if (jobSubscriptions != null) {
+      publishJobChanges(jobId, jobSubscriptions);
+    }
+  }
+
+  /** Re-evaluates every subscribed job, for example after the notification listener reconnects. */
+  public void publishAllChanges() {
+    subscriptions.forEach(this::publishJobChanges);
+  }
+
+  private boolean notifyMode() {
+    return "notify".equalsIgnoreCase(sseMode);
   }
 
   int activeSubscriptionCount() {
@@ -61,6 +97,14 @@ public class GenerationJobEventStreamService {
   }
 
   private void publishJobChanges(UUID jobId, CopyOnWriteArrayList<Subscription> jobSubscriptions) {
+    // One evaluation per job at a time keeps snapshots ordered when notify and the safety tick
+    // race.
+    synchronized (jobSubscriptions) {
+      evaluateJob(jobId, jobSubscriptions);
+    }
+  }
+
+  private void evaluateJob(UUID jobId, CopyOnWriteArrayList<Subscription> jobSubscriptions) {
     if (jobSubscriptions.isEmpty()) {
       subscriptions.remove(jobId, jobSubscriptions);
       return;
@@ -73,7 +117,7 @@ public class GenerationJobEventStreamService {
     }
 
     GenerationJob job = current.get();
-    JobResponse snapshot = snapshotFor(jobId, job);
+    JobResponse snapshot = snapshotFor(job);
     for (Subscription subscription : jobSubscriptions) {
       if (!snapshot.equals(subscription.lastSnapshot())) {
         sendSnapshot(jobId, subscription, job, snapshot);
@@ -85,9 +129,8 @@ public class GenerationJobEventStreamService {
     }
   }
 
-  private JobResponse snapshotFor(UUID jobId, GenerationJob job) {
-    var analysisProgress = generationJobRepository.findAnalysisProgressByJobId(jobId).orElse(null);
-    return JobResponse.fromWithAnalysisProgress(job, analysisProgress);
+  private JobResponse snapshotFor(GenerationJob job) {
+    return JobResponse.from(job);
   }
 
   private void sendSnapshot(
@@ -151,17 +194,9 @@ public class GenerationJobEventStreamService {
         + ':'
         + value(snapshot.errorCode())
         + ':'
-        + value(snapshot.phase())
-        + ':'
-        + value(snapshot.completedShards())
-        + ':'
         + value(snapshot.mediaPlanId())
         + ':'
-        + value(snapshot.mediaPlanRevision())
-        + ':'
-        + value(snapshot.repairCount())
-        + ':'
-        + value(snapshot.continuityReportId());
+        + value(snapshot.mediaPlanRevision());
   }
 
   private static String value(Object value) {

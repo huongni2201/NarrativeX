@@ -62,9 +62,8 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
-              (name, status, source_language, narration_language, metadata_language,
-               image_aspect_ratio)
-            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9')
+              (name, status, source_language, narration_language, image_aspect_ratio)
+            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'RATIO_16_9')
             RETURNING id
             """,
             UUID.class,

@@ -24,8 +24,6 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
 
   List<GenerationJobRow> findActiveChapterVideoBatches(@Param("limit") int limit);
 
-  AnalysisProgressRow findAnalysisProgressByJobId(@Param("jobId") UUID jobId);
-
   GenerationJobRow findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
 
   GenerationJobRow findLatestByIdempotencyFamily(

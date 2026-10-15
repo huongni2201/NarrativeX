@@ -8,9 +8,11 @@ import com.narrativex.backend.feature.generation.api.response.ProductionTimeline
 import com.narrativex.backend.feature.generation.api.response.ProjectRenderArtifactResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
+import com.narrativex.backend.feature.generation.application.render.ProjectSubtitleSettings;
 import com.narrativex.backend.feature.generation.application.usecase.CreateAutoEditedProjectRenderUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.ProjectSubtitleSettingsUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.UpdateProductionBeatMediaUseCase;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -34,6 +36,23 @@ public class ProductionRenderController {
   private final CreateAutoEditedProjectRenderUseCase createAutoEditedProjectRenderUseCase;
   private final GetProjectRenderArtifactUseCase getProjectRenderArtifactUseCase;
   private final UpdateProductionBeatMediaUseCase updateProductionBeatMediaUseCase;
+  private final ProjectSubtitleSettingsUseCase projectSubtitleSettingsUseCase;
+
+  @GetMapping("/subtitle-settings")
+  public ResponseEntity<ApiResponse<ProjectSubtitleSettings>> subtitleSettings(
+      @PathVariable UUID projectId) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Subtitle settings loaded", projectSubtitleSettingsUseCase.get(projectId)));
+  }
+
+  @PutMapping("/subtitle-settings")
+  public ResponseEntity<ApiResponse<ProjectSubtitleSettings>> updateSubtitleSettings(
+      @PathVariable UUID projectId, @Valid @RequestBody ProjectSubtitleSettings settings) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Subtitle settings saved", projectSubtitleSettingsUseCase.save(projectId, settings)));
+  }
 
   @GetMapping("/timeline")
   public ResponseEntity<ApiResponse<ProductionTimelineResponse>> timeline(
@@ -91,7 +110,8 @@ public class ProductionRenderController {
                 request.localDeviceId(),
                 request.fps(),
                 request.subtitlesEnabled(),
-                overrides));
+                overrides,
+                request.subtitleStyle()));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));
   }

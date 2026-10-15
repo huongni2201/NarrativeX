@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.character.domain.entity.CharacterVoiceProf
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.exception.ArchivedCharacterException;
 import com.narrativex.backend.feature.character.domain.exception.CharacterPersistenceRequiredException;
+import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
 import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import java.util.List;
@@ -58,6 +59,16 @@ public final class Character extends AggregateRoot {
   public CharacterVersion createVersion(int versionNumber, String bible, String visualPrompt) {
     ensureVersionCanBeCreated();
     return CharacterVersion.create(getId(), versionNumber, bible, visualPrompt);
+  }
+
+  public CharacterVersion createVersion(
+      int versionNumber,
+      String bible,
+      CharacterVisualProfile visualProfile,
+      UUID basedOnVersionId) {
+    ensureVersionCanBeCreated();
+    return CharacterVersion.createMultiView(
+        getId(), versionNumber, bible, visualProfile, basedOnVersionId);
   }
 
   public CharacterVoiceProfile createVoiceProfile(

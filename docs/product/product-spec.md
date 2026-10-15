@@ -1,0 +1,163 @@
+# NarrativeX — Product Specification
+
+**Status:** maintained product contract
+**Authority:** code, migrations, tests, and active ADRs
+
+
+## Product definition
+
+NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, single-user local-first, Project-first, review-first, audio-timeline-first, video-first and local-media-first.
+
+Project creation and Chapter saving persist metadata and source text only. Analysis, narration/audio processing, image generation and final rendering are explicit user operations.
+
+## Workspace & Identity
+
+NarrativeX boots directly into the local workspace per ADR-0001. There is no user account, login gate, guest installation identity, session cookie, or multi-tenant entitlement model. External provider credentials and GPU target settings are managed through application settings and runtime configuration.
+
+## Creator foundations
+
+- Single-user boot directly into workspace;
+- Project/StoryVersion/Chapter authoring and dashboard;
+- Durable Chapter Analyze with Character/Location/Scene/StoryBeat/AudioCue/VisualBeat materialization where supported (executed by Desktop through the user's `agy` CLI session, ADR-0009); legacy unassigned VisualBeat compatibility remains partial;
+- Generated narration plus native user-audio import and TTS-bypass foundations;
+- Generation-service task execution (VieNeu TTS, WhisperX forced alignment, ComfyUI RealVisXL image generation, media validation);
+- Native local image/audio/video registration and ProjectStorage materialization;
+- VisualBeat preview import is image-only; imported video remains in the Asset Library until imported Shot/Take is implemented;
+- Production timeline with narration-aligned timing and explicit beat media selection;
+- Auto Edit planning, render overrides and immutable subtitle snapshots;
+- Backend-assigned Desktop render claim and lease;
+- Electron FFmpeg/ffprobe render, journals/cache and local final artifact registration.
+
+## Visual intent and media model
+
+```text
+Project
+  -> StoryVersion
+      -> Chapter
+          -> Scene
+              -> StoryBeat
+                  -> AudioCue[]
+                  -> VisualBeat[]
+                      -> selected image or video MediaAsset
+```
+
+`VisualGenerationMode` supports `IMAGE` and `VIDEO`.
+
+- `IMAGE` remains available for scoped reference/keyframe and legacy image workflows through ComfyUI; it is not the active moving-footage path. The current executor does not condition output on character-reference bytes.
+- `VIDEO` is an implemented production intent backed by the LTX Native AV worker profile.
+- The active contract is narrowly verified for `video.generate:1.1`, text-to-video, 1280x720 at 24 FPS, and 16:9. It accepts structured dialogue and voice descriptions.
+- The current profile does not support reference-asset conditioning, I2V, or First/Last Frame. Backend admission blocks these paths before creating a Take or compute job.
+- The removed Wan/provider-side I2V runtime must not be restored implicitly.
+- A video-selected beat uses trim/fill/video semantics. Image-only camera motion must not be forced onto video media.
+
+## Narration
+
+```text
+Narration source
+  TTS (VieNeu)
+  USER_PROVIDED_AUDIO
+```
+
+Narration alignment is the timeline authority when narration or imported audio is the selected production clock. In `NATIVE_TAKE` mode, source audio follows the selected take's In/Out trim. Generated narration is written to project-local media and materialized into Desktop ProjectStorage. User-provided audio may span Chapters or use several ordered parts on one logical clock.
+
+## Project-media storage contract
+
+```text
+Generated project images        -> project-local media -> Desktop ProjectStorage
+Generated narration             -> project-local media -> Desktop ProjectStorage
+Imported image/audio/video      -> Desktop ProjectStorage
+PROJECT voice reference         -> Desktop ProjectStorage / manifest
+GLOBAL_LOCAL voice reference    -> local application voice library
+Render work/cache               -> Desktop project workspace/work
+Final MP4                       -> Desktop project workspace/artifacts
+Business/job/artifact metadata  -> PostgreSQL
+```
+
+Project bytes live locally. PostgreSQL stores metadata and opaque keys, while the backend may expose short-lived local-media capabilities for authorized Desktop transfer; it is not a durable media byte store.
+
+## Provider accounting boundary
+
+Monetary billing, credit balances, reservation settlement and user-facing provider-cost accounting are not part of the current runtime contract. System capacity limits enforce concurrent job limits. Provider execution retains only the non-monetary telemetry needed for diagnostics (such as token usage), while durable provider-operation fencing and UNKNOWN reconciliation remain authoritative for retry safety.
+
+## Final render contract
+
+```text
+backend-authorized production snapshot
+  -> assigned paired Desktop
+  -> claim + lease
+  -> resolve local asset IDs/checksums
+  -> FFmpeg/ffprobe
+  -> ASS subtitle burn-in when aligned cues are available
+  -> checksum-verified local MP4
+  -> backend artifact metadata only
+```
+
+There is one final-render executor: Electron main. There is no cloud/server final-render executor, server-side Chapter render path or remote final-video fallback.
+
+## Feature & Capability Matrix
+
+| Feature / Capability | Status | Current direction |
+|---|---|---|
+| Single-user local-first workspace | IMPLEMENTED | Direct workspace boot, Project-level boundary (ADR-0001) |
+| Authentication / account runtime | REMOVED | No User, Account, Session, OAuth or login gates |
+| Per-user quota / entitlement | REMOVED | Monetary billing, user credits and per-user quotas retired |
+| Runtime capacity limits | IMPLEMENTED foundation | System capacity reservations with terminal settlement |
+| Settings → Prompt (installation-wide styles and instructions) | PARTIAL | One configuration for all Projects; applies to new operations, frozen at admission; Desktop runtime unverified (ADR-0010, Proposed) |
+| Project / Chapter authoring | IMPLEMENTED foundation | Backend-authoritative persistence + Desktop UI |
+| StoryBeat semantic authoring | IMPLEMENTED foundation | Project -> StoryVersion -> Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]} (ADR-0006); legacy unassigned VisualBeat rows remain a compatibility path |
+| Chapter Workspace (4 stages) | IMPLEMENTED | Source, Canon, Story, Production stages with 5-tab inspector |
+| Chapter Analyze | PARTIAL | Durable backend job lifecycle; Desktop `agy` runner is wired but gated until the isolation check passes (ADR-0009) |
+| Character / Location continuity | PARTIAL | Typed visual profiles, eight-slot persistence and import/review/lock are implemented; generated image/video identity conditioning remains unproven |
+| Scene / VisualBeat storyboard | IMPLEMENTED foundation | Review + generation preparation |
+| `IMAGE` visual intent | IMPLEMENTED foundation | ComfyUI image tasks remain available for scoped reference/keyframe and legacy workflows; no character-reference conditioning |
+| `VIDEO` visual intent | IMPLEMENTED foundation | Video-first shot/take flow backed by the current text-to-video Native AV profile |
+| LTX Video Generation | IMPLEMENTED foundation | `video.generate:1.1`, 1280x720/24 FPS/16:9; reference conditioning and I2V remain unsupported |
+| VieNeu narration | IMPLEMENTED foundation | Segmented headless TTS persists a project-local WAV master |
+| User-provided narration | IMPLEMENTED foundation | Native import + logical audio clock |
+| Compute Protocol v1 | IMPLEMENTED | JSON Schema contracts in `contracts/compute/v1/` |
+| Generation-service execution plane | IMPLEMENTED foundation | Hexagonal FastAPI execution plane (`app/generation-service`) |
+| Backend compute dispatch | IMPLEMENTED foundation | Control-plane task submission, artifact verification, signed callbacks, idempotent receipt/finalization, reconciliation, and SSE |
+| Narration cutover | IMPLEMENTED foundation | VieNeu synthesis + WhisperX forced alignment through generation-service |
+| Image cutover | IMPLEMENTED foundation | ComfyUI/RealVisXL execution with backend-owned artifact materialization |
+| Legacy compute runtime removal | IMPLEMENTED | PostgreSQL-polling runtime, CI job and active configuration removed |
+| Native local media import | IMPLEMENTED foundation | Image/audio/video via Electron main |
+| Persisted beat media selection | IMPLEMENTED foundation | Effective image/video production source |
+| Mixed image/video timeline | IMPLEMENTED foundation | Video trim/fill semantics remain richer than image controls |
+| Auto Edit planning | IMPLEMENTED foundation | Narration-aware local render overrides |
+| Render subtitle track | IMPLEMENTED foundation | Immutable text/alignment/style snapshot → ASS subtitle burn-in when renderable cues exist; native word timing remains PARTIAL |
+| Desktop local workspace | IMPLEMENTED foundation | ProjectStorage/ProjectCatalog + manifest integrity |
+| Backup/restore/archive-copy | IMPLEMENTED foundation | Local snapshots and safe replacement |
+| Backend-assigned local render | IMPLEMENTED foundation | Paired device + claim/lease |
+| Desktop FFmpeg project render | IMPLEMENTED foundation | Single current final-render executor |
+| Render journal/cache | IMPLEMENTED foundation | Recovery/performance foundation |
+| Final MP4 local storage | IMPLEMENTED | Backend stores metadata only |
+| Direct final playback/export | IMPLEMENTED foundation | Local artifact, no backend byte proxy |
+| Cloud / server final render | REMOVED | No fallback executor |
+| Server-side Chapter render pipeline | REMOVED | Project render is the supported final-render path |
+| Generated project media via R2 | REMOVED | Images/narration are project-local |
+| Account-scoped voice storage in R2 | REMOVED | Voice assets transition to local storage (`PROJECT` / `GLOBAL_LOCAL`) |
+| MyBatis production persistence | IMPLEMENTED | Explicit PostgreSQL SQL |
+| Flyway schema | IMPLEMENTED foundation | Pre-production baseline is squashed into V1–V7. Installed database state must be checked separately in `database.md`. |
+| Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | Reconcile/fence before external resubmission |
+| Non-monetary provider usage telemetry | IMPLEMENTED foundation | Diagnostic usage where providers expose it; not pricing/accounting |
+| Abrupt process / OS render recovery UX | PARTIAL | Stage-aware journal resume, target lease checks, checksum validation, and discard exist; full Electron journey remains unverified |
+| Adaptive VisualScenePlanner | TARGET | Narration-driven adaptive scene/beat planning |
+| Rich reuse/reframe/edit lineage | DEFERRED fast-follow | Richer asset reuse after core reliability |
+| Packaging/signing/auto-update | TARGET | Release hardening |
+
+## Acceptance direction
+
+```text
+project source
+  -> analysis/review
+  -> narration + aligned timeline
+  -> generated/imported image or video media
+  -> explicit production selection
+  -> local materialization + integrity checks
+  -> backend-authorized Desktop render
+  -> validated local MP4
+```
+
+Provider success alone never completes a media stage. Results must be validated, assigned stable identity/lineage and materialized according to the active local-media contract.
+
+Active remaining work: [roadmap.md](roadmap.md).

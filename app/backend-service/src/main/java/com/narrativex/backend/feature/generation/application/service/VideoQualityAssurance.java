@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Automated Video Quality Assurance service implementing 11-category failure taxonomy and
- * reason-aware non-blind retry recommendations according to ADR-0029 and ADR-0030.
+ * reason-aware non-blind retry recommendations according to ADR-0008.
  */
 @Service
 public class VideoQualityAssurance {

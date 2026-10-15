@@ -49,6 +49,11 @@ export function subscribeProjectEvents(client: QueryClient, projectId: string, a
         if (!connected) { setConnected(true); refresh(); }
         return;
       }
+      if (event.event === "resync") {
+        // The backend lost its database notification stream for a while; events may be missing.
+        refresh();
+        return;
+      }
       let payload: unknown;
       try { payload = JSON.parse(event.data); } catch { refresh(); return; }
       if (!isRecord(payload) || payload.projectId !== projectId || typeof payload.jobId !== "string") return;

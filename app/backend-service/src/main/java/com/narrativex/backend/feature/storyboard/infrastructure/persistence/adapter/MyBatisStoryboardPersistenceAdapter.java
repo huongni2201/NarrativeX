@@ -186,7 +186,6 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
         row.getSummary(),
         row.getImportance(),
         row.getStoryFunctionsJson(),
-        row.getContinuityStateJson(),
         reviewStatus);
   }
 }

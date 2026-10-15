@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { runProcess } from "./process-runner";
-import { RenderExecutionError } from "./render-errors";
+import { runProcess } from "./process-runner.ts";
+import { RenderExecutionError } from "./render-errors.ts";
 
 export async function concatVideo(ffmpegPath: string, workDirectory: string, segments: readonly string[], signal?: AbortSignal): Promise<string> {
   const listPath = join(workDirectory, "video.concat.txt");

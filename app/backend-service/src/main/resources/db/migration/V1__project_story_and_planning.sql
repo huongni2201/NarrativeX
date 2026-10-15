@@ -1,4 +1,5 @@
--- NarrativeX pre-release baseline: project, story, storyboard, reusable entities, and media planning.
+-- NarrativeX pre-release baseline: project, story, storyboard, reusable entities (characters,
+-- voice profiles, locations), and media planning.
 -- Requires PostgreSQL 18+ for native uuidv7() used by domain migrations.
 
 -- -----------------------------------------------------------------------------
@@ -16,7 +17,6 @@ CREATE TABLE projects (
     status VARCHAR(32) NOT NULL,
     source_language VARCHAR(16) NOT NULL,
     narration_language VARCHAR(16) NOT NULL,
-    metadata_language VARCHAR(16) NOT NULL,
     image_aspect_ratio VARCHAR(16) NOT NULL,
     archived_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT ck_projects_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
@@ -54,7 +54,6 @@ CREATE TABLE chapters (
     source_hash VARCHAR(64) NOT NULL,
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     estimated_duration_ms BIGINT,
-    generation_progress INTEGER NOT NULL DEFAULT 0,
     source_story_version_id UUID REFERENCES story_versions(id),
     inherited_snapshot_hash VARCHAR(128),
     current_storyboard_revision_id UUID,
@@ -119,9 +118,17 @@ CREATE TABLE character_versions (
     version_number INTEGER NOT NULL,
     bible TEXT NOT NULL,
     visual_prompt TEXT NOT NULL,
+    reference_policy VARCHAR(32) NOT NULL DEFAULT 'LEGACY_IDENTITY_V1',
+    visual_profile JSONB,
+    based_on_version_id UUID REFERENCES character_versions(id),
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     locked_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT uk_character_versions_character_version UNIQUE (character_id, version_number)
+    CONSTRAINT uk_character_versions_character_version UNIQUE (character_id, version_number),
+    CONSTRAINT ck_character_versions_reference_policy CHECK (reference_policy IN ('LEGACY_IDENTITY_V1', 'MULTI_VIEW_V1')),
+    CONSTRAINT ck_character_versions_visual_profile CHECK (
+        (reference_policy = 'MULTI_VIEW_V1' AND visual_profile IS NOT NULL)
+        OR (reference_policy = 'LEGACY_IDENTITY_V1' AND visual_profile IS NULL)
+    )
 );
 
 CREATE TABLE outfit_versions (
@@ -155,6 +162,33 @@ CREATE TABLE character_appearances (
     CONSTRAINT uk_character_appearances_scope UNIQUE (character_id, project_id, timeline_key)
 );
 
+-- -----------------------------------------------------------------------------
+-- Character voice identity and profiles
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE character_voice_profiles (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    reference_asset_id UUID,
+    reference_scope VARCHAR(32) NOT NULL DEFAULT 'GLOBAL_LOCAL',
+    language VARCHAR(16) NOT NULL DEFAULT 'vi-VN',
+    accent VARCHAR(64),
+    voice_description TEXT NOT NULL DEFAULT '',
+    delivery_baseline TEXT NOT NULL DEFAULT '',
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    locked_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT uk_character_voice_profiles_version UNIQUE (character_id, version_number),
+    CONSTRAINT ck_character_voice_profiles_scope CHECK (reference_scope IN ('PROJECT', 'GLOBAL_LOCAL')),
+    CONSTRAINT ck_character_voice_profiles_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
+);
+
+ALTER TABLE characters
+    ADD COLUMN pinned_voice_profile_id UUID REFERENCES character_voice_profiles(id) ON DELETE SET NULL;
+
 CREATE TABLE project_characters (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
@@ -168,6 +202,7 @@ CREATE TABLE project_characters (
     story_metadata TEXT,
     groups_json JSONB NOT NULL DEFAULT '[]'::jsonb,
     pinned_character_version_id UUID REFERENCES character_versions(id),
+    pinned_voice_profile_id UUID REFERENCES character_voice_profiles(id) ON DELETE SET NULL,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     CONSTRAINT uk_project_characters_project_character UNIQUE (project_id, character_id),
     CONSTRAINT uq_project_characters_project_id_id UNIQUE (project_id, id),
@@ -188,7 +223,6 @@ CREATE TABLE project_locations (
     name VARCHAR(160) NOT NULL,
     description TEXT,
     visual_prompt TEXT,
-    reference_image_url TEXT,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     CONSTRAINT uq_project_locations_project_id_id UNIQUE (project_id, id),
     CONSTRAINT ck_project_locations_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
@@ -267,18 +301,13 @@ CREATE TABLE scenes (
     title VARCHAR(200) NOT NULL,
     narration TEXT,
     duration_seconds INTEGER CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
-    summary TEXT,
-    mood VARCHAR(64),
-    lighting VARCHAR(64),
-    time_of_day VARCHAR(32),
     location_text VARCHAR(200),
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     CONSTRAINT uk_scenes_revision_order UNIQUE (storyboard_revision_id, order_index),
     CONSTRAINT uq_scenes_chapter_id_id UNIQUE (chapter_id, id),
-    CONSTRAINT uq_scenes_scene_id_id UNIQUE (id),
     CONSTRAINT fk_scenes_project_location
         FOREIGN KEY (project_id, project_location_id)
-        REFERENCES project_locations(project_id, id) ON DELETE SET NULL
+        REFERENCES project_locations(project_id, id) ON DELETE SET NULL (project_location_id)
 );
 
 CREATE TABLE scene_characters (
@@ -302,14 +331,12 @@ CREATE TABLE story_beats (
     summary TEXT NOT NULL DEFAULT '',
     importance VARCHAR(24) NOT NULL DEFAULT 'NORMAL',
     story_functions_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    continuity_state_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     review_status VARCHAR(32) NOT NULL DEFAULT 'NEEDS_REVIEW',
     CONSTRAINT uk_story_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT uq_story_beats_scene_id_id UNIQUE (scene_id, id),
     CONSTRAINT ck_story_beats_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
     CONSTRAINT ck_story_beats_source_ranges CHECK (source_start IS NULL OR (source_end IS NOT NULL AND source_start >= 0 AND source_end > source_start)),
     CONSTRAINT ck_story_beats_story_functions_array CHECK (jsonb_typeof(story_functions_json) = 'array'),
-    CONSTRAINT ck_story_beats_continuity_state_object CHECK (jsonb_typeof(continuity_state_json) = 'object'),
     CONSTRAINT ck_story_beats_source_anchor_object CHECK (source_anchor_json IS NULL OR jsonb_typeof(source_anchor_json) = 'object'),
     CONSTRAINT ck_story_beats_source_anchor_ranges CHECK (
         source_anchor_json IS NULL OR (
@@ -375,6 +402,8 @@ CREATE TABLE visual_beats (
     text_end INTEGER,
     audio_duration_ms BIGINT,
     source_anchor_json JSONB,
+    dramatic_intent VARCHAR(32) NOT NULL DEFAULT 'SETUP',
+    retention_role VARCHAR(32),
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT uq_visual_beats_scene_id_id UNIQUE (scene_id, id),
     CONSTRAINT ck_visual_beats_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
@@ -390,7 +419,11 @@ CREATE TABLE visual_beats (
             AND (source_anchor_json ->> 'textEnd')::integer > (source_anchor_json ->> 'textStart')::integer
             AND (source_anchor_json ->> 'sourceHash') ~ '^[0-9a-f]{64}$'
         )
-    )
+    ),
+    CONSTRAINT fk_visual_beats_scene_story_beat
+        FOREIGN KEY (scene_id, story_beat_id)
+        REFERENCES story_beats(scene_id, id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE visual_beat_characters (
@@ -437,7 +470,7 @@ CREATE TABLE media_plans (
         AND basic_motion_seconds >= 0
         AND planned_i2v_seconds >= 0
     ),
-    CONSTRAINT ck_media_plans_production_mode CHECK (production_mode = 'IMAGE_MOTION')
+    CONSTRAINT ck_media_plans_production_mode CHECK (production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE'))
 );
 
 CREATE TABLE media_scene_plans (

@@ -45,7 +45,13 @@ public class GenerationEventStreamService implements GenerationEventStream {
     emitters.add(emitter);
     Runnable cleanup = () -> remove(emitter);
     emitter.onCompletion(cleanup);
-    emitter.onTimeout(cleanup);
+    // Complete on timeout: otherwise Spring dispatches AsyncRequestTimeoutException on a response
+    // that is already committed and logs it as a warning.
+    emitter.onTimeout(
+        () -> {
+          cleanup.run();
+          emitter.complete();
+        });
     emitter.onError(ignored -> cleanup.run());
     try {
       emitter.send(

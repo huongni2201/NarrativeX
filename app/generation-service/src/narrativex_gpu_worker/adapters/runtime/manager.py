@@ -83,6 +83,9 @@ class GpuResidencyManager:
             while self._active_leases > 0 and requirement.exclusive:
                 await self._condition.wait()
 
+            if self._is_poisoned:
+                raise ResidencyTransitionError("GPU residency is poisoned; cleanup is required")
+
             # Perform transition if target family differs from resident family
             if self._current_family != requirement.family:
                 await self._execute_transition(requirement.family)
@@ -136,6 +139,8 @@ class GpuResidencyManager:
 
                 # 3. Load target family if not NONE
                 if target_family != RuntimeFamily.NONE:
+                    # A partially loaded runtime remains owned if its hook fails.
+                    self._current_family = target_family
                     load_hook = self._load_hooks.get(target_family)
                     if load_hook is not None:
                         LOGGER.debug("Invoking load hook for %s", target_family)
@@ -145,9 +150,8 @@ class GpuResidencyManager:
                 self._is_poisoned = False
                 LOGGER.info("Successfully transitioned GPU residency to %s", target_family)
 
-        except (TimeoutError, Exception) as exc:
+        except BaseException as exc:
             self._is_poisoned = True
-            self._current_family = RuntimeFamily.NONE
             LOGGER.error(
                 "FAIL-CLOSED: GPU residency transition to %s failed: %s",
                 target_family,
@@ -159,6 +163,10 @@ class GpuResidencyManager:
                     f"Residency transition to {target_family} "
                     f"timed out after {self._transition_timeout}s"
                 ) from exc
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            if not isinstance(exc, Exception):
+                raise
             if isinstance(exc, ResidencyTransitionError):
                 raise
             raise ResidencyTransitionError(
@@ -171,17 +179,9 @@ class GpuResidencyManager:
             while self._active_leases > 0:
                 await self._condition.wait()
 
-            try:
-                async with asyncio.timeout(self._transition_timeout):
-                    if self._current_family != RuntimeFamily.NONE:
-                        unload_hook = self._unload_hooks.get(self._current_family)
-                        if unload_hook is not None:
-                            await unload_hook()
-            finally:
-                self._current_family = RuntimeFamily.NONE
-                self._is_poisoned = False
-                self._condition.notify_all()
-                LOGGER.info("Released all GPU residency leases and reset state to NONE")
+            await self._execute_transition(RuntimeFamily.NONE)
+            self._condition.notify_all()
+            LOGGER.info("Released all GPU residency leases and reset state to NONE")
 
 
 class NoOpRuntimeResidency:

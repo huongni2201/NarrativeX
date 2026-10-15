@@ -5,7 +5,7 @@ import type { LocalRenderBeat, LocalRenderManifest } from "./render-manifest";
 import { renderWorkingDimensions } from "./render-working-dimensions.ts";
 import { subtitleSlicesForBeat } from "./subtitle-ass.ts";
 
-const SEGMENT_ADAPTER_VERSION = "zoompan-rgb-adaptive-supersample-lanczos-ass-watermark-v2";
+const SEGMENT_ADAPTER_VERSION = "zoompan-rgb-adaptive-supersample-lanczos-ass-watermark-v3-integrity";
 
 /**
  * Fingerprint only inputs that can affect encoded pixels for one segment.
@@ -15,6 +15,7 @@ export function segmentCacheKey(
   manifest: LocalRenderManifest,
   beat: LocalRenderBeat,
   videoEncoder: VideoEncoder,
+  ffmpegVersion = "unverified",
 ): string {
   const moving = beat.mediaType === "IMAGE" && beat.cameraMovement?.trim().toUpperCase() !== "NONE";
   const working = renderWorkingDimensions(
@@ -33,7 +34,10 @@ export function segmentCacheKey(
         renderProfileSchemaVersion: manifest.renderProfileSchemaVersion,
         compositionPolicyVersion: manifest.compositionPolicyVersion,
         adapter: SEGMENT_ADAPTER_VERSION,
-        subtitleStyleVersion: SUBTITLE_STYLE_VERSION,
+        ffmpegVersion,
+        audioMode: manifest.audioMode ?? "EXTERNAL_NARRATION",
+        subtitleStyleVersion: manifest.subtitleStyle ? SUBTITLE_STYLE_VERSION : 1,
+        ...(manifest.subtitleStyle ? { subtitleStyle: subtitles.length ? manifest.subtitleStyle : null } : {}),
         subtitles,
         width: manifest.width,
         height: manifest.height,
@@ -51,6 +55,7 @@ export function segmentCacheKey(
           fitMode: beat.fitMode,
           framing: beat.framing,
           trimStartMs: beat.trimStartMs,
+          sourceOutMs: beat.sourceOutMs,
           cameraMovement: beat.cameraMovement,
           motionEasing: beat.motionEasing,
           frameCount: beat.frameCount,

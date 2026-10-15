@@ -12,6 +12,13 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisPromptSnapshot;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptInstructions;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisPromptSnapshotRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisSnapshotCapture;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
@@ -68,6 +75,9 @@ class EnqueueStoryAnalysisUseCaseTest {
   @Mock private StageAttemptRepository stageAttemptRepository;
   @Mock private GenerationOutboxRepository generationOutboxRepository;
   @Mock private ChapterAnalysisAdmissionService admissionService;
+  @Mock private PromptSettingsAccess promptSettingsAccess;
+  @Mock private ChapterAnalysisPromptSnapshotRepository promptSnapshots;
+  @Mock private ChapterAnalysisSnapshotCapture snapshotCapture;
 
   private EnqueueStoryAnalysisUseCase useCase;
 
@@ -152,6 +162,74 @@ class EnqueueStoryAnalysisUseCaseTest {
                         && a.getStageName().equals("CHAPTER_ANALYSIS")
                         && a.getAttemptNumber() == 1));
     verify(generationOutboxRepository).enqueue(persistedJob);
+  }
+
+  @Test
+  void freezesTheCurrentAnalysisInstructionBeforeSnapshotCaptureAndOutbox() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        useCase, "promptSettingsAccess", promptSettingsAccess);
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        useCase, "promptSnapshots", promptSnapshots);
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        useCase, "analysisSnapshotCapture", snapshotCapture);
+    PromptSettings defaults = PromptSettingsDefaults.settings();
+    PromptSettings current =
+        new PromptSettings(
+            defaults.formatVersion(),
+            4,
+            defaults.activeStyleId(),
+            defaults.styles(),
+            new PromptInstructions(
+                "Prefer short scenes.",
+                defaults.instructions().characterReference(),
+                defaults.instructions().storyboard(),
+                defaults.instructions().video()),
+            defaults.videoNegativePrompt());
+    var persistedJob = persistedJob(JobStatus.QUEUED);
+    when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
+        .thenReturn(snapshot());
+    var project = org.mockito.Mockito.mock(Project.class);
+    when(project.getSourceLanguage()).thenReturn("vi-VN");
+    when(projectAccess.findProject(PROJECT_ID)).thenReturn(project);
+    when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY))
+        .thenReturn(Optional.empty());
+    when(storyboardRevisionAccess.createDraft(CHAPTER_ID, SOURCE_HASH, CHAPTER_ROW_VERSION))
+        .thenReturn(STORYBOARD_REVISION_ID);
+    when(operationPlanRepository.save(org.mockito.ArgumentMatchers.any(OperationPlan.class)))
+        .thenReturn(OperationPlan.rehydrate(PLAN_ID, 0L, PROJECT_ID, null, "CHAPTER_ANALYZE"));
+    when(generationJobRepository.save(org.mockito.ArgumentMatchers.any(GenerationJob.class)))
+        .thenReturn(persistedJob);
+    when(promptSettingsAccess.current()).thenReturn(current);
+
+    useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID));
+
+    var frozen = org.mockito.ArgumentCaptor.forClass(ChapterAnalysisPromptSnapshot.class);
+    InOrder order = inOrder(promptSnapshots, snapshotCapture, generationOutboxRepository);
+    order.verify(promptSnapshots).save(frozen.capture());
+    order.verify(snapshotCapture).capture(persistedJob);
+    order.verify(generationOutboxRepository).enqueue(persistedJob);
+    assertEquals(persistedJob.getId(), frozen.getValue().generationJobId());
+    assertEquals(4L, frozen.getValue().settingsRevision());
+    assertEquals("Prefer short scenes.", frozen.getValue().instruction());
+    verify(promptSettingsAccess, times(1)).current();
+  }
+
+  @Test
+  void duplicateEnqueueNeitherResolvesNorFreezesPromptSettings() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        useCase, "promptSettingsAccess", promptSettingsAccess);
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        useCase, "promptSnapshots", promptSnapshots);
+    when(chapterAnalysisSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
+        .thenReturn(snapshot());
+    var existing = persistedJob(JobStatus.QUEUED);
+    when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY))
+        .thenReturn(Optional.of(existing));
+
+    assertSame(existing, useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID)));
+
+    verify(promptSettingsAccess, never()).current();
+    verify(promptSnapshots, never()).save(org.mockito.ArgumentMatchers.any());
   }
 
   @Test

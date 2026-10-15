@@ -1,4 +1,4 @@
-import type { GenerationJobStatus } from "@narrativex/client-contracts";
+import type { GenerationJobStatus } from "../../../shared/api-types";
 
 const ACTIVE_GENERATION_JOB_STATUSES = new Set<GenerationJobStatus>([
   "QUEUED",
@@ -20,6 +20,14 @@ export function isActiveGenerationJobStatus(
   return Boolean(
     status && ACTIVE_GENERATION_JOB_STATUSES.has(status as GenerationJobStatus),
   );
+}
+
+export function generationJobPollInterval(
+  queryStatus: string,
+  jobStatus: string | null | undefined,
+): number | false {
+  if (queryStatus === "error") return false;
+  return !jobStatus || isActiveGenerationJobStatus(jobStatus) ? 15_000 : false;
 }
 
 export function isActiveMediaExecutionStatus(

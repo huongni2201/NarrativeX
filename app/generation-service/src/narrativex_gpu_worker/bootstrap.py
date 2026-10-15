@@ -35,6 +35,7 @@ from narrativex_gpu_worker.application.ports.executors import ExecutorCatalogPor
 from narrativex_gpu_worker.application.ports.residency import (
     NullRuntimeResidency,
     RuntimeFamily,
+    RuntimeRequirement,
     RuntimeResidencyPort,
 )
 from narrativex_gpu_worker.application.services import ExecutionApplicationService
@@ -52,6 +53,7 @@ class ApplicationComponents:
     outbox: OutboxDeliveryService | None = None
     residency: RuntimeResidencyPort | None = None
     close_resources: Callable[[], Awaitable[None]] | None = None
+    prepare_resources: Callable[[], Awaitable[None]] | None = None
 
     async def close(self) -> None:
         if self.close_resources is not None:
@@ -172,9 +174,20 @@ def build_application(
             RuntimeFamily.WHISPERX,
             RuntimeFamily.LTX_VIDEO,
         )
+
+        def unload_hook(family: RuntimeFamily) -> Callable[[], Awaitable[None]]:
+            async def unload() -> None:
+                release = getattr(catalog, "unload_runtime", None)
+                if release is not None:
+                    await release(family)
+                assert supervisor is not None
+                await supervisor.stop(family)
+
+            return unload
+
         residency_manager = GpuResidencyManager(
             transition_timeout_seconds=settings.residency_transition_timeout_seconds,
-            unload_hooks={f: supervisor.create_unload_hook(f) for f in managed_families},
+            unload_hooks={f: unload_hook(f) for f in managed_families},
             load_hooks={f: supervisor.create_load_hook(f) for f in managed_families},
             vram_reclamation_probe=vram_probe.check_reclaimed,
         )
@@ -205,13 +218,36 @@ def build_application(
     )
 
     async def close_resources() -> None:
-        if outbox is not None:
-            await outbox.stop()
-        if client is not None:
-            await client.aclose()
-        if supervisor is not None:
-            await supervisor.stop_all()
-        await residency_manager.release_all()
+        try:
+            if outbox is not None:
+                await outbox.stop()
+        finally:
+            try:
+                await residency_manager.release_all()
+            finally:
+                try:
+                    if supervisor is not None:
+                        await supervisor.stop_all()
+                finally:
+                    if client is not None:
+                        await client.aclose()
+
+    async def prepare_resources() -> None:
+        preflight = getattr(catalog, "preflight", None)
+        if preflight is None:
+            return
+        if (
+            supervisor is not None
+            and settings.comfyui_command.strip()
+            and settings.ltx_runtime_directory
+        ):
+            # Residency tracks the booted dependency so a later family switch unloads it.
+            async with residency_manager.acquire(
+                RuntimeRequirement(family=RuntimeFamily.LTX_VIDEO)
+            ):
+                await preflight()
+        else:
+            await preflight()
 
     return ApplicationComponents(
         settings=settings,
@@ -220,6 +256,7 @@ def build_application(
         outbox=outbox,
         residency=residency_manager,
         close_resources=close_resources,
+        prepare_resources=prepare_resources,
     )
 
 
@@ -235,6 +272,7 @@ def create_app(
         execution=components.execution,
         outbox=components.outbox,
         close_resources=components.close,
+        prepare_resources=components.prepare_resources,
     )
     return create_http_app(state)
 

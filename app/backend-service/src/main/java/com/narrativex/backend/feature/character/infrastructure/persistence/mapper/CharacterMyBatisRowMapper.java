@@ -6,11 +6,13 @@ import com.narrativex.backend.feature.character.domain.entity.CharacterAppearanc
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVoiceProfile;
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
+import com.narrativex.backend.feature.character.domain.enums.CharacterReferencePolicy;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVoiceProfileStatus;
 import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
 import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
+import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterAppearanceRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionRow;
@@ -49,7 +51,14 @@ public class CharacterMyBatisRowMapper {
         row.getBible(),
         row.getVisualPrompt(),
         CharacterVersionStatus.valueOf(row.getStatus()),
-        row.getLockedAt());
+        row.getLockedAt(),
+        row.getReferencePolicy() == null
+            ? CharacterReferencePolicy.LEGACY_IDENTITY_V1
+            : CharacterReferencePolicy.valueOf(row.getReferencePolicy()),
+        row.getVisualProfileJson() == null || row.getVisualProfileJson().isBlank()
+            ? null
+            : read(row.getVisualProfileJson(), new TypeReference<CharacterVisualProfile>() {}),
+        row.getBasedOnVersionId());
   }
 
   public OutfitVersion toDomain(OutfitVersionRow row) {
@@ -167,6 +176,10 @@ public class CharacterMyBatisRowMapper {
     row.setVersionNumber(value.getVersionNumber());
     row.setBible(value.getBible());
     row.setVisualPrompt(value.getVisualPrompt());
+    row.setReferencePolicy(value.getReferencePolicy().name());
+    row.setVisualProfileJson(
+        value.getVisualProfile() == null ? null : write(value.getVisualProfile()));
+    row.setBasedOnVersionId(value.getBasedOnVersionId());
     row.setStatus(value.getStatus().name());
     row.setLockedAt(value.getLockedAt());
     return row;

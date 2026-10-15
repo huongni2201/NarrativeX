@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
@@ -9,7 +8,6 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
-import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeServiceProperties;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
@@ -32,8 +30,10 @@ public class ComputeExecutionDispatcher {
 
   private final GenerationJobRepository generationJobRepository;
   private final GenerationJobHandlerRegistry handlerRegistry;
+
   @Autowired(required = false)
-  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService batches;
+  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService
+      batches;
 
   @Autowired
   public ComputeExecutionDispatcher(
@@ -50,46 +50,7 @@ public class ComputeExecutionDispatcher {
       StoryboardMapper storyboardMapper,
       ChapterMapper chapterMapper,
       ComputeArtifactAccess artifactAccess,
-      MediaAssetRepository mediaAssetRepository) {
-    this(
-        generationJobRepository,
-        executionPort,
-        storyboardMapper,
-        chapterMapper,
-        artifactAccess,
-        mediaAssetRepository,
-        new DisabledChapterAnalysisProvider());
-  }
-
-  public ComputeExecutionDispatcher(
-      GenerationJobRepository generationJobRepository,
-      GenerationExecutionPort executionPort,
-      StoryboardMapper storyboardMapper,
-      ChapterMapper chapterMapper,
-      ComputeArtifactAccess artifactAccess,
       MediaAssetRepository mediaAssetRepository,
-      ChapterAnalysisProvider chapterAnalysisProvider) {
-    this(
-        generationJobRepository,
-        executionPort,
-        storyboardMapper,
-        chapterMapper,
-        artifactAccess,
-        mediaAssetRepository,
-        chapterAnalysisProvider,
-        null,
-        null,
-        null);
-  }
-
-  public ComputeExecutionDispatcher(
-      GenerationJobRepository generationJobRepository,
-      GenerationExecutionPort executionPort,
-      StoryboardMapper storyboardMapper,
-      ChapterMapper chapterMapper,
-      ComputeArtifactAccess artifactAccess,
-      MediaAssetRepository mediaAssetRepository,
-      ChapterAnalysisProvider chapterAnalysisProvider,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService) {
     this(
@@ -99,7 +60,6 @@ public class ComputeExecutionDispatcher {
         chapterMapper,
         artifactAccess,
         mediaAssetRepository,
-        chapterAnalysisProvider,
         canonMapper,
         canonReconciliationService,
         null);
@@ -112,7 +72,6 @@ public class ComputeExecutionDispatcher {
       ChapterMapper chapterMapper,
       ComputeArtifactAccess artifactAccess,
       MediaAssetRepository mediaAssetRepository,
-      ChapterAnalysisProvider chapterAnalysisProvider,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService,
       ChapterAnalysisRunRepository analysisRunRepository) {
@@ -126,7 +85,6 @@ public class ComputeExecutionDispatcher {
             transactionService,
             storyboardMapper,
             chapterMapper,
-            chapterAnalysisProvider,
             canonMapper,
             canonReconciliationService,
             analysisRunRepository);
@@ -147,7 +105,6 @@ public class ComputeExecutionDispatcher {
       ComputeServiceProperties properties,
       ComputeArtifactAccess artifactAccess,
       MediaAssetRepository mediaAssetRepository,
-      ChapterAnalysisProvider chapterAnalysisProvider,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService,
       ChapterAnalysisRunRepository analysisRunRepository) {
@@ -158,7 +115,6 @@ public class ComputeExecutionDispatcher {
         chapterMapper,
         artifactAccess,
         mediaAssetRepository,
-        chapterAnalysisProvider,
         canonMapper,
         canonReconciliationService,
         analysisRunRepository);

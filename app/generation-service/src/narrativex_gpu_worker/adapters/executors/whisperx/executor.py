@@ -47,6 +47,9 @@ class WhisperXExecutor:
     def runtime_requirement(self) -> RuntimeRequirement:
         return RuntimeRequirement(family=RuntimeFamily.WHISPERX, vram_budget_mb=3072)
 
+    async def unload(self) -> None:
+        await self._client.unload()
+
     async def execute(
         self,
         task: ComputeTask,

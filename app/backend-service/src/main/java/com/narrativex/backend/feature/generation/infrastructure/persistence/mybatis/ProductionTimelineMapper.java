@@ -6,7 +6,22 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface ProductionTimelineMapper extends NarrativeXMyBatisMapper {
-  List<ProductionTimelineChapterRow> findChapters(@Param("projectId") UUID projectId);
+  /** {@code chapterId == null} returns every chapter of the project's current story version. */
+  List<ProductionTimelineChapterRow> findChapters(
+      @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
 
-  List<ProductionTimelineBeatRow> findBeats(@Param("projectId") UUID projectId);
+  /** {@code chapterId == null} returns the beats of every chapter. */
+  List<ProductionTimelineBeatRow> findBeats(
+      @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
+
+  default List<ProductionTimelineChapterRow> findChapters(UUID projectId) {
+    return findChapters(projectId, null);
+  }
+
+  default List<ProductionTimelineBeatRow> findBeats(UUID projectId) {
+    return findBeats(projectId, null);
+  }
+
+  /** True when any current beat of the project already has a shot (native video timeline). */
+  boolean hasNativeShotBeats(@Param("projectId") UUID projectId);
 }

@@ -76,7 +76,6 @@ class UpdateStoryBeatReviewStatusUseCaseTest {
             "Summary text",
             "HIGH",
             "[]",
-            "{}",
             StoryBeatReviewStatus.APPROVED);
 
     when(storyboardRepository.updateStoryBeatReviewStatus(

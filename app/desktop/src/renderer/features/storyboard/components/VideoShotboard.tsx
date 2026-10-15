@@ -5,7 +5,7 @@ import type {
   DesktopTake,
   DesktopTimelineBeat,
   GenerationStrategy,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import {
   Check,
   Clapperboard,
@@ -151,21 +151,21 @@ export function VideoShotboard({
                 {/* Top Badges */}
                 <div className="absolute top-2 left-2 flex items-center gap-1.5 flex-wrap z-10">
                   {beat.dramaticIntent && (
-                    <Badge variant="secondary" className="text-[9px] bg-background/80 backdrop-blur-xs">
+                    <Badge variant="secondary" className="text-caption bg-background/80 backdrop-blur-xs">
                       {beat.dramaticIntent}
                     </Badge>
                   )}
                   {beat.retentionRole && (
                     <Badge
                       variant="outline"
-                      className="text-[9px] bg-cyan-soft text-cyan border-cyan/40 backdrop-blur-xs"
+                      className="text-caption bg-cyan-soft text-cyan border-cyan/40 backdrop-blur-xs"
                     >
                       {beat.retentionRole}
                     </Badge>
                   )}
                   <Badge
                     variant="outline"
-                    className="text-[9px] bg-background/80 backdrop-blur-xs font-mono"
+                    className="text-caption bg-background/80 backdrop-blur-xs font-mono"
                   >
                     {isVideo ? "VIDEO (720p/24)" : "REF IMAGE"}
                   </Badge>
@@ -173,7 +173,7 @@ export function VideoShotboard({
 
                 {/* Duration Tag */}
                 {timelineBeat && (
-                  <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-xs text-[10px] font-mono px-1.5 py-0.5 rounded text-foreground">
+                  <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-xs text-caption font-mono px-1.5 py-0.5 rounded text-foreground">
                     {(timelineBeat.durationMs / 1000).toFixed(1)}s
                   </div>
                 )}
@@ -182,25 +182,30 @@ export function VideoShotboard({
               {/* Shot Details */}
               <div className="p-3 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-[13px] text-foreground truncate">
+                  <h3 className="font-semibold text-body text-foreground truncate">
                     {beat.title}
                   </h3>
                   <Badge
                     variant={isApproved ? "default" : "outline"}
-                    className="text-[9px] shrink-0"
+                    className="text-caption shrink-0"
                   >
                     {isApproved ? "APPROVED" : "NEEDS_REVIEW"}
                   </Badge>
                 </div>
 
-                <p className="text-[11px] text-text-muted line-clamp-2">
+                <p className="text-caption text-text-muted line-clamp-2">
                   {beat.visualIntent}
                 </p>
 
                 {/* Shot Actions */}
                 <div className="border-t border-border-subtle pt-2 mt-1">
+                  {shot?.status === "MANUAL_REVIEW" && !shot.selectedTake ? (
+                    <div role="status" className="mb-2 rounded border border-warning/30 bg-warning/5 p-2 text-caption text-warning">
+                      Technical checks passed. Review a take and trim it before adding it to the timeline.
+                    </div>
+                  ) : null}
                   {shot?.preflight && !shot.preflight.ready && shot.preflight.blockers.length > 0 && (
-                    <div className="mb-1 text-[10px] text-destructive bg-destructive/10 p-1.5 rounded border border-destructive/20 font-mono">
+                    <div className="mb-1 text-caption text-destructive bg-destructive/10 p-1.5 rounded border border-destructive/20 font-mono">
                       Blocker: {shot.preflight.blockers[0]}
                     </div>
                   )}
@@ -260,11 +265,11 @@ export function VideoShotboard({
                 </div>
 
                 {/* Review & Import Actions */}
-                <div className="flex items-center gap-1.5 pt-2 border-t border-border-subtle text-[11px]">
+                <div className="flex items-center gap-1.5 pt-2 border-t border-border-subtle text-caption">
                   <Button
                     size="sm"
                     variant={isApproved ? "outline" : "default"}
-                    className="flex-1 h-7 text-[11px]"
+                    className="flex-1 h-7 text-caption"
                     disabled={updating}
                     onClick={() =>
                       onReview(beat, isApproved ? "NEEDS_REVIEW" : "APPROVED")
@@ -291,7 +296,7 @@ export function VideoShotboard({
                 </div>
 
                 {/* Prompt Accordion */}
-                <details className="border-t border-border-subtle pt-1 text-[10px]">
+                <details className="border-t border-border-subtle pt-1 text-caption">
                   <summary className="cursor-pointer text-text-dim hover:text-text-muted">
                     Compiled Video Prompt
                   </summary>
@@ -364,7 +369,7 @@ function BeatMediaPreview({
 
   if (!assetId) {
     return (
-      <div className="grid aspect-video place-items-center bg-surface-dark text-[10px] text-text-muted">
+      <div className="grid aspect-video place-items-center bg-surface-dark text-caption text-text-muted">
         <Film size={22} className="text-text-dim mb-1" />
         <span>No take generated</span>
       </div>
@@ -373,7 +378,7 @@ function BeatMediaPreview({
 
   if (!preview.data?.url || failed) {
     return (
-      <div className="grid aspect-video place-items-center bg-surface-dark text-[10px] text-text-muted">
+      <div className="grid aspect-video place-items-center bg-surface-dark text-caption text-text-muted">
         Preview unavailable
       </div>
     );
@@ -403,7 +408,7 @@ function BeatMediaPreview({
 
 function EmptyState({ title }: Readonly<{ title: string }>) {
   return (
-    <div className="grid min-h-48 place-items-center border-y border-dashed border-border-subtle text-center text-[11px] text-text-muted">
+    <div className="grid min-h-48 place-items-center border-y border-dashed border-border-subtle text-center text-caption text-text-muted">
       <div>
         <Clapperboard size={24} className="mx-auto mb-2 text-text-dim" />
         {title}

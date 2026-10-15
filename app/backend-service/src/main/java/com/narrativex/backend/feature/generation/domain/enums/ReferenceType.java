@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.generation.domain.enums;
 
-/** Types of reference assets conditioning video generation according to ADR-0028. */
+/** Types of reference assets conditioning video generation according to ADR-0008. */
 public enum ReferenceType {
   CHARACTER_REFERENCE,
   WARDROBE_REFERENCE,

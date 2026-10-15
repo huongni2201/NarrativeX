@@ -24,8 +24,9 @@ test("workspace navigation keeps production destinations contextual", () => {
 
   assert.doesNotMatch(shell, /\{ id: "images", label: "Media"/);
   assert.doesNotMatch(shell, /\{ id: "render", label: "Render"/);
-  assert.match(shell, /label: "Assets"/);
-  assert.match(shell, /label: "Settings"/);
+  assert.match(shell, /label: "Tài nguyên"/);
+  // Settings and Account are application-scoped (see account-navigation.test.mjs), not project activities.
+  assert.doesNotMatch(shell, /id: "settings"/);
 });
 
 test("shared controls encode NarrativeX desktop density", () => {
@@ -33,11 +34,12 @@ test("shared controls encode NarrativeX desktop density", () => {
   const input = source("components/ui/input.tsx");
   const textarea = source("components/ui/textarea.tsx");
 
-  assert.match(button, /text-\[12px\]/);
+  // Type scale (styles.css @theme): text-caption 12px, text-label 13px, text-body 14px.
+  assert.match(button, /text-label/);
   assert.match(button, /h-8/);
-  assert.match(input, /h-8/);
-  assert.match(input, /text-\[12px\]/);
-  assert.match(textarea, /text-\[12px\]/);
+  assert.match(input, /h-9\.5/);
+  assert.match(input, /text-body/);
+  assert.match(textarea, /text-label/);
 });
 
 test("editor workstation avoids decorative hard-coded selected glows", () => {
@@ -91,11 +93,12 @@ test("asset browser renders project-local image previews", () => {
   assert.match(assets, /<img/);
 });
 
-test("settings groups runtime diagnostics and project defaults", () => {
+test("settings is application-scoped and shows application controls", () => {
   const settings = source("features/settings/screens/SettingsScreen.tsx");
 
-  assert.match(settings, /Runtime & Storage/);
-  assert.match(settings, /Project Defaults/);
+  assert.match(settings, /title="Runtime"/);
+  assert.match(settings, /Reset all application settings/);
+  assert.doesNotMatch(settings, /DesktopWorkspaceState|Project Defaults|workspace\./);
   assert.doesNotMatch(settings, /max-w-3xl divide-y/);
 });
 

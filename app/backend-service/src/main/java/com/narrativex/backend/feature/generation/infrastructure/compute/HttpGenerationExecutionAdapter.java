@@ -229,7 +229,7 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
   }
 
   @Override
-  public void cancelTask(UUID taskId, UUID attemptId) {
+  public java.util.Optional<ComputeObservationDto> cancelTask(UUID taskId, UUID attemptId) {
     ComputeTargetAssignment assignment = requirePinnedTarget(taskId, attemptId);
     String executor = assignment.executor();
     String url =
@@ -260,6 +260,11 @@ public class HttpGenerationExecutionAdapter implements GenerationExecutionPort {
           && response.statusCode() != 404) {
         throw new ComputeClientException(response.statusCode(), response.body());
       }
+      if (response.statusCode() == 404 || response.body() == null || response.body().isBlank()) {
+        return java.util.Optional.empty();
+      }
+      return java.util.Optional.of(
+          objectMapper.readValue(response.body(), ComputeObservationDto.class));
     } catch (IOException e) {
       throw new ComputeClientException("Failed to cancel compute task at " + url, e);
     } catch (InterruptedException e) {

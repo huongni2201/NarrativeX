@@ -286,15 +286,44 @@ class SelectTakeUseCaseTest {
 
     ShotInfo shot =
         new ShotInfo(
-            shotId, UUID.randomUUID(), 1, "purpose", "HOOK", List.of(), null,
-            "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", 4000L,
-            GenerationStrategy.TEXT_TO_VIDEO, "STANDARD", "READY");
+            shotId,
+            UUID.randomUUID(),
+            1,
+            "purpose",
+            "HOOK",
+            List.of(),
+            null,
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            4000L,
+            GenerationStrategy.TEXT_TO_VIDEO,
+            "STANDARD",
+            "READY");
     when(storyboardAccess.findShot(projectId, shotId)).thenReturn(Optional.of(shot));
 
     TakeRecord take =
         new TakeRecord(
-            takeId, shotId, 1, "ltx", "ltx", GenerationStrategy.TEXT_TO_VIDEO,
-            assetId, 4000L, "{}", "PENDING", null, null, null, "RUNNING", Instant.now());
+            takeId,
+            shotId,
+            1,
+            "ltx",
+            "ltx",
+            GenerationStrategy.TEXT_TO_VIDEO,
+            assetId,
+            4000L,
+            "{}",
+            "PENDING",
+            null,
+            null,
+            null,
+            "RUNNING",
+            Instant.now());
     when(takeRepository.findById(takeId)).thenReturn(Optional.of(take));
 
     assertThatThrownBy(() -> useCase.execute(projectId, shotId, takeId, 0L, 4000L))
@@ -311,15 +340,44 @@ class SelectTakeUseCaseTest {
 
     ShotInfo shot =
         new ShotInfo(
-            shotId, UUID.randomUUID(), 1, "purpose", "HOOK", List.of(), null,
-            "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", 4000L,
-            GenerationStrategy.TEXT_TO_VIDEO, "STANDARD", "READY");
+            shotId,
+            UUID.randomUUID(),
+            1,
+            "purpose",
+            "HOOK",
+            List.of(),
+            null,
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            4000L,
+            GenerationStrategy.TEXT_TO_VIDEO,
+            "STANDARD",
+            "READY");
     when(storyboardAccess.findShot(projectId, shotId)).thenReturn(Optional.of(shot));
 
     TakeRecord take =
         new TakeRecord(
-            takeId, shotId, 1, "ltx", "ltx", GenerationStrategy.TEXT_TO_VIDEO,
-            assetId, 4000L, "{}", "FAILED", null, null, null, "COMPLETED", Instant.now());
+            takeId,
+            shotId,
+            1,
+            "ltx",
+            "ltx",
+            GenerationStrategy.TEXT_TO_VIDEO,
+            assetId,
+            4000L,
+            "{}",
+            "FAILED",
+            null,
+            null,
+            null,
+            "COMPLETED",
+            Instant.now());
     when(takeRepository.findById(takeId)).thenReturn(Optional.of(take));
 
     assertThatThrownBy(() -> useCase.execute(projectId, shotId, takeId, 0L, 4000L))
@@ -336,15 +394,44 @@ class SelectTakeUseCaseTest {
 
     ShotInfo shot =
         new ShotInfo(
-            shotId, UUID.randomUUID(), 1, "purpose", "HOOK", List.of(), null,
-            "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", 4000L,
-            GenerationStrategy.TEXT_TO_VIDEO, "STANDARD", "READY");
+            shotId,
+            UUID.randomUUID(),
+            1,
+            "purpose",
+            "HOOK",
+            List.of(),
+            null,
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            4000L,
+            GenerationStrategy.TEXT_TO_VIDEO,
+            "STANDARD",
+            "READY");
     when(storyboardAccess.findShot(projectId, shotId)).thenReturn(Optional.of(shot));
 
     TakeRecord take =
         new TakeRecord(
-            takeId, shotId, 1, "ltx", "ltx", GenerationStrategy.TEXT_TO_VIDEO,
-            assetId, null, "{}", "PASSED", null, null, null, "COMPLETED", Instant.now());
+            takeId,
+            shotId,
+            1,
+            "ltx",
+            "ltx",
+            GenerationStrategy.TEXT_TO_VIDEO,
+            assetId,
+            null,
+            "{}",
+            "PASSED",
+            null,
+            null,
+            null,
+            "COMPLETED",
+            Instant.now());
     when(takeRepository.findById(takeId)).thenReturn(Optional.of(take));
 
     MediaAssetAccess.MediaAssetSummary asset =

@@ -2,12 +2,17 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
+import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -53,6 +58,7 @@ class CreateMediaJobUseCaseTest {
   @Mock private GenerationOutboxRepository generationOutboxRepository;
   @Mock private StageAttemptRepository stageAttemptRepository;
   @Mock private ImageGenerationCatalog imageGenerationCatalog;
+  @Mock private PromptSettingsAccess promptSettingsAccess;
 
   @Mock
   private com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog
@@ -220,6 +226,167 @@ class CreateMediaJobUseCaseTest {
 
     assertThat(useCase.execute(command)).isSameAs(existingJob);
     verifyNoInteractions(projectAccess, chapterSourceAccess, generationOutboxRepository);
+  }
+
+  @Test
+  void requestFingerprintDoesNotDependOnTheStyleOrAnyPromptConfiguration() {
+    var cinematic =
+        new CreateMediaJobCommand(
+            PROJECT_ID, CHAPTER_ID, "k", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC);
+    var anime =
+        new CreateMediaJobCommand(
+            PROJECT_ID, CHAPTER_ID, "k", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC_ANIME);
+    var withRevision =
+        new CreateMediaJobCommand(
+            PROJECT_ID, CHAPTER_ID, "k", "IMAGE_MOTION", "16:9", null, "IMAGE", "API", 42L);
+
+    assertThat(CreateMediaJobUseCase.fingerprint(cinematic, "API"))
+        .isEqualTo(CreateMediaJobUseCase.fingerprint(anime, "API"))
+        .isEqualTo(CreateMediaJobUseCase.fingerprint(withRevision, "API"));
+    assertThat(CreateMediaJobUseCase.legacyFingerprint(cinematic, "API"))
+        .isNotEqualTo(CreateMediaJobUseCase.legacyFingerprint(anime, "API"));
+  }
+
+  @Test
+  void replayDoesNotResolveOrCompareCurrentPromptSettings() {
+    UUID existingInternalJobId = UUID.randomUUID();
+    UUID mediaPlanId = UUID.randomUUID();
+    UUID visualBeatId = UUID.randomUUID();
+    // Admitted earlier; the installation style has been changed and saved since, and this replay
+    // even carries a different legacy style hint and a stale expected revision.
+    var original =
+        new CreateMediaJobCommand(
+            PROJECT_ID, CHAPTER_ID, "replay-after-save", "IMAGE_MOTION", "16:9", null);
+    var replay =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "replay-after-save",
+            "IMAGE_MOTION",
+            "16:9",
+            null,
+            "IMAGE",
+            "API",
+            1L);
+    String itemFingerprint =
+        sha256(
+            CreateMediaJobUseCase.fingerprint(original, "API")
+                + ":"
+                + mediaPlanId
+                + ":"
+                + visualBeatId);
+    stubExistingJob(
+        "replay-after-save", existingInternalJobId, mediaPlanId, visualBeatId, itemFingerprint);
+
+    assertThat(useCase.execute(replay)).isSameAs(existingJob);
+
+    verifyNoInteractions(promptSettingsAccess, createMediaPlanUseCase, generationOutboxRepository);
+  }
+
+  @Test
+  void replaysJobsAdmittedBeforePromptSettingsUsingTheLegacyFingerprint() {
+    UUID existingInternalJobId = UUID.randomUUID();
+    UUID mediaPlanId = UUID.randomUUID();
+    UUID visualBeatId = UUID.randomUUID();
+    var command =
+        new CreateMediaJobCommand(
+            PROJECT_ID, CHAPTER_ID, "legacy-key", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC);
+    String legacyItemFingerprint =
+        sha256(
+            CreateMediaJobUseCase.legacyFingerprint(command, "API")
+                + ":"
+                + mediaPlanId
+                + ":"
+                + visualBeatId);
+    stubExistingJob(
+        "legacy-key", existingInternalJobId, mediaPlanId, visualBeatId, legacyItemFingerprint);
+
+    assertThat(useCase.execute(command)).isSameAs(existingJob);
+    verifyNoInteractions(promptSettingsAccess);
+  }
+
+  @Test
+  void staleExpectedPromptRevisionIsAConflictBeforeAnyPlanIsCreated() {
+    when(generationJobRepository.findByIdempotencyKey("stale-preview"))
+        .thenReturn(Optional.empty());
+    when(promptSettingsAccess.current())
+        .thenReturn(PromptSettingsDefaults.settings().withRevision(3));
+    var command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "stale-preview",
+            "IMAGE_MOTION",
+            "16:9",
+            null,
+            "IMAGE",
+            "API",
+            2L);
+
+    assertThatThrownBy(() -> useCase.execute(command))
+        .isInstanceOfSatisfying(
+            GenerationAdmissionDeniedException.class,
+            denied -> assertThat(denied.getCode()).isEqualTo("PROMPT_SETTINGS_CHANGED"))
+        .hasMessageContaining("revision 2")
+        .hasMessageContaining("3");
+
+    verify(createMediaPlanUseCase, never()).execute(any());
+    verifyNoInteractions(generationOutboxRepository);
+  }
+
+  @Test
+  void newAdmissionResolvesSettingsOnceAndPassesThemToThePlan() {
+    var current = PromptSettingsDefaults.settings().withActiveStyle("CINEMATIC").withRevision(6);
+    when(generationJobRepository.findByIdempotencyKey("fresh")).thenReturn(Optional.empty());
+    when(promptSettingsAccess.current()).thenReturn(current);
+    when(mediaPlanningSourceAccess.requireCurrent(CHAPTER_ID))
+        .thenReturn(
+            org.mockito.Mockito.mock(
+                com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource
+                    .class));
+    when(imageGenerationCatalog.resolve())
+        .thenReturn(new ImageGenerationCatalog.ImageGenerationProfile("api", "image-model"));
+    when(limits.getMaxConcurrentExpensiveJobs()).thenReturn(5);
+    var project =
+        org.mockito.Mockito.mock(
+            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
+    when(projectAccess.findProject(PROJECT_ID)).thenReturn(project);
+    var sentinel = new IllegalStateException("stop after plan command");
+    when(createMediaPlanUseCase.execute(any())).thenThrow(sentinel);
+    var command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "fresh",
+            "IMAGE_MOTION",
+            "16:9",
+            ImageStyle.CINEMATIC_ANIME,
+            "IMAGE",
+            "API",
+            6L);
+
+    assertThatThrownBy(() -> useCase.execute(command)).isSameAs(sentinel);
+
+    var captured = org.mockito.ArgumentCaptor.forClass(CreateMediaPlanCommand.class);
+    verify(createMediaPlanUseCase).execute(captured.capture());
+    // The legacy ImageStyle hint is ignored: the plan gets the saved configuration.
+    assertThat(captured.getValue().promptSettings()).isSameAs(current);
+    verify(promptSettingsAccess, org.mockito.Mockito.times(1)).current();
+  }
+
+  private void stubExistingJob(
+      String key, UUID internalJobId, UUID mediaPlanId, UUID visualBeatId, String itemFingerprint) {
+    when(generationJobRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(existingJob));
+    when(existingJob.getType()).thenReturn(JobType.CHAPTER_GENERATE);
+    when(existingJob.getProjectId()).thenReturn(PROJECT_ID);
+    when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
+    when(existingJob.getProductionMode()).thenReturn(ProductionMode.IMAGE_MOTION);
+    when(existingJob.getId()).thenReturn(internalJobId);
+    when(mediaGenerationItemRepository.findByJobId(internalJobId))
+        .thenReturn(List.of(existingItem));
+    when(existingItem.getMediaPlanId()).thenReturn(mediaPlanId);
+    when(existingItem.getVisualBeatId()).thenReturn(visualBeatId);
+    when(existingItem.getRequestFingerprint()).thenReturn(itemFingerprint);
   }
 
   @Test

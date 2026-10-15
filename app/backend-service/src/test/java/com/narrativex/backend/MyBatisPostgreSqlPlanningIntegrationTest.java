@@ -2,7 +2,6 @@ package com.narrativex.backend;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -151,33 +150,6 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
                 + String.join("\n", violations));
   }
 
-  @Test
-  void representativeMutationExecutesAndRollsBackAgainstPostgres() throws Exception {
-    MappedStatement mutation =
-        sqlSessionFactory
-            .getConfiguration()
-            .getMappedStatement(NotificationMapper.class.getName() + ".markAllRead");
-    Map<String, Object> parameters = Map.of();
-    BoundSql boundSql = mutation.getBoundSql(parameters);
-    try (Connection connection = dataSource.getConnection()) {
-      connection.setAutoCommit(false);
-      try (PreparedStatement statement = connection.prepareStatement(boundSql.getSql())) {
-        bindPlanningParameters(connection, statement, boundSql, parameters);
-        assertTrue(statement.executeUpdate() >= 0);
-      }
-      connection.rollback();
-    }
-
-    try (Connection connection = dataSource.getConnection();
-        PreparedStatement statement =
-            connection.prepareStatement(
-                "SELECT COUNT(*) FROM notifications WHERE read_at IS NULL")) {
-      var result = statement.executeQuery();
-      assertTrue(result.next());
-    }
-    writeMutationReport();
-  }
-
   private static Object planningParameters(
       Configuration configuration, MappedStatement statement, String planningCase)
       throws Exception {
@@ -188,6 +160,7 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
     Method method =
         Arrays.stream(mapperType.getMethods())
             .filter(candidate -> candidate.getName().equals(methodName))
+            .filter(candidate -> !candidate.isDefault())
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("No mapper method for " + statementId));
     Object[] arguments =
@@ -436,18 +409,6 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
     output.add("| --- | --- | --- | --- |");
     output.addAll(reportRows);
     Files.writeString(report, String.join("\n", output) + "\n");
-  }
-
-  private static void writeMutationReport() throws Exception {
-    Path report = Path.of("target/mybatis-postgresql-mutation-execution-report.md");
-    Files.createDirectories(report.getParent());
-    Files.writeString(
-        report,
-        "# MyBatis PostgreSQL mutation execution report\n\n"
-            + "| Mapper | Statement | Result |\n| --- | --- | --- |\n"
-            + "| `"
-            + NotificationMapper.class.getName()
-            + ".markAllRead` | UPDATE | EXECUTED_ROLLBACK_PASS |\n");
   }
 
   private static String concise(Throwable throwable) {

@@ -2,27 +2,29 @@
 
 ## Source of truth
 
-The repository itself is the current implementation source of truth. Keep architecture decisions in `documentation/decisions/`, implementation-facing architecture and codebase guidance under `documentation/`, and update those documents whenever behavior or boundaries change. Do not reference the removed `NARRATIVEX_PROJECT_SPEC_V1_7.md`; it was intentionally retired after the implementation diverged from that snapshot.
+The repository itself is the current implementation source of truth. Keep architecture decisions in `docs/decisions/`, implementation-facing architecture and codebase guidance under `docs/`, and update those documents whenever behavior or boundaries change. Do not reference the removed `NARRATIVEX_PROJECT_SPEC_V1_7.md`; it was intentionally retired after the implementation diverged from that snapshot.
 
 ## Read by task
 
-- Start with [current status](documentation/CURRENT_STATUS.md) and the [documentation map](documentation/README.md). Code, migrations and tests establish implementation facts; accepted ADRs establish direction. Report disagreement instead of assuming a migration is complete.
-- For backend/compute changes, read ADR-0018, ADR-0019, ADR-0021, ADR-0025 and `documentation/COMPUTE_PROTOCOL.md`.
-- For identity, ownership or runtime-limit changes, read ADR-0020. Earlier account/session/quota rules are superseded in that scope.
-- For schema changes, read `documentation/architecture/DATABASE.md`.
+- Start with [current status](docs/current-status.md) and the [documentation map](docs/README.md). Code, migrations and tests establish implementation facts; accepted ADRs establish direction. Report disagreement instead of assuming a migration is complete.
+- For backend/compute changes, read ADR-0002, ADR-0003 and `docs/architecture/compute-protocol.md`.
+- For identity, ownership or runtime-limit changes, read ADR-0001. Earlier account/session/quota rules are superseded in that scope.
+- For Chapter/Character/story timing changes, read ADR-0006; for video/Shot/Take changes, read ADR-0008; for TTS/alignment changes, read ADR-0007.
+- For Desktop client/IPC changes, read ADR-0004; for local storage or render changes, read ADR-0005; for Chapter Analysis execution, read ADR-0009; for prompt settings, read ADR-0010.
+- For schema changes, read `docs/architecture/database.md`.
 - For Desktop styling, read `.agents/rules/frontend-styling.md`; for browser verification, read `.agents/rules/playwright-testing.md` and the completion gate below.
 - Run checks according to `CONTRIBUTING.md`.
 
 ## Domain and execution rules
 
 - Keep Spring Boot a modular monolith and the authority for business state, admission, durable jobs, leases and artifact metadata in PostgreSQL. Add a broker, cache or business microservice only with measured need and an ADR.
-- Follow ADR-0020: one local installation, Project as the business boundary, no synthetic user/account/session identity. Provider secrets and machine execution credentials remain separate runtime concerns.
+- Follow ADR-0001: one local installation, Project as the business boundary, no synthetic user/account/session identity. Provider secrets and machine execution credentials remain separate runtime concerns.
 - Character remains a reusable identity with ProjectCharacter participation and immutable CharacterVersion snapshots. Appearance/outfit changes do not create a new Character. Resolve only participating characters for Scene/StoryBeat/VisualBeat context.
 - Treat story text, prompts, references and provider output as untrusted. Validate schemas and enforce prompt-injection/media-safety boundaries. Real-person references require explicit consent, restricted retention and deletion handling; do not add blanket story-rights checkboxes.
 - Plan visuals from duration, semantic complexity and reuse/delta. Preserve source provenance and narration as the production master clock; provisional timing cannot make a render ready.
 - Preserve locked character versions, approved assets, provider snapshots and render snapshots.
 - Persist operation/submission intent before external I/O. Ambiguous outcomes remain UNKNOWN until reconciled; never blind-resubmit.
-- Expensive work requires backend admission, OperationPlan where applicable, runtime capacity limits, idempotency and diagnostic usage attribution. Do not restore monetary billing or per-user entitlements retired by ADR-0020.
+- Expensive work requires backend admission, OperationPlan where applicable, runtime capacity limits, idempotency and diagnostic usage attribution. Do not restore monetary billing or per-user entitlements retired by ADR-0001.
 - Keep backend domain free of provider SDKs. GPU execution adapters own provider/media dependencies; `app/generation-service` must not access the business database or orchestrate business jobs.
 
 
@@ -32,7 +34,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Electron main owns filesystem/process access, protected provider/device credentials, backend transport and final FFmpeg/ffprobe execution through a narrow typed preload bridge.
 - Project bytes are local-first. Backend identities use stable IDs/checksums and opaque project-relative artifact keys, never absolute machine paths. Final video persistence is metadata-only.
 - Use centralized design tokens and semantic CSS variables for renderer styling.
-- Treat Compose and environment templates as migration-sensitive: verify their current contents before claiming deployment readiness. See `documentation/CURRENT_STATUS.md` for known drift.
+- Treat Compose and environment templates as migration-sensitive: verify their current contents before claiming deployment readiness. See `docs/current-status.md` for known drift.
 
 ## Change discipline
 
@@ -40,7 +42,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Add or update tests for behavior changes. Never report fake-provider success as production health.
 - Update the smallest relevant current document. Cross-cutting boundary changes require an ADR; synchronizing docs with an existing accepted ADR does not require a duplicate decision.
 - Keep IMPLEMENTED, PARTIAL, TARGET and DEFERRED explicit. An accepted decision is not proof of completed implementation.
-- For docs-only edits, check links, migration inventory and docs drift. Runtime code changes require the relevant checks and the full gate before merge; report unavailable or failing checks honestly.
+- For docs-only edits, check edited links and the migration inventory in `docs/architecture/database.md`, and run `git diff --check`. Runtime code changes require the relevant checks and the full gate before merge; report unavailable or failing checks honestly.
 
 ## Mandatory Desktop UI Verification
 

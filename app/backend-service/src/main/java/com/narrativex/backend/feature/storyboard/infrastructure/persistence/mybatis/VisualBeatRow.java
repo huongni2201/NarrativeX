@@ -20,7 +20,6 @@ public class VisualBeatRow {
   private String visualDescription;
   private String visualDirectionJson;
   private String dramaticIntent;
-  private String emotion;
   private String retentionRole;
   private String reviewStatus;
   private String motionMode;

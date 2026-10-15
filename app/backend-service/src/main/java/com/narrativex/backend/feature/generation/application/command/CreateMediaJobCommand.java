@@ -11,7 +11,29 @@ public record CreateMediaJobCommand(
     String aspectRatio,
     ImageStyle imageStyle,
     String visualGenerationMode,
-    String imageProvider) {
+    String imageProvider,
+    Long expectedPromptRevision) {
+
+  public CreateMediaJobCommand(
+      UUID projectId,
+      UUID chapterId,
+      String idempotencyKey,
+      String productionMode,
+      String aspectRatio,
+      ImageStyle imageStyle,
+      String visualGenerationMode,
+      String imageProvider) {
+    this(
+        projectId,
+        chapterId,
+        idempotencyKey,
+        productionMode,
+        aspectRatio,
+        imageStyle,
+        visualGenerationMode,
+        imageProvider,
+        null);
+  }
 
   public CreateMediaJobCommand(
       UUID projectId,

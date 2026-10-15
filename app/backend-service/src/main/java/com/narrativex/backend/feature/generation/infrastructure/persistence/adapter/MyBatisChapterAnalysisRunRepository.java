@@ -2,6 +2,8 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisUsageState;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisRunMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisRunRow;
 import java.util.List;
@@ -38,6 +40,17 @@ public class MyBatisChapterAnalysisRunRepository implements ChapterAnalysisRunRe
             .runtimeMs(run.runtimeMs())
             .canonHash(run.canonHash())
             .createdAt(run.createdAt())
+            .usageState(run.usageState().name())
+            .executionMode(run.executionMode() == null ? null : run.executionMode().name())
+            .attemptId(run.attemptId())
+            .credentialRef(run.credentialRef())
+            .adapterVersion(run.adapterVersion())
+            .conversationId(run.conversationId())
+            .modelObserved(run.modelObserved())
+            .effortObserved(run.effortObserved())
+            .promptHash(run.promptHash())
+            .schemaHash(run.schemaHash())
+            .outputHash(run.outputHash())
             .build();
 
     mapper.insert(row);
@@ -85,6 +98,21 @@ public class MyBatisChapterAnalysisRunRepository implements ChapterAnalysisRunRe
         row.getTotalTokens(),
         row.getRuntimeMs(),
         row.getCanonHash(),
-        row.getCreatedAt());
+        row.getCreatedAt(),
+        row.getUsageState() == null
+            ? ChapterAnalysisUsageState.LEGACY_UNSPECIFIED
+            : ChapterAnalysisUsageState.valueOf(row.getUsageState()),
+        row.getExecutionMode() == null
+            ? null
+            : ChapterAnalysisExecutionMode.valueOf(row.getExecutionMode()),
+        row.getAttemptId(),
+        row.getCredentialRef(),
+        row.getAdapterVersion(),
+        row.getConversationId(),
+        row.getModelObserved(),
+        row.getEffortObserved(),
+        row.getPromptHash(),
+        row.getSchemaHash(),
+        row.getOutputHash());
   }
 }

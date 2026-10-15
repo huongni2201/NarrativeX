@@ -7,7 +7,7 @@ import {
 } from "../../shared/local-asset-preview-url";
 import type { ProjectStorage } from "./project-storage";
 
-const VERIFIED_PATH_TTL_MS = 60_000;
+const MAX_WARNED_ASSETS = 1_000;
 
 /** Must run before Electron's ready event. */
 export function registerLocalAssetPreviewScheme(): void {
@@ -29,7 +29,10 @@ export function installLocalAssetPreviewProtocol(
   targetProtocol: Protocol,
   storage: ProjectStorage,
 ): void {
-  const verifiedPaths = new Map<string, { path: string; expiresAt: number }>();
+  // Concurrent requests for one asset revision share a single resolve. Integrity itself is cached
+  // by file stat inside the storage layer (fast mode), so there is no time-based expiry here.
+  const resolving = new Map<string, Promise<string>>();
+  const warnedAssets = new Set<string>();
 
   targetProtocol.handle(LOCAL_ASSET_PREVIEW_SCHEME, async (request) => {
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -41,14 +44,19 @@ export function installLocalAssetPreviewProtocol(
     try {
       const revision = new URL(request.url).search;
       const key = `${target.projectId}:${target.assetId}:${revision}`;
-      const now = Date.now();
-      const cached = verifiedPaths.get(key);
-      const localPath =
-        cached && cached.expiresAt > now
-          ? cached.path
-          : await storage.resolveAsset(target.projectId, target.assetId);
-      if (!cached || cached.expiresAt <= now) {
-        verifiedPaths.set(key, { path: localPath, expiresAt: now + VERIFIED_PATH_TTL_MS });
+      let pending = resolving.get(key);
+      if (!pending) {
+        pending = storage
+          .resolveAsset(target.projectId, target.assetId, undefined, "fast")
+          .finally(() => resolving.delete(key));
+        resolving.set(key, pending);
+      }
+      let localPath: string;
+      try {
+        localPath = await pending;
+      } catch (error) {
+        warnOnce(warnedAssets, `${target.projectId}:${target.assetId}`, error);
+        throw error;
       }
 
       const headers = new Headers();
@@ -73,6 +81,14 @@ export function installLocalAssetPreviewProtocol(
       return new Response("Local preview asset unavailable", { status: 404 });
     }
   });
+}
+
+function warnOnce(warned: Set<string>, assetKey: string, error: unknown): void {
+  if (warned.has(assetKey)) return;
+  if (warned.size >= MAX_WARNED_ASSETS) warned.clear();
+  warned.add(assetKey);
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(`Local preview asset ${assetKey} unavailable: ${reason}`);
 }
 
 function contentTypeForPath(path: string): string {

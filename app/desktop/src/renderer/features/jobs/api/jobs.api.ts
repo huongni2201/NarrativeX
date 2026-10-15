@@ -1,4 +1,4 @@
-import type { DesktopJobHistoryPage } from "@narrativex/client-contracts";
+import type { DesktopJobHistoryPage } from "../../../../shared/api-types";
 import { apiRequest } from "../../../api/client.ts";
 
 export const jobsApi = {

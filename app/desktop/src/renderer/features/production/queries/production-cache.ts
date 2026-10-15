@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import type { ChapterProductionStatus } from "../../../../shared/api-types";
 
 export const videoProductionQueryKeys = {
   all: ["video-production"] as const,
@@ -20,4 +21,20 @@ export function refreshProduction(client: QueryClient, projectId: string, chapte
 export function productionPollInterval(busy: boolean, connected: boolean): number | false {
   // Disconnected idle probes also discover enqueues whose SSE event was lost.
   return connected ? (busy ? 30_000 : false) : (busy ? 3_000 : 15_000);
+}
+
+/**
+ * The cheap status endpoint is the only thing polled. The heavy production view is refetched only
+ * when the status says it may have changed (its `productionSignature` moved). A status without a
+ * signature (older backend) conservatively counts as changed whenever the status itself changed.
+ */
+export function shouldRefetchProduction(
+  previous: ChapterProductionStatus | undefined,
+  next: ChapterProductionStatus,
+): boolean {
+  if (!previous || previous.chapterId !== next.chapterId) return false;
+  if (previous.productionSignature && next.productionSignature) {
+    return previous.productionSignature !== next.productionSignature;
+  }
+  return true;
 }

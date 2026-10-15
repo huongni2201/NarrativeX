@@ -4,7 +4,7 @@ import type {
   DesktopChapterDetails,
   DesktopVoice,
   VoiceReferenceInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -371,21 +371,21 @@ export function VoiceScreen({
           <header className="border-b border-border bg-[var(--voice-header)] px-5 py-4">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-[.2em] text-text-muted">
+                <span className="text-caption font-bold text-text-muted">
                   Library / Voice &amp; TTS
                 </span>
-                <h1 className="mt-1 text-[22px] font-semibold tracking-[-.02em]">Voice &amp; TTS</h1>
-                <p className="mt-1 text-[11px] text-text-secondary">
+                <h1 className="mt-1 text-[20px] font-semibold ">Voice &amp; TTS</h1>
+                <p className="mt-1 text-caption text-text-secondary">
                   Project voice lưu cục bộ theo dự án; reusable voice lưu trong thư viện dùng chung cho toàn bộ dự án.
                 </p>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <span className="text-[11px] text-text-secondary">{voices.length} voices</span>
+                <span className="text-caption text-text-secondary">{voices.length} voices</span>
                 <Button
                   onClick={() => void importAudioAsset()}
                   disabled={assetBusy}
-                  className="h-9 bg-primary text-[10px] text-primary-foreground hover:bg-primary-hover"
+                  className="h-9 bg-primary text-caption text-primary-foreground hover:bg-primary-hover"
                 >
                   <Upload size={13} />
                   {assetBusy ? "Đang import…" : "Import project voice"}
@@ -425,7 +425,7 @@ export function VoiceScreen({
           />
 
           <div className="min-h-0 overflow-auto px-5 py-3">
-            <div className="mb-2 flex items-center justify-between gap-3 text-[10px] text-text-muted">
+            <div className="mb-2 flex items-center justify-between gap-3 text-caption text-text-muted">
               <span>{filteredVoices.length} voice hiển thị</span>
               <span className="inline-flex items-center gap-1">
                 <SlidersHorizontal size={12} />
@@ -461,12 +461,12 @@ export function VoiceScreen({
             )}
 
             {notice && (
-              <p className="mt-3 rounded-md border border-border bg-surface-input px-3 py-2 text-[10px] text-text-secondary" role="status">
+              <p className="mt-3 rounded-md border border-border bg-surface-input px-3 py-2 text-caption text-text-secondary" role="status">
                 {notice}
               </p>
             )}
 
-            <div className="flex items-center justify-center gap-2 py-6 text-[10px] text-text-secondary">
+            <div className="flex items-center justify-center gap-2 py-6 text-caption text-text-secondary">
               <span>{filteredVoices.length} voice trong thư viện</span>
               <span className="text-text-dim">·</span>
               <span>Danh sách được tải từ backend</span>

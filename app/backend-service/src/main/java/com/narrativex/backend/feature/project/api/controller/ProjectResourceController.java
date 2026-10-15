@@ -19,18 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectResourceController {
   private final ListProjectResourcesUseCase listProjectResourcesUseCase;
 
-  @GetMapping("/locations")
-  public ResponseEntity<ApiResponse<CursorPage<ProjectResourceResponse.Location>>> locations(
-      @PathVariable UUID projectId,
-      @RequestParam(required = false) String cursor,
-      @RequestParam(defaultValue = "20") int limit) {
-    CursorPage<ProjectResourceResponse.Location> page =
-        listProjectResourcesUseCase
-            .locations(projectId, cursor, limit)
-            .map(ProjectResourceResponse.Location::from);
-    return ResponseEntity.ok(ApiResponse.success("Project locations retrieved successfully", page));
-  }
-
   @GetMapping("/assets")
   public ResponseEntity<ApiResponse<CursorPage<ProjectResourceResponse.Asset>>> assets(
       @PathVariable UUID projectId,

@@ -59,7 +59,6 @@ class MyBatisStoryboardPersistenceAdapterTest {
     row.setSummary("Summary");
     row.setImportance("NORMAL");
     row.setStoryFunctionsJson("[]");
-    row.setContinuityStateJson("{}");
     return row;
   }
 }

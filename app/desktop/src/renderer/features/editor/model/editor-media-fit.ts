@@ -1,4 +1,4 @@
-import type { BeatMediaFitMode, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { BeatMediaFitMode, DesktopTimelineBeat } from "../../../../shared/api-types";
 
 const IMAGE_FIT_MODES: readonly BeatMediaFitMode[] = ["TRIM"];
 const VIDEO_FIT_MODES: readonly BeatMediaFitMode[] = [

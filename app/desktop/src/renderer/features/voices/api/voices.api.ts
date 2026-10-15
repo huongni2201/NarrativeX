@@ -1,4 +1,4 @@
-import type { DesktopVoice } from "@narrativex/client-contracts";
+import type { DesktopVoice } from "../../../../shared/api-types";
 import { apiRequest } from "../../../api/client";
 import { assertContract, isNullableString, isNumber, isRecord, isString } from "../../../api/guards";
 

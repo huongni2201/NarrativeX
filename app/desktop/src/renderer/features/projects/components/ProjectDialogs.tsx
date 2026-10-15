@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
+import type { DesktopProject, ProjectAspectRatio } from "../../../../shared/api-types";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,15 +53,15 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
         >
           <DialogCloseButton disabled={isPending} />
           <DialogHeader className="pr-6 text-left">
-            <DialogTitle className="text-[18px] font-bold text-foreground">Create project</DialogTitle>
-            <DialogDescription id="create-project-description" className="text-[13px] leading-relaxed text-text-muted">
+            <DialogTitle className="text-[17px] font-bold text-foreground">Create project</DialogTitle>
+            <DialogDescription id="create-project-description" className="text-body leading-relaxed text-text-muted">
               Khởi tạo workspace mới rồi mở thẳng vào Editor.
             </DialogDescription>
           </DialogHeader>
 
           <form className="grid gap-4" onSubmit={onSubmit}>
             <div className="grid gap-4 md:grid-cols-[minmax(240px,1.2fr)_minmax(200px,.8fr)]">
-              <label className="grid gap-2 text-[12px] font-medium text-text-secondary">
+              <label className="grid content-start gap-2 text-label font-medium text-text-secondary">
                 <span>Tên project</span>
                 <Input
                   autoFocus
@@ -69,10 +69,10 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
                   onChange={(event) => setName(event.target.value)}
                   maxLength={160}
                   placeholder="My next story"
-                  className="h-10 text-[13.5px]"
+                  className="h-10 text-body"
                 />
               </label>
-              <div className="grid content-start gap-2 text-[12px] font-medium text-text-secondary">
+              <div className="grid content-start gap-2 text-label font-medium text-text-secondary">
                 <label htmlFor="project-aspect-ratio">Khung hình</label>
                 <div className="grid grid-cols-5 gap-1.5 mb-1">
                   {ASPECT_RATIOS.map((ratio) => {
@@ -82,7 +82,7 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
                         key={ratio.value}
                         type="button"
                         onClick={() => setImageAspectRatio(ratio.value)}
-                        className={`group flex flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-center transition-all cursor-pointer ${
+                        className={`group flex flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-center transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer ${
                           isSelected
                             ? "border-primary bg-primary/10 text-primary shadow-xs"
                             : "border-border-subtle bg-surface-dark text-text-muted hover:border-border hover:bg-surface-3 hover:text-text-secondary"
@@ -102,7 +102,7 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
                             }}
                           />
                         </div>
-                        <span className="font-mono text-[10px] font-semibold">{ratio.value}</span>
+                        <span className="font-mono text-caption font-semibold">{ratio.value}</span>
                       </button>
                     );
                   })}
@@ -111,7 +111,7 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
                   value={imageAspectRatio}
                   onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}
                 >
-                  <SelectTrigger id="project-aspect-ratio" className="w-full h-10 text-[13px]">
+                  <SelectTrigger id="project-aspect-ratio" className="w-full h-10 text-body">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -123,7 +123,7 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
                   </SelectContent>
                 </Select>
               </div>
-              <label className="grid gap-2 text-[12px] font-medium text-text-secondary md:col-span-2">
+              <label className="grid gap-2 text-label font-medium text-text-secondary md:col-span-2">
                 <span>Mô tả (tuỳ chọn)</span>
                 <Textarea
                   value={description}
@@ -136,7 +136,7 @@ export function CreateProjectDialog({ open, onOpenChange, name, setName, descrip
             </div>
 
             {Boolean(error) && (
-              <p className="m-0 border-l-2 border-danger bg-danger-bg px-3 py-2 text-[12px] text-danger" role="alert">
+              <p className="m-0 border-l-2 border-danger bg-danger-bg px-3 py-2 text-label text-danger" role="alert">
                 {error?.message}
               </p>
             )}
@@ -178,15 +178,15 @@ export function DeleteProjectDialog({ project, onClose, isPending, error, onConf
         >
           <DialogCloseButton disabled={isPending} />
           <DialogHeader className="pr-6 text-left">
-            <DialogTitle className="text-[16px] font-bold text-foreground">Xoá project?</DialogTitle>
-            <DialogDescription id="delete-project-description" className="text-[13px] leading-relaxed text-text-muted">
+            <DialogTitle className="text-[15px] font-bold text-foreground">Xoá project?</DialogTitle>
+            <DialogDescription id="delete-project-description" className="text-body leading-relaxed text-text-muted">
               Project <strong className="font-semibold text-foreground">{project?.name}</strong>{" "}
               sẽ biến mất khỏi workspace. Dữ liệu local vẫn được giữ lại để backup hoặc khôi phục.
             </DialogDescription>
           </DialogHeader>
 
           {Boolean(error) && (
-            <p className="m-0 border-l-2 border-danger bg-danger-bg px-3 py-2 text-[12px] text-danger" role="alert">
+            <p className="m-0 border-l-2 border-danger bg-danger-bg px-3 py-2 text-label text-danger" role="alert">
               Không thể xoá project: {error?.message}
             </p>
           )}

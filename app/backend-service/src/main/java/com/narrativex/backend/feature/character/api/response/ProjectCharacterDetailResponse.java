@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.character.api.response;
 
 import com.narrativex.backend.feature.character.application.query.ProjectCharacterReadModel;
+import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -56,7 +57,10 @@ public record ProjectCharacterDetailResponse(
       String status,
       String bible,
       String visualPrompt,
-      String prompt) {
+      String prompt,
+      String referencePolicy,
+      CharacterVisualProfile visualProfile,
+      UUID basedOnVersionId) {
     static VersionResponse from(ProjectCharacterReadModel.Version version, String prompt) {
       return version == null
           ? null
@@ -66,7 +70,10 @@ public record ProjectCharacterDetailResponse(
               version.status(),
               version.bible(),
               version.visualPrompt(),
-              prompt);
+              prompt,
+              version.referencePolicy(),
+              version.visualProfile(),
+              version.basedOnVersionId());
     }
   }
 

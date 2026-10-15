@@ -27,7 +27,6 @@ public class ChapterRow {
   private String sourceHash;
   private String status;
   private Long estimatedDurationMs;
-  private int generationProgress;
   private UUID sourceStoryVersionId;
   private String inheritedSnapshotHash;
   private UUID currentStoryboardRevisionId;

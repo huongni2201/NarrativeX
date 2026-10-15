@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateProjectInput, DesktopProject } from "@narrativex/client-contracts";
+import type { CreateProjectInput, DesktopProject } from "../../../../shared/api-types";
 import {
   projectsApi,
   type ProjectDashboardCounts,

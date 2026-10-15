@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
@@ -32,6 +33,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 class VideoGenerationResultFinalizerTest {
@@ -40,8 +43,8 @@ class VideoGenerationResultFinalizerTest {
   private ComputeArtifactAccess artifactAccess;
   private TakeMapper takeMapper;
   private VideoQualityAssurance videoQualityAssurance;
-  private com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper shotMapper;
-  private com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeMapper selectedTakeMapper;
+  private com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
+      shotMapper;
   private VideoGenerationResultFinalizer finalizer;
 
   @BeforeEach
@@ -51,8 +54,10 @@ class VideoGenerationResultFinalizerTest {
     artifactAccess = mock(ComputeArtifactAccess.class);
     takeMapper = mock(TakeMapper.class);
     videoQualityAssurance = mock(VideoQualityAssurance.class);
-    shotMapper = mock(com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper.class);
-    selectedTakeMapper = mock(com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeMapper.class);
+    shotMapper =
+        mock(
+            com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
+                .class);
     finalizer =
         new VideoGenerationResultFinalizer(
             generationJobRepository,
@@ -60,12 +65,12 @@ class VideoGenerationResultFinalizerTest {
             artifactAccess,
             takeMapper,
             videoQualityAssurance,
-            shotMapper,
-            selectedTakeMapper);
+            shotMapper);
   }
 
-  @Test
-  void finalizeResultSuccessfullyProcessesPassedVideo() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void finalizeResultRequiresNativeEvidenceDespitePassingContentQa(boolean hasTechnicalEvidence) {
     UUID jobId = UuidV7.random();
     UUID projectId = UuidV7.random();
     UUID artifactId = UuidV7.random();
@@ -135,7 +140,15 @@ class VideoGenerationResultFinalizerTest {
         .thenReturn(new VideoQualityAssurance.QAEvaluation(true, null, null, null, false));
 
     ProducedArtifactDto produced =
-        new ProducedArtifactDto(artifactId, "video", "video/mp4", 1048576L, "sha256:abc");
+        new ProducedArtifactDto(
+            artifactId,
+            "video",
+            "video/mp4",
+            1048576L,
+            "sha256:abc",
+            hasTechnicalEvidence
+                ? new ProducedArtifactDto.TechnicalMetadata(5000L, 1280, 720, 24.0, true, true)
+                : null);
     ComputeObservationDto observation =
         new ComputeObservationDto(
             "1.0",
@@ -158,13 +171,19 @@ class VideoGenerationResultFinalizerTest {
     ArgumentCaptor<TakeRow> takeCaptor = ArgumentCaptor.forClass(TakeRow.class);
     verify(takeMapper).updateValidation(takeCaptor.capture());
     TakeRow updatedTake = takeCaptor.getValue();
-    assertEquals("PASSED", updatedTake.getStatus());
-    assertEquals("PASSED", updatedTake.getValidationStatus());
     assertEquals(artifactId, updatedTake.getOutputAssetId());
-
-    verify(takeMapper).updateStatus(takeId, "PASSED");
-    verify(selectedTakeMapper).insert(any());
-    verify(shotMapper).updateStatus(shotId, "SELECTED");
+    if (hasTechnicalEvidence) {
+      assertEquals("PASSED", updatedTake.getStatus());
+      assertEquals("PASSED", updatedTake.getValidationStatus());
+      assertEquals(5000L, updatedTake.getSourceDurationMs());
+      verify(takeMapper).updateStatus(takeId, "PASSED");
+      verify(shotMapper).updateStatus(shotId, "MANUAL_REVIEW");
+    } else {
+      assertEquals("FAILED", updatedTake.getStatus());
+      assertEquals("TECHNICAL_OUTPUT", updatedTake.getValidationFailureCategory());
+      verify(takeMapper).updateStatus(takeId, "FAILED");
+      verifyNoInteractions(shotMapper);
+    }
     verify(generationJobRepository).save(any());
   }
 

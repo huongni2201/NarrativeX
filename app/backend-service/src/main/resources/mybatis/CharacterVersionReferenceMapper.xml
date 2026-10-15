@@ -8,10 +8,11 @@
     <id property="mediaAssetId" column="media_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="referenceRole" column="reference_role"/>
     <result property="priority" column="priority"/>
+    <result property="referenceSlot" column="reference_slot"/>
   </resultMap>
 
   <select id="findByVersionId" resultMap="referenceRow">
-    SELECT character_version_id, media_asset_id, reference_role, priority
+    SELECT character_version_id, media_asset_id, reference_role, priority, reference_slot
       FROM character_version_reference_assets
      WHERE character_version_id = #{characterVersionId}
      ORDER BY priority, media_asset_id
@@ -24,8 +25,8 @@
 
   <insert id="insert" parameterType="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow">
     INSERT INTO character_version_reference_assets
-      (character_version_id, media_asset_id, reference_role, priority)
+      (character_version_id, media_asset_id, reference_role, priority, reference_slot)
     VALUES
-      (#{characterVersionId}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{referenceRole}, #{priority})
+      (#{characterVersionId}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{referenceRole}, #{priority}, #{referenceSlot})
   </insert>
 </mapper>

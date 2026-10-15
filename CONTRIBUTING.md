@@ -2,7 +2,7 @@
 
 ## Before opening a change
 
-1. Read `AGENTS.md` and the relevant document under `documentation/`.
+1. Read `AGENTS.md` and the relevant document under `docs/`.
 2. Confirm the change against current migration status, accepted ADRs and current code. For factual AS-IS behavior, current code/migrations/tests outrank stale derived documentation.
 3. Treat `app/desktop` as the only editor client. Do not introduce a browser frontend or browser-only product architecture unless a new ADR explicitly reopens that decision.
 4. Keep the write scope focused and preserve unrelated worktree changes.
@@ -10,15 +10,9 @@
 
 ## Local checks
 
-Run the full provider-independent local quality gate before pushing or merging:
+Before pushing or merging, run every check below for each module you changed. CI (`.github/workflows/ci.yml`) runs the same commands.
 
-```powershell
-pwsh -File scripts/verify-local.ps1
-```
-
-Windows PowerShell can run the same command with `powershell -File scripts/verify-local.ps1`.
-
-For faster iteration, run only the narrow checks relevant to the files being changed. These development checks do not replace the full gate:
+Per-module commands:
 
 ```powershell
 # Backend
@@ -46,25 +40,23 @@ Provider integrations must use deterministic fakes or mocked adapters in ordinar
 
 ## Scope-specific rules
 
-Read `AGENTS.md` for domain, Desktop, storage and runtime verification rules. Read `documentation/CURRENT_STATUS.md` before using older authentication or deployment instructions.
+Read `AGENTS.md` for domain, Desktop, storage and runtime verification rules. Read `docs/current-status.md` before using older authentication or deployment instructions.
 
-For generation-service changes, also run `python scripts/check_compute_contracts.py` from the repository root.
+For docs-only changes, run `git diff --check` and verify edited local links. Code tests and runtime UI checks are required when implementation changes; prose-only updates do not require starting Electron.
 
-For docs-only changes, run `python scripts/check-docs-drift.py` and `git diff --check`, and verify edited local links. Code tests and runtime UI checks are required when implementation changes; prose-only updates do not require starting Electron. The full provider-independent gate remains required before pushing or merging.
-
-For database changes, follow `documentation/architecture/DATABASE.md`. Reset a database only when its data has explicitly been confirmed disposable.
+For database changes, follow `docs/architecture/database.md`. Reset a database only when its data has explicitly been confirmed disposable.
 
 
 ## Documentation changes
 
 Update the smallest relevant document, but update an ADR when a change crosses a client, storage, authentication, timing-authority or execution boundary. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET` and `DEFERRED` distinct.
 
-Use the [ADR index](documentation/decisions/README.md) and [current migration status](documentation/CURRENT_STATUS.md). ADR-0020 supersedes the former authentication and per-user quota model; ADR-0018, ADR-0021, and ADR-0025 define the compute boundary and event/recovery semantics. Preserve earlier decisions as historical rationale only when explicitly marked as such.
+Use the [ADR index](docs/decisions/README.md) and [current migration status](docs/current-status.md). ADR-0001 defines application identity and Project ownership; ADR-0002 defines the backend/compute boundary and durable recovery semantics. Preserve earlier decisions as historical rationale only when explicitly marked as such.
 
 ## Pull request checklist
 
 - [ ] Tests and type/lint/build checks pass for changed modules.
-- [ ] `python scripts/check-docs-drift.py` passes when current-state docs change.
+- [ ] `git diff --check` is clean and edited local links resolve when docs change.
 - [ ] No secrets, provider keys, personal data, absolute local project paths or production credentials were added.
 - [ ] Migrations are backward-compatible or include a documented rollout plan.
 - [ ] Idempotency, retry/UNKNOWN behavior, ownership, lease loss and optimistic-lock behavior are covered where relevant.

@@ -62,7 +62,6 @@ test("VideoShotboard composes focused video shot presentation components", () =>
     "VideoShotboard.tsx",
     "TakeSelectorDrawer.tsx",
     "ShotActionToolbar.tsx",
-    "RetentionPlanView.tsx",
   ];
 
   for (const component of requiredComponents) {
@@ -125,7 +124,7 @@ test("ChapterWorkspaceScreen delegates analysis and story queries to feature hoo
   );
 
   assert.doesNotMatch(source, /import\s+\{\s*useMutation/);
-  assert.match(source, /useAnalyzeChapter/);
+  assert.match(source, /useChapterAnalysis/);
   assert.match(source, /useChapterStoryQuery/);
   assert.match(source, /useCreateMediaJob/);
 });

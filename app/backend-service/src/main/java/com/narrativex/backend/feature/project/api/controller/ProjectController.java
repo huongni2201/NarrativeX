@@ -5,7 +5,6 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.api.request.CreateProjectRequest;
 import com.narrativex.backend.feature.project.api.request.CreateStoryVersionRequest;
 import com.narrativex.backend.feature.project.api.response.ProjectDashboardResponse;
-import com.narrativex.backend.feature.project.api.response.ProjectOverviewResponse;
 import com.narrativex.backend.feature.project.api.response.ProjectResponse;
 import com.narrativex.backend.feature.project.api.response.StoryVersionResponse;
 import com.narrativex.backend.feature.project.application.command.CreateProjectCommand;
@@ -17,7 +16,6 @@ import com.narrativex.backend.feature.project.application.usecase.CreateStoryVer
 import com.narrativex.backend.feature.project.application.usecase.DeleteProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectDashboardUseCase;
-import com.narrativex.backend.feature.project.application.usecase.GetProjectOverviewUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
 import com.narrativex.backend.feature.project.application.usecase.SetProjectFavoriteUseCase;
@@ -44,7 +42,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectController {
   private final ListProjectsUseCase listProjectsUseCase;
   private final GetProjectUseCase getProjectUseCase;
-  private final GetProjectOverviewUseCase getProjectOverviewUseCase;
   private final GetProjectDashboardUseCase getProjectDashboardUseCase;
   private final SetProjectFavoriteUseCase setProjectFavoriteUseCase;
   private final CreateProjectUseCase createProjectUseCase;
@@ -99,15 +96,6 @@ public class ProjectController {
     return ResponseEntity.noContent().build();
   }
 
-  @GetMapping("/{projectId}/overview")
-  public ResponseEntity<ApiResponse<ProjectOverviewResponse>> overview(
-      @PathVariable UUID projectId) {
-    return ResponseEntity.ok(
-        ApiResponse.success(
-            "Project overview retrieved successfully",
-            ProjectOverviewResponse.from(getProjectOverviewUseCase.execute(projectId))));
-  }
-
   @GetMapping("/{projectId}/stories/latest")
   public ResponseEntity<ApiResponse<StoryVersionResponse>> getLatestStory(
       @PathVariable UUID projectId) {
@@ -126,7 +114,6 @@ public class ProjectController {
             request.description(),
             request.sourceLanguage(),
             request.narrationLanguage(),
-            request.metadataLanguage(),
             request.imageAspectRatio());
     log.debug("Creating project");
     return ResponseEntity.status(HttpStatus.CREATED)

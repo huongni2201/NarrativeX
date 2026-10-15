@@ -1,5 +1,5 @@
 import { Users, MapPin, AlertTriangle, CheckCircle, ArrowRight } from "lucide-react";
-import type { DesktopChapterDetails, DesktopChapterStory } from "@narrativex/client-contracts";
+import type { DesktopChapterDetails, DesktopChapterStory } from "../../../../../shared/api-types";
 
 export interface ChapterCanonStageProps {
   chapter: DesktopChapterDetails | null;
@@ -22,14 +22,14 @@ export function ChapterCanonStage({
     <div className="flex h-full w-full flex-col overflow-hidden bg-background">
       {/* Canon Stage Action Bar */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-dark px-4">
-        <div className="flex items-center gap-2 text-[13px] text-text-secondary">
+        <div className="flex items-center gap-2 text-body text-text-secondary">
           <span>Xem xét các thực thể cốt truyện & tính liên tục được phát hiện</span>
         </div>
 
         <button
           type="button"
           onClick={onProceedToStory}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-[13px] font-medium text-primary-foreground hover:bg-primary-hover transition-all"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary-hover transition-[color,background-color,border-color,box-shadow,transform,opacity]"
         >
           <span>Tiếp tục sang Story Stage</span>
           <ArrowRight size={14} />
@@ -41,8 +41,8 @@ export function ChapterCanonStage({
         {!hasScenes ? (
           <div className="flex h-64 flex-col items-center justify-center text-center text-text-muted">
             <Users size={40} className="mb-2 text-text-dim" />
-            <h4 className="text-[15px] font-semibold text-foreground">Chưa có thông tin Canon cho chương này</h4>
-            <p className="mt-1 text-[13px] text-text-secondary">
+            <h4 className="text-[14px] font-semibold text-foreground">Chưa có thông tin Canon cho chương này</h4>
+            <p className="mt-1 text-body text-text-secondary">
               Hãy bấm Analyze Chapter tại mục Source để phân tích nhân vật và bối cảnh xuất hiện trong chương.
             </p>
           </div>
@@ -50,18 +50,18 @@ export function ChapterCanonStage({
           <div className="grid grid-cols-2 gap-4">
             {/* Characters in Chapter */}
             <div className="rounded-lg border border-border-subtle bg-surface p-4 space-y-3">
-              <div className="flex items-center gap-2 text-foreground font-semibold text-[14px]">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-[15px]">
                 <Users size={16} className="text-primary" />
                 <span>Nhân vật xuất hiện ({story.scenes.length} phân cảnh)</span>
               </div>
-              <p className="text-[12px] text-text-muted">
+              <p className="text-label text-text-muted">
                 Các nhân vật được nhận diện tự động từ văn bản chương và liên kết với Project Character Canon.
               </p>
               <div className="space-y-1.5 pt-2">
                 {story.scenes.map((sc) => (
                   <div
                     key={sc.id}
-                    className="flex items-center justify-between rounded bg-surface-dark p-2.5 text-[12px]"
+                    className="flex items-center justify-between rounded bg-surface-dark p-2.5 text-label"
                   >
                     <span className="font-medium text-foreground">{sc.title}</span>
                     <span className="text-text-muted">{sc.storyBeats.length} StoryBeats</span>
@@ -72,21 +72,21 @@ export function ChapterCanonStage({
 
             {/* Locations and Continuity */}
             <div className="rounded-lg border border-border-subtle bg-surface p-4 space-y-3">
-              <div className="flex items-center gap-2 text-foreground font-semibold text-[14px]">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-[15px]">
                 <MapPin size={16} className="text-info" />
                 <span>Địa điểm & Bối cảnh phân cảnh</span>
               </div>
-              <p className="text-[12px] text-text-muted">
+              <p className="text-label text-text-muted">
                 Địa điểm diễn ra các cảnh quay được đảm bảo tính nhất quán liên tục.
               </p>
               <div className="space-y-1.5 pt-2">
                 {story.scenes.map((sc) => (
                   <div
                     key={sc.id}
-                    className="flex items-center justify-between rounded bg-surface-dark p-2.5 text-[12px]"
+                    className="flex items-center justify-between rounded bg-surface-dark p-2.5 text-label"
                   >
                     <span className="text-text-secondary">{sc.locationText || "Không gian diễn biến cốt truyện"}</span>
-                    <span className="text-success font-mono text-[11px]">Đã đối chiếu</span>
+                    <span className="text-success text-caption">Đã đối chiếu</span>
                   </div>
                 ))}
               </div>

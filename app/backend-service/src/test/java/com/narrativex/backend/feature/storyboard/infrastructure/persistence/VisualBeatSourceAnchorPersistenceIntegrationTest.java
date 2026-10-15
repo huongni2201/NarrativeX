@@ -49,7 +49,7 @@ class VisualBeatSourceAnchorPersistenceIntegrationTest
     revisionId = UuidV7.random();
 
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, ?, 'ACTIVE', 'vi', 'vi', 'vi', '16:9')",
+        "INSERT INTO projects (id, name, status, source_language, narration_language, image_aspect_ratio) VALUES (?, ?, 'ACTIVE', 'vi', 'vi', '16:9')",
         projectId,
         "Anchor Test Project");
     jdbcTemplate.update(

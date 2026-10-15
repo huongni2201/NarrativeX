@@ -18,4 +18,36 @@ public final class ProjectRenderProfileFactory {
         .formatted(RENDERER_VERSION, COMPOSITION_POLICY_VERSION, fps, subtitleMode, watermarkMode)
         .strip();
   }
+
+  public static String create(
+      int fps, boolean subtitlesEnabled, boolean watermarkRequired, String audioMode) {
+    if (!"NATIVE_TAKE".equals(audioMode) && !"EXTERNAL_NARRATION".equals(audioMode)) {
+      throw new IllegalArgumentException("Invalid render audio mode");
+    }
+    return create(fps, subtitlesEnabled, watermarkRequired)
+        .replace("\"schemaVersion\":3", "\"schemaVersion\":4,\"audioMode\":\"" + audioMode + "\"")
+        .replace(RENDERER_VERSION, "project-native-av-v4");
+  }
+
+  public static String create(
+      int fps,
+      boolean subtitlesEnabled,
+      boolean watermarkRequired,
+      String audioMode,
+      SubtitleStyle subtitleStyle) {
+    if (!"NATIVE_TAKE".equals(audioMode) && !"EXTERNAL_NARRATION".equals(audioMode)) {
+      throw new IllegalArgumentException("Invalid render audio mode");
+    }
+    String profile =
+        "NATIVE_TAKE".equals(audioMode)
+            ? create(fps, subtitlesEnabled, watermarkRequired, audioMode)
+            : create(fps, subtitlesEnabled, watermarkRequired);
+    return profile.replace(
+        "\"subtitles\":{\"mode\":\"" + (subtitlesEnabled ? "burn_in" : "none") + "\"}",
+        "\"subtitles\":{\"mode\":\""
+            + (subtitlesEnabled ? "burn_in" : "none")
+            + "\",\"style\":"
+            + subtitleStyle.toJson()
+            + "}");
+  }
 }

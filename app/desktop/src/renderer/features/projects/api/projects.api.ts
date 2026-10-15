@@ -2,7 +2,7 @@ import type {
   CreateProjectInput,
   CursorPage,
   DesktopProject,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
 export interface ProjectDashboardCounts {

@@ -13,32 +13,24 @@ Project creation is metadata-only. Chapter save persists source only. Analysis/n
 - **MyBatis + explicit SQL is the production persistence boundary**
 - MyBatis/explicit-SQL paths cover domain CRUD/query persistence, provider operations, generation jobs/stages/plans, media planning and items, outbox/job history, chapter idempotency, render-input snapshots, chapter media heads, assets, narration, catalogs, local devices and final artifacts
 - MyBatis + explicit SQL is the sole production domain persistence path; JPA and `JdbcTemplate` are absent from production domain code
-- Local-first single-user boundary (ADR-0020)
-- Dispatch to isolated GPU worker via HTTP Compute Protocol v1 (ADR-0018, ADR-0021, ADR-0025 / COMPUTE_PROTOCOL.md)
-- Local media storage adapter/capability gateway backed by the project workspace (ADR-0020 / LocalObjectStorageAdapter)
+- Local-first single-user boundary (ADR-0001)
+- Dispatch to isolated GPU worker via HTTP Compute Protocol v1 (ADR-0002 / ADR-0003 / docs/architecture/compute-protocol.md)
+- Local media storage adapter/capability gateway backed by the project workspace (ADR-0001 / LocalObjectStorageAdapter)
 - Testcontainers/JUnit/JaCoCo
 
 ## Durable authority
 
 PostgreSQL owns authoritative business state, durable jobs, admission, operation plans, and project metadata. The backend coordinates GPU workloads through HTTP Compute Protocol v1 without allowing external worker access to PostgreSQL. Generated media bytes are managed locally in the project media directory; short-lived opaque capabilities may be used to stage or serve authorized local files.
 
-Compute attempts use the ADR-0025 event path: the worker SQLite journal/outbox emits signed callbacks, PostgreSQL records idempotent event receipts and finalizes monotonically, and a non-blocking scheduled reconciliation fallback uses the same finalizer. External worker/provider I/O is outside backend database transactions.
+Compute attempts use the ADR-0003 event path: the worker SQLite journal/outbox emits signed callbacks, PostgreSQL records idempotent event receipts and finalizes monotonically, and a non-blocking scheduled reconciliation fallback uses the same finalizer. External worker/provider I/O is outside backend database transactions.
 
 ## MediaPlan authority
 
 The backend creates/version-controls the authorized MediaPlan and resolves MotionStrategy under the selected ProductionMode. Workers execute the pinned plan and do not independently upgrade deterministic scenes to I2V.
 
-## Narration strategies
+## Narration
 
-```text
-NarrationStrategy
-  TTS
-  USER_PROVIDED_AUDIO
-```
-
-Current foundations include full-chapter TTS/alignment and user-provided-audio planning/timeline logic. User audio may contain one or multiple ordered parts spanning multiple Chapters. `USER_PROVIDED_AUDIO` plans omit the TTS stage.
-
-Production upload/finalize/alignment integration remains a hardening target.
+Narration is produced through compute tasks (VieNeu TTS and WhisperX alignment, ADR-0007) and aligned to the narration clock. Production upload/finalize/alignment integration remains a hardening target.
 
 ## Character read model
 
@@ -46,9 +38,9 @@ Project Character list/detail reads are exposed through project-scoped APIs and 
 
 ## Database and persistence
 
-Follow [`../../documentation/architecture/DATABASE.md`](../../documentation/architecture/DATABASE.md) and ADR-0001 conventions: explicit row models/result maps/SQL, CAS predicates, affected-row validation and PostgreSQL integration tests. New persistence-heavy features must preserve the MyBatis boundary.
+Follow [the database architecture](../../docs/architecture/database.md) and current backend persistence conventions: explicit row models/result maps/SQL, CAS predicates, affected-row validation and PostgreSQL integration tests. New persistence-heavy features must preserve the MyBatis boundary.
 
-Persistence is fully migrated to MyBatis + PostgreSQL with Flyway V1–V8 baseline. New work must preserve technology-neutral ports, explicit MyBatis mappings and PostgreSQL integration evidence.
+Persistence is fully migrated to MyBatis + PostgreSQL with Flyway V1–V7 baseline. New work must preserve technology-neutral ports, explicit MyBatis mappings and PostgreSQL integration evidence.
 
 ## Development / verification
 

@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.api.request;
 
+import com.narrativex.backend.feature.generation.application.render.SubtitleStyle;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
@@ -17,12 +18,23 @@ public record CreateProjectRenderRequest(
     @NotNull UUID localDeviceId,
     Integer fps,
     Boolean subtitlesEnabled,
-    @Valid @Size(max = 2000) List<BeatOverride> beatOverrides) {
+    @Valid @Size(max = 2000) List<BeatOverride> beatOverrides,
+    @Valid SubtitleStyle subtitleStyle) {
 
   public CreateProjectRenderRequest {
     fps = fps == null ? 24 : fps;
     subtitlesEnabled = subtitlesEnabled == null ? Boolean.TRUE : subtitlesEnabled;
     beatOverrides = beatOverrides == null ? List.of() : List.copyOf(beatOverrides);
+  }
+
+  public CreateProjectRenderRequest(
+      String resolution,
+      String format,
+      UUID localDeviceId,
+      Integer fps,
+      Boolean subtitlesEnabled,
+      List<BeatOverride> beatOverrides) {
+    this(resolution, format, localDeviceId, fps, subtitlesEnabled, beatOverrides, null);
   }
 
   public CreateProjectRenderRequest(

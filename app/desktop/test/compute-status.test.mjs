@@ -12,8 +12,6 @@ test("ComputeStatusIndicator displays truthful AI runtimes and fails closed", ()
     "utf8"
   );
 
-  // Queries both provider health and runtime capabilities
-  assert.match(source, /useProviderHealthQuery/);
   assert.match(source, /useRuntimeCapabilities/);
 
   // While loading, shows Checking rather than faking Ready

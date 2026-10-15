@@ -3,7 +3,7 @@ import type {
   LocalRenderPreflightAssetInput,
   RenderFrameRate,
   RenderResolution,
-} from "@narrativex/client-contracts";
+} from "../../../shared/api-types";
 import type { LocalRenderPreflightInput } from "../../../preload/types";
 
 export function buildRenderPreflightInput(
@@ -19,9 +19,14 @@ export function buildRenderPreflightInput(
     assets.push({ assetId: beat.mediaAssetId });
   }
 
-  for (const chapter of timeline.chapters) {
-    if (!chapter.narrationAssetId) continue;
-    assets.push({ assetId: chapter.narrationAssetId });
+  const nativeTakeAudio =
+    timeline.beats.length > 0 && timeline.beats.every((beat) => Boolean(beat.shotId && beat.takeId));
+
+  if (!nativeTakeAudio) {
+    for (const chapter of timeline.chapters) {
+      if (!chapter.narrationAssetId) continue;
+      assets.push({ assetId: chapter.narrationAssetId });
+    }
   }
 
   const estimatedOutputBytes = estimateRenderOutputBytes(

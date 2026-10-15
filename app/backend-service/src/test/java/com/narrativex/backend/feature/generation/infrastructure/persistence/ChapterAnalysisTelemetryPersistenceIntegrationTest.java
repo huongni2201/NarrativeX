@@ -46,8 +46,8 @@ class ChapterAnalysisTelemetryPersistenceIntegrationTest
     sourceHash = CanonHashCalculator.sha256("Chapter 1: The First Step");
 
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, status, source_language, narration_language, metadata_language, image_aspect_ratio) "
-            + "VALUES (?, 'Telemetry Test Project', 'ACTIVE', 'vi', 'vi', 'vi', '16:9')",
+        "INSERT INTO projects (id, name, status, source_language, narration_language, image_aspect_ratio) "
+            + "VALUES (?, 'Telemetry Test Project', 'ACTIVE', 'vi', 'vi', '16:9')",
         projectId);
 
     jdbcTemplate.update(

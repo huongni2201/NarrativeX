@@ -1,4 +1,4 @@
-import type { BeatMediaFitMode } from "@narrativex/client-contracts";
+import type { BeatMediaFitMode } from "../../../../shared/api-types";
 import { chooseMediaFit } from "../../production/auto-edit-planner.ts";
 
 export type EditorMediaKind = "IMAGE" | "VIDEO";

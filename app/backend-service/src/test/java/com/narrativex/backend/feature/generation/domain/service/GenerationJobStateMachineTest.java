@@ -15,6 +15,17 @@ import org.junit.jupiter.api.Test;
 class GenerationJobStateMachineTest {
 
   @Test
+  void progressCannotEraseDurableCancellationIntent() {
+    var job =
+        GenerationJob.create(UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.GPU_HEAVY)
+            .markUnknown("COMPUTE_CANCEL_REQUESTED", "Cancel pending", Instant.now());
+    var running = job.markRunningWithCompute("Progress", 50, 2L, "RUNNING", "handle");
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "COMPUTE_CANCEL_REQUESTED", running.getErrorCode());
+    org.junit.jupiter.api.Assertions.assertEquals(JobStatus.UNKNOWN, running.getStatus());
+  }
+
+  @Test
   void allowsValidForwardTransitions() {
     assertTrue(GenerationJobStateMachine.canTransition(JobStatus.QUEUED, JobStatus.SUBMITTING));
     assertTrue(GenerationJobStateMachine.canTransition(JobStatus.SUBMITTING, JobStatus.SUBMITTED));

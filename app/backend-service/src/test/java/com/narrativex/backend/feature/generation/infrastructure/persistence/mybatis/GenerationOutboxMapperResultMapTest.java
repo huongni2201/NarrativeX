@@ -26,13 +26,21 @@ class GenerationOutboxMapperResultMapTest {
       new XMLMapperBuilder(input, configuration, RESOURCE, configuration.getSqlFragments()).parse();
     }
 
-    ResultMap resultMap =
-        configuration.getMappedStatement(NAMESPACE + ".reserveBatch").getResultMaps().get(0);
-    Map<String, String> mappings =
-        resultMap.getResultMappings().stream()
-            .collect(Collectors.toMap(ResultMapping::getProperty, ResultMapping::getColumn));
+    for (String statement : new String[] {".reserveBatch", ".reserveLaneBatch"}) {
+      ResultMap resultMap =
+          configuration.getMappedStatement(NAMESPACE + statement).getResultMaps().get(0);
+      Map<String, String> mappings =
+          resultMap.getResultMappings().stream()
+              .collect(Collectors.toMap(ResultMapping::getProperty, ResultMapping::getColumn));
 
-    assertThat(mappings)
-        .containsExactlyInAnyOrderEntriesOf(Map.of("id", "id", "aggregateId", "aggregate_id"));
+      assertThat(mappings)
+          .as(statement)
+          .containsExactlyInAnyOrderEntriesOf(
+              Map.of(
+                  "id", "id",
+                  "aggregateId", "aggregate_id",
+                  "createdAt", "created_at",
+                  "lane", "lane"));
+    }
   }
 }

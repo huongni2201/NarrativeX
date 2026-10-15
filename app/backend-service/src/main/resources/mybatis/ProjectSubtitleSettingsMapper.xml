@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProjectSubtitleSettingsMapper">
+  <select id="find" resultType="string">
+    SELECT settings_json::text FROM project_subtitle_settings
+    WHERE project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+  </select>
+  <insert id="upsert">
+    INSERT INTO project_subtitle_settings (project_id, settings_json)
+    VALUES (#{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, CAST(#{settingsJson} AS jsonb))
+    ON CONFLICT (project_id) DO UPDATE SET settings_json = EXCLUDED.settings_json, updated_at = CURRENT_TIMESTAMP
+  </insert>
+</mapper>

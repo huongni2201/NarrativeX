@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "@narrativex/client-contracts";
+import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "../../../../shared/api-types";
 import { AlertCircle, CheckCircle2, Clapperboard, Clock, Film, Loader2, RotateCcw, Scissors, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,34 +69,34 @@ export function TakeSelectorDrawer({
 
     if (passed) {
       return (
-        <span className="flex items-center gap-1 text-[10px] text-success font-medium">
-          <CheckCircle2 size={12} /> Passed QA
+        <span className="flex items-center gap-1 text-caption text-success font-medium">
+          <CheckCircle2 size={12} /> Technical checks passed
         </span>
       );
     }
     if (status === "VALIDATING") {
       return (
-        <span className="flex items-center gap-1 text-[10px] text-cyan font-medium">
+        <span className="flex items-center gap-1 text-caption text-cyan font-medium">
           <Loader2 size={12} className="animate-spin" /> Validating QA...
         </span>
       );
     }
     if (status === "RUNNING" || status === "GENERATING") {
       return (
-        <span className="flex items-center gap-1 text-[10px] text-primary font-medium">
+        <span className="flex items-center gap-1 text-caption text-primary font-medium">
           <Loader2 size={12} className="animate-spin" /> Generating...
         </span>
       );
     }
     if (status === "PENDING") {
       return (
-        <span className="flex items-center gap-1 text-[10px] text-text-muted font-medium">
+        <span className="flex items-center gap-1 text-caption text-text-muted font-medium">
           <Clock size={12} /> Pending
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1 text-[10px] text-destructive font-medium">
+      <span className="flex items-center gap-1 text-caption text-destructive font-medium">
         <AlertCircle size={12} /> Failed QA
       </span>
     );
@@ -131,10 +131,10 @@ export function TakeSelectorDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-background/60 backdrop-blur-xs">
-      <aside className="w-full max-w-md bg-surface-panel border-l border-border-subtle p-5 flex flex-col h-full shadow-2xl text-[12px]">
+      <aside className="w-full max-w-md bg-surface-panel border-l border-border-subtle p-5 flex flex-col h-full shadow-2xl text-label">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-          <div className="flex items-center gap-2 font-semibold text-[14px]">
+          <div className="flex items-center gap-2 font-semibold text-[15px]">
             <Film size={16} className="text-primary" />
             <span>Shot Takes & Trimming</span>
           </div>
@@ -152,21 +152,21 @@ export function TakeSelectorDrawer({
         <div className="mt-3 p-3 bg-surface-dark border border-border-soft rounded">
           <div className="font-medium text-foreground">{shot.narrativePurpose}</div>
           <div className="flex items-center gap-2 mt-2">
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-caption">
               {shot.generationStrategy}
             </Badge>
             {shot.retentionRole && (
-              <Badge variant="outline" className="text-[10px] text-cyan border-cyan/40">
+              <Badge variant="outline" className="text-caption text-cyan border-cyan/40">
                 {shot.retentionRole}
               </Badge>
             )}
-            <span className="text-[10px] text-text-muted">Target: {shot.targetDurationMs}ms</span>
+            <span className="text-caption text-text-muted">Target: {shot.targetDurationMs}ms</span>
           </div>
         </div>
 
         {/* Candidate Takes List */}
         <div className="mt-4 flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-          <div className="text-[11px] uppercase tracking-wider text-text-dim font-bold">
+          <div className="text-caption text-text-dim font-bold">
             Available Takes ({takes.length})
           </div>
           {takes.length === 0 ? (
@@ -200,12 +200,12 @@ export function TakeSelectorDrawer({
                     </div>
                   </div>
 
-                  <div className="text-[10px] text-text-muted mt-1">
+                  <div className="text-caption text-text-muted mt-1">
                     Model: {take.model} ({take.provider}) • Duration: {take.sourceDurationMs ?? "?"}ms
                   </div>
 
                   {failureReason && (
-                    <div className="mt-2 text-[10px] p-2 bg-destructive/10 text-destructive-foreground rounded">
+                    <div className="mt-2 text-caption p-2 bg-destructive/10 text-destructive-foreground rounded">
                       <span className="font-bold">Failure:</span> {failureReason}
                       {retryRecommendation && (
                         <div className="mt-1 text-text-secondary">
@@ -217,14 +217,14 @@ export function TakeSelectorDrawer({
                   )}
 
                   {take.whisperXSummary && (
-                    <div className="mt-2 text-[10px] p-2 bg-info/10 text-info-foreground border border-info/20 rounded space-y-1">
+                    <div className="mt-2 text-caption p-2 bg-info/10 text-info-foreground border border-info/20 rounded space-y-1">
                       <div className="flex items-center justify-between font-semibold">
                         <span>WhisperX Dialogue QA</span>
                         <span className="font-mono">
                           {(take.whisperXSummary.confidence * 100).toFixed(0)}% conf · {(take.whisperXSummary.coverage * 100).toFixed(0)}% cov
                         </span>
                       </div>
-                      <div className="text-[9px] text-text-secondary">
+                      <div className="text-caption text-text-secondary">
                         <div><span className="font-bold">Expected:</span> "{take.whisperXSummary.expectedText}"</div>
                         <div><span className="font-bold">Recognized:</span> "{take.whisperXSummary.recognizedText}"</div>
                       </div>
@@ -249,12 +249,12 @@ export function TakeSelectorDrawer({
         {/* Trimming Section */}
         {currentTake && (
           <div className="mt-4 border-t border-border-subtle pt-4">
-            <div className="flex items-center justify-between font-semibold text-[12px] mb-2 text-foreground">
+            <div className="flex items-center justify-between font-semibold text-label mb-2 text-foreground">
               <div className="flex items-center gap-1.5">
                 <Scissors size={14} className="text-primary" />
                 <span>Edit Decision Trimming (In / Out)</span>
               </div>
-              <span className="text-[10px] text-text-muted font-mono">
+              <span className="text-caption text-text-muted font-mono">
                 {sourceInMs}ms — {sourceOutMs}ms / {maxDuration}ms
               </span>
             </div>
@@ -264,7 +264,7 @@ export function TakeSelectorDrawer({
               <div className="relative h-5 bg-background/80 border border-border-subtle rounded overflow-hidden select-none">
                 {/* Active trimmed window */}
                 <div
-                  className="absolute top-0 bottom-0 bg-primary/30 border-x-2 border-primary transition-all duration-75"
+                  className="absolute top-0 bottom-0 bg-primary/30 border-x-2 border-primary transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-75"
                   style={{
                     left: `${Math.min(100, Math.max(0, (sourceInMs / maxDuration) * 100))}%`,
                     width: `${Math.max(0, Math.min(100, (sourceOutMs / maxDuration) * 100) - Math.min(100, Math.max(0, (sourceInMs / maxDuration) * 100)))}%`,
@@ -275,7 +275,7 @@ export function TakeSelectorDrawer({
               {/* Sliders */}
               <div className="flex items-center gap-2 pt-1">
                 <div className="flex-1 flex flex-col gap-0.5">
-                  <span className="text-[9px] text-text-dim">In: {sourceInMs}ms</span>
+                  <span className="text-caption text-text-dim">In: {sourceInMs}ms</span>
                   <input
                     type="range"
                     min={0}
@@ -289,7 +289,7 @@ export function TakeSelectorDrawer({
                   />
                 </div>
                 <div className="flex-1 flex flex-col gap-0.5">
-                  <span className="text-[9px] text-text-dim">Out: {sourceOutMs}ms</span>
+                  <span className="text-caption text-text-dim">Out: {sourceOutMs}ms</span>
                   <input
                     type="range"
                     min={Math.min(maxDuration, sourceInMs + 100)}
@@ -313,7 +313,7 @@ export function TakeSelectorDrawer({
                     setSourceInMs(0);
                     setSourceOutMs(maxDuration);
                   }}
-                  className="text-[10px] text-primary hover:underline cursor-pointer"
+                  className="text-caption text-primary hover:underline cursor-pointer"
                 >
                   Reset (Full {maxDuration}ms)
                 </button>
@@ -325,7 +325,7 @@ export function TakeSelectorDrawer({
                       setSourceInMs(0);
                       setSourceOutMs(shot.targetDurationMs);
                     }}
-                    className="text-[10px] text-primary hover:underline cursor-pointer"
+                    className="text-caption text-primary hover:underline cursor-pointer"
                   >
                     Match Target ({shot.targetDurationMs}ms)
                   </button>
@@ -335,7 +335,7 @@ export function TakeSelectorDrawer({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] uppercase text-text-dim font-bold block mb-1">
+                <label className="text-caption text-text-dim font-bold block mb-1">
                   In Point (ms)
                 </label>
                 <Input
@@ -345,11 +345,11 @@ export function TakeSelectorDrawer({
                   value={sourceInMs}
                   disabled={isSaving}
                   onChange={(e) => setSourceInMs(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="h-8 text-[11px]"
+                  className="h-8 text-caption"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-text-dim font-bold block mb-1">
+                <label className="text-caption text-text-dim font-bold block mb-1">
                   Out Point (ms)
                 </label>
                 <Input
@@ -361,11 +361,11 @@ export function TakeSelectorDrawer({
                   onChange={(e) =>
                     setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0))
                   }
-                  className="h-8 text-[11px]"
+                  className="h-8 text-caption"
                 />
               </div>
             </div>
-            <div className="mt-2 text-[10px] text-text-muted">
+            <div className="mt-2 text-caption text-text-muted">
               Timeline Edit Duration:{" "}
               <span className="font-semibold text-foreground">
                 {Math.max(0, sourceOutMs - sourceInMs)}ms
@@ -373,7 +373,7 @@ export function TakeSelectorDrawer({
             </div>
 
             {!isCurrentTakeSelectable && (
-              <div className="mt-2.5 rounded bg-warning/10 border border-warning/20 p-2 text-[11px] text-warning flex items-start gap-1.5">
+              <div className="mt-2.5 rounded bg-warning/10 border border-warning/20 p-2 text-caption text-warning flex items-start gap-1.5">
                 <AlertCircle size={13} className="shrink-0 mt-0.5" />
                 <span>Take chưa vượt qua kiểm định kỹ thuật (Passed QA) hoặc chưa có video hoàn chỉnh để đưa vào timeline.</span>
               </div>
@@ -383,7 +383,7 @@ export function TakeSelectorDrawer({
 
         {/* Inline Error Message */}
         {saveError && (
-          <div className="mt-3 p-2.5 rounded bg-destructive/10 border border-destructive/20 text-destructive text-[11px] flex items-start gap-2">
+          <div className="mt-3 p-2.5 rounded bg-destructive/10 border border-destructive/20 text-destructive text-caption flex items-start gap-2">
             <AlertCircle size={14} className="shrink-0 mt-0.5" />
             <div className="flex-1">
               <span className="font-semibold">Lỗi lưu take: </span>

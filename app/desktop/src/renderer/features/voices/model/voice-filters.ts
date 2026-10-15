@@ -1,4 +1,4 @@
-import type { DesktopVoice } from "@narrativex/client-contracts";
+import type { DesktopVoice } from "../../../../shared/api-types";
 
 export type VoiceSortMode = "name-asc" | "name-desc";
 

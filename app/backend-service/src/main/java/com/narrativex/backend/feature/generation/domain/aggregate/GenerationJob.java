@@ -13,6 +13,7 @@ import lombok.Getter;
 
 /** Durable generation job aggregate. */
 public final class GenerationJob extends AggregateRoot {
+  public static final String CANCEL_REQUESTED_CODE = "COMPUTE_CANCEL_REQUESTED";
   @Getter private final UUID jobId;
   @Getter private final UUID projectId;
   @Getter private final JobType type;
@@ -632,10 +633,10 @@ public final class GenerationJob extends AggregateRoot {
   public GenerationJob markRunning(String step, int progress) {
     Instant now = Instant.now();
     return toBuilder()
-        .status(JobStatus.RUNNING)
+        .status(isCancellationRequested() ? JobStatus.UNKNOWN : JobStatus.RUNNING)
         .currentStep(step)
         .progress(progress)
-        .errorCode(null)
+        .errorCode(isCancellationRequested() ? errorCode : null)
         .startedAt(this.startedAt != null ? this.startedAt : now)
         .build();
   }
@@ -644,16 +645,34 @@ public final class GenerationJob extends AggregateRoot {
       String step, int progress, Long sequence, String computeState, String executionHandle) {
     Instant now = Instant.now();
     return toBuilder()
-        .status(JobStatus.RUNNING)
+        .status(isCancellationRequested() ? JobStatus.UNKNOWN : JobStatus.RUNNING)
         .currentStep(step)
         .progress(progress)
-        .errorCode(null)
+        .errorCode(isCancellationRequested() ? errorCode : null)
         .computeSequence(sequence != null ? sequence : this.computeSequence)
         .lastComputeState(computeState != null ? computeState : this.lastComputeState)
         .computeExecutionHandle(
             executionHandle != null ? executionHandle : this.computeExecutionHandle)
         .startedAt(this.startedAt != null ? this.startedAt : now)
         .build();
+  }
+
+  /**
+   * Records a progress observation for a job that is already RUNNING. Progress only moves forward
+   * and never reaches 100 before the job is completed, so late or reordered callbacks cannot make
+   * the UI regress or claim completion early.
+   */
+  public GenerationJob recordComputeProgress(int progress, Long sequence, String computeState) {
+    int bounded = Math.max(0, Math.min(99, progress));
+    return toBuilder()
+        .progress(Math.max(this.progress, bounded))
+        .computeSequence(sequence != null ? sequence : this.computeSequence)
+        .lastComputeState(computeState != null ? computeState : this.lastComputeState)
+        .build();
+  }
+
+  public boolean isCancellationRequested() {
+    return CANCEL_REQUESTED_CODE.equals(errorCode);
   }
 
   public GenerationJob markCompleted(String step) {

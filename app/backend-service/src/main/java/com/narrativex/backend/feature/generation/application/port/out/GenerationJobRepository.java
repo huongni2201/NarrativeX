@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.feature.generation.domain.value.AnalysisProgress;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -17,8 +16,6 @@ public interface GenerationJobRepository {
   Optional<GenerationJob> findByComputeAttempt(UUID taskId, UUID attemptId);
 
   List<GenerationJob> findJobsDueForReconciliation(Instant now, int limit);
-
-  Optional<AnalysisProgress> findAnalysisProgressByJobId(UUID jobId);
 
   Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey);
 

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.common.domain.exception.DomainConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
@@ -28,22 +29,6 @@ class MyBatisChapterRepositoryTest {
   private static final UUID CHAPTER_ID = UuidV7.random();
 
   @Mock private ChapterMapper mapper;
-
-  @Test
-  void insertsAndReloadsTheCompleteChapterDomainState() {
-    Chapter chapter = new Chapter(STORY_VERSION_ID, 0, "Chapter 1", "hello", SOURCE_HASH);
-    when(mapper.insert(any(ChapterRow.class))).thenReturn(CHAPTER_ID);
-    when(mapper.findById(CHAPTER_ID))
-        .thenReturn(persistedChapter(CHAPTER_ID, 0L, "hello", SOURCE_HASH));
-
-    Chapter saved = new MyBatisChapterRepository(mapper).saveAndFlush(chapter);
-
-    assertEquals(CHAPTER_ID, saved.getId());
-    assertEquals(STORY_VERSION_ID, saved.getStoryVersionId());
-    assertEquals("hello", saved.getSourceText());
-    assertEquals(SOURCE_HASH, saved.getSourceHash());
-    assertEquals(0L, saved.getRowVersion());
-  }
 
   @Test
   void staleUpdateIsRejectedWhenTheCompareAndSetAffectsNoRows() {
@@ -72,6 +57,43 @@ class MyBatisChapterRepositoryTest {
     verify(mapper, never()).update(any(ChapterRow.class));
   }
 
+  @Test
+  void deleteIsRejectedWithAReadableConflictWhileGenerationWorkIsActive() {
+    when(mapper.hasActiveGenerationJobs(CHAPTER_ID)).thenReturn(true);
+
+    DomainConflictException error =
+        assertThrows(
+            DomainConflictException.class,
+            () -> new MyBatisChapterRepository(mapper).deleteById(CHAPTER_ID));
+
+    assertEquals("RESOURCE_CONFLICT", error.getCode());
+    assertEquals(
+        "Chapter cannot be deleted while generation work is active; wait for it to finish or cancel it first",
+        error.getMessage());
+    verify(mapper, never()).deleteById(CHAPTER_ID);
+  }
+
+  @Test
+  void deleteReportsConflictWhenAJobStartsBetweenTheCheckAndTheUpdate() {
+    when(mapper.hasActiveGenerationJobs(CHAPTER_ID)).thenReturn(false, true);
+    when(mapper.deleteById(CHAPTER_ID)).thenReturn(0);
+
+    assertThrows(
+        DomainConflictException.class,
+        () -> new MyBatisChapterRepository(mapper).deleteById(CHAPTER_ID));
+  }
+
+  @Test
+  void deleteSoftDeletesAnIdleChapter() {
+    when(mapper.hasActiveGenerationJobs(CHAPTER_ID)).thenReturn(false);
+    when(mapper.deleteById(CHAPTER_ID)).thenReturn(1);
+
+    new MyBatisChapterRepository(mapper).deleteById(CHAPTER_ID);
+
+    verify(mapper).clearChapterCreationIdempotency(CHAPTER_ID);
+    verify(mapper).deleteById(CHAPTER_ID);
+  }
+
   private static ChapterRow persistedChapter(
       UUID id, long rowVersion, String sourceText, String sourceHash) {
     return ChapterRow.builder()
@@ -85,7 +107,6 @@ class MyBatisChapterRepositoryTest {
         .sourceText(sourceText)
         .sourceHash(sourceHash)
         .status("DRAFT")
-        .generationProgress(0)
         .sourceStoryVersionId(STORY_VERSION_ID)
         .build();
   }

@@ -9,8 +9,11 @@ const DialogClose = DialogPrimitive.Close;
 
 function DialogPortal({ children, ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
   return (
+    // No wrapper element here: Radix's Portal unmounts its direct child as soon
+    // as the dialog closes, which would cut the exit animation short. The
+    // content centers itself with inset-0 + m-auto instead of a flex wrapper.
     <DialogPrimitive.Portal data-slot="dialog-portal" {...props}>
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center">{children}</div>
+      {children}
     </DialogPrimitive.Portal>
   );
 }
@@ -19,7 +22,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
-      className={cn("fixed inset-0 z-[10000] bg-black/75 backdrop-blur-[6px]", className)}
+      className={cn("nx-overlay fixed inset-0 z-[10000] bg-[var(--scrim)] backdrop-blur-[6px]", className)}
       {...props}
     />
   );
@@ -32,7 +35,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed z-[10001] grid max-h-[calc(100vh-32px)] w-[min(480px,calc(100vw-32px))] gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] focus:outline-none",
+          "nx-dialog fixed inset-0 z-[10001] m-auto grid h-fit max-h-[calc(100vh-32px)] w-[min(480px,calc(100vw-32px))] gap-4 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-overlay)] focus:outline-none",
           className,
         )}
         {...props}
@@ -47,7 +50,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-center", className)}
+      className={cn("flex flex-col gap-2 text-left", className)}
       {...props}
     />
   );
@@ -57,7 +60,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-xl font-semibold", className)}
+      className={cn("text-lg font-semibold", className)}
       {...props}
     />
   );

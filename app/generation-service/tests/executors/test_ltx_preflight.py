@@ -1,7 +1,9 @@
 """Pinned-schema mocked preflight, never a GPU readiness claim."""
 
 from copy import deepcopy
+from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from narrativex_gpu_worker.adapters.executors.ltx.preflight import (
@@ -9,6 +11,53 @@ from narrativex_gpu_worker.adapters.executors.ltx.preflight import (
     validate_object_info,
 )
 from narrativex_gpu_worker.adapters.executors.ltx.workflow import MANIFEST
+
+
+async def test_delayed_dependency_readiness_refresh_is_throttled_and_recovers(
+    monkeypatch, tmp_path
+):
+    from narrativex_gpu_worker.adapters.executors.ltx import executor as module
+    from narrativex_gpu_worker.adapters.executors.ltx.executor import LtxVideoExecutor
+
+    clock = [10.0]
+    monkeypatch.setattr(module.time, "monotonic", lambda: clock[0])
+    verification = []
+    monkeypatch.setattr(module, "verify_runtime_files", lambda path: verification.append(path))
+    client = AsyncMock()
+    client.object_info.side_effect = [
+        httpx.ConnectError("booting"),
+        info_for_graph(baseline_graph()),
+    ]
+    executor = LtxVideoExecutor(client, AsyncMock(), runtime_directory=tmp_path)
+    await executor.preflight()
+    assert not executor.ready
+    await executor.refresh_preflight()
+    assert client.object_info.await_count == 1
+    clock[0] += 5
+    await executor.refresh_preflight()
+    assert executor.ready
+    assert executor.readiness_error == ""
+    assert client.object_info.await_count == 2
+    assert verification == [tmp_path], "Transient health failure must not rehash pinned model files"
+    client.submit_prompt.assert_not_awaited()
+
+
+async def test_readiness_refresh_keeps_invalid_static_profile_blocked(monkeypatch, tmp_path):
+    from narrativex_gpu_worker.adapters.executors.ltx import executor as module
+    from narrativex_gpu_worker.adapters.executors.ltx.executor import LtxVideoExecutor
+
+    def reject(_path):
+        raise ValueError("Pinned model revision mismatch")
+
+    monkeypatch.setattr(module, "verify_runtime_files", reject)
+    client = AsyncMock()
+    executor = LtxVideoExecutor(client, AsyncMock(), runtime_directory=tmp_path)
+    await executor.preflight()
+    assert not executor.ready
+    assert "revision mismatch" in executor.readiness_error
+    await executor.refresh_preflight()
+    client.object_info.assert_not_awaited()
+    client.submit_prompt.assert_not_awaited()
 
 
 def info_for_graph(graph):

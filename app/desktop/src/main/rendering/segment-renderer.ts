@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rename, stat } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { imageMotionPreset } from "../../shared/image-motion.ts";
 import { buildVideoEncodeArgs, type VideoEncoder } from "../../shared/video-encoding.ts";
@@ -6,6 +6,7 @@ import type { LocalRenderManifest, LocalRenderBeat } from "./render-manifest";
 import { runProcess, type ProcessResult } from "./process-runner.ts";
 import { RenderExecutionError } from "./render-errors.ts";
 import { segmentCacheKey } from "./segment-cache-key.ts";
+import { evictCachedSegment, publishCachedSegment, validateCachedSegment } from "./segment-cache.ts";
 import { renderWorkingDimensions } from "./render-working-dimensions.ts";
 import { escapeSubtitleFilterPath, writeBeatSubtitleTrack } from "./subtitle-ass.ts";
 
@@ -14,6 +15,8 @@ export { renderWorkingDimensions } from "./render-working-dimensions.ts";
 export interface SegmentRenderOptions {
   videoEncoder?: VideoEncoder;
   concurrency?: number;
+  ffprobePath?: string;
+  ffmpegVersion?: string;
 }
 
 export async function renderSegments(
@@ -52,14 +55,18 @@ export async function renderSegments(
       }
 
       const output = join(directory, `${String(index).padStart(5, "0")}.mp4`);
-      const cachePath = cacheDirectory
-        ? join(cacheDirectory, `${segmentCacheKey(manifest, beat, videoEncoder)}.mp4`)
+      const cacheKey = segmentCacheKey(manifest, beat, videoEncoder, options.ffmpegVersion);
+      const expected = { cacheKey, width: manifest.width, height: manifest.height,
+        fps: manifest.fps, frameCount: beat.frameCount, requiresAudio: manifest.audioMode === "NATIVE_TAKE" };
+      const cachePath = cacheDirectory && options.ffprobePath && options.ffmpegVersion
+        ? join(cacheDirectory, `${cacheKey}.mp4`)
         : null;
-      if (cachePath && (await validCachedSegment(cachePath))) {
+      if (cachePath && (await validateCachedSegment(options.ffprobePath!, cachePath, expected))) {
         await copyFile(cachePath, output);
         paths[index] = output;
         continue;
       }
+      if (cachePath) await evictCachedSegment(cachePath);
 
       const subtitlePath = await writeBeatSubtitleTrack(workDirectory, manifest, beat, index);
       const args = buildBeatRenderArgs(manifest, beat, output, videoEncoder, subtitlePath);
@@ -83,9 +90,7 @@ export async function renderSegments(
       }
 
       if (cachePath) {
-        const temporary = `${cachePath}.${Date.now()}.tmp`;
-        await copyFile(output, temporary);
-        await rename(temporary, cachePath);
+        await publishCachedSegment(options.ffprobePath!, output, cachePath, expected);
       }
       paths[index] = output;
     }
@@ -148,6 +153,23 @@ export function buildBeatRenderArgs(
       "UNSUPPORTED_BEAT_MEDIA",
       `Visual beat ${beat.visualBeatId} has unsupported media type ${String(beat.mediaType)}.`,
     );
+  }
+
+  if (manifest.audioMode === "NATIVE_TAKE") {
+    if (beat.fitMode !== "TRIM" || beat.sourceDurationMs == null ||
+        beat.trimStartMs < 0 || beat.sourceOutMs == null ||
+        beat.sourceOutMs <= beat.trimStartMs || beat.sourceOutMs > beat.sourceDurationMs) {
+      throw new RenderExecutionError("INVALID_NATIVE_CUT", "Native audio requires a bounded source cut.");
+    }
+    const start = (beat.trimStartMs / 1000).toFixed(6);
+    const end = (beat.sourceOutMs / 1000).toFixed(6);
+    const videoFilter = withWatermarkFilter(withSubtitleFilter(withTransitionFilters(
+      `trim=start=${start}:end=${end},setpts=PTS-STARTPTS,${baseFilter}`, beat, manifest.fps), subtitlePath), manifest);
+    return ["-i", beat.localPath, "-map", "0:v:0", "-map", "0:a:0", "-vf", videoFilter,
+      "-af", `atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS,aresample=48000`,
+      "-t", targetDurationSeconds.toFixed(6), "-r", String(manifest.fps),
+      ...buildVideoEncodeArgs(videoEncoder, manifest.videoQuality), "-c:a", "aac", "-ar", "48000", "-ac", "2",
+      ...colorMetadataArgs(manifest), "-y", output];
   }
 
   const trimStartSeconds = Math.max(0, beat.trimStartMs) / 1000;
@@ -381,21 +403,4 @@ function colorMetadataArgs(manifest: LocalRenderManifest): string[] {
     "-color_range",
     "tv",
   ];
-}
-
-async function validCachedSegment(path: string): Promise<boolean> {
-  try {
-    const value = await stat(path);
-    return value.isFile() && value.size > 0;
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return false;
-    }
-    throw error;
-  }
 }

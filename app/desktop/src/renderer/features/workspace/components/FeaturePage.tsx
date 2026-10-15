@@ -20,13 +20,13 @@ export function FeaturePage({
       <header className="flex min-h-16 items-center justify-between gap-4 border-b border-border-subtle bg-surface-dark px-6 lg:px-8 py-3.5">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-dim">
+            <span className="shrink-0 text-caption font-semibold text-text-dim">
               {eyebrow}
             </span>
             <span className="h-3 w-px bg-border-subtle" aria-hidden="true" />
-            <h1 className="truncate text-[18px] lg:text-[20px] font-bold tracking-tight text-foreground">{title}</h1>
+            <h1 className="truncate text-[17px] lg:text-[18px] font-bold tracking-tight text-foreground">{title}</h1>
           </div>
-          <p className="mt-1 max-w-3xl truncate text-[13px] leading-relaxed text-text-secondary">
+          <p className="mt-1 max-w-3xl truncate text-body leading-relaxed text-text-secondary">
             {description}
           </p>
         </div>
@@ -52,7 +52,7 @@ export function EmptyState({
 }>) {
   return (
     <div
-      className={`grid min-h-48 place-items-center rounded-xl border border-dashed border-border/80 bg-surface-dark/30 px-6 py-12 text-center transition-all ${className}`}
+      className={`grid min-h-48 place-items-center rounded-xl border border-dashed border-border/80 bg-surface-dark/30 px-6 py-12 text-center transition-[color,background-color,border-color,box-shadow,transform,opacity] ${className}`}
     >
       <div className="flex max-w-md flex-col items-center">
         {Icon && (
@@ -60,8 +60,8 @@ export function EmptyState({
             <Icon size={22} className="text-text-secondary" />
           </div>
         )}
-        <strong className="text-[15px] font-semibold tracking-tight text-foreground">{title}</strong>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">{description}</p>
+        <strong className="text-[14px] font-semibold tracking-tight text-foreground">{title}</strong>
+        <p className="mt-1.5 text-body leading-relaxed text-text-muted">{description}</p>
         {action && <div className="mt-4 flex items-center gap-2">{action}</div>}
       </div>
     </div>

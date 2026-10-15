@@ -1,15 +1,19 @@
 import type {
   DesktopRenderJob,
+  ProjectSubtitleSettings,
+  SubtitleStyle,
   DesktopTimeline,
   LocalRenderPreflight,
   ProjectRenderBeatOverride,
   RenderFrameRate,
   RenderResolution,
   UpdateBeatMediaInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import type { LocalRenderPreflightInput } from "../../../../preload/types";
-import { apiCommand, apiRequest } from "../../../api/client";
+import { apiCommand, apiRequest, DesktopApiError } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
+import { parseProjectSubtitleSettings, DEFAULT_SUBTITLE_STYLE } from "../../../../shared/subtitle-style";
+import { RenderSubmissionIntents } from "../render-submission-intents";
 import {
   prepareLocalRenderExecutor,
   runLocalRenderPreflight,
@@ -36,6 +40,15 @@ function isRenderJob(value: unknown): value is DesktopRenderJob {
 }
 
 export const productionApi = {
+  getSubtitleSettings: (projectId: string): Promise<ProjectSubtitleSettings> =>
+    apiRequest<unknown>(`/api/v1/projects/${encodeURIComponent(projectId)}/production/subtitle-settings`)
+      .then(parseProjectSubtitleSettings),
+
+  saveSubtitleSettings: (projectId: string, settings: ProjectSubtitleSettings): Promise<ProjectSubtitleSettings> =>
+    apiRequest<unknown>(`/api/v1/projects/${encodeURIComponent(projectId)}/production/subtitle-settings`,
+      { method: "PUT", body: JSON.stringify(parseProjectSubtitleSettings(settings)) })
+      .then(parseProjectSubtitleSettings),
+
   getTimeline: (projectId: string) =>
     apiRequest<unknown>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/production/timeline`,
@@ -62,31 +75,34 @@ export const productionApi = {
     resolution: RenderResolution = "1080p",
     frameRate: RenderFrameRate = 24,
     subtitlesEnabled = true,
+    subtitleStyle: SubtitleStyle = DEFAULT_SUBTITLE_STYLE,
   ) => {
     const status = await prepareLocalRenderExecutor(localRenderExecutorDependencies());
     if (!status.projectRenderEnabled) {
       throw new Error("Local FFmpeg rendering is not enabled.");
     }
     const localDeviceId = status.deviceId;
+    if (!localDeviceId) throw new Error("Local render device is not available.");
 
-    return apiRequest<unknown>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/production/render`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          resolution,
-          fps: frameRate,
-          format: "mp4",
-          executionTarget: "LOCAL_DEVICE",
-          localDeviceId,
-          subtitlesEnabled,
-          beatOverrides,
-        }),
-      },
-    ).then((value) => {
+    const intents = new RenderSubmissionIntents(window.localStorage);
+    const submission = intents.prepare({ projectId, resolution, fps: frameRate, format: "mp4", executionTarget: "LOCAL_DEVICE",
+      localDeviceId, subtitlesEnabled, subtitleStyle, beatOverrides });
+    const { projectId: submittedProjectId, ...request } = submission.request;
+    try {
+      const value = await apiRequest<unknown>(
+        `/api/v1/projects/${encodeURIComponent(submittedProjectId)}/production/render`,
+        { method: "POST", headers: { "Idempotency-Key": submission.idempotencyKey }, body: JSON.stringify(request) },
+      );
       assertContract(isRenderJob(value), "Render job response không đúng contract.");
-      return value;
-    });
+      intents.complete(submittedProjectId, submission.idempotencyKey);
+      return { ...value, recoveredSubmission: submission.recovered };
+    } catch (error) {
+      // Validation/admission rejection is definitive. Transport, timeout, conflict and 5xx remain ambiguous.
+      if (error instanceof DesktopApiError && error.status >= 400 && error.status < 500 && ![408, 409].includes(error.status)) {
+        intents.complete(submittedProjectId, submission.idempotencyKey);
+      }
+      throw error;
+    }
   },
 
   preflight: (input: LocalRenderPreflightInput): Promise<LocalRenderPreflight> =>

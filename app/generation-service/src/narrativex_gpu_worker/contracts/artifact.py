@@ -53,12 +53,22 @@ class OutputArtifactTarget(ProtocolModel):
     access: ArtifactWriteAccess
 
 
+class VideoTechnicalMetadata(ProtocolModel):
+    duration_ms: Annotated[int, Field(gt=0)]
+    width: Annotated[int, Field(gt=0)]
+    height: Annotated[int, Field(gt=0)]
+    fps: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    has_audio: bool
+    decode_passed: bool
+
+
 class ProducedArtifact(ProtocolModel):
     artifact_id: UUID
     role: Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{0,63}$")]
     media_type: Annotated[str, Field(pattern=r"^[a-z0-9.+-]+/[a-z0-9.+-]+$")]
     size_bytes: Annotated[int, Field(ge=0)]
     sha256: Sha256
+    technical_metadata: VideoTechnicalMetadata | None = None
 
 
 class TaskArtifacts(ProtocolModel):
@@ -77,4 +87,5 @@ __all__ = [
     "ProtocolModel",
     "Sha256",
     "TaskArtifacts",
+    "VideoTechnicalMetadata",
 ]

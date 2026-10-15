@@ -16,7 +16,31 @@ public record ChapterAnalysisRequest(
     String promptVersion,
     String schemaVersion,
     String previousCanonHash,
-    String projectBible) {
+    String projectBible,
+    String customInstruction) {
+
+  public ChapterAnalysisRequest(
+      UUID projectId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
+      String sourceText,
+      String sourceLanguage,
+      String promptVersion,
+      String schemaVersion,
+      String previousCanonHash,
+      String projectBible) {
+    this(
+        projectId,
+        chapterId,
+        storyboardRevisionId,
+        sourceText,
+        sourceLanguage,
+        promptVersion,
+        schemaVersion,
+        previousCanonHash,
+        projectBible,
+        null);
+  }
 
   public ChapterAnalysisRequest {
     Objects.requireNonNull(projectId, "projectId must not be null");
@@ -33,11 +57,14 @@ public record ChapterAnalysisRequest(
     if (schemaVersion == null || schemaVersion.isBlank()) {
       schemaVersion = "1.0";
     }
+    if (customInstruction != null && customInstruction.isBlank()) {
+      customInstruction = null;
+    }
   }
 
   public static ChapterAnalysisRequest simple(
       UUID projectId, UUID chapterId, String sourceText, String sourceLanguage) {
     return new ChapterAnalysisRequest(
-        projectId, chapterId, null, sourceText, sourceLanguage, "1.0", "1.0", null, null);
+        projectId, chapterId, null, sourceText, sourceLanguage, "1.0", "1.0", null, null, null);
   }
 }

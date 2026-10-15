@@ -349,7 +349,6 @@ public final class ChapterAnalysisArtifactMaterializer {
         storyBeatRow.setSummary(requiredText(beat, "title", "visual beat title"));
         storyBeatRow.setImportance(text(beat, "importance", "NORMAL"));
         storyBeatRow.setStoryFunctionsJson("[]");
-        storyBeatRow.setContinuityStateJson("{}");
         storyBeatRow.setReviewStatus("NEEDS_REVIEW");
         storyBeatRow.setCreatedAt(now);
         storyBeatRow.setUpdatedAt(now);
@@ -389,7 +388,6 @@ public final class ChapterAnalysisArtifactMaterializer {
         beatRow.setVisualDirectionJson(direction.toString());
         beatRow.setDramaticIntent(
             text(beat, "dramatic_intent", text(beat, "dramaticIntent", "SETUP")));
-        beatRow.setEmotion(text(beat, "emotion", null));
         beatRow.setRetentionRole(text(beat, "retention_role", text(beat, "retentionRole", null)));
         beatRow.setReviewStatus("NEEDS_REVIEW");
         beatRow.setMotionMode("STILL");

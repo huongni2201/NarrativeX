@@ -22,7 +22,8 @@ class LtxWorkerContractTest {
     // Locate worker manifest
     File manifestFile = findManifestFile();
     assertNotNull(manifestFile, "native-av.manifest.json must exist in the repository");
-    assertTrue(manifestFile.exists(), "Manifest file must exist: " + manifestFile.getAbsolutePath());
+    assertTrue(
+        manifestFile.exists(), "Manifest file must exist: " + manifestFile.getAbsolutePath());
 
     JsonNode manifest = mapper.readTree(manifestFile);
 
@@ -55,11 +56,15 @@ class LtxWorkerContractTest {
   }
 
   private File findManifestFile() {
-    Path[] candidates = new Path[] {
-      Path.of("../../app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json"),
-      Path.of("../generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json"),
-      Path.of("app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json")
-    };
+    Path[] candidates =
+        new Path[] {
+          Path.of(
+              "../../app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json"),
+          Path.of(
+              "../generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json"),
+          Path.of(
+              "app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json")
+        };
     for (Path candidate : candidates) {
       File f = candidate.toFile();
       if (f.exists()) {
@@ -69,9 +74,10 @@ class LtxWorkerContractTest {
     // Search upwards
     File current = new File(".").getAbsoluteFile();
     while (current != null) {
-      File candidate = new File(
-          current,
-          "app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json");
+      File candidate =
+          new File(
+              current,
+              "app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/native-av.manifest.json");
       if (candidate.exists()) {
         return candidate;
       }

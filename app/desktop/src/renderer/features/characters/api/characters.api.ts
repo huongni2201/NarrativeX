@@ -4,7 +4,7 @@ import type {
   DesktopCharacterDetail,
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isNumber, isRecord, isString } from "../../../api/guards";
 import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
@@ -33,7 +33,8 @@ function isCharacterVersionReference(value: unknown): value is DesktopCharacterV
     isRecord(value) &&
     isString(value.assetId) &&
     isString(value.role) &&
-    isNumber(value.priority)
+    isNumber(value.priority) &&
+    (value.slot == null || isString(value.slot))
   );
 }
 
@@ -104,7 +105,12 @@ export const charactersApi = {
       },
     ).then(parseCharacterVersionReferences),
 
-  createVersion: (characterId: string, input: { bible: string; visualPrompt: string }) =>
+  createVersion: (characterId: string, input: {
+    bible: string;
+    visualPrompt?: string;
+    visualProfile?: DesktopCharacterVersion["visualProfile"];
+    basedOnVersionId?: string | null;
+  }) =>
     apiRequest<CharacterVersionMutationResult>(
       `/api/v1/characters/${encodeURIComponent(characterId)}/versions`,
       {

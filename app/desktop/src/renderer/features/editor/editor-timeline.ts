@@ -1,8 +1,14 @@
-import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { DesktopTimeline, DesktopTimelineBeat } from "../../../shared/api-types";
 
 export type EditorScope = "beat" | "scene" | "chapter" | "project";
 
 type DesktopChapter = DesktopTimeline["chapters"][number];
+
+export function editorBeatIdentity(beat: DesktopTimelineBeat): string {
+  return beat.shotId && beat.takeId
+    ? `${beat.visualBeatId}:${beat.shotId}:${beat.takeId}`
+    : beat.visualBeatId;
+}
 
 export interface EditorStoryBeatGroup {
   storyBeatId: string | null;

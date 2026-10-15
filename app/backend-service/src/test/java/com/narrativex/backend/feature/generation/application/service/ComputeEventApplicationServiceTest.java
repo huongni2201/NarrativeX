@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.api.internal.ComputeEventRequest;
+import com.narrativex.backend.feature.generation.application.event.GenerationJobChangedEvent;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeErrorDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeEventReceiptRepository;
@@ -23,13 +24,14 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class ComputeEventApplicationServiceTest {
 
   private GenerationJobRepository generationJobRepository;
   private ComputeEventReceiptRepository receiptRepository;
   private ComputeResultFinalizerRegistry finalizerRegistry;
-  private GenerationJobEventBroadcaster broadcaster;
+  private ApplicationEventPublisher eventPublisher;
   private ComputeResultFinalizer imageFinalizer;
   private ComputeEventApplicationService service;
 
@@ -37,7 +39,7 @@ class ComputeEventApplicationServiceTest {
   void setUp() {
     generationJobRepository = mock(GenerationJobRepository.class);
     receiptRepository = mock(ComputeEventReceiptRepository.class);
-    broadcaster = mock(GenerationJobEventBroadcaster.class);
+    eventPublisher = mock(ApplicationEventPublisher.class);
     imageFinalizer = mock(ComputeResultFinalizer.class);
     when(imageFinalizer.supportedType()).thenReturn(JobType.CHAPTER_GENERATE);
     when(imageFinalizer.supports(org.mockito.ArgumentMatchers.eq(JobType.CHAPTER_GENERATE), any()))
@@ -46,7 +48,7 @@ class ComputeEventApplicationServiceTest {
     finalizerRegistry = new ComputeResultFinalizerRegistry(List.of(imageFinalizer));
     service =
         new ComputeEventApplicationService(
-            generationJobRepository, receiptRepository, finalizerRegistry, broadcaster);
+            generationJobRepository, receiptRepository, finalizerRegistry, eventPublisher);
   }
 
   @Test
@@ -194,7 +196,7 @@ class ComputeEventApplicationServiceTest {
     assertEquals(ComputeEventApplicationService.ProcessingOutcome.PROCESSED, outcome);
     verify(imageFinalizer)
         .finalizeResult(any(GenerationJob.class), any(ComputeObservationDto.class));
-    verify(broadcaster).broadcastJobEvent(any(GenerationJob.class));
+    verify(eventPublisher).publishEvent(any(GenerationJobChangedEvent.class));
   }
 
   @Test
@@ -232,6 +234,156 @@ class ComputeEventApplicationServiceTest {
 
     assertEquals(ComputeEventApplicationService.ProcessingOutcome.PROCESSED, outcome);
     verify(generationJobRepository).save(any(GenerationJob.class));
-    verify(broadcaster).broadcastJobEvent(any(GenerationJob.class));
+    verify(eventPublisher).publishEvent(any(GenerationJobChangedEvent.class));
+  }
+
+  @Test
+  void successFinalizerReceivesPersistedCallbackVersion() {
+    var job =
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+            .markSubmitting("SUBMITTING")
+            .markSubmitted(
+                UUID.randomUUID(), "handle", 1L, Instant.now(), Instant.now().plusSeconds(10));
+    when(generationJobRepository.findByComputeAttempt(job.getJobId(), job.getComputeAttemptId()))
+        .thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any(GenerationJob.class)))
+        .thenAnswer(i -> ((GenerationJob) i.getArgument(0)).toBuilder().rowVersion(1L).build());
+    var request =
+        new ComputeEventRequest(
+            "persisted-version",
+            "1.0",
+            job.getJobId(),
+            job.getComputeAttemptId(),
+            2L,
+            "SUCCEEDED",
+            "handle",
+            1.0,
+            List.of(),
+            null,
+            null,
+            Instant.now());
+    service.processEvent(request, "hash");
+    var captured = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(imageFinalizer).finalizeResult(captured.capture(), any());
+    assertEquals(1L, captured.getValue().getRowVersion());
+  }
+
+  @Test
+  void successWithoutFinalizerRemainsRecoverable() {
+    var job =
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH)
+            .markSubmitting("SUBMITTING")
+            .markSubmitted(
+                UUID.randomUUID(), "handle", 1L, Instant.now(), Instant.now().plusSeconds(10));
+    when(generationJobRepository.findByComputeAttempt(job.getJobId(), job.getComputeAttemptId()))
+        .thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any(GenerationJob.class))).thenAnswer(i -> i.getArgument(0));
+    var request =
+        new ComputeEventRequest(
+            "missing-finalizer",
+            "1.0",
+            job.getJobId(),
+            job.getComputeAttemptId(),
+            2L,
+            "SUCCEEDED",
+            "handle",
+            1.0,
+            List.of(),
+            null,
+            null,
+            Instant.now());
+    service.processEvent(request, "hash");
+    var captured = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captured.capture());
+    assertEquals(JobStatus.UNKNOWN, captured.getValue().getStatus());
+    org.junit.jupiter.api.Assertions.assertNotNull(captured.getValue().getNextReconcileAt());
+  }
+
+  @Test
+  void successiveRunningCallbacksAdvanceProgressMonotonically() {
+    UUID attemptId = UUID.randomUUID();
+    var holder =
+        new java.util.concurrent.atomic.AtomicReference<>(
+            GenerationJob.create(
+                    UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+                .markSubmitting("SUBMITTING")
+                .markSubmitted(
+                    attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10)));
+    GenerationJob initial = holder.get();
+    when(generationJobRepository.findByComputeAttempt(initial.getJobId(), attemptId))
+        .thenAnswer(i -> Optional.of(holder.get()));
+    when(generationJobRepository.save(any(GenerationJob.class)))
+        .thenAnswer(
+            i -> {
+              holder.set(i.getArgument(0));
+              return i.getArgument(0);
+            });
+
+    double[] progress = {0.2, 0.5, 0.4};
+    int[] expected = {20, 50, 50};
+    for (int i = 0; i < progress.length; i++) {
+      var request =
+          new ComputeEventRequest(
+              "evt_running_" + i,
+              "1.0",
+              initial.getJobId(),
+              attemptId,
+              2L + i,
+              "RUNNING",
+              "handle-1",
+              progress[i],
+              List.of(),
+              null,
+              null,
+              Instant.now());
+      assertEquals(
+          ComputeEventApplicationService.ProcessingOutcome.PROCESSED,
+          service.processEvent(request, "hash"));
+      assertEquals(JobStatus.RUNNING, holder.get().getStatus());
+      assertEquals(expected[i], holder.get().getProgress());
+      assertEquals(2L + i, holder.get().getComputeSequence());
+    }
+    verify(eventPublisher, org.mockito.Mockito.times(3))
+        .publishEvent(any(GenerationJobChangedEvent.class));
+  }
+
+  @Test
+  void runningCallbackNeverReportsHundredPercentBeforeCompletion() {
+    UUID attemptId = UUID.randomUUID();
+    var holder =
+        new java.util.concurrent.atomic.AtomicReference<>(
+            GenerationJob.create(
+                    UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+                .markSubmitting("SUBMITTING")
+                .markSubmitted(
+                    attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10))
+                .markRunningWithCompute("COMPUTING_MEDIA", 10, 1L, "RUNNING", "handle-1"));
+    when(generationJobRepository.findByComputeAttempt(holder.get().getJobId(), attemptId))
+        .thenAnswer(i -> Optional.of(holder.get()));
+    when(generationJobRepository.save(any(GenerationJob.class)))
+        .thenAnswer(
+            i -> {
+              holder.set(i.getArgument(0));
+              return i.getArgument(0);
+            });
+    var request =
+        new ComputeEventRequest(
+            "evt_full",
+            "1.0",
+            holder.get().getJobId(),
+            attemptId,
+            2L,
+            "RUNNING",
+            "handle-1",
+            1.0,
+            List.of(),
+            null,
+            null,
+            Instant.now());
+    service.processEvent(request, "hash");
+    assertEquals(99, holder.get().getProgress());
+    assertEquals(JobStatus.RUNNING, holder.get().getStatus());
   }
 }

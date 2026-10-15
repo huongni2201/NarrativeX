@@ -1,4 +1,4 @@
-import type { DesktopChapterWorkspace, DesktopVoice } from "@narrativex/client-contracts";
+import type { DesktopChapterWorkspace, DesktopVoice } from "../../../../shared/api-types";
 
 export type ChapterFilter = "all" | "completed" | "in_progress" | "draft";
 export type ChapterSort = "recent" | "title" | "order" | "words";
@@ -34,6 +34,10 @@ export function isAnalysisProcessingStatus(status: string | null | undefined) {
 export function wordCount(value: string) {
   const normalized = value.trim();
   return normalized ? normalized.split(/\s+/u).length : 0;
+}
+
+export function canCreateInitialChapter(title: string, sourceText: string) {
+  return Boolean(title.trim() && sourceText.trim());
 }
 
 export function chapterNumberLabel(orderIndex: number) {

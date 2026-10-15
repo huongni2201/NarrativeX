@@ -5,5 +5,4 @@ public record CreateProjectCommand(
     String description,
     String sourceLanguage,
     String narrationLanguage,
-    String metadataLanguage,
     String imageAspectRatio) {}

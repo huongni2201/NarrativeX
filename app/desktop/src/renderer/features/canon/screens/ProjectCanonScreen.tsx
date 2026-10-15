@@ -21,7 +21,7 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
             <button
               type="button"
               onClick={() => setActiveTab("characters")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-[13px] font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-body font-medium transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
                 activeTab === "characters"
                   ? "bg-primary-muted text-primary shadow-sm"
                   : "text-text-muted hover:text-foreground"
@@ -34,7 +34,7 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
             <button
               type="button"
               onClick={() => setActiveTab("voices")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-[13px] font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-body font-medium transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
                 activeTab === "voices"
                   ? "bg-primary-muted text-primary shadow-sm"
                   : "text-text-muted hover:text-foreground"
@@ -47,7 +47,7 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
             <button
               type="button"
               onClick={() => setActiveTab("continuity")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-[13px] font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-body font-medium transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
                 activeTab === "continuity"
                   ? "bg-primary-muted text-primary shadow-sm"
                   : "text-text-muted hover:text-foreground"
@@ -59,7 +59,7 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[12px] text-text-muted">
+        <div className="flex items-center gap-2 text-label text-text-muted">
           <ShieldCheck size={14} className="text-success" />
           <span>Project Canon: Frozen & Authoritative</span>
         </div>
@@ -83,8 +83,8 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
         {activeTab === "continuity" && (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center text-text-muted">
             <Compass size={44} className="mb-3 text-text-dim" />
-            <h3 className="text-[16px] font-semibold text-foreground">Tính liên tục & Địa điểm (World Continuity)</h3>
-            <p className="mt-1 max-w-md text-[13px] leading-relaxed text-text-secondary">
+            <h3 className="text-[15px] font-semibold text-foreground">Tính liên tục & Địa điểm (World Continuity)</h3>
+            <p className="mt-1 max-w-md text-body leading-relaxed text-text-secondary">
               Các sự kiện, bối cảnh không gian và nhân vật được tự động đồng bộ từ quá trình Phân tích Chương (Chapter Analyze) và đối chiếu với Project Canon.
             </p>
           </div>

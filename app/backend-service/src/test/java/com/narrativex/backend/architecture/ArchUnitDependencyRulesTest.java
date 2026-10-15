@@ -6,6 +6,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import com.tngtech.archunit.core.domain.Dependency;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchCondition;
@@ -15,8 +16,16 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 
 @AnalyzeClasses(
     packages = "com.narrativex.backend.feature",
-    importOptions = ImportOption.DoNotIncludeTests.class)
+    importOptions = ArchUnitDependencyRulesTest.ProductionClassesOnly.class)
 class ArchUnitDependencyRulesTest {
+  public static final class ProductionClassesOnly implements ImportOption {
+    @Override
+    public boolean includes(Location location) {
+      return !location.asURI().getPath().replace('\\', '/').contains("/test-classes/")
+          && new ImportOption.DoNotIncludeTests().includes(location);
+    }
+  }
+
   @ArchTest
   static final ArchRule production_read_does_not_depend_on_transport_responses =
       noClasses()
@@ -25,6 +34,21 @@ class ArchUnitDependencyRulesTest {
           .should()
           .dependOnClassesThat()
           .resideInAPackage("..api.response..");
+
+  @ArchTest
+  static final ArchRule job_events_are_broadcast_only_after_commit =
+      noClasses()
+          .that()
+          .doNotHaveSimpleName("GenerationJobChangedListener")
+          .should()
+          .callMethod(
+              com.narrativex.backend.feature.generation.application.service
+                  .GenerationJobEventBroadcaster.class,
+              "broadcastJobEvent",
+              com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob.class)
+          .because(
+              "SSE broadcasts must go through GenerationJobChangedEvent so clients never see"
+                  + " uncommitted or rolled-back state");
 
   @ArchTest
   static final ArchRule common_does_not_depend_on_business_features =

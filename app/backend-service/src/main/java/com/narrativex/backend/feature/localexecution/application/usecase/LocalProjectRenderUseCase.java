@@ -184,7 +184,51 @@ public class LocalProjectRenderUseCase {
       long trimStartMs,
       String storageKey,
       long sizeBytes,
-      String checksum) {
+      String checksum,
+      UUID shotId,
+      UUID takeId,
+      Long sourceOutMs,
+      String subtitleWordsJson) {
+    public BeatInput(
+        UUID chapterId,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        UUID mediaAssetId,
+        long globalStartMs,
+        long globalEndMs,
+        long durationMs,
+        String cameraMovement,
+        String mediaType,
+        Long sourceDurationMs,
+        String fitMode,
+        long trimStartMs,
+        String storageKey,
+        long sizeBytes,
+        String checksum) {
+      this(
+          chapterId,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          mediaAssetId,
+          globalStartMs,
+          globalEndMs,
+          durationMs,
+          cameraMovement,
+          mediaType,
+          sourceDurationMs,
+          fitMode,
+          trimStartMs,
+          storageKey,
+          sizeBytes,
+          checksum,
+          null,
+          null,
+          null,
+          null);
+    }
+
     static BeatInput from(LocalProjectRenderStore.BeatInput value) {
       return new BeatInput(
           value.chapterId(),
@@ -202,7 +246,11 @@ public class LocalProjectRenderUseCase {
           value.trimStartMs(),
           value.storageKey(),
           value.sizeBytes(),
-          value.checksum());
+          value.checksum(),
+          value.shotId(),
+          value.takeId(),
+          value.sourceOutMs(),
+          value.subtitleWordsJson());
     }
 
     public BeatInput(

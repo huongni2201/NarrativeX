@@ -18,7 +18,6 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
-import com.narrativex.backend.feature.generation.domain.value.AnalysisProgress;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -33,10 +32,9 @@ class GenerationJobControllerContractTest {
       new GenerationJobController(useCase, eventStreamService, cancelUseCase);
 
   @Test
-  void getMapsPathToQueryAndWrapsDomainResultWithAnalysisProgress() {
+  void getMapsPathToQueryAndWrapsDomainResult() {
     UUID jobId = UuidV7.random();
     UUID projectId = UuidV7.random();
-    UUID reportId = UuidV7.random();
     GenerationJob job =
         GenerationJob.rehydrate(
             UuidV7.random(),
@@ -57,24 +55,14 @@ class GenerationJobControllerContractTest {
             null,
             null,
             null);
-    AnalysisProgress progress =
-        new AnalysisProgress("SHARDS", 2, 4, 1, 1, reportId, "continuity-v1");
-    when(useCase.executeWithProgress(any(GetGenerationJobQuery.class)))
-        .thenReturn(new GetGenerationJobUseCase.JobDetails(job, progress));
+    when(useCase.execute(any(GetGenerationJobQuery.class))).thenReturn(job);
 
     var responseEntity = controller.get(jobId);
     JobResponse response = responseEntity.getBody().data();
 
     assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
     assertEquals(jobId, response.jobId());
-    assertEquals("SHARDS", response.phase());
-    assertEquals(2, response.completedShards());
-    assertEquals(4, response.totalShards());
-    assertEquals(1, response.reusedShards());
-    assertEquals(1, response.repairCount());
-    assertEquals(reportId, response.continuityReportId());
-    assertEquals("continuity-v1", response.pipelineVersion());
-    verify(useCase).executeWithProgress(new GetGenerationJobQuery(jobId));
+    verify(useCase).execute(new GetGenerationJobQuery(jobId));
   }
 
   @Test

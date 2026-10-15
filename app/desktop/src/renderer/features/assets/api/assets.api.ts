@@ -2,7 +2,7 @@ import type {
   DesktopAsset,
   LocalAssetRegistration,
   RegisterLocalAssetRequest,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 import { assertContract, isRecord, isString } from "../../../api/guards.ts";
 

@@ -1,12 +1,22 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductionTimelineSourceRepository {
   List<ChapterSource> findChapters(UUID projectId);
 
+  /** One chapter of the current story version, without reading the rest of the project. */
+  Optional<ChapterSource> findChapter(UUID projectId, UUID chapterId);
+
   List<BeatSource> findBeats(UUID projectId);
+
+  /** Beats of a single chapter. */
+  List<BeatSource> findBeats(UUID projectId, UUID chapterId);
+
+  /** True when any current beat in the project already has a shot (native video timeline mode). */
+  boolean hasNativeShotBeats(UUID projectId);
 
   record ChapterSource(
       UUID storyVersionId,
@@ -99,7 +109,61 @@ public interface ProductionTimelineSourceRepository {
       boolean mediaSelectionActive,
       String storageKey,
       Long sizeBytes,
-      String checksum) {
+      String checksum,
+      Long sourceOutMs) {
+    public BeatSource(
+        UUID chapterId,
+        int chapterOrderIndex,
+        UUID mediaPlanId,
+        Integer mediaPlanRevision,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        UUID shotId,
+        UUID takeId,
+        String title,
+        String visualIntent,
+        String cameraMovement,
+        String assetStrategy,
+        Integer textStart,
+        Integer textEnd,
+        UUID mediaAssetId,
+        String mediaType,
+        Long sourceDurationMs,
+        String fitMode,
+        long trimStartMs,
+        boolean mediaSelectionActive,
+        String storageKey,
+        Long sizeBytes,
+        String checksum) {
+      this(
+          chapterId,
+          chapterOrderIndex,
+          mediaPlanId,
+          mediaPlanRevision,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          shotId,
+          takeId,
+          title,
+          visualIntent,
+          cameraMovement,
+          assetStrategy,
+          textStart,
+          textEnd,
+          mediaAssetId,
+          mediaType,
+          sourceDurationMs,
+          fitMode,
+          trimStartMs,
+          mediaSelectionActive,
+          storageKey,
+          sizeBytes,
+          checksum,
+          null);
+    }
+
     public BeatSource(
         UUID chapterId,
         int chapterOrderIndex,
@@ -147,7 +211,8 @@ public interface ProductionTimelineSourceRepository {
           mediaSelectionActive,
           storageKey,
           sizeBytes,
-          checksum);
+          checksum,
+          null);
     }
   }
 }

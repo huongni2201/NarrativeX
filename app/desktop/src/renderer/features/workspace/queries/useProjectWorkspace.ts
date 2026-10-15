@@ -7,7 +7,7 @@ import type {
   DesktopProject,
   DesktopTimeline,
   DesktopVoice,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { assetsApi, type AssetLibraryScope } from "../../assets/api/assets.api";
 import { chaptersApi } from "../../chapters/api/chapters.api";
 import { charactersApi } from "../../characters/api/characters.api";
@@ -93,14 +93,6 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
     characters: false,
     voices: false,
     presets: false,
-  },
-  settings: {
-    timeline: false,
-    chapters: false,
-    assetScope: "all",
-    characters: false,
-    voices: false,
-    presets: true,
   },
 };
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { renderDimensions } from "../../../shared/render-dimensions";
 import type {
   BeatMediaFitMode,
   DesktopTimelineBeat,
-} from "@narrativex/client-contracts";
+} from "../../../shared/api-types";
 import { Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RenderDialog } from "../production/components/RenderDialog";
@@ -14,6 +15,7 @@ import { EditorPlaybackSurface } from "./components/EditorPlaybackSurface";
 import { isEditorMutationCurrent } from "./editor-mutation-state";
 import {
   buildEditorHierarchy,
+  editorBeatIdentity,
   groupStoryBeats,
   resolveEditorScopeWindow,
   sortEditorBeats,
@@ -42,6 +44,8 @@ export function EditorScreen({
   const timeline = workspace.timeline;
   const projectId = timeline?.projectId ?? null;
   const [renderOpen, setRenderOpen] = useState(false);
+  const [subtitleEditing, setSubtitleEditing] = useState(false);
+  const [openSubtitleSignal, setOpenSubtitleSignal] = useState(0);
   const beats = timeline?.beats ?? [];
   const chapters = timeline?.chapters ?? [];
   const subtitles = useEditorSubtitles({
@@ -76,8 +80,8 @@ export function EditorScreen({
       if (selectedId) changeSelectedId("");
       return;
     }
-    if (!orderedBeats.some((beat) => beat.visualBeatId === selectedId)) {
-      changeSelectedId(orderedBeats[0].visualBeatId);
+    if (!orderedBeats.some((beat) => editorBeatIdentity(beat) === selectedId)) {
+      changeSelectedId(editorBeatIdentity(orderedBeats[0]));
       return;
     }
     selectedIdRef.current = selectedId;
@@ -85,7 +89,7 @@ export function EditorScreen({
 
   const totalMs = timeline?.totalDurationMs ?? 0;
   const selected = useMemo(
-    () => orderedBeats.find((beat) => beat.visualBeatId === selectedId) ?? null,
+    () => orderedBeats.find((beat) => editorBeatIdentity(beat) === selectedId) ?? null,
     [orderedBeats, selectedId],
   );
   const selectedChapter = useMemo(
@@ -145,7 +149,7 @@ export function EditorScreen({
   );
 
   const selectBeat = (beat: DesktopTimelineBeat) => {
-    changeSelectedId(beat.visualBeatId);
+    changeSelectedId(editorBeatIdentity(beat));
   };
 
   function isCurrentMediaMutation(requestId: number, beatId: string) {
@@ -200,9 +204,9 @@ export function EditorScreen({
       const result = await mediaMutations.importMedia.mutateAsync({
         beat,
         expectedType,
-        isCurrent: () => selectedIdRef.current === beatId,
+        isCurrent: () => selectedIdRef.current === editorBeatIdentity(beat),
       });
-      if (!result || !isCurrentMediaMutation(requestId, beatId)) return;
+      if (!result || !isCurrentMediaMutation(requestId, editorBeatIdentity(beat))) return;
       setMediaNotice({
         beatId,
         tone: "success",
@@ -212,11 +216,11 @@ export function EditorScreen({
             : "Ảnh đã được gắn vào Visual Beat.",
       });
     } catch (error) {
-      if (!isCurrentMediaMutation(requestId, beatId)) return;
+      if (!isCurrentMediaMutation(requestId, editorBeatIdentity(beat))) return;
       if (error instanceof EditorMediaAttachError) {
         const retryAttach = () => {
           void withMediaMutation(
-            beatId,
+            editorBeatIdentity(beat),
             () => mediaMutations.attachMedia.mutateAsync(error.retryInput),
             "Asset đã được gắn lại vào Visual Beat.",
             retryAttach,
@@ -231,37 +235,37 @@ export function EditorScreen({
         });
       }
     } finally {
-      if (isCurrentMediaMutation(requestId, beatId)) setMediaBusy(false);
+      if (isCurrentMediaMutation(requestId, editorBeatIdentity(beat))) setMediaBusy(false);
     }
   }
 
   async function chooseExistingAsset(assetId: string) {
     if (!projectId || !selected) return;
     const beat = selected;
-    const beatId = beat.visualBeatId;
+    const selectionKey = editorBeatIdentity(beat);
     const asset = selectableAssets.find((candidate) => candidate.id === assetId);
     if (!asset) return;
     const action = () => mediaMutations.chooseExistingAsset.mutateAsync({ beat, asset });
     const successMessage = (result: Awaited<ReturnType<typeof action>>) =>
       `${result.originalFilename} đã được gắn; Auto Edit chọn ${result.fitMode}.`;
-    const retry = () => void withMediaMutation(beatId, action, successMessage, retry);
-    await withMediaMutation(beatId, action, successMessage, retry);
+    const retry = () => void withMediaMutation(selectionKey, action, successMessage, retry);
+    await withMediaMutation(selectionKey, action, successMessage, retry);
   }
 
   async function updateFitMode(fitMode: BeatMediaFitMode) {
     if (!projectId || !selected?.mediaAssetId) return;
     const beat = selected;
-    const beatId = beat.visualBeatId;
+    const selectionKey = editorBeatIdentity(beat);
     const action = () => mediaMutations.updateFitMode.mutateAsync({ beat, fitMode });
     const retry = () =>
       void withMediaMutation(
-        beatId,
+        selectionKey,
         action,
         `Manual override đã chuyển fit mode sang ${fitMode}.`,
         retry,
       );
     await withMediaMutation(
-      beatId,
+      selectionKey,
       action,
       `Manual override đã chuyển fit mode sang ${fitMode}.`,
       retry,
@@ -270,11 +274,13 @@ export function EditorScreen({
 
   async function resetToGeneratedSource() {
     if (!projectId || !selected) return;
-    const beatId = selected.visualBeatId;
+    const beat = selected;
+    const beatId = beat.visualBeatId;
+    const selectionKey = editorBeatIdentity(beat);
     const action = () => mediaMutations.resetMedia.mutateAsync({ beatId });
     const retry = () =>
-      void withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
-    await withMediaMutation(beatId, action, "Visual Beat đã quay về generated source.", retry);
+      void withMediaMutation(selectionKey, action, "Visual Beat đã quay về generated source.", retry);
+    await withMediaMutation(selectionKey, action, "Visual Beat đã quay về generated source.", retry);
   }
 
   return (
@@ -284,7 +290,7 @@ export function EditorScreen({
           size="sm"
           onClick={() => setRenderOpen(true)}
           disabled={!projectId || !timeline}
-          className="border border-primary/30 bg-primary font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary-hover active:scale-[0.98]"
+          className="border border-primary/30 bg-primary font-medium text-primary-foreground shadow-sm transition-[color,background-color,border-color,box-shadow,transform,opacity] hover:bg-primary-hover active:scale-[0.98]"
         >
           <Film size={13} /> Render
         </Button>
@@ -302,11 +308,16 @@ export function EditorScreen({
         beats={orderedBeats}
         chapters={chapters}
         subtitleCues={subtitles.cues}
+        subtitleStyle={renderController.subtitleStyle}
+        subtitlesEnabled={renderController.subtitlesEnabled}
+        subtitleEditing={subtitleEditing}
+        aspectRatio={timeline?.aspectRatio ?? "16:9"}
+        subtitleReferenceHeight={renderDimensions(renderController.resolution, timeline?.aspectRatio ?? "16:9").height}
         selectedBeatId={selectedId}
         previewBeat={previewBeat}
         frameRate={renderController.frameRate}
         mediaUrl={previewSources.mediaUrl}
-        narrationUrl={previewSources.narrationUrl}
+        narrationUrl={selected?.shotId ? null : previewSources.narrationUrl}
         narrationStartMs={selectedChapter?.startMs ?? null}
         narrationEndMs={selectedChapter?.endMs ?? null}
         previewLoading={previewSources.loading || subtitles.loading}
@@ -328,12 +339,19 @@ export function EditorScreen({
         onChooseAsset={chooseExistingAsset}
         onUpdateFitMode={updateFitMode}
         onResetSource={resetToGeneratedSource}
+        subtitleController={renderController}
+        onSubtitleEditingChange={setSubtitleEditing}
+        openSubtitleSignal={openSubtitleSignal}
       />
 
       <RenderDialog
         open={renderOpen}
         onClose={() => setRenderOpen(false)}
         controller={renderController}
+        onEditSubtitles={() => {
+          setRenderOpen(false);
+          setOpenSubtitleSignal((signal) => signal + 1);
+        }}
       />
     </div>
   );

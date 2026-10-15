@@ -1,4 +1,4 @@
-import type { DesktopChapterStory, StoryBeatMutationResponse, StoryBeatReviewStatus } from "@narrativex/client-contracts";
+import type { DesktopChapterStory, StoryBeatMutationResponse, StoryBeatReviewStatus } from "../../../../shared/api-types";
 import { apiRequest } from "../../../api/client.ts";
 
 export const storyApi = {

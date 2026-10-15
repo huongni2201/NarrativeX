@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import type { DesktopCharacter, DesktopCharacterDetail } from "../../../../shared/api-types";
 import { Loader2, Plus, Search, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +37,7 @@ function CharacterPortrait({ src, alt, className }: Readonly<{ src: string | nul
       {src && !imageFailed ? (
         <img src={src} alt={alt} width={128} height={128} loading="lazy" className="size-full object-cover" onError={() => setImageFailed(true)} />
       ) : (
-        <span className="px-2 text-center text-[9px] font-medium leading-4 text-text-dim">Chưa có ảnh</span>
+        <span className="px-2 text-center text-caption font-medium leading-4 text-text-dim">Chưa có ảnh</span>
       )}
     </div>
   );
@@ -62,11 +62,11 @@ function CharacterRow({ projectId, character, selected, onSelect }: Readonly<{
       <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${character.canonicalName}`} className="size-11 rounded-md" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className={`truncate text-[11px] font-semibold ${selected ? "text-primary-hover" : "text-foreground"}`}>{character.canonicalName}</span>
+          <span className={`truncate text-caption font-semibold ${selected ? "text-primary-hover" : "text-foreground"}`}>{character.canonicalName}</span>
           <StatusIndicator label={normalizeLabel(character.status ?? "ACTIVE")} tone="success" className="shrink-0" />
         </div>
-        <div className="mt-0.5 truncate text-[9px] text-text-muted">{normalizeLabel(character.role ?? "Project character")}</div>
-        <div className="mt-1 flex items-center gap-2 text-[9px] text-text-dim">
+        <div className="mt-0.5 truncate text-caption text-text-muted">{normalizeLabel(character.role ?? "Project character")}</div>
+        <div className="mt-1 flex items-center gap-2 text-caption text-text-dim">
           <span>{character.sceneCount ?? 0} scenes</span>
           <span>·</span>
           <span>{character.pinnedCharacterVersionId ? "Reference ready" : "Reference unlocked"}</span>
@@ -85,8 +85,16 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(characters[0]?.id ?? null);
+  const pendingSelectionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const pendingSelectionId = pendingSelectionIdRef.current;
+    if (pendingSelectionId) {
+      if (!characters.some((character) => character.id === pendingSelectionId)) return;
+      pendingSelectionIdRef.current = null;
+      setSelectedId(pendingSelectionId);
+      return;
+    }
     if (!characters.length) {
       setSelectedId(null);
       return;
@@ -119,6 +127,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
       setName("");
       setAliases("");
       setCreating(false);
+      pendingSelectionIdRef.current = character.id;
       setSelectedId(character.id);
       setNotice("Character đã được tạo và assign vào project.");
     } catch (error) {
@@ -193,13 +202,13 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                 {filteredCharacters.map((character) => (
                   <CharacterRow key={character.id} projectId={projectId} character={character} selected={character.id === selectedId} onSelect={() => setSelectedId(character.id)} />
                 ))}
-                {!filteredCharacters.length ? <div className="p-4 text-center text-[10px] text-text-muted">Không có character phù hợp.</div> : null}
+                {!filteredCharacters.length ? <div className="p-4 text-center text-caption text-text-muted">Không có character phù hợp.</div> : null}
               </div>
             </WorkspacePane>
 
             <WorkspacePane className="flex min-w-0 flex-col border-r border-border-subtle">
               {!detail ? (
-                <div className="grid h-full place-items-center text-[10px] text-text-muted">Chọn một nhân vật để mở Character Studio.</div>
+                <div className="grid h-full place-items-center text-caption text-text-muted">Chọn một nhân vật để mở Character Studio.</div>
               ) : (
                 <>
                   <PaneHeader
@@ -207,7 +216,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                     meta={`${normalizeLabel(detail.role)} · ${detail.sceneCount ?? 0} scene appearances`}
                     actions={
                       <div className="flex items-center gap-1.5">
-                        {detailQuery.isFetching ? <span className="text-[9px] text-text-dim">Refreshing…</span> : null}
+                        {detailQuery.isFetching ? <span className="text-caption text-text-dim">Refreshing…</span> : null}
                         <Button
                           type="button"
                           variant="ghost"
@@ -229,10 +238,10 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                       <CharacterPortrait src={portraitQuery.url} alt={`Ảnh đại diện của ${detail.canonicalName}`} className="size-16 rounded-md" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h2 className="truncate text-[15px] font-semibold text-foreground">{detail.canonicalName}</h2>
+                          <h2 className="truncate text-[14px] font-semibold text-foreground">{detail.canonicalName}</h2>
                           <StatusIndicator label={normalizeLabel(detail.status ?? "ACTIVE")} tone="success" />
                         </div>
-                        <p className="mt-1 text-[10px] text-text-muted">
+                        <p className="mt-1 text-caption text-text-muted">
                           {portraitQuery.isLoading || portraitQuery.isReferencesLoading ? "Đang tải identity…" : portraitQuery.url ? "Identity reference ready" : "No identity reference"}
                         </p>
                       </div>
@@ -246,7 +255,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
             <WorkspacePane className="flex flex-col bg-surface-panel">
               <PaneHeader title="Inspector" meta={detail ? normalizeLabel(detail.status ?? "ACTIVE") : "No selection"} />
               {!detail ? (
-                <div className="p-4 text-[10px] text-text-muted">Chọn character để xem identity, version và appearance.</div>
+                <div className="p-4 text-caption text-text-muted">Chọn character để xem identity, version và appearance.</div>
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <InspectorSection title="Identity">
@@ -284,7 +293,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
 function InspectorSection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
     <section className="border-b border-border-subtle">
-      <div className="bg-surface-dark px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">{title}</div>
+      <div className="bg-surface-dark px-3 py-1.5 text-caption font-semibold text-text-dim">{title}</div>
       {children}
     </section>
   );
@@ -293,8 +302,8 @@ function InspectorSection({ title, children }: Readonly<{ title: string; childre
 function InspectorText({ title, value }: Readonly<{ title: string; value: string }>) {
   return (
     <section className="border-b border-border-subtle p-3">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">{title}</div>
-      <p className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">{value}</p>
+      <div className="text-caption font-semibold text-text-dim">{title}</div>
+      <p className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap text-caption leading-4 text-text-muted">{value}</p>
     </section>
   );
 }

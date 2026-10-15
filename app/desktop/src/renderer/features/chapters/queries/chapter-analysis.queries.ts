@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AnalyzeChapterInput } from "@narrativex/client-contracts";
+import type { AnalyzeChapterInput } from "../../../../shared/api-types";
 import { isTerminalGenerationJobStatus } from "../../generation/generation-status.ts";
 import {
   useAnalyzeChapter,
@@ -121,6 +121,8 @@ export function useChapterAnalysis(
     };
   }, [jobQuery.data, trackedJob]);
 
+  const connectionInterrupted = Boolean(trackedJob && jobQuery.isError);
+
   useEffect(() => {
     if (!trackedJob || !polledJob || !isTerminalGenerationJobStatus(polledJob.status)) return;
 
@@ -139,8 +141,11 @@ export function useChapterAnalysis(
   }, [polledJob, projectId, queryClient, trackedJob]);
 
   const job = polledJob ?? lastJob;
-  const uiState = deriveChapterAnalysisUiState(job, analyzeMutation.isPending);
-  const connectionInterrupted = Boolean(trackedJob && jobQuery.isError && !jobQuery.data);
+  const uiState = deriveChapterAnalysisUiState(
+    job,
+    analyzeMutation.isPending,
+    connectionInterrupted,
+  );
 
   async function analyze(preferences: AnalyzeChapterInput) {
     if (!chapterId) throw new Error("Chưa chọn chapter để phân tích.");
@@ -169,7 +174,9 @@ export function useChapterAnalysis(
     analyze,
     job,
     trackedChapterId: trackedJob?.chapterId ?? null,
-    isAnalyzing: Boolean(trackedJob) || uiState.isAnalyzing,
+    isAnalyzing:
+      !connectionInterrupted &&
+      (Boolean(trackedJob && !jobQuery.data) || uiState.isAnalyzing),
     isTerminal: uiState.isTerminal,
     canAnalyze: !trackedJob && uiState.canAnalyze,
     message: uiState.message,

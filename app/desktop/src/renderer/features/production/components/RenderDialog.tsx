@@ -1,5 +1,6 @@
-import type { AutoEditStyle, RenderFrameRate, RenderResolution } from "@narrativex/client-contracts";
+import type { AutoEditStyle, RenderFrameRate, RenderResolution } from "../../../../shared/api-types";
 import { Film, FolderOpen, Loader2, Type, X } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { useRenderController } from "../useRenderController";
+import { subtitlePositionLabel, subtitleSaveStatus } from "./SubtitleSettingsPanel";
 
 type RenderController = ReturnType<typeof useRenderController>;
 
@@ -16,23 +18,26 @@ export function RenderDialog({
   open,
   onClose,
   controller,
+  onEditSubtitles,
 }: Readonly<{
   open: boolean;
   onClose: () => void;
   controller: RenderController;
+  /** Subtitle styling lives in the Editor Inspector; this jumps there. */
+  onEditSubtitles?: () => void;
 }>) {
   if (!open) return null;
   const job = controller.liveJob;
 
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-6 backdrop-blur-sm">
-      <section className="w-full max-w-xl rounded-xl border border-border bg-card shadow-2xl">
-        <header className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
+      <DialogContent className="flex w-[min(680px,calc(100vw-32px))] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+        <header className="flex shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4">
           <div className="flex items-center gap-2">
             <Film size={16} className="text-primary" />
             <div>
-              <h2 className="text-sm font-semibold">Render final video</h2>
-              <p className="text-[10px] text-muted-foreground">Narration là master clock · Local FFmpeg</p>
+              <DialogTitle className="text-sm font-semibold">Render final video</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">Local FFmpeg · Xuất toàn bộ video</DialogDescription>
             </div>
           </div>
           <button type="button" onClick={onClose} className="nx-icon-button" aria-label="Close render dialog">
@@ -40,9 +45,9 @@ export function RenderDialog({
           </button>
         </header>
 
-        <div className="grid gap-4 p-5">
+        <div className="grid min-h-0 min-w-0 grid-cols-1 gap-4 overflow-y-auto p-5">
           <div className="grid grid-cols-3 gap-3">
-            <label className="grid gap-1 text-[10px] text-muted-foreground">
+            <label className="grid gap-1 text-caption text-muted-foreground">
               Resolution
               <Select
                 value={controller.resolution}
@@ -57,7 +62,7 @@ export function RenderDialog({
               </Select>
             </label>
 
-            <label className="grid gap-1 text-[10px] text-muted-foreground">
+            <label className="grid gap-1 text-caption text-muted-foreground">
               Frame rate
               <Select
                 value={String(controller.frameRate)}
@@ -72,7 +77,7 @@ export function RenderDialog({
               </Select>
             </label>
 
-            <label className="grid gap-1 text-[10px] text-muted-foreground">
+            <label className="grid gap-1 text-caption text-muted-foreground">
               Auto Edit
               <Select
                 value={controller.autoEditStyle}
@@ -89,35 +94,43 @@ export function RenderDialog({
             </label>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-popover px-3 py-2.5">
-            <span className="flex items-center gap-2">
-              <Type size={13} className="text-primary" />
-              <span>
-                <strong className="block text-[11px]">Subtitles · Automatic</strong>
-                <span className="text-[9px] text-muted-foreground">Narration subtitles are burned into the final video using alignment/fallback timing.</span>
-              </span>
-            </span>
-            <button
-              type="button"
-              aria-pressed={controller.subtitlesEnabled}
-              onClick={() => controller.setSubtitlesEnabled(!controller.subtitlesEnabled)}
-              className={
-                controller.subtitlesEnabled
-                  ? "rounded bg-emerald-500/10 px-2.5 py-1 text-[9px] font-semibold text-emerald-400"
-                  : "rounded bg-secondary px-2.5 py-1 text-[9px] font-semibold text-muted-foreground"
-              }
-            >
-              {controller.subtitlesEnabled ? "ON" : "OFF"}
-            </button>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-popover p-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-caption text-muted-foreground">
+                <Type size={13} />
+                <span>Phụ đề</span>
+                <span role="status" className="ml-auto text-caption">{subtitleSaveStatus(controller, "Đã lưu")}</span>
+              </div>
+              <p className="mt-1 truncate text-caption text-foreground">
+                {controller.subtitlesEnabled
+                  ? `Bật · ${controller.subtitleStyle.fontFamily} · ${subtitlePositionLabel(controller.subtitleStyle.position)}`
+                  : "Tắt"}
+              </p>
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                Chỉnh kiểu chữ, vị trí và màu ở tab Phụ đề trong Inspector, xem trước ngay trên khung video.
+              </p>
+            </div>
+            {onEditSubtitles ? (
+              <Button type="button" variant="outline" onClick={onEditSubtitles} disabled={controller.busy}>
+                <Type size={13} />
+                Chỉnh phụ đề
+              </Button>
+            ) : null}
           </div>
+
+          {controller.nativeSubtitleTimingWarning ? (
+            <div role="status" className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-caption text-warning">
+              {controller.nativeSubtitleTimingWarning}
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-popover p-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-2 text-caption text-muted-foreground">
                 <FolderOpen size={13} />
                 <span>Destination</span>
               </div>
-              <p className="mt-1 truncate font-mono text-[10px] text-foreground">
+              <p className="mt-1 truncate font-mono text-caption text-foreground">
                 {controller.finalPath ?? controller.destinationDirectory ?? "Chưa chọn thư mục lưu video"}
               </p>
             </div>
@@ -133,20 +146,20 @@ export function RenderDialog({
           </div>
 
           {!!controller.readinessBlockers.length && (
-            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-[10px] text-warning">
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-caption text-warning">
               {controller.readinessBlockers.join(" · ")}
             </div>
           )}
 
           {controller.notice && (
-            <div className="rounded-lg border border-border-subtle bg-popover p-3 text-[10px] text-muted-foreground">
+            <div className="min-w-0 break-words rounded-lg border border-border-subtle bg-popover p-3 text-caption text-muted-foreground">
               {controller.notice}
             </div>
           )}
 
           {job && (
             <div className="grid gap-2 rounded-lg border border-border-subtle p-3">
-              <div className="flex justify-between text-[10px]">
+              <div className="flex justify-between text-caption">
                 <span>{job.status}</span>
                 <span>{Math.round(Math.max(0, Math.min(100, job.progress)))}%</span>
               </div>
@@ -160,7 +173,7 @@ export function RenderDialog({
           )}
         </div>
 
-        <footer className="flex items-center justify-end gap-2 border-t border-border-subtle px-5 py-4">
+        <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-border-subtle px-5 py-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button
             onClick={() => void controller.startRender()}
@@ -170,7 +183,7 @@ export function RenderDialog({
             {controller.busy ? "Preparing…" : "Render video"}
           </Button>
         </footer>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -14,6 +14,8 @@ import com.narrativex.backend.feature.generation.application.model.compute.Model
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
@@ -30,7 +32,6 @@ import com.narrativex.backend.feature.generation.application.service.VideoPrompt
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
-import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess;
@@ -67,20 +68,36 @@ public class GenerateShotTakeUseCase {
   private final VideoPromptCompiler promptCompiler;
   private final NativeVideoInputMapper nativeVideoInputMapper;
   private final NarrativeXLimitsProperties limits;
+  private final PromptSettingsAccess promptSettingsAccess;
 
   @Transactional
   public TakeResponse execute(GenerateShotTakeCommand command) {
-    return admit(command, null);
+    return admit(command, null, null);
   }
 
+  /**
+   * Admits a batch leaf from inputs frozen at batch admission. The frozen prompts and prompt
+   * provenance are reused verbatim; the current prompt configuration is never consulted.
+   */
   @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NESTED)
-  public TakeResponse executeFrozen(GenerateShotTakeCommand command, String frozenFingerprint) {
-    return admit(command, Objects.requireNonNull(frozenFingerprint));
+  public TakeResponse executeFrozen(
+      GenerateShotTakeCommand command, String frozenFingerprint, String frozenInputJson) {
+    return admit(
+        command,
+        Objects.requireNonNull(frozenFingerprint),
+        Objects.requireNonNull(frozenInputJson));
   }
 
   @Transactional
   public FrozenShot freeze(GenerateShotTakeCommand command) {
+    return freeze(command, promptSettingsAccess.current());
+  }
+
+  /** Freezes one shot against the prompt settings the caller resolved once for the batch. */
+  @Transactional
+  public FrozenShot freeze(GenerateShotTakeCommand command, PromptSettings settings) {
     var prepared = prepare(command);
+    bindPrompt(prepared, compilePrompt(prepared.shot(), settings));
     return new FrozenShot(
         prepared.requestFingerprint(), JSON.writeValueAsString(prepared.semantics()));
   }
@@ -97,7 +114,8 @@ public class GenerateShotTakeUseCase {
       List<TakeInputSnapshot.Reference> references,
       String requestFingerprint) {}
 
-  private TakeResponse admit(GenerateShotTakeCommand command, String frozenFingerprint) {
+  private TakeResponse admit(
+      GenerateShotTakeCommand command, String frozenFingerprint, String frozenInputJson) {
     if (command.idempotencyKey() == null
         || command.idempotencyKey().isBlank()
         || command.idempotencyKey().length() > 200) {
@@ -114,16 +132,14 @@ public class GenerateShotTakeUseCase {
             + ":"
             + command.idempotencyKey();
     generationJobRepository.acquireIdempotencyLock(key);
+    // Settings-independent identity: replay and frozen-batch checks never consult the current
+    // prompt configuration, so a later Save cannot turn a replay into a conflict.
     var prepared = prepare(command);
-    var shot = prepared.shot();
-    var strategy = prepared.strategy();
-    var audioMode = prepared.audioMode();
-    var context = prepared.context();
-    var inputs = prepared.inputs();
-    var semantics = prepared.semantics();
-    var references = prepared.references();
     String requestFingerprint = prepared.requestFingerprint();
-    if (frozenFingerprint != null && !frozenFingerprint.equals(requestFingerprint)) {
+    PromptInput frozenPrompt = frozenInputJson == null ? null : frozenPrompt(frozenInputJson);
+    if (frozenFingerprint != null
+        && !frozenFingerprint.equals(requestFingerprint)
+        && !frozenFingerprint.equals(legacyRequestFingerprint(prepared, frozenPrompt))) {
       throw new ResourceConflictException(
           "Frozen batch shot inputs changed; create a new batch after reconciliation");
     }
@@ -134,11 +150,24 @@ public class GenerateShotTakeUseCase {
               .findByGenerationJobId(existing.get().getId())
               .orElseThrow(() -> new IllegalStateException("Admitted job has no take"));
       var saved = JSON.readValue(take.inputSnapshotJson(), TakeInputSnapshot.class);
-      if (!requestFingerprint.equals(saved.requestFingerprint())) {
+      if (!requestFingerprint.equals(saved.requestFingerprint())
+          && !isLegacyReplay(prepared, saved)) {
         throw new ResourceConflictException("Idempotency-Key reused with different shot inputs");
       }
       return response(take, existing.get().getJobId());
     }
+    bindPrompt(
+        prepared,
+        frozenPrompt != null
+            ? frozenPrompt
+            : compilePrompt(prepared.shot(), promptSettingsAccess.current()));
+    var shot = prepared.shot();
+    var strategy = prepared.strategy();
+    var audioMode = prepared.audioMode();
+    var context = prepared.context();
+    var inputs = prepared.inputs();
+    var semantics = prepared.semantics();
+    var references = prepared.references();
     var previousTakes = takeRepository.findByShotId(command.shotId());
     for (var previous : previousTakes) {
       if (previous.generationJobId() == null) continue;
@@ -288,7 +317,6 @@ public class GenerateShotTakeUseCase {
           "UNSUPPORTED_REFERENCE_CONDITIONING: Current LTX profile does not accept input artifacts");
     }
     pinVoices(context);
-    var compiled = promptCompiler.compile(shot, ImageStyle.CINEMATIC, null);
     List<NativeDialogueLine> dialogue = new ArrayList<>();
     NativeVoiceDescription primaryVoiceReference = null;
     @SuppressWarnings("unchecked")
@@ -323,11 +351,9 @@ public class GenerateShotTakeUseCase {
       }
     }
 
-    String prompt = compiled.prompt();
-    String negativePrompt = compiled.negativePrompt() == null ? "" : compiled.negativePrompt();
     NativeVideoInputs nativeInputs =
         nativeVideoInputMapper.map(shot, dialogue, primaryVoiceReference);
-    validateNativeVideoInputs(shot.targetDurationMs(), prompt, negativePrompt, nativeInputs);
+    validateNativeVideoInputs(shot.targetDurationMs(), nativeInputs);
 
     Map<String, Object> inputs = new TreeMap<>();
     inputs.put("workflowProfileId", catalog.defaultProfile());
@@ -336,8 +362,6 @@ public class GenerateShotTakeUseCase {
     if (nativeInputs.voiceReference() != null) {
       inputs.put("voiceReference", nativeInputs.voiceReference());
     }
-    inputs.put("prompt", prompt);
-    inputs.put("negativePrompt", negativePrompt);
     inputs.put("width", 1280);
     inputs.put("height", 720);
     inputs.put("fps", 24);
@@ -360,22 +384,108 @@ public class GenerateShotTakeUseCase {
     semantics.put("retryFromTakeId", command.retryFromTakeId());
     semantics.put("retryReason", command.retryReason());
     semantics.put("references", references);
+    // Settings-independent view of the Shot-derived prompt: a changed Shot still changes the
+    // request identity, while the prompt configuration (style, instructions) never does.
+    semantics.put(
+        "structuralPrompt", promptCompiler.compile(shot, (PromptSettings) null, null).prompt());
     String requestFingerprint =
         fingerprint(semantics, catalog.defaultProvider(), catalog.defaultModel());
     return new Prepared(
         shot, strategy, audioMode, context, inputs, semantics, references, requestFingerprint);
   }
 
-  private static void validateNativeVideoInputs(
-      long durationMs, String prompt, String negativePrompt, NativeVideoInputs inputs) {
-    if (durationMs < 100 || durationMs > 10_000) {
-      throw new DomainValidationException("INVALID_VIDEO_DURATION: Expected 100 to 10000 ms");
+  /** Compiled prompts plus the prompt-settings provenance frozen next to them. */
+  private record PromptInput(
+      String prompt, String negativePrompt, Map<String, Object> provenance) {}
+
+  private PromptInput compilePrompt(StoryboardShotAccess.ShotView shot, PromptSettings settings) {
+    var compiled = promptCompiler.compile(shot, settings, null);
+    Map<String, Object> provenance = new TreeMap<>();
+    provenance.put("revision", Long.toString(settings.revision()));
+    provenance.put("styleId", settings.activeStyleId());
+    provenance.put("effectiveHash", settings.effectiveHash());
+    return new PromptInput(
+        compiled.prompt(),
+        compiled.negativePrompt() == null ? "" : compiled.negativePrompt(),
+        provenance);
+  }
+
+  /**
+   * Adds the prompts after the settings-independent request fingerprint was computed, so prompt
+   * configuration never participates in idempotent replay but does shape the input fingerprint.
+   */
+  private static void bindPrompt(Prepared prepared, PromptInput input) {
+    String negativePrompt = input.negativePrompt() == null ? "" : input.negativePrompt();
+    validatePrompt(input.prompt(), negativePrompt);
+    prepared.inputs().put("prompt", input.prompt());
+    prepared.inputs().put("negativePrompt", negativePrompt);
+    if (input.provenance() != null) {
+      prepared.context().put("promptSettings", input.provenance());
     }
+  }
+
+  private static PromptInput frozenPrompt(String frozenInputJson) {
+    var root = JSON.readTree(frozenInputJson);
+    var inputs = root.path("inputs");
+    if (!inputs.path("prompt").isTextual()) {
+      throw new DomainValidationException("FROZEN_PROMPT_MISSING: Frozen shot input has no prompt");
+    }
+    String negativePrompt =
+        inputs.path("negativePrompt").isTextual() ? inputs.path("negativePrompt").asText() : "";
+    var provenanceNode = root.path("context").path("promptSettings");
+    Map<String, Object> provenance =
+        provenanceNode.isObject()
+            ? JSON.readValue(provenanceNode.toString(), new TypeReference<Map<String, Object>>() {})
+            : null;
+    return new PromptInput(inputs.path("prompt").asText(), negativePrompt, provenance);
+  }
+
+  /**
+   * Request fingerprint as computed before prompt settings existed: the compiled prompts were part
+   * of the replay identity. Reconstructed from the prompts that were actually stored, so work
+   * admitted by an older build still replays instead of conflicting.
+   */
+  private String legacyRequestFingerprint(Prepared prepared, PromptInput stored) {
+    Map<String, Object> inputsCopy = new TreeMap<>(prepared.inputs());
+    inputsCopy.put("prompt", stored.prompt());
+    inputsCopy.put(
+        "negativePrompt", stored.negativePrompt() == null ? "" : stored.negativePrompt());
+    Map<String, Object> semanticsCopy = new TreeMap<>(prepared.semantics());
+    semanticsCopy.put("inputs", inputsCopy);
+    semanticsCopy.remove("structuralPrompt"); // not part of the pre-settings identity
+    return fingerprint(semanticsCopy, catalog.defaultProvider(), catalog.defaultModel());
+  }
+
+  /** Test seam: the pre-settings request fingerprint for prompts that were stored earlier. */
+  String legacyFingerprintForStoredPrompts(
+      GenerateShotTakeCommand command, String prompt, String negativePrompt) {
+    return legacyRequestFingerprint(
+        prepare(command), new PromptInput(prompt, negativePrompt, null));
+  }
+
+  private boolean isLegacyReplay(Prepared prepared, TakeInputSnapshot saved) {
+    if (saved.context() != null && saved.context().containsKey("promptSettings")) return false;
+    if (saved.inputs() == null || !(saved.inputs().get("prompt") instanceof String prompt)) {
+      return false;
+    }
+    String negativePrompt =
+        saved.inputs().get("negativePrompt") instanceof String value ? value : "";
+    return legacyRequestFingerprint(prepared, new PromptInput(prompt, negativePrompt, null))
+        .equals(saved.requestFingerprint());
+  }
+
+  private static void validatePrompt(String prompt, String negativePrompt) {
     if (prompt == null || prompt.isBlank() || prompt.length() > 20_000) {
       throw new DomainValidationException("INVALID_PROMPT: Expected 1 to 20000 characters");
     }
     if (negativePrompt.length() > 10_000) {
       throw new DomainValidationException("INVALID_NEGATIVE_PROMPT: Maximum is 10000 characters");
+    }
+  }
+
+  private static void validateNativeVideoInputs(long durationMs, NativeVideoInputs inputs) {
+    if (durationMs < 100 || durationMs > 10_000) {
+      throw new DomainValidationException("INVALID_VIDEO_DURATION: Expected 100 to 10000 ms");
     }
     if (inputs.dialogue().size() > 32) {
       throw new DomainValidationException("INVALID_DIALOGUE_COUNT: Maximum is 32 lines");

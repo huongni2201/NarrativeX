@@ -11,4 +11,5 @@ public class CharacterVersionReferenceRow {
   private UUID mediaAssetId;
   private String referenceRole;
   private int priority;
+  private String referenceSlot;
 }

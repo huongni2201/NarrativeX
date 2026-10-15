@@ -7,26 +7,6 @@ import java.util.UUID;
 public final class ProjectResourceResponse {
   private ProjectResourceResponse() {}
 
-  public record Location(
-      UUID id,
-      String name,
-      String description,
-      String visualPrompt,
-      String referenceImageUrl,
-      String status,
-      Instant updatedAt) {
-    public static Location from(ProjectResourceView.Location view) {
-      return new Location(
-          view.id(),
-          view.name(),
-          view.description(),
-          view.visualPrompt(),
-          view.referenceImageUrl(),
-          view.status(),
-          view.updatedAt());
-    }
-  }
-
   public record Asset(
       UUID id,
       String name,

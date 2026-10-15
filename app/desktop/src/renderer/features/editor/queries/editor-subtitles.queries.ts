@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { DesktopTimeline } from "@narrativex/client-contracts";
+import type { DesktopTimeline } from "../../../../shared/api-types";
 import { planSubtitles, type PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { chaptersApi } from "../../chapters/api/chapters.api";
 

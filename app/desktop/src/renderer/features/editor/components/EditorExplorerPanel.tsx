@@ -13,9 +13,9 @@ import {
   Search,
   Sparkles,
 } from "lucide-react";
-import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { DesktopTimelineBeat } from "../../../../shared/api-types";
 import { Input } from "@/components/ui/input";
-import type { EditorChapterGroup } from "../editor-timeline";
+import { editorBeatIdentity, type EditorChapterGroup } from "../editor-timeline";
 
 interface EditorExplorerPanelProps {
   hierarchy: EditorChapterGroup[];
@@ -43,7 +43,7 @@ export function EditorExplorerPanel({
   useEffect(() => {
     if (!selectedBeatId) return;
     for (const group of hierarchy) {
-      if (group.beats.some((b) => b.visualBeatId === selectedBeatId)) {
+      if (group.beats.some((beat) => editorBeatIdentity(beat) === selectedBeatId)) {
         setExpandedChapters((prev) => {
           const next = new Set(prev);
           next.add(group.chapter.chapterId);
@@ -77,7 +77,7 @@ export function EditorExplorerPanel({
         const chapterNumber = String(group.chapter.orderIndex + 1 || index + 1).padStart(2, "0");
         const startSecs = formatTimeSecs(group.chapter.startMs);
         const endSecs = formatTimeSecs(group.chapter.endMs);
-        const hasSelectedBeat = group.beats.some((beat) => beat.visualBeatId === selectedBeatId);
+        const hasSelectedBeat = group.beats.some((beat) => editorBeatIdentity(beat) === selectedBeatId);
         const firstBeat = group.beats[0] ?? null;
         const totalStoryBeats = group.scenes.reduce((acc, s) => acc + (s.storyBeats?.length ?? 0), 0);
 
@@ -102,8 +102,8 @@ export function EditorExplorerPanel({
     <aside className="nx-editor-explorer relative flex h-full min-h-0 flex-col border-r border-border-subtle bg-surface-panel text-foreground">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-4">
         <div className="min-w-0">
-          <h3 className="truncate text-[15px] font-semibold tracking-tight text-foreground">Project Explorer</h3>
-          <p className="mt-0.5 text-[12px] text-text-dim">{chaptersList.length} chapters</p>
+          <h3 className="truncate text-[14px] font-semibold tracking-tight text-foreground">Project Explorer</h3>
+          <p className="mt-0.5 text-label text-text-dim">{chaptersList.length} chapters</p>
         </div>
         <button
           type="button"
@@ -119,7 +119,7 @@ export function EditorExplorerPanel({
         <div className="relative flex min-w-0 flex-1 items-center">
           <Search size={14} className="pointer-events-none absolute left-2.5 text-text-muted" />
           <Input
-            className="pl-8 pr-2.5 text-[13px]"
+            className="pl-8 pr-2.5 text-body"
             placeholder="Search chapters, beats or media..."
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
@@ -181,14 +181,14 @@ export function EditorExplorerPanel({
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-primary" : "text-text-dim"}`}>
+                        <span className={`font-mono text-caption font-semibold ${isActive ? "text-primary" : "text-text-dim"}`}>
                           {chapter.number}
                         </span>
-                        <span className={`truncate text-[13px] font-medium ${isActive ? "text-foreground" : "text-text-secondary"}`}>
+                        <span className={`truncate text-body font-medium ${isActive ? "text-foreground" : "text-text-secondary"}`}>
                           {chapter.title}
                         </span>
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-text-dim font-mono">
+                      <div className="mt-0.5 flex items-center gap-2 text-caption text-text-dim font-mono">
                         <span>{chapter.timeRange}</span>
                         <span>·</span>
                         <span>{chapter.totalVisualBeats} beats</span>
@@ -222,14 +222,14 @@ export function EditorExplorerPanel({
                       >
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
-                      <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-primary" : "text-text-dim"}`}>
+                      <span className={`font-mono text-caption font-semibold ${isActive ? "text-primary" : "text-text-dim"}`}>
                         {chapter.number}
                       </span>
-                      <span className="truncate text-[13px] font-medium text-foreground">
+                      <span className="truncate text-body font-medium text-foreground">
                         {chapter.title}
                       </span>
                     </div>
-                    <span className="shrink-0 font-mono text-[11px] text-text-dim pl-2">
+                    <span className="shrink-0 font-mono text-caption text-text-dim pl-2">
                       {chapter.timeRange}
                     </span>
                   </div>
@@ -238,18 +238,18 @@ export function EditorExplorerPanel({
                   {isExpanded && (
                     <div className="border-t border-border-subtle/50 px-2 py-2 space-y-2 bg-background/25">
                       {chapter.scenes.length === 0 && (
-                        <p className="text-[12px] text-text-dim py-1 text-center italic">
+                        <p className="text-label text-text-dim py-1 text-center italic">
                           Chưa có scene nào.
                         </p>
                       )}
 
                       {chapter.scenes.map((scene) => (
                         <div key={`${chapter.id}-scene-${scene.sceneIndex}`} className="space-y-1">
-                          <div className="flex items-center justify-between text-[12px] font-medium text-text-muted px-1.5 pt-0.5">
-                            <span className="uppercase tracking-wider text-[10px] text-text-dim font-mono">
+                          <div className="flex items-center justify-between text-label font-medium text-text-muted px-1.5 pt-0.5">
+                            <span className="uppercase tracking-wider text-caption text-text-dim font-mono">
                               Scene {scene.sceneIndex + 1}
                             </span>
-                            <span className="font-mono text-[11px] text-text-dim">
+                            <span className="font-mono text-caption text-text-dim">
                               {formatTimeSecs(scene.durationMs)}
                             </span>
                           </div>
@@ -260,8 +260,8 @@ export function EditorExplorerPanel({
                               key={`${chapter.id}-sb-${storyBeat.storyBeatId ?? sbIdx}`}
                               className="rounded border border-border-subtle/40 bg-surface-dark/40 p-1.5 space-y-1"
                             >
-                              <div className="flex items-center justify-between text-[11px] text-text-dim px-1 font-mono">
-                                <span className="flex items-center gap-1 font-sans text-[11px] font-medium text-text-secondary">
+                              <div className="flex items-center justify-between text-caption text-text-dim px-1 font-mono">
+                                <span className="flex items-center gap-1 font-sans text-caption font-medium text-text-secondary">
                                   <Sparkles size={11} className="text-primary/70 shrink-0" />
                                   {storyBeat.storyBeatId ? `StoryBeat ${sbIdx + 1}` : "Direct Beats"}
                                 </span>
@@ -271,10 +271,10 @@ export function EditorExplorerPanel({
                               {/* Visual Beats */}
                               <div className="space-y-0.5 pl-1">
                                 {storyBeat.beats.map((beat) => {
-                                  const isBeatSelected = beat.visualBeatId === selectedBeatId;
+                                  const isBeatSelected = editorBeatIdentity(beat) === selectedBeatId;
                                   return (
                                     <button
-                                      key={beat.visualBeatId}
+                                      key={editorBeatIdentity(beat)}
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -288,11 +288,11 @@ export function EditorExplorerPanel({
                                     >
                                       <div className="flex items-center gap-1.5 min-w-0">
                                         <Film size={12} className={isBeatSelected ? "text-primary" : "text-text-muted"} />
-                                        <span className="truncate text-[12px]">
+                                        <span className="truncate text-label">
                                           {beat.title || `Beat ${beat.beatIndex + 1}`}
                                         </span>
                                       </div>
-                                      <span className="font-mono text-[11px] text-text-dim shrink-0 pl-1">
+                                      <span className="font-mono text-caption text-text-dim shrink-0 pl-1">
                                         {formatTimeSecs(beat.durationMs)}
                                       </span>
                                     </button>
@@ -313,10 +313,10 @@ export function EditorExplorerPanel({
 
         {chaptersList.length === 0 && (
           <div className="col-span-full border-y border-dashed border-border-subtle px-4 py-7 text-center" role="status">
-            <p className="text-[13px] font-medium text-text-secondary">
+            <p className="text-body font-medium text-text-secondary">
               {query.trim() ? "Không tìm thấy chapter phù hợp." : "Chưa có chapter nào."}
             </p>
-            <p className="mt-1 text-[12px] leading-4 text-text-dim">
+            <p className="mt-1 text-label leading-4 text-text-dim">
               {query.trim() ? "Thử thay đổi từ khóa tìm kiếm." : "Tạo chapter trong tab Chapters để bắt đầu biên tập."}
             </p>
           </div>
@@ -326,7 +326,7 @@ export function EditorExplorerPanel({
           <button
             type="button"
             onClick={onAddChapter}
-            className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border-subtle text-[12px] font-medium text-text-muted transition-[background-color,border-color,color] duration-150 hover:border-border-dark hover:bg-surface-2 hover:text-foreground"
+            className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border-subtle text-label font-medium text-text-muted transition-[background-color,border-color,color] duration-150 hover:border-border-dark hover:bg-surface-2 hover:text-foreground"
           >
             <Plus size={14} aria-hidden="true" />
             <span>Add Chapter</span>
@@ -336,12 +336,12 @@ export function EditorExplorerPanel({
 
       <div className="nx-project-info absolute inset-x-0 bottom-0 z-10 border-t border-border-subtle bg-surface-panel px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
-          <h4 className="text-[13px] font-semibold text-foreground">Project Info</h4>
-          <span className="font-mono text-[12px] text-text-dim">
+          <h4 className="text-body font-semibold text-foreground">Project Info</h4>
+          <span className="font-mono text-label text-text-dim">
             {totalDurationMs > 0 ? formatDurationTimecode(totalDurationMs) : "01:30.00"}
           </span>
         </div>
-        <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
+        <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-label">
           <InfoPair label="Resolution" value="1920 × 1080" />
           <InfoPair label="Frame Rate" value="24 fps" />
           <InfoPair label="Aspect Ratio" value="16:9" />

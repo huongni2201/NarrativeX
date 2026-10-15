@@ -1,4 +1,5 @@
-import type { DesktopCharacterVersionReference } from "@narrativex/client-contracts";
+import type { DesktopCharacterVersionReference } from "../../../../shared/api-types";
+import type { CharacterReferenceSlot } from "../../../../shared/api-types";
 import { assetsApi } from "../../assets/api/assets.api";
 import { charactersApi } from "../api/characters.api";
 
@@ -68,4 +69,39 @@ export async function importCharacterIdentityReference(input: {
   const assetId = await registerSelection(input.projectId, selection);
   const references = await assignIdentityReference({ ...input, assetId });
   return { assetId, references };
+}
+
+export async function importCharacterReferenceSlot(input: {
+  projectId: string;
+  characterId: string;
+  versionId: string;
+  slot: CharacterReferenceSlot;
+}) {
+  const selection = await window.narrativex.localStorage.selectAsset();
+  if (!selection) return null;
+  const assetId = await registerSelection(input.projectId, selection);
+  const current = await charactersApi.versionReferences(input.characterId, input.versionId);
+  const priorities: Record<CharacterReferenceSlot, { role: string; priority: number }> = {
+    FACE_FRONT: { role: "IDENTITY", priority: 0 },
+    FACE_THREE_QUARTER_LEFT: { role: "PROFILE", priority: 1 },
+    FACE_THREE_QUARTER_RIGHT: { role: "PROFILE", priority: 2 },
+    FACE_PROFILE_LEFT: { role: "PROFILE", priority: 3 },
+    FACE_PROFILE_RIGHT: { role: "PROFILE", priority: 4 },
+    BODY_FRONT: { role: "POSE", priority: 5 },
+    BODY_SIDE: { role: "POSE", priority: 6 },
+    BODY_BACK: { role: "POSE", priority: 7 },
+  };
+  const reference = { assetId, ...priorities[input.slot], slot: input.slot };
+  const references = [
+    ...current.filter((existing) => existing.slot !== input.slot),
+    reference,
+  ].sort((left, right) => left.priority - right.priority);
+  return {
+    assetId,
+    references: await charactersApi.setVersionReferences(
+      input.characterId,
+      input.versionId,
+      references,
+    ),
+  };
 }

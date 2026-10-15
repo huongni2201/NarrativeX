@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.character.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
+import com.narrativex.backend.feature.character.domain.enums.CharacterReferenceSlot;
 import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow;
@@ -21,7 +22,12 @@ public class MyBatisCharacterVersionReferencePersistenceAdapter
         .map(
             row ->
                 new CharacterVersionReference(
-                    row.getMediaAssetId(), row.getReferenceRole(), row.getPriority()))
+                    row.getMediaAssetId(),
+                    row.getReferenceRole(),
+                    row.getPriority(),
+                    row.getReferenceSlot() == null
+                        ? null
+                        : CharacterReferenceSlot.valueOf(row.getReferenceSlot())))
         .toList();
   }
 
@@ -34,6 +40,7 @@ public class MyBatisCharacterVersionReferencePersistenceAdapter
       row.setMediaAssetId(reference.mediaAssetId());
       row.setReferenceRole(reference.role());
       row.setPriority(reference.priority());
+      row.setReferenceSlot(reference.slot() == null ? null : reference.slot().name());
       if (mapper.insert(row) != 1) {
         throw new IllegalStateException("Could not persist character version reference");
       }
