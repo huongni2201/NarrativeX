@@ -12,9 +12,14 @@ import type {
   DesktopStoryBeat,
   DesktopTimeline,
   StoryBeatReviewStatus,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { useChapterStoryQuery, useUpdateStoryBeatReviewStatus } from "../../story/queries/story.queries";
-import { useCreateChapter, useUpdateChapter, useChapterWorkspacesQuery } from "../queries/chapters.queries";
+import {
+  useCreateChapter,
+  useUpdateChapter,
+  useDeleteChapter,
+  useChapterWorkspacesQuery,
+} from "../queries/chapters.queries";
 import { useChapterAnalysis } from "../queries/chapter-analysis.queries";
 import {
   useCreateMediaJob,
@@ -25,6 +30,7 @@ import { isActiveGenerationJobStatus } from "../../generation/generation-status"
 import { useChapterProductionStatus } from "../../production/queries/video-production.queries";
 import { canCreateInitialChapter, isAnalysisProcessingStatus } from "../model/chapter-ui";
 import { ChapterRail } from "../components/ChapterRail";
+import { DeleteChapterDialog } from "../components/DeleteChapterDialog";
 import { ChapterSourceStage } from "../components/stages/ChapterSourceStage";
 import { ChapterCanonStage } from "../components/stages/ChapterCanonStage";
 import { ChapterProductionStage } from "../components/stages/ChapterProductionStage";
@@ -84,10 +90,13 @@ export function ChapterWorkspaceScreen({
 
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);
+  const deleteChapter = useDeleteChapter(projectId);
+  const [chapterPendingDelete, setChapterPendingDelete] = useState<DesktopChapterDetails | null>(null);
   const chapterWorkspaces = useChapterWorkspacesQuery(projectId, chapters, selectedChapterId);
   const serverAnalysis = chapterWorkspaces.find(item => item.data?.chapter.id === selectedChapterId)?.data?.pipeline.analysis;
   const analysis = useChapterAnalysis(projectId, selectedChapterId,
     serverAnalysis && isAnalysisProcessingStatus(serverAnalysis.status) ? serverAnalysis.latestJobId : null);
+  const analysisHasError = Boolean(analysis.error || analysis.job?.status === "FAILED");
   const createMediaJob = useCreateMediaJob();
   const updateBeatStatus = useUpdateStoryBeatReviewStatus(projectId, selectedChapterId ?? "");
 
@@ -203,6 +212,35 @@ export function ChapterWorkspaceScreen({
     setCurrentStage("source");
   };
 
+  const handleRequestDeleteChapter = (chapterId: string) => {
+    deleteChapter.reset();
+    setChapterPendingDelete(chapters.find((c) => c.id === chapterId) ?? null);
+  };
+
+  const handleCloseDeleteChapter = () => {
+    if (deleteChapter.isPending) return;
+    deleteChapter.reset();
+    setChapterPendingDelete(null);
+  };
+
+  const handleConfirmDeleteChapter = async () => {
+    const target = chapterPendingDelete;
+    if (!target || deleteChapter.isPending) return;
+    const index = chapters.findIndex((c) => c.id === target.id);
+    try {
+      await deleteChapter.mutateAsync(target.id);
+    } catch {
+      return; // The error is rendered inside the dialog so the user can retry or cancel.
+    }
+    if (selectedChapterId === target.id) {
+      const next = chapters[index + 1] ?? chapters[index - 1] ?? null;
+      setSelectedChapterId(next?.id ?? null);
+      setSelectedBeatId(null);
+      if (!next) setCurrentStage("source");
+    }
+    setChapterPendingDelete(null);
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">
       {/* PANE 1 (LEFT): Chapter & StoryBeat Navigation Rail */}
@@ -220,6 +258,15 @@ export function ChapterWorkspaceScreen({
           if (beat) handleSelectBeat(beat);
         }}
         onCreateChapter={handleCreateNewChapter}
+        onDeleteChapter={handleRequestDeleteChapter}
+      />
+
+      <DeleteChapterDialog
+        chapter={chapterPendingDelete}
+        isPending={deleteChapter.isPending}
+        error={deleteChapter.error}
+        onClose={handleCloseDeleteChapter}
+        onConfirm={() => void handleConfirmDeleteChapter()}
       />
 
       {/* PANE 2 (CENTER): Main Stage Workspace */}
@@ -256,8 +303,8 @@ export function ChapterWorkspaceScreen({
           </div>
         </div>
 
-        {(analysis.message || analysis.error) && <p role={analysis.error ? "alert" : "status"}
-          className="border-b border-border-subtle bg-surface-panel px-4 py-3 text-label text-text-secondary">
+        {(analysis.message || analysis.error) && <p role={analysisHasError ? "alert" : "status"}
+          className={`border-b border-border-subtle bg-surface-panel px-4 py-3 text-label ${analysisHasError ? "text-danger" : "text-text-secondary"}`}>
           {analysis.error instanceof Error ? analysis.error.message : analysis.message}
         </p>}
         {/* Stage Content Canvas */}
@@ -271,6 +318,7 @@ export function ChapterWorkspaceScreen({
               defaultChapterTitle={`Chương ${chapters.length + 1}`}
               isCreating={createChapter.isPending}
               isAnalyzing={analysis.isAnalyzing}
+              canAnalyze={analysis.canAnalyze}
             />
           )}
 

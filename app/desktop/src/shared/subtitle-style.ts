@@ -1,5 +1,5 @@
-import type { ProjectSubtitleSettings, SubtitleStyle } from "@narrativex/client-contracts";
-export type { SubtitleStyle } from "@narrativex/client-contracts";
+import type { ProjectSubtitleSettings, SubtitleStyle } from "./api-types";
+export type { SubtitleStyle } from "./api-types";
 
 export const SUBTITLE_STYLE_VERSION = 2 as const;
 

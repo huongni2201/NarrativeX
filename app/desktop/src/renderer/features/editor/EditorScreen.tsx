@@ -3,7 +3,7 @@ import { renderDimensions } from "../../../shared/render-dimensions";
 import type {
   BeatMediaFitMode,
   DesktopTimelineBeat,
-} from "@narrativex/client-contracts";
+} from "../../../shared/api-types";
 import { Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RenderDialog } from "../production/components/RenderDialog";

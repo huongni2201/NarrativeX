@@ -27,7 +27,7 @@ class ProjectSubtitleSettingsIntegrationTest extends PostgreSqlIntegrationTestSu
   void createProject() {
     projectId =
         jdbc.queryForObject(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('subtitle','DRAFT','en','en','en','RATIO_16_9') RETURNING id",
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('subtitle','DRAFT','en', 'en','RATIO_16_9') RETURNING id",
             UUID.class);
   }
 
@@ -36,7 +36,7 @@ class ProjectSubtitleSettingsIntegrationTest extends PostgreSqlIntegrationTestSu
     assertThat(subtitles.get(projectId)).isEqualTo(ProjectSubtitleSettings.defaults());
     UUID other =
         jdbc.queryForObject(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('other','DRAFT','en','en','en','RATIO_16_9') RETURNING id",
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('other','DRAFT','en', 'en','RATIO_16_9') RETURNING id",
             UUID.class);
     var selected =
         new ProjectSubtitleSettings(

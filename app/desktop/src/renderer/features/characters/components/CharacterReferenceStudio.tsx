@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CharacterReferenceSlot, DesktopCharacterDetail } from "@narrativex/client-contracts";
+import type { CharacterReferenceSlot, DesktopCharacterDetail } from "../../../../shared/api-types";
 import { Check, ImagePlus, Loader2, LockKeyhole, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

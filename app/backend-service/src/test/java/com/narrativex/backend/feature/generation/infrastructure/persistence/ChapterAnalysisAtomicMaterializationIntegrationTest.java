@@ -1,19 +1,20 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisJobHandler;
-import com.narrativex.backend.feature.generation.infrastructure.dispatch.GenerationJobHandler;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow;
@@ -34,7 +35,6 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class ChapterAnalysisAtomicMaterializationIntegrationTest {
   @Configuration
@@ -42,7 +42,7 @@ class ChapterAnalysisAtomicMaterializationIntegrationTest {
   static class Transactions {}
 
   @Test
-  void rollsBackStoryWritesWhenMaterializationFailsWithoutWrappingProviderIo() throws Exception {
+  void rollsBackStoryWritesWhenMaterializationFailsAndLeavesTheJobUncompleted() throws Exception {
     String source = "Chapter text content";
     String sourceHash =
         HexFormat.of()
@@ -51,15 +51,16 @@ class ChapterAnalysisAtomicMaterializationIntegrationTest {
                     .digest(source.getBytes(StandardCharsets.UTF_8)));
     GenerationJob job =
         GenerationJob.createChapterAnalysis(
-            UUID.randomUUID(),
-            UUID.randomUUID(),
-            UUID.randomUUID(),
-            UUID.randomUUID(),
-            0L,
-            sourceHash,
-            source,
-            "en",
-            "atomic-analysis-test");
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                0L,
+                sourceHash,
+                source,
+                "en",
+                "atomic-analysis-test")
+            .markRunning("ANALYZING_STORY", 10);
     Map<UUID, GenerationJob> jobs = new HashMap<>();
     jobs.put(job.getJobId(), job);
     GenerationJobRepository repository = mock(GenerationJobRepository.class);
@@ -99,15 +100,9 @@ class ChapterAnalysisAtomicMaterializationIntegrationTest {
     chapter.setSourceHash(sourceHash);
     chapter.setRowVersion(0L);
     when(chapters.findById(job.getChapterId())).thenReturn(chapter);
-    AtomicBoolean providerCalled = new AtomicBoolean();
-    ChapterAnalysisProvider provider = mock(ChapterAnalysisProvider.class);
-    when(provider.analyze(any()))
-        .thenAnswer(
-            invocation -> {
-              assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-              providerCalled.set(true);
-              return new ChapterAnalysisResult(
-                  """
+    ChapterAnalysisResult result =
+        new ChapterAnalysisResult(
+            """
           {"scenes":[{"title":"Scene","visual_beats":[{
             "title":"Beat","visual_intent":"A frame","source_anchor":"Chapter text content",
             "visual_direction":{"shot_size":"WIDE","camera_angle":"EYE_LEVEL","lens_mm":35,
@@ -116,10 +111,11 @@ class ChapterAnalysisAtomicMaterializationIntegrationTest {
               "camera_movement":"NONE","movement_intensity":"SUBTLE","crop_safe_area":"full"}
           }]}]}
           """,
-                  ChapterAnalysisUsage.zero(),
-                  "fixture-model",
-                  null);
-            });
+            ChapterAnalysisUsage.zero(),
+            "fixture-model",
+            null);
+    ChapterAnalysisRequest request =
+        ChapterAnalysisRequest.simple(job.getProjectId(), job.getChapterId(), source, "en");
 
     try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
       context.register(Transactions.class);
@@ -138,18 +134,27 @@ class ChapterAnalysisAtomicMaterializationIntegrationTest {
                   context.getBean(GenerationJobTransactionService.class),
                   storyboard,
                   chapters,
-                  provider,
                   null,
                   null,
                   null));
       context.refresh();
-      context.getBean(GenerationJobHandler.class).execute(job.getJobId());
+      ChapterAnalysisJobHandler handler = context.getBean(ChapterAnalysisJobHandler.class);
+      ChapterAnalysisJobHandler.LocalProvenance provenance =
+          new ChapterAnalysisJobHandler.LocalProvenance(
+              UUID.randomUUID(),
+              UUID.randomUUID(),
+              "antigravity-cli/1",
+              "conversation-1",
+              ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI);
 
-      assertThat(providerCalled).isTrue();
+      assertThatThrownBy(() -> handler.materializeAndComplete(job, request, result, provenance))
+          .isInstanceOf(RuntimeException.class)
+          .hasStackTraceContaining("second write failed");
+
       assertThat(storyWriteAttempted).isTrue();
       assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM materialized_scene", Integer.class))
           .isZero();
-      assertThat(jobs.get(job.getJobId()).getStatus()).isEqualTo(JobStatus.FAILED);
+      assertThat(jobs.get(job.getJobId()).getStatus()).isNotEqualTo(JobStatus.COMPLETED);
     } finally {
       jdbc.execute("SHUTDOWN");
     }

@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.character.api.response;
 
-import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import com.narrativex.backend.feature.character.domain.enums.CharacterReferenceSlot;
+import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import java.util.UUID;
 
 public record CharacterVersionReferenceResponse(

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ProjectSubtitleSettings, SubtitleStyle } from "@narrativex/client-contracts";
+import type { ProjectSubtitleSettings, SubtitleStyle } from "../../../shared/api-types";
 import { DEFAULT_SUBTITLE_STYLE } from "../../../shared/subtitle-style";
 import { productionApi } from "./api/production.api";
 import { cacheSavedSubtitleSettings } from "./subtitle-settings-cache";

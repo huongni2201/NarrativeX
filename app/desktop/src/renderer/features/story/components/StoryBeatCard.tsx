@@ -1,5 +1,5 @@
 import { Volume2, Film, CheckCircle2, AlertCircle, Clock } from "lucide-react";
-import type { DesktopStoryBeat } from "@narrativex/client-contracts";
+import type { DesktopStoryBeat } from "../../../../shared/api-types";
 
 export interface StoryBeatCardProps {
   beat: DesktopStoryBeat;

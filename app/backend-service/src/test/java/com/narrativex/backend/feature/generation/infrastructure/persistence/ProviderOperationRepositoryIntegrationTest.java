@@ -54,9 +54,9 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
     String fingerprint = uniqueSha();
 
     ProviderOperation first =
-        repository.save(ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
+        repository.save(ProviderOperation.create(stageAttemptId, "test-provider", fingerprint));
     ProviderOperation duplicate =
-        repository.save(ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
+        repository.save(ProviderOperation.create(stageAttemptId, "test-provider", fingerprint));
 
     assertEquals(first.getId(), duplicate.getId());
     assertEquals(ProviderOperationStatus.RESERVED, duplicate.getStatus());
@@ -180,7 +180,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   private ProviderOperation reserve(String suffix) {
-    return repository.save(ProviderOperation.create(insertStageAttempt(), "vertex", uniqueSha()));
+    return repository.save(ProviderOperation.create(insertStageAttempt(), "test-provider", uniqueSha()));
   }
 
   private ProviderOperation complete(ProviderOperation reserved) {
@@ -215,9 +215,8 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
-              (name, status, source_language, narration_language, metadata_language,
-               image_aspect_ratio)
-            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9')
+              (name, status, source_language, narration_language, image_aspect_ratio)
+            VALUES (?, 'DRAFT', 'en-US', 'en-US', 'RATIO_16_9')
             RETURNING id
             """,
             UUID.class,

@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
 import com.narrativex.backend.feature.character.application.command.ChangeCharacterVersionStatusCommand;
-import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
+import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.character.domain.enums.CharacterReferencePolicy;
 import com.narrativex.backend.feature.character.domain.service.CharacterReferencePackPolicy;

@@ -4,7 +4,7 @@ import type {
   DesktopTimelineBeat,
   RenderFrameRate,
   SubtitleStyle,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { planBeatTransitions } from "../../../../shared/transition-planner";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { editorBeatIdentity, findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";

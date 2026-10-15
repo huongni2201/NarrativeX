@@ -17,9 +17,7 @@ public interface ChapterAnalysisExecutionStore {
 
   Optional<AnalysisProviderCredential> findCredential(UUID credentialRef);
 
-  List<AnalysisProviderCredential> findCredentialsByDevice(UUID deviceId);
-
-  List<AnalysisProviderCredential> findActiveCredentials();
+  Optional<AnalysisProviderCredential> findCredentialByDevice(UUID deviceId);
 
   AnalysisProviderCredential insertCredential(AnalysisProviderCredential credential);
 

@@ -1,4 +1,4 @@
-import type { DesktopTimeline } from "@narrativex/client-contracts";
+import type { DesktopTimeline } from "../../../shared/api-types";
 import { planSubtitles } from "../../../shared/subtitle-planner.ts";
 
 export function getRenderReadinessBlockers(timeline: DesktopTimeline | null): string[] {

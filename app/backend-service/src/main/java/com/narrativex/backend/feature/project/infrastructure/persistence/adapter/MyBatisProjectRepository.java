@@ -91,7 +91,6 @@ public class MyBatisProjectRepository implements ProjectRepository {
         .status(project.getStatus())
         .sourceLanguage(project.getSourceLanguage())
         .narrationLanguage(project.getNarrationLanguage())
-        .metadataLanguage(project.getMetadataLanguage())
         .imageAspectRatio(project.getImageAspectRatio())
         .archivedAt(project.getArchivedAt())
         .build();
@@ -108,7 +107,6 @@ public class MyBatisProjectRepository implements ProjectRepository {
         .status(project.getStatus())
         .sourceLanguage(project.getSourceLanguage())
         .narrationLanguage(project.getNarrationLanguage())
-        .metadataLanguage(project.getMetadataLanguage())
         .imageAspectRatio(project.getImageAspectRatio())
         .archivedAt(project.getArchivedAt())
         .build();

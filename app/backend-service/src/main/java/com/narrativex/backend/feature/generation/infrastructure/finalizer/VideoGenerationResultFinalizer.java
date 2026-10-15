@@ -38,6 +38,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
   private final com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis
           .ShotMapper
       shotMapper;
+
   @Autowired
   public VideoGenerationResultFinalizer(
       GenerationJobRepository generationJobRepository,

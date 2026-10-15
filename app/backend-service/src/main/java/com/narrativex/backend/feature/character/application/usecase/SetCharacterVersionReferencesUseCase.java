@@ -71,7 +71,8 @@ public class SetCharacterVersionReferencesUseCase {
       }
       if (version.getReferencePolicy() == CharacterReferencePolicy.LEGACY_IDENTITY_V1
           && input.slot() != null) {
-        throw new IllegalArgumentException("Legacy identity versions do not accept multi-view slots");
+        throw new IllegalArgumentException(
+            "Legacy identity versions do not accept multi-view slots");
       }
       if (!assetIds.add(input.assetId())) {
         throw new IllegalArgumentException("Duplicate character reference asset");

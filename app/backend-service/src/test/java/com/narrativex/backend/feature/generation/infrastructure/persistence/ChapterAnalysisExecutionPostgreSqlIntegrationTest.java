@@ -67,7 +67,7 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Statement statement = connection.createStatement()) {
       assertEquals(
-          "13",
+          "7",
           scalar(
               statement,
               "SELECT max(version::integer)::text FROM flyway_schema_history WHERE success"));
@@ -110,7 +110,7 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
               statement,
               "SELECT EXISTS (SELECT 1 FROM information_schema.columns "
                   + "WHERE table_schema='public' AND table_name='analysis_provider_credentials' "
-                  + "AND column_name IN ('access_token','refresh_token','profile_path','oauth_json'))"));
+                  + "AND column_name IN ('access_token','refresh_token','profile_path','provider_auth_json'))"));
       assertTrue(
           exists(
               statement,
@@ -122,7 +122,12 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
   @Test
   void runtimeCredentialSnapshotAndAttemptRoundTripWithCasAndReplay() {
     AnalysisRuntimeConfiguration current = store.findRuntimeConfiguration();
-    assertEquals(ChapterAnalysisExecutionMode.VERTEX_API, current.executionMode());
+    assertEquals(
+        "ANTIGRAVITY_CLI",
+        jdbc.queryForObject(
+            "SELECT execution_mode FROM analysis_runtime_configuration WHERE singleton_id = TRUE",
+            String.class));
+    assertEquals(ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI, current.executionMode());
     AnalysisRuntimeConfiguration desired =
         new AnalysisRuntimeConfiguration(
             current.revision(),
@@ -130,7 +135,6 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
             current.model(),
             current.effort(),
             current.maxConcurrentAnalyses(),
-            current.defaultMaxConcurrentPerCredential(),
             current.maxQueuedAnalyses(),
             current.maxInputBytes(),
             current.maxOutputBytes(),
@@ -143,8 +147,8 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
 
     UUID projectId = UuidV7.random();
     jdbc.update(
-        "INSERT INTO projects (id, name, status, source_language, narration_language, metadata_language, image_aspect_ratio) "
-            + "VALUES (?, ?, 'DRAFT', 'vi', 'vi', 'vi', '16:9')",
+        "INSERT INTO projects (id, name, status, source_language, narration_language, image_aspect_ratio) "
+            + "VALUES (?, ?, 'DRAFT', 'vi', 'vi', '16:9')",
         projectId,
         "Analysis execution integration");
     UUID deviceId = UuidV7.random();
@@ -158,14 +162,9 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
         new AnalysisProviderCredential(
             UuidV7.random(),
             deviceId,
-            null,
+            "d".repeat(64),
             1,
-            "Primary",
-            "UNKNOWN",
-            false,
-            1,
-            null,
-            null,
+            "agy session",
             "UNKNOWN",
             null,
             java.util.List.of(),
@@ -173,7 +172,6 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
             null,
             null,
             null,
-            0,
             0,
             0);
     AnalysisProviderCredential savedCredential = store.insertCredential(credential);
@@ -201,7 +199,6 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
     var profile =
         new ChapterAnalysisExecutionProfile(
             ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
-            "ANTIGRAVITY",
             "verified-model",
             "HIGH",
             "1.1",

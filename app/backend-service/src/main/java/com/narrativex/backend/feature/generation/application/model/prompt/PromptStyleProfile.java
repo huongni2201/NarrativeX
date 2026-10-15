@@ -27,9 +27,11 @@ public record PromptStyleProfile(
           label + ".name: must be 1-" + MAX_NAME_LENGTH + " characters");
     }
     positivePrompt =
-        PromptText.required(label + ".positivePrompt", positivePrompt, PromptSettings.MAX_BLOCK_BYTES);
+        PromptText.required(
+            label + ".positivePrompt", positivePrompt, PromptSettings.MAX_BLOCK_BYTES);
     negativePrompt =
-        PromptText.optional(label + ".negativePrompt", negativePrompt, PromptSettings.MAX_BLOCK_BYTES);
+        PromptText.optional(
+            label + ".negativePrompt", negativePrompt, PromptSettings.MAX_BLOCK_BYTES);
     characterRenderingPrompt =
         PromptText.optional(
             label + ".characterRenderingPrompt",

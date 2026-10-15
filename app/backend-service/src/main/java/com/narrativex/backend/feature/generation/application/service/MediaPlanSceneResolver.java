@@ -48,11 +48,7 @@ public final class MediaPlanSceneResolver {
                 : beat.aspectRatioOverride();
         var composed =
             visualPromptComposer.compose(
-                settings,
-                beat.visualIntent(),
-                beat.visualDirectionJson(),
-                aspectRatio,
-                context);
+                settings, beat.visualIntent(), beat.visualDirectionJson(), aspectRatio, context);
         String cameraMovement = cameraMovementFor(beat.visualDirectionJson());
         beats.add(
             new MediaBeatPlan(

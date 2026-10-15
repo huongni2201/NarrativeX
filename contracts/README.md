@@ -13,7 +13,7 @@ NarrativeX is still pre-production, so an unused contract may be hard-cut when t
 - Explicit terminal/error states; ambiguous provider submission is `UNKNOWN`, not an automatic retry.
 - No monetary billing owner, credit balance, pricing snapshot or cost-limit status unless a future explicit product/architecture decision introduces a new versioned contract.
 
-[job-event.v1.schema.json](./job-event.v1.schema.json) uses the current durable generation vocabulary only:
+[job-event.v1.schema.json](./events/job-event.v1.schema.json) uses the current durable generation vocabulary only:
 
 ```text
 CHAPTER_ANALYZE

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { SubtitleStyle } from "@narrativex/client-contracts";
+import type { SubtitleStyle } from "../../../../shared/api-types";
 import { subtitleGeometry } from "../../../../shared/subtitle-style";
 
 /** Scales the same pixel geometry as ASS into the actual video frame. */

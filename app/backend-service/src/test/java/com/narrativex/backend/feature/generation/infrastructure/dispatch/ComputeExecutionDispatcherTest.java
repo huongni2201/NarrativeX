@@ -12,7 +12,6 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
-import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
@@ -22,13 +21,14 @@ import com.narrativex.backend.feature.generation.application.model.compute.Compu
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
@@ -65,7 +65,6 @@ class ComputeExecutionDispatcherTest {
   private ChapterMapper chapterMapper;
   private ComputeArtifactAccess artifactAccess;
   private MediaAssetRepository mediaAssetRepository;
-  private ChapterAnalysisProvider chapterAnalysisProvider;
   private ChapterAnalysisRunRepository analysisRunRepository;
   private Map<UUID, OutputArtifactTargetDto> targetsByTask;
   private Map<UUID, GenerationJob> jobsById;
@@ -79,7 +78,6 @@ class ComputeExecutionDispatcherTest {
     chapterMapper = mock(ChapterMapper.class);
     artifactAccess = mock(ComputeArtifactAccess.class);
     mediaAssetRepository = mock(MediaAssetRepository.class);
-    chapterAnalysisProvider = mock(ChapterAnalysisProvider.class);
     analysisRunRepository = mock(ChapterAnalysisRunRepository.class);
     targetsByTask = new HashMap<>();
     jobsById = new HashMap<>();
@@ -96,14 +94,6 @@ class ComputeExecutionDispatcherTest {
     when(artifactAccess.readOutput(any(OutputArtifactTargetDto.class)))
         .thenReturn(VALID_ANALYSIS_JSON.getBytes());
 
-    when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
-        .thenReturn(
-            new ChapterAnalysisResult(
-                VALID_ANALYSIS_JSON,
-                new ChapterAnalysisUsage(100, 50, 20, 0, 150, 200),
-                "gemini-3.8-flash",
-                "test-canon-hash"));
-
     dispatcher =
         new ComputeExecutionDispatcher(
             generationJobRepository,
@@ -112,7 +102,6 @@ class ComputeExecutionDispatcherTest {
             chapterMapper,
             artifactAccess,
             mediaAssetRepository,
-            chapterAnalysisProvider,
             null,
             null,
             analysisRunRepository);
@@ -168,7 +157,7 @@ class ComputeExecutionDispatcherTest {
   }
 
   @Test
-  void handlesChapterAnalysisSuccessfully() {
+  void materializesAnalysisDeliveredByDesktop() {
     UUID projectId = UuidV7.random();
     UUID chapterId = UuidV7.random();
     UUID revisionId = UuidV7.random();
@@ -176,17 +165,18 @@ class ComputeExecutionDispatcherTest {
 
     GenerationJob job =
         GenerationJob.createChapterAnalysis(
-            projectId,
-            UuidV7.random(),
-            chapterId,
-            revisionId,
-            1L,
-            sourceHash,
-            "Chapter text content",
-            "vi",
-            "key:analysis:1",
-            "IMAGE",
-            "API");
+                projectId,
+                UuidV7.random(),
+                chapterId,
+                revisionId,
+                1L,
+                sourceHash,
+                "Chapter text content",
+                "vi",
+                "key:analysis:1",
+                "IMAGE",
+                "API")
+            .markRunning("ANALYZING_STORY", 10);
 
     jobsById.put(job.getJobId(), job);
     when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
@@ -198,13 +188,30 @@ class ComputeExecutionDispatcherTest {
     when(chapterMapper.findById(chapterId)).thenReturn(currentChapter);
     when(chapterMapper.update(any(ChapterRow.class))).thenReturn(1);
 
-    dispatcher.dispatchJob(job.getJobId());
+    analysisHandler()
+        .materializeAndComplete(
+            job,
+            new ChapterAnalysisRequest(
+                projectId,
+                chapterId,
+                revisionId,
+                "Chapter text content",
+                "vi",
+                "1.1",
+                "1.1",
+                null,
+                null),
+            new ChapterAnalysisResult(
+                VALID_ANALYSIS_JSON,
+                new ChapterAnalysisUsage(100, 50, 20, 0, 150, 200),
+                "gemini-3.8-flash",
+                "test-canon-hash"),
+            provenance());
 
     ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
     verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
     GenerationJob finalState = captor.getValue();
     assertEquals(JobStatus.COMPLETED, finalState.getStatus());
-    verify(chapterAnalysisProvider).analyze(any(ChapterAnalysisRequest.class));
     verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
     verify(storyboardMapper).insertScene(any(SceneRow.class));
 
@@ -256,75 +263,99 @@ class ComputeExecutionDispatcherTest {
   }
 
   @Test
-  void doesNotCreateSyntheticStoryboardWhenAnalysisHasNoOutput() {
-    UUID projectId = UuidV7.random();
+  void neverRunsChapterAnalysisOnTheBackend() {
     UUID chapterId = UuidV7.random();
-    UUID revisionId = UuidV7.random();
     GenerationJob job =
         GenerationJob.createChapterAnalysis(
-            projectId,
+            UuidV7.random(),
             UuidV7.random(),
             chapterId,
-            revisionId,
+            UuidV7.random(),
             1L,
             "a".repeat(64),
             "Chapter text content",
             "vi",
-            "key:analysis:missing-output",
+            "key:analysis:desktop-only",
             "IMAGE",
             "API");
 
     jobsById.put(job.getJobId(), job);
-    when(storyboardMapper.findCurrentScenes(chapterId)).thenReturn(List.of());
-    when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
-        .thenThrow(
-            new ChapterAnalysisException.ProviderUnavailableException(
-                "Analysis output unavailable"));
 
     dispatcher.dispatchJob(job.getJobId());
 
-    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
-    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
-    assertNotEquals(JobStatus.COMPLETED, captor.getValue().getStatus());
-    org.mockito.Mockito.verify(storyboardMapper, org.mockito.Mockito.never())
-        .insertScene(any(SceneRow.class));
+    assertEquals(JobStatus.QUEUED, jobsById.get(job.getJobId()).getStatus());
+    verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
+    verify(storyboardMapper, never()).insertScene(any(SceneRow.class));
   }
 
   @Test
-  void doesNotCompleteAnalysisWhenProviderPayloadCannotBeMaterialized() {
+  void doesNotCompleteAnalysisWhenDeliveredPayloadCannotBeMaterialized() {
     UUID projectId = UuidV7.random();
     UUID chapterId = UuidV7.random();
     UUID revisionId = UuidV7.random();
     GenerationJob job =
         GenerationJob.createChapterAnalysis(
-            projectId,
-            UuidV7.random(),
-            chapterId,
-            revisionId,
-            1L,
-            "a".repeat(64),
-            "Chapter text content",
-            "vi",
-            "key:analysis:invalid-payload",
-            "IMAGE",
-            "API");
+                projectId,
+                UuidV7.random(),
+                chapterId,
+                revisionId,
+                1L,
+                "a".repeat(64),
+                "Chapter text content",
+                "vi",
+                "key:analysis:invalid-payload",
+                "IMAGE",
+                "API")
+            .markRunning("ANALYZING_STORY", 10);
 
     jobsById.put(job.getJobId(), job);
-    when(chapterAnalysisProvider.analyze(any(ChapterAnalysisRequest.class)))
-        .thenReturn(
-            new ChapterAnalysisResult(
-                "{\"characters\":[]}",
-                new ChapterAnalysisUsage(100, 50, 20, 0, 150, 200),
-                "gemini-3.8-flash",
-                "test-hash"));
 
-    dispatcher.dispatchJob(job.getJobId());
+    try {
+      analysisHandler()
+          .materializeAndComplete(
+              job,
+              new ChapterAnalysisRequest(
+                  projectId,
+                  chapterId,
+                  revisionId,
+                  "Chapter text content",
+                  "vi",
+                  "1.1",
+                  "1.1",
+                  null,
+                  null),
+              new ChapterAnalysisResult(
+                  "{\"characters\":[]}",
+                  new ChapterAnalysisUsage(100, 50, 20, 0, 150, 200),
+                  "gemini-3.8-flash",
+                  "test-hash"),
+              provenance());
+    } catch (RuntimeException expectedWhenPayloadIsRejected) {
+      // The transaction rolls back; the caller reports the attempt as failed.
+    }
 
-    ArgumentCaptor<GenerationJob> captor = ArgumentCaptor.forClass(GenerationJob.class);
-    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
-    assertNotEquals(JobStatus.COMPLETED, captor.getValue().getStatus());
-    org.mockito.Mockito.verify(storyboardMapper, org.mockito.Mockito.never())
-        .insertScene(any(SceneRow.class));
+    assertNotEquals(JobStatus.COMPLETED, jobsById.get(job.getJobId()).getStatus());
+    verify(storyboardMapper, never()).insertScene(any(SceneRow.class));
+  }
+
+  private ChapterAnalysisJobHandler analysisHandler() {
+    return new ChapterAnalysisJobHandler(
+        generationJobRepository,
+        new GenerationJobTransactionService(generationJobRepository),
+        storyboardMapper,
+        chapterMapper,
+        null,
+        null,
+        analysisRunRepository);
+  }
+
+  private static ChapterAnalysisJobHandler.LocalProvenance provenance() {
+    return new ChapterAnalysisJobHandler.LocalProvenance(
+        UuidV7.random(),
+        UuidV7.random(),
+        "antigravity-cli/1",
+        "conversation-1",
+        ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI);
   }
 
   @Test

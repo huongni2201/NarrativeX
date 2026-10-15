@@ -16,7 +16,7 @@ import type {
   BeatMediaFitMode,
   DesktopAsset,
   DesktopTimelineBeat,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

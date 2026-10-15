@@ -1,4 +1,4 @@
-import type { PromptSettings, PromptStyleProfile } from "@narrativex/client-contracts";
+import type { PromptSettings, PromptStyleProfile } from "../../../../shared/api-types";
 
 export const PROMPT_STYLE_ID_PATTERN = /^[A-Za-z0-9_]{1,32}$/;
 export const PROMPT_REVISION_CONFLICT_CODE = "PROMPT_SETTINGS_REVISION_CONFLICT";

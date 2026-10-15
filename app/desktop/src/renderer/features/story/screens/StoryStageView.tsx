@@ -1,7 +1,6 @@
 import { Clapperboard, Film, Sparkles } from "lucide-react";
-import type { DesktopChapterStory, DesktopStoryBeat } from "@narrativex/client-contracts";
+import type { DesktopChapterStory, DesktopStoryBeat } from "../../../../shared/api-types";
 import { StoryBeatCard } from "../components/StoryBeatCard";
-import { RetentionPlanView } from "../../storyboard/components/RetentionPlanView";
 
 export interface StoryStageViewProps {
   story: DesktopChapterStory | null;
@@ -52,7 +51,6 @@ export function StoryStageView({
 
   return (
     <div className="flex h-full w-full flex-col overflow-y-auto p-4 space-y-6">
-      <RetentionPlanView hookPlan={story.hookPlan} retentionMap={story.retentionMap} />
       {/* Scenes Container */}
       {story.scenes.map((scene) => (
         <div key={scene.id} className="space-y-3">
@@ -69,21 +67,9 @@ export function StoryStageView({
             </div>
 
             <div className="flex items-center gap-2 text-caption text-text-muted">
-              {scene.mood && (
-                <span className="rounded bg-surface-2 px-2 py-0.5 font-medium text-text-secondary">
-                  {scene.mood}
-                </span>
-              )}
               <span>{scene.storyBeats.length} Beats</span>
             </div>
           </div>
-
-          {/* Scene Summary if present */}
-          {scene.summary && (
-            <p className="text-label text-text-muted italic px-1">
-              {scene.summary}
-            </p>
-          )}
 
           {/* StoryBeat Cards Grid/List */}
           <div className="grid grid-cols-1 gap-2.5">

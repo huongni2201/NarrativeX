@@ -275,7 +275,8 @@ class CreateMediaJobUseCaseTest {
                 + mediaPlanId
                 + ":"
                 + visualBeatId);
-    stubExistingJob("replay-after-save", existingInternalJobId, mediaPlanId, visualBeatId, itemFingerprint);
+    stubExistingJob(
+        "replay-after-save", existingInternalJobId, mediaPlanId, visualBeatId, itemFingerprint);
 
     assertThat(useCase.execute(replay)).isSameAs(existingJob);
 
@@ -297,7 +298,8 @@ class CreateMediaJobUseCaseTest {
                 + mediaPlanId
                 + ":"
                 + visualBeatId);
-    stubExistingJob("legacy-key", existingInternalJobId, mediaPlanId, visualBeatId, legacyItemFingerprint);
+    stubExistingJob(
+        "legacy-key", existingInternalJobId, mediaPlanId, visualBeatId, legacyItemFingerprint);
 
     assertThat(useCase.execute(command)).isSameAs(existingJob);
     verifyNoInteractions(promptSettingsAccess);
@@ -311,7 +313,15 @@ class CreateMediaJobUseCaseTest {
         .thenReturn(PromptSettingsDefaults.settings().withRevision(3));
     var command =
         new CreateMediaJobCommand(
-            PROJECT_ID, CHAPTER_ID, "stale-preview", "IMAGE_MOTION", "16:9", null, "IMAGE", "API", 2L);
+            PROJECT_ID,
+            CHAPTER_ID,
+            "stale-preview",
+            "IMAGE_MOTION",
+            "16:9",
+            null,
+            "IMAGE",
+            "API",
+            2L);
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOfSatisfying(
@@ -330,18 +340,30 @@ class CreateMediaJobUseCaseTest {
     when(generationJobRepository.findByIdempotencyKey("fresh")).thenReturn(Optional.empty());
     when(promptSettingsAccess.current()).thenReturn(current);
     when(mediaPlanningSourceAccess.requireCurrent(CHAPTER_ID))
-        .thenReturn(org.mockito.Mockito.mock(
-            com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.class));
+        .thenReturn(
+            org.mockito.Mockito.mock(
+                com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource
+                    .class));
     when(imageGenerationCatalog.resolve())
         .thenReturn(new ImageGenerationCatalog.ImageGenerationProfile("api", "image-model"));
     when(limits.getMaxConcurrentExpensiveJobs()).thenReturn(5);
-    var project = org.mockito.Mockito.mock(com.narrativex.backend.feature.project.domain.aggregate.Project.class);
+    var project =
+        org.mockito.Mockito.mock(
+            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     when(projectAccess.findProject(PROJECT_ID)).thenReturn(project);
     var sentinel = new IllegalStateException("stop after plan command");
     when(createMediaPlanUseCase.execute(any())).thenThrow(sentinel);
     var command =
         new CreateMediaJobCommand(
-            PROJECT_ID, CHAPTER_ID, "fresh", "IMAGE_MOTION", "16:9", ImageStyle.CINEMATIC_ANIME, "IMAGE", "API", 6L);
+            PROJECT_ID,
+            CHAPTER_ID,
+            "fresh",
+            "IMAGE_MOTION",
+            "16:9",
+            ImageStyle.CINEMATIC_ANIME,
+            "IMAGE",
+            "API",
+            6L);
 
     assertThatThrownBy(() -> useCase.execute(command)).isSameAs(sentinel);
 
@@ -360,7 +382,8 @@ class CreateMediaJobUseCaseTest {
     when(existingJob.getChapterId()).thenReturn(CHAPTER_ID);
     when(existingJob.getProductionMode()).thenReturn(ProductionMode.IMAGE_MOTION);
     when(existingJob.getId()).thenReturn(internalJobId);
-    when(mediaGenerationItemRepository.findByJobId(internalJobId)).thenReturn(List.of(existingItem));
+    when(mediaGenerationItemRepository.findByJobId(internalJobId))
+        .thenReturn(List.of(existingItem));
     when(existingItem.getMediaPlanId()).thenReturn(mediaPlanId);
     when(existingItem.getVisualBeatId()).thenReturn(visualBeatId);
     when(existingItem.getRequestFingerprint()).thenReturn(itemFingerprint);

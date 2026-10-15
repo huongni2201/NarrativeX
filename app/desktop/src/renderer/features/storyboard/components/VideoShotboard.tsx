@@ -5,7 +5,7 @@ import type {
   DesktopTake,
   DesktopTimelineBeat,
   GenerationStrategy,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import {
   Check,
   Clapperboard,

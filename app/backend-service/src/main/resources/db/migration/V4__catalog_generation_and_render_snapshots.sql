@@ -216,17 +216,6 @@ CREATE TABLE generation_references (
     CONSTRAINT ck_generation_references_type CHECK (reference_type IN ('CHARACTER_REFERENCE', 'WARDROBE_REFERENCE', 'LOCATION_REFERENCE', 'START_FRAME', 'END_FRAME', 'KEYFRAME', 'THUMBNAIL', 'POSTER'))
 );
 
-CREATE TABLE production_insights (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    row_version BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    chapter_id UUID REFERENCES chapters(id) ON DELETE CASCADE,
-    observation_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    recommendation_text TEXT NOT NULL DEFAULT '',
-    status VARCHAR(24) NOT NULL DEFAULT 'PENDING_REVIEW'
-);
-
 -- -----------------------------------------------------------------------------
 -- Media generation execution and lineage
 -- -----------------------------------------------------------------------------
@@ -303,136 +292,6 @@ CREATE TABLE chapter_media_heads (
 );
 
 -- -----------------------------------------------------------------------------
--- Continuity snapshots and durable analysis checkpoints
--- -----------------------------------------------------------------------------
-
-CREATE TABLE chapter_continuity_plans (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    project_id UUID NOT NULL,
-    story_version_id UUID NOT NULL,
-    chapter_id UUID NOT NULL,
-    storyboard_revision_id UUID NOT NULL,
-    revision INTEGER NOT NULL CHECK (revision > 0),
-    source_hash VARCHAR(64) NOT NULL,
-    schema_version INTEGER NOT NULL DEFAULT 1 CHECK (schema_version > 0),
-    prompt_version VARCHAR(64) NOT NULL,
-    model_config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    plan_json JSONB NOT NULL,
-    result_hash VARCHAR(64) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_chapter_continuity_plan_revision UNIQUE (chapter_id, revision),
-    CONSTRAINT uq_chapter_continuity_plan_scope UNIQUE (id, project_id, chapter_id),
-    CONSTRAINT ck_chapter_continuity_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_chapter_continuity_result_hash CHECK (result_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_chapter_continuity_model_config_object CHECK (jsonb_typeof(model_config_json) = 'object'),
-    CONSTRAINT ck_chapter_continuity_plan_object CHECK (jsonb_typeof(plan_json) = 'object'),
-    CONSTRAINT fk_chapter_continuity_project_story
-        FOREIGN KEY (project_id, story_version_id) REFERENCES story_versions(project_id, id),
-    CONSTRAINT fk_chapter_continuity_story_chapter
-        FOREIGN KEY (story_version_id, chapter_id) REFERENCES chapters(story_version_id, id),
-    CONSTRAINT fk_chapter_continuity_chapter_storyboard
-        FOREIGN KEY (chapter_id, storyboard_revision_id) REFERENCES storyboard_revisions(chapter_id, id)
-);
-
-CREATE TABLE scene_continuity_states (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    plan_id UUID NOT NULL,
-    project_id UUID NOT NULL,
-    chapter_id UUID NOT NULL,
-    scene_id UUID NOT NULL,
-    scene_key VARCHAR(64) NOT NULL,
-    timeline_key VARCHAR(128) NOT NULL,
-    entry_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    exit_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    event_keys_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_scene_continuity_plan_scene UNIQUE (plan_id, scene_id),
-    CONSTRAINT uq_scene_continuity_plan_key UNIQUE (plan_id, scene_key),
-    CONSTRAINT ck_scene_continuity_key CHECK (scene_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
-    CONSTRAINT ck_scene_continuity_entry_array CHECK (jsonb_typeof(entry_facts_json) = 'array'),
-    CONSTRAINT ck_scene_continuity_exit_array CHECK (jsonb_typeof(exit_facts_json) = 'array'),
-    CONSTRAINT ck_scene_continuity_events_array CHECK (jsonb_typeof(event_keys_json) = 'array'),
-    CONSTRAINT fk_scene_continuity_plan_scope
-        FOREIGN KEY (plan_id, project_id, chapter_id)
-        REFERENCES chapter_continuity_plans(id, project_id, chapter_id) ON DELETE CASCADE,
-    CONSTRAINT fk_scene_continuity_chapter_scene
-        FOREIGN KEY (chapter_id, scene_id) REFERENCES scenes(chapter_id, id) ON DELETE CASCADE
-);
-
-CREATE TABLE visual_beat_continuity_states (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    plan_id UUID NOT NULL,
-    project_id UUID NOT NULL,
-    chapter_id UUID NOT NULL,
-    scene_id UUID NOT NULL,
-    visual_beat_id UUID NOT NULL,
-    beat_key VARCHAR(64) NOT NULL,
-    entry_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    visible_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    exit_facts_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    event_keys_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    semantic_hash VARCHAR(64) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_visual_beat_continuity_plan_beat UNIQUE (plan_id, visual_beat_id),
-    CONSTRAINT uq_visual_beat_continuity_plan_key UNIQUE (plan_id, beat_key),
-    CONSTRAINT ck_visual_beat_continuity_key CHECK (beat_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
-    CONSTRAINT ck_visual_beat_continuity_semantic_hash CHECK (semantic_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_visual_beat_continuity_entry_array CHECK (jsonb_typeof(entry_facts_json) = 'array'),
-    CONSTRAINT ck_visual_beat_continuity_visible_array CHECK (jsonb_typeof(visible_facts_json) = 'array'),
-    CONSTRAINT ck_visual_beat_continuity_exit_array CHECK (jsonb_typeof(exit_facts_json) = 'array'),
-    CONSTRAINT ck_visual_beat_continuity_events_array CHECK (jsonb_typeof(event_keys_json) = 'array'),
-    CONSTRAINT fk_visual_beat_continuity_plan_scope
-        FOREIGN KEY (plan_id, project_id, chapter_id)
-        REFERENCES chapter_continuity_plans(id, project_id, chapter_id) ON DELETE CASCADE,
-    CONSTRAINT fk_visual_beat_continuity_chapter_scene
-        FOREIGN KEY (chapter_id, scene_id) REFERENCES scenes(chapter_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_visual_beat_continuity_scene_beat
-        FOREIGN KEY (scene_id, visual_beat_id) REFERENCES visual_beats(scene_id, id) ON DELETE CASCADE
-);
-
-CREATE TABLE continuity_reports (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    plan_id UUID NOT NULL REFERENCES chapter_continuity_plans(id) ON DELETE CASCADE,
-    revision INTEGER NOT NULL CHECK (revision > 0),
-    status VARCHAR(24) NOT NULL,
-    issues_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    origin VARCHAR(24) NOT NULL DEFAULT 'DETERMINISTIC',
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_continuity_report_revision UNIQUE (plan_id, revision),
-    CONSTRAINT ck_continuity_report_status CHECK (status IN ('PASS', 'NEEDS_REVIEW')),
-    CONSTRAINT ck_continuity_report_origin CHECK (origin IN ('DETERMINISTIC', 'SEMANTIC', 'HUMAN')),
-    CONSTRAINT ck_continuity_report_issues_array CHECK (jsonb_typeof(issues_json) = 'array')
-);
-
-CREATE TABLE analysis_checkpoints (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    row_version BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    generation_job_id UUID NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
-    stage_attempt_id UUID NOT NULL REFERENCES stage_attempts(id) ON DELETE CASCADE,
-    step_key VARCHAR(160) NOT NULL,
-    input_fingerprint VARCHAR(64) NOT NULL,
-    claim_owner VARCHAR(128) NOT NULL,
-    lease_version BIGINT NOT NULL DEFAULT 1,
-    status VARCHAR(16) NOT NULL,
-    result_json JSONB,
-    result_hash VARCHAR(64),
-    provider_operation_id UUID REFERENCES provider_operations(id),
-    CONSTRAINT uq_analysis_checkpoint_identity UNIQUE (generation_job_id, step_key, input_fingerprint),
-    CONSTRAINT ck_analysis_checkpoint_fingerprint CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_analysis_checkpoint_result_hash CHECK (result_hash IS NULL OR result_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_analysis_checkpoint_status CHECK (status IN ('RESERVED', 'RUNNING', 'COMPLETED', 'FAILED', 'UNKNOWN')),
-    CONSTRAINT ck_analysis_checkpoint_lease_version CHECK (lease_version > 0),
-    CONSTRAINT ck_analysis_checkpoint_terminal_result CHECK (
-        (status = 'COMPLETED' AND result_json IS NOT NULL AND result_hash IS NOT NULL AND completed_at IS NOT NULL)
-        OR status <> 'COMPLETED'
-    )
-);
-
--- -----------------------------------------------------------------------------
 -- Local execution devices
 -- -----------------------------------------------------------------------------
 
@@ -467,47 +326,36 @@ CREATE TABLE local_device_capabilities (
 -- -----------------------------------------------------------------------------
 
 -- Provider-independent runtime state for local Chapter Analysis execution.
--- Provider credentials, OAuth tokens and machine profile paths remain outside PostgreSQL.
--- ANTIGRAVITY_CLI stays a valid execution mode only for historical rows; new work uses
--- VERTEX_API or ANTIGRAVITY_API.
+-- Provider session credentials and machine profile paths remain outside PostgreSQL.
+-- New analysis work uses the Desktop agy CLI runner. The runtime has no server-side provider selector.
 
 CREATE TABLE analysis_runtime_configuration (
     singleton_id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton_id),
     revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
-    execution_mode VARCHAR(32) NOT NULL DEFAULT 'VERTEX_API',
-    model VARCHAR(128) NOT NULL DEFAULT 'gemini-3.8-flash',
+    execution_mode VARCHAR(32) NOT NULL DEFAULT 'ANTIGRAVITY_CLI',
+    model VARCHAR(128) NOT NULL DEFAULT 'gemini-3.8-flash-high',
     effort VARCHAR(16) NOT NULL DEFAULT 'HIGH' CHECK (effort IN ('LOW', 'MEDIUM', 'HIGH')),
     max_concurrent_analyses INTEGER NOT NULL DEFAULT 1 CHECK (max_concurrent_analyses BETWEEN 1 AND 32),
-    default_max_concurrent_per_credential INTEGER NOT NULL DEFAULT 1
-        CHECK (default_max_concurrent_per_credential BETWEEN 1 AND 16),
     max_queued_analyses INTEGER NOT NULL DEFAULT 20 CHECK (max_queued_analyses BETWEEN 0 AND 1000),
     max_input_bytes BIGINT NOT NULL DEFAULT 2000000 CHECK (max_input_bytes BETWEEN 1024 AND 20000000),
     max_output_bytes BIGINT NOT NULL DEFAULT 4194304 CHECK (max_output_bytes BETWEEN 1024 AND 16777216),
     max_runtime_ms BIGINT NOT NULL DEFAULT 600000 CHECK (max_runtime_ms BETWEEN 1000 AND 3600000),
-    credential_selection VARCHAR(32) NOT NULL DEFAULT 'ROUND_ROBIN_READY'
-        CHECK (credential_selection = 'ROUND_ROBIN_READY'),
-    automatic_api_fallback BOOLEAN NOT NULL DEFAULT FALSE CHECK (automatic_api_fallback = FALSE),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     row_version BIGINT NOT NULL DEFAULT 0 CHECK (row_version >= 0),
     CONSTRAINT ck_analysis_runtime_execution_mode
-        CHECK (execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))
+        CHECK (execution_mode = 'ANTIGRAVITY_CLI')
 );
 
 CREATE TABLE analysis_provider_credentials (
     credential_ref UUID PRIMARY KEY DEFAULT uuidv7(),
     device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE RESTRICT,
     provider VARCHAR(32) NOT NULL CHECK (provider = 'ANTIGRAVITY'),
-    connection_fingerprint CHAR(64),
+    connection_fingerprint CHAR(64) NOT NULL,
     credential_generation INTEGER NOT NULL DEFAULT 1 CHECK (credential_generation > 0),
     label VARCHAR(120) NOT NULL,
-    self_reported_tier VARCHAR(16) CHECK (self_reported_tier IN ('PRO', 'ULTRA', 'UNKNOWN')),
-    desired_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    desired_max_concurrent INTEGER NOT NULL DEFAULT 1 CHECK (desired_max_concurrent BETWEEN 1 AND 16),
-    drain_requested_at TIMESTAMPTZ,
-    retired_at TIMESTAMPTZ,
     observed_connection_state VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
         CHECK (observed_connection_state IN ('UNKNOWN', 'CONNECTED', 'AUTH_REQUIRED', 'UNAVAILABLE')),
-    observed_cli_version VARCHAR(64),
+    observed_adapter_version VARCHAR(64),
     observed_model_capabilities JSONB NOT NULL DEFAULT '[]'::jsonb
         CHECK (jsonb_typeof(observed_model_capabilities) = 'array'),
     observed_quota_state VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
@@ -516,12 +364,12 @@ CREATE TABLE analysis_provider_credentials (
     next_eligible_at TIMESTAMPTZ,
     runtime_epoch UUID,
     observation_sequence BIGINT NOT NULL DEFAULT 0 CHECK (observation_sequence >= 0),
-    last_assigned_ordinal BIGINT NOT NULL DEFAULT 0 CHECK (last_assigned_ordinal >= 0),
     row_version BIGINT NOT NULL DEFAULT 0 CHECK (row_version >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_analysis_provider_credentials_device UNIQUE (device_id),
     CONSTRAINT ck_analysis_provider_credential_fingerprint
-        CHECK (connection_fingerprint IS NULL OR connection_fingerprint ~ '^[0-9a-f]{64}$')
+        CHECK (connection_fingerprint ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE chapter_analysis_execution_snapshots (
@@ -538,7 +386,7 @@ CREATE TABLE chapter_analysis_execution_snapshots (
     config_revision BIGINT NOT NULL CHECK (config_revision > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_chapter_analysis_snapshot_execution_mode
-        CHECK (execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))
+        CHECK (execution_mode = 'ANTIGRAVITY_CLI')
 );
 
 CREATE TABLE chapter_analysis_execution_attempts (
@@ -591,11 +439,10 @@ CREATE TABLE chapter_analysis_runs (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     usage_state VARCHAR(32) NOT NULL DEFAULT 'LEGACY_UNSPECIFIED'
         CHECK (usage_state IN ('REPORTED', 'PARTIAL', 'UNKNOWN', 'LEGACY_UNSPECIFIED')),
-    provider VARCHAR(32) CHECK (provider IN ('VERTEX', 'ANTIGRAVITY')),
     execution_mode VARCHAR(32),
     attempt_id UUID REFERENCES chapter_analysis_execution_attempts(attempt_id) ON DELETE RESTRICT,
     credential_ref UUID REFERENCES analysis_provider_credentials(credential_ref) ON DELETE RESTRICT,
-    cli_version VARCHAR(64),
+    adapter_version VARCHAR(64),
     conversation_id VARCHAR(200),
     model_observed VARCHAR(128),
     effort_observed VARCHAR(16),
@@ -611,7 +458,7 @@ CREATE TABLE chapter_analysis_runs (
     CONSTRAINT ck_chapter_analysis_runs_total_tokens CHECK (total_tokens >= 0),
     CONSTRAINT ck_chapter_analysis_runs_runtime_ms CHECK (runtime_ms >= 0),
     CONSTRAINT ck_chapter_analysis_run_execution_mode
-        CHECK (execution_mode IS NULL OR execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))
+        CHECK (execution_mode IS NULL OR execution_mode = 'ANTIGRAVITY_CLI')
 );
 
 -- Installation-wide prompt configuration (Settings -> Prompt).
@@ -640,39 +487,6 @@ CREATE TABLE chapter_analysis_prompt_snapshots (
     instruction_hash CHAR(64) NOT NULL CHECK (instruction_hash ~ '^[0-9a-f]{64}$'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
--- -----------------------------------------------------------------------------
--- Immutable selective-regeneration plans
--- -----------------------------------------------------------------------------
-
-CREATE TABLE regeneration_plans (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    project_id UUID NOT NULL,
-    chapter_id UUID NOT NULL,
-    continuity_plan_id UUID NOT NULL,
-    source_hash VARCHAR(64) NOT NULL,
-    requested_beat_ids_json JSONB NOT NULL,
-    affected_beat_ids_json JSONB NOT NULL,
-    reusable_beat_ids_json JSONB NOT NULL,
-    reason VARCHAR(512) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    input_fingerprint VARCHAR(64) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_regeneration_plan_fingerprint UNIQUE (project_id, chapter_id, input_fingerprint),
-    CONSTRAINT uq_regeneration_plan_scope UNIQUE (id, project_id, chapter_id),
-    CONSTRAINT ck_regeneration_plan_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_regeneration_plan_fingerprint CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_regeneration_plan_requested_array CHECK (jsonb_typeof(requested_beat_ids_json) = 'array'),
-    CONSTRAINT ck_regeneration_plan_affected_array CHECK (jsonb_typeof(affected_beat_ids_json) = 'array'),
-    CONSTRAINT ck_regeneration_plan_reusable_array CHECK (jsonb_typeof(reusable_beat_ids_json) = 'array'),
-    CONSTRAINT fk_regeneration_plan_continuity_scope
-        FOREIGN KEY (continuity_plan_id, project_id, chapter_id)
-        REFERENCES chapter_continuity_plans(id, project_id, chapter_id)
-);
-
-ALTER TABLE generation_jobs
-    ADD CONSTRAINT fk_generation_jobs_regeneration_plan
-    FOREIGN KEY (regeneration_plan_id) REFERENCES regeneration_plans(id);
 
 -- -----------------------------------------------------------------------------
 -- Project render snapshots
@@ -732,8 +546,6 @@ CREATE TABLE project_render_input_chapters (
     source_hash VARCHAR(64) NOT NULL,
     media_plan_id UUID REFERENCES media_plans(id),
     media_plan_revision INTEGER CHECK (media_plan_revision IS NULL OR media_plan_revision > 0),
-    continuity_plan_id UUID REFERENCES chapter_continuity_plans(id),
-    continuity_report_revision INTEGER,
     global_start_ms BIGINT NOT NULL CHECK (global_start_ms >= 0),
     global_end_ms BIGINT NOT NULL,
     audio_storage_key TEXT,
@@ -747,12 +559,7 @@ CREATE TABLE project_render_input_chapters (
     subtitle_words_json JSONB,
     PRIMARY KEY (generation_job_id, chapter_id),
     CONSTRAINT ck_project_render_chapter_range CHECK (global_end_ms > global_start_ms),
-    CONSTRAINT ck_project_render_subtitle_words_array CHECK (subtitle_words_json IS NULL OR jsonb_typeof(subtitle_words_json) = 'array'),
-    CONSTRAINT ck_project_render_input_chapter_continuity_report_revision CHECK (continuity_report_revision IS NULL OR continuity_report_revision > 0),
-    CONSTRAINT ck_project_render_input_chapter_continuity_pair CHECK (
-        (continuity_plan_id IS NULL AND continuity_report_revision IS NULL)
-        OR continuity_plan_id IS NOT NULL
-    )
+    CONSTRAINT ck_project_render_subtitle_words_array CHECK (subtitle_words_json IS NULL OR jsonb_typeof(subtitle_words_json) = 'array')
 );
 
 COMMENT ON COLUMN project_render_input_chapters.subtitle_text IS

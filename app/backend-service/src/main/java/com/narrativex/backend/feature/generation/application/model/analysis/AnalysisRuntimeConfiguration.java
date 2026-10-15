@@ -10,7 +10,6 @@ public record AnalysisRuntimeConfiguration(
     String model,
     String effort,
     int maxConcurrentAnalyses,
-    int defaultMaxConcurrentPerCredential,
     int maxQueuedAnalyses,
     long maxInputBytes,
     long maxOutputBytes,
@@ -25,10 +24,6 @@ public record AnalysisRuntimeConfiguration(
     }
     if (maxConcurrentAnalyses < 1 || maxConcurrentAnalyses > 32) {
       throw new IllegalArgumentException("maxConcurrentAnalyses must be between 1 and 32");
-    }
-    if (defaultMaxConcurrentPerCredential < 1 || defaultMaxConcurrentPerCredential > 16) {
-      throw new IllegalArgumentException(
-          "defaultMaxConcurrentPerCredential must be between 1 and 16");
     }
     if (maxQueuedAnalyses < 0 || maxQueuedAnalyses > 1000) {
       throw new IllegalArgumentException("maxQueuedAnalyses must be between 0 and 1000");

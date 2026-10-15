@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 class CharacterIdentityPromptComposerTest {
 
   private final CharacterIdentityPromptComposer composer = new CharacterIdentityPromptComposer();
-  private final PromptSettings settings = PromptSettingsDefaults.settingsFor(ImageStyle.CINEMATIC_ANIME);
+  private final PromptSettings settings =
+      PromptSettingsDefaults.settingsFor(ImageStyle.CINEMATIC_ANIME);
 
   @Test
   void composesPremiumCharacterReferenceWithoutNarrativeBibleBias() {
@@ -66,7 +67,8 @@ class CharacterIdentityPromptComposerTest {
             null,
             null);
 
-    String finalPrompt = VisualPromptText.finalPrompt(watercolor.prompt(), watercolor.negativePrompt());
+    String finalPrompt =
+        VisualPromptText.finalPrompt(watercolor.prompt(), watercolor.negativePrompt());
 
     assertThat(finalPrompt)
         .containsIgnoringCase("watercolor")

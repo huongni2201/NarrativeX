@@ -88,7 +88,7 @@ class FlywayBaselineStructureTest {
     assertTrue(v3.contains("CREATE TABLE narration_alignments"));
     assertTrue(v3.contains("words_json JSONB NOT NULL"));
     assertTrue(v3.contains("ck_narration_alignments_words_array"));
-    assertTrue(v3.contains("CREATE TABLE notifications"));
+    assertFalse(v3.contains("CREATE TABLE notifications"));
     assertTrue(v3.contains("CREATE TABLE outbox_events"));
     assertTrue(v3.contains("CREATE TABLE render_manifests"));
     assertTrue(v3.contains("CREATE TABLE final_artifacts"));
@@ -100,8 +100,6 @@ class FlywayBaselineStructureTest {
     assertTrue(v4.contains("CREATE TABLE media_upload_sessions"));
     assertTrue(v4.contains("CREATE TABLE media_generation_items"));
     assertTrue(v4.contains("CREATE TABLE media_asset_lineage"));
-    assertTrue(v4.contains("CREATE TABLE chapter_continuity_plans"));
-    assertTrue(v4.contains("CREATE TABLE regeneration_plans"));
     assertTrue(v4.contains("CREATE TABLE project_render_input_snapshots"));
     assertTrue(v4.contains("subtitle_text TEXT NOT NULL DEFAULT ''"));
     assertTrue(v4.contains("subtitle_words_json JSONB"));
@@ -113,7 +111,7 @@ class FlywayBaselineStructureTest {
 
     // V5 - Database logic & triggers
     assertTrue(v5.contains("CREATE TRIGGER trg_media_plans_immutable"));
-    assertTrue(v5.contains("CREATE TRIGGER trg_generation_jobs_notify_completion"));
+    assertFalse(v5.contains("CREATE TRIGGER trg_generation_jobs_notify_completion"));
     assertTrue(v5.contains("CREATE TRIGGER trg_generation_jobs_events"));
     assertFalse(v5.contains("finalize_quota_reservation_on_job_terminal"));
     assertFalse(v5.contains("trg_generation_jobs_finalize_quota"));
@@ -204,7 +202,6 @@ class FlywayBaselineStructureTest {
     assertTrue(v4.contains("CREATE TABLE takes"));
     assertTrue(v4.contains("CREATE TABLE selected_takes"));
     assertTrue(v4.contains("CREATE TABLE generation_references"));
-    assertTrue(v4.contains("CREATE TABLE production_insights"));
     assertTrue(v4.contains("CONSTRAINT fk_media_generation_items_shot"));
     assertTrue(v4.contains("CONSTRAINT fk_media_generation_items_take"));
     assertTrue(
@@ -237,12 +234,24 @@ class FlywayBaselineStructureTest {
     assertTrue(v4.contains("CREATE TABLE prompt_settings"));
     assertTrue(v4.contains("CREATE TABLE chapter_analysis_prompt_snapshots"));
     assertTrue(v4.contains("CREATE TABLE project_subtitle_settings"));
-    assertTrue(
-        v4.contains(
-            "CHECK (execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))"));
+    assertTrue(v4.contains("observed_adapter_version VARCHAR(64)"));
+    assertTrue(v4.contains("adapter_version VARCHAR(64)"));
+    assertFalse(v4.contains("observed_cli_version"));
+    assertFalse(v4.contains("cli_version VARCHAR(64)"));
+    assertTrue(v4.contains("execution_mode VARCHAR(32) NOT NULL DEFAULT 'ANTIGRAVITY_CLI'"));
+    assertTrue(v4.contains("CHECK (execution_mode IS NULL OR execution_mode = 'ANTIGRAVITY_CLI')"));
+    assertTrue(v4.contains("CHECK (execution_mode = 'ANTIGRAVITY_CLI')"));
+    String chapterAnalysisRuns = v4.substring(v4.indexOf("CREATE TABLE chapter_analysis_runs ("));
+    chapterAnalysisRuns = chapterAnalysisRuns.substring(0, chapterAnalysisRuns.indexOf("\n);") + 3);
+    assertFalse(chapterAnalysisRuns.contains("provider VARCHAR(32)"));
     assertTrue(v5.contains("CREATE TRIGGER trg_chapter_analysis_execution_snapshots_immutable"));
     assertTrue(v5.contains("CREATE TRIGGER trg_chapter_analysis_prompt_snapshots_immutable"));
+    assertFalse(v5.contains("create_generation_completion_notification"));
     assertTrue(v6.contains("CREATE UNIQUE INDEX uq_chapter_analysis_run_attempt"));
+    assertTrue(v6.contains("CREATE INDEX idx_generation_jobs_active_video_batches"));
+    assertTrue(v6.contains("CREATE INDEX idx_outbox_events_pending_available"));
+    assertFalse(v6.contains("idx_outbox_pending"));
+    assertFalse(v6.contains("idx_notifications_"));
     assertTrue(v7.contains("INSERT INTO analysis_runtime_configuration"));
   }
 

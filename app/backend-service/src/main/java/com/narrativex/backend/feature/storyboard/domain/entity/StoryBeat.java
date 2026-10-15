@@ -23,7 +23,6 @@ public final class StoryBeat extends DomainEntity {
   private final String summary;
   private final String importance;
   private final String storyFunctionsJson;
-  private final String continuityStateJson;
   private final StoryBeatReviewStatus reviewStatus;
 
   public StoryBeat(
@@ -35,8 +34,7 @@ public final class StoryBeat extends DomainEntity {
       String purpose,
       String summary,
       String importance,
-      String storyFunctionsJson,
-      String continuityStateJson) {
+      String storyFunctionsJson) {
     this(
         null,
         0L,
@@ -49,7 +47,6 @@ public final class StoryBeat extends DomainEntity {
         summary,
         importance,
         storyFunctionsJson,
-        continuityStateJson,
         StoryBeatReviewStatus.NEEDS_REVIEW);
   }
 
@@ -63,7 +60,6 @@ public final class StoryBeat extends DomainEntity {
       String summary,
       String importance,
       String storyFunctionsJson,
-      String continuityStateJson,
       StoryBeatReviewStatus reviewStatus) {
     this(
         null,
@@ -77,7 +73,6 @@ public final class StoryBeat extends DomainEntity {
         summary,
         importance,
         storyFunctionsJson,
-        continuityStateJson,
         reviewStatus);
   }
 
@@ -93,7 +88,6 @@ public final class StoryBeat extends DomainEntity {
       String summary,
       String importance,
       String storyFunctionsJson,
-      String continuityStateJson,
       StoryBeatReviewStatus reviewStatus) {
     super(id, rowVersion);
     this.sceneId = Objects.requireNonNull(sceneId, "sceneId must not be null");
@@ -121,7 +115,6 @@ public final class StoryBeat extends DomainEntity {
     }
     this.importance = defaultIfBlank(importance, "NORMAL", MAX_IMPORTANCE_LENGTH);
     this.storyFunctionsJson = storyFunctionsJson != null ? storyFunctionsJson.trim() : "[]";
-    this.continuityStateJson = continuityStateJson != null ? continuityStateJson.trim() : "{}";
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus must not be null");
   }
 
@@ -137,7 +130,6 @@ public final class StoryBeat extends DomainEntity {
       String summary,
       String importance,
       String storyFunctionsJson,
-      String continuityStateJson,
       StoryBeatReviewStatus reviewStatus) {
     return new StoryBeat(
         id,
@@ -151,7 +143,6 @@ public final class StoryBeat extends DomainEntity {
         summary,
         importance,
         storyFunctionsJson,
-        continuityStateJson,
         reviewStatus);
   }
 
@@ -166,8 +157,7 @@ public final class StoryBeat extends DomainEntity {
       String purpose,
       String summary,
       String importance,
-      String storyFunctionsJson,
-      String continuityStateJson) {
+      String storyFunctionsJson) {
     return rehydrate(
         id,
         rowVersion,
@@ -180,7 +170,6 @@ public final class StoryBeat extends DomainEntity {
         summary,
         importance,
         storyFunctionsJson,
-        continuityStateJson,
         StoryBeatReviewStatus.NEEDS_REVIEW);
   }
 
@@ -220,10 +209,6 @@ public final class StoryBeat extends DomainEntity {
     return storyFunctionsJson;
   }
 
-  public String getContinuityStateJson() {
-    return continuityStateJson;
-  }
-
   public StoryBeatReviewStatus getReviewStatus() {
     return reviewStatus;
   }
@@ -241,7 +226,6 @@ public final class StoryBeat extends DomainEntity {
         this.summary,
         this.importance,
         this.storyFunctionsJson,
-        this.continuityStateJson,
         newStatus);
   }
 

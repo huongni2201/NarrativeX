@@ -14,11 +14,11 @@ import com.narrativex.backend.feature.generation.application.model.compute.Model
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskConstraintsDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
-import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog;
@@ -448,7 +448,8 @@ public class GenerateShotTakeUseCase {
   private String legacyRequestFingerprint(Prepared prepared, PromptInput stored) {
     Map<String, Object> inputsCopy = new TreeMap<>(prepared.inputs());
     inputsCopy.put("prompt", stored.prompt());
-    inputsCopy.put("negativePrompt", stored.negativePrompt() == null ? "" : stored.negativePrompt());
+    inputsCopy.put(
+        "negativePrompt", stored.negativePrompt() == null ? "" : stored.negativePrompt());
     Map<String, Object> semanticsCopy = new TreeMap<>(prepared.semantics());
     semanticsCopy.put("inputs", inputsCopy);
     semanticsCopy.remove("structuralPrompt"); // not part of the pre-settings identity

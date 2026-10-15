@@ -1,6 +1,15 @@
 -- NarrativeX pre-release baseline: query/access-path indexes and index-backed invariants.
 -- All referenced tables are created by V1-V4 and finalized by V5.
 
+-- Active chapter video batches are polled by the resume scheduler.
+CREATE INDEX idx_generation_jobs_active_video_batches
+    ON generation_jobs (updated_at, id)
+    WHERE job_type = 'CHAPTER_GENERATE'
+      AND production_mode = 'VIDEO_FIRST'
+      AND resource_class = 'BACKGROUND'
+      AND media_plan_id IS NOT NULL
+      AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'RECONCILING', 'STALLED');
+
 -- Projects and story structure
 CREATE INDEX idx_projects_status ON projects (status);
 CREATE INDEX idx_projects_updated_id ON projects (updated_at DESC, id DESC);
@@ -44,14 +53,6 @@ CREATE INDEX idx_story_beats_scene_order ON story_beats (scene_id, order_index, 
 CREATE INDEX idx_audio_cues_story_beat_order ON audio_cues (story_beat_id, order_index, id);
 CREATE INDEX idx_visual_beats_story_beat_id ON visual_beats (story_beat_id) WHERE story_beat_id IS NOT NULL;
 CREATE INDEX idx_visual_beat_characters_project_character ON visual_beat_characters (project_character_id, visual_beat_id);
-CREATE INDEX idx_chapter_continuity_plans_current ON chapter_continuity_plans (chapter_id, revision DESC);
-CREATE INDEX idx_chapter_continuity_plans_story_source ON chapter_continuity_plans (story_version_id, chapter_id, source_hash);
-CREATE INDEX idx_scene_continuity_states_plan_scene ON scene_continuity_states (plan_id, scene_id);
-CREATE INDEX idx_visual_beat_continuity_states_plan_beat ON visual_beat_continuity_states (plan_id, visual_beat_id);
-CREATE INDEX idx_visual_beat_continuity_states_semantic_hash ON visual_beat_continuity_states (semantic_hash);
-CREATE INDEX idx_continuity_reports_plan_revision ON continuity_reports (plan_id, revision DESC);
-CREATE INDEX idx_regeneration_plans_chapter_created ON regeneration_plans (chapter_id, created_at DESC);
-CREATE INDEX idx_regeneration_plans_expiry ON regeneration_plans (expires_at);
 
 -- Media planning and reuse
 CREATE INDEX idx_media_plans_chapter_created ON media_plans (chapter_id, created_at DESC);
@@ -82,9 +83,6 @@ CREATE INDEX idx_provider_operations_result_fingerprint ON provider_operations (
 CREATE INDEX idx_provider_operations_reconcile_due ON provider_operations (next_reconcile_at, id)
     WHERE status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING') AND next_reconcile_at IS NOT NULL;
 CREATE INDEX idx_operation_plans_generation_job ON operation_plans (generation_job_id);
-CREATE INDEX idx_analysis_checkpoints_resume ON analysis_checkpoints (stage_attempt_id, status, updated_at);
-CREATE INDEX idx_analysis_checkpoints_provider_operation ON analysis_checkpoints (provider_operation_id)
-    WHERE provider_operation_id IS NOT NULL;
 CREATE INDEX idx_chapter_analysis_runs_chapter_created ON chapter_analysis_runs (chapter_id, created_at DESC);
 CREATE INDEX idx_chapter_analysis_runs_job ON chapter_analysis_runs (generation_job_id);
 CREATE INDEX idx_chapter_analysis_runs_canon_hash ON chapter_analysis_runs (canon_hash);
@@ -107,10 +105,10 @@ CREATE INDEX idx_narration_requests_script ON narration_requests (narration_scri
 CREATE INDEX idx_narration_scripts_chapter_revision ON narration_scripts (chapter_id, storyboard_revision_id, version);
 CREATE INDEX idx_narration_sets_story_created ON narration_sets (story_id, created_at DESC);
 
--- Notifications and durable outbox
-CREATE INDEX idx_notifications_unread ON notifications (read_at, created_at DESC);
-CREATE INDEX idx_notifications_created_id ON notifications (created_at DESC, id DESC);
-CREATE INDEX idx_outbox_pending ON outbox_events (status, available_at);
+-- Durable outbox dispatch scans only pending events by availability.
+CREATE INDEX idx_outbox_events_pending_available
+    ON outbox_events (available_at, id)
+    WHERE status = 'PENDING';
 
 -- Render manifests, generation snapshots and final artifacts
 CREATE INDEX idx_project_render_input_local_claim
@@ -122,9 +120,6 @@ CREATE UNIQUE INDEX uq_final_artifacts_chapter_render_fingerprint
 CREATE INDEX idx_final_artifacts_project_created ON final_artifacts (project_id, created_at DESC, id DESC);
 CREATE INDEX idx_final_artifacts_chapter_created ON final_artifacts (chapter_id, created_at DESC, id DESC)
     WHERE chapter_id IS NOT NULL;
-CREATE INDEX idx_project_render_input_chapters_continuity
-    ON project_render_input_chapters (continuity_plan_id, continuity_report_revision)
-    WHERE continuity_plan_id IS NOT NULL;
 
 -- Catalogs and upload lifecycle
 CREATE INDEX idx_style_presets_active_category_name ON style_presets (category, LOWER(name), id) WHERE status = 'ACTIVE';
@@ -155,14 +150,7 @@ CREATE INDEX idx_compute_event_receipts_task_attempt
 CREATE INDEX idx_compute_target_assignments_target
     ON compute_target_assignments (target_id);
 
--- Chapter analysis runtime
-CREATE UNIQUE INDEX uq_analysis_provider_credentials_verified_binding
-    ON analysis_provider_credentials (device_id, connection_fingerprint)
-    WHERE connection_fingerprint IS NOT NULL AND retired_at IS NULL;
-CREATE INDEX ix_analysis_provider_credentials_ready
-    ON analysis_provider_credentials (device_id, desired_enabled, observed_connection_state,
-                                      observed_quota_state, next_eligible_at, last_assigned_ordinal)
-    WHERE retired_at IS NULL;
+-- Chapter analysis runtime: one agy session slot per Desktop device.
 CREATE UNIQUE INDEX uq_chapter_analysis_attempt_active_job
     ON chapter_analysis_execution_attempts (generation_job_id)
     WHERE slot_held;

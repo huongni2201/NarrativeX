@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterReference;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
-import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
-import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
  * Sole backend owner of the exact still-image prompt sent to image providers.
  *
  * <p>Story semantics and structured shot direction are authored upstream. This composer only
- * combines them with canonical continuity, references and the selected rendering language. Desktop
+ * combines them with canonical character and location context, references and rendering language. Desktop
  * and provider adapters must submit this output verbatim rather than wrapping or re-authoring it.
  */
 @Component
@@ -31,11 +31,8 @@ public final class VisualPromptComposer {
   static final int MAX_REFERENCE_IMAGES = 3;
 
   private final ObjectMapper objectMapper;
-  private final ContinuityPromptSection continuityPromptSection;
-
   public VisualPromptComposer(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
-    this.continuityPromptSection = new ContinuityPromptSection(objectMapper);
   }
 
   /** Compatibility overload for beats created before structured direction was persisted. */
@@ -103,7 +100,6 @@ public final class VisualPromptComposer {
     appendShot(prompt, direction);
     appendCharacterLocks(prompt, safeContext.characters());
     appendCurrentState(prompt, safeContext.characters());
-    prompt.append(continuityPromptSection.render(safeContext.continuity()));
     appendEnvironment(prompt, safeContext.location(), direction);
     appendLightAndColor(prompt, direction);
     appendReferenceMap(prompt, selectedReferences);

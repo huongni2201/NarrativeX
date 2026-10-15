@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository.ShotAggregate;
 import com.narrativex.backend.feature.generation.application.port.out.SelectedTakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository.TakeRecord;
@@ -72,6 +74,8 @@ class GetChapterProductionUseCaseTest {
     assertThat(result.scenes().getFirst().visualBeats().get(2).audioCues()).isEmpty();
     assertThat(result.scenes().getFirst().visualBeats().getFirst().audioCues())
         .allMatch(c -> !c.voiceReady());
+    when(statusRepository.aggregate(project, chapter))
+        .thenReturn(new ShotAggregate(0, 0, 0, 0, 0, 0, 0, 0, ""));
     assertThat(useCase.getStatus(project, chapter).voiceReady()).isFalse();
   }
 
@@ -82,6 +86,8 @@ class GetChapterProductionUseCaseTest {
   private final SelectedTakeRepository selectedTakeRepository = mock(SelectedTakeRepository.class);
   private final SpeakerVoiceAccess speakerVoiceAccess = mock(SpeakerVoiceAccess.class);
   private final GetProductionTimelineUseCase timeline = mock(GetProductionTimelineUseCase.class);
+  private final ChapterProductionStatusRepository statusRepository =
+      mock(ChapterProductionStatusRepository.class);
 
   private final GetChapterProductionUseCase useCase =
       new GetChapterProductionUseCase(
@@ -91,7 +97,8 @@ class GetChapterProductionUseCaseTest {
           selectedTakeRepository,
           speakerVoiceAccess,
           mock(GetCurrentMediaJobUseCase.class),
-          timeline);
+          timeline,
+          statusRepository);
 
   @Test
   void assemblesCompleteProductionResponse() {
@@ -189,6 +196,8 @@ class GetChapterProductionUseCaseTest {
     assertThat(shotItem.selectedTake().takeId()).isEqualTo(takeId);
     assertThat(response.selectedShots()).isEqualTo(1);
 
+    when(statusRepository.aggregate(projectId, chapterId))
+        .thenReturn(new ShotAggregate(1, 0, 0, 0, 1, 0, 0, 1, "marker"));
     var status = useCase.getStatus(projectId, chapterId);
     assertThat(status).isNotNull();
     assertThat(status.chapterId()).isEqualTo(chapterId);

@@ -16,7 +16,6 @@
         <result property="sourceHash" column="source_hash" />
         <result property="status" column="status" />
         <result property="estimatedDurationMs" column="estimated_duration_ms" />
-        <result property="generationProgress" column="generation_progress" />
         <result property="sourceStoryVersionId" column="source_story_version_id" />
         <result property="inheritedSnapshotHash" column="inherited_snapshot_hash" />
         <result property="currentStoryboardRevisionId" column="current_storyboard_revision_id" />
@@ -25,7 +24,7 @@
     <sql id="columns">
         id, row_version, created_at, updated_at, deleted_at, story_version_id, order_index,
         title, source_text, source_hash, status, estimated_duration_ms,
-        generation_progress, source_story_version_id, inherited_snapshot_hash,
+        source_story_version_id, inherited_snapshot_hash,
         current_storyboard_revision_id
     </sql>
 
@@ -36,13 +35,13 @@
         INSERT INTO chapters (
             row_version, created_at, updated_at, story_version_id, order_index,
             title, source_text, source_hash, status, estimated_duration_ms,
-            generation_progress, source_story_version_id, inherited_snapshot_hash,
+            source_story_version_id, inherited_snapshot_hash,
             current_storyboard_revision_id
         )
         VALUES (
             #{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{storyVersionId}, #{orderIndex},
             #{title}, #{sourceText}, #{sourceHash}, #{status}, #{estimatedDurationMs},
-            #{generationProgress}, #{sourceStoryVersionId}, #{inheritedSnapshotHash},
+            #{sourceStoryVersionId}, #{inheritedSnapshotHash},
             #{currentStoryboardRevisionId}
         )
         RETURNING id

@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
+import type { DesktopProject, ProjectAspectRatio } from "../../../../shared/api-types";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

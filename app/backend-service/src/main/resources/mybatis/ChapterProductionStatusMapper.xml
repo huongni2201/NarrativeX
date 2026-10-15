@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterProductionStatusMapper">
+
+  <resultMap id="statusRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterProductionStatusRow">
+    <result property="totalShots" column="total_shots" />
+    <result property="queuedShots" column="queued_shots" />
+    <result property="generatingShots" column="generating_shots" />
+    <result property="validatingShots" column="validating_shots" />
+    <result property="passedShots" column="passed_shots" />
+    <result property="failedShots" column="failed_shots" />
+    <result property="manualReviewShots" column="manual_review_shots" />
+    <result property="selectedShots" column="selected_shots" />
+    <result property="changeMarker" column="change_marker" />
+  </resultMap>
+
+  <resultMap id="strategyGroupRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ShotStrategyGroupRow">
+    <result property="visualBeatId" column="visual_beat_id" />
+    <result property="strategy" column="generation_strategy" />
+    <result property="shots" column="shots" />
+  </resultMap>
+
+  <!-- Same chapter/scene/revision scoping as ShotMapper.findCurrentShotsByChapter. -->
+  <select id="aggregate" resultMap="statusRow">
+    WITH chapter_shots AS (
+      SELECT sh.id, sh.status, sh.updated_at
+        FROM shots sh
+        JOIN shot_sequences sq ON sq.id = sh.sequence_id
+        JOIN visual_beats vb ON vb.id = sq.visual_beat_id
+        JOIN scenes sc ON sc.id = vb.scene_id
+        JOIN chapters ch ON ch.id = sc.chapter_id
+       WHERE sc.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND ch.id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND ch.deleted_at IS NULL
+         AND sc.storyboard_revision_id = ch.current_storyboard_revision_id
+    ),
+    shot_counts AS (
+      SELECT COUNT(*) AS total_shots,
+             COUNT(*) FILTER (WHERE UPPER(status) = 'QUEUED') AS queued_shots,
+             COUNT(*) FILTER (WHERE UPPER(status) = 'GENERATING') AS generating_shots,
+             COUNT(*) FILTER (WHERE UPPER(status) = 'VALIDATING') AS validating_shots,
+             COUNT(*) FILTER (WHERE UPPER(status) IN ('PASSED', 'SELECTED')) AS passed_shots,
+             COUNT(*) FILTER (WHERE UPPER(status) = 'FAILED') AS failed_shots,
+             COUNT(*) FILTER (WHERE UPPER(status) = 'MANUAL_REVIEW') AS manual_review_shots,
+             MAX(updated_at) AS shots_updated_at
+        FROM chapter_shots
+    ),
+    selected AS (
+      SELECT COUNT(*) AS selected_shots, MAX(st.updated_at) AS selected_updated_at
+        FROM selected_takes st
+        JOIN chapter_shots cs ON cs.id = st.shot_id
+    ),
+    take_marker AS (
+      SELECT COUNT(*) AS take_count, MAX(t.updated_at) AS takes_updated_at
+        FROM takes t
+        JOIN chapter_shots cs ON cs.id = t.shot_id
+    ),
+    beat_marker AS (
+      SELECT MAX(vb.updated_at) AS beats_updated_at, COUNT(vb.id) AS beat_count
+        FROM visual_beats vb
+        JOIN scenes sc ON sc.id = vb.scene_id
+        JOIN chapters ch ON ch.id = sc.chapter_id
+       WHERE sc.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND ch.id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND ch.deleted_at IS NULL
+         AND sc.storyboard_revision_id = ch.current_storyboard_revision_id
+    ),
+    cue_marker AS (
+      SELECT MAX(ac.updated_at) AS cues_updated_at, COUNT(ac.id) AS cue_count
+        FROM audio_cues ac
+        JOIN visual_beats vb ON vb.story_beat_id = ac.story_beat_id
+        JOIN scenes sc ON sc.id = vb.scene_id
+        JOIN chapters ch ON ch.id = sc.chapter_id
+       WHERE sc.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND ch.id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND ch.deleted_at IS NULL
+         AND sc.storyboard_revision_id = ch.current_storyboard_revision_id
+    )
+    SELECT shot_counts.total_shots,
+           shot_counts.queued_shots,
+           shot_counts.generating_shots,
+           shot_counts.validating_shots,
+           shot_counts.passed_shots,
+           shot_counts.failed_shots,
+           shot_counts.manual_review_shots,
+           selected.selected_shots,
+           CONCAT_WS('|',
+             COALESCE(EXTRACT(EPOCH FROM shot_counts.shots_updated_at)::text, '0'),
+             COALESCE(EXTRACT(EPOCH FROM selected.selected_updated_at)::text, '0'),
+             take_marker.take_count,
+             COALESCE(EXTRACT(EPOCH FROM take_marker.takes_updated_at)::text, '0'),
+             beat_marker.beat_count,
+             COALESCE(EXTRACT(EPOCH FROM beat_marker.beats_updated_at)::text, '0'),
+             cue_marker.cue_count,
+             COALESCE(EXTRACT(EPOCH FROM cue_marker.cues_updated_at)::text, '0')) AS change_marker
+      FROM shot_counts, selected, take_marker, beat_marker, cue_marker
+  </select>
+
+  <select id="shotStrategyGroups" resultMap="strategyGroupRow">
+    SELECT vb.id AS visual_beat_id, sh.generation_strategy, COUNT(*) AS shots
+      FROM shots sh
+      JOIN shot_sequences sq ON sq.id = sh.sequence_id
+      JOIN visual_beats vb ON vb.id = sq.visual_beat_id
+      JOIN scenes sc ON sc.id = vb.scene_id
+      JOIN chapters ch ON ch.id = sc.chapter_id
+     WHERE sc.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND ch.id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND ch.deleted_at IS NULL
+       AND sc.storyboard_revision_id = ch.current_storyboard_revision_id
+     GROUP BY vb.id, sh.generation_strategy
+  </select>
+</mapper>

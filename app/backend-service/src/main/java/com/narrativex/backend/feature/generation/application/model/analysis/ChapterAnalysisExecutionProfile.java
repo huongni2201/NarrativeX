@@ -7,7 +7,6 @@ import java.util.regex.Pattern;
 /** Immutable profile that affects the generated chapter-analysis output. */
 public record ChapterAnalysisExecutionProfile(
     ChapterAnalysisExecutionMode executionMode,
-    String provider,
     String model,
     String effort,
     String promptVersion,
@@ -19,7 +18,6 @@ public record ChapterAnalysisExecutionProfile(
 
   public ChapterAnalysisExecutionProfile {
     Objects.requireNonNull(executionMode, "executionMode must not be null");
-    provider = required(provider, "provider");
     model = required(model, "model");
     effort = required(effort, "effort");
     promptVersion = required(promptVersion, "promptVersion");
@@ -31,11 +29,6 @@ public record ChapterAnalysisExecutionProfile(
     }
     if (!effort.equals("LOW") && !effort.equals("MEDIUM") && !effort.equals("HIGH")) {
       throw new IllegalArgumentException("effort must be LOW, MEDIUM, or HIGH");
-    }
-    String expectedProvider =
-        executionMode == ChapterAnalysisExecutionMode.VERTEX_API ? "VERTEX" : "ANTIGRAVITY";
-    if (!expectedProvider.equals(provider)) {
-      throw new IllegalArgumentException("provider does not match executionMode");
     }
   }
 

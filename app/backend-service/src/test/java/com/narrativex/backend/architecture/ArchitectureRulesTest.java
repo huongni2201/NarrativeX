@@ -32,7 +32,6 @@ class ArchitectureRulesTest {
     List<String> files =
         List.of(
             "feature/project/infrastructure/persistence/adapter/MyBatisProjectRepository.java",
-            "feature/project/infrastructure/persistence/adapter/MyBatisProjectOverviewQueryAdapter.java",
             "feature/project/infrastructure/persistence/adapter/MyBatisProjectResourceQueryAdapter.java",
             "feature/project/infrastructure/persistence/mybatis/ProjectMapper.java",
             "feature/project/infrastructure/persistence/mybatis/ProjectQueryMapper.java");

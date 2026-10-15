@@ -78,8 +78,7 @@ public class CreateMediaJobUseCase {
       if (existingItems.isEmpty()
           || existingItems.stream()
               .anyMatch(
-                  item ->
-                      !replayMatches(item, requestFingerprint, legacyRequestFingerprint))) {
+                  item -> !replayMatches(item, requestFingerprint, legacyRequestFingerprint))) {
         throw idempotencyConflict();
       }
       return existingJob;

@@ -87,7 +87,6 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
         "Project " + com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         "vi-VN",
         "vi-VN",
-        "vi-VN",
         AspectRatio.RATIO_16_9);
   }
 

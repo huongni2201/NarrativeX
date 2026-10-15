@@ -4,23 +4,18 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Cano
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import java.util.Map;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 /** Versioned, transport-neutral prompt and response schema for Chapter Analysis. */
 public final class ChapterAnalysisContractResources {
   private static final String RESOURCE_ROOT = "/analysis/chapter-analysis/1.1/";
   private final String promptTemplate;
   private final String promptHash;
-  private final ObjectMapper objectMapper;
   private final JsonNode responseSchema;
   private final String schemaHash;
 
   public ChapterAnalysisContractResources(ObjectMapper objectMapper) {
-    this.objectMapper = objectMapper;
     byte[] promptBytes = readResource("prompt.txt");
     byte[] schemaBytes = readResource("response.schema.json");
     this.promptTemplate = new String(promptBytes, StandardCharsets.UTF_8).strip();
@@ -40,11 +35,6 @@ public final class ChapterAnalysisContractResources {
 
   public JsonNode responseSchema() {
     return responseSchema.deepCopy();
-  }
-
-  /** Converts the shared JSON Schema type names to the Vertex responseSchema dialect. */
-  public JsonNode vertexResponseSchema() {
-    return toVertexDialect(responseSchema);
   }
 
   public String promptHash() {
@@ -71,35 +61,5 @@ public final class ChapterAnalysisContractResources {
     } catch (IOException exception) {
       throw new IllegalStateException("Could not read analysis contract: " + path, exception);
     }
-  }
-
-  private JsonNode toVertexDialect(JsonNode schema) {
-    if (schema.isObject()) {
-      ObjectNode result = objectMapper.createObjectNode();
-      Iterator<Map.Entry<String, JsonNode>> fields = schema.properties().iterator();
-      while (fields.hasNext()) {
-        Map.Entry<String, JsonNode> field = fields.next();
-        JsonNode value = field.getValue();
-        if ("type".equals(field.getKey()) && value.isTextual()) {
-          result.put(field.getKey(), value.asText().toUpperCase(java.util.Locale.ROOT));
-        } else if ("properties".equals(field.getKey()) && value.isObject()) {
-          ObjectNode properties = result.putObject(field.getKey());
-          value
-              .properties()
-              .forEach(
-                  property ->
-                      properties.set(property.getKey(), toVertexDialect(property.getValue())));
-        } else {
-          result.set(field.getKey(), toVertexDialect(value));
-        }
-      }
-      return result;
-    }
-    if (schema.isArray()) {
-      var result = objectMapper.createArrayNode();
-      schema.forEach(value -> result.add(toVertexDialect(value)));
-      return result;
-    }
-    return schema.deepCopy();
   }
 }

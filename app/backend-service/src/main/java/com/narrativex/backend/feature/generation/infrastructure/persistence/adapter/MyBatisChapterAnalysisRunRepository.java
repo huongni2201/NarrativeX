@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
-import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisProviderId;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisUsageState;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisRunMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisRunRow;
@@ -42,11 +41,10 @@ public class MyBatisChapterAnalysisRunRepository implements ChapterAnalysisRunRe
             .canonHash(run.canonHash())
             .createdAt(run.createdAt())
             .usageState(run.usageState().name())
-            .provider(run.provider() == null ? null : run.provider().name())
             .executionMode(run.executionMode() == null ? null : run.executionMode().name())
             .attemptId(run.attemptId())
             .credentialRef(run.credentialRef())
-            .cliVersion(run.cliVersion())
+            .adapterVersion(run.adapterVersion())
             .conversationId(run.conversationId())
             .modelObserved(run.modelObserved())
             .effortObserved(run.effortObserved())
@@ -104,13 +102,12 @@ public class MyBatisChapterAnalysisRunRepository implements ChapterAnalysisRunRe
         row.getUsageState() == null
             ? ChapterAnalysisUsageState.LEGACY_UNSPECIFIED
             : ChapterAnalysisUsageState.valueOf(row.getUsageState()),
-        row.getProvider() == null ? null : ChapterAnalysisProviderId.valueOf(row.getProvider()),
         row.getExecutionMode() == null
             ? null
             : ChapterAnalysisExecutionMode.valueOf(row.getExecutionMode()),
         row.getAttemptId(),
         row.getCredentialRef(),
-        row.getCliVersion(),
+        row.getAdapterVersion(),
         row.getConversationId(),
         row.getModelObserved(),
         row.getEffortObserved(),

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AlertCircle, CheckCircle, FileText, Plus, Save, Sparkles, Undo2, Upload } from "lucide-react";
-import type { DesktopChapterDetails } from "@narrativex/client-contracts";
+import type { DesktopChapterDetails } from "../../../../../shared/api-types";
 import { Button } from "@/components/ui/button";
 import { canCreateInitialChapter, wordCount } from "../../model/chapter-ui";
 
@@ -15,6 +15,7 @@ export interface ChapterSourceStageProps {
   defaultChapterTitle?: string;
   isCreating?: boolean;
   isAnalyzing: boolean;
+  canAnalyze: boolean;
 }
 
 function formatCount(value: number) {
@@ -95,6 +96,7 @@ export function ChapterSourceStage({
   defaultChapterTitle,
   isCreating = false,
   isAnalyzing,
+  canAnalyze,
 }: ChapterSourceStageProps) {
   const [title, setTitle] = useState(chapter?.title ?? defaultChapterTitle ?? "");
   const [sourceText, setSourceText] = useState(chapter?.sourceText ?? "");
@@ -349,9 +351,11 @@ export function ChapterSourceStage({
           <button
             type="button"
             onClick={handleSaveAndAnalyze}
-            disabled={isAnalyzing || isSaving}
+            disabled={isAnalyzing || !canAnalyze || isSaving}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-label font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-50"
-            title="Lưu thay đổi (nếu có) rồi phân tích cấu trúc kịch bản bằng Gemini Story Director"
+            title={!canAnalyze && !isAnalyzing
+              ? "Trạng thái tác vụ chưa được xác nhận; kiểm tra nhật ký trước khi gửi lại."
+              : "Lưu thay đổi (nếu có) rồi phân tích cấu trúc kịch bản bằng Gemini Story Director"}
           >
             <Sparkles size={14} className={isAnalyzing ? "animate-spin" : ""} />
             <span>

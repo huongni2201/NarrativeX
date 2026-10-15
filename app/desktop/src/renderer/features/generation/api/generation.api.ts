@@ -4,7 +4,7 @@ import type {
   GenerationJob,
   MediaJobDetails,
   MediaReviewInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
 export interface CurrentMediaJob {

@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisProviderCredential;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisRuntimeConfiguration;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
@@ -21,7 +20,6 @@ public class StoryAnalysisRuntimeController {
   private final LocalChapterAnalysisService service;
   private static final String ROOT = "/api/v1/local-devices/chapter-analyses";
   private static final String CREDENTIALS = "/api/v1/local-devices/analysis-credentials";
-  private static final String UI_CREDENTIALS = "/api/v1/story-analysis/credentials";
 
   @GetMapping("/api/v1/story-analysis/configuration")
   public ApiResponse<AnalysisRuntimeConfiguration> configuration() {
@@ -34,21 +32,6 @@ public class StoryAnalysisRuntimeController {
         "Analysis configuration saved",
         service.configure(
             s.executionMode(), s.model(), s.effort(), s.maxConcurrentAnalyses(), s.rowVersion()));
-  }
-
-  @GetMapping(UI_CREDENTIALS)
-  public ApiResponse<List<CredentialView>> credentials() {
-    return ApiResponse.success(
-        "Analysis credentials", service.credentials().stream().map(CredentialView::from).toList());
-  }
-
-  @PutMapping(UI_CREDENTIALS + "/{credentialRef}")
-  public ApiResponse<CredentialView> updateCredential(
-      @PathVariable UUID credentialRef, @Valid @RequestBody CredentialSettings r) {
-    return ApiResponse.success(
-        "Analysis credential saved",
-        CredentialView.from(
-            service.updateCredential(credentialRef, r.enabled(), r.maxConcurrent())));
   }
 
   @PostMapping(CREDENTIALS)
@@ -65,9 +48,7 @@ public class StoryAnalysisRuntimeController {
         "Analysis credential registered",
         new CredentialRegistration(
             credential.credentialRef(),
-            credential.credentialGeneration(),
-            credential.desiredEnabled(),
-            credential.desiredMaxConcurrent()));
+            credential.credentialGeneration()));
   }
 
   @PostMapping(CREDENTIALS + "/{credentialRef}/observation")
@@ -78,13 +59,6 @@ public class StoryAnalysisRuntimeController {
     service.observeCredential(
         device, credentialRef, r.connectionState(), r.quotaState(), r.nextEligibleAt());
     return ApiResponse.success("Credential observation accepted");
-  }
-
-  @PostMapping(CREDENTIALS + "/{credentialRef}/retire")
-  public ApiResponse<Void> retire(
-      @RequestHeader("X-NX-Device-Token") String device, @PathVariable UUID credentialRef) {
-    service.retireCredential(device, credentialRef);
-    return ApiResponse.success("Analysis credential retired");
   }
 
   @PostMapping(ROOT + "/claim")
@@ -143,8 +117,6 @@ public class StoryAnalysisRuntimeController {
       @Min(1) @Max(32) int maxConcurrentAnalyses,
       @PositiveOrZero long rowVersion) {}
 
-  public record CredentialSettings(boolean enabled, @Min(1) @Max(16) int maxConcurrent) {}
-
   public record Registration(
       @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String fingerprint,
       @NotBlank @Size(max = 120) String label,
@@ -152,34 +124,13 @@ public class StoryAnalysisRuntimeController {
       @Size(max = 32) List<@Size(max = 128) String> models) {}
 
   public record CredentialRegistration(
-      UUID credentialRef, int credentialGeneration, boolean desiredEnabled, int desiredMaxConcurrent) {}
+      UUID credentialRef, int credentialGeneration) {}
 
   public record CredentialObservation(
       @NotBlank @Pattern(regexp = "UNKNOWN|CONNECTED|AUTH_REQUIRED|UNAVAILABLE")
           String connectionState,
       @NotBlank @Pattern(regexp = "UNKNOWN|AVAILABLE|RATE_LIMITED|EXHAUSTED") String quotaState,
       Instant nextEligibleAt) {}
-
-  /** Redacted account view for the renderer. */
-  public record CredentialView(
-      UUID credentialRef,
-      String label,
-      boolean enabled,
-      int maxConcurrent,
-      String connectionState,
-      String quotaState,
-      Instant nextEligibleAt) {
-    static CredentialView from(AnalysisProviderCredential c) {
-      return new CredentialView(
-          c.credentialRef(),
-          c.label(),
-          c.desiredEnabled(),
-          c.desiredMaxConcurrent(),
-          c.observedConnectionState(),
-          c.observedQuotaState(),
-          c.nextEligibleAt());
-    }
-  }
 
   public record ClaimRequest(
       @NotNull UUID claimRequestId,

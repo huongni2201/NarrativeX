@@ -5,10 +5,10 @@ import type {
   DesktopTake,
   GenerationStrategy,
   GenerateShotTakeInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
-export type { GenerateShotTakeInput } from "@narrativex/client-contracts";
+export type { GenerateShotTakeInput } from "../../../../shared/api-types";
 
 export interface SelectTakeInput {
   takeId: string;

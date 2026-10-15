@@ -64,7 +64,6 @@ class ProjectStoryVersionLifecycleTest {
         ProjectStatus.DRAFT,
         "vi-VN",
         "vi-VN",
-        "vi-VN",
         AspectRatio.RATIO_16_9,
         null);
   }

@@ -4,7 +4,7 @@ import type {
   DesktopCharacterDetail,
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isNumber, isRecord, isString } from "../../../api/guards";
 import { collectCursorPages, parseCursorPage } from "../../../api/pagination";

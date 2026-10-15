@@ -186,6 +186,9 @@
            AND s.storyboard_revision_id = c.current_storyboard_revision_id
       ) storyboard_counts ON TRUE
      WHERE c.deleted_at IS NULL
+       <if test="chapterId != null">
+         AND c.id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       </if>
      ORDER BY c.order_index ASC, c.id ASC
   </select>
 
@@ -212,6 +215,9 @@
          AND s.storyboard_revision_id = c.current_storyboard_revision_id
         JOIN visual_beats vb ON vb.scene_id = s.id
        WHERE c.deleted_at IS NULL
+       <if test="chapterId != null">
+         AND c.id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       </if>
     )
     SELECT cb.chapter_id,
            cb.chapter_order_index,
@@ -317,5 +323,22 @@
               cb.scene_index ASC,
               cb.beat_index ASC,
               cb.visual_beat_id ASC, selected_video.shot_order ASC
+  </select>
+  <select id="hasNativeShotBeats" resultType="boolean">
+    WITH current_story AS (
+      <include refid="currentStoryVersion" />
+    )
+    SELECT EXISTS (
+      SELECT 1
+        FROM chapters c
+        JOIN current_story cs ON cs.id = c.story_version_id
+        JOIN scenes s
+          ON s.chapter_id = c.id
+         AND s.storyboard_revision_id = c.current_storyboard_revision_id
+        JOIN visual_beats vb ON vb.scene_id = s.id
+        JOIN shot_sequences ss ON ss.visual_beat_id = vb.id
+        JOIN shots sh ON sh.sequence_id = ss.id
+       WHERE c.deleted_at IS NULL
+    )
   </select>
 </mapper>

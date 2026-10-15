@@ -75,10 +75,10 @@ class StoryboardApiIntegrationTest {
   @BeforeEach
   void setUpTestData() {
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'P1001', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, image_aspect_ratio) VALUES (?, 'P1001', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_1);
     jdbcTemplate.update(
-        "INSERT INTO projects (id, name, description, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'P1002', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO projects (id, name, description, status, source_language, narration_language, image_aspect_ratio) VALUES (?, 'P1002', 'Desc', 'ACTIVE', 'vi-VN', 'vi-VN', 'RATIO_16_9') ON CONFLICT (id) DO NOTHING",
         PROJECT_2);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE') ON CONFLICT (id) DO NOTHING",
@@ -89,11 +89,11 @@ class StoryboardApiIntegrationTest {
         STORY_2,
         PROJECT_2);
     jdbcTemplate.update(
-        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms) VALUES (?, ?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 42000) ON CONFLICT (id) DO NOTHING",
         CHAPTER_1,
         STORY_1);
     jdbcTemplate.update(
-        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 2', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms) VALUES (?, ?, 1, 'Ch 2', 'Text', repeat('a', 64), 'READY', 42000) ON CONFLICT (id) DO NOTHING",
         CHAPTER_2,
         STORY_2);
     jdbcTemplate.update(

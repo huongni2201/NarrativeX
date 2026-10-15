@@ -146,9 +146,8 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
-              (name, status, source_language, narration_language, metadata_language,
-               image_aspect_ratio)
-            VALUES (?, 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9')
+              (name, status, source_language, narration_language, image_aspect_ratio)
+            VALUES (?, 'DRAFT', 'vi-VN', 'vi-VN', 'RATIO_16_9')
             RETURNING id
             """,
             UUID.class,

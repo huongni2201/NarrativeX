@@ -42,8 +42,7 @@ public class BackendPromptPreviewSource implements PromptPreviewSource {
       PromptSettings settings, PromptPreviewTarget.Character target) {
     var model = characterDetail.execute(target.projectId(), target.characterId());
     if (model.version() == null) {
-      throw new DomainValidationException(
-          "target: the character has no pinned version to preview");
+      throw new DomainValidationException("target: the character has no pinned version to preview");
     }
     var version = model.version();
     var appearance = model.appearance();

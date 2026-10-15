@@ -14,7 +14,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Model-agnostic routing service implementing ADR-0029 decision matrix. Determines the execution
+ * Model-agnostic routing service implementing ADR-0008 decision matrix. Determines the execution
  * strategy, conditioned reference assets, compiled prompt, and preflight readiness for a Shot.
  */
 @Service

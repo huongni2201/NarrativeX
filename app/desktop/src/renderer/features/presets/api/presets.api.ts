@@ -1,4 +1,4 @@
-import type { DesktopPreset } from "@narrativex/client-contracts";
+import type { DesktopPreset } from "../../../../shared/api-types";
 import { apiRequest } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
 

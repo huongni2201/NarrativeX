@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { PromptSettings } from "@narrativex/client-contracts";
+import type { PromptSettings } from "../../../../shared/api-types";
 import { promptSettingsApi } from "../api/prompt-settings.api.ts";
 
 export const promptSettingsKeys = {

@@ -21,11 +21,10 @@
         <result property="canonHash" column="canon_hash"/>
         <result property="createdAt" column="created_at"/>
         <result property="usageState" column="usage_state"/>
-        <result property="provider" column="provider"/>
         <result property="executionMode" column="execution_mode"/>
         <result property="attemptId" column="attempt_id"/>
         <result property="credentialRef" column="credential_ref"/>
-        <result property="cliVersion" column="cli_version"/>
+        <result property="adapterVersion" column="adapter_version"/>
         <result property="conversationId" column="conversation_id"/>
         <result property="modelObserved" column="model_observed"/>
         <result property="effortObserved" column="effort_observed"/>
@@ -53,11 +52,10 @@
             canon_hash,
             created_at,
             usage_state,
-            provider,
             execution_mode,
             attempt_id,
             credential_ref,
-            cli_version,
+            adapter_version,
             conversation_id,
             model_observed,
             effort_observed,
@@ -82,11 +80,10 @@
             #{canonHash},
             COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
             #{usageState},
-            #{provider},
             #{executionMode},
             #{attemptId},
             #{credentialRef},
-            #{cliVersion},
+            #{adapterVersion},
             #{conversationId},
             #{modelObserved},
             #{effortObserved},

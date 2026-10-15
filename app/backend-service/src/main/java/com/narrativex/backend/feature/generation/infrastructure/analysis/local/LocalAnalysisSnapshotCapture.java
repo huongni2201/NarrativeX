@@ -29,10 +29,12 @@ public class LocalAnalysisSnapshotCapture implements ChapterAnalysisSnapshotCapt
   @Override
   public void capture(GenerationJob job) {
     var config = store.findRuntimeConfiguration();
-    if (config.executionMode() != ChapterAnalysisExecutionMode.ANTIGRAVITY_API) return;
     // The instruction frozen in this admission transaction by EnqueueStoryAnalysisUseCase.
     String customInstruction =
-        promptSnapshots.find(job.getId()).map(ChapterAnalysisPromptSnapshot::instruction).orElse("");
+        promptSnapshots
+            .find(job.getId())
+            .map(ChapterAnalysisPromptSnapshot::instruction)
+            .orElse("");
     long inputBytes =
         job.getSourceText().getBytes(StandardCharsets.UTF_8).length
             + customInstruction.getBytes(StandardCharsets.UTF_8).length;
@@ -42,8 +44,7 @@ public class LocalAnalysisSnapshotCapture implements ChapterAnalysisSnapshotCapt
     }
     var profile =
         new ChapterAnalysisExecutionProfile(
-            config.executionMode(),
-            "ANTIGRAVITY",
+            ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
             config.model(),
             config.effort(),
             "1.1",

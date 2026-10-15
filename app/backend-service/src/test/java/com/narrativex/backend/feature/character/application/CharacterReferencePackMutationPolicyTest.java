@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.character.application;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;

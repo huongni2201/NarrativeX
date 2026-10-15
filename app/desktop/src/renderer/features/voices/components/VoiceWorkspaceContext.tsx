@@ -4,7 +4,7 @@ import type {
   DesktopChapterDetails,
   DesktopVoice,
   VoiceReferenceScope,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { ArrowUpRight, AudioLines, Check, FileAudio, FolderPlus, Mic2, Sparkles, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

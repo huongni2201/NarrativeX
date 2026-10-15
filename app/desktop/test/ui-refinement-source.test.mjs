@@ -25,7 +25,8 @@ test("workspace navigation keeps production destinations contextual", () => {
   assert.doesNotMatch(shell, /\{ id: "images", label: "Media"/);
   assert.doesNotMatch(shell, /\{ id: "render", label: "Render"/);
   assert.match(shell, /label: "Tài nguyên"/);
-  assert.match(shell, /label: "Cài đặt"/);
+  // Settings and Account are application-scoped (see account-navigation.test.mjs), not project activities.
+  assert.doesNotMatch(shell, /id: "settings"/);
 });
 
 test("shared controls encode NarrativeX desktop density", () => {

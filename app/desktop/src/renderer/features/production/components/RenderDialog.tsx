@@ -1,4 +1,4 @@
-import type { AutoEditStyle, RenderFrameRate, RenderResolution } from "@narrativex/client-contracts";
+import type { AutoEditStyle, RenderFrameRate, RenderResolution } from "../../../../shared/api-types";
 import { Film, FolderOpen, Loader2, Type, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";

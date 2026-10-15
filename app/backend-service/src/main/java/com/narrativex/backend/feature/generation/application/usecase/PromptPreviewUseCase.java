@@ -29,7 +29,6 @@ public class PromptPreviewUseCase {
   public Preview preview(PromptSettings draft, PromptPreviewTarget target) {
     PromptSettings saved = settingsAccess.current();
     PromptSettings used = draft == null ? saved : draft;
-    return new Preview(
-        draft != null, saved.revision(), used, target, source.preview(used, target));
+    return new Preview(draft != null, saved.revision(), used, target, source.preview(used, target));
   }
 }

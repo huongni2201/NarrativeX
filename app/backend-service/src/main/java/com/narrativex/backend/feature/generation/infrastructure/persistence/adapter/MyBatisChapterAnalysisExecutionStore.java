@@ -50,13 +50,8 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
   }
 
   @Override
-  public List<AnalysisProviderCredential> findCredentialsByDevice(UUID deviceId) {
-    return mapper.findCredentialsByDevice(deviceId).stream().map(this::toCredential).toList();
-  }
-
-  @Override
-  public List<AnalysisProviderCredential> findActiveCredentials() {
-    return mapper.findActiveCredentials().stream().map(this::toCredential).toList();
+  public Optional<AnalysisProviderCredential> findCredentialByDevice(UUID deviceId) {
+    return Optional.ofNullable(mapper.findCredentialByDevice(deviceId)).map(this::toCredential);
   }
 
   @Override
@@ -138,13 +133,13 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
   }
 
   private AnalysisRuntimeConfiguration toRuntimeConfiguration(AnalysisRuntimeConfigurationRow row) {
+    // The installed agy CLI is the only chapter-analysis runner.
     return new AnalysisRuntimeConfiguration(
         row.getRevision(),
-        ChapterAnalysisExecutionMode.valueOf(row.getExecutionMode()),
+        ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
         row.getModel(),
         row.getEffort(),
         row.getMaxConcurrentAnalyses(),
-        row.getDefaultMaxConcurrentPerCredential(),
         row.getMaxQueuedAnalyses(),
         row.getMaxInputBytes(),
         row.getMaxOutputBytes(),
@@ -159,7 +154,6 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
     row.setModel(value.model());
     row.setEffort(value.effort());
     row.setMaxConcurrentAnalyses(value.maxConcurrentAnalyses());
-    row.setDefaultMaxConcurrentPerCredential(value.defaultMaxConcurrentPerCredential());
     row.setMaxQueuedAnalyses(value.maxQueuedAnalyses());
     row.setMaxInputBytes(value.maxInputBytes());
     row.setMaxOutputBytes(value.maxOutputBytes());
@@ -175,20 +169,14 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
         row.getConnectionFingerprint(),
         row.getCredentialGeneration(),
         row.getLabel(),
-        row.getSelfReportedTier(),
-        row.isDesiredEnabled(),
-        row.getDesiredMaxConcurrent(),
-        row.getDrainRequestedAt(),
-        row.getRetiredAt(),
         row.getObservedConnectionState(),
-        row.getCliVersion(),
+        row.getAdapterVersion(),
         readStringList(row.getModelCapabilitiesJson()),
         row.getObservedQuotaState(),
         row.getQuotaObservedAt(),
         row.getNextEligibleAt(),
         row.getRuntimeEpoch(),
         row.getObservationSequence(),
-        row.getLastAssignedOrdinal(),
         row.getRowVersion());
   }
 
@@ -199,20 +187,14 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
     row.setConnectionFingerprint(value.connectionFingerprint());
     row.setCredentialGeneration(value.credentialGeneration());
     row.setLabel(value.label());
-    row.setSelfReportedTier(value.selfReportedTier());
-    row.setDesiredEnabled(value.desiredEnabled());
-    row.setDesiredMaxConcurrent(value.desiredMaxConcurrent());
-    row.setDrainRequestedAt(value.drainRequestedAt());
-    row.setRetiredAt(value.retiredAt());
     row.setObservedConnectionState(value.observedConnectionState());
-    row.setCliVersion(value.cliVersion());
+    row.setAdapterVersion(value.adapterVersion());
     row.setModelCapabilitiesJson(write(value.modelCapabilities()));
     row.setObservedQuotaState(value.observedQuotaState());
     row.setQuotaObservedAt(value.quotaObservedAt());
     row.setNextEligibleAt(value.nextEligibleAt());
     row.setRuntimeEpoch(value.runtimeEpoch());
     row.setObservationSequence(value.observationSequence());
-    row.setLastAssignedOrdinal(value.lastAssignedOrdinal());
     row.setRowVersion(value.rowVersion());
     return row;
   }

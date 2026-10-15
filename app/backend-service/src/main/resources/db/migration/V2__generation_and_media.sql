@@ -28,7 +28,6 @@ CREATE TABLE generation_jobs (
     media_plan_id UUID,
     media_plan_revision INTEGER,
     production_mode VARCHAR(32),
-    regeneration_plan_id UUID,
     analysis_visual_generation_mode VARCHAR(16),
     analysis_image_provider VARCHAR(32),
     submission_state VARCHAR(32),
@@ -68,9 +67,6 @@ CREATE TABLE generation_jobs (
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
         production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE')
-    ),
-    CONSTRAINT ck_generation_jobs_regeneration_plan_type CHECK (
-        regeneration_plan_id IS NULL OR job_type = 'CHAPTER_GENERATE'
     ),
     CONSTRAINT ck_generation_jobs_analysis_visual_mode CHECK (
         analysis_visual_generation_mode IS NULL

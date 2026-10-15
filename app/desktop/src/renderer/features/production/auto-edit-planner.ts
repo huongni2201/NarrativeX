@@ -6,7 +6,7 @@ import type {
   DesktopTimeline,
   DesktopTimelineBeat,
   ProjectRenderBeatOverride,
-} from "@narrativex/client-contracts";
+} from "../../../shared/api-types";
 
 const CAMERA_MOVEMENTS = new Set([
   "NONE",

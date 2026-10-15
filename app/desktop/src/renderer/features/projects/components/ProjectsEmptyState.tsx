@@ -1,5 +1,5 @@
 import { Clapperboard, Film, Layers, Plus, RefreshCw, Sparkles } from "lucide-react";
-import type { ProjectAspectRatio } from "@narrativex/client-contracts";
+import type { ProjectAspectRatio } from "../../../../shared/api-types";
 import { Button } from "@/components/ui/button";
 
 const STARTER_FORMATS = [

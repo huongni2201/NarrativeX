@@ -3,6 +3,10 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.feature.character.application.port.in.SpeakerVoiceAccess;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.hashing.Sha256;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository.ShotAggregate;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository.ShotStrategyGroup;
 import com.narrativex.backend.feature.generation.application.port.out.SelectedTakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository.TakeRecord;
@@ -46,6 +50,7 @@ public class GetChapterProductionUseCase {
   private final SpeakerVoiceAccess speakerVoiceAccess;
   private final GetCurrentMediaJobUseCase getCurrentMediaJobUseCase;
   private final GetProductionTimelineUseCase getProductionTimelineUseCase;
+  private final ChapterProductionStatusRepository statusRepository;
 
   @Transactional(readOnly = true)
   public ChapterProductionView execute(UUID projectId, UUID chapterId) {
@@ -281,8 +286,188 @@ public class GetChapterProductionUseCase {
         sceneItems);
   }
 
+  /**
+   * Light status read: shot counters come from SQL aggregates, takes and selected takes are never
+   * loaded, and only the requested chapter of the timeline is planned. The project-wide render flag
+   * is evaluated lazily, only when this chapter is itself ready.
+   */
   @Transactional(readOnly = true)
   public ChapterProductionStatusView getStatus(UUID projectId, UUID chapterId) {
+    Objects.requireNonNull(projectId, "projectId must not be null");
+    Objects.requireNonNull(chapterId, "chapterId must not be null");
+
+    ChapterInfo chapter =
+        storyboardAccess
+            .findChapter(chapterId)
+            .orElseThrow(() -> new ResourceNotFoundException("Chapter not found: " + chapterId));
+    storyVersionAccess.requireStoryVersion(projectId, chapter.storyVersionId());
+
+    List<SceneInfo> sceneRows = storyboardAccess.findScenes(chapterId);
+    boolean storyReady = false;
+    boolean hasVoiceRequirements = false;
+    boolean allRequiredVoicesReady = true;
+    int blockedShots = 0;
+    ShotAggregate aggregate = new ShotAggregate(0, 0, 0, 0, 0, 0, 0, 0, "");
+
+    if (!sceneRows.isEmpty()) {
+      List<UUID> sceneIds = sceneRows.stream().map(SceneInfo::id).toList();
+      List<VisualBeatInfo> visualBeatRows = storyboardAccess.findVisualBeats(sceneIds);
+      storyReady = !visualBeatRows.isEmpty();
+
+      List<UUID> storyBeatIds =
+          visualBeatRows.stream()
+              .map(VisualBeatInfo::storyBeatId)
+              .filter(Objects::nonNull)
+              .distinct()
+              .toList();
+      Map<UUID, List<AudioCueInfo>> cuesByBeat =
+          storyboardAccess.findAudioCues(storyBeatIds).stream()
+              .collect(Collectors.groupingBy(AudioCueInfo::storyBeatId));
+
+      Map<UUID, Optional<SpeakerVoiceAccess.ResolvedSpeakerVoice>> voices = new HashMap<>();
+      Map<UUID, List<AudioCueInfo>> cuesByVisualBeat = new HashMap<>();
+      for (VisualBeatInfo vb : visualBeatRows) {
+        List<AudioCueInfo> cues =
+            vb.storyBeatId() != null
+                ? cuesByBeat.getOrDefault(vb.storyBeatId(), List.of())
+                : List.of();
+        cuesByVisualBeat.put(vb.id(), cues);
+        for (AudioCueInfo cue : cues) {
+          if (cue.speakerProjectCharacterId() != null) {
+            voices.computeIfAbsent(
+                cue.speakerProjectCharacterId(), speakerVoiceAccess::resolveSpeakerVoice);
+          }
+          if (GenerationPreflightEvaluator.requiresVoiceProfile(
+              cue.cueType(), cue.speakerProjectCharacterId())) {
+            hasVoiceRequirements = true;
+            if (!GenerationPreflightEvaluator.voiceReady(cue, voices)) {
+              allRequiredVoicesReady = false;
+            }
+          }
+        }
+      }
+
+      aggregate = statusRepository.aggregate(projectId, chapterId);
+      for (ShotStrategyGroup group : statusRepository.shotStrategyGroups(projectId, chapterId)) {
+        GenerationStrategy strategy =
+            group.strategy() != null
+                ? GenerationStrategy.valueOf(group.strategy())
+                : GenerationStrategy.TEXT_TO_VIDEO;
+        var preflight =
+            GenerationPreflightEvaluator.evaluate(
+                strategy, cuesByVisualBeat.getOrDefault(group.visualBeatId(), List.of()), voices);
+        if (!preflight.blockers().isEmpty()) {
+          blockedShots += group.shots();
+        }
+      }
+    }
+
+    var timelineChapter = getProductionTimelineUseCase.executeForChapter(projectId, chapterId);
+    boolean audioReady =
+        timelineChapter
+            .filter(
+                c ->
+                    c.audioDurationMs() != null
+                        && c.audioDurationMs() > 0
+                        && c.audioSizeBytes() != null
+                        && c.audioSizeBytes() > 0
+                        && c.audioStorageKey() != null
+                        && !c.audioStorageKey().isBlank()
+                        && c.audioChecksum() != null
+                        && !c.audioChecksum().isBlank())
+            .isPresent();
+    boolean voiceReady = !hasVoiceRequirements || allRequiredVoicesReady;
+    int totalShots = aggregate.total();
+    int selectedTakeCount = aggregate.selected();
+    boolean generationReady = totalShots > 0 && blockedShots == 0 && storyReady && voiceReady;
+    boolean timelineReady =
+        totalShots > 0
+            && selectedTakeCount == totalShots
+            && timelineChapter.map(c -> c.readyForRender()).orElse(false);
+    // Project-wide readiness needs every chapter, so it is only computed once this chapter is
+    // ready.
+    boolean renderReady =
+        timelineReady && getProductionTimelineUseCase.execute(projectId).readyForRender();
+    int overallProgressPercent =
+        totalShots > 0 ? (int) Math.round(((double) selectedTakeCount / totalShots) * 100.0) : 0;
+
+    UUID activeJobId = null;
+    if (getCurrentMediaJobUseCase != null) {
+      try {
+        activeJobId = getCurrentMediaJobUseCase.findCurrentJobId(projectId, chapterId);
+      } catch (Exception ignored) {
+      }
+    }
+
+    String signature =
+        signature(
+            aggregate,
+            storyReady,
+            audioReady,
+            voiceReady,
+            blockedShots,
+            generationReady,
+            timelineReady,
+            renderReady,
+            activeJobId);
+    return new ChapterProductionStatusView(
+        chapterId,
+        storyReady,
+        audioReady,
+        voiceReady,
+        totalShots,
+        aggregate.queued(),
+        aggregate.generating(),
+        aggregate.validating(),
+        aggregate.passed(),
+        aggregate.failed(),
+        blockedShots,
+        aggregate.manualReview(),
+        selectedTakeCount,
+        generationReady,
+        timelineReady,
+        renderReady,
+        overallProgressPercent,
+        activeJobId,
+        signature);
+  }
+
+  private static String signature(
+      ShotAggregate aggregate,
+      boolean storyReady,
+      boolean audioReady,
+      boolean voiceReady,
+      int blockedShots,
+      boolean generationReady,
+      boolean timelineReady,
+      boolean renderReady,
+      UUID activeJobId) {
+    String source =
+        String.join(
+            "|",
+            aggregate.changeMarker(),
+            String.valueOf(aggregate.total()),
+            String.valueOf(aggregate.queued()),
+            String.valueOf(aggregate.generating()),
+            String.valueOf(aggregate.validating()),
+            String.valueOf(aggregate.passed()),
+            String.valueOf(aggregate.failed()),
+            String.valueOf(aggregate.manualReview()),
+            String.valueOf(aggregate.selected()),
+            String.valueOf(blockedShots),
+            String.valueOf(storyReady),
+            String.valueOf(audioReady),
+            String.valueOf(voiceReady),
+            String.valueOf(generationReady),
+            String.valueOf(timelineReady),
+            String.valueOf(renderReady),
+            String.valueOf(activeJobId));
+    return Sha256.hexUtf8(source).substring(0, 16);
+  }
+
+  /** Previous full implementation, kept package-private as the equivalence oracle in tests. */
+  @Transactional(readOnly = true)
+  ChapterProductionStatusView getStatusFull(UUID projectId, UUID chapterId) {
     ChapterProductionView production = execute(projectId, chapterId);
 
     int queuedShots = 0;

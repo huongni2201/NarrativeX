@@ -6,7 +6,7 @@ import type {
   LocalRenderPreflight,
   RenderFrameRate,
   RenderResolution,
-} from "@narrativex/client-contracts";
+} from "../../../shared/api-types";
 import { useGenerationJob } from "../generation/queries/generation.queries";
 import { productionApi } from "./api/production.api";
 import { createAutoEditPlan } from "./auto-edit-planner";

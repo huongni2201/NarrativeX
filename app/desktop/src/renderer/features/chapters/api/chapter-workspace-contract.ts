@@ -6,7 +6,7 @@ import type {
   ChapterWorkspaceStep,
   DesktopChapterDetails,
   DesktopChapterWorkspace,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

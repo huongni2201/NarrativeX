@@ -1,12 +1,22 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductionTimelineSourceRepository {
   List<ChapterSource> findChapters(UUID projectId);
 
+  /** One chapter of the current story version, without reading the rest of the project. */
+  Optional<ChapterSource> findChapter(UUID projectId, UUID chapterId);
+
   List<BeatSource> findBeats(UUID projectId);
+
+  /** Beats of a single chapter. */
+  List<BeatSource> findBeats(UUID projectId, UUID chapterId);
+
+  /** True when any current beat in the project already has a shot (native video timeline mode). */
+  boolean hasNativeShotBeats(UUID projectId);
 
   record ChapterSource(
       UUID storyVersionId,

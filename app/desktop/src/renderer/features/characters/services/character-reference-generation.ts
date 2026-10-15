@@ -1,5 +1,5 @@
-import type { DesktopCharacterVersionReference } from "@narrativex/client-contracts";
-import type { CharacterReferenceSlot } from "@narrativex/client-contracts";
+import type { DesktopCharacterVersionReference } from "../../../../shared/api-types";
+import type { CharacterReferenceSlot } from "../../../../shared/api-types";
 import { assetsApi } from "../../assets/api/assets.api";
 import { charactersApi } from "../api/characters.api";
 

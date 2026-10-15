@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { DesktopTimeline, DesktopRenderJob, ProjectSubtitleSettings } from "@narrativex/client-contracts";
+import type { DesktopTimeline, DesktopRenderJob, ProjectSubtitleSettings } from "../../src/shared/api-types";
 import { RenderDialog } from "../../src/renderer/features/production/components/RenderDialog";
 import { SubtitleSettingsPanel } from "../../src/renderer/features/production/components/SubtitleSettingsPanel";
 import { useRenderController } from "../../src/renderer/features/production/useRenderController";

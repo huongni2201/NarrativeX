@@ -18,7 +18,7 @@ class ChapterAnalysisProfileContractTest {
       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   @Test
-  void versionedResourcesExposeEquivalentJsonAndVertexSchemasWithStableHashes() {
+  void versionedResourcesExposeJsonSchemaWithStableHashes() {
     ChapterAnalysisContractResources contract =
         new ChapterAnalysisContractResources(JsonMapper.builder().build());
     ChapterAnalysisContractResources reloaded =
@@ -31,18 +31,10 @@ class ChapterAnalysisProfileContractTest {
     assertTrue(contract.systemInstruction("1.1", "1.1").contains("promptVersion=1.1"));
 
     var jsonSchema = contract.responseSchema();
-    var vertexSchema = contract.vertexResponseSchema();
     assertEquals("object", jsonSchema.path("type").asText());
-    assertEquals("OBJECT", vertexSchema.path("type").asText());
     assertEquals(
         "integer",
         jsonSchema
-            .at(
-                "/properties/scenes/items/properties/visual_beats/items/properties/visual_direction/properties/lens_mm/type")
-            .asText());
-    assertEquals(
-        "INTEGER",
-        vertexSchema
             .at(
                 "/properties/scenes/items/properties/visual_beats/items/properties/visual_direction/properties/lens_mm/type")
             .asText());
@@ -66,19 +58,13 @@ class ChapterAnalysisProfileContractTest {
   }
 
   @Test
-  void executionProfileRejectsInvalidModelEffortProviderAndHashes() {
+  void executionProfileRejectsInvalidModelEffortAndHashes() {
     assertThrows(
-        IllegalArgumentException.class,
-        () -> profile("gemini --model bad", "HIGH", "VERTEX", VALID_HASH));
+        IllegalArgumentException.class, () -> profile("gemini --model bad", "HIGH", VALID_HASH));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> profile("gemini-3.8-flash", "EXTREME", "VERTEX", VALID_HASH));
+        IllegalArgumentException.class, () -> profile("gemini-3.8-flash", "EXTREME", VALID_HASH));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> profile("gemini-3.8-flash", "HIGH", "ANTIGRAVITY", VALID_HASH));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> profile("gemini-3.8-flash", "HIGH", "VERTEX", "not-a-hash"));
+        IllegalArgumentException.class, () -> profile("gemini-3.8-flash", "HIGH", "not-a-hash"));
   }
 
   @Test
@@ -114,11 +100,9 @@ class ChapterAnalysisProfileContractTest {
                 ChapterAnalysisInputBudget.Accuracy.EXACT, null, 120, 512));
   }
 
-  private static ChapterAnalysisExecutionProfile profile(
-      String model, String effort, String provider, String hash) {
+  private static ChapterAnalysisExecutionProfile profile(String model, String effort, String hash) {
     return new ChapterAnalysisExecutionProfile(
-        ChapterAnalysisExecutionMode.VERTEX_API,
-        provider,
+        ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
         model,
         effort,
         "1.1",

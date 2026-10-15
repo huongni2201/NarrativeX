@@ -1,4 +1,4 @@
-import type { CursorPage } from "@narrativex/client-contracts";
+import type { CursorPage } from "../../shared/api-types";
 import { assertContract, isNumber, isRecord } from "./guards.ts";
 
 export function parseCursorPage<T>(

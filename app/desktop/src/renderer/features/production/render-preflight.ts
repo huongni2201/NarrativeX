@@ -3,7 +3,7 @@ import type {
   LocalRenderPreflightAssetInput,
   RenderFrameRate,
   RenderResolution,
-} from "@narrativex/client-contracts";
+} from "../../../shared/api-types";
 import type { LocalRenderPreflightInput } from "../../../preload/types";
 
 export function buildRenderPreflightInput(

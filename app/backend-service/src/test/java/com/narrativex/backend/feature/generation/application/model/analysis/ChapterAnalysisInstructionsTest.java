@@ -33,10 +33,28 @@ class ChapterAnalysisInstructionsTest {
             UUID.randomUUID(), UUID.randomUUID(), null, "text", "vi", "1.1", "1.1", null, null);
     var blank =
         new ChapterAnalysisRequest(
-            UUID.randomUUID(), UUID.randomUUID(), null, "text", "vi", "1.1", "1.1", null, null, "  ");
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "text",
+            "vi",
+            "1.1",
+            "1.1",
+            null,
+            null,
+            "  ");
     var custom =
         new ChapterAnalysisRequest(
-            UUID.randomUUID(), UUID.randomUUID(), null, "text", "vi", "1.1", "1.1", null, null, "x");
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "text",
+            "vi",
+            "1.1",
+            "1.1",
+            null,
+            null,
+            "x");
 
     assertThat(legacy.customInstruction()).isNull();
     assertThat(blank.customInstruction()).isNull();

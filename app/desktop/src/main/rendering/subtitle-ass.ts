@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { RenderFrameRate } from "@narrativex/client-contracts";
+import type { RenderFrameRate } from "../../shared/api-types";
 import { SUBTITLE_STYLE_V1, parseSubtitleStyle, subtitleGeometry, type SubtitleStyle } from "../../shared/subtitle-style.ts";
 import type { PlannedSubtitle } from "./subtitle-planner";
 import type { LocalRenderBeat, LocalRenderManifest } from "./render-manifest";

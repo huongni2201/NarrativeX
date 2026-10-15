@@ -28,7 +28,6 @@ public class ProjectRow {
   private ProjectStatus status;
   private String sourceLanguage;
   private String narrationLanguage;
-  private String metadataLanguage;
   private AspectRatio imageAspectRatio;
   private Instant archivedAt;
 
@@ -42,7 +41,6 @@ public class ProjectRow {
         status,
         sourceLanguage,
         narrationLanguage,
-        metadataLanguage,
         imageAspectRatio,
         archivedAt);
   }

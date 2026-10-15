@@ -11,7 +11,6 @@ public class AnalysisRuntimeConfigurationRow {
   private String model;
   private String effort;
   private int maxConcurrentAnalyses;
-  private int defaultMaxConcurrentPerCredential;
   private int maxQueuedAnalyses;
   private long maxInputBytes;
   private long maxOutputBytes;

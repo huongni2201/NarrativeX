@@ -11,9 +11,9 @@ The Electron application is the only supported editor client. Spring Boot is the
 | `app/desktop` | Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution |
 | `app/backend-service` | Spring Boot modular monolith; control plane, domain metadata, policy, jobs, leases, system capacity limits and Flyway schema |
 | `app/generation-service` | Domain-agnostic compute execution plane consuming Compute Protocol v1 tasks (LTX video, VieNeu, WhisperX, ComfyUI, media validation) |
-| `packages/client-contracts` | Shared Desktop/backend contracts |
-| `contracts` | Compute Protocol v1 task schemas and payloads |
-| `documentation` | Product, architecture, workflows, current-state maps and ADRs |
+| `contracts` | Compute Protocol v1 task schemas (`compute/v1`) and the job-event schema (`events`) |
+| `docs` | Product, architecture, domain, operations (incl. benchmarks), current-state maps and ADRs |
+| `deploy` | Remote GPU worker bootstrap (`remote-gpu-windows`) |
 
 ## Runtime topology
 
@@ -43,7 +43,7 @@ PostgreSQL is authoritative for durable business/control state. The execution pl
 
 ## Single-user local-first workspace
 
-NarrativeX opens directly into the local workspace per ADR-0020. There is no application User, Account, Authentication, Authorization, Session, or Tenant identity model. Login gates, modals, and user quotas are completely removed. External provider credentials and device execution tokens are local runtime configurations.
+NarrativeX opens directly into the local workspace per ADR-0001. There is no application User, Account, Authentication, Authorization, Session, or Tenant identity model. Login gates, modals, and user quotas are completely removed. External provider credentials and device execution tokens are local runtime configurations.
 
 ## Local project-media contract
 
@@ -90,10 +90,9 @@ There is no server/cloud final-render executor and no remote final-video storage
 
 ## Development
 
-Start backend/generation-service dependencies, then Desktop:
+With PostgreSQL, backend, and generation-service running, start Desktop:
 
 ```powershell
-docker compose up -d --build
 cd app/desktop
 npm ci
 npm run dev
@@ -121,7 +120,7 @@ NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 
 Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V7** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
 
-At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V11.
+At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V8.
 
 ## Guardrails
 
@@ -133,5 +132,5 @@ At the first production deployment, freeze the accepted baseline and make future
 - Executors perform only backend-authorized work.
 - Final project video bytes stay local.
 
-Canonical product direction: `documentation/product/PRODUCT_SPEC.md`.
-Active remaining work: `documentation/product/ROADMAP.md`.
+Canonical product direction: `docs/product/product-spec.md`.
+Active remaining work: `docs/product/roadmap.md`.

@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
+import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,11 +18,6 @@ public class CancelGenerationJobUseCase {
   private final GenerationJobRepository generationJobRepository;
   private final GenerationExecutionPort executionPort;
   private final GenerationJobTransactionService transactions;
-
-  @org.springframework.beans.factory.annotation.Autowired(required = false)
-  private com.narrativex.backend.feature.generation.application.port.out
-          .ChapterAnalysisExecutionStore
-      localAnalyses;
 
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService
@@ -38,16 +34,9 @@ public class CancelGenerationJobUseCase {
 
     GenerationJob pending = transactions.requestCancellation(jobId);
     if (pending.getStatus().isTerminal()) return pending;
-    if (localAnalyses != null
-        && localAnalyses
-            .findSnapshot(job.getId())
-            .filter(
-                s ->
-                    s.profile().executionMode()
-                        != com.narrativex.backend.feature.generation.domain.enums
-                            .ChapterAnalysisExecutionMode.VERTEX_API)
-            .isPresent()) {
-      return pending; // Electron observes cancellation; the GPU worker does not own this task.
+    if (job.getType() == JobType.CHAPTER_ANALYZE) {
+      // Desktop observes cancellation; a legacy job without a snapshot is closed by reconciliation.
+      return pending;
     }
     try {
       var observation = executionPort.cancelTask(pending.getJobId(), pending.getComputeAttemptId());

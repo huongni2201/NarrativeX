@@ -112,7 +112,7 @@ export function useCharacterReferenceActions(
     mutationFn: (input: {
       bible: string;
       visualPrompt?: string;
-      visualProfile?: import("@narrativex/client-contracts").DesktopCharacterVisualProfile;
+      visualProfile?: import("../../../../shared/api-types").DesktopCharacterVisualProfile;
       basedOnVersionId?: string | null;
     }) => charactersApi.createVersion(characterId, input),
     onSuccess: refresh,
@@ -127,7 +127,7 @@ export function useCharacterReferenceActions(
   });
 
   const importSlot = useMutation({
-    mutationFn: (slot: import("@narrativex/client-contracts").CharacterReferenceSlot) => {
+    mutationFn: (slot: import("../../../../shared/api-types").CharacterReferenceSlot) => {
       if (!versionId) throw new Error("Character chưa có version để lưu reference.");
       return importCharacterReferenceSlot({ projectId, characterId, versionId, slot });
     },

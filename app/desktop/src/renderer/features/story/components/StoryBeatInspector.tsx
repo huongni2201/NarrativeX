@@ -12,7 +12,7 @@ import {
   ExternalLink,
   Copy,
 } from "lucide-react";
-import type { DesktopStoryBeat, StoryBeatReviewStatus } from "@narrativex/client-contracts";
+import type { DesktopStoryBeat, StoryBeatReviewStatus } from "../../../../shared/api-types";
 
 export interface StoryBeatInspectorProps {
   beat: DesktopStoryBeat | null;
@@ -280,18 +280,6 @@ export function StoryBeatInspector({ beat, onUpdateReviewStatus, isUpdatingStatu
               </div>
             </div>
 
-            <div>
-              <span className="block text-caption font-medium text-text-muted mb-1">
-                Trạng thái liên tục (Continuity Facts)
-              </span>
-              <div className="rounded-lg border border-border-subtle bg-surface p-3 font-mono text-caption text-text-secondary">
-                {beat.continuityStateJson && beat.continuityStateJson !== "{}" ? (
-                  <pre className="whitespace-pre-wrap">{beat.continuityStateJson}</pre>
-                ) : (
-                  <span className="text-text-muted italic">Không có ràng buộc dị biệt.</span>
-                )}
-              </div>
-            </div>
           </div>
         )}
 

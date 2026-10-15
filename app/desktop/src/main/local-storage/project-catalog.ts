@@ -2,7 +2,7 @@ import { isMissingFile } from "./file-integrity.ts";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { DesktopProject } from "@narrativex/client-contracts";
+import type { DesktopProject } from "../../shared/api-types";
 import { ProjectStorage } from "./project-storage.ts";
 
 const CATALOG_SCHEMA_VERSION = 3 as const;

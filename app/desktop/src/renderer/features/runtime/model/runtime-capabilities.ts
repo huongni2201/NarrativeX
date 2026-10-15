@@ -3,7 +3,7 @@ import type {
   RuntimeCapabilityStatus,
   RuntimeCapabilityView,
   VideoRuntimeCapability,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 
 export type { RuntimeCapabilityStatus, RuntimeCapabilityView, VideoRuntimeCapability };
 

@@ -39,7 +39,6 @@
     <result property="name" column="name"/>
     <result property="description" column="description"/>
     <result property="visualPrompt" column="visual_prompt"/>
-    <result property="referenceImageUrl" column="reference_image_url"/>
     <result property="status" column="status"/>
   </resultMap>
 
@@ -124,8 +123,8 @@
   </insert>
 
   <select id="insertProjectLocation" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ProjectLocationRow" resultType="java.util.UUID" affectData="true">
-    INSERT INTO project_locations (row_version, created_at, updated_at, project_id, name, description, visual_prompt, reference_image_url, status)
-    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{projectId}, #{name}, #{description}, #{visualPrompt}, #{referenceImageUrl}, #{status})
+    INSERT INTO project_locations (row_version, created_at, updated_at, project_id, name, description, visual_prompt, status)
+    VALUES (#{rowVersion}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP), #{projectId}, #{name}, #{description}, #{visualPrompt}, #{status})
     RETURNING id
   </select>
 
@@ -163,7 +162,7 @@
   </select>
 
   <select id="findProjectLocations" resultMap="projectLocationRow">
-    SELECT id, row_version, created_at, updated_at, project_id, name, description, visual_prompt, reference_image_url, status
+    SELECT id, row_version, created_at, updated_at, project_id, name, description, visual_prompt, status
     FROM project_locations
     WHERE project_id = #{projectId} AND status = 'ACTIVE'
     ORDER BY name, id

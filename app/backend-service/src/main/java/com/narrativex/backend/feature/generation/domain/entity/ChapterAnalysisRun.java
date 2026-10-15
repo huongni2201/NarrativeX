@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.domain.entity;
 
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
-import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisProviderId;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisUsageState;
 import java.time.Instant;
 import java.util.Objects;
@@ -9,7 +8,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * Durable telemetry and provenance record for a completed chapter analysis run. Follows ADR-0022.
+ * Durable telemetry and provenance record for a completed chapter analysis run. Follows ADR-0009.
  */
 public record ChapterAnalysisRun(
     UUID id,
@@ -29,11 +28,10 @@ public record ChapterAnalysisRun(
     String canonHash,
     Instant createdAt,
     ChapterAnalysisUsageState usageState,
-    ChapterAnalysisProviderId provider,
     ChapterAnalysisExecutionMode executionMode,
     UUID attemptId,
     UUID credentialRef,
-    String cliVersion,
+    String adapterVersion,
     String conversationId,
     String modelObserved,
     String effortObserved,
@@ -70,7 +68,7 @@ public record ChapterAnalysisRun(
     }
   }
 
-  /** Retains the original constructor for legacy Vertex callers and fixtures. */
+  /** Retains the original constructor for legacy fixtures without usage metadata. */
   public ChapterAnalysisRun(
       UUID id,
       UUID generationJobId,
@@ -106,7 +104,6 @@ public record ChapterAnalysisRun(
         canonHash,
         createdAt,
         ChapterAnalysisUsageState.LEGACY_UNSPECIFIED,
-        null,
         null,
         null,
         null,

@@ -1,4 +1,4 @@
-import type { GenerationStrategy } from "@narrativex/client-contracts";
+import type { GenerationStrategy } from "../../../../shared/api-types";
 import { Film, Layers, Loader2, Play, RefreshCw, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

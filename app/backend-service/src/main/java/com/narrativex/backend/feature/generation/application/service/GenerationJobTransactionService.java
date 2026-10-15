@@ -133,7 +133,7 @@ public class GenerationJobTransactionService {
   }
 
   @Transactional
-  public GenerationJob markSubmissionFailed(UUID jobId, String errorCode, String message) {
+  public GenerationJob markSubmissionFailed(UUID jobId, String errorCode, String step) {
     GenerationJob job =
         generationJobRepository
             .findByJobId(jobId)
@@ -142,12 +142,12 @@ public class GenerationJobTransactionService {
       log.warn("Cannot transition job {} from {} to FAILED", jobId, job.getStatus());
       return job;
     }
-    return generationJobRepository.save(job.markFailed(errorCode, message));
+    return generationJobRepository.save(job.markFailed(errorCode, step));
   }
 
   @Transactional
   public GenerationJob markSubmissionUnknown(
-      UUID jobId, String errorCode, String message, Instant nextReconcileAt) {
+      UUID jobId, String errorCode, String step, Instant nextReconcileAt) {
     GenerationJob job =
         generationJobRepository
             .findByJobId(jobId)
@@ -159,7 +159,7 @@ public class GenerationJobTransactionService {
     return generationJobRepository.save(
         job.markUnknown(
             job.isCancellationRequested() ? GenerationJob.CANCEL_REQUESTED_CODE : errorCode,
-            message,
+            step,
             nextReconcileAt));
   }
 

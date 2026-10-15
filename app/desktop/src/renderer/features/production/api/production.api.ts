@@ -8,7 +8,7 @@ import type {
   RenderFrameRate,
   RenderResolution,
   UpdateBeatMediaInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import type { LocalRenderPreflightInput } from "../../../../preload/types";
 import { apiCommand, apiRequest, DesktopApiError } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";

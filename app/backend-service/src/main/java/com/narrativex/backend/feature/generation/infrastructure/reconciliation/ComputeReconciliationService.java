@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.infrastructure.reconciliation;
 
 import com.narrativex.backend.feature.generation.application.event.GenerationJobChangedEvent;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRetirement;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -8,6 +9,7 @@ import com.narrativex.backend.feature.generation.application.service.ComputeResu
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizerRegistry;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
+import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.service.GenerationJobStateMachine;
 import java.time.Clock;
 import java.time.Instant;
@@ -86,16 +88,8 @@ public class ComputeReconciliationService {
     }
 
     GenerationJob job = jobOpt.get();
-    if (localAnalyses != null
-        && localAnalyses
-            .findSnapshot(job.getId())
-            .filter(
-                s ->
-                    s.profile().executionMode()
-                        != com.narrativex.backend.feature.generation.domain.enums
-                            .ChapterAnalysisExecutionMode.VERTEX_API)
-            .isPresent()) {
-      return ReconciliationResult.NOT_ELIGIBLE;
+    if (job.getType() == JobType.CHAPTER_ANALYZE) {
+      return reconcileChapterAnalysis(job);
     }
     if (job.getStatus().isTerminal()) {
       log.debug("Reconciliation skipped: job {} already terminal ({})", jobId, job.getStatus());
@@ -178,6 +172,31 @@ public class ComputeReconciliationService {
     }
 
     return processObservation(job, observation, now);
+  }
+
+  /**
+   * Chapter analysis never has a compute worker to query. A job frozen for Desktop is owned by the
+   * Desktop attempt lease. A job without a frozen snapshot cannot be claimed, so it is closed
+   * instead of being rescanned forever.
+   */
+  private ReconciliationResult reconcileChapterAnalysis(GenerationJob job) {
+    if (job.getStatus().isTerminal()) {
+      return ReconciliationResult.ALREADY_TERMINAL;
+    }
+    if (localAnalyses == null || localAnalyses.findSnapshot(job.getId()).isPresent()) {
+      return ReconciliationResult.NOT_ELIGIBLE;
+    }
+    log.warn(
+        "Closing chapter analysis job {} ({}): it has no Desktop execution snapshot",
+        job.getJobId(),
+        job.getStatus());
+    GenerationJob closed =
+        job.isCancellationRequested()
+            ? job.markCanceled("USER_CANCELED", ChapterAnalysisRetirement.STEP)
+            : job.markFailed(ChapterAnalysisRetirement.ERROR_CODE, ChapterAnalysisRetirement.STEP);
+    jobRepository.save(closed);
+    eventPublisher.publishEvent(new GenerationJobChangedEvent(closed));
+    return ReconciliationResult.RECONCILED_TERMINAL;
   }
 
   private ReconciliationResult processObservation(

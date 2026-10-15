@@ -109,3 +109,12 @@ htmlcov/
 Thumbs.db
 ehthumbs.db
 [Dd]esktop.ini
+
+# FUSE/network-mount artifacts
+.fuse_hidden*
+
+# Phase 0 agy CLI spike output (may contain masked CLI output)
+.agy-spike/
+
+# Files moved aside for manual deletion
+_to_delete/

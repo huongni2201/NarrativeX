@@ -13,18 +13,13 @@ public interface ChapterAnalysisExecutionMapper extends NarrativeXMyBatisMapper 
       SELECT j.job_id FROM generation_jobs j
       JOIN chapter_analysis_execution_snapshots s ON s.generation_job_id = j.id
       WHERE j.status = 'QUEUED' AND j.job_type = 'CHAPTER_ANALYZE'
-        AND s.execution_mode = 'ANTIGRAVITY_API'
+        AND s.execution_mode = 'ANTIGRAVITY_CLI'
       ORDER BY j.created_at, j.id LIMIT 1
       """)
   UUID findNextQueuedLocalJob();
 
   @Select("SELECT count(*) FROM chapter_analysis_execution_attempts WHERE slot_held")
   int countHeldLocalSlots();
-
-  @Select(
-      "SELECT count(*) FROM chapter_analysis_execution_attempts"
-          + " WHERE slot_held AND credential_ref = #{credentialRef}")
-  int countHeldSlotsForCredential(@Param("credentialRef") UUID credentialRef);
 
   @Select(
       """
@@ -41,9 +36,7 @@ public interface ChapterAnalysisExecutionMapper extends NarrativeXMyBatisMapper 
 
   AnalysisProviderCredentialRow findCredential(@Param("credentialRef") UUID credentialRef);
 
-  List<AnalysisProviderCredentialRow> findCredentialsByDevice(@Param("deviceId") UUID deviceId);
-
-  List<AnalysisProviderCredentialRow> findActiveCredentials();
+  AnalysisProviderCredentialRow findCredentialByDevice(@Param("deviceId") UUID deviceId);
 
   int insertCredential(AnalysisProviderCredentialRow row);
 

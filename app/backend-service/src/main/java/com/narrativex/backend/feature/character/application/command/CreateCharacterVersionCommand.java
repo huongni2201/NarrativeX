@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.character.application.command;
 
-import java.util.UUID;
 import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
+import java.util.UUID;
 
 public record CreateCharacterVersionCommand(
     UUID characterId,

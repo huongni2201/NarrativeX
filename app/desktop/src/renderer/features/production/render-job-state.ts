@@ -1,4 +1,4 @@
-import type { DesktopRenderJobStatus } from "@narrativex/client-contracts";
+import type { DesktopRenderJobStatus } from "../../../shared/api-types";
 
 const ACTIVE_RENDER_STATUSES = new Set<DesktopRenderJobStatus>([
   "QUEUED",

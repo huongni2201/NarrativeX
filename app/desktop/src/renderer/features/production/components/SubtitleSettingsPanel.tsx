@@ -2,7 +2,7 @@ import { useId } from "react";
 import { RotateCcw, Save, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { SubtitleFontFamily, SubtitlePosition, SubtitlePreset, SubtitleStyle } from "@narrativex/client-contracts";
+import type { SubtitleFontFamily, SubtitlePosition, SubtitlePreset, SubtitleStyle } from "../../../../shared/api-types";
 import { SUBTITLE_FONTS } from "../../../../shared/subtitle-style";
 import { renderDimensions } from "../../../../shared/render-dimensions";
 import type { RenderController } from "../useRenderController";

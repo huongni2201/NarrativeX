@@ -1,61 +1,64 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AccountRuntime } from "./accounts.ts";
-import type { StoredAccount } from "./account-vault.ts";
-import { ADAPTER_VERSION, AnalysisError, type AnalysisClaim, type AnalysisCompletion } from "./types.ts";
+import type { Eligibility } from "./agy-session.ts";
+import { ADAPTER_VERSION, AnalysisBackendError, AnalysisError, type AnalysisClaim, type AnalysisCompletion } from "./types.ts";
 
+/** The only parts of a claim that must survive a restart; the chapter text is never kept after claiming. */
+interface JournalClaim { jobId: string; attemptId: string; leaseToken: string }
+
+/** One encrypted file per attempt, written before each step so a crash never repeats inference. */
 interface Journal {
   claimRequestId: string;
   credentialRef: string;
-  claim?: AnalysisClaim;
+  claim?: JournalClaim;
   completion?: AnalysisCompletion;
   observation?: { code: string; ambiguous: boolean };
 }
 
-/** What the worker needs from the account layer. */
-export interface WorkerAccounts {
-  list(): Promise<StoredAccount[]>;
-  runtime(accountId: string): AccountRuntime;
-  update(accountId: string, change: Partial<AccountRuntime>, report?: boolean): void;
-  prepare(accountId: string): Promise<{ credentialRef: string; projectId: string }>;
+/** What the worker needs from the agy session. */
+export interface ServiceSession {
+  eligibility(): Promise<Eligibility | null>;
+  noteSuccess(): void;
+  noteFailure(error: AnalysisError): Promise<void>;
+  noteDeliveryProblem(code: string | null): void;
+  setRunning(count: number): void;
 }
 
 export interface StoryAnalysisDependencies {
-  accounts: WorkerAccounts;
-  ready(): Promise<boolean>;
+  session: ServiceSession;
   request<T>(path: string, body: unknown): Promise<T | null>;
-  run(accountId: string, projectId: string, claim: AnalysisClaim, signal: AbortSignal): Promise<AnalysisCompletion>;
+  run(claim: AnalysisClaim, signal: AbortSignal): Promise<AnalysisCompletion>;
   encrypt(value: string): Buffer;
   decrypt(value: Buffer): string;
-  now?(): number;
 }
 
 const ROOT = "/api/v1/local-devices/chapter-analyses";
-const RATE_LIMIT_BACKOFF_MS = 60_000;
-const QUOTA_BACKOFF_MS = 60 * 60_000;
+const PENDING = /^pending-([0-9a-f-]{36})\.encrypted$/iu;
+const TICK_MS = 5_000;
+const CANCEL_POLL_MS = 5_000;
 
-export class AnalysisBackendError extends Error {
-  constructor(readonly status: number) { super(`Analysis backend returned ${status}`); }
-}
+/** The backend will not accept this call again, so retrying the journal would loop forever. */
+const isTerminalRejection = (error: unknown): boolean =>
+  error instanceof AnalysisBackendError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429;
 
 /**
- * One worker per Google account. Accounts run in parallel; an account never runs two analyses at once.
- * The backend decides which account may claim a queued job (enable switch, quota, concurrency limits).
+ * Claims chapters for the one agy session and runs up to `maxParallel` at once.
+ * Claim, completion and observation are journaled per attempt; a result is delivered at most once and never regenerated.
  */
 export class StoryAnalysisService {
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
-  private readonly busy = new Set<string>();
-  private readonly controllers = new Map<string, AbortController>();
   private ticking = false;
+  /** claimRequestId -> running attempt (claim in flight or inference running). */
+  private readonly running = new Map<string, { controller: AbortController; done: Promise<void> }>();
 
   constructor(private readonly directory: string, private readonly dependencies: StoryAnalysisDependencies) {}
 
   start(): void {
     if (this.timer) return;
     this.stopped = false;
-    this.timer = setInterval(() => { void this.tick(); }, 5_000);
+    this.timer = setInterval(() => { void this.tick(); }, TICK_MS);
     void this.tick();
   }
 
@@ -63,133 +66,169 @@ export class StoryAnalysisService {
     this.stopped = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    for (const controller of this.controllers.values()) controller.abort();
+    for (const attempt of this.running.values()) attempt.controller.abort();
   }
 
-  /** Starts a worker for every idle account; resolves when this round of workers has finished. */
+  /** Resolves when every attempt started so far has finished (used by tests and shutdown). */
+  async idle(): Promise<void> {
+    while (this.running.size) await Promise.allSettled([...this.running.values()].map(attempt => attempt.done));
+  }
+
+  /** Delivers leftover journals, then fills the free parallel slots. Resolves once claiming is done, not when inference ends. */
   async tick(): Promise<void> {
     if (this.stopped || this.ticking) return;
     this.ticking = true;
     try {
-      if (!(await this.dependencies.ready())) return;
-      const accounts = await this.dependencies.accounts.list();
-      await Promise.all(accounts.filter(a => !this.busy.has(a.accountId)).map(a => this.work(a)));
-    } catch { /* The next round reports state per account. */ }
-    finally { this.ticking = false; }
-  }
-
-  private now(): number { return (this.dependencies.now ?? Date.now)(); }
-
-  private journalPath(accountId: string): string { return join(this.directory, `pending-${accountId}.encrypted`); }
-
-  private async work(account: StoredAccount): Promise<void> {
-    const id = account.accountId;
-    const accounts = this.dependencies.accounts;
-    this.busy.add(id);
-    let journal: Journal | null = null;
-    try {
-      journal = await this.load(id);
-      if (journal) { await this.deliverOrRecover(id, journal); return; }
-      const runtime = accounts.runtime(id);
-      if (runtime.connectionState === "AUTH_REQUIRED") return;
-      if (runtime.nextEligibleAt !== null && runtime.nextEligibleAt > this.now()) return;
-      let prepared: { credentialRef: string; projectId: string };
-      try { prepared = await accounts.prepare(id); }
-      catch (error) { this.fail(id, error); return; }
-      journal = { claimRequestId: randomUUID(), credentialRef: prepared.credentialRef };
-      // Commit local claim intent before contacting the backend.
-      await this.save(id, journal);
-      const claim = await this.dependencies.request<AnalysisClaim>(`${ROOT}/claim`,
-        { claimRequestId: journal.claimRequestId, credentialRef: prepared.credentialRef, adapterVersion: ADAPTER_VERSION });
-      if (!claim) { await this.clear(id); return; }
-      journal.claim = claim;
-      await this.save(id, journal);
-      accounts.update(id, { activeJobId: claim.jobId });
-      const controller = new AbortController();
-      this.controllers.set(id, controller);
-      let cancellationInFlight = false;
-      const poll = setInterval(() => {
-        if (cancellationInFlight) return;
-        cancellationInFlight = true;
-        void this.dependencies.request<boolean>(`${ROOT}/${claim.attemptId}/cancellation`, { leaseToken: claim.leaseToken })
-          .then(canceled => { if (canceled) controller.abort(); })
-          .catch(() => { /* A transient backend outage does not erase the running result. */ })
-          .finally(() => { cancellationInFlight = false; });
-      }, 5_000);
-      try {
-        journal.completion = await this.dependencies.run(id, prepared.projectId, claim, controller.signal);
-        accounts.update(id, { connectionState: "CONNECTED", quotaState: "AVAILABLE", lastError: null, lastDiagnostic: null }, true);
-      } catch (error) {
-        const failure = error instanceof AnalysisError ? error : new AnalysisError("AMBIGUOUS_OUTCOME", true);
-        journal.observation = { code: failure.code, ambiguous: failure.ambiguous };
-        this.fail(id, failure);
-      } finally {
-        clearInterval(poll);
-        this.controllers.delete(id);
+      await this.settleJournals();
+      const eligibility = await this.dependencies.session.eligibility();
+      if (!eligibility || this.stopped) return;
+      while (!this.stopped && this.running.size < eligibility.maxParallel) {
+        if (!(await this.startOne(eligibility.credentialRef))) break;
       }
-      // Preserve the exact result before delivery; retries never run inference again.
-      await this.save(id, journal);
-      await this.deliverOrRecover(id, journal);
+    } catch { /* The session reports the reason; the next tick tries again. */ }
+    finally {
+      this.ticking = false;
+      this.dependencies.session.setRunning(this.running.size);
+    }
+  }
+
+  private journalPath(claimRequestId: string): string { return join(this.directory, `pending-${claimRequestId}.encrypted`); }
+
+  /** Claims one job; returns false when nothing was claimed, so the loop stops asking. */
+  private async startOne(credentialRef: string): Promise<boolean> {
+    const claimRequestId = randomUUID();
+    const controller = new AbortController();
+    let release!: () => void;
+    const done = new Promise<void>(resolve => { release = resolve; });
+    this.running.set(claimRequestId, { controller, done });
+    const journal: Journal = { claimRequestId, credentialRef };
+    let claim: AnalysisClaim | null;
+    try {
+      // Commit local claim intent before contacting the backend.
+      await this.save(journal);
+      claim = await this.dependencies.request<AnalysisClaim>(`${ROOT}/claim`, { claimRequestId, credentialRef, adapterVersion: ADAPTER_VERSION });
+    } catch {
+      // The claim may have reached the backend; the kept journal is reconciled by `recover` on a later tick.
+      this.running.delete(claimRequestId); release();
+      return false;
+    }
+    if (!claim) { await this.clear(claimRequestId); this.running.delete(claimRequestId); release(); return false; }
+    journal.claim = { jobId: claim.jobId, attemptId: claim.attemptId, leaseToken: claim.leaseToken };
+    try { await this.save(journal); }
+    catch {
+      // Without a journal the lease cannot be tracked; report it as unresolved instead of running blind.
+      journal.observation = { code: "AMBIGUOUS_OUTCOME", ambiguous: true };
+      void this.deliverOrRecover(journal).catch(() => undefined).finally(() => { this.running.delete(claimRequestId); release(); });
+      return true;
+    }
+    void this.execute(journal, claim, controller).finally(() => {
+      this.running.delete(claimRequestId);
+      this.dependencies.session.setRunning(this.running.size);
+      release();
+    });
+    return true;
+  }
+
+  private async execute(journal: Journal, claim: AnalysisClaim, controller: AbortController): Promise<void> {
+    const { session, request } = this.dependencies;
+    let canceledByUser = false;
+    let polling = false;
+    const poll = setInterval(() => {
+      if (polling) return;
+      polling = true;
+      void request<boolean>(`${ROOT}/${claim.attemptId}/cancellation`, { leaseToken: claim.leaseToken })
+        .then(canceled => { if (canceled) { canceledByUser = true; controller.abort(); } })
+        .catch(() => { /* A transient backend outage does not erase the running result. */ })
+        .finally(() => { polling = false; });
+    }, CANCEL_POLL_MS);
+    let failure: AnalysisError | null = null;
+    try {
+      journal.completion = await this.dependencies.run(claim, controller.signal);
     } catch (error) {
-      accounts.update(id, { lastError: error instanceof AnalysisError ? error.code : "RESULT_DELIVERY_PENDING",
-        lastDiagnostic: error instanceof AnalysisError ? error.diagnostic : null });
+      failure = error instanceof AnalysisError ? error : new AnalysisError("AMBIGUOUS_OUTCOME", true);
+      // A cancel the backend confirmed is a known outcome, not an unresolved one.
+      journal.observation = canceledByUser
+        ? { code: "USER_CANCELLED", ambiguous: false }
+        : { code: failure.code, ambiguous: failure.ambiguous };
     } finally {
-      accounts.update(id, { activeJobId: null });
-      this.busy.delete(id);
+      clearInterval(poll);
+    }
+    try {
+      // Preserve the exact result before delivery; retries never run inference again.
+      await this.save(journal);
+      if (failure && !canceledByUser) await session.noteFailure(failure); else if (!failure) session.noteSuccess();
+      await this.deliverOrRecover(journal);
+    } catch {
+      session.noteDeliveryProblem("RESULT_DELIVERY_PENDING");
     }
   }
 
-  /** Records a failure on the account and applies the matching hold-off. */
-  private fail(accountId: string, error: unknown): void {
-    const failure = error instanceof AnalysisError ? error : new AnalysisError("PROVIDER_UNAVAILABLE", false);
-    const accounts = this.dependencies.accounts;
-    accounts.update(accountId, { lastDiagnostic: failure.diagnostic });
-    switch (failure.code) {
-      case "AUTH_REQUIRED": accounts.update(accountId, { connectionState: "AUTH_REQUIRED", lastError: failure.code }, true); break;
-      case "RATE_LIMITED": accounts.update(accountId, { quotaState: "RATE_LIMITED", nextEligibleAt: this.now() + (failure.retryAfterMs ?? RATE_LIMIT_BACKOFF_MS), lastError: failure.code }, true); break;
-      case "QUOTA_EXHAUSTED": accounts.update(accountId, { quotaState: "EXHAUSTED", nextEligibleAt: this.now() + (failure.retryAfterMs ?? QUOTA_BACKOFF_MS), lastError: failure.code }, true); break;
-      case "PROVIDER_UNAVAILABLE": accounts.update(accountId, { connectionState: "UNAVAILABLE", lastError: failure.code }, true); break;
-      default: accounts.update(accountId, { lastError: failure.code });
+  /** Delivers journals left by a previous run or a failed delivery. Journals of running attempts are skipped. */
+  private async settleJournals(): Promise<void> {
+    let names: string[];
+    try { names = await readdir(this.directory); } catch { return; }
+    for (const name of names) {
+      const id = PENDING.exec(name)?.[1];
+      if (!id || this.running.has(id) || this.stopped) continue;
+      let journal: Journal | null;
+      try { journal = await this.load(id); }
+      catch {
+        // An unreadable journal cannot be resolved here; keep it for inspection and stop retrying it.
+        await rename(this.journalPath(id), `${this.journalPath(id)}.corrupt`).catch(() => undefined);
+        continue;
+      }
+      if (!journal) continue;
+      try { await this.deliverOrRecover(journal); }
+      catch { this.dependencies.session.noteDeliveryProblem("RESULT_DELIVERY_PENDING"); }
     }
   }
 
-  private async deliverOrRecover(accountId: string, journal: Journal): Promise<void> {
+  private async deliverOrRecover(journal: Journal): Promise<void> {
+    const { request, session } = this.dependencies;
+    const id = journal.claimRequestId;
     if (journal.completion && journal.claim) {
       try {
-        await this.dependencies.request(`${ROOT}/${journal.claim.attemptId}/complete`, journal.completion);
+        await request(`${ROOT}/${journal.claim.attemptId}/complete`, journal.completion);
       } catch (error) {
         if (!(error instanceof AnalysisBackendError) || ![400, 409, 422].includes(error.status)) throw error;
-        const canceled = await this.dependencies.request<boolean>(`${ROOT}/${journal.claim.attemptId}/cancellation`, { leaseToken: journal.claim.leaseToken });
+        const canceled = await request<boolean>(`${ROOT}/${journal.claim.attemptId}/cancellation`, { leaseToken: journal.claim.leaseToken });
         // Keep the rejected result encrypted for inspection; never generate a replacement silently.
+        await mkdir(this.directory, { recursive: true });
         await writeFile(join(this.directory, `${journal.claim.attemptId}.rejected.encrypted`), this.dependencies.encrypt(JSON.stringify(journal)), { mode: 0o600 });
         journal.completion = undefined;
         journal.observation = { code: canceled ? "USER_CANCELLED" : "SCHEMA_INVALID", ambiguous: false };
-        this.dependencies.accounts.update(accountId, { lastError: journal.observation.code, lastDiagnostic: null });
-        await this.save(accountId, journal);
-        await this.dependencies.request(`${ROOT}/${journal.claim.attemptId}/observation`, { leaseToken: journal.claim.leaseToken, ...journal.observation });
+        session.noteDeliveryProblem(journal.observation.code);
+        await this.save(journal);
+        await this.sendTerminal(`${ROOT}/${journal.claim.attemptId}/observation`, { leaseToken: journal.claim.leaseToken, ...journal.observation });
       }
     } else if (journal.observation && journal.claim) {
-      await this.dependencies.request(`${ROOT}/${journal.claim.attemptId}/observation`,
-        { leaseToken: journal.claim.leaseToken, ...journal.observation });
+      await this.sendTerminal(`${ROOT}/${journal.claim.attemptId}/observation`, { leaseToken: journal.claim.leaseToken, ...journal.observation });
     } else {
-      await this.dependencies.request(`${ROOT}/recover`, { claimRequestId: journal.claimRequestId });
-      this.dependencies.accounts.update(accountId, { lastError: "AMBIGUOUS_OUTCOME", lastDiagnostic: null });
+      // Interrupted before the result was kept: the backend marks the attempt UNKNOWN. Nothing is resubmitted.
+      await this.sendTerminal(`${ROOT}/recover`, { claimRequestId: journal.claimRequestId });
+      session.noteDeliveryProblem("AMBIGUOUS_OUTCOME");
     }
-    await this.clear(accountId);
+    await this.clear(id);
   }
 
-  private async save(accountId: string, journal: Journal): Promise<void> {
+  /** Sends a final report; a permanent 4xx rejection closes the journal instead of looping. */
+  private async sendTerminal(path: string, body: unknown): Promise<void> {
+    try { await this.dependencies.request(path, body); }
+    catch (error) { if (!isTerminalRejection(error)) throw error; }
+  }
+
+  private async save(journal: Journal): Promise<void> {
     await mkdir(this.directory, { recursive: true });
-    const path = this.journalPath(accountId);
+    const path = this.journalPath(journal.claimRequestId);
     const temporary = `${path}.tmp`;
     await writeFile(temporary, this.dependencies.encrypt(JSON.stringify(journal)), { mode: 0o600 });
     await rename(temporary, path);
   }
 
-  private async load(accountId: string): Promise<Journal | null> {
-    try { return JSON.parse(this.dependencies.decrypt(await readFile(this.journalPath(accountId)))) as Journal; }
+  private async load(claimRequestId: string): Promise<Journal | null> {
+    try { return JSON.parse(this.dependencies.decrypt(await readFile(this.journalPath(claimRequestId)))) as Journal; }
     catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
   }
 
-  private async clear(accountId: string): Promise<void> { await rm(this.journalPath(accountId), { force: true }); }
+  private async clear(claimRequestId: string): Promise<void> { await rm(this.journalPath(claimRequestId), { force: true }); }
 }

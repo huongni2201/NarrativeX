@@ -33,7 +33,8 @@ public record ProjectCharacterReadModel(
       String referencePolicy,
       CharacterVisualProfile visualProfile,
       UUID basedOnVersionId) {
-    public Version(UUID id, Integer versionNumber, String status, String bible, String visualPrompt) {
+    public Version(
+        UUID id, Integer versionNumber, String status, String bible, String visualPrompt) {
       this(id, versionNumber, status, bible, visualPrompt, "LEGACY_IDENTITY_V1", null, null);
     }
   }

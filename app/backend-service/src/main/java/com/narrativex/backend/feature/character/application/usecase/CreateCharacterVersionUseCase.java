@@ -29,9 +29,11 @@ public class CreateCharacterVersionUseCase {
         var baseVersion =
             versionRepository
                 .findById(command.basedOnVersionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Base character version not found"));
+                .orElseThrow(
+                    () -> new ResourceNotFoundException("Base character version not found"));
         if (!baseVersion.getCharacterId().equals(character.getId())) {
-          throw new IllegalArgumentException("Base character version must belong to this character");
+          throw new IllegalArgumentException(
+              "Base character version must belong to this character");
         }
       }
     } else if (command.visualPrompt() == null || command.visualPrompt().isBlank()) {

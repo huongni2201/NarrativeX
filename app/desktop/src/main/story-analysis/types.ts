@@ -34,5 +34,9 @@ export class AnalysisError extends Error {
   }
 }
 
-/** Adapter revision recorded in provenance. Bump when the request/response mapping changes. */
-export const ADAPTER_VERSION = "antigravity-oauth-api/3";
+export class AnalysisBackendError extends Error {
+  constructor(readonly status: number) { super(`Analysis backend returned ${status}`); }
+}
+
+/** Adapter revision recorded in provenance. Bump when the CLI invocation or envelope mapping changes. */
+export const ADAPTER_VERSION = "antigravity-cli/1";

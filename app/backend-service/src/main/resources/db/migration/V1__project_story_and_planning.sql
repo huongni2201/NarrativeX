@@ -17,7 +17,6 @@ CREATE TABLE projects (
     status VARCHAR(32) NOT NULL,
     source_language VARCHAR(16) NOT NULL,
     narration_language VARCHAR(16) NOT NULL,
-    metadata_language VARCHAR(16) NOT NULL,
     image_aspect_ratio VARCHAR(16) NOT NULL,
     archived_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT ck_projects_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'))
@@ -55,7 +54,6 @@ CREATE TABLE chapters (
     source_hash VARCHAR(64) NOT NULL,
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     estimated_duration_ms BIGINT,
-    generation_progress INTEGER NOT NULL DEFAULT 0,
     source_story_version_id UUID REFERENCES story_versions(id),
     inherited_snapshot_hash VARCHAR(128),
     current_storyboard_revision_id UUID,
@@ -225,7 +223,6 @@ CREATE TABLE project_locations (
     name VARCHAR(160) NOT NULL,
     description TEXT,
     visual_prompt TEXT,
-    reference_image_url TEXT,
     status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
     CONSTRAINT uq_project_locations_project_id_id UNIQUE (project_id, id),
     CONSTRAINT ck_project_locations_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
@@ -304,18 +301,13 @@ CREATE TABLE scenes (
     title VARCHAR(200) NOT NULL,
     narration TEXT,
     duration_seconds INTEGER CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
-    summary TEXT,
-    mood VARCHAR(64),
-    lighting VARCHAR(64),
-    time_of_day VARCHAR(32),
     location_text VARCHAR(200),
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     CONSTRAINT uk_scenes_revision_order UNIQUE (storyboard_revision_id, order_index),
     CONSTRAINT uq_scenes_chapter_id_id UNIQUE (chapter_id, id),
-    CONSTRAINT uq_scenes_scene_id_id UNIQUE (id),
     CONSTRAINT fk_scenes_project_location
         FOREIGN KEY (project_id, project_location_id)
-        REFERENCES project_locations(project_id, id) ON DELETE SET NULL
+        REFERENCES project_locations(project_id, id) ON DELETE SET NULL (project_location_id)
 );
 
 CREATE TABLE scene_characters (
@@ -339,14 +331,12 @@ CREATE TABLE story_beats (
     summary TEXT NOT NULL DEFAULT '',
     importance VARCHAR(24) NOT NULL DEFAULT 'NORMAL',
     story_functions_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-    continuity_state_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     review_status VARCHAR(32) NOT NULL DEFAULT 'NEEDS_REVIEW',
     CONSTRAINT uk_story_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT uq_story_beats_scene_id_id UNIQUE (scene_id, id),
     CONSTRAINT ck_story_beats_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
     CONSTRAINT ck_story_beats_source_ranges CHECK (source_start IS NULL OR (source_end IS NOT NULL AND source_start >= 0 AND source_end > source_start)),
     CONSTRAINT ck_story_beats_story_functions_array CHECK (jsonb_typeof(story_functions_json) = 'array'),
-    CONSTRAINT ck_story_beats_continuity_state_object CHECK (jsonb_typeof(continuity_state_json) = 'object'),
     CONSTRAINT ck_story_beats_source_anchor_object CHECK (source_anchor_json IS NULL OR jsonb_typeof(source_anchor_json) = 'object'),
     CONSTRAINT ck_story_beats_source_anchor_ranges CHECK (
         source_anchor_json IS NULL OR (
@@ -413,7 +403,6 @@ CREATE TABLE visual_beats (
     audio_duration_ms BIGINT,
     source_anchor_json JSONB,
     dramatic_intent VARCHAR(32) NOT NULL DEFAULT 'SETUP',
-    emotion VARCHAR(64),
     retention_role VARCHAR(32),
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT uq_visual_beats_scene_id_id UNIQUE (scene_id, id),

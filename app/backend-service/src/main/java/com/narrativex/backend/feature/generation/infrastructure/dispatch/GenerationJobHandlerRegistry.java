@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -13,11 +14,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class GenerationJobHandlerRegistry {
   private final Map<JobType, GenerationJobHandler> defaultHandlers = new EnumMap<>(JobType.class);
+  private final List<GenerationJobHandler> allHandlers = new ArrayList<>();
   private VideoGenerationJobHandler videoJobHandler;
 
   public GenerationJobHandlerRegistry(List<GenerationJobHandler> handlerList) {
     if (handlerList != null) {
       for (GenerationJobHandler handler : handlerList) {
+        allHandlers.add(handler);
         if (handler instanceof VideoGenerationJobHandler vHandler) {
           this.videoJobHandler = vHandler;
         } else {
@@ -56,5 +59,14 @@ public class GenerationJobHandlerRegistry {
             () ->
                 new IllegalArgumentException(
                     "No GenerationJobHandler registered for type: " + jobType));
+  }
+
+  /** Names of the job types whose handlers run in {@code lane}; used to classify outbox rows. */
+  public List<String> jobTypeNamesInLane(DispatchLane lane) {
+    return allHandlers.stream()
+        .filter(handler -> handler.lane() == lane)
+        .map(handler -> handler.supportedType().name())
+        .distinct()
+        .toList();
   }
 }

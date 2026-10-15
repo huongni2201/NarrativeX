@@ -66,12 +66,7 @@ class ComputeReconciliationServiceTest {
 
     service =
         new ComputeReconciliationService(
-            jobRepository,
-            executionPort,
-            finalizerRegistry,
-            backoffPolicy,
-            eventPublisher,
-            clock);
+            jobRepository, executionPort, finalizerRegistry, backoffPolicy, eventPublisher, clock);
   }
 
   private GenerationJob sampleJob(UUID jobId, UUID attemptId, JobStatus status) {
@@ -367,5 +362,76 @@ class ComputeReconciliationServiceTest {
 
     GenerationJob updated = db.get(jobId);
     assertThat(updated.getComputeSequence()).isEqualTo(5L); // Not regressed
+  }
+
+  private GenerationJob unknownChapterAnalysis() {
+    GenerationJob job =
+        GenerationJob.createChapterAnalysis(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                "a".repeat(64),
+                "chapter text",
+                "vi",
+                "analysis-key",
+                "VIDEO",
+                null)
+            .toBuilder()
+            .id(UUID.randomUUID())
+            .build()
+            .markUnknown("COMPUTE_OUTCOME_UNKNOWN", "analyzing", clock.instant());
+    db.put(job.getJobId(), job);
+    return job;
+  }
+
+  @Test
+  @DisplayName("Chapter analysis without a Desktop snapshot is failed, not rescanned forever")
+  void chapterAnalysisWithoutDesktopSnapshotIsClosedAsRetired() {
+    GenerationJob job = unknownChapterAnalysis();
+    var store =
+        mock(
+            com.narrativex.backend.feature.generation.application.port.out
+                .ChapterAnalysisExecutionStore.class);
+    when(store.findSnapshot(job.getId())).thenReturn(Optional.empty());
+    org.springframework.test.util.ReflectionTestUtils.setField(service, "localAnalyses", store);
+
+    var result = service.reconcileOnce(job.getJobId());
+
+    assertThat(result)
+        .isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_TERMINAL);
+    GenerationJob saved = db.get(job.getJobId());
+    assertThat(saved.getStatus()).isEqualTo(JobStatus.FAILED);
+    assertThat(saved.getErrorCode())
+        .isEqualTo(
+            com.narrativex.backend.feature.generation.application.model.analysis
+                .ChapterAnalysisRetirement.ERROR_CODE);
+    assertThat(saved.getNextReconcileAt()).isNull();
+    verify(eventPublisher).publishEvent(any(GenerationJobChangedEvent.class));
+    verify(executionPort, never()).queryTask(any(), any());
+  }
+
+  @Test
+  @DisplayName("Chapter analysis frozen for Desktop is never queried on a compute worker")
+  void chapterAnalysisFrozenForDesktopIsNotEligible() {
+    GenerationJob job = unknownChapterAnalysis();
+    var store =
+        mock(
+            com.narrativex.backend.feature.generation.application.port.out
+                .ChapterAnalysisExecutionStore.class);
+    when(store.findSnapshot(job.getId()))
+        .thenReturn(
+            Optional.of(
+                mock(
+                    com.narrativex.backend.feature.generation.application.model.analysis
+                        .ChapterAnalysisExecutionSnapshot.class)));
+    org.springframework.test.util.ReflectionTestUtils.setField(service, "localAnalyses", store);
+
+    var result = service.reconcileOnce(job.getJobId());
+
+    assertThat(result).isEqualTo(ComputeReconciliationService.ReconciliationResult.NOT_ELIGIBLE);
+    assertThat(db.get(job.getJobId()).getStatus()).isEqualTo(JobStatus.UNKNOWN);
+    verify(executionPort, never()).queryTask(any(), any());
   }
 }

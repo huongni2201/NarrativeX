@@ -2,7 +2,7 @@
 
 `generation-service` is the domain-agnostic compute execution plane. It accepts versioned compute tasks, runs registered executor adapters, stages artifacts, and reports execution observations. Its SQLite execution journal and `compute_event_outbox` durably record state transitions before asynchronous signed callback delivery.
 
-It deliberately has no NarrativeX database connection, business aggregate, project workspace, or job orchestration. Outbox delivery uses bounded retry/backoff and never changes a terminal execution state merely because callback delivery failed. See `../../documentation/COMPUTE_PROTOCOL.md` and `../../contracts/compute/v1/openapi.yaml`.
+It deliberately has no NarrativeX database connection, business aggregate, project workspace, or job orchestration. Outbox delivery uses bounded retry/backoff and never changes a terminal execution state merely because callback delivery failed. See `../../docs/architecture/compute-protocol.md` and `../../contracts/compute/v1/openapi.yaml`.
 
 ## Development
 

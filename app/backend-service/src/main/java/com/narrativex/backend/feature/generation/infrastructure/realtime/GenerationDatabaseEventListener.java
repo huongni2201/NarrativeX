@@ -14,16 +14,15 @@ import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(
-    name = "narrativex.generation.sse.enabled",
-    havingValue = "true",
-    matchIfMissing = true)
+@ConditionalOnExpression(
+    "'${narrativex.generation.sse.enabled:true}' == 'true'"
+        + " and '${narrativex.generation.sse.mode:legacy}' == 'legacy'")
 public class GenerationDatabaseEventListener {
   private static final String CHANNEL = "narrativex_generation_events";
 

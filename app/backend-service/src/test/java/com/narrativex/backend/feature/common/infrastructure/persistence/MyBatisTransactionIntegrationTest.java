@@ -52,14 +52,14 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
                     ignored -> {
                       if (providerFirst)
                         providerOperationRepository.save(
-                            ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
+                            ProviderOperation.create(stageAttemptId, "test-provider", fingerprint));
                       Project project = projectRepository.save(newProject());
                       projectId[0] = project.getId();
                       storyVersionRepository.save(
                           StoryVersion.create(project.getId(), 1, "transaction story", "en-US"));
                       if (!providerFirst)
                         providerOperationRepository.save(
-                            ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
+                            ProviderOperation.create(stageAttemptId, "test-provider", fingerprint));
                       throw new ForcedRollback();
                     }));
     assertEquals(
@@ -86,14 +86,13 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
         "transaction-test",
         "en-US",
         "en-US",
-        "en-US",
         AspectRatio.RATIO_16_9);
   }
 
   private UUID insertStageAttempt() {
     UUID projectId =
         jdbcTemplate.queryForObject(
-            "INSERT INTO projects (name, status, source_language, narration_language, metadata_language, image_aspect_ratio) VALUES (?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9') RETURNING id",
+            "INSERT INTO projects (name, status, source_language, narration_language, image_aspect_ratio) VALUES (?, 'DRAFT', 'en-US', 'en-US', 'RATIO_16_9') RETURNING id",
             UUID.class,
             "fixture-" + UuidV7.random());
     UUID jobId =

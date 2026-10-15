@@ -62,7 +62,6 @@ test("VideoShotboard composes focused video shot presentation components", () =>
     "VideoShotboard.tsx",
     "TakeSelectorDrawer.tsx",
     "ShotActionToolbar.tsx",
-    "RetentionPlanView.tsx",
   ];
 
   for (const component of requiredComponents) {

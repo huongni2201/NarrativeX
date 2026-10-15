@@ -119,8 +119,7 @@ class PromptSettingsControllerContractTest {
     assertThat(result.get("targetType").asText()).isEqualTo("CHARACTER");
     assertThat(result.get("finalText").asText()).isEqualTo("F:CINEMATIC");
     assertThat(result.get("effectiveHash").asText())
-        .isEqualTo(
-            PromptSettingsJson.parse(draft).effectiveHash());
+        .isEqualTo(PromptSettingsJson.parse(draft).effectiveHash());
     assertThat(loaded().get("activeStyleId").asText()).isEqualTo("CINEMATIC_ANIME");
     assertThat(repository.updates).isZero();
   }

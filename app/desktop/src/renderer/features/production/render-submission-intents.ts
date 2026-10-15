@@ -1,4 +1,4 @@
-import type { ProjectRenderBeatOverride, RenderFrameRate, RenderResolution, SubtitleStyle } from "@narrativex/client-contracts";
+import type { ProjectRenderBeatOverride, RenderFrameRate, RenderResolution, SubtitleStyle } from "../../../shared/api-types";
 import { parseSubtitleStyle } from "../../../shared/subtitle-style.ts";
 
 export interface RenderSubmissionRequest {

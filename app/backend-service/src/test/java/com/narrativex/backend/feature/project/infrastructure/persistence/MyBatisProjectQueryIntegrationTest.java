@@ -2,14 +2,11 @@ package com.narrativex.backend.feature.project.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.narrativex.backend.feature.common.pagination.CursorPage;
-import com.narrativex.backend.feature.project.application.port.out.ProjectOverviewQueryRepository;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.application.port.out.ProjectResourceQueryRepository;
-import com.narrativex.backend.feature.project.application.query.ProjectOverviewView;
 import com.narrativex.backend.feature.project.application.query.ProjectResourceView;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
@@ -28,50 +25,22 @@ import org.springframework.test.context.ActiveProfiles;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSupport {
   @Autowired private ProjectRepository projectRepository;
-  @Autowired private ProjectOverviewQueryRepository overviewRepository;
   @Autowired private ProjectResourceQueryRepository resourceRepository;
   @Autowired private ProjectDashboardMapper dashboardMapper;
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
-  void mapsOverviewFromProjectAndLatestStoryVersion() {
+  void mapsAndPaginatesAssetsThroughMyBatis() {
     Project project = projectRepository.save(newProject());
-    jdbcTemplate.update(
-        """
-        INSERT INTO story_versions
-          (project_id, version_number, content, source_language, status)
-        VALUES (?, 1, 'Overview story', 'vi-VN', 'DRAFT')
-        """,
-        project.getId());
-
-    ProjectOverviewView overview = overviewRepository.get(project.getId());
-    assertEquals(project.getId(), overview.id());
-    assertEquals("Overview story", overview.description());
-    assertNotNull(overview.updatedAt());
-    assertEquals(0, overview.metrics().totalChapters());
-  }
-
-  @Test
-  void mapsAndPaginatesLocationsAndAssetsThroughMyBatis() {
-    Project project = projectRepository.save(newProject());
-    jdbcTemplate.update(
-        "INSERT INTO project_locations (project_id, name, description, visual_prompt) VALUES (?, ?,"
-            + " 'desc', 'prompt')",
-        project.getId(),
-        "Location " + UUID.randomUUID());
     jdbcTemplate.update(
         "INSERT INTO project_assets (project_id, name, asset_type, status, metadata_json) VALUES"
             + " (?, ?, 'AUDIO', 'ACTIVE', '{}'::jsonb)",
         project.getId(),
         "Asset " + UUID.randomUUID());
 
-    CursorPage<ProjectResourceView.Location> locations =
-        resourceRepository.listLocations(project.getId(), null, 10);
     CursorPage<ProjectResourceView.Asset> assets =
         resourceRepository.listAssets(project.getId(), null, 10);
 
-    assertEquals(1, locations.content().size());
-    assertEquals("ACTIVE", locations.content().getFirst().status());
     assertEquals(1, assets.content().size());
     assertEquals("{}", assets.content().getFirst().metadataJson());
   }
@@ -80,10 +49,10 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
   void mapsDashboardPageAndCountsForSingleUser() {
     Project p1 =
         projectRepository.save(
-            Project.create("P1", "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
+            Project.create("P1", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
     Project p2 =
         projectRepository.save(
-            Project.create("P2", "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
+            Project.create("P2", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
 
     jdbcTemplate.update(
         "UPDATE projects SET status = 'ACTIVE' WHERE id IN (?, ?)", p1.getId(), p2.getId());
@@ -96,8 +65,8 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         jdbcTemplate.queryForObject(
             "SELECT id FROM story_versions WHERE project_id = ?", UUID.class, p1.getId());
     jdbcTemplate.update(
-        "INSERT INTO chapters (story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) "
-            + "VALUES (?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 47000, 100)",
+        "INSERT INTO chapters (story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms) "
+            + "VALUES (?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 47000)",
         storyVersionId);
     UUID chapterId =
         jdbcTemplate.queryForObject(
@@ -152,6 +121,6 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
 
   private Project newProject() {
     return Project.create(
-        "Query project " + UUID.randomUUID(), "vi-VN", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9);
+        "Query project " + UUID.randomUUID(), "vi-VN", "vi-VN", AspectRatio.RATIO_16_9);
   }
 }

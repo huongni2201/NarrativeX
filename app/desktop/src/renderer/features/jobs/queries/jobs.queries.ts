@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { DesktopJobHistoryPage } from "@narrativex/client-contracts";
+import type { DesktopJobHistoryPage } from "../../../../shared/api-types";
 import { jobsApi } from "../api/jobs.api.ts";
 
 export const jobQueryKeys = {

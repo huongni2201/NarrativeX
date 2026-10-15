@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "@narrativex/client-contracts";
+import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "../../../../shared/api-types";
 import { AlertCircle, CheckCircle2, Clapperboard, Clock, Film, Loader2, RotateCcw, Scissors, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

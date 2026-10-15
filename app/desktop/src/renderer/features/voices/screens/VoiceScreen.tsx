@@ -4,7 +4,7 @@ import type {
   DesktopChapterDetails,
   DesktopVoice,
   VoiceReferenceInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus, Search, BookOpen, ChevronRight, ChevronDown, Film, Disc } from "lucide-react";
-import type { DesktopChapterDetails, DesktopChapterStory } from "@narrativex/client-contracts";
+import { Plus, Search, BookOpen, ChevronRight, ChevronDown, Film, Disc, Trash2 } from "lucide-react";
+import type { DesktopChapterDetails, DesktopChapterStory } from "../../../../shared/api-types";
 import { Button } from "@/components/ui/button";
 
 export interface ChapterRailProps {
@@ -11,6 +11,7 @@ export interface ChapterRailProps {
   onSelectChapter: (chapterId: string) => void;
   onSelectBeat?: (beatId: string) => void;
   onCreateChapter: () => void;
+  onDeleteChapter?: (chapterId: string) => void;
 }
 
 export function ChapterRail({
@@ -21,6 +22,7 @@ export function ChapterRail({
   onSelectChapter,
   onSelectBeat,
   onCreateChapter,
+  onDeleteChapter,
 }: ChapterRailProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedScenes, setExpandedScenes] = useState<Record<string, boolean>>({});
@@ -85,19 +87,34 @@ export function ChapterRail({
           return (
             <div key={chapter.id} className="space-y-0.5">
               {/* Chapter Item Button */}
-              <button
-                type="button"
-                onClick={() => onSelectChapter(chapter.id)}
-                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
-                  isChapterSelected
-                    ? "bg-surface-3 text-primary font-semibold shadow-sm"
-                    : "text-text-secondary hover:bg-surface-2 hover:text-foreground"
-                }`}
-              >
-                <BookOpen size={14} className={isChapterSelected ? "text-primary" : "text-text-muted"} />
-                <span className="font-mono text-caption text-text-muted">#{chapter.orderIndex + 1}</span>
-                <span className="truncate flex-1 text-body">{chapter.title || `Chương ${chapter.orderIndex + 1}`}</span>
-              </button>
+              <div className="group relative">
+                <button
+                  type="button"
+                  onClick={() => onSelectChapter(chapter.id)}
+                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
+                    onDeleteChapter ? "pr-9" : ""
+                  } ${
+                    isChapterSelected
+                      ? "bg-surface-3 text-primary font-semibold shadow-sm"
+                      : "text-text-secondary hover:bg-surface-2 hover:text-foreground"
+                  }`}
+                >
+                  <BookOpen size={14} className={isChapterSelected ? "text-primary" : "text-text-muted"} />
+                  <span className="font-mono text-caption text-text-muted">#{chapter.orderIndex + 1}</span>
+                  <span className="truncate flex-1 text-body">{chapter.title || `Chương ${chapter.orderIndex + 1}`}</span>
+                </button>
+                {onDeleteChapter && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteChapter(chapter.id)}
+                    className="absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-text-muted opacity-0 transition-[color,background-color,opacity] hover:bg-danger-bg hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+                    title="Xoá chương"
+                    aria-label={`Xoá ${chapter.title || `Chương ${chapter.orderIndex + 1}`}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
 
               {/* Sub-tree: Scenes & StoryBeats (Only when this chapter is selected and has story) */}
               {isChapterSelected && story && story.scenes.length > 0 && (

@@ -15,8 +15,7 @@ public record PromptInstructions(
         PromptText.optional(
             "instructions.characterReference", characterReference, PromptSettings.MAX_BLOCK_BYTES);
     storyboard =
-        PromptText.optional(
-            "instructions.storyboard", storyboard, PromptSettings.MAX_BLOCK_BYTES);
+        PromptText.optional("instructions.storyboard", storyboard, PromptSettings.MAX_BLOCK_BYTES);
     video = PromptText.optional("instructions.video", video, PromptSettings.MAX_BLOCK_BYTES);
   }
 

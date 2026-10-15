@@ -6,15 +6,6 @@ import java.util.UUID;
 public final class ProjectResourceView {
   private ProjectResourceView() {}
 
-  public record Location(
-      UUID id,
-      String name,
-      String description,
-      String visualPrompt,
-      String referenceImageUrl,
-      String status,
-      Instant updatedAt) {}
-
   public record Asset(
       UUID id,
       String name,

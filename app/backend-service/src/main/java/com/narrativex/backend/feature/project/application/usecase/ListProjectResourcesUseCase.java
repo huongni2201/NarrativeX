@@ -17,14 +17,6 @@ public class ListProjectResourcesUseCase {
   private final ProjectResourceQueryRepository repository;
 
   @Transactional(readOnly = true)
-  public CursorPage<ProjectResourceView.Location> locations(
-      UUID projectId, String cursor, int limit) {
-    validateLimit(limit);
-    projectAccess.findProject(projectId);
-    return repository.listLocations(projectId, cursor, limit);
-  }
-
-  @Transactional(readOnly = true)
   public CursorPage<ProjectResourceView.Asset> assets(UUID projectId, String cursor, int limit) {
     validateLimit(limit);
     projectAccess.findProject(projectId);

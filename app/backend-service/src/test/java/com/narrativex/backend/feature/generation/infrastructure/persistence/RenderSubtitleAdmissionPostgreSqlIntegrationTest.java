@@ -57,14 +57,14 @@ class RenderSubtitleAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegra
     // Metadata fixtures prove admission/storage only; they do not execute media or providers.
     projectId =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('Subtitle admission','ACTIVE','vi-VN','vi-VN','vi-VN','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('Subtitle admission','ACTIVE','vi-VN', 'vi-VN','RATIO_16_9') RETURNING id");
     UUID storyId =
         id(
             "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Xin chào','vi-VN','ACTIVE') RETURNING id",
             projectId);
     UUID chapterId =
         id(
-            "INSERT INTO chapters(story_version_id,order_index,title,source_text,source_hash,status,estimated_duration_ms,generation_progress) VALUES (?,0,'Chapter','Xin chào',?,'READY',1000,100) RETURNING id",
+            "INSERT INTO chapters(story_version_id,order_index,title,source_text,source_hash,status,estimated_duration_ms) VALUES (?,0,'Chapter','Xin chào',?,'READY',1000) RETURNING id",
             storyId,
             SOURCE_HASH);
     UUID revisionId =

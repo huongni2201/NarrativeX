@@ -41,7 +41,7 @@ class ChapterVideoBatchPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     video.setDefaultModel("ltx-2.5-22b-distilled-int8");
     projectId =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('admission','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('admission','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
     UUID story =
         id(
             "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Saved script','en','ACTIVE') RETURNING id",

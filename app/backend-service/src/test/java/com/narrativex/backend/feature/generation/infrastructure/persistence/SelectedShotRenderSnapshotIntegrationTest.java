@@ -17,7 +17,7 @@ class SelectedShotRenderSnapshotIntegrationTest extends ShotTakeAdmissionPostgre
   void selectedTakeCannotExposeAnotherProjectsMedia() {
     UUID otherProject =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('other','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('other','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
     UUID asset =
         id(
             "INSERT INTO media_assets(id,project_id,asset_type,origin,status,storage_key,original_filename,content_type,size_bytes,sha256,duration_ms) VALUES (uuidv7(),?,'VIDEO','VIDEO_GENERATED','READY',?,'fixture.mp4','video/mp4',1024,?,5000) RETURNING id",

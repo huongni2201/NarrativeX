@@ -1,5 +1,5 @@
 import { Users, MapPin, AlertTriangle, CheckCircle, ArrowRight } from "lucide-react";
-import type { DesktopChapterDetails, DesktopChapterStory } from "@narrativex/client-contracts";
+import type { DesktopChapterDetails, DesktopChapterStory } from "../../../../../shared/api-types";
 
 export interface ChapterCanonStageProps {
   chapter: DesktopChapterDetails | null;

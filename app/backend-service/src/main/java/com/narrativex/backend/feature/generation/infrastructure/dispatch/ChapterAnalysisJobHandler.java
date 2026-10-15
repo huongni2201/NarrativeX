@@ -1,20 +1,17 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.generation.application.model.analysis.CanonHashCalculator;
-import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRetirement;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisProvider;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
-import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisProviderId;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
-import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper;
@@ -28,6 +25,7 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -35,15 +33,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Handler for CHAPTER_ANALYZE generation jobs. Enforces that the Vertex Gemini AI call executes
- * outside any database transaction.
+ * Handler for CHAPTER_ANALYZE generation jobs. Analysis runs through Desktop's agy CLI (ADR-0009):
+ * analysis runs on the Desktop app through a Google account, which claims the frozen job and
+ * delivers the result through {@code LocalChapterAnalysisService}. This handler only materializes
+ * delivered results and retires jobs that can no longer be claimed.
  */
 @Slf4j
 @Component
 public class ChapterAnalysisJobHandler implements GenerationJobHandler {
   private final GenerationJobRepository generationJobRepository;
   private final GenerationJobTransactionService transactionService;
-  private final ChapterAnalysisProvider chapterAnalysisProvider;
   private final ChapterAnalysisArtifactMaterializer analysisMaterializer;
   private final ChapterAnalysisRunRepository analysisRunRepository;
   private final ChapterMapper chapterMapper;
@@ -53,18 +52,12 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
           .ChapterAnalysisExecutionStore
       localExecutions;
 
-  @Autowired(required = false)
-  private com.narrativex.backend.feature.generation.application.port.out
-          .ChapterAnalysisPromptSnapshotRepository
-      promptSnapshots;
-
   @Autowired
   public ChapterAnalysisJobHandler(
       GenerationJobRepository generationJobRepository,
       GenerationJobTransactionService transactionService,
       StoryboardMapper storyboardMapper,
       ChapterMapper chapterMapper,
-      @Autowired(required = false) ChapterAnalysisProvider chapterAnalysisProvider,
       @Autowired(required = false) ChapterCanonMapper canonMapper,
       @Autowired(required = false) ChapterCanonReconciliationService canonReconciliationService,
       @Autowired(required = false) ChapterAnalysisRunRepository analysisRunRepository,
@@ -76,10 +69,6 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
     this.generationJobRepository = generationJobRepository;
     this.transactionService = transactionService;
     this.chapterMapper = chapterMapper;
-    this.chapterAnalysisProvider =
-        chapterAnalysisProvider != null
-            ? chapterAnalysisProvider
-            : new DisabledChapterAnalysisProvider();
     this.analysisRunRepository = analysisRunRepository;
     this.analysisMaterializer =
         new ChapterAnalysisArtifactMaterializer(
@@ -100,7 +89,6 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
       GenerationJobTransactionService transactionService,
       StoryboardMapper storyboardMapper,
       ChapterMapper chapterMapper,
-      ChapterAnalysisProvider chapterAnalysisProvider,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService,
       ChapterAnalysisRunRepository analysisRunRepository) {
@@ -109,7 +97,6 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
         transactionService,
         storyboardMapper,
         chapterMapper,
-        chapterAnalysisProvider,
         canonMapper,
         canonReconciliationService,
         analysisRunRepository,
@@ -126,93 +113,33 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
   }
 
   @Override
+  public DispatchLane lane() {
+    return DispatchLane.ANALYSIS;
+  }
+
+  @Override
   public void execute(UUID jobId) {
-    if (localExecutions != null
-        && generationJobRepository
-            .findByJobId(jobId)
-            .flatMap(j -> localExecutions.findSnapshot(j.getId()))
-            .filter(
-                s -> s.profile().executionMode() != ChapterAnalysisExecutionMode.VERTEX_API)
-            .isPresent()) {
-      return; // Electron claims this frozen job; never fall back to Vertex.
-    }
-    log.info("Executing chapter analysis via ChapterAnalysisJobHandler for job {}", jobId);
-    Optional<GenerationJob> claimedOpt =
-        transactionService.claimForRunning(jobId, "ANALYZING_STORY", 10);
-    if (claimedOpt.isEmpty()) {
+    Optional<GenerationJob> found = generationJobRepository.findByJobId(jobId);
+    if (found.isEmpty()) {
       return;
     }
-    GenerationJob job = claimedOpt.get();
-
-    ChapterAnalysisRequest request =
-        new ChapterAnalysisRequest(
-            job.getProjectId(),
-            job.getChapterId(),
-            job.getStoryboardRevisionId(),
-            job.getSourceText(),
-            job.getSourceLanguage(),
-            "1.1",
-            "1.1",
-            null,
-            null,
-            frozenCustomInstruction(job));
-
-    // Call external provider (Google Vertex Gemini 3.8 Flash) OUTSIDE of any database transaction
-    ChapterAnalysisResult result;
-    try {
-      result = chapterAnalysisProvider.analyze(request);
-    } catch (ChapterAnalysisException e) {
-      log.error(
-          "Chapter analysis provider failure for job {}: {}", job.getJobId(), e.getMessage(), e);
-      if (e.isRetryable()) {
-        transactionService.markSubmissionUnknown(
-            job.getJobId(),
-            "COMPUTE_OUTCOME_UNKNOWN",
-            e.getMessage(),
-            Instant.now().plusSeconds(15));
-      } else {
-        transactionService.markSubmissionFailed(
-            job.getJobId(), "CHAPTER_ANALYSIS_FAILED", e.getMessage());
-      }
-      return;
-    } catch (RuntimeException e) {
-      log.error("Exception during chapter analysis external call for job {}", job.getJobId(), e);
-      transactionService.markSubmissionFailed(
-          job.getJobId(), "CHAPTER_ANALYSIS_FAILED", "Failed to analyze chapter");
+    GenerationJob job = found.get();
+    if (localExecutions == null || localExecutions.findSnapshot(job.getId()).isPresent()) {
+      // Frozen for Desktop: the job stays QUEUED until an enabled Google account claims it.
       return;
     }
-
-    // Materialize results in a short database transaction
-    try {
-      materializeAndComplete(job, request, result);
-    } catch (RuntimeException e) {
-      log.error("Failed to materialize chapter analysis for job {}", job.getJobId(), e);
-      transactionService.markSubmissionFailed(
-          job.getJobId(), "CHAPTER_ANALYSIS_FAILED", "Failed to materialize chapter analysis");
-    }
-  }
-
-  /** The editorial instruction frozen at admission; never the current configuration. */
-  private String frozenCustomInstruction(GenerationJob job) {
-    if (promptSnapshots == null) return null;
-    return promptSnapshots
-        .find(job.getId())
-        .map(
-            com.narrativex.backend.feature.generation.application.model.analysis
-                    .ChapterAnalysisPromptSnapshot
-                ::instruction)
-        .orElse(null);
-  }
-
-  public void materializeAndComplete(
-      GenerationJob job, ChapterAnalysisRequest request, ChapterAnalysisResult result) {
-    materializeAndComplete(job, request, result, null);
+    // Admitted while the backend still analyzed chapters itself: nothing can claim or reconcile it.
+    log.warn(
+        "Retiring chapter analysis job {}: no Desktop execution snapshot was frozen at admission",
+        jobId);
+    transactionService.markSubmissionFailed(
+        jobId, ChapterAnalysisRetirement.ERROR_CODE, ChapterAnalysisRetirement.STEP);
   }
 
   public record LocalProvenance(
       UUID attemptId,
       UUID credentialRef,
-      String cliVersion,
+      String adapterVersion,
       String conversationId,
       ChapterAnalysisExecutionMode executionMode) {}
 
@@ -221,6 +148,7 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
       ChapterAnalysisRequest request,
       ChapterAnalysisResult result,
       LocalProvenance local) {
+    Objects.requireNonNull(local, "local provenance is required");
     byte[] payload = result.rawJson().getBytes(StandardCharsets.UTF_8);
 
     GenerationJob completed =
@@ -285,14 +213,11 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
             result.canonHash(),
             Instant.now(),
             usage.usageState(),
-            local == null
-                ? ChapterAnalysisProviderId.VERTEX
-                : ChapterAnalysisProviderId.ANTIGRAVITY,
-            local == null ? ChapterAnalysisExecutionMode.VERTEX_API : local.executionMode(),
-            local == null ? null : local.attemptId(),
-            local == null ? null : local.credentialRef(),
-            local == null ? null : local.cliVersion(),
-            local == null ? null : local.conversationId(),
+            local.executionMode(),
+            local.attemptId(),
+            local.credentialRef(),
+            local.adapterVersion(),
+            local.conversationId(),
             null,
             null,
             result.promptHash(),

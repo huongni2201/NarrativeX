@@ -7,8 +7,8 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterSto
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.VisualBeatPromptProvider;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapRow;
@@ -16,8 +16,6 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +23,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
@@ -208,7 +209,6 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
                 beat.getSourceEnd(),
                 beat.getSourceAnchorJson(),
                 beat.getStoryFunctionsJson(),
-                beat.getContinuityStateJson(),
                 beat.getReviewStatus() != null ? beat.getReviewStatus() : "NEEDS_REVIEW",
                 cueItems,
                 visualItems,
@@ -278,7 +278,6 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
                 null,
                 null,
                 "[]",
-                "{}",
                 "NEEDS_REVIEW",
                 List.of(),
                 visualItems,
@@ -294,10 +293,6 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
               scene.getOrderIndex(),
               scene.getTitle(),
               scene.getStatus(),
-              null,
-              null,
-              null,
-              null,
               scene.getLocationText(),
               scene.getProjectLocationId(),
               beatItems,
@@ -342,7 +337,7 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
     try {
       List<T> parsed = JSON.readValue(value, type);
       return parsed == null ? List.of() : List.copyOf(parsed);
-    } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Stored chapter retention data is invalid", exception);
     }
   }

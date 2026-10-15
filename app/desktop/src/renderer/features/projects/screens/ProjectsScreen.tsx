@@ -8,7 +8,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
+import type { DesktopProject, ProjectAspectRatio } from "../../../../shared/api-types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

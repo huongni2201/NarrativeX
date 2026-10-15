@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Eye, Film, Lock, Type, Upload, ZoomIn, ZoomOut } from "lucide-react";
-import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { DesktopTimeline, DesktopTimelineBeat } from "../../../../shared/api-types";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
 import { editorBeatIdentity, timelineSpanStyle } from "../editor-timeline";
 

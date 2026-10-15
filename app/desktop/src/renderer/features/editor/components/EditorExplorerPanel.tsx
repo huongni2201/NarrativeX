@@ -13,7 +13,7 @@ import {
   Search,
   Sparkles,
 } from "lucide-react";
-import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { DesktopTimelineBeat } from "../../../../shared/api-types";
 import { Input } from "@/components/ui/input";
 import { editorBeatIdentity, type EditorChapterGroup } from "../editor-timeline";
 

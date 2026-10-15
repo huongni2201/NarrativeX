@@ -1,4 +1,5 @@
 import { sha256File, isMissingFile } from "./file-integrity.ts";
+import { IntegrityCache, sharedIntegrityCache, type IntegrityMode } from "./integrity-cache.ts";
 import { randomUUID } from "node:crypto";
 import {
   copyFile,
@@ -140,13 +141,30 @@ interface SnapshotRegistry {
   snapshots: Record<string, ManagedSnapshotRecord>;
 }
 
+interface CachedManifest {
+  mtimeMs: number;
+  size: number;
+  ino: number;
+  manifest: LocalProjectManifest;
+}
+
+export interface ProjectStorageOptions {
+  integrityCache?: IntegrityCache;
+}
+
 export class ProjectStorage {
   private readonly projectLocks = new Map<string, Promise<void>>();
   private readonly projectsRoot: string;
+  private readonly integrity: IntegrityCache;
+  /** Projects whose directory layout was created by this process. */
+  private readonly layoutReady = new Set<string>();
+  /** Parsed manifests keyed by project, valid while the manifest file's stat is unchanged. */
+  private readonly manifestCache = new Map<string, CachedManifest>();
   private snapshotRegistryLock: Promise<void> = Promise.resolve();
 
-  constructor(projectsRoot: string) {
+  constructor(projectsRoot: string, options: ProjectStorageOptions = {}) {
     this.projectsRoot = projectsRoot;
+    this.integrity = options.integrityCache ?? sharedIntegrityCache;
   }
 
   rootDirectory(): string { return this.projectsRoot; }
@@ -156,22 +174,14 @@ export class ProjectStorage {
   }
 
   async ensureProject(projectId: string): Promise<LocalProjectManifest> {
+    // Hot path: layout already created and manifest unchanged on disk. No lock and no mkdir; the
+    // stat inside the manifest cache also notices a project directory that was removed meanwhile.
+    if (this.layoutReady.has(projectKey(projectId))) {
+      const cached = await this.readManifestCached(projectId, false);
+      if (cached) return cached;
+    }
     return this.withProjectLock(projectId, async () => {
-      await this.assertSafeDirectoryOrMissing(resolve(this.projectsRoot), "Projects root");
-      const root = this.projectRoot(projectId);
-      await this.assertSafeDirectoryOrMissing(root, "Project root");
-      await mkdir(root, { recursive: true });
-      await this.assertSafeDirectoryOrMissing(root, "Project root");
-      await Promise.all([
-        mkdir(join(root, "assets", "images"), { recursive: true }),
-        mkdir(join(root, "assets", "audio"), { recursive: true }),
-        mkdir(join(root, "assets", "video"), { recursive: true }),
-        mkdir(join(root, "assets", "other"), { recursive: true }),
-        mkdir(join(root, "artifacts"), { recursive: true }),
-        mkdir(join(root, "work"), { recursive: true }),
-        mkdir(join(root, "cache", "segments"), { recursive: true }),
-        mkdir(join(root, "backups"), { recursive: true }),
-      ]);
+      await this.ensureProjectLayout(projectId);
       const existing = await this.readManifest(projectId);
       if (existing) return existing;
 
@@ -187,6 +197,26 @@ export class ProjectStorage {
       await this.writeManifest(manifest);
       return manifest;
     });
+  }
+
+  /** Creates the project directory tree and records that it exists for this process. */
+  private async ensureProjectLayout(projectId: string): Promise<void> {
+    await this.assertSafeDirectoryOrMissing(resolve(this.projectsRoot), "Projects root");
+    const root = this.projectRoot(projectId);
+    await this.assertSafeDirectoryOrMissing(root, "Project root");
+    await mkdir(root, { recursive: true });
+    await this.assertSafeDirectoryOrMissing(root, "Project root");
+    await Promise.all([
+      mkdir(join(root, "assets", "images"), { recursive: true }),
+      mkdir(join(root, "assets", "audio"), { recursive: true }),
+      mkdir(join(root, "assets", "video"), { recursive: true }),
+      mkdir(join(root, "assets", "other"), { recursive: true }),
+      mkdir(join(root, "artifacts"), { recursive: true }),
+      mkdir(join(root, "work"), { recursive: true }),
+      mkdir(join(root, "cache", "segments"), { recursive: true }),
+      mkdir(join(root, "backups"), { recursive: true }),
+    ]);
+    this.layoutReady.add(projectKey(projectId));
   }
 
   async registerAsset(
@@ -334,13 +364,19 @@ export class ProjectStorage {
     });
   }
 
+  /**
+   * `mode: "full"` (default) re-hashes the file on every call. `"fast"` trusts a previous hash while
+   * size, mtime and inode are unchanged; use it only for preview and cache reuse, never for the
+   * final render, uploads or manual verification.
+   */
   async resolveAsset(
     projectId: string,
     assetId: string,
     expected?: { sizeBytes?: number; checksumSha256?: string },
+    mode: IntegrityMode = "full",
   ): Promise<string> {
     validateAssetId(assetId);
-    const manifest = await this.ensureProject(projectId);
+    const manifest = await this.ensureProjectShared(projectId);
     const entry = manifest.assets[assetId];
     if (!entry) {
       throw new Error(
@@ -359,8 +395,7 @@ export class ProjectStorage {
       expected?.checksumSha256 ?? entry.checksumSha256,
     );
     if (expectedChecksum) {
-      const actual = await sha256File(absolutePath);
-      if (actual !== expectedChecksum) {
+      if (!(await this.integrity.verifyFile(absolutePath, expectedChecksum, mode))) {
         throw new Error(`Local asset ${assetId} checksum does not match its manifest.`);
       }
     }
@@ -369,7 +404,7 @@ export class ProjectStorage {
 
   async resolveArtifact(projectId: string, jobId: string): Promise<string> {
     validateOpaqueId(jobId, "jobId");
-    const manifest = await this.ensureProject(projectId);
+    const manifest = await this.ensureProjectShared(projectId);
     const entry = manifest.artifacts[jobId];
     if (!entry) {
       throw new Error(
@@ -381,7 +416,7 @@ export class ProjectStorage {
     if (!fileStat.isFile() || fileStat.size !== entry.sizeBytes) {
       throw new Error(`Local artifact ${jobId} is missing or invalid.`);
     }
-    if (await sha256File(absolutePath) !== entry.checksumSha256) {
+    if (!(await this.integrity.verifyFile(absolutePath, entry.checksumSha256, "full"))) {
       throw new Error(`Local artifact ${jobId} checksum does not match its manifest.`);
     }
     return absolutePath;
@@ -389,7 +424,7 @@ export class ProjectStorage {
 
   async artifactEntry(projectId: string, jobId: string): Promise<LocalArtifactManifestEntry> {
     validateOpaqueId(jobId, "jobId");
-    const manifest = await this.ensureProject(projectId);
+    const manifest = await this.ensureProjectShared(projectId);
     const entry = manifest.artifacts[jobId];
     if (!entry) throw new Error(`Local artifact ${jobId} is not registered.`);
     return entry;
@@ -841,14 +876,69 @@ export class ProjectStorage {
     return manifest;
   }
 
+  /** Manifest for mutation: always a private copy, so a failed write never poisons the cache. */
   private async readManifest(projectId: string): Promise<LocalProjectManifest | null> {
+    return this.readManifestCached(projectId, false);
+  }
+
+  /** Read-only manifest that may be shared with other callers; never mutate the result. */
+  private async ensureProjectShared(projectId: string): Promise<LocalProjectManifest> {
+    if (this.layoutReady.has(projectKey(projectId))) {
+      const cached = await this.readManifestCached(projectId, true);
+      if (cached) return cached;
+    }
+    return this.ensureProject(projectId);
+  }
+
+  private async readManifestCached(
+    projectId: string,
+    shared: boolean,
+  ): Promise<LocalProjectManifest | null> {
     const path = join(this.projectRoot(projectId), "project.manifest.json");
+    const key = projectKey(projectId);
+    let signature: Omit<CachedManifest, "manifest">;
+    try {
+      const fileStat = await stat(path);
+      signature = { mtimeMs: fileStat.mtimeMs, size: fileStat.size, ino: fileStat.ino };
+    } catch (error) {
+      if (isMissingFile(error)) {
+        this.manifestCache.delete(key);
+        return null;
+      }
+      throw error;
+    }
+    const cached = this.manifestCache.get(key);
+    if (
+      cached &&
+      cached.mtimeMs === signature.mtimeMs &&
+      cached.size === signature.size &&
+      cached.ino === signature.ino
+    ) {
+      return shared ? cached.manifest : structuredClone(cached.manifest);
+    }
+
+    const parsed = await this.parseManifestFile(projectId, path);
+    if (parsed === null) {
+      this.manifestCache.delete(key);
+      return null;
+    }
+    // A migrated v1 manifest was rewritten, and writeManifest already refreshed the cache.
+    if (!parsed.migrated) {
+      this.manifestCache.set(key, { ...signature, manifest: structuredClone(parsed.manifest) });
+    }
+    return shared ? this.manifestCache.get(key)!.manifest : parsed.manifest;
+  }
+
+  private async parseManifestFile(
+    projectId: string,
+    path: string,
+  ): Promise<{ manifest: LocalProjectManifest; migrated: boolean } | null> {
     try {
       const parsed = JSON.parse(await readFile(path, "utf8")) as { schemaVersion?: number; projectId?: string; createdAt?: string; updatedAt?: string; assets?: Record<string, LocalAssetManifestEntry>; artifacts?: Record<string, LocalArtifactManifestEntry> };
       if (parsed.schemaVersion === 1) {
         const migrated = migrateManifestV1ToV2(parsed, projectId);
         await this.writeManifest(migrated);
-        return migrated;
+        return { manifest: migrated, migrated: true };
       }
       if (
         parsed.schemaVersion !== MANIFEST_SCHEMA_VERSION ||
@@ -858,7 +948,7 @@ export class ProjectStorage {
       ) {
         throw new Error("Local project manifest is invalid or unsupported.");
       }
-      return parsed as LocalProjectManifest;
+      return { manifest: parsed as LocalProjectManifest, migrated: false };
     } catch (error) {
       if (isMissingFile(error)) return null;
       throw error;
@@ -876,6 +966,19 @@ export class ProjectStorage {
     manifest.updatedAt = new Date().toISOString();
     await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
     await rename(temporary, destination);
+    // Publish to the cache right after the atomic rename so the next read sees this write.
+    const key = projectKey(manifest.projectId);
+    try {
+      const fileStat = await stat(destination);
+      this.manifestCache.set(key, {
+        mtimeMs: fileStat.mtimeMs,
+        size: fileStat.size,
+        ino: fileStat.ino,
+        manifest: structuredClone(manifest),
+      });
+    } catch {
+      this.manifestCache.delete(key);
+    }
   }
 
   private async withProjectLock<T>(
@@ -901,6 +1004,10 @@ export class ProjectStorage {
       }
     }
   }
+}
+
+function projectKey(projectId: string): string {
+  return projectId.toLowerCase();
 }
 
 function assetDirectory(kind: LocalAssetKind): string {

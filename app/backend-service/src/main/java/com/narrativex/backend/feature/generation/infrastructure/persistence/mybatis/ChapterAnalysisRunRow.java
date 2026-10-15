@@ -31,11 +31,10 @@ public class ChapterAnalysisRunRow {
   private String canonHash;
   private Instant createdAt;
   private String usageState;
-  private String provider;
   private String executionMode;
   private UUID attemptId;
   private UUID credentialRef;
-  private String cliVersion;
+  private String adapterVersion;
   private String conversationId;
   private String modelObserved;
   private String effortObserved;

@@ -8,4 +8,9 @@ public interface GenerationJobHandler {
   JobType supportedType();
 
   void execute(UUID jobId);
+
+  /** Lane that bounds how many jobs of this handler run concurrently. */
+  default DispatchLane lane() {
+    return DispatchLane.MEDIA;
+  }
 }

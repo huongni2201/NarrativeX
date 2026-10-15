@@ -6,7 +6,6 @@ import com.narrativex.backend.feature.common.pagination.UuidCursorKey;
 import com.narrativex.backend.feature.project.application.port.out.ProjectResourceQueryRepository;
 import com.narrativex.backend.feature.project.application.query.ProjectResourceView;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectAssetRow;
-import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectLocationRow;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectQueryMapper;
 import java.util.List;
 import java.util.UUID;
@@ -17,26 +16,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryRepository {
   private final ProjectQueryMapper mapper;
-
-  @Override
-  public CursorPage<ProjectResourceView.Location> listLocations(
-      UUID projectId, String cursor, int limit) {
-    UuidCursorKey key = CursorCodec.decodeUuid(cursor);
-    int fetchLimit = limit + 1;
-    List<ProjectLocationRow> rows =
-        key == null
-            ? mapper.findActiveLocationsFirstPage(projectId, fetchLimit)
-            : mapper.findActiveLocationsAfter(projectId, key.updatedAt(), key.id(), fetchLimit);
-    boolean hasNext = rows.size() > limit;
-    List<ProjectLocationRow> visibleRows = rows.subList(0, Math.min(limit, rows.size()));
-    String nextCursor =
-        hasNext && !visibleRows.isEmpty()
-            ? CursorCodec.encode(
-                visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
-            : null;
-    return new CursorPage<>(
-        visibleRows.stream().map(this::toLocation).toList(), nextCursor, limit, hasNext);
-  }
 
   @Override
   public CursorPage<ProjectResourceView.Asset> listAssets(
@@ -56,17 +35,6 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
             : null;
     return new CursorPage<>(
         visibleRows.stream().map(this::toAsset).toList(), nextCursor, limit, hasNext);
-  }
-
-  private ProjectResourceView.Location toLocation(ProjectLocationRow row) {
-    return new ProjectResourceView.Location(
-        row.getId(),
-        row.getName(),
-        row.getDescription(),
-        row.getVisualPrompt(),
-        row.getReferenceImageUrl(),
-        row.getStatus(),
-        row.getUpdatedAt());
   }
 
   private ProjectResourceView.Asset toAsset(ProjectAssetRow row) {

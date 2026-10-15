@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Local analysis execution for Desktop-owned Google accounts. PostgreSQL owns admission, per-account
- * limits and terminal materialization; provider tokens never reach the backend.
+ * Local analysis execution through the one agy session owned by a Desktop device. PostgreSQL owns
+ * admission and terminal materialization; provider tokens never reach the backend.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,11 +49,10 @@ public class LocalChapterAnalysisService {
       String effort,
       int maxConcurrentAnalyses,
       long rowVersion) {
-    if (mode == ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI) {
-      throw new IllegalArgumentException("ANTIGRAVITY_CLI is retired; use ANTIGRAVITY_API");
+    if (mode != ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI) {
+      throw new IllegalArgumentException(mode + " is retired; use ANTIGRAVITY_CLI");
     }
     var c = configuration();
-    // Account concurrency stays per credential; this is only the installation-wide ceiling.
     var desired =
         new AnalysisRuntimeConfiguration(
             c.revision(),
@@ -61,28 +60,20 @@ public class LocalChapterAnalysisService {
             model,
             effort,
             maxConcurrentAnalyses,
-            c.defaultMaxConcurrentPerCredential(),
             c.maxQueuedAnalyses(),
             c.maxInputBytes(),
             c.maxOutputBytes(),
             c.maxRuntimeMs(),
             rowVersion);
     new ChapterAnalysisExecutionProfile(
-        mode,
-        mode == ChapterAnalysisExecutionMode.VERTEX_API ? "VERTEX" : "ANTIGRAVITY",
-        model,
-        effort,
-        "1.1",
-        "0".repeat(64),
-        "1.1",
-        "0".repeat(64));
+        mode, model, effort, "1.1", "0".repeat(64), "1.1", "0".repeat(64));
     return store
         .updateRuntimeConfiguration(desired, rowVersion)
         .orElseThrow(
             () -> new ResourceConflictException("Analysis settings changed; reload before saving"));
   }
 
-  /** Registers (or refreshes) one Google account by its one-way identity fingerprint. */
+  /** Registers the one local agy session assigned to this Desktop device. */
   @Transactional
   public AnalysisProviderCredential registerCredential(
       String deviceToken,
@@ -92,12 +83,12 @@ public class LocalChapterAnalysisService {
       List<String> models) {
     UUID deviceId = devices.authenticate(deviceToken, "DESKTOP_APP").id();
     jobs.acquireAnalysisCapacityLock();
-    var existing =
-        store.findCredentialsByDevice(deviceId).stream()
-            .filter(c -> c.retiredAt() == null && fingerprint.equals(c.connectionFingerprint()))
-            .findFirst();
+    var existing = store.findCredentialByDevice(deviceId);
     if (existing.isPresent()) {
       var c = existing.get();
+      if (!fingerprint.equals(c.connectionFingerprint())) {
+        throw new ResourceConflictException("This Desktop already has an agy session slot");
+      }
       return store
           .updateCredential(c.withIdentity(label, adapterVersion, models), c.rowVersion())
           .orElseThrow(() -> new ResourceConflictException("Analysis credential changed"));
@@ -110,18 +101,12 @@ public class LocalChapterAnalysisService {
             1,
             label,
             "UNKNOWN",
-            true,
-            configuration().defaultMaxConcurrentPerCredential(),
-            null,
-            null,
-            "UNKNOWN",
             adapterVersion,
             models,
             "UNKNOWN",
             null,
             null,
             null,
-            0,
             0,
             0));
   }
@@ -143,39 +128,6 @@ public class LocalChapterAnalysisService {
   }
 
   @Transactional
-  public void retireCredential(String deviceToken, UUID credentialRef) {
-    UUID deviceId = devices.authenticate(deviceToken, "DESKTOP_APP").id();
-    jobs.acquireAnalysisCapacityLock();
-    var c = ownedCredential(deviceId, credentialRef);
-    if (mapper.countHeldSlotsForCredential(credentialRef) > 0) {
-      throw new ResourceConflictException("Credential has an active analysis attempt");
-    }
-    store
-        .updateCredential(c.retire(Instant.now()), c.rowVersion())
-        .orElseThrow(() -> new ResourceConflictException("Analysis credential changed"));
-  }
-
-  @Transactional(readOnly = true)
-  public List<AnalysisProviderCredential> credentials() {
-    return store.findActiveCredentials();
-  }
-
-  /** Backend-owned desired state: enable switch and per-account concurrency. */
-  @Transactional
-  public AnalysisProviderCredential updateCredential(
-      UUID credentialRef, boolean enabled, int maxConcurrent) {
-    jobs.acquireAnalysisCapacityLock();
-    var c =
-        store
-            .findCredential(credentialRef)
-            .filter(x -> x.retiredAt() == null)
-            .orElseThrow(() -> new ResourceNotFoundException("Analysis credential not found"));
-    return store
-        .updateCredential(c.withDesired(enabled, maxConcurrent), c.rowVersion())
-        .orElseThrow(() -> new ResourceConflictException("Analysis credential changed"));
-  }
-
-  @Transactional
   public Claim claim(
       String deviceToken, UUID claimRequestId, UUID credentialRef, String adapterVersion) {
     UUID deviceId = devices.authenticate(deviceToken, "DESKTOP_APP").id();
@@ -186,9 +138,6 @@ public class LocalChapterAnalysisService {
     if (mapper.countHeldLocalSlots() >= config.maxConcurrentAnalyses()) return null;
     var credential = ownedCredential(deviceId, credentialRef);
     if (!credential.eligibleAt(Instant.now())) return null;
-    if (mapper.countHeldSlotsForCredential(credentialRef) >= credential.desiredMaxConcurrent()) {
-      return null;
-    }
     UUID publicJobId = mapper.findNextQueuedLocalJob();
     if (publicJobId == null) return null;
     var job = jobs.findByJobId(publicJobId).orElseThrow();
@@ -219,9 +168,6 @@ public class LocalChapterAnalysisService {
             null,
             null);
     store.insertAttempt(attempt);
-    store
-        .updateCredential(credential.assigned(adapterVersion), credential.rowVersion())
-        .orElseThrow(() -> new ResourceConflictException("Analysis credential changed"));
     transactions.claimForRunning(publicJobId, "ANTIGRAVITY_ANALYSIS", 10).orElseThrow();
     return new Claim(
         publicJobId,
@@ -285,7 +231,7 @@ public class LocalChapterAnalysisService {
         new ChapterAnalysisJobHandler.LocalProvenance(
             attemptId,
             attempt.credentialRef(),
-            completion.cliVersion(),
+            completion.adapterVersion(),
             completion.conversationId(),
             snapshot.profile().executionMode()));
     update(
@@ -368,10 +314,7 @@ public class LocalChapterAnalysisService {
       var a = store.findAttempt(id).orElseThrow();
       var job = jobs.findById(a.generationJobId()).orElseThrow();
       transactions.markSubmissionUnknown(
-          job.getJobId(),
-          "DEVICE_OFFLINE",
-          "Awaiting local result; execution slot retained",
-          null);
+          job.getJobId(), "DEVICE_OFFLINE", "Awaiting local result; execution slot retained", null);
       update(
           a,
           a.observed(
@@ -387,7 +330,7 @@ public class LocalChapterAnalysisService {
   private AnalysisProviderCredential ownedCredential(UUID deviceId, UUID credentialRef) {
     return store
         .findCredential(credentialRef)
-        .filter(c -> c.deviceId().equals(deviceId) && c.retiredAt() == null)
+        .filter(c -> c.deviceId().equals(deviceId))
         .orElseThrow(() -> new ResourceNotFoundException("Analysis credential not found"));
   }
 
@@ -437,6 +380,6 @@ public class LocalChapterAnalysisService {
       String leaseToken,
       String rawJson,
       ChapterAnalysisUsage usage,
-      String cliVersion,
+      String adapterVersion,
       String conversationId) {}
 }

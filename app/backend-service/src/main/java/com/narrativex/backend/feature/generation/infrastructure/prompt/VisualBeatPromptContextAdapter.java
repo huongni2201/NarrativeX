@@ -87,7 +87,6 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
               beat.getVisualDirectionJson(),
               aspectRatio,
               context);
-      var continuity = context.continuity();
       prepared.put(
           visualBeatId,
           Preparation.ready(
@@ -95,8 +94,6 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
                   beat.getId(),
                   beat.getSceneId(),
                   beat.getRowVersion(),
-                  continuity == null ? null : continuity.planId(),
-                  continuity == null ? null : continuity.semanticHash(),
                   composed)));
     }
     return Map.copyOf(prepared);

@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.generation.infrastructure.analysis.local;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.model.analysis.*;
 import com.narrativex.backend.feature.generation.application.port.out.*;
@@ -42,8 +41,8 @@ class LocalChapterAnalysisServiceTest {
   }
 
   @Test
-  void accountsRunInParallelUntilTheInstallationLimitIsReached() {
-    var credential = credential(device, true, "CONNECTED", "AVAILABLE", null, null);
+  void agySessionUsesConfiguredParallelCapacity() {
+    var credential = credential(device, "CONNECTED", "AVAILABLE", null, null);
     authenticate();
     when(store.findRuntimeConfiguration()).thenReturn(configuration(3));
     when(store.findCredential(credential.credentialRef())).thenReturn(Optional.of(credential));
@@ -53,27 +52,13 @@ class LocalChapterAnalysisServiceTest {
   }
 
   @Test
-  void anAccountWithAnActiveAnalysisCannotClaimAnotherEvenWhenCapacityRemains() {
-    var credential = credential(device, true, "CONNECTED", "AVAILABLE", null, null);
+  void authRequiredAndRateLimitedSessionDoesNotReceiveWork() {
     authenticate();
     when(store.findRuntimeConfiguration()).thenReturn(configuration(4));
-    when(store.findCredential(credential.credentialRef())).thenReturn(Optional.of(credential));
-    when(mapper.countHeldLocalSlots()).thenReturn(1);
-    when(mapper.countHeldSlotsForCredential(credential.credentialRef())).thenReturn(1);
-    assertNull(service.claim("device", UUID.randomUUID(), credential.credentialRef(), "adapter/1"));
-    verify(mapper, never()).findNextQueuedLocalJob();
-  }
-
-  @Test
-  void disabledAuthRequiredAndRateLimitedAccountsDoNotReceiveWork() {
-    authenticate();
-    when(store.findRuntimeConfiguration()).thenReturn(configuration(4));
-    var disabled = credential(device, false, "CONNECTED", "AVAILABLE", null, null);
-    var expired = credential(device, true, "AUTH_REQUIRED", "AVAILABLE", null, null);
+    var expired = credential(device, "AUTH_REQUIRED", "AVAILABLE", null, null);
     var limited =
-        credential(
-            device, true, "CONNECTED", "RATE_LIMITED", Instant.now().plusSeconds(300), null);
-    for (var c : List.of(disabled, expired, limited)) {
+        credential(device, "CONNECTED", "RATE_LIMITED", Instant.now().plusSeconds(300), null);
+    for (var c : List.of(expired, limited)) {
       when(store.findCredential(c.credentialRef())).thenReturn(Optional.of(c));
       assertNull(service.claim("device", UUID.randomUUID(), c.credentialRef(), "adapter/1"));
     }
@@ -83,15 +68,15 @@ class LocalChapterAnalysisServiceTest {
   @Test
   void aRateLimitedAccountBecomesEligibleAgainAfterItsHoldOff() {
     var c =
-        credential(device, true, "CONNECTED", "RATE_LIMITED", Instant.now().minusSeconds(5), null);
+        credential(device, "CONNECTED", "RATE_LIMITED", Instant.now().minusSeconds(5), null);
     assertTrue(c.eligibleAt(Instant.now()));
     assertFalse(
-        credential(device, true, "CONNECTED", "EXHAUSTED", null, null).eligibleAt(Instant.now()));
+        credential(device, "CONNECTED", "EXHAUSTED", null, null).eligibleAt(Instant.now()));
   }
 
   @Test
   void anotherDevicesCredentialCannotBeUsedToClaim() {
-    var foreign = credential(UUID.randomUUID(), true, "CONNECTED", "AVAILABLE", null, null);
+    var foreign = credential(UUID.randomUUID(), "CONNECTED", "AVAILABLE", null, null);
     authenticate();
     when(store.findRuntimeConfiguration()).thenReturn(configuration(4));
     when(store.findCredential(foreign.credentialRef())).thenReturn(Optional.of(foreign));
@@ -101,36 +86,17 @@ class LocalChapterAnalysisServiceTest {
   }
 
   @Test
-  void registeringTheSameGoogleIdentityTwiceReusesOneCredential() {
+  void registeringTheSameAgySessionTwiceReusesOneCredential() {
     authenticate();
-    var existing = credential(device, true, "CONNECTED", "AVAILABLE", null, "f".repeat(64));
-    when(store.findCredentialsByDevice(device)).thenReturn(List.of(existing));
+    var existing = credential(device, "CONNECTED", "AVAILABLE", null, "f".repeat(64));
+    when(store.findCredentialByDevice(device)).thenReturn(Optional.of(existing));
     when(store.updateCredential(any(), eq(existing.rowVersion())))
         .thenReturn(Optional.of(existing));
     var result =
-        service.registerCredential("device", "f".repeat(64), "h***@gmail.com", "adapter/1", List.of());
+        service.registerCredential(
+            "device", "f".repeat(64), "agy session", "adapter/1", List.of());
     assertEquals(existing.credentialRef(), result.credentialRef());
     verify(store, never()).insertCredential(any());
-  }
-
-  @Test
-  void aCredentialWithAnActiveAttemptCannotBeRetired() {
-    authenticate();
-    var c = credential(device, true, "CONNECTED", "AVAILABLE", null, null);
-    when(store.findCredential(c.credentialRef())).thenReturn(Optional.of(c));
-    when(mapper.countHeldSlotsForCredential(c.credentialRef())).thenReturn(1);
-    assertThrows(
-        ResourceConflictException.class, () -> service.retireCredential("device", c.credentialRef()));
-    verify(store, never()).updateCredential(any(), anyLong());
-  }
-
-  @Test
-  void theRetiredCliModeCannotBeSelectedForNewAnalyses() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            service.configure(
-                ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI, "model-x", "HIGH", 1, 0));
   }
 
   @Test
@@ -200,11 +166,10 @@ class LocalChapterAnalysisServiceTest {
   private AnalysisRuntimeConfiguration configuration(int maxConcurrent) {
     return new AnalysisRuntimeConfiguration(
         1,
-        ChapterAnalysisExecutionMode.ANTIGRAVITY_API,
+        ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
         "model-x",
         "HIGH",
         maxConcurrent,
-        1,
         20,
         2_000_000,
         4_194_304,
@@ -214,7 +179,6 @@ class LocalChapterAnalysisServiceTest {
 
   private AnalysisProviderCredential credential(
       UUID owner,
-      boolean enabled,
       String connection,
       String quota,
       Instant nextEligible,
@@ -222,14 +186,9 @@ class LocalChapterAnalysisServiceTest {
     return new AnalysisProviderCredential(
         UUID.randomUUID(),
         owner,
-        fingerprint,
+        fingerprint == null ? "f".repeat(64) : fingerprint,
         1,
-        "h***@gmail.com",
-        "UNKNOWN",
-        enabled,
-        1,
-        null,
-        null,
+        "agy session",
         connection,
         "adapter/1",
         List.of(),
@@ -237,7 +196,6 @@ class LocalChapterAnalysisServiceTest {
         null,
         nextEligible,
         null,
-        0,
         0,
         0);
   }

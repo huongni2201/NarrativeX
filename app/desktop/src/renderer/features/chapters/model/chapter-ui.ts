@@ -1,4 +1,4 @@
-import type { DesktopChapterWorkspace, DesktopVoice } from "@narrativex/client-contracts";
+import type { DesktopChapterWorkspace, DesktopVoice } from "../../../../shared/api-types";
 
 export type ChapterFilter = "all" | "completed" | "in_progress" | "draft";
 export type ChapterSort = "recent" | "title" | "order" | "words";

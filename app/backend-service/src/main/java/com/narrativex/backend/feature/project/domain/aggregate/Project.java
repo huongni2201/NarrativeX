@@ -19,7 +19,6 @@ public final class Project extends UuidAggregateRoot {
   private ProjectStatus status;
   private final String sourceLanguage;
   private final String narrationLanguage;
-  private final String metadataLanguage;
   private final AspectRatio imageAspectRatio;
   private Instant archivedAt;
 
@@ -32,7 +31,6 @@ public final class Project extends UuidAggregateRoot {
       ProjectStatus status,
       String sourceLanguage,
       String narrationLanguage,
-      String metadataLanguage,
       AspectRatio imageAspectRatio,
       Instant archivedAt) {
     super(id, rowVersion);
@@ -42,7 +40,6 @@ public final class Project extends UuidAggregateRoot {
     this.status = Objects.requireNonNull(status, "status");
     this.sourceLanguage = required(sourceLanguage, "sourceLanguage", 16);
     this.narrationLanguage = required(narrationLanguage, "narrationLanguage", 16);
-    this.metadataLanguage = required(metadataLanguage, "metadataLanguage", 16);
     this.imageAspectRatio = Objects.requireNonNull(imageAspectRatio, "imageAspectRatio");
     this.archivedAt = archivedAt;
   }
@@ -51,10 +48,9 @@ public final class Project extends UuidAggregateRoot {
       String name,
       String sourceLanguage,
       String narrationLanguage,
-      String metadataLanguage,
       AspectRatio imageAspectRatio) {
     return create(
-        name, null, sourceLanguage, narrationLanguage, metadataLanguage, imageAspectRatio);
+        name, null, sourceLanguage, narrationLanguage, imageAspectRatio);
   }
 
   public static Project create(
@@ -62,7 +58,6 @@ public final class Project extends UuidAggregateRoot {
       String description,
       String sourceLanguage,
       String narrationLanguage,
-      String metadataLanguage,
       AspectRatio imageAspectRatio) {
     return new Project(
         null,
@@ -73,7 +68,6 @@ public final class Project extends UuidAggregateRoot {
         ProjectStatus.DRAFT,
         sourceLanguage,
         narrationLanguage,
-        metadataLanguage,
         imageAspectRatio,
         null);
   }
@@ -85,7 +79,6 @@ public final class Project extends UuidAggregateRoot {
       ProjectStatus status,
       String sourceLanguage,
       String narrationLanguage,
-      String metadataLanguage,
       AspectRatio imageAspectRatio,
       Instant archivedAt) {
     return new Project(
@@ -97,7 +90,6 @@ public final class Project extends UuidAggregateRoot {
         status,
         sourceLanguage,
         narrationLanguage,
-        metadataLanguage,
         imageAspectRatio,
         archivedAt);
   }
@@ -111,7 +103,6 @@ public final class Project extends UuidAggregateRoot {
       ProjectStatus status,
       String sourceLanguage,
       String narrationLanguage,
-      String metadataLanguage,
       AspectRatio imageAspectRatio,
       Instant archivedAt) {
     return new Project(
@@ -123,7 +114,6 @@ public final class Project extends UuidAggregateRoot {
         status,
         sourceLanguage,
         narrationLanguage,
-        metadataLanguage,
         imageAspectRatio,
         archivedAt);
   }
@@ -205,10 +195,6 @@ public final class Project extends UuidAggregateRoot {
 
   public String getNarrationLanguage() {
     return narrationLanguage;
-  }
-
-  public String getMetadataLanguage() {
-    return metadataLanguage;
   }
 
   public AspectRatio getImageAspectRatio() {

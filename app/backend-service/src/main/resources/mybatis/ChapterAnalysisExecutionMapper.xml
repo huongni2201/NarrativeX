@@ -9,7 +9,6 @@
         <result property="model" column="model"/>
         <result property="effort" column="effort"/>
         <result property="maxConcurrentAnalyses" column="max_concurrent_analyses"/>
-        <result property="defaultMaxConcurrentPerCredential" column="default_max_concurrent_per_credential"/>
         <result property="maxQueuedAnalyses" column="max_queued_analyses"/>
         <result property="maxInputBytes" column="max_input_bytes"/>
         <result property="maxOutputBytes" column="max_output_bytes"/>
@@ -22,20 +21,14 @@
         <result property="connectionFingerprint" column="connection_fingerprint"/>
         <result property="credentialGeneration" column="credential_generation"/>
         <result property="label" column="label"/>
-        <result property="selfReportedTier" column="self_reported_tier"/>
-        <result property="desiredEnabled" column="desired_enabled"/>
-        <result property="desiredMaxConcurrent" column="desired_max_concurrent"/>
-        <result property="drainRequestedAt" column="drain_requested_at"/>
-        <result property="retiredAt" column="retired_at"/>
         <result property="observedConnectionState" column="observed_connection_state"/>
-        <result property="cliVersion" column="observed_cli_version"/>
+        <result property="adapterVersion" column="observed_adapter_version"/>
         <result property="modelCapabilitiesJson" column="observed_model_capabilities"/>
         <result property="observedQuotaState" column="observed_quota_state"/>
         <result property="quotaObservedAt" column="observed_quota_at"/>
         <result property="nextEligibleAt" column="next_eligible_at"/>
         <result property="runtimeEpoch" column="runtime_epoch"/>
         <result property="observationSequence" column="observation_sequence"/>
-        <result property="lastAssignedOrdinal" column="last_assigned_ordinal"/>
         <result property="rowVersion" column="row_version"/>
     </resultMap>
     <resultMap id="executionSnapshotMap" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisExecutionSnapshotRow">
@@ -79,7 +72,7 @@
 
     <select id="findRuntimeConfiguration" resultMap="runtimeConfigurationMap">
         SELECT revision, execution_mode, model, effort, max_concurrent_analyses,
-               default_max_concurrent_per_credential, max_queued_analyses, max_input_bytes,
+               max_queued_analyses, max_input_bytes,
                max_output_bytes, max_runtime_ms, row_version
           FROM analysis_runtime_configuration
          WHERE singleton_id = TRUE
@@ -89,7 +82,6 @@
            SET revision = revision + 1,
                execution_mode = #{row.executionMode}, model = #{row.model}, effort = #{row.effort},
                max_concurrent_analyses = #{row.maxConcurrentAnalyses},
-               default_max_concurrent_per_credential = #{row.defaultMaxConcurrentPerCredential},
                max_queued_analyses = #{row.maxQueuedAnalyses}, max_input_bytes = #{row.maxInputBytes},
                max_output_bytes = #{row.maxOutputBytes}, max_runtime_ms = #{row.maxRuntimeMs},
                row_version = row_version + 1, updated_at = CURRENT_TIMESTAMP
@@ -99,46 +91,35 @@
     <select id="findCredential" resultMap="providerCredentialMap">
         SELECT * FROM analysis_provider_credentials WHERE credential_ref = #{credentialRef}
     </select>
-    <select id="findCredentialsByDevice" resultMap="providerCredentialMap">
+    <select id="findCredentialByDevice" resultMap="providerCredentialMap">
         SELECT * FROM analysis_provider_credentials
          WHERE device_id = #{deviceId}
-         ORDER BY last_assigned_ordinal, credential_ref
-    </select>
-    <select id="findActiveCredentials" resultMap="providerCredentialMap">
-        SELECT * FROM analysis_provider_credentials
-         WHERE retired_at IS NULL
-         ORDER BY created_at, credential_ref
     </select>
     <insert id="insertCredential">
         INSERT INTO analysis_provider_credentials (
             credential_ref, device_id, provider, connection_fingerprint, credential_generation, label,
-            self_reported_tier, desired_enabled, desired_max_concurrent, drain_requested_at,
-            retired_at, observed_connection_state, observed_cli_version, observed_model_capabilities,
+            observed_connection_state, observed_adapter_version, observed_model_capabilities,
             observed_quota_state, observed_quota_at, next_eligible_at, runtime_epoch,
-            observation_sequence, last_assigned_ordinal, row_version
+            observation_sequence, row_version
         ) VALUES (
             COALESCE(#{credentialRef}, uuidv7()), #{deviceId}, 'ANTIGRAVITY', #{connectionFingerprint},
-            #{credentialGeneration}, #{label}, #{selfReportedTier}, #{desiredEnabled},
-            #{desiredMaxConcurrent}, #{drainRequestedAt}, #{retiredAt}, #{observedConnectionState},
-            #{cliVersion}, CAST(#{modelCapabilitiesJson} AS jsonb), #{observedQuotaState},
+            #{credentialGeneration}, #{label}, #{observedConnectionState},
+            #{adapterVersion}, CAST(#{modelCapabilitiesJson} AS jsonb), #{observedQuotaState},
             #{quotaObservedAt}, #{nextEligibleAt}, #{runtimeEpoch}, #{observationSequence},
-            #{lastAssignedOrdinal}, 0
+            0
         )
     </insert>
     <update id="updateCredential">
         UPDATE analysis_provider_credentials
            SET connection_fingerprint = #{row.connectionFingerprint},
                credential_generation = #{row.credentialGeneration}, label = #{row.label},
-               self_reported_tier = #{row.selfReportedTier}, desired_enabled = #{row.desiredEnabled},
-               desired_max_concurrent = #{row.desiredMaxConcurrent},
-               drain_requested_at = #{row.drainRequestedAt}, retired_at = #{row.retiredAt},
                observed_connection_state = #{row.observedConnectionState},
-               observed_cli_version = #{row.cliVersion},
+               observed_adapter_version = #{row.adapterVersion},
                observed_model_capabilities = CAST(#{row.modelCapabilitiesJson} AS jsonb),
                observed_quota_state = #{row.observedQuotaState},
                observed_quota_at = #{row.quotaObservedAt}, next_eligible_at = #{row.nextEligibleAt},
                runtime_epoch = #{row.runtimeEpoch}, observation_sequence = #{row.observationSequence},
-               last_assigned_ordinal = #{row.lastAssignedOrdinal}, row_version = row_version + 1,
+               row_version = row_version + 1,
                updated_at = CURRENT_TIMESTAMP
          WHERE credential_ref = #{row.credentialRef} AND row_version = #{expectedRowVersion}
     </update>

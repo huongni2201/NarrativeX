@@ -74,7 +74,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     video.setSupportedStrategies(List.of(GenerationStrategy.TEXT_TO_VIDEO));
     projectId =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('admission','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('admission','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
     UUID story =
         id(
             "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Saved script','en','ACTIVE') RETURNING id",
@@ -351,7 +351,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     }
     UUID other =
         id(
-            "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('other','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('other','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
     UUID asset = UUID.randomUUID();
     jdbc.update(
         "INSERT INTO media_assets(id,project_id,asset_type,origin,original_filename,content_type,size_bytes,sha256,status) VALUES (?,?,'IMAGE','USER_UPLOAD','frame','image/png',10,?,'READY')",

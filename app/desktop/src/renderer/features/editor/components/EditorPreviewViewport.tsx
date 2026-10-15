@@ -11,9 +11,9 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import type { DesktopTimelineBeat, RenderFrameRate } from "@narrativex/client-contracts";
+import type { DesktopTimelineBeat, RenderFrameRate } from "../../../../shared/api-types";
 import { activeSubtitleAt, type PlannedSubtitle } from "../../../../shared/subtitle-planner";
-import type { SubtitleStyle } from "@narrativex/client-contracts";
+import type { SubtitleStyle } from "../../../../shared/api-types";
 import { SubtitleOverlay } from "../../production/components/SubtitleOverlay";
 import { resolvePreviewSubtitleText } from "../preview-subtitle";
 import {

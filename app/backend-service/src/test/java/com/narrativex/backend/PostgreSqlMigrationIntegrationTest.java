@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineMapper;
-import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
 import com.narrativex.backend.support.FlywayMigrationContract;
@@ -82,7 +81,6 @@ class PostgreSqlMigrationIntegrationTest {
   @Autowired private Flyway flyway;
   @Autowired private ProjectMapper projectMapper;
   @Autowired private ChapterWorkspaceMapper chapterWorkspaceMapper;
-  @Autowired private NotificationMapper notificationMapper;
   @Autowired private ProductionTimelineMapper productionTimelineMapper;
 
   @Test
@@ -102,8 +100,10 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals(
           latestFlywayVersion(connection), flyway.info().current().getVersion().getVersion());
       assertEquals(0, flyway.info().pending().length, "repeat migrate must be a no-op");
-      assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
+      assertFalse(triggerExists(connection, "trg_generation_jobs_notify_completion"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_events"));
+      assertTrue(indexExists(connection, "idx_generation_jobs_active_video_batches"));
+      assertTrue(indexExists(connection, "idx_outbox_events_pending_available"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
 
       for (String table : UUID_ID_TABLES) {
@@ -118,13 +118,18 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "generation_jobs", "chapter_id"));
       assertEquals("uuid", columnType(connection, "generation_jobs", "story_version_id"));
       assertEquals("uuid", columnType(connection, "generation_jobs", "storyboard_revision_id"));
+      assertTrue(
+          columnExists(connection, "analysis_provider_credentials", "observed_adapter_version"));
+      assertFalse(
+          columnExists(connection, "analysis_provider_credentials", "observed_cli_version"));
+      assertTrue(columnExists(connection, "chapter_analysis_runs", "adapter_version"));
+      assertFalse(columnExists(connection, "chapter_analysis_runs", "cli_version"));
       assertFalse(tableExists(connection, "chapter_content_variants"));
       assertFalse(tableExists(connection, "language_detections"));
       assertFalse(columnExists(connection, "storyboard_revisions", "content_variant_id"));
       assertFalse(columnExists(connection, "generation_jobs", "content_variant_id"));
       assertFalse(columnExists(connection, "generation_jobs", "source_variant_id"));
       assertFalse(columnExists(connection, "generation_jobs", "target_language"));
-      assertEquals("uuid", columnType(connection, "notifications", "project_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
       assertEquals(
@@ -206,12 +211,9 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(columnExists(connection, "media_validation_jobs", "account_id"));
       assertFalse(columnExists(connection, "media_upload_sessions", "account_id"));
       assertFalse(columnExists(connection, "media_asset_lineage", "account_id"));
-      assertFalse(columnExists(connection, "notifications", "user_id"));
       assertFalse(columnExists(connection, "render_manifests", "project_owner_id"));
       assertFalse(columnExists(connection, "style_presets", "created_by"));
       assertFalse(columnExists(connection, "media_generation_items", "reviewed_by_user_id"));
-      assertFalse(columnExists(connection, "continuity_reports", "reviewed_by"));
-      assertFalse(columnExists(connection, "regeneration_plans", "created_by"));
 
       assertTrue(tableExists(connection, "style_presets"));
       assertTrue(tableExists(connection, "voice_catalog"));
@@ -225,7 +227,7 @@ class PostgreSqlMigrationIntegrationTest {
         assertTrue(result.getInt("total") > 0);
         assertEquals(result.getInt("total"), result.getInt("supported"));
       }
-      assertTrue(tableExists(connection, "notifications"));
+      assertFalse(tableExists(connection, "notifications"));
       assertTrue(tableExists(connection, "outbox_events"));
     }
   }
@@ -293,7 +295,6 @@ class PostgreSqlMigrationIntegrationTest {
     assertNull(
         assertDoesNotThrow(
             () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
-    assertTrue(assertDoesNotThrow(() -> notificationMapper.list(true, 5)).isEmpty());
     assertTrue(
         assertDoesNotThrow(() -> productionTimelineMapper.findChapters(missingProjectId))
             .isEmpty());

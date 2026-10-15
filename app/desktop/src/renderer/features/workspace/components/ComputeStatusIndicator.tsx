@@ -7,7 +7,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../../../components/ui/dialog";
-import { useProviderHealthQuery } from "../queries/health.queries";
 import { useRuntimeCapabilities } from "../../runtime/queries/runtime-capabilities.queries";
 
 export type ComputeStatus = "Ready" | "Busy" | "Degraded" | "Offline" | "Checking";
@@ -18,7 +17,6 @@ export interface ComputeStatusIndicatorProps {
 
 export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndicatorProps) {
   const [open, setOpen] = useState(false);
-  const { data: health, isLoading: isHealthLoading, isError: isHealthError } = useProviderHealthQuery();
   const {
     videoCapability,
     status: videoStatus,
@@ -26,18 +24,17 @@ export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndi
     isError: isCapError,
   } = useRuntimeCapabilities();
 
-  const isChecking = isHealthLoading || isCapLoading;
-  const isOffline = isHealthError || isCapError || videoStatus === "OFFLINE";
+  const isChecking = isCapLoading;
+  const isOffline = isCapError || videoStatus === "OFFLINE";
   const isDegraded =
     !isOffline &&
-    (!health?.vertexGemini?.configured ||
-      videoStatus === "DEGRADED" ||
+    (videoStatus === "DEGRADED" ||
       videoStatus === "UNAVAILABLE" ||
       !videoCapability.available);
   const isBusy =
     !isOffline &&
     !isDegraded &&
-    (videoStatus === "BUSY" || health?.vertexGemini?.status === "BUSY");
+    videoStatus === "BUSY";
 
   const resolvedStatus: ComputeStatus =
     propStatus ??
@@ -124,10 +121,8 @@ export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndi
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-dark px-3.5 py-2.5">
-              <span className="text-body font-medium text-text-secondary">Story Director Engine</span>
-              <span className="font-mono text-label text-foreground">
-                {health?.vertexGemini?.model || "Gemini 2.5 Flash"}
-              </span>
+              <span className="text-body font-medium text-text-secondary">Phân tích chương</span>
+              <span className="font-mono text-label text-foreground">Tài khoản Google · Antigravity</span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-dark px-3.5 py-2.5">
@@ -146,15 +141,6 @@ export function ComputeStatusIndicator({ status: propStatus }: ComputeStatusIndi
               <span className="text-body font-medium text-text-secondary block mb-2">Các pipeline AI khả dụng</span>
               <ul className="flex flex-col gap-2 text-label text-text-muted">
                 <li className="flex items-center justify-between">
-                  <div>
-                    <span className="text-foreground font-medium block">Vertex Gemini</span>
-                    <span className="text-caption text-text-dim">Story Director & Chapter Analysis</span>
-                  </div>
-                  <span className={health?.vertexGemini?.configured ? "text-success font-mono font-medium" : "text-warning font-mono font-medium"}>
-                    {health?.vertexGemini?.configured ? (health.vertexGemini.status || "READY") : "NOT CONFIGURED"}
-                  </span>
-                </li>
-                <li className="flex items-center justify-between border-t border-border-subtle/50 pt-2">
                   <div>
                     <span className="text-foreground font-medium block">LTX Video Worker</span>
                     <span className="text-caption text-text-dim">Native AV Generation (720p 24fps)</span>

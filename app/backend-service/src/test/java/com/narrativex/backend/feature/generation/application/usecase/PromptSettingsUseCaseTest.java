@@ -54,7 +54,8 @@ class PromptSettingsUseCaseTest {
     PromptSettings loadedByBothForms = useCase.current();
     useCase.save(loadedByBothForms.withActiveStyle("CINEMATIC"));
 
-    assertThatThrownBy(() -> useCase.save(loadedByBothForms.withActiveStyle("STORYBOOK_WATERCOLOR")))
+    assertThatThrownBy(
+            () -> useCase.save(loadedByBothForms.withActiveStyle("STORYBOOK_WATERCOLOR")))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining(PromptSettingsUseCase.REVISION_CONFLICT_CODE);
 

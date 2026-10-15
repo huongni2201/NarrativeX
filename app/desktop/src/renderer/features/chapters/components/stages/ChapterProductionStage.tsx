@@ -19,7 +19,7 @@ import type {
   DesktopTimeline,
   DesktopTimelineBeat,
   GenerationJob,
-} from "@narrativex/client-contracts";
+} from "../../../../../shared/api-types";
 import type {
   StoryboardVisualBeat,
   VisualBeatReviewStatus,
@@ -80,7 +80,6 @@ export function ChapterProductionStage({
         aspectRatioOverride: vb.aspectRatioOverride ?? null,
         previewMediaAssetId: vb.previewMediaAssetId ?? null,
         dramaticIntent: vb.dramaticIntent ?? null,
-        emotion: vb.emotion ?? null,
         retentionRole: vb.retentionRole ?? null,
         shotSequence: vb.shotSequence ?? null,
         rowVersion: vb.rowVersion,

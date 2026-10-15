@@ -9,7 +9,7 @@ import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   UpdateChapterInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { chaptersApi } from "../api/chapters.api";
 import {
   isAnalysisProcessingStatus,

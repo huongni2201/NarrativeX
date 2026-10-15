@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { BeatMediaFitMode, DesktopAsset, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { BeatMediaFitMode, DesktopAsset, DesktopTimelineBeat } from "../../../../shared/api-types";
 import { assetsApi } from "../../assets/api/assets.api";
 import { productionApi } from "../../production/api/production.api";
 import {

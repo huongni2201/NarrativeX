@@ -58,8 +58,7 @@ class GenerateShotTakeUseCaseTest {
 
   @BeforeEach
   void setup() {
-    when(promptSettings.current())
-        .thenReturn(PromptSettingsDefaults.settings().withRevision(1));
+    when(promptSettings.current()).thenReturn(PromptSettingsDefaults.settings().withRevision(1));
     when(storyboard.findAdmissionContextLocked(projectId, shotId))
         .thenReturn(admissionContext(0, ""));
     when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot(4000, "Hero moves")));
@@ -181,7 +180,8 @@ class GenerateShotTakeUseCaseTest {
 
   private void useStyle(String styleId, long revision) {
     when(promptSettings.current())
-        .thenReturn(PromptSettingsDefaults.settings().withActiveStyle(styleId).withRevision(revision));
+        .thenReturn(
+            PromptSettingsDefaults.settings().withActiveStyle(styleId).withRevision(revision));
   }
 
   private List<String> admittedSnapshots(int expectedCount) {
@@ -230,11 +230,13 @@ class GenerateShotTakeUseCaseTest {
   @Test
   void newOperationFreezesTheCurrentStyleAndProvenanceIntoItsSnapshot() {
     useStyle("CINEMATIC_ANIME", 1);
-    useCase.execute(new GenerateShotTakeCommand(
-        projectId, shotId, null, 7L, null, null, "key-one", "LTX_NATIVE_AV"));
+    useCase.execute(
+        new GenerateShotTakeCommand(
+            projectId, shotId, null, 7L, null, null, "key-one", "LTX_NATIVE_AV"));
     useStyle("STORYBOOK_WATERCOLOR", 2);
-    useCase.execute(new GenerateShotTakeCommand(
-        projectId, shotId, null, 7L, null, null, "key-two", "LTX_NATIVE_AV"));
+    useCase.execute(
+        new GenerateShotTakeCommand(
+            projectId, shotId, null, 7L, null, null, "key-two", "LTX_NATIVE_AV"));
 
     var snapshots = admittedSnapshots(2);
     var first = JSON_MAPPER.readTree(snapshots.get(0));
@@ -289,7 +291,9 @@ class GenerateShotTakeUseCaseTest {
     var response = useCase.execute(command(null, 55L));
     var job = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
     verify(jobs).save(job.capture());
-    var stored = (tools.jackson.databind.node.ObjectNode) JSON_MAPPER.readTree(admittedSnapshots(1).getFirst());
+    var stored =
+        (tools.jackson.databind.node.ObjectNode)
+            JSON_MAPPER.readTree(admittedSnapshots(1).getFirst());
     // Rewrite the stored snapshot the way an older build wrote it: prompts were part of the
     // request fingerprint and no prompt-settings provenance existed.
     ((tools.jackson.databind.node.ObjectNode) stored.get("context")).remove("promptSettings");

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { copyFile, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { isMissingFile, sha256File } from "../local-storage/file-integrity.ts";
+import { sharedIntegrityCache } from "../local-storage/integrity-cache.ts";
 import { runProcess } from "./process-runner.ts";
 
 export interface CachedSegmentExpectation {
@@ -39,7 +40,8 @@ export async function validateCachedSegment(
         Object.entries(expected).some(([key, value]) => metadata[key as keyof SegmentMetadata] !== value)) {
       return false;
     }
-    if (await sha256File(path) !== metadata.sha256) return false;
+    // Reuse trusts a previous hash while size, mtime and inode are unchanged (fast mode).
+    if (!(await sharedIntegrityCache.verifyFile(path, metadata.sha256, "fast"))) return false;
     return await matchesStreams(ffprobePath, path, expected);
   } catch (error) {
     if (isMissingFile(error)) return false;

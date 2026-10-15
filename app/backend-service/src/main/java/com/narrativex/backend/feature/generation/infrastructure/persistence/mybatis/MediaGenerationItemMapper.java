@@ -12,6 +12,10 @@ public interface MediaGenerationItemMapper extends NarrativeXMyBatisMapper {
 
   List<MediaGenerationItemRow> findByJobId(@Param("jobId") UUID jobId);
 
+  long countQueued(@Param("jobId") UUID jobId);
+
+  UUID findBatchJobIdByLeaf(@Param("leafJobId") UUID leafJobId);
+
   int bindLeaf(
       @Param("id") UUID id, @Param("leafJobId") UUID leafJobId, @Param("takeId") UUID takeId);
 

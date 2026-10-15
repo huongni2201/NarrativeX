@@ -43,6 +43,16 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
   }
 
   @Override
+  public long countQueued(UUID jobId) {
+    return mapper.countQueued(jobId);
+  }
+
+  @Override
+  public Optional<UUID> findBatchJobIdByLeaf(UUID leafGenerationJobId) {
+    return Optional.ofNullable(mapper.findBatchJobIdByLeaf(leafGenerationJobId));
+  }
+
+  @Override
   public boolean review(UUID itemId, long rowVersion, String decision) {
     return mapper.review(itemId, rowVersion, decision) == 1;
   }

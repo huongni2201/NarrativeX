@@ -38,7 +38,7 @@ class ChapterProductionQueryCountIntegrationTest extends PostgreSqlIntegrationTe
     for (int count : List.of(1, 10, 100)) {
       UUID project =
           id(
-              "INSERT INTO projects(name,status,source_language,narration_language,metadata_language,image_aspect_ratio) VALUES ('query-count','DRAFT','en','en','en','RATIO_16_9') RETURNING id");
+              "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('query-count','DRAFT','en', 'en','RATIO_16_9') RETURNING id");
       UUID story =
           id(
               "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Fixture','en','ACTIVE') RETURNING id",

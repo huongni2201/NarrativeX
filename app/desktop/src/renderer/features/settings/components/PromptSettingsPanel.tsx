@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { Check, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
-import type { PromptSettings, PromptStyleProfile } from "@narrativex/client-contracts";
+import type { PromptSettings, PromptStyleProfile } from "../../../../shared/api-types";
 import { DesktopApiError } from "../../../api/client.ts";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";

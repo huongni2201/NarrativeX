@@ -1,7 +1,7 @@
 import type {
   PromptSettings,
   PromptSettingsView,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiRequest } from "../../../api/client.ts";
 
 export const promptSettingsApi = {

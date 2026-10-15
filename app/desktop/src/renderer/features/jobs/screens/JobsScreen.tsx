@@ -10,7 +10,7 @@ import {
   Terminal,
   AlertCircle,
 } from "lucide-react";
-import type { DesktopJobHistoryItem } from "@narrativex/client-contracts";
+import type { DesktopJobHistoryItem } from "../../../../shared/api-types";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
 import { useJobHistoryQuery } from "../queries/jobs.queries";
 

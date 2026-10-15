@@ -52,7 +52,8 @@ class BackendPromptPreviewSourceTest {
           new CharacterIdentityPromptComposer(),
           beats,
           contexts,
-          new StoryboardVisualPromptComposer(new VisualPromptComposer(JsonMapper.builder().build())),
+          new StoryboardVisualPromptComposer(
+              new VisualPromptComposer(JsonMapper.builder().build())),
           shots,
           new VideoPromptCompiler(JsonMapper.builder().build()));
 
@@ -108,8 +109,7 @@ class BackendPromptPreviewSourceTest {
   void shotPreviewAppliesTheVideoInstructionAndNegativeOfTheSelectedSettings() {
     when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot()));
     var target = new PromptPreviewTarget.Shot(projectId, shotId);
-    var custom =
-        PromptSettingsDefaults.settings().withRevision(2);
+    var custom = PromptSettingsDefaults.settings().withRevision(2);
     custom =
         new PromptSettings(
             custom.formatVersion(),
@@ -139,8 +139,7 @@ class BackendPromptPreviewSourceTest {
 
     assertThatThrownBy(
             () ->
-                source.preview(
-                    style("CINEMATIC"), new PromptPreviewTarget.Shot(projectId, shotId)))
+                source.preview(style("CINEMATIC"), new PromptPreviewTarget.Shot(projectId, shotId)))
         .isInstanceOf(ResourceNotFoundException.class);
   }
 

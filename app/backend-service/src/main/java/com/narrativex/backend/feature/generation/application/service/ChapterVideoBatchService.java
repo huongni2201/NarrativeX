@@ -76,8 +76,12 @@ public class ChapterVideoBatchService {
     var parent = locked(jobId);
     if (!parent.isChapterVideoBatch() || !parent.getStatus().isActive()) return;
     // Match standalone admission lock order: Chapter, then global capacity, then shot admission.
-    chapters.requireForAnalysisLocked(parent.getProjectId(), parent.getChapterId());
-    jobs.acquireAnalysisCapacityLock();
+    // Only admission needs those locks. With no QUEUED item left the call just projects leaf
+    // status, so it must not serialize on the global capacity lock once per tick.
+    if (items.countQueued(parent.getId()) > 0) {
+      chapters.requireForAnalysisLocked(parent.getProjectId(), parent.getChapterId());
+      jobs.acquireAnalysisCapacityLock();
+    }
     boolean canceled = CANCEL_REQUESTED.equals(parent.getErrorCode());
     for (var item : items.findByJobId(parent.getId())) {
       if (item.getLeafGenerationJobId() != null) {

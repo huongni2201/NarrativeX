@@ -1,4 +1,4 @@
-import type { DesktopVoice } from "@narrativex/client-contracts";
+import type { DesktopVoice } from "../../../../shared/api-types";
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusIndicator } from "../../workspace/components/WorkstationPrimitives";

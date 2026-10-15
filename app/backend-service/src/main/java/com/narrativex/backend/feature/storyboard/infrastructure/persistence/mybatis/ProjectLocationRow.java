@@ -16,6 +16,5 @@ public class ProjectLocationRow {
   private String name;
   private String description;
   private String visualPrompt;
-  private String referenceImageUrl;
   private String status;
 }

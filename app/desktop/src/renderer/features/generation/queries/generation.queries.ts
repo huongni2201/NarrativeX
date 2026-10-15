@@ -5,10 +5,11 @@ import type {
   CreateMediaJobInput,
   GenerationJob,
   MediaReviewInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { subscribeSse } from "../../../api/sse.ts";
 import { generationApi } from "../api/generation.api.ts";
 import {
+  generationJobPollInterval,
   isActiveGenerationJobStatus,
   isActiveMediaExecutionStatus,
 } from "../generation-status.ts";
@@ -96,10 +97,10 @@ export function useGenerationJob(jobId: string | null) {
     queryKey,
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
+    retry: false,
     refetchInterval: (current) =>
-      jobId &&
-      (!current.state.data || isActiveGenerationJobStatus(current.state.data.status))
-        ? 15_000
+      jobId
+        ? generationJobPollInterval(current.state.status, current.state.data?.status)
         : false,
   });
 

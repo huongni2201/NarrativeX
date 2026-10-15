@@ -51,7 +51,8 @@ class BackendVisualBeatPromptProviderTest {
     var repository = new StubContextRepository(sceneContext, beatContext);
     var composer = new VisualPromptComposer(JsonMapper.builder().build());
     var storyboardComposer = new StoryboardVisualPromptComposer(composer);
-    var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository, settingsAccess);
+    var provider =
+        new BackendVisualBeatPromptProvider(storyboardComposer, repository, settingsAccess);
 
     var composed =
         storyboardComposer.compose(
@@ -86,7 +87,8 @@ class BackendVisualBeatPromptProviderTest {
     var repository = new StubContextRepository(context, context);
     var composer = new VisualPromptComposer(JsonMapper.builder().build());
     var storyboardComposer = new StoryboardVisualPromptComposer(composer);
-    var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository, settingsAccess);
+    var provider =
+        new BackendVisualBeatPromptProvider(storyboardComposer, repository, settingsAccess);
 
     var expected =
         VisualPromptText.finalPrompt(

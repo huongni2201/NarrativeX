@@ -95,7 +95,7 @@ class CreateMediaPlanNoReuseTest {
                 chapterId,
                 ProductionMode.IMAGE_MOTION,
                 "16:9",
-                "vertex",
+                "test-provider",
                 "gemini-2.5-flash-image",
                 ImageStyle.CINEMATIC));
 

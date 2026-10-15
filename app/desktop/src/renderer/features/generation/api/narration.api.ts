@@ -4,7 +4,7 @@ import type {
   GenerateVoicePreviewInput,
   GenerationJob,
   VoicePreviewResult,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiRequest } from "../../../api/client";
 
 export const narrationApi = {

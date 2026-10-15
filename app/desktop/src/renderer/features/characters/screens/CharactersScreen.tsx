@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import type { DesktopCharacter, DesktopCharacterDetail } from "@narrativex/client-contracts";
+import type { DesktopCharacter, DesktopCharacterDetail } from "../../../../shared/api-types";
 import { Loader2, Plus, Search, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

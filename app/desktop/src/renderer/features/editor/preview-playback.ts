@@ -1,4 +1,4 @@
-import type { DesktopTimelineBeat, RenderFrameRate } from "@narrativex/client-contracts";
+import type { DesktopTimelineBeat, RenderFrameRate } from "../../../shared/api-types";
 import {
   compositionPolicyForBeat,
   cssTransformFromCompositionSample,

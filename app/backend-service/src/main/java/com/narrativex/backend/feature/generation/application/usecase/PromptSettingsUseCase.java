@@ -11,9 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Owns the single installation-wide prompt configuration. Reads self-initialize from the
- * versioned defaults without ever overwriting stored content; saves are compare-and-set on the
- * revision the editor started from.
+ * Owns the single installation-wide prompt configuration. Reads self-initialize from the versioned
+ * defaults without ever overwriting stored content; saves are compare-and-set on the revision the
+ * editor started from.
  */
 @Service
 @RequiredArgsConstructor

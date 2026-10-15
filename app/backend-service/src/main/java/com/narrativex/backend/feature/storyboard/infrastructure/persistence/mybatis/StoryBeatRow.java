@@ -19,7 +19,6 @@ public class StoryBeatRow {
   private String summary;
   private String importance;
   private String storyFunctionsJson;
-  private String continuityStateJson;
   private String reviewStatus;
   private Instant createdAt;
   private Instant updatedAt;

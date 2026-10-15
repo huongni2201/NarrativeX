@@ -1,311 +1,213 @@
+import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
-import { AccountManager } from "../src/main/story-analysis/accounts.ts";
-import { AccountVault } from "../src/main/story-analysis/account-vault.ts";
-import { AnalysisBackendError, StoryAnalysisService } from "../src/main/story-analysis/service.ts";
-import { ADAPTER_VERSION, AnalysisError } from "../src/main/story-analysis/types.ts";
-import { classifyHttpFailure, runAnalysis } from "../src/main/story-analysis/antigravity-api.ts";
-import { validateProfile } from "../src/main/story-analysis/oauth-profile.ts";
+import { StoryAnalysisService } from "../src/main/story-analysis/service.ts";
+import { AnalysisBackendError, AnalysisError } from "../src/main/story-analysis/types.ts";
 
-const profile = validateProfile({ clientId: "1-a.apps.googleusercontent.com" }).profile;
-const crypto = { encrypt: value => Buffer.from(`enc:${value}`), decrypt: value => value.toString().replace(/^enc:/, "") };
-const secrets = { refreshToken: "r", accessToken: "a", expiresAt: Date.now() + 3_600_000, scope: "s" };
-const claimFor = n => ({
-  jobId: `job-${n}`, projectId: "p", attemptId: `attempt-${n}`, leaseToken: `lease-${n}`, sourceText: "Truyện", sourceLanguage: "vi",
-  promptTemplate: "x", responseSchema: {}, profile: { model: "m", effort: "HIGH", promptHash: "a", schemaHash: "b" },
-  maxInputBytes: 1e5, maxOutputBytes: 1e5, maxRuntimeMs: 5_000,
+const REF = "11111111-1111-4111-8111-111111111111";
+const encrypt = value => Buffer.from(`enc:${value}`, "utf8");
+const decrypt = value => value.toString("utf8").replace(/^enc:/u, "");
+const completion = (attemptId, lease = `lease-${attemptId}`) => ({
+  leaseToken: lease, rawJson: "{\"scenes\":[]}", adapterVersion: "antigravity-cli/1", conversationId: "c",
+  usage: { promptTokens: 1, outputTokens: 1, thinkingTokens: 0, cachedTokens: 0, totalTokens: 2, runtimeMs: 5 },
 });
-const completionFor = claim => ({ leaseToken: claim.leaseToken, rawJson: "{}", adapterVersion: ADAPTER_VERSION, conversationId: claim.attemptId, usage: { runtimeMs: 1 } });
 
-async function setup(t, count, { projectId = "project-123" } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "nx-service-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const vault = new AccountVault(join(root, "accounts"), crypto);
-  const registered = [];
-  for (let i = 0; i < count; i++) {
-    registered.push(await vault.upsert({ label: `u${i}***@gmail.com`, fingerprint: String(i).padStart(64, "0") }, secrets));
-  }
+async function build({ jobs = 1, maxParallel = 1, eligible = true, run, requestHook, decryptWith = decrypt } = {}) {
+  const root = await mkdtemp(join(tmpdir(), "nx-analysis-service-"));
+  const directory = join(root, "journal");
+  const queue = Array.from({ length: jobs }, (_, index) => ({
+    jobId: `job-${index + 1}`, projectId: "p", attemptId: `attempt-${index + 1}`, leaseToken: `lease-attempt-${index + 1}`,
+    sourceText: "secret chapter text", sourceLanguage: "vi", promptTemplate: "t", responseSchema: {},
+    profile: { model: "m", effort: "HIGH", promptHash: "a", schemaHash: "b" },
+    maxInputBytes: 1e6, maxOutputBytes: 1e6, maxRuntimeMs: 1000,
+  }));
   const requests = [];
-  const manager = new AccountManager({
-    vault, profile: async () => ({ ok: true, profile }), oauth: { fetch: async () => assert.fail("preparing an account must not call the provider"), openUrl: async () => {} },
-    ready: async () => true, ensureDevice: async () => {},
+  const notes = { success: 0, failures: [], delivery: [], running: [] };
+  const runs = [];
+  const service = new StoryAnalysisService(directory, {
+    session: {
+      eligibility: async () => eligible ? { credentialRef: REF, maxParallel } : null,
+      noteSuccess: () => { notes.success++; },
+      noteFailure: async error => { notes.failures.push(error.code); },
+      noteDeliveryProblem: code => { notes.delivery.push(code); },
+      setRunning: count => { notes.running.push(count); },
+    },
     request: async (path, body) => {
       requests.push({ path, body });
-      if (path.endsWith("/analysis-credentials")) return { credentialRef: `ref-${body.fingerprint.slice(-2)}` };
-      return null;
-    },
-  });
-  for (const account of registered) await vault.patch(account.accountId, { projectId });
-  return { root, vault, manager, requests, registered, journal: join(root, "journal") };
-}
-
-test("missing project IDs are generated once per account, persisted and reused after restart", async t => {
-  const { root, manager, registered, vault, requests } = await setup(t, 2, { projectId: null });
-  const accountId = registered[0].accountId;
-  manager.update(accountId, { connectionState: "UNAVAILABLE", lastError: "PROVIDER_UNAVAILABLE" });
-  const [first, overlapping] = await Promise.all([manager.prepare(accountId), manager.prepare(accountId)]);
-  assert.deepEqual(first, overlapping);
-  assert.match(first.projectId, /^(useful|bright|swift|calm|bold)-(fuze|wave|spark|flow|core)-[0-9a-f]{5}$/);
-  const second = await manager.prepare(registered[1].accountId);
-  assert.notEqual(second.projectId, first.projectId);
-  assert.deepEqual(await manager.prepare(accountId), first);
-  assert.equal(requests.filter(r => r.path.endsWith("/analysis-credentials")).length, 2);
-  assert.equal((await manager.status()).accounts[0].connectionState, "CONNECTED");
-  assert.equal(manager.runtime(accountId).lastError, null);
-
-  const reopenedVault = new AccountVault(join(root, "accounts"), crypto);
-  const restarted = new AccountManager({
-    vault: reopenedVault, profile: async () => ({ ok: true, profile }),
-    oauth: { fetch: async () => assert.fail("no provider lookup"), openUrl: async () => {} },
-    ready: async () => true, ensureDevice: async () => {}, request: async () => assert.fail("already registered"),
-  });
-  assert.deepEqual(await restarted.prepare(accountId), first);
-  assert.equal((await vault.list())[0].projectId, first.projectId);
-});
-
-test("an existing project ID is preserved", async t => {
-  const { manager, registered, vault } = await setup(t, 1, { projectId: "provider-project-123" });
-  assert.equal((await manager.prepare(registered[0].accountId)).projectId, "provider-project-123");
-  assert.equal((await vault.list())[0].projectId, "provider-project-123");
-});
-
-test("generated projects go directly to inference with a new session for each analysis", async t => {
-  const { manager, journal, registered } = await setup(t, 1, { projectId: null });
-  const seen = [];
-  let claims = 0;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    request: async path => path.endsWith("/claim") ? claimFor(++claims) : null,
-    run: (accountId, projectId, claim, signal) => runAnalysis({
-      profile, tokens: { accessToken: async () => "token" },
-      fetch: async (url, init) => {
-        seen.push({ url, body: JSON.parse(init.body) });
-        return Response.json({ candidates: [{ content: { parts: [{ text: "{}" }] }, finishReason: "STOP" }] });
-      },
-    }, accountId, projectId, claim, signal),
-  });
-  await service.tick();
-  await service.tick();
-  assert.equal(seen.length, 2);
-  assert.ok(seen.every(r => r.url === "https://cloudcode-pa.googleapis.com/v1internal:generateContent"));
-  const stored = (await manager.list()).find(a => a.accountId === registered[0].accountId);
-  assert.ok(seen.every(r => r.body.project === stored.projectId));
-  assert.deepEqual(seen.map(r => r.body.request.sessionId), ["attempt-1", "attempt-2"]);
-  assert.deepEqual(await readdir(journal), []);
-});
-
-test("a provider permission denial preserves the Google session and exposes only safe HTTP diagnostics", async t => {
-  const { manager, journal, registered, requests, vault } = await setup(t, 1);
-  let claims = 0, denied = true;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    request: async (path, body) => { requests.push({ path, body }); return path.endsWith("/claim") ? claimFor(++claims) : null; },
-    run: async (_account, _project, claim) => {
-      if (denied) throw classifyHttpFailure(403, "Permission denied Bearer SECRET", null);
-      return completionFor(claim);
-    },
-  });
-  await service.tick();
-  const status = (await manager.status()).accounts[0];
-  assert.equal(status.connectionState, "CONNECTED");
-  assert.equal(status.lastError, "PROVIDER_REFUSAL");
-  assert.deepEqual(status.lastDiagnostic, { source: "ANTIGRAVITY", httpStatus: 403, reason: null });
-  assert.doesNotMatch(JSON.stringify(status), /SECRET/);
-  assert.deepEqual(await vault.secrets(registered[0].accountId), secrets);
-  const observation = requests.find(r => r.path.includes("/chapter-analyses/") && r.path.endsWith("/observation"));
-  assert.equal(observation.body.code, "PROVIDER_REFUSAL");
-  assert.ok(!("diagnostic" in observation.body), "Diagnostics stay local");
-  denied = false;
-  await service.tick();
-  assert.equal(claims, 2, "A permission error must not require another Google login");
-  assert.equal((await manager.status()).accounts[0].lastError, null);
-  assert.equal((await manager.status()).accounts[0].lastDiagnostic, null);
-});
-
-test("accounts analyse in parallel, one job each, and the backend is asked per credential", async t => {
-  const { manager, requests, registered, journal } = await setup(t, 3);
-  const queue = [1, 2, 3];
-  let running = 0, peak = 0;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    request: async (path, body) => {
-      requests.push({ path, body });
-      if (path.endsWith("/claim")) return queue.length ? claimFor(queue.shift()) : null;
-      return null;
-    },
-    run: async (_account, _project, claim) => {
-      running++; peak = Math.max(peak, running);
-      await new Promise(resolve => setTimeout(resolve, 40));
-      running--; return completionFor(claim);
-    },
-  });
-  await service.tick();
-  assert.equal(peak, 3);
-  const claims = requests.filter(r => r.path.endsWith("/claim"));
-  assert.equal(new Set(claims.map(c => c.body.credentialRef)).size, 3);
-  assert.equal(requests.filter(r => r.path.endsWith("/complete")).length, 3);
-  assert.deepEqual(await readdir(journal), []);
-  assert.ok(registered.every(a => manager.runtime(a.accountId).activeJobId === null));
-});
-
-test("an account never runs two analyses at once even when ticks overlap", async t => {
-  const { manager, journal } = await setup(t, 1);
-  let running = 0, peak = 0, claims = 0;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    request: async path => path.endsWith("/claim") ? claimFor(++claims) : null,
-    run: async (_a, _p, claim) => { running++; peak = Math.max(peak, running); await new Promise(r => setTimeout(r, 30)); running--; return completionFor(claim); },
-  });
-  await Promise.all([service.tick(), service.tick(), service.tick()]);
-  assert.equal(peak, 1);
-});
-
-test("failed delivery and Desktop restart replay the saved result without a second inference", async t => {
-  const { manager, journal, registered } = await setup(t, 1);
-  let runs = 0, deliveries = 0, claims = 0;
-  const dependencies = {
-    accounts: manager, ready: async () => true, ...crypto,
-    run: async (_a, _p, claim) => { runs++; return completionFor(claim); },
-    request: async path => {
-      if (path.endsWith("/claim")) { claims++; return claimFor(1); }
-      if (path.endsWith("/complete")) { deliveries++; if (deliveries === 1) throw Error("network disconnected"); }
-      return null;
-    },
-  };
-  await new StoryAnalysisService(journal, dependencies).tick();
-  const file = join(journal, `pending-${registered[0].accountId}.encrypted`);
-  assert.match(await readFile(file, "utf8"), /rawJson/);
-  await new StoryAnalysisService(journal, dependencies).tick();
-  assert.deepEqual([runs, deliveries, claims], [1, 2, 1]);
-  await assert.rejects(readFile(file), { code: "ENOENT" });
-});
-
-test("a lost claim ACK is reconciled on restart without running inference", async t => {
-  const { manager, journal } = await setup(t, 1);
-  let runs = 0, recovered = 0;
-  const dependencies = {
-    accounts: manager, ready: async () => true, ...crypto,
-    run: async () => { runs++; throw Error("must not run"); },
-    request: async path => { if (path.endsWith("/claim")) throw Error("lost ACK"); if (path.endsWith("/recover")) recovered++; return null; },
-  };
-  await new StoryAnalysisService(journal, dependencies).tick();
-  await new StoryAnalysisService(journal, dependencies).tick();
-  assert.deepEqual([runs, recovered], [0, 1]);
-});
-
-test("an unpaired Desktop creates no claim, journal or inference", async t => {
-  const { manager, journal } = await setup(t, 2);
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => false, ...crypto,
-    request: async () => assert.fail("Unpaired Desktop cannot claim jobs"), run: async () => assert.fail("no inference"),
-  });
-  await service.tick();
-  await assert.rejects(readdir(journal), { code: "ENOENT" });
-});
-
-test("an ambiguous provider outcome is reported to the backend and never resubmitted", async t => {
-  const { manager, journal, registered, requests } = await setup(t, 1);
-  let runs = 0;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    run: async () => { runs++; throw new AnalysisError("AMBIGUOUS_OUTCOME", true); },
-    request: async (path, body) => { requests.push({ path, body }); return path.endsWith("/claim") ? claimFor(1) : null; },
-  });
-  await service.tick();
-  const observation = requests.find(r => r.path.includes("/chapter-analyses/") && r.path.endsWith("/observation"));
-  assert.deepEqual([observation.body.code, observation.body.ambiguous, runs], ["AMBIGUOUS_OUTCOME", true, 1]);
-  assert.equal(manager.runtime(registered[0].accountId).lastError, "AMBIGUOUS_OUTCOME");
-});
-
-test("rate limits and exhausted quota hold only the affected account; others keep claiming", async t => {
-  const { manager, journal, registered, requests } = await setup(t, 2);
-  let now = 1_000_000;
-  const claimedBy = [];
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto, now: () => now,
-    request: async (path, body) => { requests.push({ path, body }); if (path.endsWith("/claim")) { claimedBy.push(body.credentialRef); return claimFor(claimedBy.length); } return null; },
-    run: async (accountId, _p, claim) => {
-      if (accountId === registered[0].accountId) throw new AnalysisError("RATE_LIMITED", false, 30_000);
-      return completionFor(claim);
-    },
-  });
-  await service.tick();
-  const limited = manager.runtime(registered[0].accountId);
-  assert.equal(limited.quotaState, "RATE_LIMITED");
-  assert.equal(limited.nextEligibleAt, now + 30_000);
-  claimedBy.length = 0;
-  await service.tick();
-  assert.equal(claimedBy.length, 1, "only the healthy account claims during the hold-off");
-  assert.notEqual(claimedBy[0], `ref-${registered[0].fingerprint.slice(-2)}`);
-  now += 31_000;
-  claimedBy.length = 0;
-  await service.tick();
-  assert.equal(claimedBy.length, 2);
-  assert.ok(requests.some(r => r.path.endsWith("/observation") && r.body.quotaState === "RATE_LIMITED"));
-});
-
-test("an account whose Google session expired stops claiming until the user signs in again", async t => {
-  const { manager, journal, registered } = await setup(t, 1);
-  let claims = 0;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    request: async path => { if (path.endsWith("/claim")) { claims++; return claimFor(claims); } return null; },
-    run: async () => { throw new AnalysisError("AUTH_REQUIRED", false); },
-  });
-  await service.tick();
-  await service.tick();
-  assert.equal(claims, 1);
-  assert.equal(manager.runtime(registered[0].accountId).connectionState, "AUTH_REQUIRED");
-  assert.equal((await manager.status()).accounts[0].connectionState, "AUTH_REQUIRED");
-});
-
-test("a result the backend rejects is kept encrypted and is not regenerated", async t => {
-  const { manager, journal, registered } = await setup(t, 1);
-  let runs = 0, claimed = false;
-  const service = new StoryAnalysisService(journal, {
-    accounts: manager, ready: async () => true, ...crypto,
-    run: async (_a, _p, claim) => { runs++; return completionFor(claim); },
-    request: async path => {
-      if (path.endsWith("/claim")) { if (claimed) return null; claimed = true; return claimFor(1); }
-      if (path.endsWith("/complete")) throw new AnalysisBackendError(422);
+      if (requestHook) { const outcome = await requestHook(path, body); if (outcome !== undefined) return outcome; }
+      if (path.endsWith("/claim")) return queue.shift() ?? null;
       if (path.endsWith("/cancellation")) return false;
       return null;
     },
+    run: run ?? (async claim => { runs.push(claim.attemptId); return completion(claim.attemptId); }),
+    encrypt, decrypt: decryptWith,
   });
-  await service.tick();
-  await service.tick();
-  assert.equal(runs, 1);
-  assert.equal(manager.runtime(registered[0].accountId).lastError, "SCHEMA_INVALID");
-  assert.ok((await readdir(journal)).some(name => name.endsWith(".rejected.encrypted")));
+  return { service, directory, requests, notes, runs, queue, cleanup: () => { service.stop(); return rm(root, { recursive: true, force: true }); } };
+}
+const posts = (h, suffix) => h.requests.filter(r => r.path.endsWith(suffix));
+const journals = async h => (await readdir(h.directory).catch(() => [])).filter(name => name.startsWith("pending-"));
+
+test("one chapter: claim, run, complete, and the journal is gone", async () => {
+  const h = await build();
+  try {
+    await h.service.tick();
+    await h.service.idle();
+    const claim = posts(h, "/claim")[0].body;
+    assert.equal(claim.credentialRef, REF);
+    assert.equal(claim.adapterVersion, "antigravity-cli/1");
+    assert.match(claim.claimRequestId, /^[0-9a-f-]{36}$/u);
+    assert.deepEqual(h.runs, ["attempt-1"]);
+    const complete = posts(h, "/attempt-1/complete");
+    assert.equal(complete.length, 1);
+    assert.equal(complete[0].body.leaseToken, "lease-attempt-1");
+    assert.equal(complete[0].body.adapterVersion, "antigravity-cli/1");
+    assert.deepEqual(await journals(h), []);
+    assert.equal(h.notes.success, 1);
+  } finally { await h.cleanup(); }
 });
 
-test("registering an account sends only a fingerprint and masked label; removing retires the credential", async t => {
-  const { manager, requests, registered, vault } = await setup(t, 1);
-  const prepared = await manager.prepare(registered[0].accountId);
-  assert.match(prepared.credentialRef, /^ref-/);
-  const call = requests.find(r => r.path.endsWith("/analysis-credentials"));
-  assert.match(call.body.fingerprint, /^[0-9a-f]{64}$/);
-  assert.doesNotMatch(JSON.stringify(call.body), /refresh|access|token|@gmail\.com$/i);
-  assert.equal((await vault.list())[0].credentialRef, prepared.credentialRef);
-  assert.equal((await manager.status()).accounts[0].connectionState, "CONNECTED");
-  manager.update(registered[0].accountId, { activeJobId: "busy" });
-  await assert.rejects(manager.removeAccount(registered[0].accountId), /ANALYSIS_IN_PROGRESS/);
-  manager.update(registered[0].accountId, { activeJobId: null });
-  const status = await manager.removeAccount(registered[0].accountId);
-  assert.equal(status.accounts.length, 0);
-  assert.ok(requests.some(r => r.path.endsWith(`/analysis-credentials/${prepared.credentialRef}/retire`)));
+test("the encrypted journal never keeps the chapter text", async () => {
+  let snapshot = "";
+  const h = await build({ run: async claim => {
+    for (const name of await readdir(join(h.directory)).catch(() => [])) if (name.startsWith("pending-")) snapshot += await (await import("node:fs/promises")).readFile(join(h.directory, name), "utf8");
+    return completion(claim.attemptId);
+  } });
+  try {
+    await h.service.tick();
+    await h.service.idle();
+    assert.match(snapshot, /attempt-1/u);
+    assert.doesNotMatch(snapshot, /secret chapter text/u);
+  } finally { await h.cleanup(); }
 });
 
-test("without an OAuth client profile the status says so and no account can be added", async t => {
-  const { vault } = await setup(t, 0);
-  const manager = new AccountManager({
-    vault, profile: async () => ({ ok: false, issue: "OAUTH_CLIENT_MISSING" }), oauth: { fetch, openUrl: async () => assert.fail("no browser") },
-    ready: async () => true, ensureDevice: async () => {}, request: async () => null,
-  });
-  const status = await manager.status();
-  assert.deepEqual([status.configured, status.profileIssue], [false, "OAUTH_CLIENT_MISSING"]);
-  await assert.rejects(manager.addAccount(), { code: "OAUTH_NOT_CONFIGURED" });
+test("claims up to maxParallel chapters at once and no more", async () => {
+  const release = [];
+  let active = 0, peak = 0;
+  const h = await build({ jobs: 5, maxParallel: 2, run: claim => new Promise(resolve => {
+    active++; peak = Math.max(peak, active);
+    release.push(() => { active--; resolve(completion(claim.attemptId)); });
+  }) });
+  try {
+    await h.service.tick();
+    assert.equal(posts(h, "/claim").length, 2, "exactly two claims while two slots are free");
+    assert.equal(active, 2);
+    await h.service.tick();
+    assert.equal(posts(h, "/claim").length, 2, "a full house claims nothing more");
+    release.shift()();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    await h.service.tick();
+    assert.equal(posts(h, "/claim").length, 3, "a freed slot is refilled");
+    while (release.length) { release.shift()(); await new Promise(resolve => setTimeout(resolve, 5)); }
+    await h.service.idle();
+    assert.equal(peak, 2);
+    assert.equal(posts(h, "/complete").length, 3);
+  } finally { await h.cleanup(); }
+});
+
+test("nothing is claimed while the session is not eligible, and an empty queue leaves no journal", async () => {
+  const blocked = await build({ eligible: false });
+  try { await blocked.service.tick(); assert.equal(blocked.requests.length, 0); }
+  finally { await blocked.cleanup(); }
+  const empty = await build({ jobs: 0, maxParallel: 3 });
+  try {
+    await empty.service.tick();
+    assert.equal(posts(empty, "/claim").length, 1, "stops asking after the first empty answer");
+    assert.deepEqual(await journals(empty), []);
+  } finally { await empty.cleanup(); }
+});
+
+test("a known failure is observed as not ambiguous; an unresolved one as ambiguous", async () => {
+  for (const [error, expected] of [
+    [new AnalysisError("QUOTA_EXHAUSTED", false), { code: "QUOTA_EXHAUSTED", ambiguous: false }],
+    [new AnalysisError("AMBIGUOUS_OUTCOME", true), { code: "AMBIGUOUS_OUTCOME", ambiguous: true }],
+    [new Error("boom"), { code: "AMBIGUOUS_OUTCOME", ambiguous: true }],
+  ]) {
+    const h = await build({ run: async () => { throw error; } });
+    try {
+      await h.service.tick();
+      await h.service.idle();
+      const observation = posts(h, "/attempt-1/observation")[0];
+      assert.deepEqual({ code: observation.body.code, ambiguous: observation.body.ambiguous }, expected);
+      assert.equal(posts(h, "/complete").length, 0);
+      assert.deepEqual(h.runs, [], "no second inference");
+      assert.deepEqual(h.notes.failures, [expected.code]);
+      assert.deepEqual(await journals(h), []);
+    } finally { await h.cleanup(); }
+  }
+});
+
+test("a failed delivery keeps the result and delivers it later without running again", async () => {
+  let failures = 1;
+  const h = await build({ requestHook: path => { if (path.endsWith("/complete") && failures-- > 0) throw new AnalysisBackendError(503); } });
+  try {
+    await h.service.tick();
+    await h.service.idle();
+    assert.equal((await journals(h)).length, 1);
+    assert.ok(h.notes.delivery.includes("RESULT_DELIVERY_PENDING"));
+    await h.service.tick();
+    await h.service.idle();
+    assert.equal(posts(h, "/attempt-1/complete").length, 2);
+    assert.deepEqual(h.runs, ["attempt-1"], "inference ran exactly once");
+    assert.deepEqual(await journals(h), []);
+  } finally { await h.cleanup(); }
+});
+
+test("after a restart a stored result is delivered and an interrupted claim is recovered", async () => {
+  const h = await build({ jobs: 0 });
+  try {
+    await mkdir(h.directory, { recursive: true });
+    const done = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", interrupted = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", claimedOnly = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const write = (id, journal) => writeFile(join(h.directory, `pending-${id}.encrypted`), encrypt(JSON.stringify({ claimRequestId: id, credentialRef: REF, ...journal })));
+    await write(done, { claim: { jobId: "j", attemptId: "attempt-9", leaseToken: "l9" }, completion: completion("attempt-9", "l9") });
+    await write(interrupted, {});
+    await write(claimedOnly, { claim: { jobId: "j", attemptId: "attempt-8", leaseToken: "l8" } });
+    await h.service.tick();
+    assert.equal(posts(h, "/attempt-9/complete").length, 1);
+    assert.deepEqual(posts(h, "/recover").map(r => r.body.claimRequestId).sort(), [interrupted, claimedOnly].sort());
+    assert.deepEqual(await journals(h), []);
+    assert.deepEqual(h.runs, [], "recovery never re-runs inference");
+  } finally { await h.cleanup(); }
+});
+
+test("a result the backend rejects is kept encrypted, reported as invalid and not regenerated", async () => {
+  const h = await build({ requestHook: path => { if (path.endsWith("/complete")) throw new AnalysisBackendError(422); } });
+  try {
+    await h.service.tick();
+    await h.service.idle();
+    const observation = posts(h, "/attempt-1/observation")[0];
+    assert.deepEqual({ code: observation.body.code, ambiguous: observation.body.ambiguous }, { code: "SCHEMA_INVALID", ambiguous: false });
+    assert.ok((await readdir(h.directory)).includes("attempt-1.rejected.encrypted"));
+    assert.deepEqual(await journals(h), []);
+    assert.deepEqual(h.runs, ["attempt-1"]);
+  } finally { await h.cleanup(); }
+});
+
+test("a lost claim answer is reconciled with recover instead of claiming blind", async () => {
+  let fail = true;
+  const h = await build({ requestHook: path => { if (path.endsWith("/claim") && fail) { fail = false; throw new Error("network down"); } } });
+  try {
+    await h.service.tick();
+    assert.equal((await journals(h)).length, 1, "intent journal kept");
+    const lost = posts(h, "/claim")[0].body.claimRequestId;
+    await h.service.tick();
+    await h.service.idle();
+    assert.equal(posts(h, "/recover")[0].body.claimRequestId, lost);
+    assert.equal(posts(h, "/complete").length, 1, "the next claim proceeds normally");
+  } finally { await h.cleanup(); }
+});
+
+test("an unreadable journal is set aside instead of blocking the queue", async () => {
+  const h = await build({ jobs: 1, decryptWith: value => { const text = decrypt(value); if (text === "garbage") throw new Error("cannot decrypt"); return text; } });
+  try {
+    await mkdir(h.directory, { recursive: true });
+    const id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await writeFile(join(h.directory, `pending-${id}.encrypted`), encrypt("garbage"));
+    await h.service.tick();
+    await h.service.idle();
+    const names = await readdir(h.directory);
+    assert.ok(names.includes(`pending-${id}.encrypted.corrupt`));
+    assert.equal(posts(h, "/complete").length, 1, "the healthy chapter still runs");
+  } finally { await h.cleanup(); }
 });

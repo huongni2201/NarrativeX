@@ -1,4 +1,4 @@
-import type { DesktopProject } from "@narrativex/client-contracts";
+import type { DesktopProject } from "../../shared/api-types";
 import { dialog } from "electron";
 import { dirname } from "node:path";
 import { deliverRenderArtifact } from "../rendering/render-destination";

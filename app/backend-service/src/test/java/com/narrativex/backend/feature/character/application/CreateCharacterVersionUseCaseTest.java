@@ -13,9 +13,8 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.application.usecase.CreateCharacterVersionUseCase;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
-import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterReferencePolicy;
-import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
 import java.math.BigDecimal;
 import java.util.List;
@@ -72,10 +71,18 @@ class CreateCharacterVersionUseCaseTest {
     when(characterRepository.findByIdForUpdate(CHARACTER_ID)).thenReturn(Optional.of(character()));
     when(versionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
     when(versionRepository.findById(basedOnVersionId))
-        .thenReturn(Optional.of(CharacterVersion.rehydrate(
-            basedOnVersionId, 0L, CHARACTER_ID, 2, "old bible", "old prompt",
-            com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus.LOCKED,
-            null)));
+        .thenReturn(
+            Optional.of(
+                CharacterVersion.rehydrate(
+                    basedOnVersionId,
+                    0L,
+                    CHARACTER_ID,
+                    2,
+                    "old bible",
+                    "old prompt",
+                    com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus
+                        .LOCKED,
+                    null)));
     when(versionRepository.save(any(CharacterVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     var useCase = new CreateCharacterVersionUseCase(characterRepository, versionRepository);

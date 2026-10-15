@@ -1,4 +1,4 @@
-import type { LocalRenderPreflight } from "@narrativex/client-contracts";
+import type { LocalRenderPreflight } from "../../../shared/api-types";
 import type {
   LocalExecutionStatus,
   LocalRenderPreflightInput,

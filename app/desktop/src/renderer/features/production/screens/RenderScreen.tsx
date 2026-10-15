@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AutoEditStyle, DesktopTimeline, RenderResolution } from "@narrativex/client-contracts";
+import type { AutoEditStyle, DesktopTimeline, RenderResolution } from "../../../../shared/api-types";
 import { Film, FolderOpen, HardDrive, Type, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

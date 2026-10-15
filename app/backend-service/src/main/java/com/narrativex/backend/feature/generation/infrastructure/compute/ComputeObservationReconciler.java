@@ -9,10 +9,10 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Legacy blocking polling helper; deprecated in favor of ADR-0025 event-driven callbacks and
+ * Legacy blocking polling helper; deprecated in favor of ADR-0003 event-driven callbacks and
  * scheduled non-blocking reconciliation via {@link ComputeReconciliationService}.
  */
-@Deprecated(since = "ADR-0025", forRemoval = true)
+@Deprecated(since = "ADR-0003", forRemoval = true)
 @Slf4j
 public final class ComputeObservationReconciler {
   @FunctionalInterface

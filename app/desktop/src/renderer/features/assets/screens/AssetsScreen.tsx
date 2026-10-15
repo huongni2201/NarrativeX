@@ -3,7 +3,7 @@ import type {
   DesktopAsset,
   DesktopChapterDetails,
   DesktopTimeline,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { FileAudio, FileImage, Film, Plus, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

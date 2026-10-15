@@ -4,7 +4,7 @@ import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   UpdateChapterInput,
-} from "@narrativex/client-contracts";
+} from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client";
 import { isNumber, isRecord, isString } from "../../../api/guards";
 import { collectCursorPages, parseCursorPage } from "../../../api/pagination";

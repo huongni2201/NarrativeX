@@ -1,4 +1,4 @@
-import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import type { DesktopTimeline, DesktopTimelineBeat } from "../../../shared/api-types";
 
 export type EditorScope = "beat" | "scene" | "chapter" | "project";
 

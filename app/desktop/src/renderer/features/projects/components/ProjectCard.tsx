@@ -1,5 +1,5 @@
 import { ArrowRight, Layers3 } from "lucide-react";
-import type { DesktopProject } from "@narrativex/client-contracts";
+import type { DesktopProject } from "../../../../shared/api-types";
 import { resolveProjectContinuation } from "../model/project-continuation";
 
 const STATUS_LABELS: Readonly<Record<string, string>> = {

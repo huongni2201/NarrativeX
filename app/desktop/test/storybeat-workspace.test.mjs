@@ -68,12 +68,10 @@ test("StoryBeat hierarchy maintains semantic parent contract", () => {
   assert.equal(mockStoryBeat.persistenceState, "PERSISTED");
 });
 
-test("jobs and health query keys conform to cache namespaces", async () => {
+test("jobs query keys conform to cache namespaces", async () => {
   const { jobQueryKeys } = await import("../src/renderer/features/jobs/queries/jobs.queries.ts");
-  const { healthQueryKeys } = await import("../src/renderer/features/workspace/queries/health.queries.ts");
 
   assert.deepEqual(jobQueryKeys.history(20), ["jobs", "history", 20]);
-  assert.deepEqual(healthQueryKeys.provider(), ["health", "provider"]);
 });
 
 test("story API review status contract requires optimistic concurrency rowVersion", async () => {
@@ -121,7 +119,7 @@ test("synthetic story beats distinguish from persisted beats and preserve legacy
 });
 
 test("mutation response contract does not require full DesktopStoryBeat fields", () => {
-  /** @type {import("@narrativex/client-contracts").StoryBeatMutationResponse} */
+  /** @type {import("../src/shared/api-types").StoryBeatMutationResponse} */
   const mutationResponse = {
     id: "beat-1",
     sceneId: "scene-1",

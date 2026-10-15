@@ -1,4 +1,4 @@
-import type { ChapterProductionStatus } from "@narrativex/client-contracts";
+import type { ChapterProductionStatus } from "../../../../shared/api-types";
 
 export function productionStageStatus(status?: ChapterProductionStatus | null) {
   return {

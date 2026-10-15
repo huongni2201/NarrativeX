@@ -112,8 +112,8 @@ test("renderer bridge exposes no project synchronization surface", () => {
 });
 
 test("project media contracts contain no storage-mode abstraction", () => {
-  const assetContracts = source("packages", "client-contracts", "src", "asset.ts");
-  const productionContracts = source("packages", "client-contracts", "src", "production.ts");
+  const assetContracts = source("app", "desktop", "src", "shared", "api-types", "asset.ts");
+  const productionContracts = source("app", "desktop", "src", "shared", "api-types", "production.ts");
 
   assert.doesNotMatch(assetContracts, /storageMode|LOCAL_ONLY|PROJECT_LOCAL|HYBRID/);
   assert.doesNotMatch(productionContracts, /BeatMediaStorageMode|storageMode|LOCAL_ONLY|PROJECT_LOCAL|HYBRID/);
