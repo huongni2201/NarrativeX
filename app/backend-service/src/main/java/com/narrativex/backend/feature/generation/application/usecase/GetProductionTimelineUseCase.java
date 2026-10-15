@@ -52,9 +52,62 @@ public class GetProductionTimelineUseCase {
     List<ProductionTimelineView.Chapter> chapters = new ArrayList<>();
     List<ProductionTimelineView.Beat> beats = new ArrayList<>();
     boolean readyForRender = oneAspectRatio;
+    boolean nativeMode = beatSources.stream().anyMatch(source -> source.shotId() != null);
 
     for (ChapterSource chapter : chapterSources) {
       List<BeatSource> chapterBeats = beatsByChapter.getOrDefault(chapter.chapterId(), List.of());
+      if (nativeMode) {
+        long chapterStart = cursorMs;
+        int readyCuts = 0;
+        for (BeatSource cut : chapterBeats) {
+          boolean validCut =
+              cut.shotId() != null
+                  && cut.takeId() != null
+                  && positive(cut.sourceDurationMs())
+                  && cut.sourceOutMs() != null
+                  && cut.trimStartMs() >= 0
+                  && cut.sourceOutMs() > cut.trimStartMs()
+                  && cut.sourceOutMs() <= cut.sourceDurationMs();
+          long duration = validCut ? cut.sourceOutMs() - cut.trimStartMs() : 0;
+          var planned = buildBeat(chapter, cut, cursorMs, safeAdd(cursorMs, duration));
+          beats.add(planned);
+          if (validCut
+              && planned.assetReady()
+              && nonBlank(cut.storageKey())
+              && "VIDEO".equals(cut.mediaType())) readyCuts++;
+          cursorMs = safeAdd(cursorMs, duration);
+        }
+        boolean complete =
+            chapterBeats.stream().map(BeatSource::visualBeatId).distinct().count()
+                    == chapter.beatCount()
+                && !chapterBeats.isEmpty()
+                && readyCuts == chapterBeats.size();
+        readyForRender &= complete;
+        chapters.add(
+            new ProductionTimelineView.Chapter(
+                chapter.chapterId(),
+                chapter.orderIndex(),
+                chapter.title(),
+                chapter.rowVersion(),
+                chapter.sourceHash(),
+                chapter.mediaPlanId(),
+                chapter.mediaPlanRevision(),
+                chapterStart,
+                cursorMs,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "",
+                null,
+                chapter.beatCount(),
+                complete ? chapter.beatCount() : 0,
+                complete));
+        continue;
+      }
       long chapterDurationMs = resolveChapterDuration(chapter, chapterBeats);
       List<AudioRange> alignedClock = resolveAlignedClock(chapter, chapterBeats, chapterDurationMs);
       boolean exactTiming = !chapterBeats.isEmpty() && alignedClock.size() == chapterBeats.size();

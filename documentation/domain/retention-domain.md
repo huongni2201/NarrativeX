@@ -1,14 +1,14 @@
 # Retention Domain Model & Engine
 
-**Status:** Authoritative Domain Specification  
+**Status:** PARTIAL domain model; autonomous retention planning and feedback are not implemented
 **Authority:** ADR-0031  
-**Date:** 2026-09-20  
+**Current implementation:** `HookPlan`, `RetentionMap`, and `AttentionEvent` records exist and are materialized by Chapter Analysis. This document describes their intended meaning, not a shipped retention engine.
 
 ---
 
 ## 1. Principles
 
-Viewer retention is not merely a post-publish analytics readout; it is an active constraint during story and shot planning. The Retention Engine ensures narrative velocity, timely hook deployment, balanced tension curves, and continuous sensory engagement.
+Retention data can describe narrative hooks, tension, questions, and attention events for creator review. The current system does not automatically enforce pacing rules, optimize hooks, or retune production from post-publish analytics. Those behaviors remain TARGET or DEFERRED under [ADR-0031](../decisions/ADR-0031-retention-driven-narrative-planning.md).
 
 ---
 
@@ -86,4 +86,4 @@ An `AttentionEvent` represents a perceptible shift that resets audience attentio
 - `PAYOFF`: Climax of an earlier setup.
 
 ### Pacing Risk Guardrail
-If elapsed narration exceeds 12–15 seconds without at least one detected Attention Event or state change, the Retention Engine issues a `PACING_RISK` warning. This alerts the director to introduce a reaction shot, angle shift, or sound cue before committing expensive GPU generation.
+The stored model can carry pacing warnings, but there is no enforced 12–15 second runtime threshold. Automatic warning generation and production changes based on those warnings remain TARGET; post-publish automated retuning is DEFERRED.

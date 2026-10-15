@@ -2,6 +2,9 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
@@ -19,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 class BackendVisualBeatPromptProviderTest {
+  private final CountingSettings settingsAccess = new CountingSettings();
+
   private static final String DIRECTION =
       "{\"shot_size\":\"CLOSE_UP\",\"camera_angle\":\"EYE_LEVEL\",\"lens_mm\":50,"
           + "\"focus_target\":\"Lan's face\",\"action_phase\":\"REACTION\","
@@ -46,11 +51,15 @@ class BackendVisualBeatPromptProviderTest {
     var repository = new StubContextRepository(sceneContext, beatContext);
     var composer = new VisualPromptComposer(JsonMapper.builder().build());
     var storyboardComposer = new StoryboardVisualPromptComposer(composer);
-    var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository);
+    var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository, settingsAccess);
 
     var composed =
         storyboardComposer.compose(
-            beat.getVisualIntent(), beat.getVisualDirectionJson(), null, beatContext);
+            settingsAccess.current(),
+            beat.getVisualIntent(),
+            beat.getVisualDirectionJson(),
+            null,
+            beatContext);
     var expectedPrompt = VisualPromptText.finalPrompt(composed);
 
     assertThat(provider.promptFor(projectId, beat)).isEqualTo(expectedPrompt);
@@ -77,12 +86,12 @@ class BackendVisualBeatPromptProviderTest {
     var repository = new StubContextRepository(context, context);
     var composer = new VisualPromptComposer(JsonMapper.builder().build());
     var storyboardComposer = new StoryboardVisualPromptComposer(composer);
-    var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository);
+    var provider = new BackendVisualBeatPromptProvider(storyboardComposer, repository, settingsAccess);
 
     var expected =
         VisualPromptText.finalPrompt(
             composer.compose(
-                com.narrativex.backend.feature.generation.domain.enums.ImageStyle.CINEMATIC_ANIME,
+                settingsAccess.current(),
                 VisualPromptSafety.sanitizeSceneDirection(beat.getVisualIntent()),
                 beat.getVisualDirectionJson(),
                 null,
@@ -102,13 +111,46 @@ class BackendVisualBeatPromptProviderTest {
     var composer = new VisualPromptComposer(JsonMapper.builder().build());
     var provider =
         new BackendVisualBeatPromptProvider(
-            new StoryboardVisualPromptComposer(composer), repository);
+            new StoryboardVisualPromptComposer(composer), repository, settingsAccess);
 
     var prompts = provider.promptsFor(projectId, List.of(first, second));
 
     assertThat(prompts).containsKeys(first.getId(), second.getId());
     assertThat(repository.batchCalls).isEqualTo(1);
     assertThat(repository.singleCalls).isZero();
+    assertThat(settingsAccess.reads).isEqualTo(1);
+  }
+
+  @Test
+  void promptFollowsTheCurrentlySavedStyle() {
+    var beat = beat(UUID.randomUUID(), UUID.randomUUID());
+    var context = VisualPromptContext.empty();
+    var composer = new VisualPromptComposer(JsonMapper.builder().build());
+    var provider =
+        new BackendVisualBeatPromptProvider(
+            new StoryboardVisualPromptComposer(composer),
+            new StubContextRepository(context, context),
+            settingsAccess);
+
+    String anime = provider.promptFor(UUID.randomUUID(), beat);
+    settingsAccess.settings =
+        PromptSettingsDefaults.settings().withActiveStyle("STORYBOOK_WATERCOLOR");
+    String watercolor = provider.promptFor(UUID.randomUUID(), beat);
+
+    assertThat(anime).contains("premium semi-realistic 3D CGI");
+    assertThat(watercolor).containsIgnoringCase("watercolor").doesNotContain("3D CGI character");
+    assertThat(watercolor).isNotEqualTo(anime);
+  }
+
+  private static final class CountingSettings implements PromptSettingsAccess {
+    PromptSettings settings = PromptSettingsDefaults.settings().withRevision(1);
+    int reads;
+
+    @Override
+    public PromptSettings current() {
+      reads++;
+      return settings;
+    }
   }
 
   private static VisualBeat beat(UUID beatId, UUID sceneId) {

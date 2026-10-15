@@ -31,14 +31,14 @@ MediaAsset metadata -> immutable project media identity
 FinalArtifact metadata -> immutable final-video metadata; MP4 bytes in Desktop storage
 ```
 
-`StoryBeat` is the shared semantic unit for narration and visual planning. `AudioCue` is required to belong to a StoryBeat. The schema still permits legacy/manual `VisualBeat` rows without a `story_beat_id`; the read model exposes those rows through a compatibility container. New canonical authoring and planning should attach VisualBeats to StoryBeats.
+`StoryBeat` is the shared semantic unit for narration and visual planning. `AudioCue` is required to belong to a StoryBeat. A `VisualBeat` describes dramatic visual intent under that story context; the video production unit is `Shot`, grouped under a `ShotSequence`. The schema still permits legacy/manual `VisualBeat` rows without a `story_beat_id`; the read model exposes those rows through a compatibility container. New canonical authoring and planning should attach VisualBeats to StoryBeats.
 
 ## Business Rules and Invariants
 
 ### 1. Project as Business Root (ADR-0020)
 
 - **BR-01**: Project is the primary business and data boundary. The application boots directly into the local workspace.
-- **BR-02**: There is no synthetic application User, Account, Guest installation, Session, OAuth token, role gate, or tenant isolation model.
+- **BR-02**: There is no synthetic application User, session, role gate, or tenant isolation model. Provider credentials, if enabled as runtime concerns, do not create business ownership or an application login identity.
 - **BR-03**: Project creation and Chapter edits persist source text and metadata only; they never implicitly trigger expensive AI or render operations.
 
 ### 2. Hierarchy, Identity, and Continuity
@@ -52,7 +52,7 @@ FinalArtifact metadata -> immutable final-video metadata; MP4 bytes in Desktop s
 
 ### 3. Narration and Audio as Master Clock
 
-- **BR-20**: Narration alignment is the master clock and duration authority for the production timeline.
+- **BR-20**: Narration alignment is the master clock for narration-driven timing and `EXTERNAL_NARRATION` rendering. Native AV selected cuts use their frozen take audio and source ranges; subtitle word timing remains partial.
 - **BR-21**: TTS narrates exact persisted Chapter text without rewriting source.
 - **BR-22**: USER_PROVIDED_AUDIO allows single or multiple ordered audio files spanning Chapters. Part boundaries do not define Chapter boundaries; a single logical audio clock is maintained.
 - **BR-23**: A USER_PROVIDED_AUDIO plan skips TTS generation. Alignment failures stop for creator review rather than silently substituting generated TTS.
@@ -61,7 +61,7 @@ FinalArtifact metadata -> immutable final-video metadata; MP4 bytes in Desktop s
 
 ### 4. Visual Beats and Timing
 
-- **BR-30**: VisualBeat represents a continuous visual intent and is the primary unit of visual generation within its StoryBeat.
+- **BR-30**: VisualBeat represents dramatic visual intent within its StoryBeat. In video-first production, Shot is the atomic generation, take, and quality-review unit.
 - **BR-31**: `visual_beats` stores source-text anchors (`text_start`, `text_end`), not duplicate audio timestamps. Runtime audio spans are mapped dynamically from narration alignment via NarrationTextClockMapper.
 - **BR-32**: `visual_direction_json` is the sole structured camera and composition authority.
 - **BR-33**: VisualGenerationMode defaults to VIDEO through native video foundation models (LTX-2.5) via provider-neutral `video.generate` compute protocol. IMAGE is retained in a supporting role (reference conditioning, character portraits, keyframes, thumbnails).

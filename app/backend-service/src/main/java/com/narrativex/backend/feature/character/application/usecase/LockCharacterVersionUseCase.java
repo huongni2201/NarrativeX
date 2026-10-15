@@ -4,6 +4,8 @@ import com.narrativex.backend.feature.character.application.command.ChangeCharac
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.feature.character.domain.enums.CharacterReferencePolicy;
+import com.narrativex.backend.feature.character.domain.service.CharacterReferencePackPolicy;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +26,28 @@ public class LockCharacterVersionUseCase {
         versionRepository
             .findByIdForUpdate(command.characterVersionId())
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
-    boolean hasIdentityReference =
-        referenceRepository.findByVersionId(command.characterVersionId()).stream()
-            .anyMatch(reference -> "IDENTITY".equalsIgnoreCase(reference.role()));
-    if (!hasIdentityReference) {
-      throw new ResourceConflictException(
-          "Character version requires an IDENTITY reference before lock");
+    var references = referenceRepository.findByVersionId(command.characterVersionId());
+    if (version.getReferencePolicy() == CharacterReferencePolicy.LEGACY_IDENTITY_V1) {
+      boolean hasIdentityReference =
+          references.stream().anyMatch(reference -> "IDENTITY".equalsIgnoreCase(reference.role()));
+      if (!hasIdentityReference) {
+        throw new ResourceConflictException(
+            "Character version requires an IDENTITY reference before lock");
+      }
+    } else {
+      var missingSlots = CharacterReferencePackPolicy.missingSlots(references);
+      var duplicateSlots = CharacterReferencePackPolicy.duplicateSlots(references);
+      boolean hasSlotlessReferences =
+          CharacterReferencePackPolicy.hasSlotlessReferences(references);
+      if (!missingSlots.isEmpty() || !duplicateSlots.isEmpty() || hasSlotlessReferences) {
+        throw new ResourceConflictException(
+            "Multi-view character version requires one active reference per slot; missing="
+                + missingSlots
+                + ", duplicates="
+                + duplicateSlots
+                + ", slotless="
+                + hasSlotlessReferences);
+      }
     }
     version.lock();
     CharacterVersion saved = versionRepository.save(version);

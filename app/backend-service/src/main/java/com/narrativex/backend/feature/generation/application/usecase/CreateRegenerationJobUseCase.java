@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterContinuityRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -12,7 +13,6 @@ import com.narrativex.backend.feature.generation.application.port.out.StageAttem
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
-import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
@@ -45,6 +45,7 @@ public class CreateRegenerationJobUseCase {
   private final StageAttemptRepository stageAttemptRepository;
   private final ImageGenerationCatalog imageGenerationCatalog;
   private final NarrativeXLimitsProperties limits;
+  private final PromptSettingsAccess promptSettingsAccess;
 
   @Transactional
   public GenerationJob execute(
@@ -126,7 +127,9 @@ public class CreateRegenerationJobUseCase {
                 settings.aspectRatio(),
                 imageProfile.providerKey(),
                 imageProfile.model(),
-                ImageStyle.from(settings.imageStyle()),
+                // A regeneration is a new operation: it uses the current prompt configuration and
+                // freezes it into its own plan; earlier plans keep their frozen prompts.
+                promptSettingsAccess.current(),
                 Set.copyOf(regenerationPlan.affectedBeatIds())));
 
     GenerationJob job =

@@ -203,3 +203,40 @@ CREATE TRIGGER trg_generation_jobs_events
 AFTER INSERT OR UPDATE ON generation_jobs
 FOR EACH ROW
 EXECUTE FUNCTION notify_generation_job_change();
+
+-- Frozen take admission metadata survives result/status updates.
+CREATE FUNCTION protect_take_inputs() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF (OLD.generation_job_id, OLD.compute_task_id, OLD.compute_attempt_id, OLD.operation_plan_id,
+      OLD.input_snapshot_json, OLD.input_fingerprint, OLD.shot_id, OLD.attempt_number, OLD.provider, OLD.model, OLD.generation_mode)
+    IS DISTINCT FROM
+     (NEW.generation_job_id, NEW.compute_task_id, NEW.compute_attempt_id, NEW.operation_plan_id,
+      NEW.input_snapshot_json, NEW.input_fingerprint, NEW.shot_id, NEW.attempt_number, NEW.provider, NEW.model, NEW.generation_mode) THEN
+    RAISE EXCEPTION 'Take admission inputs are immutable';
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER takes_frozen_inputs BEFORE UPDATE ON takes
+  FOR EACH ROW EXECUTE FUNCTION protect_take_inputs();
+
+-- Chapter analysis execution snapshots are immutable once admitted.
+CREATE FUNCTION reject_chapter_analysis_snapshot_mutation() RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'chapter analysis execution snapshots are immutable';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_chapter_analysis_execution_snapshots_immutable
+    BEFORE UPDATE ON chapter_analysis_execution_snapshots
+    FOR EACH ROW EXECUTE FUNCTION reject_chapter_analysis_snapshot_mutation();
+
+-- Frozen Chapter Analysis prompt snapshots are immutable once admitted.
+CREATE FUNCTION reject_chapter_analysis_prompt_snapshot_mutation() RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'chapter analysis prompt snapshots are immutable';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_chapter_analysis_prompt_snapshots_immutable
+    BEFORE UPDATE ON chapter_analysis_prompt_snapshots
+    FOR EACH ROW EXECUTE FUNCTION reject_chapter_analysis_prompt_snapshot_mutation();

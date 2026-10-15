@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.character.application.usecase;
 import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
+import com.narrativex.backend.feature.character.domain.enums.CharacterReferencePolicy;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
 import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
@@ -40,10 +41,14 @@ public class SetCharacterVersionReferencesUseCase {
     if (version.getStatus() == CharacterVersionStatus.LOCKED) {
       throw new ResourceConflictException("Locked character versions are immutable");
     }
-
     List<ReferenceInput> safeInputs = inputs == null ? List.of() : List.copyOf(inputs);
     if (safeInputs.size() > MAX_SAVED_REFERENCES) {
       throw new IllegalArgumentException("A character version can save at most 8 references");
+    }
+    if (version.getReferencePolicy() == CharacterReferencePolicy.MULTI_VIEW_V1
+        && safeInputs.isEmpty()) {
+      throw new ResourceConflictException(
+          "A multi-view reference pack cannot be cleared outside candidate review");
     }
 
     Set<UUID> assetIds = new HashSet<>();
@@ -58,6 +63,15 @@ public class SetCharacterVersionReferencesUseCase {
       }
       if (input.priority() < 0 || input.priority() > 99) {
         throw new IllegalArgumentException("Reference priority must be between 0 and 99");
+      }
+      if (version.getReferencePolicy() == CharacterReferencePolicy.MULTI_VIEW_V1
+          && input.slot() == null) {
+        throw new ResourceConflictException(
+            "Each multi-view candidate needs a canonical slot before review");
+      }
+      if (version.getReferencePolicy() == CharacterReferencePolicy.LEGACY_IDENTITY_V1
+          && input.slot() != null) {
+        throw new IllegalArgumentException("Legacy identity versions do not accept multi-view slots");
       }
       if (!assetIds.add(input.assetId())) {
         throw new IllegalArgumentException("Duplicate character reference asset");
@@ -85,12 +99,17 @@ public class SetCharacterVersionReferencesUseCase {
             .map(
                 input ->
                     new CharacterVersionReference(
-                        input.assetId(), normalizedRole(input.role()), input.priority()))
+                        input.assetId(),
+                        normalizedRole(input.role()),
+                        input.priority(),
+                        input.slot()))
             .sorted(
                 Comparator.comparingInt(CharacterVersionReference::priority)
                     .thenComparing(CharacterVersionReference::mediaAssetId))
             .toList();
-    if (!references.isEmpty() && !"IDENTITY".equals(references.getFirst().role())) {
+    if (version.getReferencePolicy() == CharacterReferencePolicy.LEGACY_IDENTITY_V1
+        && !references.isEmpty()
+        && !"IDENTITY".equals(references.getFirst().role())) {
       throw new IllegalArgumentException(
           "The highest-priority character reference must be IDENTITY");
     }
@@ -102,5 +121,13 @@ public class SetCharacterVersionReferencesUseCase {
     return role == null || role.isBlank() ? "IDENTITY" : role.trim().toUpperCase();
   }
 
-  public record ReferenceInput(UUID assetId, String role, int priority) {}
+  public record ReferenceInput(
+      UUID assetId,
+      String role,
+      int priority,
+      com.narrativex.backend.feature.character.domain.enums.CharacterReferenceSlot slot) {
+    public ReferenceInput(UUID assetId, String role, int priority) {
+      this(assetId, role, priority, null);
+    }
+  }
 }

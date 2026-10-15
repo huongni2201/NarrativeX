@@ -102,7 +102,7 @@ export function ChapterProductionStage({
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center text-text-muted">
         <Film size={44} className="mb-2 text-text-dim" />
-        <p className="text-[14px]">
+        <p className="text-[15px]">
           Vui lòng hoàn thành phân tích kịch bản tại mục Source trước khi vào phòng sản xuất.
         </p>
       </div>
@@ -189,22 +189,22 @@ export function ChapterProductionStage({
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-dark px-5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-[15px] font-semibold text-foreground">
+            <span className="text-[16px] font-semibold text-foreground">
               Phòng điều khiển sản xuất
             </span>
-            <span className="rounded bg-surface-3 px-2 py-0.5 text-[11px] font-mono text-text-secondary">
+            <span className="rounded bg-surface-3 px-2 py-0.5 text-caption font-mono text-text-secondary">
               {chapter.title}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 border-l border-border-subtle pl-4 text-[12px]">
+          <div className="flex items-center gap-2 border-l border-border-subtle pl-4 text-label">
             <span className="text-text-muted">Tiến độ sản xuất video:</span>
-            <strong className="text-primary font-mono text-[14px]">
+            <strong className="text-primary font-mono text-[15px]">
               {overallProgressPercent}%
             </strong>
             <div className="h-2 w-28 overflow-hidden rounded-full bg-surface-3">
               <div
-                className="h-full bg-primary transition-all duration-300"
+                className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-300"
                 style={{ width: `${overallProgressPercent}%` }}
               />
             </div>
@@ -216,7 +216,7 @@ export function ChapterProductionStage({
           type="button"
           onClick={onGenerateVideoShots}
           disabled={isGenerating || !generationReady}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground transition-all hover:bg-primary-hover shadow-md disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-body font-semibold text-primary-foreground transition-[color,background-color,border-color,box-shadow,transform,opacity] hover:bg-primary-hover shadow-md disabled:opacity-50"
           title="Sinh Video Shots tự động với mô hình LTX-2.5 video-first cho toàn bộ chapter"
         >
           <Sparkles size={15} className={isGenerating ? "animate-spin" : ""} />
@@ -231,7 +231,7 @@ export function ChapterProductionStage({
       </div>
 
       {/* Creator-First Production Readiness Strip */}
-      <div className="border-b border-border-subtle bg-surface-panel px-5 py-2.5 text-[12px]">
+      <div className="border-b border-border-subtle bg-surface-panel px-5 py-2.5 text-label">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-5 text-text-secondary">
             {/* Story & Narration Audio */}
@@ -283,7 +283,7 @@ export function ChapterProductionStage({
           <button
             type="button"
             onClick={() => setShowTechDetails((prev) => !prev)}
-            className="inline-flex items-center gap-1 text-[11px] font-mono text-text-dim hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1 text-caption font-mono text-text-dim hover:text-foreground transition-colors"
           >
             <Info size={12} />
             <span>Kỹ thuật LTX</span>
@@ -293,7 +293,7 @@ export function ChapterProductionStage({
 
         {/* Collapsible Technical Details */}
         {showTechDetails && (
-          <div className="mt-2 flex items-center gap-4 rounded-md border border-border-subtle bg-surface-dark px-3 py-1.5 font-mono text-[11px] text-text-dim">
+          <div className="mt-2 flex items-center gap-4 rounded-md border border-border-subtle bg-surface-dark px-3 py-1.5 font-mono text-caption text-text-dim">
             <span>Model: <strong className="text-foreground">LTX-2.5 22B Distilled (Native AV)</strong></span>
             <span>Độ phân giải: <strong className="text-foreground">1280x720 (720p)</strong></span>
             <span>Khung hình: <strong className="text-foreground">24 FPS Cinematic</strong></span>
@@ -306,7 +306,7 @@ export function ChapterProductionStage({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {mediaImportMessage && (
           <div
-            className="mx-4 mt-3 rounded-md border border-warning bg-surface-panel p-3 text-[12px] text-warning"
+            className="mx-4 mt-3 rounded-md border border-warning bg-surface-panel p-3 text-label text-warning"
             role="status"
           >
             {mediaImportMessage}

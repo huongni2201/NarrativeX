@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ComputeTargetAssignmentMapper">
+  <resultMap id="assignment" type="com.narrativex.backend.feature.generation.application.model.compute.ComputeTargetAssignment">
+    <constructor>
+      <idArg column="task_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
+      <idArg column="attempt_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
+      <arg column="executor" javaType="java.lang.String"/>
+      <arg column="target_id" javaType="java.lang.String"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="insert">
+    INSERT INTO compute_target_assignments (task_id, attempt_id, executor, target_id)
+    VALUES (#{taskId}, #{attemptId}, #{executor}, #{targetId})
+    ON CONFLICT (task_id, attempt_id) DO NOTHING
+  </insert>
+
+  <select id="find" resultMap="assignment">
+    SELECT task_id, attempt_id, executor, target_id FROM compute_target_assignments
+    WHERE task_id = #{taskId} AND attempt_id = #{attemptId}
+  </select>
+</mapper>

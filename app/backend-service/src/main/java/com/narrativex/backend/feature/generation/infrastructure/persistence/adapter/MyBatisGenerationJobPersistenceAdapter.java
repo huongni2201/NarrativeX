@@ -117,7 +117,9 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
 
   @Override
   public java.util.List<GenerationJob> findActiveChapterVideoBatches(int limit) {
-    return mapper.findActiveChapterVideoBatches(limit).stream().map(MyBatisGenerationJobPersistenceAdapter::toDomain).toList();
+    return mapper.findActiveChapterVideoBatches(limit).stream()
+        .map(MyBatisGenerationJobPersistenceAdapter::toDomain)
+        .toList();
   }
 
   private GenerationJob requireInserted(UUID id) {

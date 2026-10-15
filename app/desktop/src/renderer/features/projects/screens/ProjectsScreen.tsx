@@ -4,7 +4,9 @@ import {
   RefreshCw,
   Search,
   Star,
+  Settings,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +27,7 @@ import {
 } from "../queries/projects.queries";
 import { useProjectSessionStore } from "../store/project-session.store";
 import { resolveProjectContinuation } from "../model/project-continuation";
+import { accountHrefFrom } from "../../accounts/account-navigation";
 
 export function ProjectsScreen() {
   const navigate = useNavigate();
@@ -48,14 +51,32 @@ export function ProjectsScreen() {
     if (!activeProjectId && firstProject) setActiveProject(firstProject.id);
   }, [activeProjectId, projects.data, setActiveProject]);
 
+  const accountButton = (
+    <Button variant="outline" size="default" onClick={() => navigate(accountHrefFrom("/projects"))}>
+      <UserRound size={14} /> Account
+    </Button>
+  );
+  const settingsButton = (
+    <Button variant="outline" size="default" onClick={() => navigate("/settings?returnTo=%2Fprojects")}>
+      <Settings size={14} /> Settings
+    </Button>
+  );
+  const applicationActions = (
+    <div className="flex items-center gap-2.5">
+      {settingsButton}
+      {accountButton}
+    </div>
+  );
+
   if (projects.isPending) {
     return (
       <FeaturePage
         eyebrow="Workspace"
         title="Projects"
         description="Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop."
+        actions={applicationActions}
       >
-        <div className="grid min-h-64 place-items-center text-[13px] text-text-muted" role="status">
+        <div className="grid min-h-64 place-items-center text-body text-text-muted" role="status">
           Đang tải projects…
         </div>
       </FeaturePage>
@@ -68,10 +89,11 @@ export function ProjectsScreen() {
         eyebrow="Workspace"
         title="Projects"
         description="Tạo, mở và quản lý project trực tiếp trong NarrativeX Desktop."
+        actions={applicationActions}
       >
         <div className="grid min-h-64 place-items-center">
-          <div className="max-w-md rounded-xl border border-danger/30 bg-danger-bg p-5 text-[13px] text-danger">
-            <strong className="block text-[15px] font-semibold">Không thể tải projects</strong>
+          <div className="max-w-md rounded-xl border border-danger/30 bg-danger-bg p-5 text-body text-danger">
+            <strong className="block text-[14px] font-semibold">Không thể tải projects</strong>
             <span className="mt-1.5 block leading-relaxed">{projects.error.message}</span>
             <Button variant="outline" size="default" onClick={() => void projects.refetch()} className="mt-4">
               <RefreshCw size={14} /> Thử lại
@@ -146,46 +168,54 @@ export function ProjectsScreen() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm project…"
-                className="h-9 pl-9 pr-3 text-[13px]"
+                className="h-9 pl-9 pr-3 text-body"
               />
             </div>
             <div className="flex items-center rounded-lg border border-border-subtle bg-surface-dark p-0.5">
               <button
                 type="button"
                 onClick={() => setFilterTab("all")}
-                className={`rounded-md px-3.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`rounded-md px-3.5 py-1 text-label font-medium transition-colors ${
                   filterTab === "all"
                     ? "bg-surface-3 text-foreground shadow-xs"
                     : "text-text-muted hover:text-text-secondary"
                 }`}
               >
-                All ({projectCount})
+                Tất cả ({projectCount})
               </button>
               <button
                 type="button"
                 onClick={() => setFilterTab("starred")}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1 text-label font-medium transition-colors ${
                   filterTab === "starred"
                     ? "bg-surface-3 text-foreground shadow-xs"
                     : "text-text-muted hover:text-text-secondary"
                 }`}
               >
                 <Star size={12} className={filterTab === "starred" ? "text-warning fill-current" : ""} />
-                Starred ({starredCount})
+                Đã gắn sao ({starredCount})
               </button>
             </div>
             <Button size="default" onClick={() => setIsCreating(true)} className="shadow-primary font-medium">
-              <Plus size={15} /> New project
+              <Plus size={15} /> Tạo project
             </Button>
-            <Button variant="outline" size="default" onClick={() => void projects.refetch()}>
-              <RefreshCw size={14} /> Refresh
+            {settingsButton}
+            {accountButton}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => void projects.refetch()}
+              aria-label="Tải lại danh sách project"
+              title="Tải lại danh sách project"
+            >
+              <RefreshCw size={14} className={projects.isFetching ? "animate-spin" : ""} />
             </Button>
           </div>
         }
       >
         {toggleFavorite.isError && (
-          <p className="mb-4 border-l-2 border-danger bg-danger-bg px-3 py-2 text-[12px] text-danger" role="alert">
-            Không thể cập nhật favorite: {toggleFavorite.error.message}
+          <p className="mb-4 border-l-2 border-danger bg-danger-bg px-3 py-2 text-label text-danger" role="alert">
+            Không thể cập nhật gắn sao: {toggleFavorite.error.message}
           </p>
         )}
 
@@ -197,8 +227,8 @@ export function ProjectsScreen() {
         ) : filteredProjects.length === 0 ? (
           <div className="grid min-h-60 place-items-center text-center">
             <div className="max-w-sm rounded-xl border border-border bg-surface-card p-6">
-              <p className="text-[15px] font-semibold text-foreground">Không tìm thấy project phù hợp</p>
-              <p className="mt-1.5 text-[13px] text-text-muted">Thử tìm với từ khoá khác hoặc xoá bộ lọc đang chọn.</p>
+              <p className="text-[16px] font-semibold text-foreground">Không tìm thấy project phù hợp</p>
+              <p className="mt-1.5 text-body text-text-muted">Thử tìm với từ khoá khác hoặc xoá bộ lọc đang chọn.</p>
               <Button
                 variant="outline"
                 size="default"
@@ -216,14 +246,11 @@ export function ProjectsScreen() {
           <div className="mx-auto max-w-[1600px] w-full">
             {/* Quick Workspace Stats Strip */}
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-border-subtle pb-4">
-              <div className="flex items-center gap-4 sm:gap-6 text-[13px] text-text-muted">
-                <span>Tổng cộng: <strong className="font-semibold text-foreground">{projectCount}</strong> dự án</span>
-                <span>•</span>
-                <span>Yêu thích: <strong className="font-semibold text-foreground">{starredCount}</strong></span>
-                <span>•</span>
-                <span>Đang hoạt động: <strong className="font-semibold text-success">{allProjects.filter((p) => p.status === "ACTIVE").length}</strong></span>
+              <div className="flex items-center gap-6 text-body text-text-muted">
+                <span><strong className="font-semibold text-foreground">{projectCount}</strong> dự án</span>
+                <span><strong className="font-semibold text-foreground">{starredCount}</strong> đã gắn sao</span>
+                <span><strong className="font-semibold text-foreground">{allProjects.filter((p) => p.status === "ACTIVE").length}</strong> đang thực hiện</span>
               </div>
-              <span className="text-[12px] text-text-dim">Mẹo: Bấm vào thẻ để tiếp tục luồng sản xuất của dự án</span>
             </div>
 
             <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-6">
@@ -241,7 +268,7 @@ export function ProjectsScreen() {
                     <button
                       type="button"
                       className="flex size-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-dark/90 text-text-dim backdrop-blur-sm transition-colors hover:border-border hover:bg-surface-3 hover:text-warning disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={project.isStarred ? "Remove favorite" : "Add favorite"}
+                      aria-label={project.isStarred ? "Bỏ gắn sao" : "Gắn sao"}
                       disabled={toggleFavorite.isPending || deleteProject.isPending}
                       onClick={() =>
                         toggleFavorite.mutate({

@@ -40,24 +40,24 @@ export function ChapterRail({
       <div className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-panel/40 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <BookOpen size={16} className="text-primary" />
-          <span className="text-[13px] font-semibold text-foreground">Chapters</span>
-          <span className="rounded-full bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-text-dim">
+          <span className="text-body font-semibold text-foreground">Chương</span>
+          <span className="rounded-full bg-surface-3 px-1.5 py-0.5 font-mono text-caption text-text-dim">
             {chapters.length}
           </span>
         </div>
         <button
           type="button"
-          onClick={onCreateChapter}
+          onClick={() => onCreateChapter()}
           className="flex size-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
-          title="Tạo chapter mới"
-          aria-label="Tạo chapter mới"
+          title="Tạo chương mới"
+          aria-label="Tạo chương mới"
         >
           <Plus size={15} />
         </button>
       </div>
 
       {/* Search Input */}
-      <div className="border-b border-border-subtle p-2">
+      <div className="border-b border-border-subtle p-2" hidden={chapters.length === 0}>
         <div className="relative">
           <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -65,18 +65,18 @@ export function ChapterRail({
             placeholder="Tìm chương..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-border-subtle bg-surface-input pl-8 pr-2.5 py-1 text-[12px] text-foreground placeholder:text-text-muted focus:border-primary focus:outline-none"
+            className="w-full rounded-md border border-border-subtle bg-surface-input pl-8 pr-2.5 py-1 text-label text-foreground placeholder:text-text-muted focus:border-primary focus:outline-none"
           />
         </div>
       </div>
 
       {/* Chapters & Hierarchy List */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-1.5 space-y-1 text-[13px]">
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5 space-y-1 text-body">
         {filteredChapters.length === 0 && (
           <div className="flex min-h-36 flex-col items-center justify-center p-4 text-center text-text-muted">
             <BookOpen size={24} className="mb-2 text-text-dim opacity-40" />
-            <p className="text-[12px] font-medium text-text-secondary">Chưa có chapter</p>
-            <p className="mt-0.5 text-[11px] text-text-dim">Tạo chapter từ vùng làm việc bên phải</p>
+            <p className="text-label font-medium text-text-secondary">Chưa có chương</p>
+            <p className="mt-0.5 text-caption text-text-dim">Tạo chương đầu tiên ở khung giữa</p>
           </div>
         )}
         {filteredChapters.map((chapter) => {
@@ -88,15 +88,15 @@ export function ChapterRail({
               <button
                 type="button"
                 onClick={() => onSelectChapter(chapter.id)}
-                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-all ${
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
                   isChapterSelected
                     ? "bg-surface-3 text-primary font-semibold shadow-sm"
                     : "text-text-secondary hover:bg-surface-2 hover:text-foreground"
                 }`}
               >
                 <BookOpen size={14} className={isChapterSelected ? "text-primary" : "text-text-muted"} />
-                <span className="font-mono text-[11px] text-text-muted">#{chapter.orderIndex + 1}</span>
-                <span className="truncate flex-1 text-[13px]">{chapter.title || `Chương ${chapter.orderIndex + 1}`}</span>
+                <span className="font-mono text-caption text-text-muted">#{chapter.orderIndex + 1}</span>
+                <span className="truncate flex-1 text-body">{chapter.title || `Chương ${chapter.orderIndex + 1}`}</span>
               </button>
 
               {/* Sub-tree: Scenes & StoryBeats (Only when this chapter is selected and has story) */}
@@ -109,12 +109,12 @@ export function ChapterRail({
                       <div key={scene.id} className="space-y-0.5">
                         <div
                           onClick={(e) => toggleScene(scene.id, e)}
-                          className="flex items-center gap-1.5 rounded px-2 py-1 text-[12px] text-text-muted hover:bg-surface-2 hover:text-foreground cursor-pointer"
+                          className="flex items-center gap-1.5 rounded px-2 py-1 text-label text-text-muted hover:bg-surface-2 hover:text-foreground cursor-pointer"
                         >
                           {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           <Film size={12} className="text-text-dim" />
                           <span className="truncate flex-1 font-medium">{scene.title}</span>
-                          <span className="text-[10px] text-text-dim">{scene.storyBeats.length}</span>
+                          <span className="text-caption text-text-dim">{scene.storyBeats.length}</span>
                         </div>
 
                         {isExpanded && (
@@ -126,7 +126,7 @@ export function ChapterRail({
                                   key={beat.id}
                                   type="button"
                                   onClick={() => onSelectBeat?.(beat.id)}
-                                  className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[12px] transition-all ${
+                                  className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-label transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
                                     isBeatSelected
                                       ? "bg-primary-muted text-primary font-medium"
                                       : "text-text-muted hover:bg-surface-2 hover:text-text-secondary"
@@ -134,7 +134,7 @@ export function ChapterRail({
                                 >
                                   <Disc size={10} className={isBeatSelected ? "text-primary" : "text-text-dim"} />
                                   <span className="truncate flex-1">
-                                    Beat #{beat.orderIndex + 1}: {beat.title || beat.purpose}
+                                    Nhịp #{beat.orderIndex + 1}: {beat.title || beat.purpose}
                                   </span>
                                 </button>
                               );
@@ -152,10 +152,10 @@ export function ChapterRail({
         {filteredChapters.length > 0 && (
           <button
             type="button"
-            onClick={onCreateChapter}
-            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border-subtle py-2 text-[12px] font-medium text-text-muted transition-all hover:border-primary hover:bg-surface-2 hover:text-primary"
+            onClick={() => onCreateChapter()}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border-subtle py-2 text-label font-medium text-text-muted transition-[color,background-color,border-color,box-shadow,transform,opacity] hover:border-primary hover:bg-surface-2 hover:text-primary"
           >
-            <Plus size={14} /> Thêm chapter mới
+            <Plus size={14} /> Thêm chương
           </button>
         )}
       </div>

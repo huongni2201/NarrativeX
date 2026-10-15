@@ -33,9 +33,10 @@ test("application preference bootstrap restores and persists native window state
   assert.match(ipc, /desktop:preferences:reset/);
 });
 
-test("Settings exposes only application-scoped Desktop reset controls", () => {
+test("Settings keeps Desktop reset controls and links to Account without managing credentials", () => {
   const settings = source("src", "renderer", "features", "settings", "screens", "SettingsScreen.tsx");
   assert.match(settings, /Reset window layout/);
   assert.match(settings, /Reset all application settings/);
-  assert.doesNotMatch(settings, /\buser\b|account|login|logout/i);
+  assert.match(settings, /accountHrefFrom/);
+  assert.doesNotMatch(settings, /\buser\b|credential|password|token|login|logout/i);
 });

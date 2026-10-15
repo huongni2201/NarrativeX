@@ -99,7 +99,61 @@ public interface ProductionTimelineSourceRepository {
       boolean mediaSelectionActive,
       String storageKey,
       Long sizeBytes,
-      String checksum) {
+      String checksum,
+      Long sourceOutMs) {
+    public BeatSource(
+        UUID chapterId,
+        int chapterOrderIndex,
+        UUID mediaPlanId,
+        Integer mediaPlanRevision,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        UUID shotId,
+        UUID takeId,
+        String title,
+        String visualIntent,
+        String cameraMovement,
+        String assetStrategy,
+        Integer textStart,
+        Integer textEnd,
+        UUID mediaAssetId,
+        String mediaType,
+        Long sourceDurationMs,
+        String fitMode,
+        long trimStartMs,
+        boolean mediaSelectionActive,
+        String storageKey,
+        Long sizeBytes,
+        String checksum) {
+      this(
+          chapterId,
+          chapterOrderIndex,
+          mediaPlanId,
+          mediaPlanRevision,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          shotId,
+          takeId,
+          title,
+          visualIntent,
+          cameraMovement,
+          assetStrategy,
+          textStart,
+          textEnd,
+          mediaAssetId,
+          mediaType,
+          sourceDurationMs,
+          fitMode,
+          trimStartMs,
+          mediaSelectionActive,
+          storageKey,
+          sizeBytes,
+          checksum,
+          null);
+    }
+
     public BeatSource(
         UUID chapterId,
         int chapterOrderIndex,
@@ -147,7 +201,8 @@ public interface ProductionTimelineSourceRepository {
           mediaSelectionActive,
           storageKey,
           sizeBytes,
-          checksum);
+          checksum,
+          null);
     }
   }
 }

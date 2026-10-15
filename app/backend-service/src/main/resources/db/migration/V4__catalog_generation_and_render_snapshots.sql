@@ -1,5 +1,6 @@
--- NarrativeX pre-release baseline: catalog/read models, upload lifecycle, media generation,
--- continuity/checkpoints, selective regeneration, storyboard generation, and immutable render snapshots.
+-- NarrativeX pre-release baseline: catalog/read models, upload lifecycle, video-first shot production,
+-- media generation, continuity/checkpoints, local devices, chapter analysis runtime, selective
+-- regeneration, and immutable render snapshots.
 
 -- -----------------------------------------------------------------------------
 -- Catalog read models and upload lifecycle
@@ -74,6 +75,159 @@ CREATE TABLE media_storage_cleanup_tasks (
 );
 
 -- -----------------------------------------------------------------------------
+-- Video-first retention and shot production
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE hook_plans (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    promise TEXT NOT NULL DEFAULT '',
+    conflict TEXT NOT NULL DEFAULT '',
+    curiosity_question TEXT NOT NULL DEFAULT '',
+    visual_hook TEXT NOT NULL DEFAULT '',
+    dialogue_hook TEXT NOT NULL DEFAULT '',
+    withheld_information TEXT NOT NULL DEFAULT '',
+    payoff_beat_id UUID REFERENCES visual_beats(id) ON DELETE SET NULL,
+    CONSTRAINT uk_hook_plans_chapter UNIQUE (chapter_id)
+);
+
+CREATE TABLE retention_maps (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    tension_curve_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    open_questions_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    resolved_questions_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    pacing_warnings_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    CONSTRAINT uk_retention_maps_chapter UNIQUE (chapter_id)
+);
+
+CREATE TABLE attention_events (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    retention_map_id UUID NOT NULL REFERENCES retention_maps(id) ON DELETE CASCADE,
+    event_type VARCHAR(48) NOT NULL,
+    time_offset_ms BIGINT NOT NULL DEFAULT 0,
+    description TEXT NOT NULL DEFAULT '',
+    severity VARCHAR(24) NOT NULL DEFAULT 'INFO',
+    CONSTRAINT ck_attention_events_severity CHECK (severity IN ('INFO', 'WARNING', 'CRITICAL'))
+);
+
+CREATE TABLE shot_sequences (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    visual_beat_id UUID NOT NULL REFERENCES visual_beats(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT uk_shot_sequences_beat UNIQUE (visual_beat_id)
+);
+
+CREATE TABLE shots (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sequence_id UUID NOT NULL REFERENCES shot_sequences(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    narrative_purpose TEXT NOT NULL DEFAULT '',
+    retention_role VARCHAR(32),
+    subjects_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    location_ref VARCHAR(128),
+    start_state_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    action_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    end_state_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    composition_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    camera_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    subject_motion_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    camera_motion_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    environment_motion_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    target_duration_ms BIGINT NOT NULL DEFAULT 4000,
+    generation_strategy VARCHAR(32) NOT NULL DEFAULT 'TEXT_TO_VIDEO',
+    quality_profile VARCHAR(64) NOT NULL DEFAULT '720p_24fps_standard',
+    continuity_from_shot_id UUID REFERENCES shots(id) ON DELETE SET NULL,
+    continuity_to_shot_id UUID REFERENCES shots(id) ON DELETE SET NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'PLANNED',
+    CONSTRAINT uk_shots_sequence_order UNIQUE (sequence_id, order_index),
+    CONSTRAINT ck_shots_generation_strategy CHECK (generation_strategy IN ('TEXT_TO_VIDEO', 'IMAGE_TO_VIDEO', 'FIRST_LAST_FRAME', 'MULTI_KEYFRAME', 'VIDEO_EXTEND', 'VIDEO_RETAKE')),
+    CONSTRAINT ck_shots_status CHECK (status IN ('PLANNED', 'REFERENCE_PREPARING', 'READY', 'QUEUED', 'GENERATING', 'GENERATED', 'VALIDATING', 'PASSED', 'FAILED', 'RETRY_READY', 'MANUAL_REVIEW', 'SELECTED'))
+);
+
+CREATE TABLE takes (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    shot_id UUID NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+    attempt_number INTEGER NOT NULL,
+    generation_job_id UUID REFERENCES generation_jobs(id),
+    compute_task_id UUID,
+    compute_attempt_id UUID,
+    operation_plan_id UUID REFERENCES operation_plans(id),
+    input_snapshot_json JSONB,
+    input_fingerprint VARCHAR(64),
+    CONSTRAINT ck_takes_admission_identity CHECK (
+      (generation_job_id IS NULL AND compute_task_id IS NULL AND compute_attempt_id IS NULL
+       AND operation_plan_id IS NULL AND input_snapshot_json IS NULL AND input_fingerprint IS NULL)
+      OR (generation_job_id IS NOT NULL AND compute_task_id IS NOT NULL AND compute_attempt_id IS NOT NULL
+       AND operation_plan_id IS NOT NULL AND input_snapshot_json IS NOT NULL AND input_fingerprint IS NOT NULL)),
+    provider VARCHAR(64) NOT NULL DEFAULT 'ltx',
+    model VARCHAR(64) NOT NULL DEFAULT 'ltx-2.5-22b-distilled-int8',
+    generation_mode VARCHAR(32) NOT NULL DEFAULT 'TEXT_TO_VIDEO',
+    output_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL,
+    source_duration_ms BIGINT,
+    metrics_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    validation_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    validation_failure_category VARCHAR(64),
+    validation_failure_reason TEXT,
+    validation_retry_recommendation TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    CONSTRAINT uk_takes_shot_attempt UNIQUE (shot_id, attempt_number),
+    CONSTRAINT uk_takes_generation_job UNIQUE (generation_job_id),
+    CONSTRAINT uk_takes_compute_attempt UNIQUE (compute_attempt_id),
+    CONSTRAINT ck_takes_status CHECK (status IN ('PENDING', 'RUNNING', 'GENERATED', 'VALIDATING', 'PASSED', 'FAILED'))
+);
+
+CREATE TABLE selected_takes (
+    shot_id UUID PRIMARY KEY REFERENCES shots(id) ON DELETE CASCADE,
+    take_id UUID NOT NULL REFERENCES takes(id) ON DELETE CASCADE,
+    source_in_ms BIGINT NOT NULL DEFAULT 0,
+    source_out_ms BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_selected_takes_in_out CHECK (source_out_ms > source_in_ms)
+);
+
+CREATE TABLE generation_references (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    shot_id UUID NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+    reference_type VARCHAR(48) NOT NULL,
+    media_asset_id UUID NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    weight NUMERIC(4, 2) NOT NULL DEFAULT 1.0,
+    CONSTRAINT ck_generation_references_type CHECK (reference_type IN ('CHARACTER_REFERENCE', 'WARDROBE_REFERENCE', 'LOCATION_REFERENCE', 'START_FRAME', 'END_FRAME', 'KEYFRAME', 'THUMBNAIL', 'POSTER'))
+);
+
+CREATE TABLE production_insights (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    chapter_id UUID REFERENCES chapters(id) ON DELETE CASCADE,
+    observation_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    recommendation_text TEXT NOT NULL DEFAULT '',
+    status VARCHAR(24) NOT NULL DEFAULT 'PENDING_REVIEW'
+);
+
+-- -----------------------------------------------------------------------------
 -- Media generation execution and lineage
 -- -----------------------------------------------------------------------------
 
@@ -113,7 +267,9 @@ CREATE TABLE media_generation_items (
         (review_status IN ('NOT_READY', 'NEEDS_REVIEW') AND reviewed_at IS NULL)
         OR
         (review_status IN ('APPROVED', 'REJECTED') AND reviewed_at IS NOT NULL)
-    )
+    ),
+    CONSTRAINT fk_media_generation_items_shot FOREIGN KEY (shot_id) REFERENCES shots(id),
+    CONSTRAINT fk_media_generation_items_take FOREIGN KEY (take_id) REFERENCES takes(id)
 );
 
 CREATE TABLE media_asset_lineage (
@@ -276,6 +432,146 @@ CREATE TABLE analysis_checkpoints (
     )
 );
 
+-- -----------------------------------------------------------------------------
+-- Local execution devices
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE local_device_pairing_codes (
+    id BIGSERIAL PRIMARY KEY,
+    code_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE local_devices (
+    id UUID PRIMARY KEY,
+    name VARCHAR(160) NOT NULL,
+    platform VARCHAR(80) NOT NULL,
+    agent_version VARCHAR(64) NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE TABLE local_device_capabilities (
+    device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE CASCADE,
+    capability VARCHAR(64) NOT NULL,
+    PRIMARY KEY (device_id, capability)
+);
+
+-- -----------------------------------------------------------------------------
+-- Chapter analysis runtime
+-- -----------------------------------------------------------------------------
+
+-- Provider-independent runtime state for local Chapter Analysis execution.
+-- Provider credentials, OAuth tokens and machine profile paths remain outside PostgreSQL.
+-- ANTIGRAVITY_CLI stays a valid execution mode only for historical rows; new work uses
+-- VERTEX_API or ANTIGRAVITY_API.
+
+CREATE TABLE analysis_runtime_configuration (
+    singleton_id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton_id),
+    revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
+    execution_mode VARCHAR(32) NOT NULL DEFAULT 'VERTEX_API',
+    model VARCHAR(128) NOT NULL DEFAULT 'gemini-3.8-flash',
+    effort VARCHAR(16) NOT NULL DEFAULT 'HIGH' CHECK (effort IN ('LOW', 'MEDIUM', 'HIGH')),
+    max_concurrent_analyses INTEGER NOT NULL DEFAULT 1 CHECK (max_concurrent_analyses BETWEEN 1 AND 32),
+    default_max_concurrent_per_credential INTEGER NOT NULL DEFAULT 1
+        CHECK (default_max_concurrent_per_credential BETWEEN 1 AND 16),
+    max_queued_analyses INTEGER NOT NULL DEFAULT 20 CHECK (max_queued_analyses BETWEEN 0 AND 1000),
+    max_input_bytes BIGINT NOT NULL DEFAULT 2000000 CHECK (max_input_bytes BETWEEN 1024 AND 20000000),
+    max_output_bytes BIGINT NOT NULL DEFAULT 4194304 CHECK (max_output_bytes BETWEEN 1024 AND 16777216),
+    max_runtime_ms BIGINT NOT NULL DEFAULT 600000 CHECK (max_runtime_ms BETWEEN 1000 AND 3600000),
+    credential_selection VARCHAR(32) NOT NULL DEFAULT 'ROUND_ROBIN_READY'
+        CHECK (credential_selection = 'ROUND_ROBIN_READY'),
+    automatic_api_fallback BOOLEAN NOT NULL DEFAULT FALSE CHECK (automatic_api_fallback = FALSE),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    row_version BIGINT NOT NULL DEFAULT 0 CHECK (row_version >= 0),
+    CONSTRAINT ck_analysis_runtime_execution_mode
+        CHECK (execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))
+);
+
+CREATE TABLE analysis_provider_credentials (
+    credential_ref UUID PRIMARY KEY DEFAULT uuidv7(),
+    device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE RESTRICT,
+    provider VARCHAR(32) NOT NULL CHECK (provider = 'ANTIGRAVITY'),
+    connection_fingerprint CHAR(64),
+    credential_generation INTEGER NOT NULL DEFAULT 1 CHECK (credential_generation > 0),
+    label VARCHAR(120) NOT NULL,
+    self_reported_tier VARCHAR(16) CHECK (self_reported_tier IN ('PRO', 'ULTRA', 'UNKNOWN')),
+    desired_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    desired_max_concurrent INTEGER NOT NULL DEFAULT 1 CHECK (desired_max_concurrent BETWEEN 1 AND 16),
+    drain_requested_at TIMESTAMPTZ,
+    retired_at TIMESTAMPTZ,
+    observed_connection_state VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
+        CHECK (observed_connection_state IN ('UNKNOWN', 'CONNECTED', 'AUTH_REQUIRED', 'UNAVAILABLE')),
+    observed_cli_version VARCHAR(64),
+    observed_model_capabilities JSONB NOT NULL DEFAULT '[]'::jsonb
+        CHECK (jsonb_typeof(observed_model_capabilities) = 'array'),
+    observed_quota_state VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
+        CHECK (observed_quota_state IN ('UNKNOWN', 'AVAILABLE', 'RATE_LIMITED', 'EXHAUSTED')),
+    observed_quota_at TIMESTAMPTZ,
+    next_eligible_at TIMESTAMPTZ,
+    runtime_epoch UUID,
+    observation_sequence BIGINT NOT NULL DEFAULT 0 CHECK (observation_sequence >= 0),
+    last_assigned_ordinal BIGINT NOT NULL DEFAULT 0 CHECK (last_assigned_ordinal >= 0),
+    row_version BIGINT NOT NULL DEFAULT 0 CHECK (row_version >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_analysis_provider_credential_fingerprint
+        CHECK (connection_fingerprint IS NULL OR connection_fingerprint ~ '^[0-9a-f]{64}$')
+);
+
+CREATE TABLE chapter_analysis_execution_snapshots (
+    generation_job_id UUID PRIMARY KEY REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    execution_mode VARCHAR(32) NOT NULL,
+    profile_json JSONB NOT NULL CHECK (jsonb_typeof(profile_json) = 'object'),
+    prompt_version VARCHAR(64) NOT NULL,
+    prompt_hash CHAR(64) NOT NULL CHECK (prompt_hash ~ '^[0-9a-f]{64}$'),
+    prompt_template TEXT NOT NULL,
+    schema_version VARCHAR(64) NOT NULL,
+    schema_hash CHAR(64) NOT NULL CHECK (schema_hash ~ '^[0-9a-f]{64}$'),
+    response_schema_json JSONB NOT NULL CHECK (jsonb_typeof(response_schema_json) = 'object'),
+    input_fingerprint CHAR(64) NOT NULL CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
+    config_revision BIGINT NOT NULL CHECK (config_revision > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_chapter_analysis_snapshot_execution_mode
+        CHECK (execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))
+);
+
+CREATE TABLE chapter_analysis_execution_attempts (
+    attempt_id UUID PRIMARY KEY DEFAULT uuidv7(),
+    generation_job_id UUID NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
+    claim_request_id UUID NOT NULL,
+    device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE RESTRICT,
+    credential_ref UUID NOT NULL REFERENCES analysis_provider_credentials(credential_ref) ON DELETE RESTRICT,
+    credential_generation INTEGER NOT NULL CHECK (credential_generation > 0),
+    input_fingerprint CHAR(64) NOT NULL CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
+    checkpoint VARCHAR(32) NOT NULL CHECK (checkpoint IN (
+        'CLAIMED', 'SUBMITTING', 'LOCAL_RUNNING', 'RESULT_READY', 'DELIVERED',
+        'REJECTED_BEFORE_EXECUTION', 'FAILED', 'CANCELED', 'UNKNOWN'
+    )),
+    lease_token_hash CHAR(64) NOT NULL CHECK (lease_token_hash ~ '^[0-9a-f]{64}$'),
+    lease_expires_at TIMESTAMPTZ NOT NULL,
+    fencing_token BIGINT NOT NULL CHECK (fencing_token > 0),
+    last_observation_sequence BIGINT NOT NULL DEFAULT 0 CHECK (last_observation_sequence >= 0),
+    submission_intent_id UUID,
+    conversation_id VARCHAR(200),
+    output_hash CHAR(64) CHECK (output_hash IS NULL OR output_hash ~ '^[0-9a-f]{64}$'),
+    completion_payload_hash CHAR(64)
+        CHECK (completion_payload_hash IS NULL OR completion_payload_hash ~ '^[0-9a-f]{64}$'),
+    terminal_reason VARCHAR(80),
+    slot_held BOOLEAN NOT NULL DEFAULT TRUE,
+    row_version BIGINT NOT NULL DEFAULT 0 CHECK (row_version >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_chapter_analysis_attempt_number UNIQUE (generation_job_id, attempt_number),
+    CONSTRAINT uq_chapter_analysis_claim_request UNIQUE (device_id, claim_request_id)
+);
+
 CREATE TABLE chapter_analysis_runs (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     generation_job_id UUID REFERENCES generation_jobs(id) ON DELETE SET NULL,
@@ -285,14 +581,27 @@ CREATE TABLE chapter_analysis_runs (
     model VARCHAR(128) NOT NULL,
     prompt_version VARCHAR(64) NOT NULL,
     schema_version VARCHAR(64) NOT NULL,
-    prompt_tokens BIGINT NOT NULL DEFAULT 0,
-    output_tokens BIGINT NOT NULL DEFAULT 0,
-    thinking_tokens BIGINT NOT NULL DEFAULT 0,
-    cached_tokens BIGINT NOT NULL DEFAULT 0,
-    total_tokens BIGINT NOT NULL DEFAULT 0,
-    runtime_ms BIGINT NOT NULL DEFAULT 0,
+    prompt_tokens BIGINT,
+    output_tokens BIGINT,
+    thinking_tokens BIGINT,
+    cached_tokens BIGINT,
+    total_tokens BIGINT,
+    runtime_ms BIGINT,
     canon_hash VARCHAR(64) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    usage_state VARCHAR(32) NOT NULL DEFAULT 'LEGACY_UNSPECIFIED'
+        CHECK (usage_state IN ('REPORTED', 'PARTIAL', 'UNKNOWN', 'LEGACY_UNSPECIFIED')),
+    provider VARCHAR(32) CHECK (provider IN ('VERTEX', 'ANTIGRAVITY')),
+    execution_mode VARCHAR(32),
+    attempt_id UUID REFERENCES chapter_analysis_execution_attempts(attempt_id) ON DELETE RESTRICT,
+    credential_ref UUID REFERENCES analysis_provider_credentials(credential_ref) ON DELETE RESTRICT,
+    cli_version VARCHAR(64),
+    conversation_id VARCHAR(200),
+    model_observed VARCHAR(128),
+    effort_observed VARCHAR(16),
+    prompt_hash CHAR(64) CHECK (prompt_hash IS NULL OR prompt_hash ~ '^[0-9a-f]{64}$'),
+    schema_hash CHAR(64) CHECK (schema_hash IS NULL OR schema_hash ~ '^[0-9a-f]{64}$'),
+    output_hash CHAR(64) CHECK (output_hash IS NULL OR output_hash ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_chapter_analysis_runs_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_chapter_analysis_runs_canon_hash CHECK (canon_hash ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_chapter_analysis_runs_prompt_tokens CHECK (prompt_tokens >= 0),
@@ -300,7 +609,36 @@ CREATE TABLE chapter_analysis_runs (
     CONSTRAINT ck_chapter_analysis_runs_thinking_tokens CHECK (thinking_tokens >= 0),
     CONSTRAINT ck_chapter_analysis_runs_cached_tokens CHECK (cached_tokens >= 0),
     CONSTRAINT ck_chapter_analysis_runs_total_tokens CHECK (total_tokens >= 0),
-    CONSTRAINT ck_chapter_analysis_runs_runtime_ms CHECK (runtime_ms >= 0)
+    CONSTRAINT ck_chapter_analysis_runs_runtime_ms CHECK (runtime_ms >= 0),
+    CONSTRAINT ck_chapter_analysis_run_execution_mode
+        CHECK (execution_mode IS NULL OR execution_mode IN ('VERTEX_API', 'ANTIGRAVITY_CLI', 'ANTIGRAVITY_API'))
+);
+
+-- Installation-wide prompt configuration (Settings -> Prompt).
+-- One row for the whole installation: no user, account or project owner.
+-- The full configuration is a validated JSON document; the backend (PromptSettings) is the
+-- authority for its shape and limits. revision is the compare-and-set version and the
+-- provenance frozen into operation snapshots. Initial content is seeded by the application from
+-- versioned default resources, never overwritten once present.
+CREATE TABLE prompt_settings (
+    singleton_id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton_id),
+    revision BIGINT NOT NULL CHECK (revision > 0),
+    format_version INTEGER NOT NULL CHECK (format_version = 1),
+    settings JSONB NOT NULL
+        CHECK (jsonb_typeof(settings) = 'object' AND octet_length(settings::text) <= 700000),
+    semantic_hash CHAR(64) NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Frozen Chapter Analysis prompt instruction, written in the job admission transaction.
+-- Queued, retried and replayed analyses keep exactly this text regardless of later Saves;
+-- an empty instruction records that the configuration added nothing for this job.
+CREATE TABLE chapter_analysis_prompt_snapshots (
+    generation_job_id UUID PRIMARY KEY REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    settings_revision BIGINT NOT NULL CHECK (settings_revision > 0),
+    instruction TEXT NOT NULL,
+    instruction_hash CHAR(64) NOT NULL CHECK (instruction_hash ~ '^[0-9a-f]{64}$'),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- -----------------------------------------------------------------------------
@@ -340,32 +678,6 @@ ALTER TABLE generation_jobs
 -- Project render snapshots
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE local_device_pairing_codes (
-    id BIGSERIAL PRIMARY KEY,
-    code_hash CHAR(64) NOT NULL UNIQUE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    consumed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE local_devices (
-    id UUID PRIMARY KEY,
-    name VARCHAR(160) NOT NULL,
-    platform VARCHAR(80) NOT NULL,
-    agent_version VARCHAR(64) NOT NULL,
-    token_hash CHAR(64) NOT NULL UNIQUE,
-    last_seen_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_at TIMESTAMPTZ
-);
-
-CREATE TABLE local_device_capabilities (
-    device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE CASCADE,
-    capability VARCHAR(64) NOT NULL,
-    PRIMARY KEY (device_id, capability)
-);
-
 CREATE TABLE project_render_input_snapshots (
     generation_job_id UUID PRIMARY KEY REFERENCES generation_jobs(id) ON DELETE CASCADE,
     project_id UUID NOT NULL REFERENCES projects(id),
@@ -397,7 +709,7 @@ CREATE TABLE project_render_input_snapshots (
     CONSTRAINT ck_project_render_input_resolution CHECK (resolution IN ('720p', '1080p', '1440p')),
     CONSTRAINT ck_project_render_input_format CHECK (render_format = 'mp4'),
     CONSTRAINT ck_project_render_profile_object CHECK (jsonb_typeof(render_profile_json) = 'object'),
-    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer IN (2, 3)),
+    CONSTRAINT ck_project_render_profile_version CHECK ((render_profile_json ->> 'schemaVersion')::integer IN (2, 3, 4)),
     CONSTRAINT ck_project_render_profile_v3_watermark CHECK (
         (render_profile_json ->> 'schemaVersion')::integer = 2
         OR (
@@ -405,6 +717,10 @@ CREATE TABLE project_render_input_snapshots (
             AND render_profile_json -> 'watermark' ->> 'mode' IN ('required', 'none')
             AND (render_profile_json -> 'watermark' ->> 'policyVersion')::integer = 1
         )
+    ),
+    CONSTRAINT ck_project_render_profile_audio_mode CHECK (
+        (render_profile_json ->> 'schemaVersion')::integer <> 4
+        OR render_profile_json ->> 'audioMode' IN ('NATIVE_TAKE', 'EXTERNAL_NARRATION')
     )
 );
 
@@ -420,10 +736,10 @@ CREATE TABLE project_render_input_chapters (
     continuity_report_revision INTEGER,
     global_start_ms BIGINT NOT NULL CHECK (global_start_ms >= 0),
     global_end_ms BIGINT NOT NULL,
-    audio_storage_key TEXT NOT NULL,
-    audio_size_bytes BIGINT NOT NULL CHECK (audio_size_bytes > 0),
-    audio_checksum VARCHAR(128) NOT NULL,
-    audio_duration_ms BIGINT NOT NULL CHECK (audio_duration_ms > 0),
+    audio_storage_key TEXT,
+    audio_size_bytes BIGINT CHECK (audio_size_bytes > 0),
+    audio_checksum VARCHAR(128),
+    audio_duration_ms BIGINT CHECK (audio_duration_ms > 0),
     narration_request_id UUID,
     narration_asset_id UUID,
     narration_alignment_id UUID,
@@ -463,10 +779,35 @@ CREATE TABLE project_render_input_beats (
     fit_mode VARCHAR(24) NOT NULL DEFAULT 'TRIM',
     trim_start_ms BIGINT NOT NULL DEFAULT 0,
     media_selection_active BOOLEAN NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (generation_job_id, visual_beat_id),
+    cut_id UUID NOT NULL DEFAULT uuidv7(),
+    shot_id UUID,
+    take_id UUID,
+    source_out_ms BIGINT,
+    subtitle_words_json JSONB,
+    PRIMARY KEY (generation_job_id, cut_id),
     CONSTRAINT ck_project_render_beat_range CHECK (global_end_ms > global_start_ms),
     CONSTRAINT ck_project_render_input_beat_media_type CHECK (media_type IN ('IMAGE', 'VIDEO')),
     CONSTRAINT ck_project_render_input_beat_source_duration CHECK (source_duration_ms IS NULL OR source_duration_ms > 0),
     CONSTRAINT ck_project_render_input_beat_fit_mode CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
-    CONSTRAINT ck_project_render_input_beat_trim_start CHECK (trim_start_ms >= 0)
+    CONSTRAINT ck_project_render_input_beat_trim_start CHECK (trim_start_ms >= 0),
+    CONSTRAINT ck_native_render_source_cut CHECK (
+        shot_id IS NULL OR (
+            take_id IS NOT NULL AND source_duration_ms IS NOT NULL
+            AND source_out_ms > trim_start_ms AND source_out_ms <= source_duration_ms
+            AND duration_ms = source_out_ms - trim_start_ms
+        )
+    )
+);
+
+COMMENT ON COLUMN project_render_input_beats.cut_id IS
+    'Stable cut identity: shot ID for native take cuts, legacy visual beat ID otherwise.';
+COMMENT ON COLUMN project_render_input_beats.subtitle_words_json IS
+    'Observed speech word timings in source take coordinates; expected-text alignment is insufficient.';
+
+-- Project-scoped preferences; existing projects keep the default subtitle style.
+CREATE TABLE project_subtitle_settings (
+    project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    settings_json JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_project_subtitle_settings_object CHECK (jsonb_typeof(settings_json) = 'object')
 );

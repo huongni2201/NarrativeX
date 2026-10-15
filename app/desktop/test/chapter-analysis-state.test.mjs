@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { deriveChapterAnalysisUiState } from "../src/renderer/features/chapters/model/chapter-analysis.ts";
+import * as chapterUi from "../src/renderer/features/chapters/model/chapter-ui.ts";
 
 function job(status, errorCode = null) {
   return { status, errorCode };
@@ -44,4 +45,13 @@ test("chapter analysis state exposes completed, failed and cancelled terminal ou
   assert.equal(cancelled.isTerminal, true);
   assert.equal(cancelled.canAnalyze, true);
   assert.match(cancelled.message, /hủy/i);
+});
+
+test("initial chapter creation requires a title and nonblank source text", () => {
+  const canCreateInitialChapter = chapterUi.canCreateInitialChapter;
+  assert.equal(typeof canCreateInitialChapter, "function");
+  assert.equal(canCreateInitialChapter("Chương 1", ""), false);
+  assert.equal(canCreateInitialChapter("Chương 1", "  \n  "), false);
+  assert.equal(canCreateInitialChapter("  ", "Nội dung chương"), false);
+  assert.equal(canCreateInitialChapter("Chương 1", "Nội dung chương"), true);
 });

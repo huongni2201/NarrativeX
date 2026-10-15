@@ -2,7 +2,9 @@ package com.narrativex.backend.feature.generation.infrastructure.analysis.vertex
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisException;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisInstructions;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
+import com.narrativex.backend.feature.generation.infrastructure.analysis.ChapterAnalysisContractResources;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -10,7 +12,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -22,24 +23,10 @@ import tools.jackson.databind.ObjectMapper;
 public class VertexGeminiClient {
   private static final String CLOUD_PLATFORM_SCOPE =
       "https://www.googleapis.com/auth/cloud-platform";
-  private static final List<String> REQUIRED_DIRECTION_FIELDS =
-      List.of(
-          "shot_size",
-          "camera_angle",
-          "lens_mm",
-          "focus_target",
-          "action_phase",
-          "subject_placement",
-          "background",
-          "motivated_light",
-          "palette",
-          "camera_movement",
-          "movement_intensity",
-          "crop_safe_area");
-
   private final VertexGeminiProperties properties;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
+  private final ChapterAnalysisContractResources contractResources;
   private GoogleCredentials credentials;
 
   public VertexGeminiClient(VertexGeminiProperties properties, ObjectMapper objectMapper) {
@@ -54,6 +41,7 @@ public class VertexGeminiClient {
     this.properties = properties;
     this.httpClient = httpClient;
     this.objectMapper = objectMapper;
+    this.contractResources = new ChapterAnalysisContractResources(objectMapper);
   }
 
   /** Preflight counts tokens for input text against the configured Gemini model. */
@@ -84,11 +72,22 @@ public class VertexGeminiClient {
   /** Generates structured storyboard output from chapter text. */
   public GeneratedAnalysisResponse generateContent(
       String sourceText, String sourceLanguage, String promptVersion, String schemaVersion) {
+    return generateContent(sourceText, sourceLanguage, promptVersion, schemaVersion, null);
+  }
+
+  /** As above, appending the editorial instruction frozen at job admission (may be null). */
+  public GeneratedAnalysisResponse generateContent(
+      String sourceText,
+      String sourceLanguage,
+      String promptVersion,
+      String schemaVersion,
+      String customInstruction) {
     String url = buildEndpointUrl("generateContent");
     Instant startTime = Instant.now();
 
     Map<String, Object> requestPayload =
-        buildGenerateContentPayload(sourceText, sourceLanguage, promptVersion, schemaVersion);
+        buildGenerateContentPayload(
+            sourceText, sourceLanguage, promptVersion, schemaVersion, customInstruction);
 
     try {
       String jsonBody = objectMapper.writeValueAsString(requestPayload);
@@ -109,7 +108,11 @@ public class VertexGeminiClient {
   }
 
   private Map<String, Object> buildGenerateContentPayload(
-      String sourceText, String sourceLanguage, String promptVersion, String schemaVersion) {
+      String sourceText,
+      String sourceLanguage,
+      String promptVersion,
+      String schemaVersion,
+      String customInstruction) {
     String userPrompt =
         "Extract characters, locations, narrative scenes, and visual beats from this chapter.\n\n"
             + "Source language: "
@@ -118,22 +121,9 @@ public class VertexGeminiClient {
             + sourceText;
 
     String systemInstruction =
-        "You are the NarrativeX Storyboard and Canon Analyzer (promptVersion="
-            + promptVersion
-            + ", schemaVersion="
-            + schemaVersion
-            + "). "
-            + "Extract the narrative canon (characters and locations) and analyze the chapter into sequential scenes and visual beats adhering strictly to the JSON schema. "
-            + "Characters must include stable ai_name, canonical_name, aliases, role (PROTAGONIST, ANTAGONIST, SUPPORTING, EXTRA), importance (PRIMARY, SECONDARY, BACKGROUND), description, and detailed visual_prompt. "
-            + "Locations must include ai_name, name, aliases, description, and visual_prompt. "
-            + "Scenes must reference location_ai_name and character_ai_names. "
-            + "Every visual beat MUST include an exact verbatim source_anchor present in the chapter text, referenced character_ai_names, and detailed visual_direction. "
-            + "Provide ordered audio_cues for what the audience hears: NARRATOR, DIALOGUE, INNER_MONOLOGUE, or SYSTEM. "
-            + "Every cue needs an exact source_anchor within its visual beat, adaptation_action, adapted_text, and delivery_hint. "
-            + "DIALOGUE and INNER_MONOLOGUE require speaker_ai_name from canon.characters. "
-            + "KEEP_EXACT text must equal the cue source_anchor; proposed edits use LIGHT_EDIT or COMPRESS and remain subject to review.";
-
-    Map<String, Object> responseSchema = buildStoryboardResponseSchema();
+        ChapterAnalysisInstructions.compose(
+            contractResources.systemInstruction(promptVersion, schemaVersion), customInstruction);
+    JsonNode responseSchema = contractResources.vertexResponseSchema();
 
     Map<String, Object> thinkingConfig =
         "NONE".equalsIgnoreCase(properties.getThinkingLevel())
@@ -160,143 +150,6 @@ public class VertexGeminiClient {
         Map.of("parts", List.of(Map.of("text", systemInstruction))),
         "generationConfig",
         generationConfig);
-  }
-
-  private static Map<String, Object> buildStoryboardResponseSchema() {
-    Map<String, Object> visualDirectionProps =
-        Map.ofEntries(
-            Map.entry("shot_size", Map.of("type", "STRING")),
-            Map.entry("camera_angle", Map.of("type", "STRING")),
-            Map.entry("lens_mm", Map.of("type", "INTEGER")),
-            Map.entry("focus_target", Map.of("type", "STRING")),
-            Map.entry("action_phase", Map.of("type", "STRING")),
-            Map.entry("subject_placement", Map.of("type", "STRING")),
-            Map.entry("background", Map.of("type", "STRING")),
-            Map.entry("motivated_light", Map.of("type", "STRING")),
-            Map.entry("palette", Map.of("type", "STRING")),
-            Map.entry("camera_movement", Map.of("type", "STRING")),
-            Map.entry("movement_intensity", Map.of("type", "STRING")),
-            Map.entry("crop_safe_area", Map.of("type", "STRING")));
-
-    Map<String, Object> audioCueSchema =
-        Map.of(
-            "type",
-            "OBJECT",
-            "required",
-            List.of("cue_type", "source_anchor", "adaptation_action", "adapted_text"),
-            "properties",
-            Map.of(
-                "cue_type",
-                    Map.of(
-                        "type",
-                        "STRING",
-                        "enum",
-                        List.of("NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM")),
-                "speaker_ai_name", Map.of("type", "STRING"),
-                "source_anchor", Map.of("type", "STRING"),
-                "adaptation_action",
-                    Map.of(
-                        "type",
-                        "STRING",
-                        "enum",
-                        List.of("KEEP_EXACT", "LIGHT_EDIT", "COMPRESS", "VISUAL_PRIMARY")),
-                "adapted_text", Map.of("type", "STRING"),
-                "delivery_hint", Map.of("type", "STRING")));
-
-    Map<String, Object> visualBeatSchema =
-        Map.of(
-            "type",
-            "OBJECT",
-            "required",
-            List.of("title", "visual_intent", "source_anchor", "visual_direction", "audio_cues"),
-            "properties",
-            Map.of(
-                "title",
-                Map.of("type", "STRING"),
-                "visual_intent",
-                Map.of("type", "STRING"),
-                "source_anchor",
-                Map.of("type", "STRING"),
-                "audio_cues",
-                Map.of("type", "ARRAY", "items", audioCueSchema),
-                "character_ai_names",
-                Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
-                "visual_direction",
-                Map.of(
-                    "type",
-                    "OBJECT",
-                    "required",
-                    REQUIRED_DIRECTION_FIELDS,
-                    "properties",
-                    visualDirectionProps)));
-
-    Map<String, Object> sceneSchema =
-        Map.of(
-            "type",
-            "OBJECT",
-            "required",
-            List.of("title", "visual_beats"),
-            "properties",
-            Map.of(
-                "title",
-                Map.of("type", "STRING"),
-                "narration",
-                Map.of("type", "STRING"),
-                "location_ai_name",
-                Map.of("type", "STRING"),
-                "character_ai_names",
-                Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
-                "visual_beats",
-                Map.of("type", "ARRAY", "items", visualBeatSchema)));
-
-    Map<String, Object> characterSchema =
-        Map.of(
-            "type",
-            "OBJECT",
-            "required",
-            List.of("ai_name", "canonical_name", "role", "importance", "visual_prompt"),
-            "properties",
-            Map.of(
-                "ai_name", Map.of("type", "STRING"),
-                "canonical_name", Map.of("type", "STRING"),
-                "aliases", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
-                "role", Map.of("type", "STRING"),
-                "importance", Map.of("type", "STRING"),
-                "description", Map.of("type", "STRING"),
-                "visual_prompt", Map.of("type", "STRING")));
-
-    Map<String, Object> locationSchema =
-        Map.of(
-            "type",
-            "OBJECT",
-            "required",
-            List.of("ai_name", "name", "visual_prompt"),
-            "properties",
-            Map.of(
-                "ai_name", Map.of("type", "STRING"),
-                "name", Map.of("type", "STRING"),
-                "aliases", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
-                "description", Map.of("type", "STRING"),
-                "visual_prompt", Map.of("type", "STRING")));
-
-    Map<String, Object> canonSchema =
-        Map.of(
-            "type",
-            "OBJECT",
-            "required",
-            List.of("characters", "locations"),
-            "properties",
-            Map.of(
-                "characters", Map.of("type", "ARRAY", "items", characterSchema),
-                "locations", Map.of("type", "ARRAY", "items", locationSchema)));
-
-    return Map.of(
-        "type",
-        "OBJECT",
-        "required",
-        List.of("canon", "scenes"),
-        "properties",
-        Map.of("canon", canonSchema, "scenes", Map.of("type", "ARRAY", "items", sceneSchema)));
   }
 
   private GeneratedAnalysisResponse parseSuccessfulResponse(String responseBody, long runtimeMs) {
@@ -338,19 +191,22 @@ public class VertexGeminiClient {
   private static ChapterAnalysisUsage extractUsageTelemetry(
       JsonNode usageMetadata, long runtimeMs) {
     if (usageMetadata == null) {
-      return new ChapterAnalysisUsage(0, 0, 0, 0, 0, runtimeMs);
+      return new ChapterAnalysisUsage(null, null, null, null, null, runtimeMs);
     }
-    long promptTokens = usageMetadata.path("promptTokenCount").asLong(0);
-    long outputTokens = usageMetadata.path("candidatesTokenCount").asLong(0);
-    long thinkingTokens =
-        usageMetadata.has("thoughtsTokenCount")
-            ? usageMetadata.path("thoughtsTokenCount").asLong(0)
-            : usageMetadata.path("thinkingTokenCount").asLong(0);
-    long cachedTokens = usageMetadata.path("cachedContentTokenCount").asLong(0);
-    long totalTokens = usageMetadata.path("totalTokenCount").asLong(promptTokens + outputTokens);
+    Long promptTokens = nullableLong(usageMetadata, "promptTokenCount");
+    Long outputTokens = nullableLong(usageMetadata, "candidatesTokenCount");
+    Long thinkingTokens = nullableLong(usageMetadata, "thoughtsTokenCount");
+    if (thinkingTokens == null) thinkingTokens = nullableLong(usageMetadata, "thinkingTokenCount");
+    Long cachedTokens = nullableLong(usageMetadata, "cachedContentTokenCount");
+    Long totalTokens = nullableLong(usageMetadata, "totalTokenCount");
 
     return new ChapterAnalysisUsage(
         promptTokens, outputTokens, thinkingTokens, cachedTokens, totalTokens, runtimeMs);
+  }
+
+  private static Long nullableLong(JsonNode node, String field) {
+    JsonNode value = node.get(field);
+    return value == null || !value.isIntegralNumber() ? null : value.asLong();
   }
 
   private HttpResponse<String> sendHttpRequest(String url, String jsonBody)
@@ -383,7 +239,8 @@ public class VertexGeminiClient {
       if (credentials == null) {
         credentials = GoogleCredentials.getApplicationDefault();
         if (credentials.createScopedRequired()) {
-          credentials = credentials.createScoped(Collections.singletonList(CLOUD_PLATFORM_SCOPE));
+          credentials =
+              credentials.createScoped(java.util.Collections.singletonList(CLOUD_PLATFORM_SCOPE));
         }
       }
       credentials.refreshIfExpired();
@@ -421,4 +278,12 @@ public class VertexGeminiClient {
   }
 
   public record GeneratedAnalysisResponse(String rawJson, ChapterAnalysisUsage usage) {}
+
+  public String promptHash() {
+    return contractResources.promptHash();
+  }
+
+  public String schemaHash() {
+    return contractResources.schemaHash();
+  }
 }

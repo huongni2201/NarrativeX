@@ -36,6 +36,10 @@ export function wordCount(value: string) {
   return normalized ? normalized.split(/\s+/u).length : 0;
 }
 
+export function canCreateInitialChapter(title: string, sourceText: string) {
+  return Boolean(title.trim() && sourceText.trim());
+}
+
 export function chapterNumberLabel(orderIndex: number) {
   const displayNumber = Math.max(0, Math.trunc(orderIndex)) + 1;
   return `Chapter ${String(displayNumber).padStart(2, "0")}`;

@@ -29,7 +29,7 @@
   </resultMap>
 
   <resultMap id="beatRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineBeatRow">
-    <id property="visualBeatId" column="visual_beat_id" />
+    <result property="visualBeatId" column="visual_beat_id" />
     <result property="shotId" column="shot_id" />
     <result property="takeId" column="take_id" />
     <result property="chapterId" column="chapter_id" />
@@ -49,6 +49,7 @@
     <result property="sourceDurationMs" column="source_duration_ms" />
     <result property="fitMode" column="fit_mode" />
     <result property="trimStartMs" column="trim_start_ms" />
+    <result property="sourceOutMs" column="source_out_ms" />
     <result property="mediaSelectionActive" column="media_selection_active" />
     <result property="storageKey" column="storage_key" />
     <result property="sizeBytes" column="size_bytes" />
@@ -221,29 +222,30 @@
            cb.visual_beat_id,
            selected_video.shot_id,
            selected_video.take_id,
+           selected_video.source_out_ms,
            COALESCE(cb.title, CONCAT('Beat ', cb.beat_index + 1)) AS title,
            cb.visual_intent,
            cb.camera_movement,
            'GENERATE_NEW' AS asset_strategy,
            cb.text_start,
            cb.text_end,
-           COALESCE(chosen.media_asset_id, selected_video.media_asset_id, preview.media_asset_id) AS media_asset_id,
-           COALESCE(chosen.media_type, selected_video.media_type, preview.media_type) AS media_type,
-           COALESCE(chosen.source_duration_ms, selected_video.source_duration_ms, preview.source_duration_ms) AS source_duration_ms,
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.media_asset_id ELSE COALESCE(chosen.media_asset_id, preview.media_asset_id) END AS media_asset_id,
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.media_type ELSE COALESCE(chosen.media_type, preview.media_type) END AS media_type,
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.source_duration_ms ELSE COALESCE(chosen.source_duration_ms, preview.source_duration_ms) END AS source_duration_ms,
            CASE
+             WHEN selected_video.shot_id IS NOT NULL THEN selected_video.fit_mode
              WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode
-             WHEN selected_video.media_asset_id IS NOT NULL THEN selected_video.fit_mode
              ELSE 'TRIM'
            END AS fit_mode,
            CASE
+             WHEN selected_video.shot_id IS NOT NULL THEN COALESCE(selected_video.trim_start_ms, 0)
              WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms
-             WHEN selected_video.media_asset_id IS NOT NULL THEN selected_video.trim_start_ms
              ELSE 0
            END AS trim_start_ms,
-           (chosen.media_asset_id IS NOT NULL OR selected_video.media_asset_id IS NOT NULL) AS media_selection_active,
-           COALESCE(chosen.storage_key, selected_video.storage_key, preview.storage_key) AS storage_key,
-           COALESCE(chosen.size_bytes, selected_video.size_bytes, preview.size_bytes) AS size_bytes,
-           COALESCE(chosen.checksum, selected_video.checksum, preview.checksum) AS checksum
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.media_asset_id IS NOT NULL ELSE chosen.media_asset_id IS NOT NULL END AS media_selection_active,
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.storage_key ELSE COALESCE(chosen.storage_key, preview.storage_key) END AS storage_key,
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.size_bytes ELSE COALESCE(chosen.size_bytes, preview.size_bytes) END AS size_bytes,
+           CASE WHEN selected_video.shot_id IS NOT NULL THEN selected_video.checksum ELSE COALESCE(chosen.checksum, preview.checksum) END AS checksum
       FROM current_beats cb
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
@@ -270,8 +272,10 @@
         SELECT ma.id AS media_asset_id,
                ma.asset_type AS media_type,
                sh.id AS shot_id,
+               sh.order_index AS shot_order,
                t.id AS take_id,
-               COALESCE(st.source_out_ms - st.source_in_ms, t.source_duration_ms, ma.duration_ms) AS source_duration_ms,
+               t.source_duration_ms AS source_duration_ms,
+               st.source_out_ms,
                'TRIM' AS fit_mode,
                st.source_in_ms AS trim_start_ms,
                ma.storage_key,
@@ -279,17 +283,17 @@
                ma.sha256 AS checksum
           FROM shot_sequences ss
           JOIN shots sh ON sh.sequence_id = ss.id
-          JOIN selected_takes st ON st.shot_id = sh.id
-          JOIN takes t ON t.id = st.take_id
-          JOIN media_assets ma ON ma.id = t.output_asset_id
+          LEFT JOIN selected_takes st ON st.shot_id = sh.id
+          LEFT JOIN takes t ON t.id = st.take_id AND t.shot_id = sh.id AND t.status IN ('PASSED', 'SELECTED') AND t.validation_status = 'PASSED'
+          LEFT JOIN media_assets ma ON ma.id = t.output_asset_id
+            AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND ma.asset_type = 'VIDEO'
+            AND ma.status = 'READY' AND ma.deleted_at IS NULL
+            AND ma.size_bytes > 0 AND ma.sha256 IS NOT NULL
+            AND st.source_in_ms >= 0 AND st.source_out_ms > st.source_in_ms
+            AND st.source_out_ms &lt;= t.source_duration_ms
          WHERE ss.visual_beat_id = cb.visual_beat_id
-           AND ma.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
-           AND ma.status = 'READY'
-           AND ma.deleted_at IS NULL
-           AND ma.size_bytes > 0
-           AND ma.sha256 IS NOT NULL
-         ORDER BY sh.order_index ASC
-         LIMIT 1
+         ORDER BY sh.order_index ASC, sh.id ASC
       ) selected_video ON TRUE
       LEFT JOIN LATERAL (
         SELECT ma.id AS media_asset_id,
@@ -312,6 +316,6 @@
               cb.chapter_id ASC,
               cb.scene_index ASC,
               cb.beat_index ASC,
-              cb.visual_beat_id ASC
+              cb.visual_beat_id ASC, selected_video.shot_order ASC
   </select>
 </mapper>

@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.infrastructure.analysis.vertex
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -53,7 +54,7 @@ class VertexGeminiChapterAnalysisAdapterTest {
   void executesGenerationAndComputesCanonHashWhenWithinLimit() {
     when(client.countTokens(anyString())).thenReturn(15000);
     ChapterAnalysisUsage usage = new ChapterAnalysisUsage(15000, 3000, 2000, 0, 18000, 1200);
-    when(client.generateContent(anyString(), anyString(), anyString(), anyString()))
+    when(client.generateContent(anyString(), anyString(), anyString(), anyString(), any()))
         .thenReturn(new VertexGeminiClient.GeneratedAnalysisResponse("{\"scenes\":[]}", usage));
 
     var request =

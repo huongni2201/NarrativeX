@@ -20,6 +20,8 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { RenderController } from "../../production/useRenderController";
+import { SubtitleSettingsPanel } from "../../production/components/SubtitleSettingsPanel";
 import type { MediaMutationNotice } from "../EditorScreen";
 import { getAllowedBeatFitModes } from "../model/editor-media-fit";
 
@@ -33,9 +35,15 @@ interface EditorInspectorPanelProps {
   onChooseAsset: (assetId: string) => void;
   onUpdateFitMode: (fitMode: BeatMediaFitMode) => void;
   onResetSource: () => void;
+  /** Project-wide subtitle settings (shared with the Render dialog). */
+  subtitleController: RenderController;
+  /** Tells the preview whether the subtitle tab is open so it can show a sample caption. */
+  onSubtitleEditingChange?: (editing: boolean) => void;
+  /** Increment to jump straight to the subtitle tab (e.g. from the Render dialog). */
+  openSubtitleSignal?: number;
 }
 
-type InspectorTab = "scene" | "audio" | "effects";
+type InspectorTab = "scene" | "audio" | "effects" | "subtitle";
 
 export function EditorInspectorPanel({
   selectedBeat,
@@ -47,6 +55,9 @@ export function EditorInspectorPanel({
   onChooseAsset,
   onUpdateFitMode,
   onResetSource,
+  subtitleController,
+  onSubtitleEditingChange,
+  openSubtitleSignal = 0,
 }: Readonly<EditorInspectorPanelProps>) {
   const [activeTab, setActiveTab] = useState<InspectorTab>("scene");
   const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
@@ -56,9 +67,20 @@ export function EditorInspectorPanel({
   useEffect(() => {
     setIsAssetPickerOpen(false);
     setShowAdvanced(false);
-    setActiveTab("scene");
+    // Subtitle settings are project-wide, so selecting another beat must not close the tab.
+    setActiveTab((tab) => (tab === "subtitle" ? tab : "scene"));
     setNotes("");
   }, [selectedBeat]);
+
+  useEffect(() => {
+    if (openSubtitleSignal > 0) setActiveTab("subtitle");
+  }, [openSubtitleSignal]);
+
+  const subtitleTabOpen = activeTab === "subtitle";
+  useEffect(() => {
+    onSubtitleEditingChange?.(subtitleTabOpen);
+    return () => onSubtitleEditingChange?.(false);
+  }, [onSubtitleEditingChange, subtitleTabOpen]);
 
   const beatTitle = selectedBeat?.title || "Visual Beat";
   const durationText = selectedBeat ? formatTimecode(selectedBeat.durationMs) : "00:10.00";
@@ -71,18 +93,19 @@ export function EditorInspectorPanel({
       <div className="flex h-14 shrink-0 items-center border-b border-border-subtle px-4">
         <div>
           <h3 className="text-[14px] font-semibold tracking-tight text-foreground">Inspector</h3>
-          <p className="mt-0.5 truncate text-[10px] text-text-dim">{selectedBeat ? beatTitle : "No beat selected"}</p>
+          <p className="mt-0.5 truncate text-caption text-text-dim">{selectedBeat ? beatTitle : "No beat selected"}</p>
         </div>
       </div>
 
       <div
         role="tablist"
         aria-label="Inspector sections"
-        className="flex border-b border-border-subtle bg-surface-dark px-3"
+        className="flex overflow-x-auto border-b border-border-subtle bg-surface-dark px-2"
       >
         <InspectorTabButton tab="scene" label="Scene" active={activeTab === "scene"} onClick={() => setActiveTab("scene")} />
         <InspectorTabButton tab="audio" label="Audio" active={activeTab === "audio"} onClick={() => setActiveTab("audio")} />
         <InspectorTabButton tab="effects" label="Effects" active={activeTab === "effects"} onClick={() => setActiveTab("effects")} />
+        <InspectorTabButton tab="subtitle" label="Phụ đề" active={subtitleTabOpen} onClick={() => setActiveTab("subtitle")} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -93,17 +116,17 @@ export function EditorInspectorPanel({
 
               <div>
                 <FieldLabel>Name</FieldLabel>
-                <Input aria-label="Scene name" readOnly value={beatTitle} className="text-[11px]" />
+                <Input aria-label="Scene name" readOnly value={beatTitle} className="text-caption" />
               </div>
 
               <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2.5">
                 <div>
                   <FieldLabel>Duration</FieldLabel>
-                  <Input aria-label="Scene duration" readOnly value={durationText} className="font-mono text-[11px]" />
+                  <Input aria-label="Scene duration" readOnly value={durationText} className="font-mono text-caption" />
                 </div>
                 <div>
                   <FieldLabel>Transition</FieldLabel>
-                  <div className="flex h-8 w-full items-center justify-between rounded-md border border-border-subtle bg-surface-input px-3 text-[11px] text-text-secondary">
+                  <div className="flex h-8 w-full items-center justify-between rounded-md border border-border-subtle bg-surface-input px-3 text-caption text-text-secondary">
                     <span>None</span>
                     <ChevronDown size={13} className="text-text-muted" aria-hidden="true" />
                   </div>
@@ -116,8 +139,8 @@ export function EditorInspectorPanel({
 
               <div className="flex min-h-[132px] flex-col items-center justify-center border-y border-dashed border-border-subtle bg-background/35 p-4 text-center">
                 <ImageIcon size={24} className="text-text-muted" strokeWidth={1.5} aria-hidden="true" />
-                <p className="mt-2 text-[11px] font-medium text-text-secondary">Drag &amp; drop media here</p>
-                <p className="mt-0.5 text-[10px] text-text-dim">or choose a source</p>
+                <p className="mt-2 text-caption font-medium text-text-secondary">Drag &amp; drop media here</p>
+                <p className="mt-0.5 text-caption text-text-dim">or choose a source</p>
                 <Button
                   size="sm"
                   disabled={mediaBusy}
@@ -128,7 +151,7 @@ export function EditorInspectorPanel({
                 </Button>
               </div>
 
-              <div className="flex items-center justify-between py-1 text-[10px]">
+              <div className="flex items-center justify-between py-1 text-caption">
                 <span className="text-text-dim">Current source</span>
                 <span className="font-medium text-text-secondary">
                   {selectedBeat ? mediaSourceLabel(selectedBeat) : "Auto / Default"}
@@ -136,7 +159,7 @@ export function EditorInspectorPanel({
               </div>
 
               {selectedBeat?.takeId && (
-                <div className="rounded bg-surface-2 p-2 border border-border-subtle space-y-1 text-[10px]">
+                <div className="rounded bg-surface-2 p-2 border border-border-subtle space-y-1 text-caption">
                   <div className="flex items-center justify-between">
                     <span className="text-text-dim">Video Shot</span>
                     <span className="font-mono font-medium text-foreground">
@@ -181,14 +204,14 @@ export function EditorInspectorPanel({
                             onChooseAsset(asset.id);
                             setIsAssetPickerOpen(false);
                           }}
-                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[10px] text-text-secondary transition-colors hover:bg-surface-3 hover:text-foreground"
+                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-caption text-text-secondary transition-colors hover:bg-surface-3 hover:text-foreground"
                         >
                           {asset.type === "IMAGE" ? <FileImage size={12} /> : <Film size={12} />}
                           <span className="min-w-0 flex-1 truncate">{asset.originalFilename}</span>
                         </button>
                       ))
                     ) : (
-                      <div className="p-3 text-center text-[10px] text-text-muted">Không có asset phù hợp.</div>
+                      <div className="p-3 text-center text-caption text-text-muted">Không có asset phù hợp.</div>
                     )}
                   </div>
                 )}
@@ -208,14 +231,14 @@ export function EditorInspectorPanel({
               )}
 
               {mediaBusy && (
-                <p className="border-l-2 border-border-dark bg-background px-2.5 py-1.5 text-[10px] text-text-muted" role="status">
+                <p className="border-l-2 border-border-dark bg-background px-2.5 py-1.5 text-caption text-text-muted" role="status">
                   Đang lưu thay đổi…
                 </p>
               )}
 
               {visibleMediaNotice && !mediaBusy && (
                 <div
-                  className={`border-l-2 px-2.5 py-2 text-[10px] leading-4 ${
+                  className={`border-l-2 px-2.5 py-2 text-caption leading-4 ${
                     visibleMediaNotice.tone === "success"
                       ? "border-success bg-success-bg text-success"
                       : "border-danger bg-danger-bg text-danger"
@@ -234,7 +257,7 @@ export function EditorInspectorPanel({
                         <button
                           type="button"
                           onClick={visibleMediaNotice.retry}
-                          className="mt-2 rounded-sm border border-current/30 px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-background/30"
+                          className="mt-2 rounded-sm border border-current/30 px-2 py-1 text-caption font-semibold transition-colors hover:bg-background/30"
                         >
                           Thử lại
                         </button>
@@ -254,9 +277,9 @@ export function EditorInspectorPanel({
                   onChange={(event) => setNotes(event.target.value.slice(0, 500))}
                   maxLength={500}
                   placeholder="Ghi chú cho cảnh này..."
-                  className="h-28 resize-none pb-7 text-[11px]"
+                  className="h-28 resize-none pb-7 text-caption"
                 />
-                <span className="pointer-events-none absolute bottom-2.5 right-3 text-[10px] text-text-dim">
+                <span className="pointer-events-none absolute bottom-2.5 right-3 text-caption text-text-dim">
                   {notes.length} / 500
                 </span>
               </div>
@@ -264,10 +287,10 @@ export function EditorInspectorPanel({
 
             <section className="space-y-2.5 pt-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
+                <span className="flex items-center gap-1.5 text-caption font-semibold text-foreground">
                   <WandSparkles size={12} className="text-primary" /> Auto Edit Decision
                 </span>
-                <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-text-dim">
+                <span className="text-caption font-semibold text-text-dim">
                   {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
                 </span>
               </div>
@@ -277,7 +300,7 @@ export function EditorInspectorPanel({
                 <InfoCell label="Trim start" value={formatTimecode(autoDecision?.trimStartMs ?? selectedBeat?.trimStartMs ?? 0)} />
                 <InfoCell label="Clock" value="Narration" />
               </div>
-              <p className="text-[10px] leading-4 text-text-muted">
+              <p className="text-caption leading-4 text-text-muted">
                 {autoDecision?.reason || "Narration controls beat duration and FFmpeg auto-fits the media."}
               </p>
               <Button
@@ -291,7 +314,7 @@ export function EditorInspectorPanel({
               </Button>
               {showAdvanced && (
                 <div className="space-y-2 border-t border-border-subtle pt-2.5">
-                  <p className="text-[10px] leading-4 text-text-dim">Ghi đè quyết định Auto Edit cho beat hiện tại.</p>
+                  <p className="text-caption leading-4 text-text-dim">Ghi đè quyết định Auto Edit cho beat hiện tại.</p>
                   <div className="grid grid-cols-2 gap-1">
                     {allowedFitModes.map((mode) => (
                       <button
@@ -299,7 +322,7 @@ export function EditorInspectorPanel({
                         type="button"
                         disabled={mediaBusy || !selectedBeat?.mediaAssetId}
                         onClick={() => onUpdateFitMode(mode)}
-                        className={`rounded-sm px-2 py-1.5 text-[10px] font-medium transition-colors disabled:opacity-40 ${
+                        className={`rounded-sm px-2 py-1.5 text-caption font-medium transition-colors disabled:opacity-40 ${
                           selectedBeat?.fitMode === mode
                             ? "bg-primary-muted text-primary"
                             : "text-text-muted hover:bg-surface-2 hover:text-foreground"
@@ -323,10 +346,16 @@ export function EditorInspectorPanel({
             className="space-y-2 py-1"
           >
             <SectionTitle>Audio Sync</SectionTitle>
-            <p className="text-[11px] leading-5 text-text-muted">
+            <p className="text-caption leading-5 text-text-muted">
               Timing của visual beat được căn theo master narration track. Audio controls chi tiết được quản lý ở workflow Voice và timeline.
             </p>
           </section>
+        )}
+
+        {subtitleTabOpen && (
+          <div role="tabpanel" id="inspector-panel-subtitle" aria-labelledby="inspector-tab-subtitle" className="py-1">
+            <SubtitleSettingsPanel controller={subtitleController} variant="inspector" />
+          </div>
         )}
 
         {activeTab === "effects" && (
@@ -337,7 +366,7 @@ export function EditorInspectorPanel({
             className="space-y-2 py-1"
           >
             <SectionTitle>Visual Effects</SectionTitle>
-            <p className="text-[11px] text-text-muted">
+            <p className="text-caption text-text-muted">
               Current motion: <strong className="font-medium text-foreground">{selectedBeat?.cameraMovement || "Auto"}</strong>
             </p>
           </section>
@@ -361,7 +390,7 @@ function InspectorTabButton({
       aria-selected={active}
       aria-controls={`inspector-panel-${tab}`}
       onClick={onClick}
-      className={`relative px-3 py-2.5 text-[11px] font-medium transition-colors duration-150 ${
+      className={`relative shrink-0 whitespace-nowrap px-2.5 py-2.5 text-caption font-medium transition-colors duration-150 ${
         active ? "text-foreground" : "text-text-muted hover:text-foreground"
       }`}
     >
@@ -372,18 +401,18 @@ function InspectorTabButton({
 }
 
 function SectionTitle({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <h4 className="text-[11px] font-semibold text-foreground">{children}</h4>;
+  return <h4 className="text-caption font-semibold text-foreground">{children}</h4>;
 }
 
 function FieldLabel({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <label className="mb-1.5 block text-[10px] font-medium text-text-muted">{children}</label>;
+  return <label className="mb-1.5 block text-caption font-medium text-text-muted">{children}</label>;
 }
 
 function InfoCell({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="min-w-0">
-      <span className="block text-[9px] uppercase tracking-[0.08em] text-text-dim">{label}</span>
-      <strong className="mt-0.5 block truncate text-[10px] font-medium text-text-secondary">{value}</strong>
+      <span className="block text-caption text-text-dim">{label}</span>
+      <strong className="mt-0.5 block truncate text-caption font-medium text-text-secondary">{value}</strong>
     </div>
   );
 }

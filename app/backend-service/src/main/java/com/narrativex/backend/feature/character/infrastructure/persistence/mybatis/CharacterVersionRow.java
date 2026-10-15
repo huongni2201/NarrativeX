@@ -16,6 +16,9 @@ public class CharacterVersionRow {
   private int versionNumber;
   private String bible;
   private String visualPrompt;
+  private String referencePolicy;
+  private String visualProfileJson;
+  private UUID basedOnVersionId;
   private String status;
   private Instant lockedAt;
 }

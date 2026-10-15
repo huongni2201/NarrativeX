@@ -51,7 +51,7 @@ export function ShotActionToolbar({
         value={currentStrategy}
         onValueChange={(val) => onStrategyChange(val as GenerationStrategy)}
       >
-        <SelectTrigger className="h-7 text-[10px] min-w-[120px] bg-surface-dark border-border-soft">
+        <SelectTrigger className="h-7 text-caption min-w-[120px] bg-surface-dark border-border-soft">
           <SelectValue placeholder="Strategy" />
         </SelectTrigger>
         <SelectContent>
@@ -80,7 +80,7 @@ export function ShotActionToolbar({
       <Button
         size="sm"
         variant="default"
-        className="h-7 text-[11px] px-2.5"
+        className="h-7 text-caption px-2.5"
         disabled={isGenerating || isBlocked}
         onClick={onGenerate}
         title={isBlocked ? (blockedReason ?? "Generation blocked") : undefined}
@@ -97,7 +97,7 @@ export function ShotActionToolbar({
         <Button
           size="sm"
           variant="outline"
-          className="h-7 text-[11px] px-2"
+          className="h-7 text-caption px-2"
           disabled={isGenerating}
           onClick={onRetake}
           title="Reason-aware retake"
@@ -111,7 +111,7 @@ export function ShotActionToolbar({
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 text-[11px] px-2 text-text-secondary hover:text-foreground"
+        className="h-7 text-caption px-2 text-text-secondary hover:text-foreground"
         onClick={onOpenTakeSelector}
       >
         <Layers size={12} />

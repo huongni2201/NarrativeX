@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.character.infrastructure.persistence.adap
 
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterReadRepository;
 import com.narrativex.backend.feature.character.application.query.ProjectCharacterReadModel;
+import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadRow;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
@@ -71,7 +72,10 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
                 row.getVersionNumber(),
                 row.getVersionStatus(),
                 row.getBible(),
-                row.getVisualPrompt());
+                row.getVisualPrompt(),
+                row.getReferencePolicy(),
+                parseVisualProfile(row.getVisualProfileJson()),
+                row.getBasedOnVersionId());
 
     boolean hasAppearance =
         row.getAgeState() != null
@@ -119,6 +123,15 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
       return objectMapper.readValue(json, STRING_LIST);
     } catch (JacksonException exception) {
       throw new IllegalStateException("Invalid character JSON projection", exception);
+    }
+  }
+
+  private CharacterVisualProfile parseVisualProfile(String json) {
+    if (json == null || json.isBlank()) return null;
+    try {
+      return objectMapper.readValue(json, CharacterVisualProfile.class);
+    } catch (JacksonException exception) {
+      throw new DomainValidationException("Stored character visual profile is invalid", exception);
     }
   }
 }

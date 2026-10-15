@@ -38,6 +38,7 @@ from narrativex_gpu_worker.contracts import (
     VideoMotionIntent,
     VideoVoiceReference,
 )
+from narrativex_gpu_worker.contracts.artifact import VideoTechnicalMetadata
 
 
 @pytest.fixture
@@ -151,7 +152,22 @@ def test_build_ltx_video_workflow() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ltx_execute_success(video_task: ComputeTask) -> None:
+@pytest.mark.parametrize("decode_valid", [True, False])
+async def test_ltx_execute_success(video_task: ComputeTask, monkeypatch, decode_valid) -> None:
+    metadata = VideoTechnicalMetadata(
+        duration_ms=2917,
+        width=1280,
+        height=720,
+        fps=24,
+        has_audio=True,
+        decode_passed=True,
+    )
+    inspect = AsyncMock(return_value=metadata)
+    if not decode_valid:
+        inspect.side_effect = ValueError("Decode failed")
+    monkeypatch.setattr(
+        "narrativex_gpu_worker.adapters.executors.ltx.executor.inspect_native_video", inspect
+    )
     client = AsyncMock(spec=ComfyUIClient)
     client.submit_prompt.return_value = "prompt-ltx-123"
     client.wait_for_completion.return_value = {
@@ -187,12 +203,20 @@ async def test_ltx_execute_success(video_task: ComputeTask) -> None:
         save_handle=AsyncMock(),
     )
 
+    if not decode_valid:
+        with pytest.raises(ExecutorExecutionError, match="Decode failed") as failure:
+            await executor.execute(video_task, cancel, context)
+        assert failure.value.code == "VIDEO_OUTPUT_INVALID"
+        artifact_adapter.upload.assert_not_awaited()
+        return
     output = await executor.execute(video_task, cancel, context)
 
     assert output.execution_handle == f"ltx:{executor.prompt_id(video_task)}"
     assert context.save_handle.await_count == 2
     assert len(output.outputs) == 1
     assert output.outputs[0].role == "target-video"
+    assert output.outputs[0].technical_metadata == metadata
+    assert output.outputs[0].technical_metadata.duration_ms != video_task.inputs.duration_ms
     artifact_adapter.upload.assert_awaited_once()
 
 
@@ -217,33 +241,40 @@ async def test_ltx_persists_uuid_before_post_and_resumes_without_post(video_task
 
     client.submit_prompt.side_effect = submit
     with pytest.raises(ExecutorExecutionError):
-        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
-            save_handle=save_handle, save_submitting=save_submitting
-        ))
+        await executor.execute(
+            video_task,
+            asyncio.Event(),
+            ExecutionContext(save_handle=save_handle, save_submitting=save_submitting),
+        )
     client.submit_prompt.reset_mock()
     client.wait_for_completion.side_effect = ComfyUIClientError("Known engine failure")
     with pytest.raises(ExecutorExecutionError):
-        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
-            existing_execution_handle=handle
-        ))
+        await executor.execute(
+            video_task, asyncio.Event(), ExecutionContext(existing_execution_handle=handle)
+        )
     client.submit_prompt.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("output", [
-    {"7": {"videos": [{"filename": "fake.mp4"}]}},
-    {"4852": {"images": [{"filename": "fake.png"}], "animated": [True]}},
-    {"4852": {"images": [{"filename": "fake.mp4"}]}},
-])
+@pytest.mark.parametrize(
+    "output",
+    [
+        {"7": {"videos": [{"filename": "fake.mp4"}]}},
+        {"4852": {"images": [{"filename": "fake.png"}], "animated": [True]}},
+        {"4852": {"images": [{"filename": "fake.mp4"}]}},
+    ],
+)
 async def test_ltx_rejects_arbitrary_history_outputs(video_task, output):
     client = AsyncMock(spec=ComfyUIClient)
     artifacts = AsyncMock(spec=ArtifactPort)
     executor = LtxVideoExecutor(client, artifacts)
     client.wait_for_completion.return_value = {"outputs": output}
     with pytest.raises(ExecutorExecutionError) as error:
-        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
-            existing_execution_handle=f"ltx:{executor.prompt_id(video_task)}"
-        ))
+        await executor.execute(
+            video_task,
+            asyncio.Event(),
+            ExecutionContext(existing_execution_handle=f"ltx:{executor.prompt_id(video_task)}"),
+        )
     assert error.value.code == "VIDEO_OUTPUT_INVALID"
     artifacts.upload.assert_not_awaited()
 
@@ -253,19 +284,25 @@ async def test_ltx_limits_downloaded_output_bytes(video_task):
     client = AsyncMock(spec=ComfyUIClient)
     artifacts = AsyncMock(spec=ArtifactPort)
     executor = LtxVideoExecutor(client, artifacts, max_artifact_bytes=32)
-    client.wait_for_completion.return_value = {"outputs": {"4852": {
-        "images": [{"filename": "out.mp4", "subfolder": "", "type": "output"}],
-        "animated": [True],
-    }}}
+    client.wait_for_completion.return_value = {
+        "outputs": {
+            "4852": {
+                "images": [{"filename": "out.mp4", "subfolder": "", "type": "output"}],
+                "animated": [True],
+            }
+        }
+    }
 
     async def stream(*args):
         yield b"\x00\x00\x00\x20ftypisom" + b"0" * 32
 
     client.download_image_stream = stream
     with pytest.raises(ExecutorExecutionError, match="byte limit"):
-        await executor.execute(video_task, asyncio.Event(), ExecutionContext(
-            existing_execution_handle=f"ltx:{executor.prompt_id(video_task)}"
-        ))
+        await executor.execute(
+            video_task,
+            asyncio.Event(),
+            ExecutionContext(existing_execution_handle=f"ltx:{executor.prompt_id(video_task)}"),
+        )
     artifacts.upload.assert_not_awaited()
 
 

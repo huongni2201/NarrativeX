@@ -2,18 +2,21 @@ package com.narrativex.backend.feature.generation.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import org.junit.jupiter.api.Test;
 
 class CharacterIdentityPromptComposerTest {
 
   private final CharacterIdentityPromptComposer composer = new CharacterIdentityPromptComposer();
+  private final PromptSettings settings = PromptSettingsDefaults.settingsFor(ImageStyle.CINEMATIC_ANIME);
 
   @Test
   void composesPremiumCharacterReferenceWithoutNarrativeBibleBias() {
     var result =
         composer.compose(
-            ImageStyle.CINEMATIC_ANIME,
+            settings,
             "Lan",
             "oval face, dark expressive eyes, shoulder-length black hair",
             "Reserved protagonist who lost her family in a fire",
@@ -25,7 +28,7 @@ class CharacterIdentityPromptComposerTest {
     String finalPrompt = VisualPromptText.finalPrompt(result.prompt(), result.negativePrompt());
 
     assertThat(finalPrompt)
-        .startsWith("GLOBAL VISUAL STYLE: " + ImageStyle.CINEMATIC_ANIME.promptSuffix())
+        .startsWith("GLOBAL VISUAL STYLE: " + settings.activeStyle().positivePrompt())
         .contains("CHARACTER IDENTITY REFERENCE TASK")
         .contains("CHARACTER: Lan")
         .contains("IDENTITY LOCK: oval face, dark expressive eyes, shoulder-length black hair")
@@ -47,6 +50,61 @@ class CharacterIdentityPromptComposerTest {
         .doesNotContain("balanced soft frontal lighting")
         .doesNotContain("Reserved protagonist")
         .doesNotContain("lost her family")
-        .endsWith("AVOID: " + ImageStyle.CINEMATIC_ANIME.negativePrompt());
+        .endsWith("AVOID: " + settings.activeStyle().negativePrompt());
+  }
+
+  @Test
+  void switchingTheSavedStyleChangesTheReferenceLookWithoutLeakingAnimeLanguage() {
+    var watercolor =
+        composer.compose(
+            PromptSettingsDefaults.settings().withActiveStyle("STORYBOOK_WATERCOLOR"),
+            "Lan",
+            "oval face",
+            null,
+            null,
+            null,
+            null,
+            null);
+
+    String finalPrompt = VisualPromptText.finalPrompt(watercolor.prompt(), watercolor.negativePrompt());
+
+    assertThat(finalPrompt)
+        .containsIgnoringCase("watercolor")
+        .contains("CHARACTER IDENTITY REFERENCE TASK")
+        .contains("IDENTITY LOCK: oval face")
+        .doesNotContain("premium semi-realistic 3D CGI")
+        .doesNotContain("animated-feature CGI finish")
+        .doesNotContain("flat 2D cel anime");
+  }
+
+  @Test
+  void customReferenceInstructionIsAddedButProtectedLinesStayLast() {
+    var base = PromptSettingsDefaults.settings();
+    var custom =
+        new PromptSettings(
+            base.formatVersion(),
+            base.revision(),
+            base.activeStyleId(),
+            base.styles(),
+            new com.narrativex.backend.feature.generation.application.model.prompt
+                .PromptInstructions(
+                base.instructions().chapterAnalysis(),
+                "- always show hands relaxed at the sides",
+                base.instructions().storyboard(),
+                base.instructions().video()),
+            base.videoNegativePrompt());
+
+    var result = composer.compose(custom, "Lan", "oval face", null, null, null, null, null);
+
+    String prompt = result.prompt();
+    assertThat(prompt)
+        .contains("always show hands relaxed at the sides")
+        .contains("IDENTITY LOCK: oval face");
+    // Custom guidance sits inside the composition block; backend-owned protections follow it.
+    assertThat(prompt.indexOf("always show hands relaxed at the sides"))
+        .isGreaterThan(prompt.indexOf("- exactly one character"))
+        .isLessThan(prompt.indexOf("- no text, captions, logos, watermarks"))
+        .isLessThan(prompt.indexOf("IDENTITY PRIORITY:"))
+        .isLessThan(prompt.indexOf("Preserve specified traits exactly."));
   }
 }

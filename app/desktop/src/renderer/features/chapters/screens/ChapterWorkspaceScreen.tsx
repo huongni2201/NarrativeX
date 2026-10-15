@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  FileText,
-  Compass,
   Clapperboard,
-  Sparkles,
+  Compass,
+  FileText,
   Layers,
+  Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import type {
   DesktopChapterDetails,
@@ -13,15 +14,16 @@ import type {
   StoryBeatReviewStatus,
 } from "@narrativex/client-contracts";
 import { useChapterStoryQuery, useUpdateStoryBeatReviewStatus } from "../../story/queries/story.queries";
-import { useCreateChapter, useUpdateChapter } from "../queries/chapters.queries";
+import { useCreateChapter, useUpdateChapter, useChapterWorkspacesQuery } from "../queries/chapters.queries";
+import { useChapterAnalysis } from "../queries/chapter-analysis.queries";
 import {
-  useAnalyzeChapter,
   useCreateMediaJob,
   useCurrentMediaJob,
   useGenerationJob,
 } from "../../generation/queries/generation.queries";
 import { isActiveGenerationJobStatus } from "../../generation/generation-status";
 import { useChapterProductionStatus } from "../../production/queries/video-production.queries";
+import { canCreateInitialChapter, isAnalysisProcessingStatus } from "../model/chapter-ui";
 import { ChapterRail } from "../components/ChapterRail";
 import { ChapterSourceStage } from "../components/stages/ChapterSourceStage";
 import { ChapterCanonStage } from "../components/stages/ChapterCanonStage";
@@ -30,6 +32,18 @@ import { StoryStageView } from "../../story/screens/StoryStageView";
 import { StoryBeatInspector } from "../../story/components/StoryBeatInspector";
 
 export type ChapterStage = "source" | "canon" | "story" | "production";
+
+const stageTabs: ReadonlyArray<{
+  id: ChapterStage;
+  label: string;
+  icon: LucideIcon;
+  requiresChapter: boolean;
+}> = [
+  { id: "source", label: "Nội dung gốc", icon: FileText, requiresChapter: false },
+  { id: "canon", label: "Hồ sơ", icon: Compass, requiresChapter: true },
+  { id: "story", label: "Kịch bản", icon: Clapperboard, requiresChapter: true },
+  { id: "production", label: "Sản xuất", icon: Sparkles, requiresChapter: true },
+];
 
 export interface ChapterWorkspaceScreenProps {
   projectId: string;
@@ -70,7 +84,10 @@ export function ChapterWorkspaceScreen({
 
   const createChapter = useCreateChapter(projectId);
   const updateChapter = useUpdateChapter(projectId);
-  const analyzeChapter = useAnalyzeChapter();
+  const chapterWorkspaces = useChapterWorkspacesQuery(projectId, chapters, selectedChapterId);
+  const serverAnalysis = chapterWorkspaces.find(item => item.data?.chapter.id === selectedChapterId)?.data?.pipeline.analysis;
+  const analysis = useChapterAnalysis(projectId, selectedChapterId,
+    serverAnalysis && isAnalysisProcessingStatus(serverAnalysis.status) ? serverAnalysis.latestJobId : null);
   const createMediaJob = useCreateMediaJob();
   const updateBeatStatus = useUpdateStoryBeatReviewStatus(projectId, selectedChapterId ?? "");
 
@@ -94,6 +111,10 @@ export function ChapterWorkspaceScreen({
   );
 
   const activeChapter = chapters.find((c) => c.id === selectedChapterId) ?? null;
+
+  useEffect(() => {
+    if (analysis.job?.status === "COMPLETED") void refetchStory();
+  }, [analysis.job?.status, refetchStory]);
 
   // Derive selected beat from server query state as single source of truth
   const selectedBeat = useMemo(() => {
@@ -136,16 +157,12 @@ export function ChapterWorkspaceScreen({
   };
 
   const handleAnalyze = async () => {
-    if (!activeChapter) return;
-    const idempotencyKey = `analyze-${activeChapter.id}-${crypto.randomUUID()}`;
-    await analyzeChapter.mutateAsync({
-      projectId,
-      chapterId: activeChapter.id,
-      request: {
-        visualGenerationMode: "VIDEO",
-      },
-      idempotencyKey,
-    });
+    if (!activeChapter || !analysis.canAnalyze) return;
+    try {
+      await analysis.analyze({ visualGenerationMode: "VIDEO" });
+    } catch {
+      return; // The mutation error is rendered below; preserve its idempotency key.
+    }
     // Switch to Canon stage to view results
     setCurrentStage("canon");
     void refetchStory();
@@ -165,11 +182,22 @@ export function ChapterWorkspaceScreen({
     });
   };
 
-  const handleCreateNewChapter = async () => {
+  const handleCreateNewChapter = async (title?: unknown, sourceText?: unknown) => {
+    // Rail buttons can call this with no arguments; only accept real strings.
+    const titleText = typeof title === "string" ? title.trim() : "";
+    const bodyText = typeof sourceText === "string" ? sourceText : "";
+    if (createChapter.isPending) return;
+
     const nextOrder = chapters.length;
+    if (nextOrder === 0 && !canCreateInitialChapter(titleText, bodyText)) {
+      setCurrentStage("source");
+      // No chapter yet: move focus to the empty form's title field.
+      setTimeout(() => document.getElementById("initial-chapter-title")?.focus(), 0);
+      return;
+    }
     const res = await createChapter.mutateAsync({
-      title: `Chương ${nextOrder + 1}`,
-      sourceText: "",
+      title: titleText || `Chương ${nextOrder + 1}`,
+      sourceText: bodyText,
     });
     setSelectedChapterId(res.id);
     setCurrentStage("source");
@@ -198,67 +226,40 @@ export function ChapterWorkspaceScreen({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Stage Header Navigation */}
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-dark px-4">
-          <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-lg text-[13px]">
-            <button
-              type="button"
-              onClick={() => setCurrentStage("source")}
-              className={`flex items-center gap-1.5 rounded-md px-3.5 py-1 font-medium transition-all ${
-                currentStage === "source"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-text-muted hover:text-foreground"
-              }`}
-            >
-              <FileText size={14} />
-              <span>Source (Văn bản)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentStage("canon")}
-              className={`flex items-center gap-1.5 rounded-md px-3.5 py-1 font-medium transition-all ${
-                currentStage === "canon"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-text-muted hover:text-foreground"
-              }`}
-            >
-              <Compass size={14} />
-              <span>Canon (Bối cảnh)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentStage("story")}
-              className={`flex items-center gap-1.5 rounded-md px-3.5 py-1 font-medium transition-all ${
-                currentStage === "story"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-text-muted hover:text-foreground"
-              }`}
-            >
-              <Clapperboard size={14} />
-              <span>Story (StoryBeats)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentStage("production")}
-              className={`flex items-center gap-1.5 rounded-md px-3.5 py-1 font-medium transition-all ${
-                currentStage === "production"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-text-muted hover:text-foreground"
-              }`}
-            >
-              <Sparkles size={14} />
-              <span>Production (Sản xuất)</span>
-            </button>
+          <div className="flex items-center gap-1 rounded-lg bg-surface-2 p-1 text-body">
+            {stageTabs.map(({ id, label, icon: Icon, requiresChapter }) => {
+              const isActive = currentStage === id;
+              const isLocked = requiresChapter && !activeChapter;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCurrentStage(id)}
+                  disabled={isLocked}
+                  aria-pressed={isActive}
+                  title={isLocked ? "Tạo chương trước để mở bước này" : undefined}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-[color,background-color,border-color,box-shadow,transform,opacity] disabled:cursor-not-allowed disabled:opacity-40 ${
+                    isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-text-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon size={14} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[12px] font-mono text-text-muted">
+            <span className="text-label text-text-muted">
               {activeChapter ? activeChapter.title || `Chương ${activeChapter.orderIndex + 1}` : "Chưa chọn chương"}
             </span>
           </div>
         </div>
 
+        {(analysis.message || analysis.error) && <p role={analysis.error ? "alert" : "status"}
+          className="border-b border-border-subtle bg-surface-panel px-4 py-3 text-label text-text-secondary">
+          {analysis.error instanceof Error ? analysis.error.message : analysis.message}
+        </p>}
         {/* Stage Content Canvas */}
         <div className="min-h-0 flex-1 overflow-hidden">
           {currentStage === "source" && (
@@ -267,7 +268,9 @@ export function ChapterWorkspaceScreen({
               onSave={handleSaveSource}
               onAnalyze={handleAnalyze}
               onCreateChapter={handleCreateNewChapter}
-              isAnalyzing={analyzeChapter.isPending}
+              defaultChapterTitle={`Chương ${chapters.length + 1}`}
+              isCreating={createChapter.isPending}
+              isAnalyzing={analysis.isAnalyzing}
             />
           )}
 
@@ -304,26 +307,28 @@ export function ChapterWorkspaceScreen({
         </div>
       </div>
 
-      {/* PANE 3 (RIGHT): Contextual Inspector */}
-      <div className="w-[340px] shrink-0 overflow-hidden">
-        {selectedBeat ? (
-          <StoryBeatInspector
-            beat={selectedBeat}
-            onUpdateReviewStatus={handleUpdateReviewStatus}
-            isUpdatingStatus={updateBeatStatus.isPending}
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center p-6 text-center text-text-muted border-l border-border-subtle bg-surface-dark/50">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-surface-panel border border-border-subtle mb-3 text-text-dim shadow-sm">
-              <Layers size={22} />
+      {/* PANE 3 (RIGHT): Contextual Inspector, hidden until a chapter exists so an empty pane does not take width */}
+      {(activeChapter || selectedBeat) && (
+        <div className="w-[340px] shrink-0 overflow-hidden">
+          {selectedBeat ? (
+            <StoryBeatInspector
+              beat={selectedBeat}
+              onUpdateReviewStatus={handleUpdateReviewStatus}
+              isUpdatingStatus={updateBeatStatus.isPending}
+            />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center p-6 text-center text-text-muted border-l border-border-subtle bg-surface-dark/50">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-surface-panel border border-border-subtle mb-3 text-text-dim shadow-sm">
+                <Layers size={22} />
+              </div>
+              <h4 className="text-body font-semibold text-foreground">Thuộc tính</h4>
+              <p className="mt-1.5 max-w-[260px] text-label leading-relaxed text-text-secondary">
+                Chọn một nhịp truyện để chỉnh kịch bản, lời thoại, góc máy và thông số kỹ thuật.
+              </p>
             </div>
-            <h4 className="text-[14px] font-semibold text-foreground">Inspector</h4>
-            <p className="mt-1.5 max-w-[260px] text-[12px] leading-relaxed text-text-secondary">
-              Chọn một StoryBeat để chỉnh sửa chi tiết kịch bản, lời thoại, góc nhìn thị giác và tham số kỹ thuật.
-            </p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

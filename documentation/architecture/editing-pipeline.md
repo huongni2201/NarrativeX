@@ -1,8 +1,10 @@
 # Editing Pipeline & Timeline Assembly Architecture
 
-**Status:** Authoritative Editing Specification  
-**Authority:** ADR-0026, ADR-0030  
-**Date:** 2026-09-20  
+**Status:** maintained implementation contract; advanced EDL remains TARGET
+
+**Authority:** code, tests, ADR-0026, ADR-0030, ADR-0032
+
+**Reviewed:** 2026-10-12
 
 ---
 
@@ -10,13 +12,17 @@
 
 In the video-first pipeline, video editing is distinct from video generation. Generative models produce takes of fixed or estimated durations (e.g. 5 seconds), whereas storytelling requires precise rhythm, cuts on action, dialogue pacing, and audio alignment.
 
-The `EditingDirector` compiles an immutable `EditDecisionList` (EDL) from `SelectedTake` entities and the master narration clock (VieNeu).
+The backend captures ordered `SelectedTake` cuts in an immutable render input snapshot. For `NATIVE_TAKE`, source duration and approved In/Out define edit duration; Electron trims video and source audio together. `EXTERNAL_NARRATION` uses the explicit narration timeline. VieNeu is not an implicit timing fallback for native takes.
 
-**IMPLEMENTED renderer check:** Desktop preserves explicit 24/30/60 FPS and rejects unsupported frame rates. Final artifact verification compares probed FPS and dimensions with the immutable render profile on initial completion and recovery. A real FFmpeg regression verifies 1280×720 H.264 with 24 decoded frames for a one-second static segment. Native take-audio assembly and the expanded shot/audio snapshot remain PARTIAL until their integration gates pass.
+**IMPLEMENTED source contract:** V11 adds ordered cut identity, shot/take references, source duration, trim and observed subtitle fields to render snapshots. Native profiles use schema 4 (`project-native-av-v4`); schema 3 profiles retain the legacy renderer and external narration. Profile subtitle style is immutable. Desktop preserves explicit 24/30/60 FPS and verifies probed dimensions/FPS on completion and recovery. Native cuts are hard cuts so video and source audio share the same boundaries. Caption timing must be observed; the current native finalizer does not populate it.
+
+Local multi-shot FFmpeg fixtures and current verification limits are recorded in [review evidence](../reviews/2026-10-12-review-cleanup.md). These checks do not prove production GPU output, advanced transitions or a complete creator journey.
 
 ---
 
 ## 2. EditDecisionList (EDL) Contract
+
+**TARGET:** The following EDL is the narration-oriented design contract from ADR-0030, not the active schema-4 render profile or a shipped EDL export endpoint. Native assembly currently uses the frozen snapshot described above; dissolve/fade compilation and advanced multi-track mixing remain TARGET.
 
 ```typescript
 interface EditDecisionList {
@@ -55,6 +61,6 @@ interface EditDecision {
 ## 3. Editing Principles
 
 1. **Clip Duration != Edit Duration**: A generated take with `sourceDurationMs = 5000` may have `sourceInMs = 500` and `sourceOutMs = 3200`, creating an edit span of 2700 ms. The in/out window can be adjusted automatically by the `EditingDirector` or manually trimmed in the Desktop UI.
-2. **Audio Clock as Master**: Narration audio duration is authoritative. Shot transitions align to natural sentence boundaries, dramatic pauses, or dramatic beat transitions.
+2. **Explicit Audio Authority**: Native source audio follows the selected take's In/Out. Narration duration is authoritative only in explicit narration mode; provisional timing cannot make either mode render ready.
 3. **No Synthetic Zoompan**: Moving video footage is scaled and padded to 1280x720 at 24 FPS; no FFmpeg Ken Burns zoom/pan filter is applied to moving video clips.
-4. **Transition Continuity**: Intra-scene cuts are hard cuts by default. Scene and chapter boundaries may receive subtle fades or dissolves specified in the EDL.
+4. **Transition Continuity**: Native cuts are currently hard cuts. Legacy profiles preserve their existing fades. Advanced scene/chapter dissolves and matching audio transitions are TARGET EDL work.

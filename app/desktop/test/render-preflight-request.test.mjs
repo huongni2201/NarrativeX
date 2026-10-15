@@ -73,3 +73,20 @@ test("multiple visual assets stay storage-mode free", () => {
     { assetId: "video-1" },
   ]);
 });
+
+test("native take audio does not require local narration bytes", () => {
+  const native = timeline();
+  native.chapters[0].narrationAssetId = null;
+  native.beats = [{
+    ...native.beats[0],
+    shotId: "shot-1",
+    takeId: "take-1",
+    mediaAssetId: "take-video",
+    mediaType: "VIDEO",
+  }];
+
+  assert.deepEqual(
+    buildRenderPreflightInput("project-1", native, "1080p").assets,
+    [{ assetId: "take-video" }],
+  );
+});

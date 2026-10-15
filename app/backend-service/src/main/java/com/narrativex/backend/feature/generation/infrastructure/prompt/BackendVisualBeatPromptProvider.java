@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.application.service.StoryboardVisualPromptComposer;
@@ -19,11 +21,14 @@ import org.springframework.stereotype.Component;
 public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider {
   private final StoryboardVisualPromptComposer storyboardVisualPromptComposer;
   private final VisualPromptContextRepository visualPromptContextRepository;
+  private final PromptSettingsAccess promptSettingsAccess;
 
   @Override
   public String promptFor(UUID projectId, VisualBeat visualBeat) {
     return composePrompt(
-        visualBeat, visualPromptContextRepository.findForBeat(projectId, visualBeat.getId()));
+        promptSettingsAccess.current(),
+        visualBeat,
+        visualPromptContextRepository.findForBeat(projectId, visualBeat.getId()));
   }
 
   @Override
@@ -34,23 +39,29 @@ public class BackendVisualBeatPromptProvider implements VisualBeatPromptProvider
     var contexts =
         visualPromptContextRepository.findForBeats(
             projectId, visualBeats.stream().map(VisualBeat::getId).toList());
+    // One configuration read for the whole batch keeps every beat on the same revision.
+    PromptSettings settings = promptSettingsAccess.current();
     Map<UUID, String> prompts = new LinkedHashMap<>();
     for (VisualBeat visualBeat : visualBeats) {
       prompts.put(
           visualBeat.getId(),
           composePrompt(
-              visualBeat, contexts.getOrDefault(visualBeat.getId(), VisualPromptContext.empty())));
+              settings,
+              visualBeat,
+              contexts.getOrDefault(visualBeat.getId(), VisualPromptContext.empty())));
     }
     return Map.copyOf(prompts);
   }
 
-  private String composePrompt(VisualBeat visualBeat, VisualPromptContext context) {
+  private String composePrompt(
+      PromptSettings settings, VisualBeat visualBeat, VisualPromptContext context) {
     String aspectRatio =
         visualBeat.getAspectRatioOverride() != null
             ? visualBeat.getAspectRatioOverride().name()
             : null;
     var composedPrompt =
         storyboardVisualPromptComposer.compose(
+            settings,
             visualBeat.getVisualIntent(),
             visualBeat.getVisualDirectionJson(),
             aspectRatio,

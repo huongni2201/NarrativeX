@@ -27,7 +27,7 @@ Desktop single-user local workspace
   -> Auto Edit planning with narration-aware fit/motion decisions
   -> local render preflight
   -> backend-assigned FFmpeg render
-  -> immutable subtitle snapshot + local SRT track
+  -> immutable subtitle snapshot + ASS burn-in for available aligned cues
   -> journal/cache/artifact metadata registration
   -> local final MP4 playback/export
   -> backup/restore/storage tooling
@@ -143,7 +143,7 @@ Remaining:
 
 **Auto Edit render:** a user can accept the default narration-aware Auto Edit plan or choose a style override; supported fit/motion decisions are applied atomically before render admission.
 
-**Subtitle render:** narration text and alignment are captured in the immutable render input snapshot and emitted as a UTF-8 SRT track during local FFmpeg rendering when renderable cues exist.
+**Subtitle render:** narration text, alignment and selected style are captured in the immutable render input snapshot and burned in as ASS subtitles during local FFmpeg rendering when renderable cues exist. Native word timing remains PARTIAL.
 
 **Local render recovery:** an assigned device renders with FFmpeg under a lease, journals progress, reconciles a registered checksum-matching artifact or reruns from the frozen snapshot, and never finalizes under a lost lease. Full Electron/PostgreSQL end-to-end verification remains required.
 

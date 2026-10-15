@@ -1,8 +1,0 @@
-.git
-.idea
-.mvn/wrapper/maven-wrapper.jar
-target
-target_old
-*.log
-.env
-README.md

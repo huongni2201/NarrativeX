@@ -15,8 +15,8 @@ export function StoryboardHeader({
       <div className="flex min-w-0 items-center gap-3">
         <Clapperboard size={14} className="shrink-0 text-primary" />
         <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold tracking-tight text-foreground">Storyboard</div>
-          <div className="text-[10px] text-text-dim">Scene & Visual Beat review workspace</div>
+          <div className="truncate text-body font-semibold tracking-tight text-foreground">Storyboard</div>
+          <div className="text-caption text-text-dim">Scene & Visual Beat review workspace</div>
         </div>
       </div>
       <MetricStrip

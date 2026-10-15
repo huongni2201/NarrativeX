@@ -47,14 +47,12 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
             .toList();
     Map<UUID, LocalProjectRenderBeatMediaRow> mediaByBeat =
         beatMediaMapper.listBeatMedia(row.generationJobId()).stream()
-            .collect(
-                Collectors.toMap(
-                    LocalProjectRenderBeatMediaRow::visualBeatId, Function.identity()));
+            .collect(Collectors.toMap(LocalProjectRenderBeatMediaRow::cutId, Function.identity()));
     var beats =
         mapper.listBeats(row.generationJobId()).stream()
             .map(
                 beat -> {
-                  var media = mediaByBeat.get(beat.visualBeatId());
+                  var media = mediaByBeat.get(beat.cutId());
                   if (media == null) {
                     throw new IllegalStateException(
                         "Project render beat media snapshot is missing");
@@ -75,7 +73,11 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                       media.trimStartMs(),
                       beat.storageKey(),
                       beat.sizeBytes(),
-                      beat.checksum());
+                      beat.checksum(),
+                      beat.shotId(),
+                      beat.takeId(),
+                      beat.sourceOutMs(),
+                      beat.subtitleWordsJson());
                 })
             .toList();
     return Optional.of(

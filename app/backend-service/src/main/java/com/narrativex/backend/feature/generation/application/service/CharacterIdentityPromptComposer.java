@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CharacterIdentityPromptComposer {
 
+  /** Legacy preset-id overload; resolves the built-in preset text from the defaults. */
   public ComposedCharacterPrompt compose(
       ImageStyle style,
       String canonicalName,
@@ -21,6 +24,31 @@ public class CharacterIdentityPromptComposer {
     if (style == null) {
       throw new IllegalArgumentException("style must not be null");
     }
+    return compose(
+        PromptSettingsDefaults.settingsFor(style),
+        canonicalName,
+        visualPrompt,
+        bible,
+        appearancePrompt,
+        ageState,
+        hairstyle,
+        injury);
+  }
+
+  /** Composes from an already resolved configuration; never reads Prompt settings itself. */
+  public ComposedCharacterPrompt compose(
+      PromptSettings settings,
+      String canonicalName,
+      String visualPrompt,
+      String bible,
+      String appearancePrompt,
+      String ageState,
+      String hairstyle,
+      String injury) {
+    if (settings == null) {
+      throw new IllegalArgumentException("settings must not be null");
+    }
+    var style = settings.activeStyle();
     if (canonicalName == null || canonicalName.isBlank()) {
       throw new IllegalArgumentException("canonicalName must not be blank");
     }
@@ -34,11 +62,12 @@ public class CharacterIdentityPromptComposer {
     addLabeled(appearance, "HAIRSTYLE STATE", hairstyle);
     addLabeled(appearance, "INJURY / MARKINGS", injury);
 
-    StringBuilder prompt = new StringBuilder("GLOBAL VISUAL STYLE: ").append(style.promptSuffix());
+    StringBuilder prompt =
+        new StringBuilder("GLOBAL VISUAL STYLE: ").append(style.positivePrompt());
     prompt
         .append("\nCHARACTER IDENTITY REFERENCE TASK")
         .append(
-            "\nGenerate exactly one canonical identity reference for the established character below as a premium semi-realistic 3D CGI character portrait, not a flat illustration and not a raw live-action photograph.")
+            "\nGenerate exactly one canonical identity reference for the established character below, rendered in the global visual style above and never as a raw photograph of a real person.")
         .append("\nCHARACTER: ")
         .append(canonicalName.trim())
         .append("\nIDENTITY LOCK: ")
@@ -47,24 +76,16 @@ public class CharacterIdentityPromptComposer {
       prompt.append('\n').append(detail);
     }
     SharedCharacterRenderingLanguage.appendTo(prompt, style);
+    prompt.append("\nREFERENCE COMPOSITION:\n- exactly one character");
+    String composition = settings.instructions().characterReference();
+    if (!composition.isBlank()) {
+      prompt.append('\n').append(composition);
+    }
     prompt.append(
-        "\nREFERENCE COMPOSITION:"
-            + "\n- exactly one character"
-            + "\n- head and upper torso clearly visible, with enough shoulder and wardrobe silhouette to establish the design"
-            + "\n- subtle confident or composed expression appropriate to the character; do not exaggerate emotion"
-            + "\n- slight three-quarter angle unless a front view is more useful for identity readability"
-            + "\n- face unobstructed and both eyes clearly readable"
-            + "\n- sharp readable eyes with luminous iris detail and crisp catchlights"
-            + "\n- strand-level layered hair with fine flyaways, natural volume, a stable silhouette and restrained edge highlights"
-            + "\n- character styling that preserves the specified wardrobe and canon instead of inventing accessories or redesigning it"
-            + "\n- clean softly defocused environmental background with subtle depth and atmosphere, never a blank passport-photo backdrop"
-            + "\n- soft cinematic lighting with a diffused key, gentle fill, subtle rim light, and natural skin-tone rendering"
-            + "\n- shallow depth of field and creamy bokeh using an 85mm portrait-lens look while keeping both eyes sharply readable"
-            + "\n- polished animated-feature CGI finish with quiet main-character presence while keeping facial identity fully readable"
-            + "\n- no dramatic story action and no unrelated props"
+        "\n- no dramatic story action and no unrelated props"
             + "\n- no text, captions, logos, watermarks, contact sheet, or second character"
             + "\nIDENTITY PRIORITY: facial geometry and recognizable silhouette are more important than dramatic composition."
-            + "\nPURPOSE: this image becomes canonical identity evidence for later storyboard frames and should establish the same premium semi-realistic 3D CGI rendering language used by those frames."
+            + "\nPURPOSE: this image becomes canonical identity evidence for later storyboard frames and should establish the same rendering language used by those frames."
             + "\nPreserve specified traits exactly. Do not invent or redesign defining identity traits.");
 
     return new ComposedCharacterPrompt(prompt.toString(), style.negativePrompt());

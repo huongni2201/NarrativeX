@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.application.command;
 
+import com.narrativex.backend.feature.generation.application.render.SubtitleStyle;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,10 +12,32 @@ public record CreateProjectRenderCommand(
     UUID localDeviceId,
     int fps,
     boolean subtitlesEnabled,
-    List<RenderBeatOverride> beatOverrides) {
+    List<RenderBeatOverride> beatOverrides,
+    SubtitleStyle subtitleStyle) {
 
   public CreateProjectRenderCommand {
     beatOverrides = beatOverrides == null ? List.of() : List.copyOf(beatOverrides);
+  }
+
+  public CreateProjectRenderCommand(
+      UUID projectId,
+      String resolution,
+      String format,
+      String idempotencyKey,
+      UUID localDeviceId,
+      int fps,
+      boolean subtitlesEnabled,
+      List<RenderBeatOverride> beatOverrides) {
+    this(
+        projectId,
+        resolution,
+        format,
+        idempotencyKey,
+        localDeviceId,
+        fps,
+        subtitlesEnabled,
+        beatOverrides,
+        null);
   }
 
   public CreateProjectRenderCommand(

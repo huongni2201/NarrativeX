@@ -1,0 +1,204 @@
+package com.narrativex.backend.feature.generation.api.controller;
+
+import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisProviderCredential;
+import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisRuntimeConfiguration;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
+import com.narrativex.backend.feature.generation.infrastructure.analysis.local.LocalChapterAnalysisService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+public class StoryAnalysisRuntimeController {
+  private final LocalChapterAnalysisService service;
+  private static final String ROOT = "/api/v1/local-devices/chapter-analyses";
+  private static final String CREDENTIALS = "/api/v1/local-devices/analysis-credentials";
+  private static final String UI_CREDENTIALS = "/api/v1/story-analysis/credentials";
+
+  @GetMapping("/api/v1/story-analysis/configuration")
+  public ApiResponse<AnalysisRuntimeConfiguration> configuration() {
+    return ApiResponse.success("Analysis configuration", service.configuration());
+  }
+
+  @PutMapping("/api/v1/story-analysis/configuration")
+  public ApiResponse<AnalysisRuntimeConfiguration> configure(@Valid @RequestBody Settings s) {
+    return ApiResponse.success(
+        "Analysis configuration saved",
+        service.configure(
+            s.executionMode(), s.model(), s.effort(), s.maxConcurrentAnalyses(), s.rowVersion()));
+  }
+
+  @GetMapping(UI_CREDENTIALS)
+  public ApiResponse<List<CredentialView>> credentials() {
+    return ApiResponse.success(
+        "Analysis credentials", service.credentials().stream().map(CredentialView::from).toList());
+  }
+
+  @PutMapping(UI_CREDENTIALS + "/{credentialRef}")
+  public ApiResponse<CredentialView> updateCredential(
+      @PathVariable UUID credentialRef, @Valid @RequestBody CredentialSettings r) {
+    return ApiResponse.success(
+        "Analysis credential saved",
+        CredentialView.from(
+            service.updateCredential(credentialRef, r.enabled(), r.maxConcurrent())));
+  }
+
+  @PostMapping(CREDENTIALS)
+  public ApiResponse<CredentialRegistration> register(
+      @RequestHeader("X-NX-Device-Token") String device, @Valid @RequestBody Registration r) {
+    var credential =
+        service.registerCredential(
+            device,
+            r.fingerprint(),
+            r.label(),
+            r.adapterVersion(),
+            r.models() == null ? List.of() : r.models());
+    return ApiResponse.success(
+        "Analysis credential registered",
+        new CredentialRegistration(
+            credential.credentialRef(),
+            credential.credentialGeneration(),
+            credential.desiredEnabled(),
+            credential.desiredMaxConcurrent()));
+  }
+
+  @PostMapping(CREDENTIALS + "/{credentialRef}/observation")
+  public ApiResponse<Void> observeCredential(
+      @RequestHeader("X-NX-Device-Token") String device,
+      @PathVariable UUID credentialRef,
+      @Valid @RequestBody CredentialObservation r) {
+    service.observeCredential(
+        device, credentialRef, r.connectionState(), r.quotaState(), r.nextEligibleAt());
+    return ApiResponse.success("Credential observation accepted");
+  }
+
+  @PostMapping(CREDENTIALS + "/{credentialRef}/retire")
+  public ApiResponse<Void> retire(
+      @RequestHeader("X-NX-Device-Token") String device, @PathVariable UUID credentialRef) {
+    service.retireCredential(device, credentialRef);
+    return ApiResponse.success("Analysis credential retired");
+  }
+
+  @PostMapping(ROOT + "/claim")
+  public ResponseEntity<ApiResponse<LocalChapterAnalysisService.Claim>> claim(
+      @RequestHeader("X-NX-Device-Token") String device, @Valid @RequestBody ClaimRequest request) {
+    var claim =
+        service.claim(
+            device, request.claimRequestId(), request.credentialRef(), request.adapterVersion());
+    return claim == null
+        ? ResponseEntity.noContent().build()
+        : ResponseEntity.ok(ApiResponse.success("Analysis claimed", claim));
+  }
+
+  @PostMapping(ROOT + "/{attemptId}/complete")
+  public ApiResponse<Void> complete(
+      @RequestHeader("X-NX-Device-Token") String device,
+      @PathVariable UUID attemptId,
+      @Valid @RequestBody CompleteRequest r) {
+    service.complete(
+        device,
+        attemptId,
+        new LocalChapterAnalysisService.Completion(
+            r.leaseToken(), r.rawJson(), r.usage(), r.adapterVersion(), r.conversationId()));
+    return ApiResponse.success("Analysis result accepted");
+  }
+
+  @PostMapping(ROOT + "/{attemptId}/observation")
+  public ApiResponse<Void> observe(
+      @RequestHeader("X-NX-Device-Token") String device,
+      @PathVariable UUID attemptId,
+      @Valid @RequestBody Observation r) {
+    service.report(device, attemptId, r.leaseToken(), r.code(), r.ambiguous());
+    return ApiResponse.success("Analysis observation accepted");
+  }
+
+  @PostMapping(ROOT + "/recover")
+  public ApiResponse<Void> recover(
+      @RequestHeader("X-NX-Device-Token") String device, @Valid @RequestBody Recovery r) {
+    service.recoverClaim(device, r.claimRequestId());
+    return ApiResponse.success("Recovery recorded");
+  }
+
+  @PostMapping(ROOT + "/{attemptId}/cancellation")
+  public ApiResponse<Boolean> cancellation(
+      @RequestHeader("X-NX-Device-Token") String device,
+      @PathVariable UUID attemptId,
+      @Valid @RequestBody Lease r) {
+    return ApiResponse.success(
+        "Cancellation state", service.canceled(device, attemptId, r.leaseToken()));
+  }
+
+  public record Settings(
+      @NotNull ChapterAnalysisExecutionMode executionMode,
+      @NotBlank @Size(max = 128) String model,
+      @Pattern(regexp = "LOW|MEDIUM|HIGH") @NotNull String effort,
+      @Min(1) @Max(32) int maxConcurrentAnalyses,
+      @PositiveOrZero long rowVersion) {}
+
+  public record CredentialSettings(boolean enabled, @Min(1) @Max(16) int maxConcurrent) {}
+
+  public record Registration(
+      @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String fingerprint,
+      @NotBlank @Size(max = 120) String label,
+      @NotBlank @Size(max = 64) String adapterVersion,
+      @Size(max = 32) List<@Size(max = 128) String> models) {}
+
+  public record CredentialRegistration(
+      UUID credentialRef, int credentialGeneration, boolean desiredEnabled, int desiredMaxConcurrent) {}
+
+  public record CredentialObservation(
+      @NotBlank @Pattern(regexp = "UNKNOWN|CONNECTED|AUTH_REQUIRED|UNAVAILABLE")
+          String connectionState,
+      @NotBlank @Pattern(regexp = "UNKNOWN|AVAILABLE|RATE_LIMITED|EXHAUSTED") String quotaState,
+      Instant nextEligibleAt) {}
+
+  /** Redacted account view for the renderer. */
+  public record CredentialView(
+      UUID credentialRef,
+      String label,
+      boolean enabled,
+      int maxConcurrent,
+      String connectionState,
+      String quotaState,
+      Instant nextEligibleAt) {
+    static CredentialView from(AnalysisProviderCredential c) {
+      return new CredentialView(
+          c.credentialRef(),
+          c.label(),
+          c.desiredEnabled(),
+          c.desiredMaxConcurrent(),
+          c.observedConnectionState(),
+          c.observedQuotaState(),
+          c.nextEligibleAt());
+    }
+  }
+
+  public record ClaimRequest(
+      @NotNull UUID claimRequestId,
+      @NotNull UUID credentialRef,
+      @NotBlank @Size(max = 64) String adapterVersion) {}
+
+  public record Lease(@NotBlank @Size(max = 128) String leaseToken) {}
+
+  public record Recovery(@NotNull UUID claimRequestId) {}
+
+  public record Observation(
+      @NotBlank @Size(max = 128) String leaseToken,
+      @NotBlank @Pattern(regexp = "[A-Z_]{1,80}") String code,
+      boolean ambiguous) {}
+
+  public record CompleteRequest(
+      @NotBlank @Size(max = 128) String leaseToken,
+      @NotBlank @Size(max = 4194304) String rawJson,
+      @NotNull @Valid ChapterAnalysisUsage usage,
+      @NotBlank @Size(max = 64) String adapterVersion,
+      @Size(max = 200) String conversationId) {}
+}

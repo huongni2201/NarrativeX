@@ -1,36 +1,56 @@
-# NarrativeX Documentation Map
+# NarrativeX Documentation
 
-This directory contains the authoritative architecture, product, domain, workflow, and operational documentation for NarrativeX.
+This directory contains the maintained product contract, current architecture, domain and workflow contracts, operational guidance, and architecture decisions. Source code, migrations, and tests establish implementation facts; accepted ADRs establish direction.
 
-Current source code, Flyway migrations, and automated tests establish factual implementation truth. Accepted Architecture Decision Records (ADRs) establish architectural direction and safety boundaries.
+## Start here
 
-## Documentation Structure
+| Document | Purpose |
+| --- | --- |
+| [Current status](./CURRENT_STATUS.md) | Implemented, partial, target, deferred, and last verified state |
+| [Product specification](./product/PRODUCT_SPEC.md) | Current product contract and capability matrix |
+| [Roadmap](./product/ROADMAP.md) | Current priorities and acceptance scenarios |
+| [Architecture decisions](./decisions/README.md) | Active, proposed, and partially superseded ADRs |
 
-| Directory / File | Description |
-| :--- | :--- |
-| [`CURRENT_STATUS.md`](./CURRENT_STATUS.md) | Navigation index, implementation reality, and migration status |
-| [`COMPUTE_PROTOCOL.md`](./COMPUTE_PROTOCOL.md) | Compute Protocol v1 wire contract between Backend and Generation Service |
-| [`product/`](./product/) | Product specification (`PRODUCT_SPEC.md`) and project roadmap (`ROADMAP.md`) |
-| [`LTX production implementation plan`](./product/LTX_PRODUCTION_IMPLEMENTATION_PLAN.md) | TARGET implementation plan for Gemini preparation, LTX footage generation, production expense cap, and local 720p/24 FPS finishing; not a claim of implemented capability |
-| [`Video production reliability plan`](./product/VIDEO_PRODUCTION_RELIABILITY_PLAN.md) | TARGET repair plan for current startup, take persistence, durable execution, native audio, multi-shot rendering, Desktop flow, and measured performance |
-| [`Maintainability implementation evidence`](./architecture/maintainability-execution-evidence.md) | Refactor scope, verification evidence, remaining database/native-runtime gates, and decisions made while implementing the maintainability plan |
-| [`architecture/`](./architecture/) | System architecture (`SYSTEM_ARCHITECTURE.md`), target video-first architecture (`target-architecture-video-first.md`), runtime flow (`runtime-flow.md`), generation routing (`generation-routing.md`), editing pipeline (`editing-pipeline.md`), database design (`DATABASE.md`), and technology stack (`TECHNOLOGY_STACK.md`) |
-| [`domain/`](./domain/) | Core domain model (`DOMAIN.md`), story domain (`story-domain.md`), retention domain (`retention-domain.md`), shot domain (`shot-domain.md`), generation domain (`generation-domain.md`), and production manifest (`production-manifest.md`) |
-| [`migration/`](./migration/) | Migration inventory and cut-over plans (`current-state-inventory.md`) |
-| [`workflows/`](./workflows/) | End-to-end production pipelines: story-to-video (`STORY_TO_VIDEO.md`), narration audio (`NARRATION_AUDIO.md`), image generation (`IMAGE_GENERATION.md`) |
-| [`operations/`](./operations/) | Operational guides including remote GPU runtime operations (`REMOTE_GPU_RUNTIME.md`) |
-| [`decisions/`](./decisions/) | Architecture Decision Records (ADRs) with classification and supersession rules (`README.md`) |
+## Architecture and contracts
 
-## Authority Hierarchy
+| Document | Purpose |
+| --- | --- |
+| [System architecture](./architecture/SYSTEM_ARCHITECTURE.md) | Current Desktop, backend, worker, storage, and runtime boundaries |
+| [Compute Protocol](./COMPUTE_PROTOCOL.md) | Backend-to-generation-service wire contract |
+| [Database architecture](./architecture/DATABASE.md) | PostgreSQL authority, Flyway inventory, and schema invariants |
+| [Generation routing](./architecture/generation-routing.md) | Active T2V capability and gated extended strategies |
+| [Editing pipeline](./architecture/editing-pipeline.md) | Timeline, selected takes, immutable snapshots, and local rendering |
+| [Technology stack](./architecture/TECHNOLOGY_STACK.md) | Current stack summary; executable manifests own exact versions |
+| [Domain model](./domain/DOMAIN.md) | Shared domain hierarchy, business rules, and glossary |
+| [Shot domain](./domain/shot-domain.md) | Shot/Take model and durable admission boundary |
+| [Generation domain](./domain/generation-domain.md) | Take validation metadata and current generation limits |
+| [Retention domain](./domain/retention-domain.md) | Partial retention data model and deferred automation |
+| [Video-first cut-over inventory](./migration/current-state-inventory.md) | Current compatibility paths and removal gates |
 
-1. **Source Code & Tests**: The working code, database migrations, and automated tests are the primary factual source of truth.
-2. **Accepted ADRs**: Decisions in [`decisions/`](./decisions/) establish cross-cutting boundaries. A newer ADR supersedes an older ADR only within its explicitly defined scope.
-3. **Active Documentation**: Specifications and workflow documents summarize current capabilities and intended design within the bounds established by code and ADRs.
-4. **Git History**: Historical background and superseded migration notes are preserved in Git history rather than dead documentation files.
+## Workflows and operations
 
-## Maintenance Guidelines
+| Document | Purpose |
+| --- | --- |
+| [Story to video](./workflows/STORY_TO_VIDEO.md) | Chapter analysis through shot/take review and render |
+| [Narration and audio](./workflows/NARRATION_AUDIO.md) | TTS, user audio, alignment, and timing authority |
+| [Image generation](./workflows/IMAGE_GENERATION.md) | Current text-to-image path and reference-conditioning limits |
+| [GPU worker operations](./operations/REMOTE_GPU_RUNTIME.md) | Worker deployment target, capabilities, and runtime checks |
 
-- When modifying system behavior, update the smallest relevant document that owns that behavior.
-- Distinguish clearly between `IMPLEMENTED`, `PARTIAL`, and `DEFERRED` capabilities.
-- Never document hypothetical features or unapproved designs as implemented.
-- Check links and references using `python -B scripts/check-docs-drift.py`.
+## Active proposals and verification
+
+| Document | Purpose |
+| --- | --- |
+| [Prompt Settings plan](./product/PROMPT_SETTINGS_IMPLEMENTATION_PLAN.md) | Proposed installation-wide editable prompts and shared visual styles; not implemented |
+| [Antigravity OAuth/API plan](./product/ANTIGRAVITY_STORY_ANALYSIS_IMPLEMENTATION_PLAN.md) | Proposed direct API execution and durability work; not implemented |
+| [Performance optimization plan](./product/PERFORMANCE_OPTIMIZATION_PLAN.md) | Proposed realtime, dispatch, integrity-cache and worker memory optimizations; not implemented |
+| [Account flow plan](./product/ACCOUNT_TAB_IMPLEMENTATION_PLAN.md) | Proposed provider connection UX and credential lifecycle; not implemented |
+| [Antigravity OAuth/API research](./product/ANTIGRAVITY_OAUTH_API_RESEARCH.md) | Current interoperability evidence and provider limitations |
+| [Latest review evidence](./reviews/2026-10-12-review-cleanup.md) | Last recorded gate results, native Editor gaps, and runtime limits |
+
+## Maintenance
+
+- Update the smallest document that owns a changed behavior or boundary.
+- Keep `IMPLEMENTED`, `PARTIAL`, `TARGET`, and `DEFERRED` explicit.
+- Do not promote a target to implemented based on an accepted ADR or deterministic fixture alone.
+- Historical plans and review snapshots belong in Git history when they no longer guide current work.
+- Check links and documentation drift with `python -B scripts/check-docs-drift.py`.

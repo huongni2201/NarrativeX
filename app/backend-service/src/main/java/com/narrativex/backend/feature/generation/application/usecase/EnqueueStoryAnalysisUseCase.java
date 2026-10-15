@@ -37,6 +37,20 @@ public class EnqueueStoryAnalysisUseCase {
   private final GenerationOutboxRepository generationOutboxRepository;
   private final ChapterAnalysisAdmissionService admissionService;
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.port.out
+          .ChapterAnalysisSnapshotCapture
+      analysisSnapshotCapture;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess
+      promptSettingsAccess;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.port.out
+          .ChapterAnalysisPromptSnapshotRepository
+      promptSnapshots;
+
   @Transactional
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     var chapter =
@@ -103,6 +117,16 @@ public class EnqueueStoryAnalysisUseCase {
 
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
+    // Resolve the prompt configuration once, after the idempotent replay checks above, and freeze
+    // the analysis instruction before any provider dispatch or local-device claim can read it.
+    if (promptSettingsAccess != null && promptSnapshots != null) {
+      var settings = promptSettingsAccess.current();
+      promptSnapshots.save(
+          com.narrativex.backend.feature.generation.application.model.analysis
+              .ChapterAnalysisPromptSnapshot.of(
+              job.getId(), settings.revision(), settings.instructions().chapterAnalysis()));
+    }
+    if (analysisSnapshotCapture != null) analysisSnapshotCapture.capture(job);
     generationOutboxRepository.enqueue(job);
     log.info(
         "Enqueued story analysis job id={} for projectId={}, chapterId={}, storyboardRevisionId={}, visualMode={}, imageProvider={}",

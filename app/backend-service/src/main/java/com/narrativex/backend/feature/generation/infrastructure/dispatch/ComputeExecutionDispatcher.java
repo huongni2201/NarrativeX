@@ -32,8 +32,10 @@ public class ComputeExecutionDispatcher {
 
   private final GenerationJobRepository generationJobRepository;
   private final GenerationJobHandlerRegistry handlerRegistry;
+
   @Autowired(required = false)
-  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService batches;
+  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService
+      batches;
 
   @Autowired
   public ComputeExecutionDispatcher(

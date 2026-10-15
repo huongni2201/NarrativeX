@@ -1,30 +1,37 @@
 # NarrativeX Database Architecture and Baseline Policy
 
 **Status:** maintained database contract  
-**Authority:** Spring Boot backend Flyway migrations (V1–V10), integration tests, and active ADRs (ADR-0020, ADR-0021, ADR-0025, ADR-0026 to ADR-0031)
+**Authority:** Spring Boot backend Flyway migrations (current worktree inventory V1–V7), integration tests, and active ADRs (ADR-0020, ADR-0021, ADR-0025, ADR-0026 to ADR-0032)
 
 ## PostgreSQL Authority and Flyway Ownership
 
 PostgreSQL is the single authoritative store for business state, admission control, durable generation jobs, device leases, and artifact metadata. The Spring Boot backend owns Flyway and manages the relational schema. `app/generation-service` and Electron Desktop have zero direct access to PostgreSQL.
 
-## Current Canonical Baseline (V1–V10)
+## Current Migration Inventory (V1–V7)
 
-NarrativeX maintains a clean, squashed pre-production baseline. A fresh database applies exactly ten responsibility-separated migrations:
+The pre-production baseline is squashed into seven responsibility-separated migrations. The former incremental files V8–V15 (async compute orchestration, video-first production, character voice profiles, native render cuts, subtitle settings, Chapter Analysis local execution, prompt settings, and the Antigravity OAuth execution mode) are folded into the owning V1–V7 files; their final-state schema is unchanged. This inventory does not establish which versions are applied to an installed database or declare any runtime capability complete.
 
 | Migration | Responsibility |
 |---|---|
-| V1__project_story_and_planning.sql | Projects, StoryVersions, Chapters, Scenes, StoryBeats, AudioCues, VisualBeats, Characters, and planning entities |
-| V2__generation_and_media.sql | Generation jobs, Stage attempts, Provider operations, Media assets, and voice-reference assets |
+| V1__project_story_and_planning.sql | Projects, StoryVersions, Chapters, Scenes, StoryBeats, AudioCues, VisualBeats (dramatic intent and retention role), Characters with typed visual profiles/reference policies, character voice profiles and pinned voice pointers, and media plans |
+| V2__generation_and_media.sql | Generation jobs (including async compute attempt handles, callback metadata and reconciliation state), Stage attempts, Provider operations, compute event receipts and target assignments, Media assets, and canonical character-reference slots |
 | V3__narration_and_artifacts.sql | Narration and alignment contracts, local device render leases, and final artifact metadata |
-| V4__catalog_generation_and_render_snapshots.sql | Catalogs, upload lifecycle, media lineage, continuity plans, regeneration plans, and immutable render snapshots |
-| V5__database_logic_and_triggers.sql | Immutability guards, database functions, and generation event triggers |
-| V6__indexes.sql | Access-path, covering, partial, and unique indexes |
-| V7__seed_catalog.sql | Deterministic system and catalog seed data only |
-| V8__generation_async_orchestration.sql | Compute attempt handles, durable compute-target assignments, callback metadata, event receipts, and reconciliation indexes |
-| V9__video_first_retention_production.sql | Video-first production schema, hook plans, retention maps, attention events, shot sequences, shots, takes, selected takes, generation references, and production insights |
-| V10__character_voice_profiles.sql | Character voice profiles, pinned voice profile pointers, and voice identity isolation |
+| V4__catalog_generation_and_render_snapshots.sql | Catalogs, upload lifecycle, video-first shot production (hook plans, retention maps, shots, takes), media lineage, continuity plans, local devices, Chapter Analysis runtime (settings, redacted provider credentials, immutable execution and prompt snapshots, fenced attempts, usage/provenance), regeneration plans, immutable render snapshots including native take cuts, and project subtitle settings ([ADR-0035](../decisions/ADR-0035-installation-wide-prompt-settings.md), Proposed) |
+| V5__database_logic_and_triggers.sql | Immutability guards (media plans, lineage, continuity, takes, analysis snapshots), database functions, and generation event triggers |
+| V6__indexes.sql | Access-path, covering, partial, and unique indexes for every table, including compute orchestration and Chapter Analysis runtime |
+| V7__seed_catalog.sql | Deterministic system and catalog seed data only, including the singleton Chapter Analysis runtime configuration row |
 
-A clean database applies **V1 through V10** directly. There are no obsolete patch migrations; former patch work was folded into the baseline.
+A clean database applies the current **V1 through V7** inventory. The squash was verified only against a temporary PostgreSQL 16 server with a stand-in `uuidv7()` function, by comparing columns, constraints, indexes, triggers, functions, comments, sequences, and seed rows with the former V1–V15 chain; it has not been run against the project PostgreSQL 18 target or Flyway. Data fix-ups that only mattered to databases migrated through the former V15 (retiring CLI credential rows and resetting `ANTIGRAVITY_CLI` runtime mode) are not carried over because a clean database never contains such rows. Chapter Analysis execution snapshots do not store provider tokens, operating-system profile paths, or story text. Runtime capability remains gated separately from the presence of these schema tables.
+
+### Character visual profiles and reference slots (V1–V2)
+
+`character_versions` stores `reference_policy`, an optional validated `visual_profile`, and optional same-character version lineage. Existing rows default to `LEGACY_IDENTITY_V1`; `MULTI_VIEW_V1` requires a typed profile. Reference-asset rows may store one of eight canonical face/body slots. Review and lock require the complete slot set. The active image/video executors still ignore these reference bytes, so persistence does not establish generation conditioning.
+
+## Project Subtitle Preferences (V12)
+
+`project_subtitle_settings` stores one validated settings object per Project, with a cascading Project foreign key. The backend validates position, preset, curated font, weight, normalized size/margins, six-digit colors and opacity. Absent rows resolve to the default appearance.
+
+GET/PUT `/api/v1/projects/{projectId}/production/subtitle-settings` read/save preferences through Project access checks; archived Projects cannot be changed. Admission copies the validated request style into immutable `render_profile_json.subtitles.style`, independently of subsequent preference edits; legacy requests omitting style resolve saved preferences. Explicit style also participates in the render request fingerprint, so a reused key with changed style conflicts. Preferences are metadata only; Electron still owns media bytes and FFmpeg execution.
 
 ## Video-First Retention Production Schema (V9)
 
@@ -62,17 +69,17 @@ Migration V9 introduces the tables required for video-first, retention-driven pr
 Until the first production deployment:
 
 - The baseline is treated as a development contract optimized for final schema clarity.
-- Schema modifications are folded directly into the owning migration: V1–V5 for the original domains, V8 for asynchronous orchestration, V9 for shot/take production, and V10 for voice profiles. Indexes belong to the owning migration when its tables are created after V6; earlier access paths belong to V6. V7 contains deterministic seed data.
+- Schema modifications are folded directly into the owning migration: V1–V4 for the domains (V1 project/story/characters/voice, V2 generation and async compute orchestration, V3 narration and artifacts, V4 catalog, shot production, Chapter Analysis runtime, and render snapshots) and V5 for functions and triggers. All indexes belong to V6. V7 contains deterministic seed data.
 - Do not create patch migrations that alter or drop schema introduced earlier in the same baseline.
 - Recreate a development database only after its data has explicitly been confirmed disposable. Source inventory is not evidence that an installed database can be reset.
 - Never place application test content or non-deterministic data in Flyway migrations.
 
 ## Post-Production Append-Only Rule
 
-Immediately prior to the first production release, freeze the complete baseline present at that release. The current repository inventory is V1–V10; this does not establish the applied versions or freeze status of any installed database. From the freeze point forward:
+Immediately prior to the first production release, freeze the complete baseline present at that release. The current repository inventory is V1–V7; this does not establish the applied versions or freeze status of any installed database. From the freeze point forward:
 
 - Applied migrations must never be modified or deleted.
-- All future schema, index, backfill, and catalog changes must be append-only forward migrations after the last frozen version (**V11** if V1–V10 is the frozen baseline).
+- All future schema, index, backfill, and catalog changes must be append-only forward migrations after the last frozen version (**V8** if the current V1–V7 inventory is frozen).
 - Forward migrations must preserve backward compatibility for active installations.
 
 ## Critical Schema Invariants

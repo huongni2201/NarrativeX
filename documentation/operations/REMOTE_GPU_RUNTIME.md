@@ -1,79 +1,39 @@
-# Remote GPU Runtime Architecture & Operations (RTX 5090 / RTX 3090 Baseline)
+# GPU Worker Runtime Operations
 
-## Overview
+**Status:** Current execution boundary; workstation deployment and GPU health still require runtime verification.
 
-NarrativeX employs an asynchronous, domain-neutral GPU execution plane (`app/generation-service`) that runs on a dedicated high-performance GPU machine. The active production GPU target is the **NVIDIA GeForce RTX 5090 32GB**, with the **NVIDIA GeForce RTX 3090 24GB** retained as a benchmark and regression baseline.
+## Boundary
 
-Per [ADR-0018](../decisions/ADR-0018-backend-control-plane-and-domain-agnostic-gpu-execution-plane.md), [ADR-0019](../decisions/ADR-0019-generation-service-light-ddd-hexagonal-structure.md), [ADR-0023](../decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md), [ADR-0025](../decisions/ADR-0025-event-driven-compute-orchestration-and-reconciliation.md), and [ADR-0032](../decisions/ADR-0032-video-first-ltx-audio-native-production-runtime.md):
-- **Domain-Neutral Execution**: The GPU worker exposes the Compute Protocol v1 HTTP interface (`/v1/tasks`, `/v1/capabilities`, `/health`). It never connects to PostgreSQL, has no knowledge of business entities (`projects`, `chapters`, `scenes`), and processes only self-contained task payloads.
-- **Control Plane Independence**: Spring Boot (`app/backend-service`) acts as the exclusive control plane, coordinating admission, persistence, job recovery ([ADR-0021](../decisions/ADR-0021-submission-checkpoint-and-worker-recovery-semantics.md)), and artifact metadata.
-- **Desktop Render Master**: Desktop (`app/desktop` Electron + FFmpeg) is the sole compositor and final render master. The GPU runtime produces video takes and audio stems; it never produces final mixed project MP4s.
-- **Event delivery**: The worker SQLite journal/outbox records transitions atomically, delivers HMAC-signed callbacks with bounded retry/backoff, and the backend applies idempotent receipts/finalization. Scheduled reconciliation is the non-blocking fallback for missed callbacks or ambiguous outcomes; Desktop receives project-scoped SSE snapshots.
+Spring Boot owns admission, durable business state, target assignment, recovery, and artifact metadata. `app/generation-service` executes closed Compute Protocol tasks and records local execution checkpoints in SQLite. It does not access the business database or own project files. Electron main owns project-local media and final FFmpeg rendering.
 
----
+The worker may run on the same machine or a separate Windows GPU workstation. The current deployment target is Windows 11/Server with an RTX 5090 (32 GB); an RTX 3090 (24 GB) is a benchmark baseline. These targets do not establish that a worker is installed, available, or healthy.
 
-## 1. Generative Workload Allocation
+## Workloads
 
-| Workload | Runtime / Engine | Execution Location | Notes |
-| :--- | :--- | :--- | :--- |
-| **Story / Script Analysis** | Google Vertex AI Gemini 3.8 Flash | Backend Service (`app/backend-service`) | Managed directly in Spring Boot control plane ([ADR-0022](../decisions/ADR-0022-vertex-gemini-chapter-analysis.md)) with thinking level `HIGH`. Not executed on GPU node. |
-| **Video Generation** | LTX-2.5 (`ltx-2.5-22b-distilled-int8`, revision `5e6e71018ee1756ed329b697a7b4aedc934dfce9`) | Generation Service (`app/generation-service`) | Native AV profile `ltx-2.5-22b-distilled-int8-native-av-v1`, `video.generate:1.1`, text-to-video, 1280x720/24 FPS/16:9. Reference conditioning, I2V and First/Last Frame are unsupported by this profile. Runtime readiness is capability-based and is not a GPU health measurement. |
-| **Speech Alignment & QC** | WhisperX | Generation Service (`app/generation-service`) | Generates phoneme/word timing alignment, automated transcription QC, and sync validation. ~3–5 GB VRAM footprint. |
-| **Speech Generation (TTS)** | VieNeu (`vieneu-v3-turbo`) | Generation Service (`app/generation-service`) | Voice reference generation and narration preparation ([ADR-0023](../decisions/ADR-0023-vieneu-remote-gpu-media-runtime.md)). ~4–8 GB VRAM footprint. |
-| **Visual Beat Keyframes** | ComfyUI (RealVisXL / SDXL) | Generation Service (`app/generation-service`) | Secondary keyframe, poster, and visual reference generation. ~12–16 GB VRAM footprint. |
+| Workload | Owner | Current boundary |
+| --- | --- | --- |
+| Chapter analysis | Spring Boot backend | Vertex Gemini adapter; the proposed Antigravity OAuth/API route is not implemented |
+| Video generation | Generation Service | Pinned LTX-2.5 Native AV profile; T2V at 1280×720, 24 FPS, 16:9 |
+| Speech synthesis and alignment | Generation Service | VieNeu synthesis and WhisperX alignment |
+| Image generation | Generation Service | ComfyUI text-to-image; input reference conditioning is not implemented |
+| Final project render | Electron main | Local FFmpeg/ffprobe; the worker does not produce the final project MP4 |
 
----
+The active LTX profile does not admit I2V, First/Last Frame, reference artifacts, or AUDIO_FIRST. Runtime capability readiness is a configuration claim, not a measurement of GPU health or output quality.
 
-## 2. Hardware Constraints & Residency Model (RTX 5090 32GB Target)
+## Connectivity and credentials
 
-The configured workstation target is the **NVIDIA GeForce RTX 5090 (32GB VRAM)**. The **NVIDIA GeForce RTX 3090 (24GB VRAM)** remains a historical benchmark baseline. The current LTX executor uses the pinned INT8 model identity above; deployment readiness and performance still require a successful workstation smoke run.
+- The backend connects through its configured Compute Protocol base URL. Configure the worker endpoint through the backend runtime settings/environment used by the deployment; do not treat a dynamic session handshake as an implemented contract.
+- `/v1/*` requests use the machine execution credential. It is separate from provider credentials and from any application identity.
+- Worker SQLite journal/outbox data supports execution recovery while the worker state remains available. A disposable machine may lose that local state when it is reprovisioned; reconcile backend assignments before replacing a worker with unfinished attempts.
+- Keep model caches and temporary task artifacts on the worker. Generated artifact transfer and local project persistence follow the Compute Protocol and Desktop storage contract.
 
-### Sequential Residency Rule
-To prevent out-of-memory (OOM) faults across heavy generative models:
-- `GpuResidencyManager` implements mutual exclusion across workload domains: `video_generation`, `audio_alignment`, `tts`, and `image`.
-- Only **one** runtime family may actively occupy GPU VRAM at any instant.
-- Transitioning between domains requires:
-  1. Gracefully finishing active tasks in the current domain.
-  2. Unloading model weights and freeing caches via PyTorch and runtime hooks.
-  3. Reclaiming VRAM below the idle threshold (< 2.0 GB).
-  4. Initializing the target workload runtime.
+## Health and readiness checks
 
----
+- `GET /health` reports worker process health. A healthy process does not prove a model can load or generate successfully.
+- `GET /v1/capabilities` reports registered task types, schema versions, model revisions, and readiness claims. The backend fails closed when the required pinned profile is absent.
+- Run the repository smoke script against the configured worker before relying on a deployment. Record the actual host, model revision, task profile, and result; do not use fixture or capability output as GPU-generation evidence.
+- GPU residency arbitration serializes conflicting runtime families on a single-GPU worker. Capacity and VRAM policy remain runtime safeguards; performance and health need measured workstation runs.
 
-## 3. Dynamic Worker Session & Ephemeral Disk Model
+## Rendering and storage
 
-The remote GPU runtime operates on disposable or dedicated hardware:
-
-1. **Dynamic Worker Endpoint**: The backend does not require a fixed IP address. The worker URL is configured dynamically via backend environment properties (`NARRATIVEX_COMPUTE_BASE_URL`) or dynamic session handshake.
-2. **Ephemeral Disk**: Local storage on the remote GPU machine is completely ephemeral:
-   - Model weights are pre-cached in designated cache directories (`MODELS_CACHE_DIR`).
-   - Task inputs and outputs are staged in temporary working directories.
-   - Generated artifacts are retrieved by the backend control plane and persisted to local Desktop project storage. The worker execution journal (SQLite) is discarded when the machine is reprovisioned.
-3. **Capability-Based Authentication**: Requests to `/v1/*` endpoints require a Bearer token matching `NARRATIVEX_COMPUTE_MACHINE_TOKEN` (or `GENERATION_SERVICE_MACHINE_TOKEN`).
-
----
-
-## 4. Operational Lifecycle & Health Checks
-
-### Verification Endpoints
-- `GET /health`: Returns service health and GPU status:
-  ```json
-  {
-    "status": "healthy",
-    "gpu_available": true,
-    "active_domain": "video_generation"
-  }
-  ```
-- `GET /v1/capabilities`: Returns registered task adapters (`video.generate`, `audio.align`, `audio.synthesize`, `image.generate`) and runtime descriptors.
-
-### Smoke Verification
-Run the verification check from the host or management machine:
-```bash
-python scripts/smoke-remote-generation-service.py --host <worker-host> --port 8010 --token <token>
-```
-
----
-
-## 5. Deployment Target
-
-The operational deployment target is a Windows 11/Server machine with an NVIDIA GeForce RTX 5090 (or RTX 3090 baseline) running Python 3.14.x with native CUDA, PyTorch, LTX Video, WhisperX, VieNeu, and ComfyUI. Launch `app/generation-service` directly using `uv run narrativex-gpu-worker` or native PowerShell service wrappers via `deploy/remote-gpu-windows/bootstrap.ps1`.
+Project media bytes and final MP4 files remain in Electron-owned local storage. PostgreSQL stores stable IDs, checksums, opaque project-relative keys, leases, and final artifact metadata, not absolute machine paths or video bytes. The worker may return generated media through the artifact capability flow, but it never becomes the final-render authority.

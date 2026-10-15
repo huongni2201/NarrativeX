@@ -131,7 +131,7 @@ class VisualPromptComposerTest {
         .contains("Shot size: MEDIUM")
         .contains("Camera angle: EYE_LEVEL")
         .contains("Camera movement: NONE")
-        .contains("STYLE\nGrounded cinematic film-still rendering");
+        .contains("STYLE\ncinematic visual storytelling, realistic film still");
   }
 
   @Test

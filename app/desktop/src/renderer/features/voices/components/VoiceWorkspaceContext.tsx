@@ -108,14 +108,14 @@ export function VoiceWorkspaceContext({
 
         <InspectorSection title="Narration">
           <div className="grid gap-2 p-2.5">
-            <label className="grid gap-1 text-[9px] text-text-muted">
+            <label className="grid gap-1 text-caption text-text-muted">
               Chapter
               <Select value={chapterId || undefined} onValueChange={onChapterChange}>
                 <SelectTrigger aria-label="Narration chapter"><SelectValue placeholder="Chọn chapter" /></SelectTrigger>
                 <SelectContent>{chapters.map((chapter) => <SelectItem key={chapter.id} value={chapter.id}>{chapter.title}</SelectItem>)}</SelectContent>
               </Select>
             </label>
-            <label className="grid gap-1 text-[9px] text-text-muted">
+            <label className="grid gap-1 text-caption text-text-muted">
               Speaking rate
               <Input type="number" min="0.25" max="2" step="0.1" value={speakingRate} onChange={(event) => onSpeakingRateChange(event.target.value)} />
             </label>
@@ -132,7 +132,7 @@ export function VoiceWorkspaceContext({
 
           {reusableVoices.length ? (
             <div className="border-b border-border-subtle p-2.5">
-              <div className="mb-1.5 text-[9px] text-text-dim">Giọng dùng chung · Local</div>
+              <div className="mb-1.5 text-caption text-text-dim">Giọng dùng chung · Local</div>
               <div className="grid gap-1">
                 {reusableVoices.slice(0, 5).map((asset) => {
                   const selected = voiceReferenceScope === "GLOBAL_LOCAL" && voiceReferenceName === asset.originalFilename;
@@ -142,7 +142,7 @@ export function VoiceWorkspaceContext({
                       type="button"
                       disabled={busy}
                       onClick={() => onSelectReusableVoice(asset.id, asset.originalFilename)}
-                      className={`flex min-h-8 items-center gap-2 border-l-2 px-2 py-1.5 text-left text-[9px] transition-colors disabled:opacity-40 ${selected ? "border-l-primary bg-primary-muted text-primary-hover" : "border-l-transparent bg-surface-dark text-text-secondary hover:bg-surface-hover"}`}
+                      className={`flex min-h-8 items-center gap-2 border-l-2 px-2 py-1.5 text-left text-caption transition-colors disabled:opacity-40 ${selected ? "border-l-primary bg-primary-muted text-primary-hover" : "border-l-transparent bg-surface-dark text-text-secondary hover:bg-surface-hover"}`}
                     >
                       <Mic2 size={12} />
                       <span className="min-w-0 flex-1 truncate">{asset.originalFilename}</span>
@@ -158,10 +158,10 @@ export function VoiceWorkspaceContext({
             <Button variant="outline" size="sm" onClick={onUploadVoiceReference} disabled={busy} className="w-full justify-start">
               <Upload size={12} /> {voiceReferenceScope === "GLOBAL_LOCAL" && voiceReferenceName ? voiceReferenceName : "Thêm giọng dùng chung (Local)"}
             </Button>
-            <label className="grid gap-1 text-[9px] text-text-muted">
+            <label className="grid gap-1 text-caption text-text-muted">
               Preview text
               <Textarea value={previewText} maxLength={500} rows={3} onChange={(event) => onPreviewTextChange(event.target.value)} className="min-h-16 resize-none" />
-              <span className="text-right text-[8px] text-text-dim">{previewText.length}/500</span>
+              <span className="text-right text-caption text-text-dim">{previewText.length}/500</span>
             </label>
             <Button type="button" size="sm" onClick={onGeneratePreview} disabled={!voiceReferenceName || !selectedVoice || !chapterId || !previewText.trim() || previewBusy} className="w-full">
               <Sparkles size={12} /> {previewBusy ? "Đang tạo giọng mẫu…" : "Tạo giọng mẫu"}
@@ -181,7 +181,7 @@ export function VoiceWorkspaceContext({
                     key={asset.id}
                     type="button"
                     onClick={() => onToggleAsset(asset.id)}
-                    className={`flex min-h-8 items-center gap-2 border-l-2 px-2 py-1.5 text-left text-[9px] transition-colors ${selected ? "border-l-primary bg-primary-muted text-primary-hover" : "border-l-transparent bg-surface-dark text-text-secondary hover:bg-surface-hover"}`}
+                    className={`flex min-h-8 items-center gap-2 border-l-2 px-2 py-1.5 text-left text-caption transition-colors ${selected ? "border-l-primary bg-primary-muted text-primary-hover" : "border-l-transparent bg-surface-dark text-text-secondary hover:bg-surface-hover"}`}
                   >
                     <FileAudio size={12} />
                     <span className="min-w-0 flex-1 truncate">{asset.originalFilename}</span>
@@ -193,10 +193,10 @@ export function VoiceWorkspaceContext({
           </InspectorSection>
         ) : null}
 
-        <InspectorSection title="Popular tags" actions={<button type="button" onClick={onResetFilters} className="text-[9px] text-primary-hover">Reset</button>}>
+        <InspectorSection title="Popular tags" actions={<button type="button" onClick={onResetFilters} className="text-caption text-primary-hover">Reset</button>}>
           <div className="flex flex-wrap gap-1 p-2.5">
             {tagCounts.slice(0, 5).map(({ label, count }) => (
-              <button key={label} type="button" onClick={() => onTagFilter(label)} className="inline-flex min-h-7 items-center gap-1.5 border border-border-subtle bg-surface-dark px-2 text-[9px] text-text-secondary hover:bg-surface-hover">
+              <button key={label} type="button" onClick={() => onTagFilter(label)} className="inline-flex min-h-7 items-center gap-1.5 border border-border-subtle bg-surface-dark px-2 text-caption text-text-secondary hover:bg-surface-hover">
                 {label}<span className="text-text-dim">{count}</span>
               </button>
             ))}
@@ -221,7 +221,7 @@ export function VoiceWorkspaceContext({
 function InspectorSection({ title, actions, children }: Readonly<{ title: string; actions?: ReactNode; children: ReactNode }>) {
   return (
     <section className="border-b border-border-subtle">
-      <div className="flex min-h-7 items-center justify-between gap-2 bg-surface-dark px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+      <div className="flex min-h-7 items-center justify-between gap-2 bg-surface-dark px-2.5 py-1 text-caption font-semibold text-text-dim">
         <span>{title}</span>{actions}
       </div>
       {children}
@@ -231,7 +231,7 @@ function InspectorSection({ title, actions, children }: Readonly<{ title: string
 
 function QuickAction({ label, icon, onClick, disabled = false }: Readonly<{ label: string; icon: ReactNode; onClick: () => void; disabled?: boolean }>) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-8 w-full items-center justify-between px-2 text-[9px] text-text-secondary hover:bg-surface-hover hover:text-primary-hover disabled:opacity-40">
+    <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-8 w-full items-center justify-between px-2 text-caption text-text-secondary hover:bg-surface-hover hover:text-primary-hover disabled:opacity-40">
       <span className="inline-flex items-center gap-2">{icon}{label}</span><ArrowUpRight size={11} />
     </button>
   );

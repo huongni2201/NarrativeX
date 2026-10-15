@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RenderFrameRate } from "@narrativex/client-contracts";
-import { SUBTITLE_STYLE_V1 } from "../../shared/subtitle-style.ts";
+import { SUBTITLE_STYLE_V1, parseSubtitleStyle, subtitleGeometry, type SubtitleStyle } from "../../shared/subtitle-style.ts";
 import type { PlannedSubtitle } from "./subtitle-planner";
 import type { LocalRenderBeat, LocalRenderManifest } from "./render-manifest";
 
@@ -22,7 +22,7 @@ export async function writeBeatSubtitleTrack(
   const directory = join(workDirectory, "subtitles");
   await mkdir(directory, { recursive: true });
   const path = join(directory, `${String(index).padStart(5, "0")}.ass`);
-  await writeFile(path, buildAssTrack(cues, manifest.width, manifest.height), "utf8");
+  await writeFile(path, buildAssTrack(cues, manifest.width, manifest.height, manifest.subtitleStyle), "utf8");
   return path;
 }
 
@@ -49,15 +49,27 @@ export function buildAssTrack(
   cues: readonly BeatSubtitleSlice[],
   width: number,
   height: number,
+  selectedStyle?: SubtitleStyle,
 ): string {
-  const style = SUBTITLE_STYLE_V1;
-  const fontSize = Math.max(18, Math.round(height * style.fontSizeRatio));
-  const marginV = Math.max(12, Math.round(height * style.bottomMarginRatio));
-  const outline = Math.max(1, Math.round(height * style.outlineWidthRatio));
-  const shadow = Math.max(0, Math.round(height * style.shadowDepthRatio));
-  const marginH = Math.max(12, Math.round((width * (1 - style.maxWidthRatio)) / 2));
+  // Already-admitted snapshots retain their exact v1 ASS appearance and cache identity.
+  const legacy = selectedStyle === undefined;
+  const style = legacy ? SUBTITLE_STYLE_V1 : parseSubtitleStyle(selectedStyle);
+  const { fontSize, marginV, outline, shadow, marginH, alignment, borderStyle } = legacy ? {
+    fontSize: Math.max(18, Math.round(height * SUBTITLE_STYLE_V1.fontSizeRatio)),
+    marginV: Math.max(12, Math.round(height * SUBTITLE_STYLE_V1.bottomMarginRatio)),
+    outline: Math.max(1, Math.round(height * SUBTITLE_STYLE_V1.outlineWidthRatio)),
+    shadow: Math.max(0, Math.round(height * SUBTITLE_STYLE_V1.shadowDepthRatio)),
+    marginH: Math.max(12, Math.round(width * (1 - SUBTITLE_STYLE_V1.maxWidthRatio) / 2)),
+    alignment: 2, borderStyle: 3,
+  } : subtitleGeometry(parseSubtitleStyle(selectedStyle), width, height);
   const bold = style.fontWeight >= 600 ? -1 : 0;
   const backgroundAlpha = Math.round((1 - style.backgroundOpacity) * 255);
+  const outlineColour = legacy ? assColor(style.outlineColor, 0) : borderStyle === 3
+    ? assColor(style.backgroundColor, backgroundAlpha)
+    : assColor(style.outlineColor, 0);
+  const backColour = legacy || borderStyle === 3
+    ? assColor(style.backgroundColor, backgroundAlpha)
+    : assColor(style.outlineColor, 0);
 
   return [
     "[Script Info]",
@@ -69,7 +81,7 @@ export function buildAssTrack(
     "",
     "[V4+ Styles]",
     "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-    `Style: Default,${style.fontFamily},${fontSize},${assColor(style.primaryColor, 0)},${assColor(style.primaryColor, 0)},${assColor(style.outlineColor, 0)},${assColor(style.backgroundColor, backgroundAlpha)},${bold},0,0,0,100,100,0,0,3,${outline},${shadow},2,${marginH},${marginH},${marginV},1`,
+    `Style: Default,${style.fontFamily},${fontSize},${assColor(style.primaryColor, 0)},${assColor(style.primaryColor, 0)},${outlineColour},${backColour},${bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},${marginH},${marginH},${marginV},1`,
     "",
     "[Events]",
     "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",

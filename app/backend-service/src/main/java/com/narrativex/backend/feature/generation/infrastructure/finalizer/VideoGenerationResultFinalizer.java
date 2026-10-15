@@ -38,10 +38,6 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
   private final com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis
           .ShotMapper
       shotMapper;
-  private final com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis
-          .SelectedTakeMapper
-      selectedTakeMapper;
-
   @Autowired
   public VideoGenerationResultFinalizer(
       GenerationJobRepository generationJobRepository,
@@ -51,36 +47,13 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
       VideoQualityAssurance videoQualityAssurance,
       @Autowired(required = false)
           com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
-              shotMapper,
-      @Autowired(required = false)
-          com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis
-                  .SelectedTakeMapper
-              selectedTakeMapper) {
+              shotMapper) {
     this.generationJobRepository = generationJobRepository;
     this.mediaAssetRepository = mediaAssetRepository;
     this.artifactAccess = artifactAccess;
     this.takeMapper = takeMapper;
     this.videoQualityAssurance = videoQualityAssurance;
     this.shotMapper = shotMapper;
-    this.selectedTakeMapper = selectedTakeMapper;
-  }
-
-  public VideoGenerationResultFinalizer(
-      GenerationJobRepository generationJobRepository,
-      MediaAssetRepository mediaAssetRepository,
-      ComputeArtifactAccess artifactAccess,
-      TakeMapper takeMapper,
-      VideoQualityAssurance videoQualityAssurance,
-      com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
-          shotMapper) {
-    this(
-        generationJobRepository,
-        mediaAssetRepository,
-        artifactAccess,
-        takeMapper,
-        videoQualityAssurance,
-        shotMapper,
-        null);
   }
 
   // Backward-compatible constructor for existing tests
@@ -168,7 +141,9 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
             produced.mediaType(),
             produced.sizeBytes(),
             produced.sha256(),
-            null));
+            produced.technicalMetadata() != null && produced.technicalMetadata().durationMs() > 0
+                ? produced.technicalMetadata().durationMs()
+                : null));
 
     // Update associated Take records with output asset and VideoQA validation
     if (takeMapper != null) {
@@ -182,6 +157,10 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
 
       for (TakeRow take : takes) {
         take.setOutputAssetId(produced.artifactId());
+        take.setSourceDurationMs(
+            produced.technicalMetadata() != null && produced.technicalMetadata().durationMs() > 0
+                ? produced.technicalMetadata().durationMs()
+                : null);
         take.setStatus("VALIDATING");
         take.setValidationStatus("VALIDATING");
 
@@ -194,6 +173,11 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
         } else if (!"video/mp4".equalsIgnoreCase(produced.mediaType())) {
           detectedFailure = VideoQAFailureCategory.TECHNICAL_OUTPUT;
           failureReason = "Invalid video media type: " + produced.mediaType();
+        } else if (produced.technicalMetadata() == null
+            || !produced.technicalMetadata().matchesNativeProfile()) {
+          detectedFailure = VideoQAFailureCategory.TECHNICAL_OUTPUT;
+          failureReason =
+              "Missing or invalid observed native AV duration, 720p24 streams, audio or decode evidence";
         }
 
         GenerationStrategy strategy = GenerationStrategy.TEXT_TO_VIDEO;
@@ -211,6 +195,13 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
                 : new VideoQualityAssurance.QAEvaluation(
                     detectedFailure == null, detectedFailure, failureReason, null, false);
 
+        // Human/content QA cannot override missing technical evidence.
+        if (detectedFailure != null && qa.passed()) {
+          qa =
+              new VideoQualityAssurance.QAEvaluation(
+                  false, detectedFailure, failureReason, null, false);
+        }
+
         if (qa.passed()) {
           take.setStatus("PASSED");
           take.setValidationStatus("PASSED");
@@ -218,33 +209,8 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
           take.setValidationFailureReason(null);
           take.setValidationRetryRecommendation(null);
 
-          if (selectedTakeMapper != null && take.getShotId() != null) {
-            com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis
-                    .SelectedTakeRow
-                existing = selectedTakeMapper.findByShotId(take.getShotId());
-            if (existing == null) {
-              long duration =
-                  take.getSourceDurationMs() != null && take.getSourceDurationMs() > 0
-                      ? take.getSourceDurationMs()
-                      : 4000L;
-              com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis
-                      .SelectedTakeRow
-                  newSelection =
-                      new com.narrativex.backend.feature.generation.infrastructure.persistence
-                          .mybatis.SelectedTakeRow();
-              newSelection.setShotId(take.getShotId());
-              newSelection.setTakeId(take.getId());
-              newSelection.setSourceInMs(0L);
-              newSelection.setSourceOutMs(duration);
-              newSelection.setCreatedAt(java.time.Instant.now());
-              newSelection.setUpdatedAt(java.time.Instant.now());
-              selectedTakeMapper.insert(newSelection);
-              if (shotMapper != null) {
-                shotMapper.updateStatus(take.getShotId(), "SELECTED");
-              }
-              log.info(
-                  "Auto-selected first PASSED take {} for shot {}", take.getId(), take.getShotId());
-            }
+          if (shotMapper != null && take.getShotId() != null) {
+            shotMapper.updateStatus(take.getShotId(), "MANUAL_REVIEW");
           }
         } else {
           take.setStatus("FAILED");

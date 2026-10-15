@@ -373,6 +373,8 @@ export interface DesktopChapterStory {
   chapterTitle: string;
   chapterOrderIndex: number;
   storyboardRevisionId?: string | null;
+  hookPlan?: HookPlan | null;
+  retentionMap?: RetentionMap | null;
   scenes: DesktopStoryScene[];
 }
 

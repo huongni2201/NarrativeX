@@ -19,7 +19,7 @@ ENV BUILD_SHA=${BUILD_SHA}
 LABEL org.opencontainers.image.revision=${BUILD_SHA}
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system appgroup \
     && adduser --system --home /home/appuser --ingroup appgroup appuser \

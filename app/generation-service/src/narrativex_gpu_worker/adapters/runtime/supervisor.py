@@ -129,6 +129,8 @@ class RuntimeProcessSupervisor:
         self._http_client = http_client
         self._specs: dict[RuntimeFamily, ProcessSpec] = {}
         self._processes: dict[RuntimeFamily, asyncio.subprocess.Process] = {}
+        self._readers: dict[RuntimeFamily, tuple[asyncio.Task[None], ...]] = {}
+        self._log_tails: dict[tuple[RuntimeFamily, str], bytes] = {}
 
     def register_runtime(self, spec: ProcessSpec) -> None:
         self._specs[spec.family] = spec
@@ -161,6 +163,11 @@ class RuntimeProcessSupervisor:
             stderr=asyncio.subprocess.PIPE,
         )
         self._processes[family] = proc
+        self._readers[family] = tuple(
+            asyncio.create_task(self._drain(family, name, stream))
+            for name, stream in (("stdout", proc.stdout), ("stderr", proc.stderr))
+            if stream is not None
+        )
 
         # Wait for readiness
         try:
@@ -189,10 +196,19 @@ class RuntimeProcessSupervisor:
                 f"Timed out waiting for {family} process to become ready "
                 f"after {spec.startup_timeout_seconds}s"
             ) from exc
+        except BaseException:
+            await self.stop(family)
+            raise
+
+    async def _drain(self, family: RuntimeFamily, name: str, stream: asyncio.StreamReader) -> None:
+        key = (family, name)
+        self._log_tails[key] = b""
+        while chunk := await stream.read(8192):
+            self._log_tails[key] = (self._log_tails[key] + chunk)[-65536:]
 
     async def stop(self, family: RuntimeFamily) -> None:
-        proc = self._processes.pop(family, None)
-        if proc is None or proc.returncode is not None:
+        proc = self._processes.get(family)
+        if proc is None:
             return
 
         spec = self._specs.get(family)
@@ -200,7 +216,8 @@ class RuntimeProcessSupervisor:
 
         LOGGER.info("Stopping managed process for %s (PID=%s)", family, proc.pid)
         try:
-            proc.terminate()
+            if proc.returncode is None:
+                proc.terminate()
             try:
                 await asyncio.wait_for(proc.wait(), timeout=timeout)
             except TimeoutError:
@@ -214,6 +231,14 @@ class RuntimeProcessSupervisor:
                 await proc.wait()
         except ProcessLookupError:
             pass
+        finally:
+            # Interrupted shutdown retains ownership so cleanup can retry safely.
+            if proc.returncode is not None:
+                self._processes.pop(family, None)
+                readers = self._readers.pop(family, ())
+                for reader in readers:
+                    reader.cancel()
+                await asyncio.gather(*readers, return_exceptions=True)
 
     async def stop_all(self) -> None:
         for family in list(self._processes.keys()):

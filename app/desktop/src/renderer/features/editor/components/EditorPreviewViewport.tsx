@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   ChevronsLeft,
   ChevronsRight,
@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import type { DesktopTimelineBeat, RenderFrameRate } from "@narrativex/client-contracts";
 import { activeSubtitleAt, type PlannedSubtitle } from "../../../../shared/subtitle-planner";
-import { SUBTITLE_STYLE_V1 } from "../../../../shared/subtitle-style";
+import type { SubtitleStyle } from "@narrativex/client-contracts";
+import { SubtitleOverlay } from "../../production/components/SubtitleOverlay";
+import { resolvePreviewSubtitleText } from "../preview-subtitle";
 import {
   globalPlayheadFromNarrationSeconds,
   narrationSeekSeconds,
@@ -25,6 +27,12 @@ interface EditorPreviewViewportProps {
   selectedBeat: DesktopTimelineBeat | null;
   frameRate: RenderFrameRate;
   subtitleCues: PlannedSubtitle[];
+  subtitleStyle: SubtitleStyle;
+  subtitlesEnabled: boolean;
+  /** True while the Inspector subtitle tab is open: show a sample caption when no cue is active. */
+  subtitleEditing: boolean;
+  aspectRatio: string;
+  subtitleReferenceHeight: number;
   transitionBlackOpacity: number;
   mediaUrl: string | null;
   narrationUrl: string | null;
@@ -49,6 +57,11 @@ export function EditorPreviewViewport({
   selectedBeat,
   frameRate,
   subtitleCues,
+  subtitleStyle,
+  subtitlesEnabled,
+  subtitleEditing,
+  aspectRatio,
+  subtitleReferenceHeight,
   transitionBlackOpacity,
   mediaUrl,
   narrationUrl,
@@ -81,6 +94,12 @@ export function EditorPreviewViewport({
   const beatTitle = selectedBeat?.title || "Visual Beat";
   const playback = selectedBeat ? previewPlaybackState(selectedBeat, playheadMs, frameRate) : null;
   const activeSubtitle = activeSubtitleAt(subtitleCues, playheadMs);
+  const subtitleText = resolvePreviewSubtitleText({
+    enabled: subtitlesEnabled,
+    activeText: activeSubtitle?.text,
+    editing: subtitleEditing,
+  });
+  const [ratioWidth, ratioHeight] = aspectRatio.split(":").map(Number);
 
   useEffect(() => setMediaFailed(false), [mediaUrl, selectedBeat?.visualBeatId]);
   useEffect(() => setAudioFailed(false), [narrationUrl, narrationStartMs]);
@@ -201,23 +220,23 @@ export function EditorPreviewViewport({
         />
       )}
 
-      <div className="mx-auto flex h-8 shrink-0 w-full max-w-[1040px] items-center justify-between gap-4">
+      <div className="mx-auto flex h-8 shrink-0 w-full max-w-[1040px] items-center justify-between gap-4 pr-[7.5rem]">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="font-mono text-[10px] font-semibold text-text-dim">{beatNumber}</span>
-          <h2 className="nx-preview-scene-title truncate text-[13px] font-semibold tracking-tight text-foreground">{beatTitle}</h2>
-          <span className={`flex items-center gap-1.5 text-[10px] font-medium ${audioFailed ? "text-danger" : "text-text-muted"}`}>
+          <span className="font-mono text-caption font-semibold text-text-dim">{beatNumber}</span>
+          <h2 className="nx-preview-scene-title truncate text-body font-semibold tracking-tight text-foreground">{beatTitle}</h2>
+          <span className={`flex items-center gap-1.5 text-caption font-medium ${audioFailed ? "text-danger" : "text-text-muted"}`}>
             <span className={`size-1.5 rounded-full ${audioFailed ? "bg-danger" : showMedia ? "bg-success" : previewLoading ? "bg-warning" : "bg-text-dim"}`} aria-hidden="true" />
             {previewStatus}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-3 text-[10px] text-text-dim">
+        <div className="flex shrink-0 items-center gap-3 text-caption text-text-dim">
           <span>Duration <strong className="ml-1 font-mono font-medium text-text-secondary">{formatTimecode(selectedBeat?.durationMs || 10_000)}</strong></span>
           <button type="button" className="nx-icon-button size-6" aria-label="More options"><MoreVertical size={13} /></button>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-1">
-        <div ref={frameRef} className="nx-editor-preview-frame relative aspect-video max-h-full max-w-full overflow-hidden rounded-md border border-border bg-black shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]">
+      <div className="nx-editor-preview-bounds flex min-h-0 flex-1 items-center justify-center overflow-hidden p-1">
+        <div ref={frameRef} style={{ "--editor-preview-aspect-ratio": ratioWidth / ratioHeight } as CSSProperties} className="nx-editor-preview-frame relative max-h-full max-w-full overflow-hidden rounded-md border border-border bg-black shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]">
           {showMedia && selectedBeat?.mediaType === "IMAGE" ? (
             <img
               src={mediaUrl as string}
@@ -230,9 +249,9 @@ export function EditorPreviewViewport({
           ) : showMedia && selectedBeat?.mediaType === "VIDEO" ? (
             <video
               ref={videoRef}
-              key={`${selectedBeat.visualBeatId}:${mediaUrl}`}
+              key={`${selectedBeat.visualBeatId}:${selectedBeat.shotId ?? "legacy"}:${selectedBeat.takeId ?? "source"}:${mediaUrl}`}
               src={mediaUrl as string}
-              muted
+              muted={selectedBeat.shotId ? muted : true}
               playsInline
               preload="auto"
               loop={selectedBeat.fitMode === "LOOP"}
@@ -243,13 +262,13 @@ export function EditorPreviewViewport({
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-surface-dark">
               <div className="max-w-lg px-6 text-center">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-dim">
+                <span className="text-caption font-semibold text-text-dim">
                   {selectedBeat?.cameraMovement || "AUTO EDIT"}
                 </span>
-                <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-foreground">
+                <h3 className="mt-2 text-[17px] font-semibold tracking-tight text-foreground">
                   {previewLoading ? "Đang tải preview…" : selectedBeat?.title || "Visual Beat"}
                 </h3>
-                <p className="mt-2 max-w-md text-[11px] leading-5 text-text-muted">
+                <p className="mt-2 max-w-md text-caption leading-5 text-text-muted">
                   {mediaFailed
                     ? "Không tải được media preview. Render source vẫn được giữ nguyên."
                     : previewMessage || selectedBeat?.visualIntent || "Chưa có media để preview."}
@@ -264,37 +283,10 @@ export function EditorPreviewViewport({
             aria-hidden="true"
           />
 
-          {activeSubtitle && (
-            <div
-              className="pointer-events-none absolute z-20 flex justify-center"
-              style={{
-                left: `${((1 - SUBTITLE_STYLE_V1.maxWidthRatio) / 2) * 100}%`,
-                right: `${((1 - SUBTITLE_STYLE_V1.maxWidthRatio) / 2) * 100}%`,
-                bottom: `${SUBTITLE_STYLE_V1.bottomMarginRatio * 100}%`,
-              }}
-            >
-              <span
-                className="rounded-sm px-3 py-1.5 text-center leading-snug"
-                style={{
-                  maxWidth: "100%",
-                  fontFamily: SUBTITLE_STYLE_V1.fontFamily,
-                  fontWeight: SUBTITLE_STYLE_V1.fontWeight,
-                  fontSize: `clamp(11px, ${SUBTITLE_STYLE_V1.fontSizeRatio * 100}vw, 19px)`,
-                  color: SUBTITLE_STYLE_V1.primaryColor,
-                  backgroundColor: hexToRgba(
-                    SUBTITLE_STYLE_V1.backgroundColor,
-                    SUBTITLE_STYLE_V1.backgroundOpacity,
-                  ),
-                  textShadow: `0 ${Math.max(1, SUBTITLE_STYLE_V1.shadowDepthRatio * 1000)}px ${Math.max(2, SUBTITLE_STYLE_V1.outlineWidthRatio * 1600)}px ${SUBTITLE_STYLE_V1.outlineColor}`,
-                }}
-              >
-                {activeSubtitle.text}
-              </span>
-            </div>
-          )}
+          {subtitleText && <SubtitleOverlay text={subtitleText} style={subtitleStyle} referenceHeight={subtitleReferenceHeight} />}
 
           {audioFailed && (
-            <div className="absolute inset-x-4 bottom-4 z-30 border-l-2 border-danger bg-black/80 px-3 py-2 text-center text-[10px] text-danger">
+            <div className="absolute inset-x-4 bottom-4 z-30 border-l-2 border-danger bg-black/80 px-3 py-2 text-center text-caption text-danger">
               Không tải được luồng audio cho chương này. Playback vẫn đang chạy bằng timer đồng bộ.
             </div>
           )}
@@ -302,7 +294,7 @@ export function EditorPreviewViewport({
       </div>
 
       <div className="relative mx-auto flex h-11 w-full max-w-[1040px] items-center justify-between">
-        <div className="font-mono text-[10px] tabular-nums">
+        <div className="font-mono text-caption tabular-nums">
           <span className="font-semibold text-foreground">{formatFullTimecode(currentOffsetMs)}</span>
           <span className="mx-1.5 text-text-dim">/</span>
           <span className="text-text-muted">{formatFullTimecode(totalScopeDurationMs || 10_000)}</span>
@@ -313,7 +305,7 @@ export function EditorPreviewViewport({
           <button
             type="button"
             onClick={onTogglePlay}
-            className="mx-1 flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_2px_8px_rgba(249,115,22,0.35)] transition-all duration-150 hover:bg-primary-hover hover:scale-105 active:scale-95"
+            className="mx-1 flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-primary)] transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-150 hover:bg-primary-hover hover:scale-105 active:scale-95"
             title={playing ? "Pause" : "Play"}
           >
             {playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5 fill-current" />}
@@ -321,12 +313,12 @@ export function EditorPreviewViewport({
           <button type="button" onClick={() => onStepMs(500)} className="nx-icon-button size-7" title="Step forward (+0.5s)"><ChevronsRight size={14} /></button>
           <button type="button" onClick={onNextBeat} className="nx-icon-button size-7" title="Next beat"><SkipForward size={13} /></button>
           <span className="mx-0.5 h-3.5 w-px bg-border-subtle" aria-hidden="true" />
-          <button type="button" onClick={() => setMuted(!muted)} className="nx-icon-button size-7" title={muted ? "Unmute narration" : "Mute narration"}>
+          <button type="button" onClick={() => setMuted(!muted)} className="nx-icon-button size-7" title={`${muted ? "Unmute" : "Mute"} ${selectedBeat?.shotId ? "take audio" : "narration"}`}>
             {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-text-dim" title="Preview framing follows final render policy">
+          <span className="font-mono text-caption uppercase tracking-wider text-text-dim" title="Preview framing follows final render policy">
             {selectedBeat?.mediaType === "IMAGE" ? "Cover" : "Contain"}
           </span>
           <button type="button" onClick={() => void toggleFullscreen()} className="nx-icon-button size-7 border border-border-subtle bg-surface-input" title="Toàn màn hình"><Maximize2 size={12} /></button>
@@ -334,15 +326,6 @@ export function EditorPreviewViewport({
       </div>
     </div>
   );
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const normalized = hex.replace(/^#/, "");
-  const value = Number.parseInt(normalized.padEnd(6, "0").slice(0, 6), 16);
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha))})`;
 }
 
 function formatTimecode(ms: number): string {

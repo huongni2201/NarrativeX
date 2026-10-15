@@ -29,6 +29,7 @@ from narrativex_gpu_worker.contracts import (
 )
 from narrativex_gpu_worker.contracts.task import NativeVideoGenerateInputs
 
+from .media import inspect_native_video
 from .preflight import baseline_graph, validate_object_info, verify_runtime_files
 from .workflow import (
     CHECKPOINT,
@@ -63,6 +64,9 @@ class LtxVideoExecutor:
         self._runtime_directory = runtime_directory
         self._max_artifact_bytes = max_artifact_bytes
         self._next_recovery: dict[str, float] = {}
+        self._next_preflight = 0.0
+        self._runtime_verified = False
+        self._preflight_lock = asyncio.Lock()
         self.readiness_error = "Runtime preflight has not passed"
 
     @property
@@ -71,11 +75,15 @@ class LtxVideoExecutor:
 
     async def preflight(self) -> None:
         self._ready = False
+        self._next_preflight = time.monotonic() + 5
         if self._runtime_directory is None:
             return
         try:
-            await asyncio.to_thread(verify_runtime_files, self._runtime_directory)
-            validate_object_info(await self._client.object_info(), baseline_graph())
+            if not self._runtime_verified:
+                await asyncio.to_thread(verify_runtime_files, self._runtime_directory)
+                self._runtime_verified = True
+            async with asyncio.timeout(5):
+                validate_object_info(await self._client.object_info(), baseline_graph())
         except (
             OSError,
             ValueError,
@@ -88,6 +96,17 @@ class LtxVideoExecutor:
             return
         self.readiness_error = ""
         self._ready = True
+
+    async def refresh_preflight(self) -> None:
+        # Static pin failures require an explicit preflight/restart after operator repair.
+        # Capability probes recover only transient runtime readiness, without rehashing models.
+        if not self._runtime_verified or self._ready or time.monotonic() < self._next_preflight:
+            return
+        async with self._preflight_lock:
+            if self._ready or time.monotonic() < self._next_preflight:
+                return
+            self._next_preflight = time.monotonic() + 5
+            await self.preflight()
 
     @property
     def runtime_requirement(self) -> RuntimeRequirement:
@@ -235,7 +254,18 @@ class LtxVideoExecutor:
             )
         if cancel.is_set():
             raise AmbiguousOutcomeError("LTX cancellation remains unconfirmed")
+        try:
+            metadata = await inspect_native_video(bytes(data))
+        except (OSError, TimeoutError) as exc:
+            raise ExecutorExecutionError(
+                "VIDEO_VALIDATION_UNAVAILABLE", "Native media inspection unavailable", "TRANSIENT"
+            ) from exc
+        except ValueError as exc:
+            raise ExecutorExecutionError("VIDEO_OUTPUT_INVALID", str(exc), "PERMANENT") from exc
+        if cancel.is_set():
+            raise ExecutionCanceledError("LTX canceled after confirmed generation and validation")
         produced = await self._artifact_adapter.upload(task.artifacts.outputs[0], bytes(data))
+        produced = produced.model_copy(update={"technical_metadata": metadata})
         return ExecutionOutput(
             outputs=[produced],
             execution_handle=f"ltx:{prompt}",

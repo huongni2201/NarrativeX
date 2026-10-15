@@ -83,7 +83,11 @@ public class CharacterController {
     var version =
         createCharacterVersionUseCase.execute(
             new CreateCharacterVersionCommand(
-                characterId, request.bible(), request.visualPrompt()));
+                characterId,
+                request.bible(),
+                request.visualPrompt(),
+                request.visualProfile(),
+                request.basedOnVersionId()));
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
             ApiResponse.success(
@@ -131,7 +135,10 @@ public class CharacterController {
         request.references() == null
             ? List.of()
             : request.references().stream()
-                .map(value -> new ReferenceInput(value.assetId(), value.role(), value.priority()))
+                .map(
+                    value ->
+                        new ReferenceInput(
+                            value.assetId(), value.role(), value.priority(), value.slot()))
                 .toList();
     var references = setCharacterVersionReferencesUseCase.execute(characterId, versionId, inputs);
     return ResponseEntity.ok(

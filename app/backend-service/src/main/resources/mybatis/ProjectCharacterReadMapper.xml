@@ -24,6 +24,9 @@
         <result property="versionStatus" column="version_status" />
         <result property="bible" column="bible" />
         <result property="visualPrompt" column="visual_prompt" />
+        <result property="referencePolicy" column="reference_policy" />
+        <result property="visualProfileJson" column="visual_profile_json" />
+        <result property="basedOnVersionId" column="based_on_version_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="ageState" column="age_state" />
         <result property="hairstyle" column="hairstyle" />
         <result property="injury" column="injury" />
@@ -60,6 +63,9 @@
         cv.status AS version_status,
         cv.bible,
         cv.visual_prompt,
+        cv.reference_policy,
+        cv.visual_profile::text AS visual_profile_json,
+        cv.based_on_version_id,
         appearance.age_state,
         appearance.hairstyle,
         appearance.injury,

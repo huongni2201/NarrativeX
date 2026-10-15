@@ -12,6 +12,8 @@ import com.narrativex.backend.feature.common.domain.exception.DomainValidationEx
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.application.command.GenerateShotTakeCommand;
 import com.narrativex.backend.feature.generation.application.model.TakeInputSnapshot;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.*;
 import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
 import com.narrativex.backend.feature.generation.domain.aggregate.*;
@@ -36,6 +38,7 @@ class GenerateShotTakeUseCaseTest {
       new com.narrativex.backend.feature.generation.infrastructure.compute
           .VideoGenerationProperties();
   UUID projectId = UUID.randomUUID(), shotId = UUID.randomUUID();
+  PromptSettingsAccess promptSettings = mock(PromptSettingsAccess.class);
   GenerateShotTakeUseCase useCase =
       new GenerateShotTakeUseCase(
           storyboard,
@@ -50,10 +53,13 @@ class GenerateShotTakeUseCaseTest {
           new VideoPromptCompiler(JsonMapper.builder().build()),
           new com.narrativex.backend.feature.generation.application.service
               .NativeVideoInputMapper(),
-          new NarrativeXLimitsProperties());
+          new NarrativeXLimitsProperties(),
+          promptSettings);
 
   @BeforeEach
   void setup() {
+    when(promptSettings.current())
+        .thenReturn(PromptSettingsDefaults.settings().withRevision(1));
     when(storyboard.findAdmissionContextLocked(projectId, shotId))
         .thenReturn(admissionContext(0, ""));
     when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot(4000, "Hero moves")));
@@ -166,6 +172,175 @@ class GenerateShotTakeUseCaseTest {
     verify(outbox, times(1)).enqueue(any());
     assertThatThrownBy(() -> useCase.execute(command(null, 56L)))
         .isInstanceOf(ResourceConflictException.class);
+  }
+
+  // ---- Settings -> Prompt: resolve once at admission, freeze, replay without re-resolving ----
+
+  private static final tools.jackson.databind.json.JsonMapper JSON_MAPPER =
+      tools.jackson.databind.json.JsonMapper.builder().build();
+
+  private void useStyle(String styleId, long revision) {
+    when(promptSettings.current())
+        .thenReturn(PromptSettingsDefaults.settings().withActiveStyle(styleId).withRevision(revision));
+  }
+
+  private List<String> admittedSnapshots(int expectedCount) {
+    var snapshots = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(takes, times(expectedCount))
+        .createPending(
+            any(),
+            anyInt(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            snapshots.capture(),
+            any());
+    return snapshots.getAllValues();
+  }
+
+  private TakeRepository.TakeRecord takeWith(UUID id, String snapshotJson) {
+    return new TakeRepository.TakeRecord(
+        id,
+        shotId,
+        1,
+        "ltx",
+        "ltx-2.5-22b-distilled-int8",
+        GenerationStrategy.TEXT_TO_VIDEO,
+        null,
+        null,
+        "{}",
+        "PENDING",
+        null,
+        null,
+        null,
+        "PENDING",
+        Instant.now(),
+        null,
+        null,
+        null,
+        null,
+        snapshotJson,
+        null);
+  }
+
+  @Test
+  void newOperationFreezesTheCurrentStyleAndProvenanceIntoItsSnapshot() {
+    useStyle("CINEMATIC_ANIME", 1);
+    useCase.execute(new GenerateShotTakeCommand(
+        projectId, shotId, null, 7L, null, null, "key-one", "LTX_NATIVE_AV"));
+    useStyle("STORYBOOK_WATERCOLOR", 2);
+    useCase.execute(new GenerateShotTakeCommand(
+        projectId, shotId, null, 7L, null, null, "key-two", "LTX_NATIVE_AV"));
+
+    var snapshots = admittedSnapshots(2);
+    var first = JSON_MAPPER.readTree(snapshots.get(0));
+    var second = JSON_MAPPER.readTree(snapshots.get(1));
+
+    assertThat(first.at("/context/promptSettings/revision").asText()).isEqualTo("1");
+    assertThat(first.at("/context/promptSettings/styleId").asText()).isEqualTo("CINEMATIC_ANIME");
+    assertThat(second.at("/context/promptSettings/revision").asText()).isEqualTo("2");
+    assertThat(second.at("/context/promptSettings/styleId").asText())
+        .isEqualTo("STORYBOOK_WATERCOLOR");
+    assertThat(second.at("/context/promptSettings/effectiveHash").asText())
+        .isNotEqualTo(first.at("/context/promptSettings/effectiveHash").asText());
+    assertThat(first.at("/inputs/prompt").asText()).contains("premium semi-realistic");
+    assertThat(second.at("/inputs/prompt").asText())
+        .containsIgnoringCase("storybook watercolor")
+        .doesNotContain("premium semi-realistic");
+    assertThat(second.at("/inputs/negativePrompt").asText())
+        .contains(PromptSettingsDefaults.settings().videoNegativePrompt().split(",")[0]);
+    // The request fingerprint is settings-independent, so both admissions share it.
+    assertThat(second.get("requestFingerprint").asText())
+        .isEqualTo(first.get("requestFingerprint").asText());
+    assertThat(second.get("inputFingerprint").asText())
+        .isNotEqualTo(first.get("inputFingerprint").asText());
+  }
+
+  @Test
+  void replayAfterASaveReturnsTheOriginalTakeWithoutReadingSettingsAgain() {
+    useStyle("CINEMATIC_ANIME", 1);
+    var response = useCase.execute(command(null, 55L));
+    var job = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(jobs).save(job.capture());
+    String snapshot = admittedSnapshots(1).getFirst();
+    when(jobs.findByIdempotencyKey(any())).thenReturn(Optional.of(job.getValue()));
+    when(takes.findByGenerationJobId(any()))
+        .thenReturn(Optional.of(takeWith(response.id(), snapshot)));
+
+    // The installation prompt configuration changes after the operation was admitted.
+    useStyle("STORYBOOK_WATERCOLOR", 9);
+    var replay = useCase.execute(command(null, 55L));
+
+    assertThat(replay.id()).isEqualTo(response.id());
+    verify(outbox, times(1)).enqueue(any());
+    verify(promptSettings, times(1)).current();
+    // A genuinely different request with the same key is still a conflict.
+    assertThatThrownBy(() -> useCase.execute(command(null, 56L)))
+        .isInstanceOf(ResourceConflictException.class);
+  }
+
+  @Test
+  void replayOfAnOperationAdmittedBeforePromptSettingsStillMatches() {
+    useStyle("CINEMATIC_ANIME", 1);
+    var response = useCase.execute(command(null, 55L));
+    var job = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(jobs).save(job.capture());
+    var stored = (tools.jackson.databind.node.ObjectNode) JSON_MAPPER.readTree(admittedSnapshots(1).getFirst());
+    // Rewrite the stored snapshot the way an older build wrote it: prompts were part of the
+    // request fingerprint and no prompt-settings provenance existed.
+    ((tools.jackson.databind.node.ObjectNode) stored.get("context")).remove("promptSettings");
+    stored.put(
+        "requestFingerprint",
+        useCase.legacyFingerprintForStoredPrompts(
+            command(null, 55L),
+            stored.at("/inputs/prompt").asText(),
+            stored.at("/inputs/negativePrompt").asText()));
+    when(jobs.findByIdempotencyKey(any())).thenReturn(Optional.of(job.getValue()));
+    when(takes.findByGenerationJobId(any()))
+        .thenReturn(Optional.of(takeWith(response.id(), JSON_MAPPER.writeValueAsString(stored))));
+
+    useStyle("STORYBOOK_WATERCOLOR", 5);
+
+    assertThat(useCase.execute(command(null, 55L)).id()).isEqualTo(response.id());
+    verify(outbox, times(1)).enqueue(any());
+  }
+
+  @Test
+  void frozenBatchShotKeepsFrozenPromptsEvenAfterSettingsChange() {
+    var frozen =
+        useCase.freeze(
+            command(null, 11L),
+            PromptSettingsDefaults.settings().withRevision(1)); // CINEMATIC_ANIME
+    useStyle("STORYBOOK_WATERCOLOR", 4);
+
+    useCase.executeFrozen(command(null, 11L), frozen.requestFingerprint(), frozen.inputJson());
+
+    var snapshot = JSON_MAPPER.readTree(admittedSnapshots(1).getFirst());
+    assertThat(snapshot.at("/context/promptSettings/revision").asText()).isEqualTo("1");
+    assertThat(snapshot.at("/context/promptSettings/styleId").asText())
+        .isEqualTo("CINEMATIC_ANIME");
+    assertThat(snapshot.at("/inputs/prompt").asText()).contains("premium semi-realistic");
+    verify(promptSettings, never()).current();
+  }
+
+  @Test
+  void frozenBatchShotStillFailsWhenTheShotItselfChanged() {
+    var frozen =
+        useCase.freeze(command(null, 11L), PromptSettingsDefaults.settings().withRevision(1));
+    when(shots.findShotById(projectId, shotId))
+        .thenReturn(Optional.of(shot(4000, "A completely different action")));
+
+    assertThatThrownBy(
+            () ->
+                useCase.executeFrozen(
+                    command(null, 11L), frozen.requestFingerprint(), frozen.inputJson()))
+        .isInstanceOf(ResourceConflictException.class)
+        .hasMessageContaining("Frozen batch shot inputs changed");
+    verify(outbox, never()).enqueue(any());
   }
 
   @Test

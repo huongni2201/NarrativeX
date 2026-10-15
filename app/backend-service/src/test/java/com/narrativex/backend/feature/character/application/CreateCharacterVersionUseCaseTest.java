@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.character.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,10 @@ import com.narrativex.backend.feature.character.application.usecase.CreateCharac
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
+import com.narrativex.backend.feature.character.domain.enums.CharacterReferencePolicy;
+import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.feature.character.domain.value.CharacterVisualProfile;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +48,47 @@ class CreateCharacterVersionUseCaseTest {
     assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findByIdForUpdate(CHARACTER_ID);
     verify(characterRepository, never()).findById(CHARACTER_ID);
+  }
+
+  @Test
+  void createsPersistableMultiViewVersionWithProfileAndLineage() {
+    UUID basedOnVersionId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+    CharacterVisualProfile profile =
+        new CharacterVisualProfile(
+            1,
+            "adult",
+            "oval",
+            "brown eyes",
+            "warm skin",
+            "black hair",
+            "short bob",
+            "slim",
+            new BigDecimal("165"),
+            new BigDecimal("7.5"),
+            "compact proportions",
+            List.of("beauty mark"),
+            "plain dark jacket",
+            "CINEMATIC_ANIME");
+    when(characterRepository.findByIdForUpdate(CHARACTER_ID)).thenReturn(Optional.of(character()));
+    when(versionRepository.findMaxVersionNumberByCharacterId(CHARACTER_ID)).thenReturn(3);
+    when(versionRepository.findById(basedOnVersionId))
+        .thenReturn(Optional.of(CharacterVersion.rehydrate(
+            basedOnVersionId, 0L, CHARACTER_ID, 2, "old bible", "old prompt",
+            com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus.LOCKED,
+            null)));
+    when(versionRepository.save(any(CharacterVersion.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    var useCase = new CreateCharacterVersionUseCase(characterRepository, versionRepository);
+
+    var response =
+        useCase.execute(
+            new CreateCharacterVersionCommand(
+                CHARACTER_ID, "bible", null, profile, basedOnVersionId));
+
+    assertEquals(CharacterReferencePolicy.MULTI_VIEW_V1, response.getReferencePolicy());
+    assertEquals(profile, response.getVisualProfile());
+    assertEquals(basedOnVersionId, response.getBasedOnVersionId());
+    assertNull(response.getId());
   }
 
   private static Character character() {

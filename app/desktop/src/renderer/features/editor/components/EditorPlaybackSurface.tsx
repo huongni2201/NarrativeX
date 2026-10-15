@@ -3,10 +3,11 @@ import type {
   DesktopTimeline,
   DesktopTimelineBeat,
   RenderFrameRate,
+  SubtitleStyle,
 } from "@narrativex/client-contracts";
 import { planBeatTransitions } from "../../../../shared/transition-planner";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
-import { findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
+import { editorBeatIdentity, findEditorBeatAtTime, sortEditorBeats } from "../editor-timeline";
 import { shouldUseFallbackPlaybackClock } from "../preview-playback";
 import { transitionBlackOpacity } from "../preview-transition";
 import { EditorMultiTrackTimeline } from "./EditorMultiTrackTimeline";
@@ -16,6 +17,11 @@ interface EditorPlaybackSurfaceProps {
   beats: DesktopTimelineBeat[];
   chapters: DesktopTimeline["chapters"];
   subtitleCues: PlannedSubtitle[];
+  subtitleStyle: SubtitleStyle;
+  subtitlesEnabled: boolean;
+  subtitleEditing: boolean;
+  aspectRatio: string;
+  subtitleReferenceHeight: number;
   selectedBeatId: string;
   previewBeat: DesktopTimelineBeat | null;
   frameRate: RenderFrameRate;
@@ -36,6 +42,11 @@ export function EditorPlaybackSurface({
   beats,
   chapters,
   subtitleCues,
+  subtitleStyle,
+  subtitlesEnabled,
+  subtitleEditing,
+  aspectRatio,
+  subtitleReferenceHeight,
   selectedBeatId,
   previewBeat,
   frameRate,
@@ -88,10 +99,10 @@ export function EditorPlaybackSurface({
     if (lastSelectedBeatIdRef.current !== selectedBeatId) {
       lastSelectedBeatIdRef.current = selectedBeatId;
       if (!playing) {
-        const selected = orderedBeats.find((beat) => beat.visualBeatId === selectedBeatId);
+        const selected = orderedBeats.find((beat) => editorBeatIdentity(beat) === selectedBeatId);
         if (selected) {
           const currentBeat = findEditorBeatAtTime(orderedBeats, playheadMs);
-          if (currentBeat?.visualBeatId !== selectedBeatId) setPlayheadMs(selected.startMs);
+          if (!currentBeat || editorBeatIdentity(currentBeat) !== selectedBeatId) setPlayheadMs(selected.startMs);
         }
       }
     }
@@ -133,25 +144,25 @@ export function EditorPlaybackSurface({
 
   useEffect(() => {
     const beatAtTime = findEditorBeatAtTime(orderedBeats, playheadMs);
-    if (beatAtTime && beatAtTime.visualBeatId !== selectedBeatId) {
-      lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
+    if (beatAtTime && editorBeatIdentity(beatAtTime) !== selectedBeatId) {
+      lastSelectedBeatIdRef.current = editorBeatIdentity(beatAtTime);
       onSelectBeat(beatAtTime);
     }
   }, [onSelectBeat, orderedBeats, playheadMs, selectedBeatId]);
 
   const selectBeat = useCallback((beat: DesktopTimelineBeat) => {
-    lastSelectedBeatIdRef.current = beat.visualBeatId;
+    lastSelectedBeatIdRef.current = editorBeatIdentity(beat);
     setPlayheadMs(beat.startMs);
     onSelectBeat(beat);
   }, [onSelectBeat]);
 
   const handlePrevBeat = useCallback(() => {
-    const currentIndex = orderedBeats.findIndex((beat) => beat.visualBeatId === selectedBeatId);
+    const currentIndex = orderedBeats.findIndex((beat) => editorBeatIdentity(beat) === selectedBeatId);
     if (currentIndex > 0) selectBeat(orderedBeats[currentIndex - 1]);
   }, [orderedBeats, selectBeat, selectedBeatId]);
 
   const handleNextBeat = useCallback(() => {
-    const currentIndex = orderedBeats.findIndex((beat) => beat.visualBeatId === selectedBeatId);
+    const currentIndex = orderedBeats.findIndex((beat) => editorBeatIdentity(beat) === selectedBeatId);
     if (currentIndex >= 0 && currentIndex < orderedBeats.length - 1) {
       selectBeat(orderedBeats[currentIndex + 1]);
     }
@@ -161,8 +172,8 @@ export function EditorPlaybackSurface({
     const clamped = Math.max(scopeWindowStartMs, Math.min(scopeWindowEndMs, targetMs));
     setPlayheadMs(clamped);
     const beatAtTime = findEditorBeatAtTime(orderedBeats, clamped);
-    if (beatAtTime && beatAtTime.visualBeatId !== selectedBeatId) {
-      lastSelectedBeatIdRef.current = beatAtTime.visualBeatId;
+    if (beatAtTime && editorBeatIdentity(beatAtTime) !== selectedBeatId) {
+      lastSelectedBeatIdRef.current = editorBeatIdentity(beatAtTime);
       onSelectBeat(beatAtTime);
     }
   }, [onSelectBeat, orderedBeats, scopeWindowEndMs, scopeWindowStartMs, selectedBeatId]);
@@ -193,6 +204,11 @@ export function EditorPlaybackSurface({
           selectedBeat={previewBeat}
           frameRate={frameRate}
           subtitleCues={subtitleCues}
+          subtitleStyle={subtitleStyle}
+          subtitlesEnabled={subtitlesEnabled}
+          subtitleEditing={subtitleEditing}
+          aspectRatio={aspectRatio}
+          subtitleReferenceHeight={subtitleReferenceHeight}
           transitionBlackOpacity={activeTransitionOpacity}
           mediaUrl={mediaUrl}
           narrationUrl={narrationUrl}

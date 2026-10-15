@@ -8,10 +8,16 @@ import com.narrativex.backend.feature.storyboard.application.port.out.Storyboard
 import com.narrativex.backend.feature.storyboard.application.port.out.VisualBeatPromptProvider;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AudioCueRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.RetentionMapRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.SceneRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,10 +29,14 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadRepository {
+  private static final ObjectMapper JSON = new ObjectMapper();
   private final ChapterRepository chapterRepository;
   private final StoryboardMapper storyboardMapper;
   private final StoryboardRepository storyboardRepository;
   private final VisualBeatPromptProvider visualBeatPromptProvider;
+  private final HookPlanMapper hookPlanMapper;
+  private final RetentionMapMapper retentionMapMapper;
+  private final AttentionEventMapper attentionEventMapper;
 
   @Override
   public ChapterStoryResponse get(UUID projectId, UUID chapterId) {
@@ -35,10 +45,33 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
             .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
 
+    var hookPlan = hookPlanMapper.findByChapterId(chapterId);
+    var retentionRow = retentionMapMapper.findByChapterId(chapterId);
+    var hookPlanItem =
+        hookPlan == null
+            ? null
+            : new ChapterStoryResponse.HookPlanItem(
+                hookPlan.getId(),
+                hookPlan.getChapterId(),
+                hookPlan.getPromise(),
+                hookPlan.getConflict(),
+                hookPlan.getCuriosityQuestion(),
+                hookPlan.getVisualHook(),
+                hookPlan.getDialogueHook(),
+                hookPlan.getWithheldInformation(),
+                hookPlan.getPayoffBeatId());
+    var retentionMapItem = toRetentionMapItem(retentionRow);
+
     List<SceneRow> scenes = storyboardMapper.findCurrentScenes(chapterId);
     if (scenes.isEmpty()) {
       return new ChapterStoryResponse(
-          chapter.getId(), chapter.getTitle(), chapter.getOrderIndex(), null, List.of());
+          chapter.getId(),
+          chapter.getTitle(),
+          chapter.getOrderIndex(),
+          null,
+          List.of(),
+          hookPlanItem,
+          retentionMapItem);
     }
 
     List<UUID> sceneIds = scenes.stream().map(SceneRow::getId).toList();
@@ -273,6 +306,44 @@ public class MyBatisChapterStoryQueryAdapter implements ChapterStoryReadReposito
     }
 
     return new ChapterStoryResponse(
-        chapter.getId(), chapter.getTitle(), chapter.getOrderIndex(), null, sceneItems);
+        chapter.getId(),
+        chapter.getTitle(),
+        chapter.getOrderIndex(),
+        null,
+        sceneItems,
+        hookPlanItem,
+        retentionMapItem);
+  }
+
+  private ChapterStoryResponse.RetentionMapItem toRetentionMapItem(RetentionMapRow row) {
+    if (row == null) return null;
+    var attentionEvents =
+        attentionEventMapper.findByRetentionMapId(row.getId()).stream()
+            .map(
+                event ->
+                    new ChapterStoryResponse.AttentionEventItem(
+                        event.getEventType(),
+                        event.getTimeOffsetMs(),
+                        event.getDescription(),
+                        event.getSeverity()))
+            .toList();
+    return new ChapterStoryResponse.RetentionMapItem(
+        row.getId(),
+        row.getChapterId(),
+        jsonList(row.getTensionCurveJson(), new TypeReference<List<Double>>() {}),
+        jsonList(row.getOpenQuestionsJson(), new TypeReference<List<String>>() {}),
+        jsonList(row.getResolvedQuestionsJson(), new TypeReference<List<String>>() {}),
+        attentionEvents,
+        jsonList(row.getPacingWarningsJson(), new TypeReference<List<String>>() {}));
+  }
+
+  private static <T> List<T> jsonList(String value, TypeReference<List<T>> type) {
+    if (value == null || value.isBlank()) return List.of();
+    try {
+      List<T> parsed = JSON.readValue(value, type);
+      return parsed == null ? List.of() : List.copyOf(parsed);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+      throw new IllegalStateException("Stored chapter retention data is invalid", exception);
+    }
   }
 }

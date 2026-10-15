@@ -9,7 +9,6 @@ test("workspace navigation routes to target user activities", () => {
   assert.equal(screenFromWorkspacePath("/projects/proj-1/editor"), "editor");
   assert.equal(screenFromWorkspacePath("/projects/proj-1/assets"), "assets");
   assert.equal(screenFromWorkspacePath("/projects/proj-1/jobs"), "jobs");
-  assert.equal(screenFromWorkspacePath("/projects/proj-1/settings"), "settings");
 });
 
 test("story query keys format hierarchical chapter story key", () => {

@@ -35,9 +35,6 @@ test("RenderDialog enforces 24 FPS cinematic baseline as recommended default", (
   assert.match(dialogSource, /<SelectItem value="BALANCED">\s*Balanced\s*<\/SelectItem>/);
   assert.match(dialogSource, /<SelectItem value="DYNAMIC">\s*Dynamic\s*<\/SelectItem>/);
 
-  // Verify subtitles toggle
-  assert.match(dialogSource, /Subtitles · Automatic/);
-  assert.match(dialogSource, /controller\.setSubtitlesEnabled\(!controller\.subtitlesEnabled\)/);
 });
 
 test("useRenderController defaults frameRate to 24 FPS", () => {

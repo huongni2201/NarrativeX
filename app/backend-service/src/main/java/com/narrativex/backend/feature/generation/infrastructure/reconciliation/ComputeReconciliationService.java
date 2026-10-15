@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.generation.infrastructure.reconciliation;
 
+import com.narrativex.backend.feature.generation.application.event.GenerationJobChangedEvent;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizerRegistry;
-import com.narrativex.backend.feature.generation.application.service.GenerationJobEventBroadcaster;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.service.GenerationJobStateMachine;
@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
@@ -38,8 +39,13 @@ public class ComputeReconciliationService {
   private final GenerationExecutionPort executionPort;
   private final ComputeResultFinalizerRegistry finalizerRegistry;
   private final ReconciliationBackoffPolicy backoffPolicy;
-  private final GenerationJobEventBroadcaster eventBroadcaster;
+  private final ApplicationEventPublisher eventPublisher;
   private final Clock clock;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.port.out
+          .ChapterAnalysisExecutionStore
+      localAnalyses;
 
   @org.springframework.beans.factory.annotation.Autowired
   public ComputeReconciliationService(
@@ -47,13 +53,13 @@ public class ComputeReconciliationService {
       GenerationExecutionPort executionPort,
       ComputeResultFinalizerRegistry finalizerRegistry,
       ReconciliationBackoffPolicy backoffPolicy,
-      GenerationJobEventBroadcaster eventBroadcaster) {
+      ApplicationEventPublisher eventPublisher) {
     this(
         jobRepository,
         executionPort,
         finalizerRegistry,
         backoffPolicy,
-        eventBroadcaster,
+        eventPublisher,
         Clock.systemUTC());
   }
 
@@ -62,13 +68,13 @@ public class ComputeReconciliationService {
       GenerationExecutionPort executionPort,
       ComputeResultFinalizerRegistry finalizerRegistry,
       ReconciliationBackoffPolicy backoffPolicy,
-      GenerationJobEventBroadcaster eventBroadcaster,
+      ApplicationEventPublisher eventPublisher,
       Clock clock) {
     this.jobRepository = jobRepository;
     this.executionPort = executionPort;
     this.finalizerRegistry = finalizerRegistry;
     this.backoffPolicy = backoffPolicy;
-    this.eventBroadcaster = eventBroadcaster;
+    this.eventPublisher = eventPublisher;
     this.clock = clock;
   }
 
@@ -80,6 +86,17 @@ public class ComputeReconciliationService {
     }
 
     GenerationJob job = jobOpt.get();
+    if (localAnalyses != null
+        && localAnalyses
+            .findSnapshot(job.getId())
+            .filter(
+                s ->
+                    s.profile().executionMode()
+                        != com.narrativex.backend.feature.generation.domain.enums
+                            .ChapterAnalysisExecutionMode.VERTEX_API)
+            .isPresent()) {
+      return ReconciliationResult.NOT_ELIGIBLE;
+    }
     if (job.getStatus().isTerminal()) {
       log.debug("Reconciliation skipped: job {} already terminal ({})", jobId, job.getStatus());
       return ReconciliationResult.ALREADY_TERMINAL;
@@ -97,7 +114,15 @@ public class ComputeReconciliationService {
     // Query worker - external I/O outside DB transaction
     ComputeObservationDto observation;
     try {
-      observation = executionPort.queryTask(taskId, attemptId);
+      observation = null;
+      if (job.isCancellationRequested()) {
+        try {
+          observation = executionPort.cancelTask(taskId, attemptId).orElse(null);
+        } catch (RuntimeException cancelFailure) {
+          log.debug("Cancellation outcome remains unresolved for job {}", jobId);
+        }
+      }
+      if (observation == null) observation = executionPort.queryTask(taskId, attemptId);
     } catch (Exception ex) {
       log.warn(
           "Worker query failed during reconciliation for job {} (attempt {}): {}",
@@ -162,18 +187,22 @@ public class ComputeReconciliationService {
     switch (state) {
       case "SUCCEEDED" -> {
         Optional<ComputeResultFinalizer> finalizerOpt =
-            finalizerRegistry.findFinalizer(job.getType());
+            finalizerRegistry.findFinalizer(job.getType(), job.getProductionMode());
         if (finalizerOpt.isPresent()) {
           finalizerOpt.get().finalizeResult(job, observation);
         } else {
           log.warn(
-              "No finalizer found for JobType {}; marking completed directly during reconciliation",
+              "No finalizer found for JobType {}; retaining unresolved result during reconciliation",
               job.getType());
-          GenerationJob completed = job.markCompleted("RECONCILIATION_COMPLETED");
-          jobRepository.save(completed);
+          jobRepository.save(
+              job.markUnknown(
+                  "COMPUTE_FINALIZER_MISSING",
+                  "Result requires finalization",
+                  backoffPolicy.calculateNextReconcileAt(now, job.getReconcileAttemptCount() + 1)));
+          return ReconciliationResult.WORKER_UNAVAILABLE;
         }
         GenerationJob finalJob = jobRepository.findByJobId(job.getJobId()).orElse(job);
-        eventBroadcaster.broadcastJobEvent(finalJob);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(finalJob));
         return ReconciliationResult.RECONCILED_TERMINAL;
       }
       case "FAILED" -> {
@@ -187,13 +216,13 @@ public class ComputeReconciliationService {
                 : "Compute execution failed";
         GenerationJob failed = job.markFailed(code, message);
         jobRepository.save(failed);
-        eventBroadcaster.broadcastJobEvent(failed);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(failed));
         return ReconciliationResult.RECONCILED_TERMINAL;
       }
       case "CANCELED" -> {
         GenerationJob canceled = job.markCanceled("USER_CANCELED", "RECONCILIATION_CANCELED");
         jobRepository.save(canceled);
-        eventBroadcaster.broadcastJobEvent(canceled);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(canceled));
         return ReconciliationResult.RECONCILED_TERMINAL;
       }
       case "RUNNING" -> {
@@ -210,7 +239,7 @@ public class ComputeReconciliationService {
                 observation.executionHandle());
         running = running.recordReconciliationAttempt(nextReconcileAt, now);
         jobRepository.save(running);
-        eventBroadcaster.broadcastJobEvent(running);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(running));
         return ReconciliationResult.RECONCILED_RUNNING;
       }
       default -> {

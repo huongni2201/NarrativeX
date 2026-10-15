@@ -27,7 +27,7 @@ public class EditingDirector {
       Objects.requireNonNull(shotId, "shotId must not be null");
       Objects.requireNonNull(takeId, "takeId must not be null");
       Objects.requireNonNull(mediaAssetId, "mediaAssetId must not be null");
-      if (sourceOutMs <= sourceInMs) {
+      if (sourceInMs < 0 || sourceOutMs <= sourceInMs) {
         throw new IllegalArgumentException("sourceOutMs must be strictly greater than sourceInMs");
       }
     }
@@ -104,7 +104,7 @@ public class EditingDirector {
       SelectedTakeCut cut = cuts.get(i);
       long duration = cut.editDurationMs();
       long timelineIn = currentTimelineMs;
-      long timelineOut = currentTimelineMs + duration;
+      long timelineOut = Math.addExact(currentTimelineMs, duration);
 
       decisions.add(
           new CompiledEditDecision(

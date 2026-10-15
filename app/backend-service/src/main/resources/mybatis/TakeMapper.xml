@@ -112,7 +112,9 @@
 
   <update id="updateValidation">
     UPDATE takes
-    SET validation_status = #{validationStatus},
+    SET output_asset_id = #{outputAssetId},
+        source_duration_ms = #{sourceDurationMs},
+        validation_status = #{validationStatus},
         validation_failure_category = #{validationFailureCategory},
         validation_failure_reason = #{validationFailureReason},
         validation_retry_recommendation = #{validationRetryRecommendation},

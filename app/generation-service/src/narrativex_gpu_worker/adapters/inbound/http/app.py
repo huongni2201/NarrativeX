@@ -43,6 +43,7 @@ class AppState:
     execution: ExecutionApplicationService
     outbox: OutboxDeliveryService | None = None
     close_resources: Callable[[], Awaitable[None]] | None = None
+    prepare_resources: Callable[[], Awaitable[None]] | None = None
 
 
 def create_app(state: AppState) -> FastAPI:
@@ -50,20 +51,27 @@ def create_app(state: AppState) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        preflight = getattr(state.executor_catalog, "preflight", None)
-        if preflight is not None:
-            await preflight()
-        await state.execution.start()
-        if state.outbox is not None:
-            await state.outbox.start()
         try:
+            if state.prepare_resources is not None:
+                await state.prepare_resources()
+            else:
+                preflight = getattr(state.executor_catalog, "preflight", None)
+                if preflight is not None:
+                    await preflight()
+            await state.execution.start()
+            if state.outbox is not None:
+                await state.outbox.start()
             yield
         finally:
-            if state.outbox is not None:
-                await state.outbox.stop()
-            await state.execution.stop()
-            if state.close_resources is not None:
-                await state.close_resources()
+            try:
+                if state.outbox is not None:
+                    await state.outbox.stop()
+            finally:
+                try:
+                    await state.execution.stop()
+                finally:
+                    if state.close_resources is not None:
+                        await state.close_resources()
 
     app = FastAPI(
         title="NarrativeX GPU Worker",
@@ -122,6 +130,9 @@ def create_app(state: AppState) -> FastAPI:
         dependencies=protected,
     )
     async def capabilities() -> WorkerCapabilities:
+        refresh = getattr(state.executor_catalog, "refresh_preflight", None)
+        if refresh is not None:
+            await refresh()
         return WorkerCapabilities(
             protocol_versions=["1.0"],
             worker_version=__version__,

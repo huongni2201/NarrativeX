@@ -39,6 +39,10 @@ export interface ClaimedProjectRenderChapter {
 }
 
 export interface ClaimedProjectRenderBeat {
+  shotId?: string | null;
+  takeId?: string | null;
+  sourceOutMs?: number | null;
+  subtitleWordsJson?: string | null;
   chapterId: string;
   sceneIndex: number;
   beatIndex: number;

@@ -54,6 +54,8 @@ export type ImageGenerationProvider = "API";
 export interface AnalyzeChapterInput {
   visualGenerationMode: VisualGenerationMode;
   imageProvider?: ImageGenerationProvider | null;
+  /** Decimal revision the user previewed; a different current revision fails with PROMPT_SETTINGS_CHANGED. */
+  expectedPromptRevision?: string;
 }
 
 export type ContinuityIssueSeverity = "BLOCKING" | "WARNING";
@@ -111,6 +113,7 @@ export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR" | "CINEMATIC_
 export interface CreateMediaJobInput {
   productionMode: "VIDEO_FIRST" | "IMAGE_MOTION" | "LEGACY_IMAGE";
   aspectRatio?: MediaAspectRatio;
+  /** @deprecated Ignored by the backend; the style comes from Settings → Prompt. */
   imageStyle?: MediaImageStyle;
   visualGenerationMode: VisualGenerationMode;
   imageProvider?: ImageGenerationProvider | null;

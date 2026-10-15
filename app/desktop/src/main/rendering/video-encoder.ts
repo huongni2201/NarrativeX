@@ -4,7 +4,7 @@ import {
   type VideoEncoder,
   type VideoQualityProfile,
 } from "../../shared/video-encoding.ts";
-import { runProcess } from "./process-runner";
+import { runProcess } from "./process-runner.ts";
 
 export type { VideoEncoder } from "../../shared/video-encoding.ts";
 

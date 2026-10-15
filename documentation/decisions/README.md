@@ -67,6 +67,20 @@ Decisions that define the current architecture and implementation boundaries:
 - **[ADR-0032: Video-First LTX Audio-Native Production Runtime and Hardware Baseline](./ADR-0032-video-first-ltx-audio-native-production-runtime.md)**
   Video-first moving footage production pipeline with synchronized audio, RTX 5090 32GB production target, WhisperX QC, VieNeu auxiliary fallback, and FFmpeg master composition.
 
+- **[ADR-0036: Desktop Google OAuth, Multi-Account Antigravity API Chapter Analysis](./ADR-0036-desktop-google-oauth-multi-account-chapter-analysis.md)**
+  Accepted 2026-10-15: NarrativeX-owned Google OAuth (PKCE, loopback), encrypted per-account tokens, one parallel worker per account,
+  backend per-credential admission. Implementation PARTIAL; live provider and backend runs unverified.
+- **[ADR-0034: Local Antigravity CLI for Chapter Analysis](./ADR-0034-local-antigravity-cli-chapter-analysis.md)**
+  Superseded by ADR-0036; the CLI runner was removed.
+
+### PROPOSED
+
+- **[ADR-0033: Direct Antigravity API with Desktop Google OAuth for Chapter Analysis](./ADR-0033-direct-antigravity-api-with-desktop-google-oauth.md)**
+  Proposed, revised 2026-10-14: NarrativeX-managed Google OAuth and direct HTTP inference in Electron main, with protected per-account tokens, backend-owned assignments and no-retry recovery. Runtime/account isolation remain unverified; provider access restrictions are recorded separately in current OAuth/API research.
+
+- **[ADR-0035: Installation-wide Prompt Settings](./ADR-0035-installation-wide-prompt-settings.md)**
+  Proposed 2026-10-14: one PostgreSQL-backed prompt configuration per installation (styles, instruction blocks, revisioned CAS), preview API, backend-protected parts, and operation-level freezing so queued/replayed work keeps its prompts. Desktop runtime and provider verification pending.
+
 ### PARTIALLY SUPERSEDED
 
 Decisions whose core technical decisions remain valid, but specific sections have been superseded by newer ADRs:
@@ -101,6 +115,9 @@ reused by active ADR files; use the active section and linked files above for cu
 ---
 
 ## Supersession rules
+
+- ADR-0036 supersedes ADR-0034 (CLI adapter) and implements the Desktop part of ADR-0033; provider approval is
+  not established by either path.
 
 - ADR-0020 supersedes former user-quota/account and authentication models, establishing NarrativeX as a single-user local-first application without identity, account, or authentication models.
 - ADR-0006 defines the primary client boundary and supersedes language that treats Next.js as the target editor.

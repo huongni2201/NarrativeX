@@ -52,20 +52,19 @@ NarrativeX uses a responsibility-separated eight-file pre-release baseline:
 
 ```text
 V1__project_story_and_planning.sql              -> Project, StoryVersion, Chapter, storyboard, Characters, Scenes, StoryBeats, AudioCues, VisualBeats and planning state
-V2__generation_and_media.sql                    -> generation jobs, provider operations, media assets and voice-reference assets
+V2__generation_and_media.sql                    -> generation jobs, async compute orchestration, provider operations, media assets and voice-reference assets
 V3__narration_and_artifacts.sql                 -> narration/alignment, local render leases and final-artifact metadata
 V4__catalog_generation_and_render_snapshots.sql -> catalogs, lineage, continuity, regeneration and render snapshots
 V5__database_logic_and_triggers.sql             -> database functions, guards and lifecycle triggers
 V6__indexes.sql                                 -> indexes and access-path invariants
 V7__seed_catalog.sql                            -> deterministic system/catalog bootstrap data
-V8__generation_async_orchestration.sql          -> compute handles, callback metadata, event receipts and reconciliation indexes
 ```
 
-That split is structural rather than historical. The former V9–V18 patch sequence has been folded into the owning V1–V8 baseline migrations. New pre-production databases therefore create the final schema directly instead of creating retired billing/pricing, credit-accounting or storage-compatibility shapes and later removing them.
+That split is structural rather than historical. Former patch sequences, including the incremental V8–V15 migrations, have been folded into the owning V1–V7 baseline migrations. New pre-production databases therefore create the final schema directly instead of creating retired billing/pricing, credit-accounting or storage-compatibility shapes and later removing them.
 
-V1–V8 form the clean pre-release baseline and may still be reorganized before the first production deployment. After that deployment, checksums and filenames are frozen and new schema features begin with append-only `V9__*.sql` migrations.
+V1–V7 form the clean pre-release baseline and may still be reorganized before the first production deployment. After that deployment, checksums and filenames are frozen and new schema features begin with append-only `V8__*.sql` migrations.
 
-`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies V1 through V8. Within the baseline, relational uniqueness needed as a foreign-key target is declared in the owning schema migration, V6 owns indexes and V8 owns asynchronous compute-orchestration state.
+`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies V1 through V7. Within the baseline, relational uniqueness needed as a foreign-key target is declared in the owning schema migration, V6 owns indexes and V2 owns asynchronous compute-orchestration state.
 
 ### 5. Durable provider execution and system-capacity lifecycle
 

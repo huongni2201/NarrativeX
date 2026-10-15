@@ -7,6 +7,8 @@ export type {
   DesktopCharacterDetail,
   DesktopCharacterVersion,
   DesktopCharacterVersionReference,
+  DesktopCharacterVisualProfile,
+  CharacterReferenceSlot,
   DesktopCharacterVoiceProfile,
 } from "./character";
 export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, RegisterLocalAssetRequest } from "./asset";
@@ -98,3 +100,6 @@ export type {
   UpdateStoryBeatReviewStatusInput,
   VideoQAFailureCategory,
 } from "./story";
+export type { ProjectSubtitleSettings, SubtitleStyle, SubtitlePosition, SubtitlePreset, SubtitleFontFamily } from "./subtitles";
+export type { ChapterAnalysisAttemptCheckpoint, ChapterAnalysisExecutionMode, ChapterAnalysisInputBudget, ChapterAnalysisInputBudgetAccuracy, ChapterAnalysisObservationCode, ChapterAnalysisProvenance, ChapterAnalysisQuotaState, ChapterAnalysisUsage, ChapterAnalysisUsageState, StoryAnalysisCredentialSummary, StoryAnalysisRuntimeConfiguration } from "./story-analysis";
+export type { PromptInstructions, PromptPreviewRequest, PromptPreviewResult, PromptPreviewTarget, PromptSettings, PromptSettingsView, PromptStyleProfile } from "./prompt-settings";

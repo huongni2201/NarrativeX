@@ -142,16 +142,16 @@ export function RenderRecoveryDialog() {
         <DialogHeader>
           <div className="flex items-center gap-2 text-warning mb-1">
             <AlertTriangle size={18} />
-            <DialogTitle className="text-[16px] font-semibold text-foreground">
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
               Phát hiện tiến trình xuất video bị gián đoạn {unfinishedList.length > 1 ? `(Tác vụ ${currentIndex + 1}/${unfinishedList.length})` : ""}
             </DialogTitle>
           </div>
-          <DialogDescription className="text-[12px] text-text-muted text-left">
+          <DialogDescription className="text-label text-text-muted text-left">
             Một tác vụ kết xuất video trước đó đã dừng đột ngột hoặc chưa hoàn thành trên thiết bị này.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-lg border border-border-subtle bg-surface-dark p-3 text-[12px] space-y-1.5 font-mono">
+        <div className="rounded-lg border border-border-subtle bg-surface-dark p-3 text-label space-y-1.5 font-mono">
           <div className="flex justify-between">
             <span className="text-text-dim">Project:</span>
             <span className="text-foreground truncate max-w-[240px]">{unfinished.projectId}</span>
@@ -175,12 +175,12 @@ export function RenderRecoveryDialog() {
         </div>
 
         {unfinished.recoverabilityReason && (
-          <p className="rounded-md border border-warning bg-surface-panel p-3 text-[12px] text-warning" role="status">
+          <p className="rounded-md border border-warning bg-surface-panel p-3 text-label text-warning" role="status">
             {unfinished.recoverabilityReason}
           </p>
         )}
         {actionMessage && (
-          <p className="rounded-md border border-danger bg-danger-bg p-3 text-[12px] text-danger" role="alert">
+          <p className="rounded-md border border-danger bg-danger-bg p-3 text-label text-danger" role="alert">
             {actionMessage}
           </p>
         )}

@@ -11,6 +11,8 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
+import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisProviderId;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.infrastructure.analysis.vertex.DisabledChapterAnalysisProvider;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
@@ -45,6 +47,16 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
   private final ChapterAnalysisArtifactMaterializer analysisMaterializer;
   private final ChapterAnalysisRunRepository analysisRunRepository;
   private final ChapterMapper chapterMapper;
+
+  @Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.port.out
+          .ChapterAnalysisExecutionStore
+      localExecutions;
+
+  @Autowired(required = false)
+  private com.narrativex.backend.feature.generation.application.port.out
+          .ChapterAnalysisPromptSnapshotRepository
+      promptSnapshots;
 
   @Autowired
   public ChapterAnalysisJobHandler(
@@ -115,6 +127,15 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
 
   @Override
   public void execute(UUID jobId) {
+    if (localExecutions != null
+        && generationJobRepository
+            .findByJobId(jobId)
+            .flatMap(j -> localExecutions.findSnapshot(j.getId()))
+            .filter(
+                s -> s.profile().executionMode() != ChapterAnalysisExecutionMode.VERTEX_API)
+            .isPresent()) {
+      return; // Electron claims this frozen job; never fall back to Vertex.
+    }
     log.info("Executing chapter analysis via ChapterAnalysisJobHandler for job {}", jobId);
     Optional<GenerationJob> claimedOpt =
         transactionService.claimForRunning(jobId, "ANALYZING_STORY", 10);
@@ -133,7 +154,8 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
             "1.1",
             "1.1",
             null,
-            null);
+            null,
+            frozenCustomInstruction(job));
 
     // Call external provider (Google Vertex Gemini 3.8 Flash) OUTSIDE of any database transaction
     ChapterAnalysisResult result;
@@ -170,8 +192,35 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
     }
   }
 
+  /** The editorial instruction frozen at admission; never the current configuration. */
+  private String frozenCustomInstruction(GenerationJob job) {
+    if (promptSnapshots == null) return null;
+    return promptSnapshots
+        .find(job.getId())
+        .map(
+            com.narrativex.backend.feature.generation.application.model.analysis
+                    .ChapterAnalysisPromptSnapshot
+                ::instruction)
+        .orElse(null);
+  }
+
   public void materializeAndComplete(
       GenerationJob job, ChapterAnalysisRequest request, ChapterAnalysisResult result) {
+    materializeAndComplete(job, request, result, null);
+  }
+
+  public record LocalProvenance(
+      UUID attemptId,
+      UUID credentialRef,
+      String cliVersion,
+      String conversationId,
+      ChapterAnalysisExecutionMode executionMode) {}
+
+  public void materializeAndComplete(
+      GenerationJob job,
+      ChapterAnalysisRequest request,
+      ChapterAnalysisResult result,
+      LocalProvenance local) {
     byte[] payload = result.rawJson().getBytes(StandardCharsets.UTF_8);
 
     GenerationJob completed =
@@ -179,7 +228,7 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
             job.getJobId(),
             () -> {
               analysisMaterializer.materialize(job, payload);
-              persistAnalysisRun(job, request, result);
+              persistAnalysisRun(job, request, result, local);
             });
     if (completed.getStatus()
         != com.narrativex.backend.feature.generation.domain.enums.JobStatus.COMPLETED) {
@@ -197,7 +246,10 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
   }
 
   private void persistAnalysisRun(
-      GenerationJob job, ChapterAnalysisRequest request, ChapterAnalysisResult result) {
+      GenerationJob job,
+      ChapterAnalysisRequest request,
+      ChapterAnalysisResult result,
+      LocalProvenance local) {
     if (analysisRunRepository == null) {
       return;
     }
@@ -213,8 +265,7 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
         storyboardRevisionId = chapter.getCurrentStoryboardRevisionId();
       }
     }
-    ChapterAnalysisUsage usage =
-        result.usage() != null ? result.usage() : ChapterAnalysisUsage.zero();
+    ChapterAnalysisUsage usage = result.usage();
     ChapterAnalysisRun run =
         new ChapterAnalysisRun(
             null,
@@ -232,7 +283,21 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
             usage.totalTokens(),
             usage.runtimeMs(),
             result.canonHash(),
-            Instant.now());
+            Instant.now(),
+            usage.usageState(),
+            local == null
+                ? ChapterAnalysisProviderId.VERTEX
+                : ChapterAnalysisProviderId.ANTIGRAVITY,
+            local == null ? ChapterAnalysisExecutionMode.VERTEX_API : local.executionMode(),
+            local == null ? null : local.attemptId(),
+            local == null ? null : local.credentialRef(),
+            local == null ? null : local.cliVersion(),
+            local == null ? null : local.conversationId(),
+            null,
+            null,
+            result.promptHash(),
+            result.schemaHash(),
+            CanonHashCalculator.sha256(result.rawJson()));
     analysisRunRepository.recordRun(run);
   }
 }

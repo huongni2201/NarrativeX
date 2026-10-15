@@ -200,6 +200,13 @@ export interface DesktopSseHandlers {
 }
 
 export interface NarrativeXDesktopBridge {
+  storyAnalysis: {
+    status(): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
+    addAccount(): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
+    cancelLogin(): Promise<void>;
+    removeAccount(accountId: string): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
+    openTerms(): Promise<void>;
+  };
   appVersion(): Promise<string>;
   api: {
     request(input: DesktopApiRequest): Promise<DesktopApiResponse>;

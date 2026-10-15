@@ -43,7 +43,7 @@ Project
 
 `VisualGenerationMode` supports `IMAGE` and `VIDEO`.
 
-- `IMAGE` supports backend/generation-service image generation via ComfyUI.
+- `IMAGE` remains available for scoped reference/keyframe and legacy image workflows through ComfyUI; it is not the active moving-footage path. The current executor does not condition output on character-reference bytes.
 - `VIDEO` is an implemented production intent backed by the LTX Native AV worker profile.
 - The active contract is narrowly verified for `video.generate:1.1`, text-to-video, 1280x720 at 24 FPS, and 16:9. It accepts structured dialogue and voice descriptions.
 - The current profile does not support reference-asset conditioning, I2V, or First/Last Frame. Backend admission blocks these paths before creating a Take or compute job.
@@ -58,7 +58,7 @@ NarrationStrategy
   USER_PROVIDED_AUDIO
 ```
 
-Narration alignment is the timeline authority. Generated narration is written to project-local media and materialized into Desktop ProjectStorage. User-provided audio may span Chapters or use several ordered parts on one logical clock.
+Narration alignment is the timeline authority when narration or imported audio is the selected production clock. In `NATIVE_TAKE` mode, source audio follows the selected take's In/Out trim. Generated narration is written to project-local media and materialized into Desktop ProjectStorage. User-provided audio may span Chapters or use several ordered parts on one logical clock.
 
 ## Project-media storage contract
 
@@ -87,7 +87,7 @@ backend-authorized production snapshot
   -> claim + lease
   -> resolve local asset IDs/checksums
   -> FFmpeg/ffprobe
-  -> subtitle mux where available
+  -> ASS subtitle burn-in when aligned cues are available
   -> checksum-verified local MP4
   -> backend artifact metadata only
 ```
@@ -102,13 +102,14 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Authentication / account runtime | REMOVED | No User, Account, Session, OAuth or login gates |
 | Per-user quota / entitlement | REMOVED | Monetary billing, user credits and per-user quotas retired |
 | Runtime capacity limits | IMPLEMENTED foundation | System capacity reservations with terminal settlement |
+| Settings → Prompt (installation-wide styles and instructions) | PARTIAL | One configuration for all Projects; applies to new operations, frozen at admission; Desktop runtime unverified (ADR-0035, Proposed) |
 | Project / Chapter authoring | IMPLEMENTED foundation | Backend-authoritative persistence + Desktop UI |
 | StoryBeat semantic authoring | IMPLEMENTED foundation | Project -> StoryVersion -> Chapter -> Scene -> StoryBeat -> {AudioCue[], VisualBeat[]} (ADR-0024); legacy unassigned VisualBeat rows remain a compatibility path |
 | Chapter Workspace (4 stages) | IMPLEMENTED | Source, Canon, Story, Production stages with 5-tab inspector |
 | Chapter Analyze | IMPLEMENTED | Durable job/provider lifecycle (Vertex Gemini adapter) |
-| Character / Location continuity | IMPLEMENTED foundation | Richer review/reference locking remains partial |
+| Character / Location continuity | PARTIAL | Typed visual profiles, eight-slot persistence and import/review/lock are implemented; generated image/video identity conditioning remains unproven |
 | Scene / VisualBeat storyboard | IMPLEMENTED foundation | Review + generation preparation |
-| `IMAGE` visual intent | IMPLEMENTED | Backend/generation-service image workflows (ComfyUI) |
+| `IMAGE` visual intent | IMPLEMENTED foundation | ComfyUI image tasks remain available for scoped reference/keyframe and legacy workflows; no character-reference conditioning |
 | `VIDEO` visual intent | IMPLEMENTED foundation | Video-first shot/take flow backed by the current text-to-video Native AV profile |
 | LTX Video Generation | IMPLEMENTED foundation | `video.generate:1.1`, 1280x720/24 FPS/16:9; reference conditioning and I2V remain unsupported |
 | VieNeu narration | IMPLEMENTED foundation | Segmented headless TTS persists a project-local WAV master |
@@ -123,7 +124,7 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Persisted beat media selection | IMPLEMENTED foundation | Effective image/video production source |
 | Mixed image/video timeline | IMPLEMENTED foundation | Video trim/fill semantics remain richer than image controls |
 | Auto Edit planning | IMPLEMENTED foundation | Narration-aware local render overrides |
-| Render subtitle track | IMPLEMENTED foundation | Immutable narration/alignment snapshot → local SRT/mux |
+| Render subtitle track | IMPLEMENTED foundation | Immutable text/alignment/style snapshot → ASS subtitle burn-in when renderable cues exist; native word timing remains PARTIAL |
 | Desktop local workspace | IMPLEMENTED foundation | ProjectStorage/ProjectCatalog + manifest integrity |
 | Backup/restore/archive-copy | IMPLEMENTED foundation | Local snapshots and safe replacement |
 | Backend-assigned local render | IMPLEMENTED foundation | Paired device + claim/lease |
@@ -136,7 +137,7 @@ There is one final-render executor: Electron main. There is no cloud/server fina
 | Generated project media via R2 | REMOVED | Images/narration are project-local |
 | Account-scoped voice storage in R2 | REMOVED | Voice assets transition to local storage (`PROJECT` / `GLOBAL_LOCAL`) |
 | MyBatis production persistence | IMPLEMENTED | Explicit PostgreSQL SQL |
-| Flyway clean pre-production baseline | IMPLEMENTED | Clean DB applies squashed V1–V10 final schema directly |
+| Flyway schema | IMPLEMENTED foundation | Pre-production baseline is squashed into V1–V7. Installed database state must be checked separately in `DATABASE.md`. |
 | Provider operation UNKNOWN/replay safety | IMPLEMENTED foundation | Reconcile/fence before external resubmission |
 | Non-monetary provider usage telemetry | IMPLEMENTED foundation | Diagnostic usage where providers expose it; not pricing/accounting |
 | Abrupt process / OS render recovery UX | PARTIAL | Stage-aware journal resume, target lease checks, checksum validation, and discard exist; full Electron journey remains unverified |

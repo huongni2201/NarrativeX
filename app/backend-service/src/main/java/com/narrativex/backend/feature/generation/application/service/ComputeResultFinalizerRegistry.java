@@ -30,11 +30,6 @@ public class ComputeResultFinalizerRegistry {
         return Optional.of(finalizer);
       }
     }
-    for (ComputeResultFinalizer finalizer : finalizers) {
-      if (finalizer.supportedType() == jobType) {
-        return Optional.of(finalizer);
-      }
-    }
     return Optional.empty();
   }
 }

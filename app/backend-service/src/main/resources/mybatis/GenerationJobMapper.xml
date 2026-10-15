@@ -264,7 +264,7 @@
     <select id="findJobsDueForReconciliation" resultMap="generationJobRow">
         SELECT <include refid="columns" />
           FROM generation_jobs
-         WHERE status IN ('SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING')
+         WHERE status IN ('SUBMITTING', 'SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING')
            AND next_reconcile_at IS NOT NULL
            AND next_reconcile_at &lt;= #{now}
          ORDER BY next_reconcile_at ASC

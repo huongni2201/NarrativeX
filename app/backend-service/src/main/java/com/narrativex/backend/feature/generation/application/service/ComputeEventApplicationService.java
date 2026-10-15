@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.service;
 
 import com.narrativex.backend.feature.generation.api.internal.ComputeEventRequest;
+import com.narrativex.backend.feature.generation.application.event.GenerationJobChangedEvent;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeEventReceiptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -10,6 +11,7 @@ import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +31,7 @@ public class ComputeEventApplicationService {
   private final GenerationJobRepository generationJobRepository;
   private final ComputeEventReceiptRepository computeEventReceiptRepository;
   private final ComputeResultFinalizerRegistry finalizerRegistry;
-  private final GenerationJobEventBroadcaster eventBroadcaster;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
   public ProcessingOutcome processEvent(ComputeEventRequest request, String payloadHash) {
@@ -108,24 +110,30 @@ public class ComputeEventApplicationService {
                   request.sequence(),
                   request.state(),
                   request.executionHandle());
+        } else {
+          job = job.recordComputeProgress(progress, request.sequence(), request.state());
         }
         GenerationJob saved = generationJobRepository.save(job);
-        eventBroadcaster.broadcastJobEvent(saved);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(saved));
         return ProcessingOutcome.PROCESSED;
       }
       case "SUCCEEDED" -> {
-        generationJobRepository.save(job);
+        job = generationJobRepository.save(job);
         Optional<ComputeResultFinalizer> finalizerOpt =
             finalizerRegistry.findFinalizer(job.getType(), job.getProductionMode());
         if (finalizerOpt.isPresent()) {
           finalizerOpt.get().finalizeResult(job, request.toObservationDto());
         } else {
-          log.warn("No finalizer found for JobType {}; marking completed directly", job.getType());
-          job = job.markCompleted("COMPUTE_SUCCEEDED");
+          log.warn("No finalizer found for JobType {}; retaining unresolved result", job.getType());
+          job =
+              job.markUnknown(
+                  "COMPUTE_FINALIZER_MISSING",
+                  "Result requires finalization",
+                  Instant.now().plusSeconds(30));
           generationJobRepository.save(job);
         }
         GenerationJob finalJob = generationJobRepository.findByJobId(job.getJobId()).orElse(job);
-        eventBroadcaster.broadcastJobEvent(finalJob);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(finalJob));
         return ProcessingOutcome.PROCESSED;
       }
       case "FAILED" -> {
@@ -139,13 +147,13 @@ public class ComputeEventApplicationService {
                 : "Compute plane reported execution failure";
         job = job.markFailed(errCode, errMsg);
         GenerationJob saved = generationJobRepository.save(job);
-        eventBroadcaster.broadcastJobEvent(saved);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(saved));
         return ProcessingOutcome.PROCESSED;
       }
       case "CANCELED" -> {
         job = job.markCanceled("COMPUTE_CANCELED", "Compute task canceled");
         GenerationJob saved = generationJobRepository.save(job);
-        eventBroadcaster.broadcastJobEvent(saved);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(saved));
         return ProcessingOutcome.PROCESSED;
       }
       default -> {
@@ -155,7 +163,7 @@ public class ComputeEventApplicationService {
             job.getJobId(),
             state);
         GenerationJob saved = generationJobRepository.save(job);
-        eventBroadcaster.broadcastJobEvent(saved);
+        eventPublisher.publishEvent(new GenerationJobChangedEvent(saved));
         return ProcessingOutcome.PROCESSED;
       }
     }

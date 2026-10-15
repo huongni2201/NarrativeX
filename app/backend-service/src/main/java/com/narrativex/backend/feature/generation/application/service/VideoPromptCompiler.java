@@ -1,9 +1,14 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess.ShotView;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -26,16 +31,24 @@ public final class VideoPromptCompiler {
       String motionDescription,
       String temporalProgression) {}
 
-  public static final String DEFAULT_NEGATIVE_PROMPT =
-      "blurry, low quality, morphing, unnatural limbs, jittery motion, abrupt camera jump, deformed facial features, plastic skin, 2D flat cel animation, flickering, visual noise, text, watermark, bad anatomy, double faces";
-
   private final ObjectMapper objectMapper;
 
   public VideoPromptCompiler(ObjectMapper objectMapper) {
     this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
   }
 
+  /** Legacy preset-id overload; a null style compiles without any style rendering language. */
   public CompiledVideoPrompt compile(ShotView shot, ImageStyle style, String continuityContext) {
+    return compile(
+        shot, style == null ? null : PromptSettingsDefaults.settingsFor(style), continuityContext);
+  }
+
+  /**
+   * Compiles from an already resolved configuration. A null configuration compiles the structural
+   * prompt only, with no style, creative instruction or style negatives.
+   */
+  public CompiledVideoPrompt compile(
+      ShotView shot, PromptSettings settings, String continuityContext) {
     Objects.requireNonNull(shot, "shot must not be null");
 
     String narrative = shot.narrativePurpose();
@@ -108,18 +121,38 @@ public final class VideoPromptCompiler {
       promptSb.append("Continuity: ").append(continuityContext).append(". ");
     }
 
-    if (style != null) {
-      SharedCharacterRenderingLanguage.appendTo(promptSb, style);
+    String negativePrompt = "";
+    if (settings != null) {
+      String creativeDirection = settings.instructions().video();
+      if (!creativeDirection.isBlank()) {
+        promptSb.append("Direction: ").append(creativeDirection).append(' ');
+      }
+      SharedCharacterRenderingLanguage.appendTo(promptSb, settings.activeStyle());
+      negativePrompt =
+          mergeNegatives(settings.videoNegativePrompt(), settings.activeStyle().negativePrompt());
     }
 
     return new CompiledVideoPrompt(
         promptSb.toString().trim(),
-        DEFAULT_NEGATIVE_PROMPT,
+        negativePrompt,
         subjectDesc,
         actionDesc,
         cameraDesc,
         motionDesc,
         temporalDesc);
+  }
+
+  /** Merges comma-separated negative lists, dropping case-insensitive duplicates in order. */
+  static String mergeNegatives(String... lists) {
+    Map<String, String> unique = new LinkedHashMap<>();
+    for (String list : lists) {
+      if (list == null) continue;
+      for (String term : list.split(",")) {
+        String trimmed = term.trim();
+        if (!trimmed.isEmpty()) unique.putIfAbsent(trimmed.toLowerCase(Locale.ROOT), trimmed);
+      }
+    }
+    return String.join(", ", unique.values());
   }
 
   private String extractField(String json, String fieldName) {

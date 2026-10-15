@@ -19,6 +19,7 @@ import {
   WorkspacePane,
 } from "../../workspace/components/WorkstationPrimitives";
 import type { RenderController } from "../useRenderController";
+import { SubtitleSettingsPanel } from "../components/SubtitleSettingsPanel";
 
 export function RenderScreen({ timeline, controller }: Readonly<{ timeline: DesktopTimeline | null; controller: RenderController }>) {
   const fitSummary = controller.autoEditPlan
@@ -31,7 +32,7 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
   return (
     <FeaturePage
       title="Auto Edit & Render"
-      description="Narration là master clock; local FFmpeg render video final vào thư mục bạn chọn."
+      description={timeline?.beats.some((beat) => beat.shotId) ? "Take audio là master clock; local FFmpeg render video final vào thư mục bạn chọn." : "Narration là master clock; local FFmpeg render video final vào thư mục bạn chọn."}
       contentClassName="min-h-0 overflow-hidden bg-background p-0"
     >
       <div className="grid h-full min-h-0 grid-cols-[minmax(250px,288px)_minmax(0,1fr)] overflow-hidden">
@@ -39,7 +40,7 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
           <PaneHeader title="Render Settings" meta={controller.canRender ? "Ready to finish" : "Review blockers"} />
           <div className="min-h-0 flex-1 overflow-y-auto">
             <section className="border-b border-border-subtle p-3">
-              <label className="grid gap-1 text-[10px] text-text-muted">
+              <label className="grid gap-1 text-caption text-text-muted">
                 Edit style
                 <Select value={controller.autoEditStyle} onValueChange={(value) => controller.setAutoEditStyle(value as AutoEditStyle)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -51,7 +52,7 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
                   </SelectContent>
                 </Select>
               </label>
-              <label className="mt-2 grid gap-1 text-[10px] text-text-muted">
+              <label className="mt-2 grid gap-1 text-caption text-text-muted">
                 Resolution
                 <Select value={controller.resolution} onValueChange={(value) => controller.setResolution(value as RenderResolution)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -65,7 +66,7 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
             </section>
 
             <section className="border-b border-border-subtle">
-              <PropertyRow label="Subtitles" value={<StatusIndicator label="Automatic" tone="success" className="justify-end" />} />
+              <PropertyRow label="Subtitles" value={<StatusIndicator label={controller.subtitlesEnabled ? "ON" : "OFF"} tone={controller.subtitlesEnabled ? "success" : "neutral"} className="justify-end" />} />
               <PropertyRow label="Timeline" value={timeline ? `${Math.round(timeline.totalDurationMs / 1000)}s` : "Not loaded"} />
               <PropertyRow label="Auto Edit" value={<StatusIndicator label={controller.canRender ? "Ready" : "Blocked"} tone={controller.canRender ? "success" : "warning"} className="justify-end" />} />
               <PropertyRow label="Disk free" value={controller.preflight?.diskFreeBytes != null ? formatBytes(controller.preflight.diskFreeBytes) : "Not checked"} />
@@ -73,8 +74,8 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
 
             {controller.destinationDirectory ? (
               <section className="border-b border-border-subtle p-3">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">Destination</div>
-                <p className="mt-1 break-all font-mono text-[9px] leading-4 text-text-muted">{controller.finalPath ?? controller.destinationDirectory}</p>
+                <div className="text-caption font-semibold text-text-dim">Destination</div>
+                <p className="mt-1 break-all font-mono text-caption leading-4 text-text-muted">{controller.finalPath ?? controller.destinationDirectory}</p>
               </section>
             ) : null}
           </div>
@@ -101,6 +102,14 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
           />
 
           <div className="min-h-0 flex-1 overflow-y-auto">
+            <section className="border-b border-border-subtle p-4">
+              <SubtitleSettingsPanel controller={controller} aspectRatio={timeline?.aspectRatio ?? "16:9"} />
+            </section>
+            {controller.nativeSubtitleTimingWarning ? (
+              <section className="border-b border-border-subtle p-3">
+                <InlineNotice tone="warning">{controller.nativeSubtitleTimingWarning}</InlineNotice>
+              </section>
+            ) : null}
             {!!controller.readinessBlockers.length ? (
               <section className="border-b border-border-subtle">
                 <InlineNotice tone="warning">
@@ -114,10 +123,10 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
 
             {controller.autoEditPlan ? (
               <WorkspaceSection title="Auto Edit plan" icon={<WandSparkles size={13} />} meta={`${controller.autoEditPlan.renderOverrides.length} changes`}>
-                <p className="text-[10px] leading-4 text-text-muted">
+                <p className="text-caption leading-4 text-text-muted">
                   Camera intent từ AI được ưu tiên; media fit theo narration và scene/chapter boundaries giữ nguyên duration.
                 </p>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-text-muted">
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-text-muted">
                   {Object.entries(fitSummary).map(([mode, count]) => <span key={mode}>{mode}: <strong className="font-medium text-text-secondary">{count}</strong></span>)}
                 </div>
               </WorkspaceSection>
@@ -127,7 +136,7 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
               <WorkspaceSection title="Preflight" icon={<HardDrive size={13} />} meta={`${controller.preflight.assets.length} assets`}>
                 <div className="divide-y divide-border-subtle border-y border-border-subtle">
                   {controller.preflight.assets.map((asset) => (
-                    <div key={asset.assetId} className="flex min-h-8 items-center justify-between gap-3 px-2 text-[10px]">
+                    <div key={asset.assetId} className="flex min-h-8 items-center justify-between gap-3 px-2 text-caption">
                       <span className="truncate font-mono text-text-secondary">{asset.assetId.slice(0, 12)}</span>
                       <StatusIndicator
                         label={asset.state}
@@ -136,27 +145,27 @@ export function RenderScreen({ timeline, controller }: Readonly<{ timeline: Desk
                     </div>
                   ))}
                 </div>
-                {!!controller.preflight.warnings.length && <p className="mt-2 text-[10px] leading-4 text-warning">{controller.preflight.warnings.join(" · ")}</p>}
+                {!!controller.preflight.warnings.length && <p className="mt-2 text-caption leading-4 text-warning">{controller.preflight.warnings.join(" · ")}</p>}
               </WorkspaceSection>
             ) : null}
 
             {controller.liveJob ? (
               <WorkspaceSection title="Render job" icon={<Film size={13} />} meta={controller.liveJob.status}>
-                <div className="flex items-center justify-between gap-3 text-[10px]">
+                <div className="flex items-center justify-between gap-3 text-caption">
                   <span className="truncate font-mono text-text-secondary">{controller.liveJob.jobId}</span>
                   <span className="tabular-nums text-text-muted">{Math.round(clampProgress(controller.liveJob.progress))}%</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden bg-secondary">
                   <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${clampProgress(controller.liveJob.progress)}%` }} />
                 </div>
-                <p className="mt-2 text-[10px] text-text-muted">{controller.liveJob.currentStep ?? "Waiting"}</p>
+                <p className="mt-2 text-caption text-text-muted">{controller.liveJob.currentStep ?? "Waiting"}</p>
               </WorkspaceSection>
             ) : (
               <div className="grid min-h-48 place-items-center border-b border-border-subtle text-center">
                 <div className="max-w-sm px-6">
                   <Type size={20} className="mx-auto text-text-dim" />
-                  <div className="mt-2 text-[12px] font-semibold">Ready for finishing</div>
-                  <p className="mt-1 text-[10px] leading-4 text-text-muted">Run preflight and choose a destination when the timeline is ready.</p>
+                  <div className="mt-2 text-label font-semibold">Ready for finishing</div>
+                  <p className="mt-1 text-caption leading-4 text-text-muted">Run preflight and choose a destination when the timeline is ready.</p>
                 </div>
               </div>
             )}
@@ -171,8 +180,8 @@ function WorkspaceSection({ title, icon, meta, children }: Readonly<{ title: str
   return (
     <section className="border-b border-border-subtle p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-foreground"><span className="text-primary">{icon}</span>{title}</div>
-        {meta ? <span className="text-[9px] text-text-dim">{meta}</span> : null}
+        <div className="flex items-center gap-2 text-caption font-semibold text-foreground"><span className="text-primary">{icon}</span>{title}</div>
+        {meta ? <span className="text-caption text-text-dim">{meta}</span> : null}
       </div>
       {children}
     </section>

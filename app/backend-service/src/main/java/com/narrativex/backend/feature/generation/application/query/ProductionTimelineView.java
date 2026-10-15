@@ -13,6 +13,10 @@ public record ProductionTimelineView(
     List<Chapter> chapters,
     List<Beat> beats) {
 
+  public String audioMode() {
+    return beats.stream().anyMatch(b -> b.shotId() != null) ? "NATIVE_TAKE" : "EXTERNAL_NARRATION";
+  }
+
   public record Chapter(
       UUID chapterId,
       int orderIndex,

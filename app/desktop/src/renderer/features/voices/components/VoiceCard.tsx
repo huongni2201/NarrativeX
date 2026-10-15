@@ -31,15 +31,15 @@ export function VoiceCard({ voice, selected, playing, onSelect, onPreview }: Pro
 
       <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left focus-visible:outline-none">
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <span className={`truncate text-[11px] font-semibold ${selected ? "text-primary-hover" : "text-foreground"}`}>{voice.name}</span>
+          <span className={`truncate text-caption font-semibold ${selected ? "text-primary-hover" : "text-foreground"}`}>{voice.name}</span>
           <StatusIndicator label={languageShort(voice.language)} tone={selected ? "accent" : "neutral"} className="shrink-0" />
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-text-muted">
+        <div className="mt-0.5 flex items-center gap-1.5 text-caption text-text-muted">
           <span>{voice.gender ?? "Neutral"}</span>
           <span className="text-text-dim">·</span>
           <span className="truncate">{voice.language}</span>
         </div>
-        <div className="mt-1 text-[9px] text-text-dim">{voice.sampleUrl ? "Sample available" : "No sample audio"}</div>
+        <div className="mt-1 text-caption text-text-dim">{voice.sampleUrl ? "Sample available" : "No sample audio"}</div>
       </button>
 
       <Button

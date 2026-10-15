@@ -71,7 +71,8 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
                     row.isMediaSelectionActive(),
                     row.getStorageKey(),
                     row.getSizeBytes(),
-                    row.getChecksum()))
+                    row.getChecksum(),
+                    row.getSourceOutMs()))
         .toList();
   }
 }

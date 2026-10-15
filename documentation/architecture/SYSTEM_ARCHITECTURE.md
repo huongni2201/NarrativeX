@@ -1,7 +1,7 @@
 # NarrativeX System Architecture
 
 **Status:** maintained architecture contract
-**Authority:** code, migrations, tests, and active ADRs (ADR-0018, ADR-0019, ADR-0020, ADR-0021, ADR-0024, ADR-0025)
+**Authority:** code, migrations, tests, and active ADRs (ADR-0018 through ADR-0032)
 
 NarrativeX is Desktop-only at the editor boundary, single-user local-first, and project-first. Spring Boot is the durable control plane; `generation-service` is the domain-agnostic compute execution plane; Electron main owns privileged local project media and final-render execution.
 
@@ -18,7 +18,7 @@ Electron Desktop
       v HTTP / REST             | project-scoped SSE generation events
 Spring Boot Backend             |
   |                             |
-  +-> PostgreSQL (authoritative control/business state, Flyway V1-V8)
+  +-> PostgreSQL (authoritative control/business state; repository migration inventory V1-V7)
   +-> Vertex Gemini (Chapter Analysis adapter)
   +-> Compute Protocol v1 (HTTP)
         |
@@ -77,7 +77,7 @@ Per ADR-0020, caller identity is not threaded through business logic. The backen
 Domain-agnostic GPU execution plane implementing hexagonal architecture (ADR-0018/ADR-0019):
 
 - Implements `contracts/compute/v1/` task protocols over HTTP;
-- Workload adapters: VieNeu TTS, WhisperX forced alignment, ComfyUI image generation, and media validation;
+- Workload adapters: LTX Native AV video generation, VieNeu TTS, WhisperX forced alignment, ComfyUI text-to-image, and media validation;
 - Local SQLite execution journal for crash recovery and submission checkpoints (ADR-0021);
 - SQLite `compute_event_outbox` records each execution state transition/observation in the same local transaction as the attempt update;
 - `OutboxDeliveryService` delivers signed callbacks with retry/backoff and does not mutate terminal execution state when delivery fails;
@@ -209,10 +209,10 @@ Backend admits project render
   -> assign paired Desktop device
   -> device claims lease
   -> preflight runtime, disk, and assets
-  -> verify exact narration-aligned beat clock
+  -> verify frozen cut timing against the selected audio authority
   -> resolve stable IDs and checksums
   -> Electron main executes FFmpeg/ffprobe
-  -> subtitle mux (local SRT)
+  -> ASS subtitle burn-in when aligned cues are available
   -> checksum-verified local MP4
   -> backend stores FinalArtifact metadata only
 ```

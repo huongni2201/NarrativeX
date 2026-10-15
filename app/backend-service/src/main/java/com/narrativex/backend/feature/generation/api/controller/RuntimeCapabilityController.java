@@ -19,6 +19,7 @@ public class RuntimeCapabilityController {
   @GetMapping
   public ResponseEntity<ApiResponse<RuntimeCapabilityView>> getCapabilities() {
     var view = runtimeCapabilityService.query(new RuntimeCapabilityQuery());
-    return ResponseEntity.ok(ApiResponse.success("Runtime capabilities retrieved successfully", view));
+    return ResponseEntity.ok(
+        ApiResponse.success("Runtime capabilities retrieved successfully", view));
   }
 }

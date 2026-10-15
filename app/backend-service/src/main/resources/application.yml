@@ -11,6 +11,11 @@ spring:
     username: ${DB_USERNAME:narrativex}
     password: ${DB_PASSWORD:narrativex}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${NARRATIVEX_DB_POOL_SIZE:20}
+      minimum-idle: 2
+      connection-timeout: 5000
+      leak-detection-threshold: ${NARRATIVEX_DB_LEAK_DETECTION_MS:0}
   session:
     timeout: ${NARRATIVEX_SESSION_TIMEOUT:7d}
     jdbc:

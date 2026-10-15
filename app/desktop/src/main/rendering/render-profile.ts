@@ -1,13 +1,16 @@
 import { V2_VIDEO_QUALITY, type VideoQualityProfile } from "../../shared/video-encoding.ts";
+import { parseSubtitleStyle, type SubtitleStyle } from "../../shared/subtitle-style.ts";
 
 export type RenderColorMode = "SDR_BT709_LIMITED";
 
 export interface ParsedRenderProfile {
-  schemaVersion: 3;
-  rendererVersion: "project-image-motion-v3-composition";
+  schemaVersion: 3 | 4;
+  rendererVersion: "project-image-motion-v3-composition" | "project-native-av-v4";
+  audioMode: "NATIVE_TAKE" | "EXTERNAL_NARRATION";
   compositionPolicyVersion: 1;
   fps: 24 | 30 | 60;
   subtitleMode: "burn_in" | "none";
+  subtitleStyle?: SubtitleStyle;
   video: VideoQualityProfile;
   colorMode: RenderColorMode;
   watermark: { readonly mode: "required" | "none"; readonly policyVersion: 1 };
@@ -32,18 +35,24 @@ export function parseRenderProfile(renderProfileJson: string): ParsedRenderProfi
   if (!isRecord(raw)) {
     throw new Error("Invalid render profile JSON.");
   }
-  if (raw.schemaVersion !== 3) {
+  if (raw.schemaVersion !== 3 && raw.schemaVersion !== 4) {
     throw new Error(`Unsupported render profile schema: ${String(raw.schemaVersion)}.`);
   }
 
+  if (raw.schemaVersion === 4 && raw.audioMode !== "NATIVE_TAKE" && raw.audioMode !== "EXTERNAL_NARRATION") {
+    throw new Error("Invalid render audio mode.");
+  }
   const video = isRecord(raw.video) ? raw.video : {};
   const color = isRecord(raw.color) ? raw.color : {};
   return {
-    schemaVersion: 3,
-    rendererVersion: "project-image-motion-v3-composition",
+    schemaVersion: raw.schemaVersion,
+    rendererVersion: raw.schemaVersion === 4 ? "project-native-av-v4" : "project-image-motion-v3-composition",
+    audioMode: raw.schemaVersion === 4 ? raw.audioMode as "NATIVE_TAKE" | "EXTERNAL_NARRATION" : "EXTERNAL_NARRATION",
     compositionPolicyVersion: 1,
     fps: supportedFps(raw.fps),
     subtitleMode: subtitleMode(raw),
+    ...(isRecord(raw.subtitles) && raw.subtitles.style !== undefined
+      ? { subtitleStyle: parseSubtitleStyle(raw.subtitles.style) } : {}),
     video: {
       x264Preset: X264_PRESETS.has(video.x264Preset as VideoQualityProfile["x264Preset"])
         ? (video.x264Preset as VideoQualityProfile["x264Preset"])

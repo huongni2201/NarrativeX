@@ -1,14 +1,90 @@
-import { useState, useEffect } from "react";
-import { Sparkles, Save, FileText, CheckCircle, AlertCircle, Plus } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { AlertCircle, CheckCircle, FileText, Plus, Save, Sparkles, Undo2, Upload } from "lucide-react";
 import type { DesktopChapterDetails } from "@narrativex/client-contracts";
 import { Button } from "@/components/ui/button";
+import { canCreateInitialChapter, wordCount } from "../../model/chapter-ui";
+
+const IMPORT_MAX_BYTES = 2 * 1024 * 1024;
+const IMPORT_EXTENSION = /\.(txt|md)$/i;
 
 export interface ChapterSourceStageProps {
   chapter: DesktopChapterDetails | null;
   onSave: (title: string, sourceText: string) => Promise<void>;
   onAnalyze: () => void;
-  onCreateChapter?: () => void;
+  onCreateChapter?: (title: string, sourceText: string) => Promise<void>;
+  defaultChapterTitle?: string;
+  isCreating?: boolean;
   isAnalyzing: boolean;
+}
+
+function formatCount(value: number) {
+  return value.toLocaleString("vi-VN");
+}
+
+function fileNameWithoutExtension(fileName: string) {
+  return fileName.replace(IMPORT_EXTENSION, "").trim();
+}
+
+/** Loads a local .txt/.md file into the chapter text. The file never leaves the renderer. */
+function ImportTextFileButton({
+  disabled = false,
+  onImport,
+}: {
+  disabled?: boolean;
+  onImport: (fileName: string, text: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!IMPORT_EXTENSION.test(file.name)) {
+      setError("Chỉ hỗ trợ tệp .txt hoặc .md.");
+      return;
+    }
+    if (file.size > IMPORT_MAX_BYTES) {
+      setError("Tệp vượt quá 2 MB.");
+      return;
+    }
+    try {
+      const text = await file.text();
+      setError(null);
+      onImport(file.name, text);
+    } catch {
+      setError("Không đọc được tệp. Vui lòng thử lại.");
+    }
+  };
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {error && (
+        <span role="alert" className="truncate text-caption text-danger">
+          {error}
+        </span>
+      )}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-3 px-2.5 py-1 text-label font-medium text-text-secondary transition-colors hover:bg-surface-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Upload size={13} />
+        <span>Nhập từ tệp</span>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".txt,.md,text/plain,text/markdown"
+        className="hidden"
+        onChange={handleChange}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+    </div>
+  );
 }
 
 export function ChapterSourceStage({
@@ -16,156 +92,310 @@ export function ChapterSourceStage({
   onSave,
   onAnalyze,
   onCreateChapter,
+  defaultChapterTitle,
+  isCreating = false,
   isAnalyzing,
 }: ChapterSourceStageProps) {
-  const [title, setTitle] = useState(chapter?.title ?? "");
+  const [title, setTitle] = useState(chapter?.title ?? defaultChapterTitle ?? "");
   const [sourceText, setSourceText] = useState(chapter?.sourceText ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
-    setTitle(chapter?.title ?? "");
+    setTitle(chapter?.title ?? defaultChapterTitle ?? "");
     setSourceText(chapter?.sourceText ?? "");
-  }, [chapter]);
+    setSaveError(null);
+    setCreateError(null);
+  }, [chapter, defaultChapterTitle]);
 
-  const isDirty =
-    chapter && (title !== chapter.title || sourceText !== chapter.sourceText);
+  const isDirty = chapter !== null && (title !== chapter.title || sourceText !== chapter.sourceText);
+  const words = wordCount(sourceText);
+  const characters = sourceText.length;
 
-  const words = sourceText.trim() ? sourceText.trim().split(/\s+/).length : 0;
+  const handleImportFile = (fileName: string, text: string) => {
+    setSourceText(text);
+    setCreateError(null);
+    if (!title.trim()) setTitle(fileNameWithoutExtension(fileName));
+  };
 
-  const handleSave = async () => {
-    if (!isDirty || isSaving) return;
+  const handleDiscard = () => {
+    if (!chapter) return;
+    setTitle(chapter.title);
+    setSourceText(chapter.sourceText);
+    setSaveError(null);
+  };
+
+  /** Persists the current title and text. Resolves to false when the save failed. */
+  const saveChanges = async (): Promise<boolean> => {
+    if (isSaving) return false;
     setIsSaving(true);
+    setSaveError(null);
     try {
       await onSave(title, sourceText);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2000);
+      return true;
+    } catch {
+      setSaveError("Không lưu được nội dung. Vui lòng thử lại.");
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Ctrl/Cmd+S saves the open chapter without leaving the editor.
+  useEffect(() => {
+    if (!chapter) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (isDirty) void saveChanges();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   const handleSaveAndAnalyze = async () => {
     if (isAnalyzing || isSaving) return;
     if (isDirty) {
-      setIsSaving(true);
-      try {
-        await onSave(title, sourceText);
-        setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 2000);
-      } finally {
-        setIsSaving(false);
-      }
+      const saved = await saveChanges();
+      if (!saved) return;
     }
     onAnalyze();
   };
 
+  const handleCreateChapter = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!onCreateChapter || isCreating || !canCreateInitialChapter(title, sourceText)) return;
+
+    setCreateError(null);
+    try {
+      await onCreateChapter(title.trim(), sourceText);
+    } catch {
+      setCreateError("Không thể tạo chương. Vui lòng kiểm tra thông tin và thử lại.");
+    }
+  };
+
   if (!chapter) {
+    const canSubmit = canCreateInitialChapter(title, sourceText);
+    const quickSteps = [
+      "Đặt tiêu đề cho chương.",
+      "Dán nội dung hoặc nhập từ tệp .txt, .md.",
+      "Tạo chương, rồi bấm Phân tích chương để dựng hồ sơ và kịch bản.",
+    ];
+
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-surface-dark/25">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 mb-4 shadow-sm">
-          <FileText size={32} />
+      <div className="h-full overflow-y-auto bg-background">
+        <div className="mx-auto grid min-h-full w-full max-w-5xl gap-5 px-6 py-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <section className="flex min-w-0 flex-col">
+            <div className="flex items-start gap-3.5">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <FileText size={18} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-semibold tracking-tight text-foreground">Tạo chương đầu tiên</h3>
+                <p className="mt-1 text-label leading-relaxed text-text-secondary">
+                  Nhập tiêu đề và nội dung để bắt đầu xây dựng kịch bản. Bạn vẫn có thể chỉnh sửa chương sau khi tạo.
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleCreateChapter}
+              className="mt-5 flex min-h-[360px] flex-1 flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-panel shadow-sm"
+            >
+              <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
+                <div>
+                  <label htmlFor="initial-chapter-title" className="mb-1.5 block text-label font-medium text-text-muted">
+                    Tiêu đề chương
+                  </label>
+                  <input
+                    id="initial-chapter-title"
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(event) => {
+                      setTitle(event.target.value);
+                      setCreateError(null);
+                    }}
+                    placeholder="Ví dụ: Chương 1 – Lời sấm khởi đầu"
+                    className="w-full rounded-lg border border-border-subtle bg-surface-input px-3 py-2 text-[15px] font-medium text-foreground placeholder:text-text-dim focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  />
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="mb-1.5 flex items-center justify-between gap-3">
+                    <label htmlFor="initial-chapter-source" className="text-label font-medium text-text-muted">
+                      Nội dung chương
+                    </label>
+                    <ImportTextFileButton disabled={isCreating} onImport={handleImportFile} />
+                  </div>
+                  <textarea
+                    id="initial-chapter-source"
+                    required
+                    value={sourceText}
+                    onChange={(event) => {
+                      setSourceText(event.target.value);
+                      setCreateError(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                    placeholder="Dán hoặc viết nội dung chương tại đây..."
+                    className="nx-prose min-h-[240px] w-full flex-1 resize-none rounded-lg border border-border-subtle bg-surface-input p-4 text-[15px] leading-[1.75] text-foreground placeholder:text-text-dim focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  />
+                </div>
+
+                {createError && (
+                  <p role="alert" className="rounded-lg border border-danger/30 bg-danger-bg p-3 text-label text-danger">
+                    {createError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-surface-dark/60 px-5 py-3">
+                <span className="text-caption text-text-muted">
+                  {formatCount(words)} từ · {formatCount(characters)} ký tự · Ctrl+Enter để tạo
+                </span>
+                {onCreateChapter && (
+                  <Button type="submit" disabled={isCreating || !canSubmit} className="gap-2 font-semibold shadow-sm">
+                    <Plus size={15} /> {isCreating ? "Đang tạo..." : "Tạo chương"}
+                  </Button>
+                )}
+              </div>
+            </form>
+          </section>
+
+          <aside className="flex flex-col gap-3">
+            <div className="rounded-xl border border-border-subtle bg-surface-panel p-4">
+              <h4 className="text-body font-semibold text-foreground">Bắt đầu nhanh</h4>
+              <ol className="mt-3 space-y-3">
+                {quickSteps.map((step, index) => (
+                  <li key={step} className="flex items-start gap-2.5">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono text-caption font-semibold text-primary">
+                      {index + 1}
+                    </span>
+                    <span className="text-label leading-relaxed text-text-secondary">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <p className="px-1 text-caption leading-relaxed text-text-dim">Tệp .txt hoặc .md, tối đa 2 MB.</p>
+          </aside>
         </div>
-        <h3 className="text-[18px] font-semibold text-foreground">Chưa có Chapter nào được chọn</h3>
-        <p className="mt-2 max-w-md text-[13px] leading-relaxed text-text-secondary">
-          Tạo chapter mới để bắt đầu nhập kịch bản hoặc tiểu thuyết. Hệ thống AI Story Director sẽ tự động phân tích bối cảnh, trích xuất nhân vật và phân tách StoryBeats.
-        </p>
-        {onCreateChapter && (
-          <Button
-            type="button"
-            size="lg"
-            onClick={onCreateChapter}
-            className="mt-6 gap-2 font-semibold shadow-sm"
-          >
-            <Plus size={16} /> Thêm chapter mới
-          </Button>
-        )}
       </div>
     );
   }
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background">
-      {/* Source Action Bar */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-dark px-4">
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] text-text-muted">
-            Số từ: <strong className="text-foreground font-mono">{words}</strong>
+      {/* Action bar */}
+      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-dark px-4">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="text-label text-text-muted">
+            Số từ: <strong className="font-mono font-semibold text-foreground">{formatCount(words)}</strong>
           </span>
           {isDirty && (
-            <span className="inline-flex items-center gap-1 rounded bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning border border-warning/20">
+            <span className="inline-flex items-center gap-1 rounded border border-warning/20 bg-warning-bg px-2 py-0.5 text-caption font-medium text-warning">
               <AlertCircle size={12} />
               Chưa lưu thay đổi
             </span>
           )}
           {savedSuccess && (
-            <span className="inline-flex items-center gap-1 rounded bg-success-bg px-2 py-0.5 text-[11px] font-medium text-success border border-success/20">
+            <span className="inline-flex items-center gap-1 rounded border border-success/20 bg-success-bg px-2 py-0.5 text-caption font-medium text-success">
               <CheckCircle size={12} />
               Đã lưu
             </span>
           )}
+          {saveError && (
+            <span role="alert" className="truncate text-caption text-danger">
+              {saveError}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {isDirty && (
+            <button
+              type="button"
+              onClick={handleDiscard}
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-label font-medium text-text-muted transition-colors hover:bg-surface-3 hover:text-foreground"
+            >
+              <Undo2 size={13} />
+              <span>Hoàn tác</span>
+            </button>
+          )}
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => void saveChanges()}
             disabled={!isDirty || isSaving}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-all ${
+            title="Lưu nội dung (Ctrl+S)"
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-label font-medium transition-colors ${
               isDirty
-                ? "bg-surface-3 text-foreground hover:bg-surface-2 border border-border"
-                : "bg-surface-dark text-text-dim cursor-not-allowed border border-border-subtle"
+                ? "border-border bg-surface-3 text-foreground hover:bg-surface-2"
+                : "cursor-not-allowed border-border-subtle bg-surface-dark text-text-dim"
             }`}
           >
-            <Save size={14} />
-            <span>{isSaving ? "Đang lưu..." : "Lưu văn bản"}</span>
+            <Save size={13} />
+            <span>{isSaving ? "Đang lưu..." : "Lưu nội dung"}</span>
           </button>
 
           <button
             type="button"
             onClick={handleSaveAndAnalyze}
             disabled={isAnalyzing || isSaving}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-1.5 text-[13px] font-semibold text-primary-foreground transition-all hover:bg-primary-hover shadow-sm disabled:opacity-50"
-            title="Lưu văn bản mới nhất (nếu có thay đổi) và phân tích cấu trúc kịch bản bằng Gemini Story Director"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-label font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-50"
+            title="Lưu thay đổi (nếu có) rồi phân tích cấu trúc kịch bản bằng Gemini Story Director"
           >
-            <Sparkles size={15} className={isAnalyzing ? "animate-spin" : ""} />
+            <Sparkles size={14} className={isAnalyzing ? "animate-spin" : ""} />
             <span>
-              {isAnalyzing
-                ? "Đang phân tích..."
-                : isDirty
-                ? "Save & Analyze"
-                : "Analyze Chapter"}
+              {isAnalyzing ? "Đang phân tích..." : isDirty ? "Lưu & phân tích" : "Phân tích chương"}
             </span>
           </button>
         </div>
       </div>
 
-      {/* Editor Content Area */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-4 max-w-4xl mx-auto w-full">
-        <div>
-          <label className="block text-[12px] font-medium text-text-muted uppercase tracking-wider mb-1.5">
-            Tiêu đề chương
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ví dụ: Chương 1 - Lời sấm truyền khởi đầu..."
-            className="w-full rounded-lg border border-border-subtle bg-surface-input px-3.5 py-2 text-[15px] font-medium text-foreground placeholder:text-text-dim focus:border-primary focus:outline-none"
-          />
-        </div>
+      {/* Editor */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-4 px-6 py-5">
+          <div>
+            <label htmlFor="chapter-title" className="mb-1.5 block text-label font-medium text-text-muted">
+              Tiêu đề chương
+            </label>
+            <input
+              id="chapter-title"
+              type="text"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Ví dụ: Chương 1 – Lời sấm khởi đầu"
+              className="w-full rounded-lg border border-border-subtle bg-surface-input px-3 py-2 text-[15px] font-medium text-foreground placeholder:text-text-dim focus:border-primary focus:outline-none"
+            />
+          </div>
 
-        <div className="flex-1 flex flex-col min-h-[400px]">
-          <label className="block text-[12px] font-medium text-text-muted uppercase tracking-wider mb-1.5">
-            Văn bản nguồn chương (Source Text)
-          </label>
-          <textarea
-            value={sourceText}
-            onChange={(e) => setSourceText(e.target.value)}
-            placeholder="Dán hoặc soạn thảo nội dung văn bản kịch bản/tiểu thuyết của chương vào đây..."
-            rows={18}
-            className="w-full flex-1 rounded-lg border border-border-subtle bg-surface-input p-4 font-serif text-[15px] leading-relaxed text-foreground placeholder:text-text-dim focus:border-primary focus:outline-none resize-y"
-          />
+          <div className="flex min-h-[320px] flex-1 flex-col">
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <label htmlFor="chapter-source" className="text-label font-medium text-text-muted">
+                Nội dung chương
+              </label>
+              <ImportTextFileButton onImport={handleImportFile} />
+            </div>
+            <textarea
+              id="chapter-source"
+              value={sourceText}
+              onChange={(event) => setSourceText(event.target.value)}
+              placeholder="Dán hoặc viết nội dung kịch bản, tiểu thuyết của chương tại đây..."
+              className="nx-prose min-h-[280px] w-full flex-1 resize-none rounded-lg border border-border-subtle bg-surface-input p-4 text-[15px] leading-[1.75] text-foreground placeholder:text-text-dim focus:border-primary focus:outline-none"
+            />
+            <p className="mt-1.5 text-caption text-text-dim">
+              {formatCount(characters)} ký tự · Ctrl+S để lưu · Hỗ trợ tệp .txt và .md
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -68,6 +68,8 @@ eggs/
 # ==========================================
 # Testing & Coverage
 # ==========================================
+/.playwright-mcp/
+.tmp-*.log
 coverage/
 *.lcov
 .coverage

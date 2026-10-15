@@ -74,7 +74,7 @@ export function AssetsScreen({
   const actions = (
     <div className="flex flex-wrap items-center justify-end gap-3">
       <Select value={chapterId} onValueChange={setChapterId}>
-        <SelectTrigger className="h-9.5 w-[240px] text-[13px]">
+        <SelectTrigger className="h-9.5 w-[240px] text-body">
           <SelectValue placeholder="All chapters" />
         </SelectTrigger>
         <SelectContent>
@@ -109,7 +109,7 @@ export function AssetsScreen({
             const canPreviewImage = asset.type === "IMAGE" && localState === "AVAILABLE";
             const canPreviewVideo = asset.type === "VIDEO" && localState === "AVAILABLE";
             return (
-              <article key={asset.id} className="group min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-panel transition-all hover:border-primary/50 hover:bg-surface-hover shadow-sm">
+              <article key={asset.id} className="group min-w-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-panel transition-[color,background-color,border-color,box-shadow,transform,opacity] hover:border-primary/50 hover:bg-surface-hover shadow-sm">
                 <div className="relative grid aspect-video place-items-center overflow-hidden bg-surface-dark text-text-muted">
                   {canPreviewImage ? (
                     <img
@@ -128,29 +128,29 @@ export function AssetsScreen({
                   ) : (
                     <Icon size={32} strokeWidth={1.4} />
                   )}
-                  <span className="absolute left-2.5 top-2.5 rounded bg-background/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary backdrop-blur-sm border border-border-subtle">
+                  <span className="absolute left-2.5 top-2.5 rounded bg-background/90 px-2 py-0.5 text-caption font-semibold text-text-secondary backdrop-blur-sm border border-border-subtle">
                     {asset.type}
                   </span>
                   {asset.type === "IMAGE" && (
-                    <span className="absolute right-2.5 top-2.5 rounded bg-surface-panel/90 px-2 py-0.5 text-[10px] font-mono font-medium uppercase tracking-[0.05em] text-text-secondary backdrop-blur-sm border border-border-subtle">
+                    <span className="absolute right-2.5 top-2.5 rounded bg-surface-panel/90 px-2 py-0.5 text-caption font-mono font-medium uppercase tracking-[0.05em] text-text-secondary backdrop-blur-sm border border-border-subtle">
                       {getImageClassification(asset.originalFilename, inUseAssetIds.has(asset.id))}
                     </span>
                   )}
                   {asset.type === "VIDEO" && inUseAssetIds.has(asset.id) && (
-                    <span className="absolute right-2.5 top-2.5 rounded bg-primary/90 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-[0.05em] text-primary-foreground backdrop-blur-sm border border-primary/40 shadow-sm">
+                    <span className="absolute right-2.5 top-2.5 rounded bg-primary/90 px-2 py-0.5 text-caption font-mono font-bold uppercase tracking-[0.05em] text-primary-foreground backdrop-blur-sm border border-primary/40 shadow-sm">
                       MASTER TAKE
                     </span>
                   )}
                 </div>
                 <div className="p-4">
-                  <h2 className="truncate text-[13px] font-semibold text-foreground" title={asset.originalFilename}>{asset.originalFilename}</h2>
-                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-dim">
+                  <h2 className="truncate text-body font-semibold text-foreground" title={asset.originalFilename}>{asset.originalFilename}</h2>
+                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-text-dim">
                     <span>{formatBytes(asset.sizeBytes)}</span>
                     {asset.durationMs ? <span>· {formatDuration(asset.durationMs)}</span> : null}
                     <span>· {asset.status}</span>
                   </div>
                   {asset.type === "VIDEO" && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-mono text-text-secondary">
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-caption font-mono text-text-secondary">
                       <span className="rounded bg-surface-2 px-1.5 py-0.5 border border-border-subtle">1280x720</span>
                       <span className="rounded bg-surface-2 px-1.5 py-0.5 border border-border-subtle">24 FPS</span>
                       <span className="rounded bg-surface-2 px-1.5 py-0.5 border border-border-subtle">H.264 / AAC</span>

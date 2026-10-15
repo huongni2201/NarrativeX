@@ -1,6 +1,6 @@
 # Generation Routing Architecture
 
-**Status:** Authoritative Routing Specification  
+**Status:** active runtime admits T2V only; extended strategies remain TARGET
 **Authority:** ADR-0028, ADR-0029  
 **Date:** 2026-09-20  
 
@@ -26,6 +26,8 @@ GenerationPlan:
 ---
 
 ## 2. Routing Decision Matrix
+
+The matrix describes target strategy selection. The current pinned `video.generate:1.1` profile only admits T2V at 1280×720/24 FPS/16:9. I2V, First/Last Frame, reference artifacts and AUDIO_FIRST fail preflight before a Take or job is created. Extended strategies remain TARGET. See [current status](../CURRENT_STATUS.md); enum/route availability is not executor readiness.
 
 | Strategy | When Selected | Required Inputs | Invariants & Fallbacks |
 |---|---|---|---|

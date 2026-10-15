@@ -1,8 +1,8 @@
 # Generation Domain, Takes & Video QA
 
-**Status:** Authoritative Domain Specification  
+**Status:** PARTIAL domain model; take validation metadata exists, while automatic semantic QA and reason-aware retries remain TARGET
 **Authority:** ADR-0028, ADR-0029, ADR-0030  
-**Date:** 2026-09-20  
+**Current runtime limit:** the pinned Native AV profile admits T2V only. Reference-conditioned strategies described here are not currently admissible.
 
 ---
 
@@ -16,21 +16,17 @@ interface Take {
   id: string;
   shotId: string;
   attemptNumber: number;
-
-  provider: string;              // e.g. "ltx", "remote-gpu"
-  model: string;                 // e.g. "ltx-2.5-nvfp4"
+  provider: string;
+  model: string;
   generationMode: GenerationStrategy;
-
-  outputAssetId?: string;        // ID of generated mp4 video asset
-  durationMs?: number;           // Actual duration of footage returned by model
-  metrics: {
-    generationTimeMs: number;
-    promptTokens?: number;
-    vramPeakMb?: number;
-  };
-
-  validationResult?: VideoValidationResult;
-  status: "PENDING" | "RUNNING" | "GENERATED" | "VALIDATING" | "PASSED" | "FAILED";
+  outputAssetId?: string;
+  sourceDurationMs?: number;
+  metricsJson: string;
+  validationStatus: string;
+  validationFailureCategory?: VideoQAFailureCategory;
+  validationFailureReason?: string;
+  validationRetryRecommendation?: string;
+  status: string;
 }
 ```
 
@@ -50,7 +46,7 @@ interface SelectedTake {
 
 ## 2. Video QA Failure Taxonomy
 
-`VideoQA` evaluates completed takes against 11 failure categories:
+`Take` can persist one failure category, a reason, and a retry recommendation. The category vocabulary includes:
 
 1. `FACE_IDENTITY`: Distorted facial features, incorrect eye/hair color, or drift from character reference.
 2. `CHARACTER_CONSISTENCY`: Outfit, build, or age discrepancies between consecutive shots.
@@ -66,12 +62,11 @@ interface SelectedTake {
 
 ---
 
-## 3. Reason-Aware Retry Policy
+This metadata does not establish that an automated visual classifier evaluates every category. Current take admission and technical validation limits are tracked in [current status](../CURRENT_STATUS.md).
 
-Blind retries with identical prompts and configurations are prohibited. When a failure occurs, the retry policy applies targeted remedies:
+## 3. Retry and recovery boundary
 
-- `FACE_IDENTITY` → Boost reference attention weight, reduce camera motion complexity, or switch strategy from T2V to I2V.
-- `MOTION` → Simplify action description, reduce motion speed keywords, clamp frame duration.
-- `CAMERA` → Simplify camera instruction (e.g., switch from complex crane-track to static or slow dolly).
-- `CONTINUITY` → Inject end-frame of preceding take as condition input.
-- `TEMPORAL_ARTIFACT` → Adjust inference steps or switch quality profile.
+Ambiguous provider outcomes remain `UNKNOWN` until reconciled; blind resubmission is prohibited. A stored retry recommendation is diagnostic metadata and does not by itself trigger a new attempt. Reference-dependent remedies are unavailable while the active profile only admits T2V.
+
+- New attempts require a deliberate retry decision and a new idempotency intent.
+- I2V, reference weighting, and preceding-frame conditioning remain blocked until an advertised worker profile and runtime proof support them.

@@ -22,13 +22,14 @@ class ProjectRenderProfilePersistenceContractTest {
   }
 
   @Test
-  void migrationDefinesCompatibleV2AndV3ProfileBoundary() throws Exception {
+  void migrationDefinesCompatibleV2V3AndNativeV4ProfileBoundary() throws Exception {
     String sql =
         Files.readString(
             Path.of(
                 "src/main/resources/db/migration/V4__catalog_generation_and_render_snapshots.sql"));
 
-    assertTrue(sql.contains("IN (2, 3)"));
+    assertTrue(sql.contains("IN (2, 3, 4)"));
+    assertTrue(sql.contains("ck_project_render_profile_audio_mode"));
     assertTrue(sql.contains("ck_project_render_profile_v3_watermark"));
     assertTrue(sql.contains("policyVersion"));
   }

@@ -13,10 +13,10 @@ export function RetentionPlanView({ hookPlan, retentionMap }: Readonly<Retention
   const storyEvents = events.filter((e: AttentionEvent) => e.eventType !== "PACING_RISK");
 
   return (
-    <div className="flex flex-col gap-4 p-4 text-[12px]">
+    <div className="flex flex-col gap-4 p-4 text-label">
       {/* 1. Hook Plan Card */}
       <section className="border border-border-subtle bg-surface-panel p-4 rounded-md">
-        <div className="flex items-center gap-2 text-primary font-semibold text-[13px] mb-3">
+        <div className="flex items-center gap-2 text-primary font-semibold text-body mb-3">
           <Sparkles size={16} />
           <span>Audience Hook Plan (First 3–5 Seconds)</span>
         </div>
@@ -24,25 +24,25 @@ export function RetentionPlanView({ hookPlan, retentionMap }: Readonly<Retention
         {hookPlan ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-text-secondary">
             <div className="border border-border-soft bg-surface-dark p-2.5 rounded">
-              <div className="text-[10px] uppercase text-text-dim font-bold">Curiosity Question</div>
+              <div className="text-caption text-text-dim font-bold">Curiosity Question</div>
               <div className="mt-1 text-foreground font-medium">{hookPlan.curiosityQuestion}</div>
             </div>
             <div className="border border-border-soft bg-surface-dark p-2.5 rounded">
-              <div className="text-[10px] uppercase text-text-dim font-bold">Narrative Promise</div>
+              <div className="text-caption text-text-dim font-bold">Narrative Promise</div>
               <div className="mt-1 text-foreground font-medium">{hookPlan.promise}</div>
             </div>
             <div className="border border-border-soft bg-surface-dark p-2.5 rounded">
-              <div className="text-[10px] uppercase text-text-dim font-bold">Visual Hook</div>
+              <div className="text-caption text-text-dim font-bold">Visual Hook</div>
               <div className="mt-1 text-foreground font-medium flex items-center gap-1.5">
                 <Video size={13} className="text-cyan" /> {hookPlan.visualHook}
               </div>
             </div>
             <div className="border border-border-soft bg-surface-dark p-2.5 rounded">
-              <div className="text-[10px] uppercase text-text-dim font-bold">Conflict & Stakes</div>
+              <div className="text-caption text-text-dim font-bold">Conflict & Stakes</div>
               <div className="mt-1 text-foreground font-medium">{hookPlan.conflict}</div>
             </div>
             <div className="border border-border-soft bg-surface-dark p-2.5 rounded md:col-span-2">
-              <div className="text-[10px] uppercase text-text-dim font-bold">Withheld Information</div>
+              <div className="text-caption text-text-dim font-bold">Withheld Information</div>
               <div className="mt-1 text-foreground font-medium">{hookPlan.withheldInformation}</div>
             </div>
           </div>
@@ -60,7 +60,7 @@ export function RetentionPlanView({ hookPlan, retentionMap }: Readonly<Retention
           </div>
           <div className="flex flex-col gap-1.5">
             {pacingWarnings.map((warning: AttentionEvent, idx: number) => (
-              <div key={idx} className="text-[11px] text-destructive-foreground">
+              <div key={idx} className="text-caption text-destructive-foreground">
                 • {warning.description}
               </div>
             ))}
@@ -85,11 +85,11 @@ export function RetentionPlanView({ hookPlan, retentionMap }: Readonly<Retention
                 >
                   <div className="flex flex-col">
                     <span className="font-medium text-foreground">{evt.description}</span>
-                    <span className="text-[10px] text-text-dim flex items-center gap-1 mt-0.5">
+                    <span className="text-caption text-text-dim flex items-center gap-1 mt-0.5">
                       <Clock size={10} /> {(evt.timeOffsetMs / 1000).toFixed(1)}s
                     </span>
                   </div>
-                  <Badge variant="outline" className="text-[9px] uppercase tracking-wider">
+                  <Badge variant="outline" className="text-caption ">
                     {evt.eventType}
                   </Badge>
                 </div>
@@ -113,7 +113,7 @@ export function RetentionPlanView({ hookPlan, retentionMap }: Readonly<Retention
                 <span>{hookPlan.curiosityQuestion}</span>
               </div>
             )}
-            <div className="text-[10px] text-text-muted mt-2">
+            <div className="text-caption text-text-muted mt-2">
               Audience retention is sustained by ensuring no more than 15s elapsed between curiosity triggers or narrative shifts.
             </div>
           </div>

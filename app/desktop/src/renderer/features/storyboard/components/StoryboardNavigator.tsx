@@ -39,8 +39,8 @@ export function StoryboardNavigator({
               >
                 {active ? <ChevronDown size={13} className="shrink-0 text-primary" /> : <ChevronRight size={13} className="shrink-0 text-text-dim" />}
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-medium text-text-dim">Chapter {chapter.orderIndex + 1}</div>
-                  <div className="truncate text-[11px] font-semibold">{chapter.title}</div>
+                  <div className="text-caption font-medium text-text-dim">Chapter {chapter.orderIndex + 1}</div>
+                  <div className="truncate text-caption font-semibold">{chapter.title}</div>
                 </div>
                 {active ? <span className="h-5 w-0.5 shrink-0 rounded-full bg-primary" aria-hidden="true" /> : null}
               </button>
@@ -48,11 +48,11 @@ export function StoryboardNavigator({
               {active ? (
                 <div className="border-t border-border-subtle bg-background/35 py-1">
                   {loading ? (
-                    <div className="flex items-center gap-2 px-7 py-3 text-[10px] text-text-muted">
+                    <div className="flex items-center gap-2 px-7 py-3 text-caption text-text-muted">
                       <Loader2 size={12} className="animate-spin" /> Loading scenes…
                     </div>
                   ) : error ? (
-                    <div className="px-7 py-2 text-[10px] leading-4 text-danger">{error}</div>
+                    <div className="px-7 py-2 text-caption leading-4 text-danger">{error}</div>
                   ) : scenes.length ? (
                     scenes.map((scene) => {
                       const sceneActive = scene.id === selectedSceneId;
@@ -69,14 +69,14 @@ export function StoryboardNavigator({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <span className={`text-[10px] font-medium ${sceneActive ? "text-primary-hover" : "text-text-muted"}`}>
+                              <span className={`text-caption font-medium ${sceneActive ? "text-primary-hover" : "text-text-muted"}`}>
                                 Scene {scene.orderIndex + 1}
                               </span>
-                              <span className="text-[9px] tabular-nums text-text-dim">
+                              <span className="text-caption tabular-nums text-text-dim">
                                 {scene.approvedBeatCount}/{scene.totalBeatCount}
                               </span>
                             </div>
-                            <div className={`mt-0.5 truncate text-[11px] ${sceneActive ? "font-semibold text-foreground" : "text-text-secondary"}`}>
+                            <div className={`mt-0.5 truncate text-caption ${sceneActive ? "font-semibold text-foreground" : "text-text-secondary"}`}>
                               {scene.title}
                             </div>
                             <StatusIndicator
@@ -89,7 +89,7 @@ export function StoryboardNavigator({
                       );
                     })
                   ) : (
-                    <div className="px-7 py-3 text-[10px] leading-4 text-text-muted">
+                    <div className="px-7 py-3 text-caption leading-4 text-text-muted">
                       Chưa có scene. Hãy chạy hoặc chạy lại phân tích chapter.
                     </div>
                   )}

@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.in.VisualBeatPromptContext;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
@@ -26,6 +27,7 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
   private final StoryboardBeatAccess storyboardBeatAccess;
   private final VisualPromptContextRepository visualPromptContextRepository;
   private final StoryboardVisualPromptComposer storyboardVisualPromptComposer;
+  private final PromptSettingsAccess promptSettingsAccess;
 
   @Override
   public ComposedVisualPrompt get(UUID projectId, UUID chapterId, UUID visualBeatId) {
@@ -64,6 +66,8 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
 
     Map<UUID, VisualPromptContext> contexts =
         visualPromptContextRepository.findForBeats(projectId, visualBeatIds);
+    // One configuration read per prepared set, never per beat.
+    var settings = promptSettingsAccess.current();
     Map<UUID, Preparation> prepared = new LinkedHashMap<>();
     for (UUID visualBeatId : visualBeatIds) {
       var beat = beatsById.get(visualBeatId);
@@ -78,7 +82,11 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
           beat.getAspectRatioOverride() == null ? null : beat.getAspectRatioOverride().name();
       var composed =
           storyboardVisualPromptComposer.compose(
-              beat.getVisualIntent(), beat.getVisualDirectionJson(), aspectRatio, context);
+              settings,
+              beat.getVisualIntent(),
+              beat.getVisualDirectionJson(),
+              aspectRatio,
+              context);
       var continuity = context.continuity();
       prepared.put(
           visualBeatId,

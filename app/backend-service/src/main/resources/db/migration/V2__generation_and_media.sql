@@ -1,4 +1,4 @@
--- NarrativeX pre-release baseline: generation execution and media assets.
+-- NarrativeX pre-release baseline: generation execution, async compute orchestration and media assets.
 
 -- -----------------------------------------------------------------------------
 -- Generation jobs and provider operations
@@ -31,10 +31,24 @@ CREATE TABLE generation_jobs (
     regeneration_plan_id UUID,
     analysis_visual_generation_mode VARCHAR(16),
     analysis_image_provider VARCHAR(32),
+    submission_state VARCHAR(32),
+    compute_attempt_id UUID,
+    compute_execution_handle VARCHAR(255),
+    compute_sequence BIGINT,
+    last_compute_state VARCHAR(32),
+    submitted_at TIMESTAMP WITH TIME ZONE,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    last_reconciled_at TIMESTAMP WITH TIME ZONE,
+    next_reconcile_at TIMESTAMP WITH TIME ZONE,
+    reconcile_attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_event_id VARCHAR(255),
+    last_event_sequence BIGINT,
+    callback_received_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT ck_generation_jobs_progress CHECK (progress BETWEEN 0 AND 100),
     CONSTRAINT ck_generation_jobs_status CHECK (status IN (
-        'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED',
-        'UNKNOWN', 'STALLED'
+        'QUEUED', 'SUBMITTING', 'SUBMITTED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED',
+        'UNKNOWN', 'RECONCILING', 'STALLED'
     )),
     CONSTRAINT ck_generation_jobs_job_type CHECK (job_type IN (
         'CHAPTER_ANALYZE', 'NARRATION_GENERATE', 'CHAPTER_GENERATE', 'RENDER_PROJECT'
@@ -53,7 +67,7 @@ CREATE TABLE generation_jobs (
         (media_plan_id IS NOT NULL AND media_plan_revision IS NOT NULL AND production_mode IS NOT NULL)
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
-        production_mode IS NULL OR production_mode = 'IMAGE_MOTION'
+        production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'VIDEO_FIRST', 'LEGACY_IMAGE')
     ),
     CONSTRAINT ck_generation_jobs_regeneration_plan_type CHECK (
         regeneration_plan_id IS NULL OR job_type = 'CHAPTER_GENERATE'
@@ -135,6 +149,29 @@ CREATE TABLE operation_plans (
     operation_type VARCHAR(40) NOT NULL,
     scope_id UUID,
     input_fingerprint VARCHAR(64)
+);
+
+-- -----------------------------------------------------------------------------
+-- Async compute orchestration: worker callbacks and target assignments
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE compute_event_receipts (
+    event_id VARCHAR(255) PRIMARY KEY,
+    task_id UUID NOT NULL,
+    attempt_id UUID NOT NULL,
+    sequence BIGINT NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    received_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    payload_hash VARCHAR(64)
+);
+
+CREATE TABLE compute_target_assignments (
+    task_id UUID NOT NULL,
+    attempt_id UUID NOT NULL,
+    executor VARCHAR(64) NOT NULL,
+    target_id VARCHAR(128) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (task_id, attempt_id)
 );
 
 -- -----------------------------------------------------------------------------
@@ -222,11 +259,29 @@ CREATE TABLE character_version_reference_assets (
     media_asset_id UUID NOT NULL REFERENCES media_assets(id),
     reference_role VARCHAR(24) NOT NULL,
     priority SMALLINT NOT NULL,
+    reference_slot VARCHAR(40),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_character_version_reference_assets PRIMARY KEY (character_version_id, media_asset_id),
     CONSTRAINT uq_character_version_reference_priority UNIQUE (character_version_id, priority),
     CONSTRAINT ck_character_version_reference_role CHECK (reference_role IN ('IDENTITY', 'PROFILE', 'EXPRESSION', 'OUTFIT', 'POSE')),
-    CONSTRAINT ck_character_version_reference_priority CHECK (priority BETWEEN 0 AND 99)
+    CONSTRAINT ck_character_version_reference_priority CHECK (priority BETWEEN 0 AND 99),
+    CONSTRAINT ck_character_version_reference_slot CHECK (
+        reference_slot IS NULL OR reference_slot IN (
+            'FACE_FRONT', 'FACE_THREE_QUARTER_LEFT', 'FACE_THREE_QUARTER_RIGHT',
+            'FACE_PROFILE_LEFT', 'FACE_PROFILE_RIGHT', 'BODY_FRONT', 'BODY_SIDE', 'BODY_BACK'
+        )
+    ),
+    CONSTRAINT ck_character_version_reference_slot_mapping CHECK (
+        reference_slot IS NULL
+        OR (reference_slot = 'FACE_FRONT' AND reference_role = 'IDENTITY' AND priority = 0)
+        OR (reference_slot = 'FACE_THREE_QUARTER_LEFT' AND reference_role = 'PROFILE' AND priority = 1)
+        OR (reference_slot = 'FACE_THREE_QUARTER_RIGHT' AND reference_role = 'PROFILE' AND priority = 2)
+        OR (reference_slot = 'FACE_PROFILE_LEFT' AND reference_role = 'PROFILE' AND priority = 3)
+        OR (reference_slot = 'FACE_PROFILE_RIGHT' AND reference_role = 'PROFILE' AND priority = 4)
+        OR (reference_slot = 'BODY_FRONT' AND reference_role = 'POSE' AND priority = 5)
+        OR (reference_slot = 'BODY_SIDE' AND reference_role = 'POSE' AND priority = 6)
+        OR (reference_slot = 'BODY_BACK' AND reference_role = 'POSE' AND priority = 7)
+    )
 );
 
 CREATE TABLE media_validation_jobs (

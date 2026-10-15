@@ -129,8 +129,11 @@ async def test_residency_exclusive_blocks_concurrent() -> None:
 
 
 async def test_residency_transition_timeout_fails_closed() -> None:
+    blocked = True
+
     async def hanging_unloader() -> None:
-        await asyncio.sleep(10.0)
+        if blocked:
+            await asyncio.sleep(10.0)
 
     manager = GpuResidencyManager(
         transition_timeout_seconds=0.1,
@@ -155,7 +158,12 @@ async def test_residency_transition_timeout_fails_closed() -> None:
         async with manager.acquire(req_voice):
             pass
 
-    # release_all resets the poisoned state
+    # Failed cleanup must remain fenced; it cannot forget still-resident resources.
+    with pytest.raises(ResidencyTransitionError):
+        await manager.release_all()
+    assert manager.is_poisoned
+    blocked = False
+    # Successful release_all resets the poisoned state.
     await manager.release_all()
     assert not manager.is_poisoned
     assert manager.current_family == RuntimeFamily.NONE

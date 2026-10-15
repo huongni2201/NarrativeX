@@ -1,4 +1,4 @@
-import { mkdir, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { sha256File } from "../local-storage/file-integrity";
 import type { LocalRenderCompletion } from "../local-execution/backend-client";
@@ -216,23 +216,32 @@ export class ProjectRenderer {
         {
           videoEncoder,
           concurrency: renderConcurrency,
+          ffprobePath: this.runtime.ffprobePath,
+          ffmpegVersion: this.runtime.version ?? undefined,
         },
       );
       await onProgress(85, "Concatenating video segments");
       await checkpoint("VIDEO_CONCAT");
       const video = await concatVideo(this.runtime.ffmpegPath, workDirectory, segments, signal);
-      await onProgress(93, "Concatenating narration audio");
-      await checkpoint("AUDIO_CONCAT");
-      const audio = await concatNarration(this.runtime.ffmpegPath, workDirectory, manifest, signal);
-      await onProgress(97, "Muxing audio");
-      await checkpoint("MUX");
-      const renderedFinalPath = await muxNarration(
-        this.runtime.ffmpegPath,
-        workDirectory,
-        video,
-        audio,
-        signal,
-      );
+      let renderedFinalPath: string;
+      if (manifest.audioMode === "NATIVE_TAKE") {
+        await checkpoint("MUX");
+        renderedFinalPath = join(workDirectory, "final.mp4");
+        await copyFile(video, renderedFinalPath);
+      } else {
+        await onProgress(93, "Concatenating narration audio");
+        await checkpoint("AUDIO_CONCAT");
+        const audio = await concatNarration(this.runtime.ffmpegPath, workDirectory, manifest, signal);
+        await onProgress(97, "Muxing audio");
+        await checkpoint("MUX");
+        renderedFinalPath = await muxNarration(
+          this.runtime.ffmpegPath,
+          workDirectory,
+          video,
+          audio,
+          signal,
+        );
+      }
       await onProgress(98, "Validating final artifact");
       await checkpoint("VERIFY");
       let metadata: Awaited<ReturnType<typeof probeVideo>>;

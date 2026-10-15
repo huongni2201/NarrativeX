@@ -1,6 +1,8 @@
 package com.narrativex.backend.feature.generation.application.service;
 
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
+import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.domain.entity.GenerationReference;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess.ShotView;
@@ -39,10 +41,29 @@ public class GenerationRouter {
         Objects.requireNonNull(videoPromptCompiler, "videoPromptCompiler must not be null");
   }
 
-  /** Routes a Shot into a concrete GenerationPlan. */
+  /** Legacy preset-id overload for the pre-snapshot dispatch path; null compiles no style. */
   public GenerationPlan route(
       ShotView shot,
       ImageStyle style,
+      Map<String, UUID> approvedCharacterAssets,
+      Map<String, UUID> approvedLocationAssets,
+      Map<String, UUID> keyframeAssets,
+      String continuityContext,
+      UUID continuitySourceAssetId) {
+    return route(
+        shot,
+        style == null ? null : PromptSettingsDefaults.settingsFor(style),
+        approvedCharacterAssets,
+        approvedLocationAssets,
+        keyframeAssets,
+        continuityContext,
+        continuitySourceAssetId);
+  }
+
+  /** Routes a Shot into a concrete GenerationPlan using an already resolved configuration. */
+  public GenerationPlan route(
+      ShotView shot,
+      PromptSettings settings,
       Map<String, UUID> approvedCharacterAssets,
       Map<String, UUID> approvedLocationAssets,
       Map<String, UUID> keyframeAssets,
@@ -69,7 +90,7 @@ public class GenerationRouter {
 
     // 3. Compile prompt
     VideoPromptCompiler.CompiledVideoPrompt compiledPrompt =
-        videoPromptCompiler.compile(shot, style, continuityContext);
+        videoPromptCompiler.compile(shot, settings, continuityContext);
 
     boolean ready = blockingReasons.isEmpty();
 

@@ -72,9 +72,9 @@ class ExecutionApplicationService:
         for task, cancel_requested, execution_handle, submission_state in recoverable:
             next_seq = await self._next_sequence(task.task_id, task.attempt_id)
             if submission_state != SubmissionState.NOT_SUBMITTED:
-                if not execution_handle and not cancel_requested:
+                if not execution_handle:
                     execution_handle = await self._recover_handle(task)
-                if execution_handle and not cancel_requested:
+                if execution_handle:
                     self._schedule(task, existing_handle=execution_handle)
                 else:
                     await self._journal.update(await self._hold_unknown(task))
@@ -147,9 +147,7 @@ class ExecutionApplicationService:
                 if (
                     task_id,
                     attempt_id,
-                ) not in self._active and not await self._journal.is_cancel_requested(
-                    task_id, attempt_id
-                ):
+                ) not in self._active:
                     task = await self._journal.load_task(task_id, attempt_id)
                     if task is not None:
                         handle = observation.execution_handle or await self._recover_handle(task)
@@ -220,20 +218,20 @@ class ExecutionApplicationService:
                 checkpoint = await self._journal.load_submission_state(
                     task.task_id, task.attempt_id
                 )
-                if checkpoint != SubmissionState.NOT_SUBMITTED:
+                if checkpoint != SubmissionState.NOT_SUBMITTED and not existing_handle:
                     await self._journal.update(await self._hold_unknown(task))
                     return
-                next_seq = await self._next_sequence(task.task_id, task.attempt_id)
-                canceled = ComputeObservation(
-                    task_id=task.task_id,
-                    attempt_id=task.attempt_id,
-                    state=ExecutionState.CANCELED,
-                    sequence=next_seq,
-                    observed_at=self._now_fn(),
-                    execution_handle=existing_handle,
-                )
-                await self._journal.update(canceled)
-                return
+                if checkpoint == SubmissionState.NOT_SUBMITTED:
+                    next_seq = await self._next_sequence(task.task_id, task.attempt_id)
+                    canceled = ComputeObservation(
+                        task_id=task.task_id,
+                        attempt_id=task.attempt_id,
+                        state=ExecutionState.CANCELED,
+                        sequence=next_seq,
+                        observed_at=self._now_fn(),
+                    )
+                    await self._journal.update(canceled)
+                    return
 
             current_obs = await self._journal.load(task.task_id, task.attempt_id)
             if current_obs is None or current_obs.state != ExecutionState.RUNNING:
@@ -262,6 +260,8 @@ class ExecutionApplicationService:
                 )
 
                 async def save_submitting() -> None:
+                    if existing_handle:
+                        raise AmbiguousOutcomeError("Recovery cannot submit new external work")
                     await self._journal.mark_submitting(task.task_id, task.attempt_id)
 
                 async def save_handle(handle: str) -> None:
@@ -281,7 +281,10 @@ class ExecutionApplicationService:
                 )
                 async with asyncio.timeout(effective_timeout):
                     async with self._residency.acquire(requirement):
-                        result = await executor.execute(task, cancellation, context)
+                        # A stored handle is polled read-only even after cancellation intent.
+                        # The durable intent still determines the terminal observation below.
+                        execution_cancel = asyncio.Event() if existing_handle else cancellation
+                        result = await executor.execute(task, execution_cancel, context)
 
                 state = (
                     ExecutionState.CANCELED
@@ -300,7 +303,7 @@ class ExecutionApplicationService:
                     observed_at=self._now_fn(),
                     execution_handle=result.execution_handle or existing_handle,
                     progress=1 if state == ExecutionState.SUCCEEDED else None,
-                    outputs=result.outputs,
+                    outputs=result.outputs if state == ExecutionState.SUCCEEDED else [],
                     metrics=result.metrics,
                 )
             except ExecutionCanceledError:

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Eye, Film, Lock, Type, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
 import type { PlannedSubtitle } from "../../../../shared/subtitle-planner";
-import { timelineSpanStyle } from "../editor-timeline";
+import { editorBeatIdentity, timelineSpanStyle } from "../editor-timeline";
 
 interface EditorMultiTrackTimelineProps {
   beats: DesktopTimelineBeat[];
@@ -53,7 +53,7 @@ export function EditorMultiTrackTimeline({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-[11px] select-none">
+    <div className="flex h-full min-h-0 flex-col bg-background text-caption select-none">
       <div className="flex min-h-0 flex-1 overflow-auto [scrollbar-width:thin]">
         <div className="sticky left-0 z-40 w-36 shrink-0 border-r border-border-subtle bg-surface-dark">
           <div className="h-7 border-b border-border-subtle" />
@@ -72,7 +72,7 @@ export function EditorMultiTrackTimeline({
           <div className="relative h-7 border-b border-border-subtle bg-surface-dark">
             {rulerTicks.map((tickMs) => (
               <div key={tickMs} className="absolute inset-y-0" style={{ left: `${percent(tickMs, effectiveTotalMs)}%` }}>
-                <span className="font-mono text-[9px] text-text-dim">{formatRulerTime(tickMs)}</span>
+                <span className="font-mono text-caption text-text-dim">{formatRulerTime(tickMs)}</span>
                 <div className="mt-1 h-1.5 w-px bg-border-dark" />
               </div>
             ))}
@@ -82,7 +82,7 @@ export function EditorMultiTrackTimeline({
             {narrationChapters.length ? narrationChapters.map((chapter) => (
               <div
                 key={chapter.chapterId}
-                className="absolute inset-y-1 flex items-center overflow-hidden rounded-sm border border-success/30 bg-success-bg px-2 text-[10px] text-success"
+                className="absolute inset-y-1 flex items-center overflow-hidden rounded-sm border border-success/30 bg-success-bg px-2 text-caption text-success"
                 style={timelineSpanStyle(chapter.startMs, chapter.endMs, effectiveTotalMs)}
                 title={`${chapter.title} · narration`}
               >
@@ -94,10 +94,10 @@ export function EditorMultiTrackTimeline({
 
           <TrackRow height="h-12">
             {beats.length ? beats.map((beat) => {
-              const selected = beat.visualBeatId === selectedBeatId;
+              const selected = editorBeatIdentity(beat) === selectedBeatId;
               return (
                 <button
-                  key={beat.visualBeatId}
+                  key={editorBeatIdentity(beat)}
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
@@ -113,7 +113,7 @@ export function EditorMultiTrackTimeline({
                   title={`${beat.title} · ${formatDurationSeconds(beat.durationMs)}`}
                 >
                   <Film size={11} className={`mr-1 shrink-0 ${selected ? "text-primary" : "text-info"}`} />
-                  <span className="truncate font-mono text-[9px]">{beat.title || `Beat ${beat.beatIndex + 1}`}</span>
+                  <span className="truncate font-mono text-caption">{beat.title || `Beat ${beat.beatIndex + 1}`}</span>
                 </button>
               );
             }) : <EmptyTrackLabel label="Chưa có Visual Beat" />}
@@ -123,7 +123,7 @@ export function EditorMultiTrackTimeline({
             {subtitleCues.length ? subtitleCues.map((cue, index) => (
               <div
                 key={`${cue.chapterId}:${cue.startMs}:${index}`}
-                className="absolute inset-y-1 flex items-center overflow-hidden rounded-sm border border-warning/30 bg-warning-bg px-1.5 text-[9px] text-warning"
+                className="absolute inset-y-1 flex items-center overflow-hidden rounded-sm border border-warning/30 bg-warning-bg px-1.5 text-caption text-warning"
                 style={timelineSpanStyle(cue.startMs, cue.endMs, effectiveTotalMs)}
                 title={`${formatRulerTime(cue.startMs)} · ${cue.text}`}
               >
@@ -136,13 +136,13 @@ export function EditorMultiTrackTimeline({
           <TrackRow height="h-9"><EmptyTrackLabel label="Chưa có voiceover track" /></TrackRow>
           <TrackRow height="h-9"><EmptyTrackLabel label="Chưa có music track" /></TrackRow>
 
-          <div className="pointer-events-none absolute inset-y-0 z-30 w-px bg-primary" style={{ left: `${playheadPercent}%` }}>
-            <div className="absolute -top-0.5 left-1/2 h-3.5 w-2 -translate-x-1/2 rounded-[2px] bg-primary" />
+          <div className="pointer-events-none absolute inset-y-0 z-30 w-px bg-playhead" style={{ left: `${playheadPercent}%` }}>
+            <div className="absolute -top-0.5 left-1/2 h-3.5 w-2 -translate-x-1/2 rounded-[2px] bg-playhead" />
           </div>
         </div>
       </div>
 
-      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-surface-dark px-3 text-[10px] text-text-muted">
+      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-surface-dark px-3 text-caption text-text-muted">
         <div className="flex items-center gap-2">
           <span>{beats.length} beats</span>
           <span className="text-text-dim">·</span>
@@ -168,14 +168,14 @@ function TrackRow({ height, children }: Readonly<{ height: string; children: Rea
 function TrackHeader({ index, label, height, icon }: Readonly<{ index: string; label: string; height: string; icon?: React.ReactNode }>) {
   return (
     <div className={`flex items-center justify-between border-b border-border-subtle px-3 ${height}`}>
-      <div className="flex items-center gap-2"><span className="font-mono text-[9px] text-text-dim">{index}</span>{icon}<span className="text-[10px] font-medium text-text-secondary">{label}</span></div>
+      <div className="flex items-center gap-2"><span className="font-mono text-caption text-text-dim">{index}</span>{icon}<span className="text-caption font-medium text-text-secondary">{label}</span></div>
       <div className="flex items-center gap-1 text-text-dim"><Lock size={10} /><Eye size={10} /></div>
     </div>
   );
 }
 
 function EmptyTrackLabel({ label }: Readonly<{ label: string }>) {
-  return <div className="absolute inset-y-1 left-2 flex items-center text-[9px] text-text-dim">{label}</div>;
+  return <div className="absolute inset-y-1 left-2 flex items-center text-caption text-text-dim">{label}</div>;
 }
 
 function percent(value: number, total: number): number {

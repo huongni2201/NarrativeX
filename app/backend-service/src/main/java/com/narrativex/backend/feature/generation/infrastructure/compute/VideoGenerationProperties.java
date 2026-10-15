@@ -19,8 +19,7 @@ public class VideoGenerationProperties implements VideoGenerationCatalog {
   private String defaultProfile = "ltx-2.5-22b-distilled-int8-native-av-v1";
   private String modelRevision = "5e6e71018ee1756ed329b697a7b4aedc934dfce9";
   private String workflowRevision = "video.generate:1.1";
-  private List<GenerationStrategy> supportedStrategies =
-      List.of(GenerationStrategy.TEXT_TO_VIDEO);
+  private List<GenerationStrategy> supportedStrategies = List.of(GenerationStrategy.TEXT_TO_VIDEO);
 
   @Override
   public String defaultProfile() {

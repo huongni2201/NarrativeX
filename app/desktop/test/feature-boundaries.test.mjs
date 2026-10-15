@@ -125,7 +125,7 @@ test("ChapterWorkspaceScreen delegates analysis and story queries to feature hoo
   );
 
   assert.doesNotMatch(source, /import\s+\{\s*useMutation/);
-  assert.match(source, /useAnalyzeChapter/);
+  assert.match(source, /useChapterAnalysis/);
   assert.match(source, /useChapterStoryQuery/);
   assert.match(source, /useCreateMediaJob/);
 });

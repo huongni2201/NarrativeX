@@ -29,8 +29,10 @@ public class GenerationOutboxDispatcher {
   private final GenerationOutboxMapper mapper;
   private final TransactionTemplate transactionTemplate;
   private final ComputeExecutionDispatcher executionDispatcher;
+
   @Autowired(required = false)
-  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService batches;
+  private com.narrativex.backend.feature.generation.application.service.ChapterVideoBatchService
+      batches;
 
   public GenerationOutboxDispatcher(
       GenerationOutboxMapper mapper, PlatformTransactionManager transactionManager) {

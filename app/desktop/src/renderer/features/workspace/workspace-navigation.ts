@@ -4,7 +4,6 @@ export type ActivityId =
   | "editor"
   | "assets"
   | "jobs"
-  | "settings"
   | "render";
 
 export type DesktopScreen = ActivityId | "projects";
@@ -16,7 +15,6 @@ const workspaceSegments: ReadonlyArray<readonly [string, ActivityId]> = [
   ["assets", "assets"],
   ["jobs", "jobs"],
   ["render", "render"],
-  ["settings", "settings"],
 ];
 
 export function screenFromWorkspacePath(pathname: string): ActivityId {

@@ -47,7 +47,12 @@ public class VertexGeminiChapterAnalysisAdapter implements ChapterAnalysisProvid
         properties.getThinkingLevel());
 
     // 1. Preflight token count
-    int tokenCount = countTokens(request.sourceText());
+    // The frozen editorial instruction is part of the input budget.
+    int tokenCount =
+        countTokens(
+            request.customInstruction() == null
+                ? request.sourceText()
+                : request.sourceText() + "\n\n" + request.customInstruction());
     if (tokenCount > properties.getSoftInputTokenLimit()) {
       log.warn(
           "Chapter {} exceeds soft input token limit: {} > {}",
@@ -64,7 +69,8 @@ public class VertexGeminiChapterAnalysisAdapter implements ChapterAnalysisProvid
             request.sourceText(),
             request.sourceLanguage(),
             request.promptVersion(),
-            request.schemaVersion());
+            request.schemaVersion(),
+            request.customInstruction());
 
     // 3. Compute deterministic canon fingerprint (ADR-0022)
     String canonHash =
@@ -81,6 +87,11 @@ public class VertexGeminiChapterAnalysisAdapter implements ChapterAnalysisProvid
         response.usage().totalTokens());
 
     return new ChapterAnalysisResult(
-        response.rawJson(), response.usage(), properties.getModel(), canonHash);
+        response.rawJson(),
+        response.usage(),
+        properties.getModel(),
+        canonHash,
+        client.promptHash(),
+        client.schemaHash());
   }
 }

@@ -119,7 +119,7 @@ NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 
 ## Database baseline
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V10** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` own the PostgreSQL schema. NarrativeX is still pre-production, so the repository maintains one clean **V1–V7** baseline rather than preserving patch-only migration history. Disposable development/test databases should be recreated when the baseline changes.
 
 At the first production deployment, freeze the accepted baseline and make future schema changes append-only from V11.
 

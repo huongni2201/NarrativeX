@@ -1,18 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import pytest
 
+from narrativex_gpu_worker.adapters.executors.catalog import ExecutorCatalog
 from narrativex_gpu_worker.adapters.executors.whisperx.client import (
     WhisperXClient,
     WhisperXClientError,
 )
 from narrativex_gpu_worker.adapters.executors.whisperx.executor import WhisperXExecutor
+from narrativex_gpu_worker.adapters.persistence.sqlite_execution_journal import (
+    SqliteExecutionJournalAdapter,
+)
+from narrativex_gpu_worker.adapters.runtime.manager import GpuResidencyManager
+from narrativex_gpu_worker.application.errors import CapacityError
 from narrativex_gpu_worker.application.ports.artifacts import ArtifactPort
+from narrativex_gpu_worker.application.ports.residency import RuntimeFamily, RuntimeRequirement
+from narrativex_gpu_worker.application.services.execution import ExecutionApplicationService
 from narrativex_gpu_worker.contracts import (
     ArtifactReadAccess,
     ArtifactWriteAccess,
@@ -25,7 +35,117 @@ from narrativex_gpu_worker.contracts import (
     TaskArtifacts,
     TaskConstraints,
     TaskDescriptor,
+    request_fingerprint,
 )
+
+
+async def test_alignment_deadline_holds_residency_and_capacity_until_thread_finishes(
+    tmp_path: Path,
+) -> None:
+    started = threading.Event()
+    released = threading.Event()
+    next_family_loaded = asyncio.Event()
+
+    class BlockingModule(FakeWhisperXModule):
+        def align(self, *args, **kwargs):
+            started.set()
+            assert released.wait(5)
+            return {"word_segments": self.words}
+
+    client = WhisperXClient(device="cpu", whisperx_module=BlockingModule())
+    executor = WhisperXExecutor(client, InMemoryArtifactAdapter(), ready=True)
+    residency = GpuResidencyManager(
+        unload_hooks={RuntimeFamily.WHISPERX: executor.unload},
+    )
+    journal = SqliteExecutionJournalAdapter(tmp_path / "deadline.sqlite3")
+    now = datetime.now(UTC)
+    service = ExecutionApplicationService(
+        journal, ExecutorCatalog((executor,)), 1, residency=residency, now_fn=lambda: now
+    )
+    task = _build_task()
+    task.constraints.deadline = now + timedelta(seconds=0.3)
+    task.request_fingerprint = request_fingerprint(task)
+
+    async def switch_family():
+        async with residency.acquire(RuntimeRequirement(family=RuntimeFamily.LTX_VIDEO)):
+            next_family_loaded.set()
+
+    await service.start()
+    pending_switch = None
+    try:
+        await service.submit(task)
+        async with asyncio.timeout(2):
+            while not started.is_set():
+                await asyncio.sleep(0.01)
+        pending_switch = asyncio.create_task(switch_family())
+        await asyncio.sleep(0.4)
+        assert residency.active_leases == 1
+        assert not next_family_loaded.is_set()
+        with pytest.raises(CapacityError):
+            new_task = _build_task()
+            new_task.request_fingerprint = request_fingerprint(new_task)
+            await service.submit(new_task)
+        assert client._models, "The still-running model must remain owned"
+        released.set()
+        await asyncio.wait_for(pending_switch, 2)
+        assert not client._models
+        assert residency.active_leases == 0
+    finally:
+        released.set()
+        await service.stop()
+        if pending_switch is not None:
+            await asyncio.gather(pending_switch, return_exceptions=True)
+        await residency.release_all()
+
+
+async def test_same_family_reuses_model_and_family_switch_unloads_it() -> None:
+    module = FakeWhisperXModule()
+    client = WhisperXClient(device="cpu", whisperx_module=module)
+    executor = WhisperXExecutor(client, InMemoryArtifactAdapter(), ready=True)
+    catalog = ExecutorCatalog((executor,))
+
+    async def unload():
+        await catalog.unload_runtime(RuntimeFamily.WHISPERX)
+
+    residency = GpuResidencyManager(unload_hooks={RuntimeFamily.WHISPERX: unload})
+    for _ in range(2):
+        async with residency.acquire(executor.runtime_requirement):
+            await client.align(b"wav", "xin chào thế giới")
+    assert module.load_model_calls == 1
+    async with residency.acquire(RuntimeRequirement(family=RuntimeFamily.LTX_VIDEO)):
+        assert not client._models
+    async with residency.acquire(executor.runtime_requirement):
+        await client.align(b"wav", "xin chào thế giới")
+    assert module.load_model_calls == 2
+    await residency.release_all()
+
+
+async def test_cancel_waits_for_real_inference_and_unload_clears_cached_model() -> None:
+    started = threading.Event()
+    released = threading.Event()
+
+    class BlockingModule(FakeWhisperXModule):
+        def align(self, *args, **kwargs):
+            started.set()
+            assert released.wait(3)
+            return {"word_segments": self.words}
+
+    module = BlockingModule()
+    client = WhisperXClient(device="cpu", whisperx_module=module)
+    inference = asyncio.create_task(client.align(b"wav", "xin chào thế giới"))
+    try:
+        async with asyncio.timeout(2):
+            while not started.is_set():
+                await asyncio.sleep(0.01)
+        inference.cancel()
+        await asyncio.sleep(0.05)
+        assert not inference.done(), "Inference ownership must outlive awaiter cancellation"
+    finally:
+        released.set()
+        await asyncio.gather(inference, return_exceptions=True)
+    await client.unload()
+    await client.align(b"wav", "xin chào thế giới")
+    assert module.load_model_calls == 2
 
 
 class InMemoryArtifactAdapter(ArtifactPort):
@@ -169,9 +289,7 @@ async def test_whisperx_client_returns_canonical_measured_word_clock() -> None:
 
 
 async def test_whisperx_client_rejects_token_divergence_instead_of_inventing_timing() -> None:
-    module = FakeWhisperXModule(
-        [{"word": "khác", "start": 0.1, "end": 0.4, "score": 0.9}]
-    )
+    module = FakeWhisperXModule([{"word": "khác", "start": 0.1, "end": 0.4, "score": 0.9}])
     client = WhisperXClient(device="cpu", whisperx_module=module)
 
     with pytest.raises(WhisperXClientError, match="token counts diverged"):

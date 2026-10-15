@@ -8,13 +8,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.generation.application.event.GenerationJobChangedEvent;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeErrorDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizerRegistry;
-import com.narrativex.backend.feature.generation.application.service.GenerationJobEventBroadcaster;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class ComputeReconciliationServiceTest {
 
@@ -37,7 +38,7 @@ class ComputeReconciliationServiceTest {
   private GenerationExecutionPort executionPort;
   private ComputeResultFinalizerRegistry finalizerRegistry;
   private ReconciliationBackoffPolicy backoffPolicy;
-  private GenerationJobEventBroadcaster eventBroadcaster;
+  private ApplicationEventPublisher eventPublisher;
   private Clock clock;
   private ComputeReconciliationService service;
 
@@ -49,7 +50,7 @@ class ComputeReconciliationServiceTest {
     executionPort = mock(GenerationExecutionPort.class);
     finalizerRegistry = mock(ComputeResultFinalizerRegistry.class);
     backoffPolicy = new ReconciliationBackoffPolicy();
-    eventBroadcaster = mock(GenerationJobEventBroadcaster.class);
+    eventPublisher = mock(ApplicationEventPublisher.class);
     clock = Clock.fixed(Instant.parse("2026-09-19T10:00:00Z"), ZoneOffset.UTC);
 
     db = new ConcurrentHashMap<>();
@@ -69,7 +70,7 @@ class ComputeReconciliationServiceTest {
             executionPort,
             finalizerRegistry,
             backoffPolicy,
-            eventBroadcaster,
+            eventPublisher,
             clock);
   }
 
@@ -108,6 +109,74 @@ class ComputeReconciliationServiceTest {
     assertThat(backoffPolicy.calculateDelay(4)).isEqualTo(Duration.ofSeconds(60));
     assertThat(backoffPolicy.calculateDelay(5)).isEqualTo(Duration.ofSeconds(300));
     assertThat(backoffPolicy.calculateDelay(100)).isEqualTo(Duration.ofSeconds(300));
+  }
+
+  @Test
+  void videoPollingUsesVideoFinalizer() {
+    UUID jobId = UUID.randomUUID();
+    UUID attemptId = UUID.randomUUID();
+    var job =
+        sampleJob(jobId, attemptId, JobStatus.SUBMITTED).toBuilder()
+            .resourceClass(ResourceClass.GPU_HEAVY)
+            .productionMode(
+                com.narrativex.backend.feature.generation.domain.enums.ProductionMode.VIDEO_FIRST)
+            .build();
+    db.put(jobId, job);
+    var finalizer = mock(ComputeResultFinalizer.class);
+    var image = mock(ComputeResultFinalizer.class);
+    when(image.supportedType()).thenReturn(job.getType());
+    when(image.supports(job.getType(), null)).thenReturn(true);
+    when(finalizer.supports(job.getType(), job.getProductionMode())).thenReturn(true);
+    service =
+        new ComputeReconciliationService(
+            jobRepository,
+            executionPort,
+            new ComputeResultFinalizerRegistry(List.of(image, finalizer)),
+            backoffPolicy,
+            eventPublisher,
+            clock);
+    var observation =
+        new ComputeObservationDto(
+            "1.0",
+            jobId,
+            attemptId,
+            "SUCCEEDED",
+            2,
+            Instant.now(),
+            "handle-123",
+            1.0,
+            List.of(),
+            null,
+            null);
+    when(executionPort.queryTask(jobId, attemptId)).thenReturn(observation);
+    service.reconcileOnce(jobId);
+    verify(finalizer).finalizeResult(job, observation);
+    verify(image, never()).finalizeResult(any(), any());
+  }
+
+  @Test
+  void successfulObservationWithoutMatchingFinalizerKeepsFence() {
+    UUID jobId = UUID.randomUUID();
+    UUID attemptId = UUID.randomUUID();
+    var job = sampleJob(jobId, attemptId, JobStatus.SUBMITTED);
+    db.put(jobId, job);
+    when(executionPort.queryTask(jobId, attemptId))
+        .thenReturn(
+            new ComputeObservationDto(
+                "1.0",
+                jobId,
+                attemptId,
+                "SUCCEEDED",
+                2,
+                clock.instant(),
+                "handle",
+                1.0,
+                List.of(),
+                null,
+                null));
+    service.reconcileOnce(jobId);
+    assertThat(db.get(jobId).getStatus()).isEqualTo(JobStatus.UNKNOWN);
+    assertThat(db.get(jobId).getNextReconcileAt()).isAfter(clock.instant());
   }
 
   @Test
@@ -193,7 +262,7 @@ class ComputeReconciliationServiceTest {
     assertThat(updated.getComputeSequence()).isEqualTo(2L);
     assertThat(updated.getReconcileAttemptCount()).isEqualTo(1);
     assertThat(updated.getNextReconcileAt()).isEqualTo(clock.instant().plus(Duration.ofSeconds(5)));
-    verify(eventBroadcaster).broadcastJobEvent(updated);
+    verify(eventPublisher).publishEvent(new GenerationJobChangedEvent(updated));
   }
 
   @Test
@@ -221,7 +290,7 @@ class ComputeReconciliationServiceTest {
     when(executionPort.queryTask(jobId, attemptId)).thenReturn(observation);
 
     ComputeResultFinalizer mockFinalizer = mock(ComputeResultFinalizer.class);
-    when(finalizerRegistry.findFinalizer(JobType.CHAPTER_GENERATE))
+    when(finalizerRegistry.findFinalizer(JobType.CHAPTER_GENERATE, job.getProductionMode()))
         .thenReturn(Optional.of(mockFinalizer));
 
     var result = service.reconcileOnce(jobId);
@@ -229,7 +298,7 @@ class ComputeReconciliationServiceTest {
         .isEqualTo(ComputeReconciliationService.ReconciliationResult.RECONCILED_TERMINAL);
 
     verify(mockFinalizer).finalizeResult(eq(job), eq(observation));
-    verify(eventBroadcaster).broadcastJobEvent(any(GenerationJob.class));
+    verify(eventPublisher).publishEvent(any(GenerationJobChangedEvent.class));
   }
 
   @Test
@@ -265,7 +334,7 @@ class ComputeReconciliationServiceTest {
     assertThat(updated.getStatus()).isEqualTo(JobStatus.FAILED);
     assertThat(updated.getErrorCode()).isEqualTo("OUT_OF_MEMORY");
     assertThat(updated.getNextReconcileAt()).isNull();
-    verify(eventBroadcaster).broadcastJobEvent(updated);
+    verify(eventPublisher).publishEvent(new GenerationJobChangedEvent(updated));
   }
 
   @Test

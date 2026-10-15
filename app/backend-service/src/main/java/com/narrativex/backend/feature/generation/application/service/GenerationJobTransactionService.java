@@ -48,12 +48,44 @@ public class GenerationJobTransactionService {
             "GPU_CAPACITY", "Video execution slot is occupied; queued intent remains pending");
       }
     }
-    if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.SUBMITTING)) {
+    if (job.getStatus() != JobStatus.QUEUED) {
       log.debug("Job {} is in state {}, cannot transition to SUBMITTING", jobId, job.getStatus());
       return Optional.empty();
     }
-    GenerationJob submitting = job.markSubmitting(step);
+    GenerationJob submitting =
+        job.markSubmitting(step).toBuilder()
+            .computeAttemptId(
+                job.getComputeAttemptId() != null
+                    ? job.getComputeAttemptId()
+                    : ComputeAttemptIdentity.forJob(job.getJobId(), job.getType()))
+            .nextReconcileAt(Instant.now().plusSeconds(30))
+            .build();
     return Optional.of(generationJobRepository.save(submitting));
+  }
+
+  /** Commit cancellation intent before remote I/O and retain ambiguous execution capacity. */
+  @Transactional
+  public GenerationJob requestCancellation(UUID jobId) {
+    generationJobRepository.acquireAnalysisCapacityLock();
+    var job =
+        generationJobRepository
+            .findByJobId(jobId)
+            .orElseThrow(() -> new IllegalStateException("Generation job disappeared"));
+    if (job.getStatus().isTerminal()) return job;
+    if (job.getStatus() == JobStatus.QUEUED) {
+      return generationJobRepository.save(
+          job.markCanceled("COMPUTE_CANCELED", "Canceled before submission"));
+    }
+    var pending =
+        job
+            .markUnknown("COMPUTE_CANCEL_REQUESTED", "Awaiting cancellation outcome", Instant.now())
+            .toBuilder()
+            .computeAttemptId(
+                job.getComputeAttemptId() != null
+                    ? job.getComputeAttemptId()
+                    : ComputeAttemptIdentity.forJob(job.getJobId(), job.getType()))
+            .build();
+    return generationJobRepository.save(pending);
   }
 
   @Transactional
@@ -124,7 +156,11 @@ public class GenerationJobTransactionService {
       log.warn("Cannot transition job {} from {} to UNKNOWN", jobId, job.getStatus());
       return job;
     }
-    return generationJobRepository.save(job.markUnknown(errorCode, message, nextReconcileAt));
+    return generationJobRepository.save(
+        job.markUnknown(
+            job.isCancellationRequested() ? GenerationJob.CANCEL_REQUESTED_CODE : errorCode,
+            message,
+            nextReconcileAt));
   }
 
   @Transactional

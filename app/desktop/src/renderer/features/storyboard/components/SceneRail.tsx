@@ -19,7 +19,7 @@ export function SceneRail({
   return (
     <section className="min-h-0 overflow-y-auto border-r border-border bg-surface-panel p-3">
       <PanelTitle title="Scenes" count={scenes.length} />
-      <div className="mt-1 truncate text-[11px] text-text-muted">
+      <div className="mt-1 truncate text-caption text-text-muted">
         {chapterTitle ?? "Chọn chapter"}
       </div>
 
@@ -52,15 +52,15 @@ export function SceneRail({
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                  <span className="text-caption font-bold text-text-muted">
                     Scene {scene.orderIndex + 1}
                   </span>
-                  <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] text-text-muted">
+                  <span className="rounded bg-surface-input px-1.5 py-0.5 text-caption text-text-muted">
                     {scene.approvedBeatCount}/{scene.totalBeatCount} approved
                   </span>
                 </div>
                 <div className="mt-1.5 text-xs font-semibold text-foreground">{scene.title}</div>
-                <div className="mt-2 text-[10px] uppercase tracking-wide text-text-dim">
+                <div className="mt-2 text-caption text-text-dim">
                   {formatEnum(scene.status)}
                 </div>
               </button>
@@ -75,8 +75,8 @@ export function SceneRail({
 function PanelTitle({ title, count }: Readonly<{ title: string; count: number }>) {
   return (
     <div className="flex items-center justify-between">
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-secondary">{title}</h2>
-      <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] text-text-muted">{count}</span>
+      <h2 className="text-caption font-bold text-text-secondary">{title}</h2>
+      <span className="rounded bg-surface-input px-1.5 py-0.5 text-caption text-text-muted">{count}</span>
     </div>
   );
 }

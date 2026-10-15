@@ -2,17 +2,18 @@ package com.narrativex.backend.feature.generation.infrastructure.prompt;
 
 import com.narrativex.backend.feature.character.application.port.out.CharacterIdentityPromptProvider;
 import com.narrativex.backend.feature.character.application.query.ProjectCharacterReadModel;
+import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.service.CharacterIdentityPromptComposer;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
-import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/** Bridges character reads to the authoritative backend image prompt style. */
+/** Bridges character reads to the authoritative installation-wide prompt configuration. */
 @Component
 @RequiredArgsConstructor
 public class BackendCharacterIdentityPromptProvider implements CharacterIdentityPromptProvider {
   private final CharacterIdentityPromptComposer characterIdentityPromptComposer;
+  private final PromptSettingsAccess promptSettingsAccess;
 
   @Override
   public String promptFor(ProjectCharacterReadModel character) {
@@ -23,7 +24,7 @@ public class BackendCharacterIdentityPromptProvider implements CharacterIdentity
     var appearance = character.appearance();
     var composedPrompt =
         characterIdentityPromptComposer.compose(
-            ImageStyle.CINEMATIC_ANIME,
+            promptSettingsAccess.current(),
             character.canonicalName(),
             version.visualPrompt(),
             version.bible(),

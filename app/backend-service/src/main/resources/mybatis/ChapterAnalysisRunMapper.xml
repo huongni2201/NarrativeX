@@ -20,6 +20,18 @@
         <result property="runtimeMs" column="runtime_ms"/>
         <result property="canonHash" column="canon_hash"/>
         <result property="createdAt" column="created_at"/>
+        <result property="usageState" column="usage_state"/>
+        <result property="provider" column="provider"/>
+        <result property="executionMode" column="execution_mode"/>
+        <result property="attemptId" column="attempt_id"/>
+        <result property="credentialRef" column="credential_ref"/>
+        <result property="cliVersion" column="cli_version"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="modelObserved" column="model_observed"/>
+        <result property="effortObserved" column="effort_observed"/>
+        <result property="promptHash" column="prompt_hash"/>
+        <result property="schemaHash" column="schema_hash"/>
+        <result property="outputHash" column="output_hash"/>
     </resultMap>
 
     <insert id="insert">
@@ -39,7 +51,19 @@
             total_tokens,
             runtime_ms,
             canon_hash,
-            created_at
+            created_at,
+            usage_state,
+            provider,
+            execution_mode,
+            attempt_id,
+            credential_ref,
+            cli_version,
+            conversation_id,
+            model_observed,
+            effort_observed,
+            prompt_hash,
+            schema_hash,
+            output_hash
         ) VALUES (
             COALESCE(#{id}, uuidv7()),
             #{generationJobId},
@@ -56,7 +80,19 @@
             #{totalTokens},
             #{runtimeMs},
             #{canonHash},
-            COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+            COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+            #{usageState},
+            #{provider},
+            #{executionMode},
+            #{attemptId},
+            #{credentialRef},
+            #{cliVersion},
+            #{conversationId},
+            #{modelObserved},
+            #{effortObserved},
+            #{promptHash},
+            #{schemaHash},
+            #{outputHash}
         )
     </insert>
 

@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -84,6 +84,8 @@ RETIRED_PATHS = [
     ROOT / "documentation" / "migrations",
     ROOT / "documentation" / "release",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+    ROOT / "documentation" / "product" / "CINEMATIC_IMPLEMENTATION_PROGRESS.md",
+    ROOT / "documentation" / "product" / "DETAILED_FIX_AND_COMPLETION_PLAN.md",
     ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
     ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
     ROOT / "documentation" / "architecture" / "flyway-baseline-policy.md",
@@ -216,7 +218,7 @@ EVENT_ARCHITECTURE_DOCS = [
 def markdown_paths() -> list[Path]:
     try:
         result = subprocess.run(
-            ["git", "ls-files", "--", "*.md"],
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "*.md"],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -350,9 +352,9 @@ def migration_inventory_errors(migrations: Path) -> list[str]:
     if version_by_name:
         versions = set(version_by_name.values())
         highest = max(versions)
-        if highest != 10:
+        if highest != 7:
             errors.append(
-                f"Flyway pre-production baseline highest version must be V10, found V{highest}"
+                f"Flyway current migration inventory highest version must be V7, found V{highest}"
             )
         missing_versions = sorted(set(range(1, highest + 1)) - versions)
         if missing_versions:
@@ -476,6 +478,8 @@ def main() -> int:
             "PERSISTENCE_MIGRATION.md",
             "AUTHENTICATION.md",
             "FEATURE_CATALOG.md",
+            "CINEMATIC_IMPLEMENTATION_PROGRESS.md",
+            "DETAILED_FIX_AND_COMPLETION_PLAN.md",
             "SERVICE_BOUNDARIES.md",
             "DATA_FLOW.md",
             "BUSINESS_RULES.md",

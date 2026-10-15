@@ -94,14 +94,6 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
     voices: false,
     presets: false,
   },
-  settings: {
-    timeline: false,
-    chapters: false,
-    assetScope: "all",
-    characters: false,
-    voices: false,
-    presets: true,
-  },
 };
 
 const emptyWorkspace: DesktopWorkspaceState = {

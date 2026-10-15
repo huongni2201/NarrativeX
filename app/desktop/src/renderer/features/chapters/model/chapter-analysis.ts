@@ -42,7 +42,11 @@ export function deriveChapterAnalysisUiState(
       isAnalyzing: true,
       isTerminal: false,
       canAnalyze: false,
-      message: "Phân tích chapter đang chạy…",
+      message: job.status === "QUEUED"
+        ? "Chương đang chờ lượt phân tích. Với CLI, hãy giữ NarrativeX mở và kết nối phiên Google trong Account."
+        : job.status === "UNKNOWN" || job.status === "STALLED"
+          ? "Kết quả phân tích chưa xác định. Ứng dụng sẽ không tự gửi lại tác vụ."
+          : "Phân tích chapter đang chạy…",
     };
   }
 

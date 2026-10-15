@@ -14,6 +14,13 @@ const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
 const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
 
 const bridge: NarrativeXDesktopBridge = {
+  storyAnalysis: {
+    status: () => ipcRenderer.invoke("desktop:story-analysis:status"),
+    addAccount: () => ipcRenderer.invoke("desktop:story-analysis:add-account"),
+    cancelLogin: () => ipcRenderer.invoke("desktop:story-analysis:cancel-login"),
+    removeAccount: (accountId: string) => ipcRenderer.invoke("desktop:story-analysis:remove-account", accountId),
+    openTerms: () => ipcRenderer.invoke("desktop:story-analysis:terms"),
+  },
   appVersion: () => ipcRenderer.invoke("desktop:app-version"),
   api: {
     request: (input: DesktopApiRequest) =>

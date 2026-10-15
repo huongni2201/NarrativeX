@@ -77,7 +77,7 @@
 
   <insert id="insertBeat">
     INSERT INTO project_render_input_beats (
-      generation_job_id, chapter_id, scene_index, beat_index, visual_beat_id, media_asset_id,
+      generation_job_id, chapter_id, scene_index, beat_index, visual_beat_id, media_asset_id, cut_id, shot_id, take_id, source_out_ms,
       global_start_ms, global_end_ms, duration_ms, camera_movement,
       media_type, source_duration_ms, fit_mode, trim_start_ms,
       media_selection_active, storage_key, size_bytes, checksum
@@ -87,6 +87,10 @@
       #{beat.sceneIndex}, #{beat.beatIndex},
       #{beat.visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{beat.mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      COALESCE(#{beat.shotId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{beat.visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}),
+      #{beat.shotId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{beat.takeId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      CASE WHEN #{beat.shotId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}::uuid IS NOT NULL THEN #{beat.trimStartMs} + #{beat.durationMs} ELSE NULL END,
       #{beat.startMs}, #{beat.endMs}, #{beat.durationMs}, #{beat.cameraMovement},
       #{beat.mediaType}, #{beat.sourceDurationMs}, #{beat.fitMode},
       #{beat.trimStartMs}, #{beat.mediaSelectionActive},

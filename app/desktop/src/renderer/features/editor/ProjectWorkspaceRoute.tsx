@@ -7,7 +7,6 @@ import { JobsScreen } from "../jobs/screens/JobsScreen";
 import { useRenderController } from "../production/useRenderController";
 import { RenderScreen } from "../production/screens/RenderScreen";
 import { useProjectSessionStore } from "../projects/store/project-session.store";
-import { SettingsScreen } from "../settings/screens/SettingsScreen";
 import { WorkspaceShell } from "../workspace/components/WorkspaceShell";
 import { useProjectWorkspace } from "../workspace/queries/useProjectWorkspace";
 import { screenFromWorkspacePath } from "../workspace/workspace-navigation";
@@ -68,9 +67,6 @@ export function ProjectWorkspaceRoute() {
       )}
       {screen === "render" && (
         <RenderScreen timeline={workspace.timeline} controller={renderController} />
-      )}
-      {screen === "settings" && (
-        <SettingsScreen workspace={workspace} />
       )}
     </WorkspaceShell>
   );

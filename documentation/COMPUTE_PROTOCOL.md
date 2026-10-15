@@ -172,6 +172,16 @@ Reported in `ComputeObservation.outputs` upon successful execution. Contains com
 
 The worker downloads input artifacts using the read capability, executes the model, uploads outputs to the staging target capability, computes and verifies the byte count and SHA-256 digest locally, and reports the verified `ProducedArtifact` in the observation; the backend verifies and atomically publishes it before completing domain state.
 
+`ProducedArtifact` also accepts optional `technicalMetadata` (or null) for compatibility
+with non-video and older results. When present, it is a closed object requiring positive
+`durationMs`, `width`, `height` and `fps`, plus boolean `hasAudio` and `decodePassed`.
+The LTX native-AV executor probes the actual output and fully decodes video/audio before
+upload, enforcing the pinned 1280×720/24 FPS profile and an audio stream. It reports the
+observed metadata, never the requested duration as a measurement. Backend native take
+finalization requires this technical evidence before marking a take PASSED; a checksum
+or content-QA pass alone cannot establish technical readiness. FFmpeg and ffprobe must
+be available to the executor. This metadata does not include observed speech-word timing.
+
 Local deployments may implement the artifact gateway over loopback, but the wire contract remains
 an opaque URL/capability. `file://`, drive letters, UNC paths, project-relative storage keys, and
 host absolute paths are invalid protocol values.
@@ -297,7 +307,10 @@ observation outside a transaction and then persists it in a short local transact
 database transaction contains external I/O.
 
 `ComputeReconciliationScheduler` runs a bounded, non-blocking worker query for due
-`SUBMITTED`, `RUNNING`, `UNKNOWN`, and `RECONCILING` attempts. It uses the same finalizer as the
+`SUBMITTING`, `SUBMITTED`, `RUNNING`, `UNKNOWN`, and `RECONCILING` attempts. Submission claim
+persists the attempt identity and recovery schedule before remote I/O. A SUBMITTING attempt cannot
+be claimed again; unresolved or unassigned targets retain the fence rather than authorize another
+submission. It uses the same type-and-production-mode finalizer as the
 callback path and backs off after failures. It is the source-of-truth fallback for lost callbacks
 and ambiguous submission outcomes, not a second state machine.
 
@@ -313,6 +326,8 @@ and terminal snapshots are handled by the Desktop transport.
 2. **Terminal state immutability**: If an attempt has already reached a terminal state (`SUCCEEDED`, `FAILED`, or `CANCELED`), the cancel request is a safe no-op and returns the existing observation without altering terminal state.
 3. **Controlled shutdown**: Graceful worker shutdown or task interruption does NOT persist cancellation. Interrupted attempts remain in `ACCEPTED` or `RUNNING` in the journal, allowing them to be safely recovered and resumed or reconciled upon worker restart.
 4. **External cancellation**: A local cancellation request after submission intent is not confirmation that the engine stopped. Recovery keeps unresolved attempts nonterminal until the adapter verifies outcome or engine cancellation; expiry does not release the no-retry fence.
+5. **Backend intent and acknowledgement**: Cancellation intent and reconciliation scheduling are committed before worker I/O. HTTP 202/RUNNING or HTTP 404 are not terminal outcomes. Standalone and batch jobs retain capacity while outcome is unresolved; progress callbacks preserve cancellation intent, and reconciliation can repeat the idempotent cancellation request for the same admitted attempt.
+6. **Read-only recovery after cancel**: A submitted worker attempt may poll its existing handle after cancellation. Recovery cannot initiate another external submission. Confirmed completion after cancellation produces a CANCELED observation with unwanted outputs discarded; a missing handle remains ambiguous until correlated lookup resolves it.
 
 ### Lifecycle & State Transitions
 

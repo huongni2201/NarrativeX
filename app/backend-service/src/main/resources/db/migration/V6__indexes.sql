@@ -142,3 +142,35 @@ CREATE UNIQUE INDEX uq_media_generation_items_active
     WHERE execution_status IN ('QUEUED', 'RUNNING', 'VALIDATING', 'READY', 'UNKNOWN');
 CREATE INDEX idx_media_generation_items_job_status ON media_generation_items (generation_job_id, execution_status, item_key);
 CREATE INDEX idx_media_generation_items_beat_newest ON media_generation_items (visual_beat_id, attempt_number DESC, created_at DESC);
+
+-- Async compute orchestration
+CREATE INDEX idx_generation_jobs_reconciliation
+    ON generation_jobs (status, next_reconcile_at)
+    WHERE status IN ('SUBMITTED', 'RUNNING', 'UNKNOWN', 'RECONCILING');
+CREATE INDEX idx_generation_jobs_compute_attempt
+    ON generation_jobs (job_id, compute_attempt_id)
+    WHERE compute_attempt_id IS NOT NULL;
+CREATE INDEX idx_compute_event_receipts_task_attempt
+    ON compute_event_receipts (task_id, attempt_id, sequence);
+CREATE INDEX idx_compute_target_assignments_target
+    ON compute_target_assignments (target_id);
+
+-- Chapter analysis runtime
+CREATE UNIQUE INDEX uq_analysis_provider_credentials_verified_binding
+    ON analysis_provider_credentials (device_id, connection_fingerprint)
+    WHERE connection_fingerprint IS NOT NULL AND retired_at IS NULL;
+CREATE INDEX ix_analysis_provider_credentials_ready
+    ON analysis_provider_credentials (device_id, desired_enabled, observed_connection_state,
+                                      observed_quota_state, next_eligible_at, last_assigned_ordinal)
+    WHERE retired_at IS NULL;
+CREATE UNIQUE INDEX uq_chapter_analysis_attempt_active_job
+    ON chapter_analysis_execution_attempts (generation_job_id)
+    WHERE slot_held;
+CREATE INDEX ix_chapter_analysis_attempt_device_slots
+    ON chapter_analysis_execution_attempts (device_id, credential_ref, slot_held, checkpoint);
+CREATE INDEX ix_chapter_analysis_attempt_reconciliation
+    ON chapter_analysis_execution_attempts (updated_at)
+    WHERE slot_held AND checkpoint IN ('SUBMITTING', 'LOCAL_RUNNING', 'RESULT_READY', 'UNKNOWN');
+CREATE UNIQUE INDEX uq_chapter_analysis_run_attempt
+    ON chapter_analysis_runs (attempt_id)
+    WHERE attempt_id IS NOT NULL;

@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export function ProjectPicker({ projects, activeProjectId, onChange }: Readonly<{ projects: DesktopProject[]; activeProjectId: string | null; onChange: (projectId: string) => void }>) {
   return (
-    <label className="flex items-center gap-2 text-[10px] text-[var(--text-3)]">
+    <label className="flex items-center gap-2 text-caption text-[var(--text-3)]">
       <span>Project</span>
       <Select value={activeProjectId ?? undefined} onValueChange={onChange}>
         <SelectTrigger className="h-7 min-w-[170px] border-[var(--border)] bg-[var(--surface-2)] px-2 text-xs text-[var(--text)]">

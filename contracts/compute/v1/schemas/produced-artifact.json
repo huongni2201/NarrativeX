@@ -4,12 +4,72 @@
   "title": "ProducedArtifact",
   "type": "object",
   "additionalProperties": false,
-  "required": ["artifactId", "role", "mediaType", "sizeBytes", "sha256"],
+  "required": [
+    "artifactId",
+    "role",
+    "mediaType",
+    "sizeBytes",
+    "sha256"
+  ],
   "properties": {
-    "artifactId": {"type": "string", "format": "uuid"},
-    "role": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$"},
-    "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
-    "sizeBytes": {"type": "integer", "minimum": 0},
-    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    "artifactId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "role": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "mediaType": {
+      "type": "string",
+      "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "technicalMetadata": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "durationMs",
+        "width",
+        "height",
+        "fps",
+        "hasAudio",
+        "decodePassed"
+      ],
+      "properties": {
+        "durationMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "hasAudio": {
+          "type": "boolean"
+        },
+        "decodePassed": {
+          "type": "boolean"
+        }
+      }
+    }
   }
 }
