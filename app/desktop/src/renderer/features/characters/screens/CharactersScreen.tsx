@@ -13,6 +13,7 @@ import {
   WorkspaceToolbar,
 } from "../../workspace/components/WorkstationPrimitives";
 import { CharacterReferenceStudio } from "../components/CharacterReferenceStudio";
+import { CharacterVoiceSummary } from "../../voices/components/CharacterVoiceSummary";
 import { useCharacterDetail, useCharacterPortrait, useCreateCharacter, useDeleteCharacter } from "../queries/characters.queries";
 
 function normalizeLabel(value?: string | null) {
@@ -246,6 +247,7 @@ export function CharactersScreen({ projectId, characters }: Readonly<{ projectId
                         </p>
                       </div>
                     </div>
+                    <CharacterVoiceSummary projectId={projectId} characterId={detail.id} />
                     <CharacterReferenceStudio projectId={projectId} character={detail} />
                   </div>
                 </>

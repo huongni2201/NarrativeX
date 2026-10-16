@@ -13,4 +13,6 @@ public class VoiceCapabilitiesRow {
   private boolean supportsBatch;
   private int sampleRateHz;
   private String executionSemantics;
+  private String providerVoice;
+  private String referenceAssetId;
 }

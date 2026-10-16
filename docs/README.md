@@ -35,6 +35,7 @@ docs/
 | [Technology stack](architecture/technology-stack.md) | Stack summary (manifests own exact versions) |
 | [Generation routing](architecture/generation-routing.md) | Strategy matrix; active profile is T2V only |
 | [Editing pipeline](architecture/editing-pipeline.md) | Selected takes, render snapshots, EDL target |
+| [Desktop audio workspace](architecture/desktop-audio-workspace.md) | Audio navigation, character voice profiles, narration, VieNeu/custom voices and voice library |
 
 ## Domain
 
@@ -56,9 +57,10 @@ docs/
 
 | Plan | Status |
 |---|---|
-| [agy CLI Chapter Analysis](plans/agy-cli-chapter-analysis.md) | PARTIAL: runner done, isolation gate pending |
+| [agy CLI Chapter Analysis](plans/agy-cli-chapter-analysis.md) | PARTIAL: isolation spike passed on agy 1.3.5, real chapter completion pending |
 | [Prompt Settings](plans/prompt-settings.md) | PARTIAL: backend done, Desktop runtime unverified |
 | [Performance optimization](plans/performance-optimization.md) | TARGET: not started |
+| [Location continuity](plans/location-continuity.md) | PARTIAL: phase 0 (video prompt) implemented; phases 1–5 not started |
 
 ## Maintenance rules
 

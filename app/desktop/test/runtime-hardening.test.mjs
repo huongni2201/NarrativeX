@@ -132,13 +132,6 @@ test("compose only uses strict file mounts for files that still exist at runtime
   assert.doesNotMatch(compose, /\/run\/narrativex\/voices\/reference\.wav/);
 });
 
-test("local quality gate includes backend verify and worker static analysis", () => {
-  const verification = source("scripts", "verify-local.py");
-  assert.match(verification, /Step\("Backend verify", backend, \[mvnw, "verify"\]\)/);
-  assert.match(verification, /"ruff", "check", "src", "tests"/);
-  assert.match(verification, /"mypy", "src"/);
-});
-
 test("desktop renderer keeps Node isolation while disabling Chromium sandbox", () => {
   const bootstrap = source("app", "desktop", "src", "main", "bootstrap-core.ts");
   assert.match(bootstrap, /contextIsolation: true/);

@@ -49,10 +49,25 @@ public final class VideoPromptCompiler {
    */
   public CompiledVideoPrompt compile(
       ShotView shot, PromptSettings settings, String continuityContext) {
+    return compile(shot, settings, continuityContext, null);
+  }
+
+  /**
+   * Compiles with the Scene's resolved Location. A non-null {@code locationContext} replaces the
+   * free-text {@code locationRef} with the canonical Setting, identical for every Shot of the
+   * Scene, and appends the same-Scene continuity sentence. A null context keeps the {@code
+   * locationRef} fallback.
+   */
+  public CompiledVideoPrompt compile(
+      ShotView shot,
+      PromptSettings settings,
+      String continuityContext,
+      VideoLocationContext locationContext) {
     Objects.requireNonNull(shot, "shot must not be null");
 
     String narrative = shot.narrativePurpose();
-    String location = shot.locationRef() != null ? shot.locationRef() : "";
+    String location =
+        locationContext == null && shot.locationRef() != null ? shot.locationRef() : "";
 
     String action = extractField(shot.actionJson(), "action");
     String startState = extractField(shot.startStateJson(), "state");
@@ -113,12 +128,25 @@ public final class VideoPromptCompiler {
     StringBuilder promptSb = new StringBuilder();
     if (!actionDesc.isBlank()) promptSb.append(actionDesc).append(". ");
     if (!subjectDesc.isBlank()) promptSb.append(subjectDesc).append(". ");
+    if (locationContext != null) {
+      promptSb
+          .append("Setting: ")
+          .append(VideoLocationContext.stripTrailingPeriod(locationContext.settingText()))
+          .append(". ");
+    }
     if (!cameraDesc.isBlank()) promptSb.append("Framing: ").append(cameraDesc).append(". ");
     if (!motionDesc.isBlank()) promptSb.append(motionDesc).append(" ");
     if (!temporalDesc.isBlank()) promptSb.append(temporalDesc).append(" ");
 
+    List<String> continuity = new ArrayList<>();
     if (continuityContext != null && !continuityContext.isBlank()) {
-      promptSb.append("Continuity: ").append(continuityContext).append(". ");
+      continuity.add(continuityContext);
+    }
+    if (locationContext != null && locationContext.continuityText() != null) {
+      continuity.add(locationContext.continuityText());
+    }
+    if (!continuity.isEmpty()) {
+      promptSb.append("Continuity: ").append(String.join("; ", continuity)).append(". ");
     }
 
     String negativePrompt = "";

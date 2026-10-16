@@ -47,9 +47,9 @@ public class LocalAnalysisSnapshotCapture implements ChapterAnalysisSnapshotCapt
             ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
             config.model(),
             config.effort(),
-            "1.1",
+            ChapterAnalysisContractResources.VERSION,
             resources.promptHash(),
-            "1.1",
+            ChapterAnalysisContractResources.VERSION,
             resources.schemaHash());
     String fingerprint =
         CanonHashCalculator.sha256(
@@ -67,7 +67,10 @@ public class LocalAnalysisSnapshotCapture implements ChapterAnalysisSnapshotCapt
             job.getId(),
             profile,
             ChapterAnalysisInstructions.compose(
-                resources.systemInstruction("1.1", "1.1"), customInstruction),
+                resources.systemInstruction(
+                    ChapterAnalysisContractResources.VERSION,
+                    ChapterAnalysisContractResources.VERSION),
+                customInstruction),
             resources.responseSchema(),
             fingerprint,
             config.revision(),

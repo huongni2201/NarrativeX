@@ -26,11 +26,7 @@ public class CreateProjectUseCase {
     Project project =
         projectRepository.save(
             Project.create(
-                command.name(),
-                command.description(),
-                sourceLanguage,
-                narrationLanguage,
-                ratio));
+                command.name(), command.description(), sourceLanguage, narrationLanguage, ratio));
     log.info(
         "Created project id={} (name='{}', sourceLanguage={})",
         project.getId(),

@@ -11,6 +11,9 @@ public interface ComputeArtifactAccess {
 
   InputArtifactRefDto createInput(UUID projectId, UUID assetId, String role);
 
+  /** Grants read access to an installation-wide (GLOBAL_LOCAL) voice reference recording. */
+  InputArtifactRefDto createVoiceReferenceInput(UUID voiceReferenceAssetId, String role);
+
   void verifyOutput(OutputArtifactTargetDto target, ProducedArtifactDto produced);
 
   byte[] readOutput(OutputArtifactTargetDto target);

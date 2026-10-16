@@ -55,6 +55,17 @@ export interface StoryAnalysisStatus {
   lastDiagnostic: AnalysisDiagnostic | null;
 }
 
+/** A chapter analysis this Desktop is running right now; used to show that the agy process really exists. */
+export interface StoryAnalysisActivity {
+  jobId: string;
+  /** When Desktop started running the claim (ISO 8601). */
+  startedAt: string;
+  /** agy process id; null while the process is still starting. */
+  pid: number | null;
+  /** False when the process id no longer exists although the run has not finished. */
+  processAlive: boolean;
+}
+
 export interface StoryAnalysisConfiguration {
   executionMode: "ANTIGRAVITY_CLI";
   model: string;

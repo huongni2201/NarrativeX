@@ -18,11 +18,14 @@ Earlier pipelines decomposed a chapter into Scenes and VisualBeats while narrati
 ### Analysis output (model-neutral)
 
 3. Chapter Analysis (executed per ADR-0009) proposes, for each StoryBeat, AudioCues with an adaptation action (`KEEP_EXACT`, `LIGHT_EDIT`, `COMPRESS`, `VISUAL_PRIMARY`), VisualBeats with focus and relative weight, and Character and Location references. The user-selected adaptation mode (`AUTO`, `FAITHFUL`, `BALANCED`, `CINEMATIC`) steers it. Genre rules are not hard-coded in Java.
+   - Materialization stores the normalized `dramatic_intent` category in `StoryBeat.purpose` (default `SETUP`). The full prose `visual_intent` stays on VisualBeat; it must not be copied into the 64-character purpose category.
 
 ### Source authority and validation
 
 4. `Chapter.sourceText` is immutable once saved. Workflows pin `chapterId`, `storyVersion` and `sourceHash`.
 5. Every StoryBeat, AudioCue and VisualBeat carries UTF-16 source offsets. For `KEEP_EXACT` cues the backend derives text from `source.substring(start, end)` and discards model-copied text.
+   - **Unit anchoring (analysis contract 1.2).** The model never copies source text to say where something is. The backend splits the normalized chapter into numbered, trimmed, ordered source units with a deterministic, versioned segmenter (`SourceUnitSegmenter`, sentences and clauses, hard line boundaries, at most 100 characters per unit so no unit exceeds the 10 s VisualBeat limit). The Desktop receives `units: [{i, len, text}]`; the model returns `start_unit` per VisualBeat and `start_unit`/`end_unit` (inclusive) per AudioCue. The backend validates the integers (in range, strictly increasing across beats, cues inside their beat and in order) and derives `textStart/textEnd` itself. VisualBeats tile the chapter: a beat runs to the unit before the next beat, and the first beat starts at unit 0, which matches the production clock (only each beat's start is mapped through alignment).
+   - Earlier contract 1.1 asked for exact verbatim `source_anchor` quotes and rejected the whole analysis on any copy deviation (a paraphrase, a dropped word or an altered quote). That failure class no longer exists. Changing the segmenter requires a new `SourceUnitSegmenter.VERSION` together with the prompt and schema version.
 6. Spring Boot validates before any write, and fails closed: bounds and monotonic order, full non-whitespace coverage by StoryBeats, strict nesting (cue and VisualBeat inside StoryBeat, StoryBeat inside Scene), and resolution of character and location names to stable entities.
 7. Materialization is fenced to the saved source revision. Canon, story structure, cues and job completion commit in one transaction. Invalid, stale or partial output never replaces persisted story state.
 

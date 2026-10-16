@@ -1,5 +1,5 @@
-import type { DesktopVoice } from "../../../../shared/api-types";
-import { apiRequest } from "../../../api/client";
+import type { CreateCustomVoiceInput, DesktopVoice } from "../../../../shared/api-types";
+import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isNullableString, isNumber, isRecord, isString } from "../../../api/guards";
 
 function isVoice(value: unknown): value is DesktopVoice {
@@ -44,6 +44,16 @@ export const voicesApi = {
       );
       return value;
     }),
+  createCustom: (input: CreateCustomVoiceInput) =>
+    apiRequest<unknown>("/api/v1/voices/custom", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then((value) => {
+      assertContract(isVoice(value), "Custom voice response không đúng contract.");
+      return value;
+    }),
+  deleteCustom: (voiceId: string) =>
+    apiCommand(`/api/v1/voices/custom/${encodeURIComponent(voiceId)}`, { method: "DELETE" }),
   listReferences: () =>
     apiRequest<unknown>("/api/v1/voice-references").then((value) => {
       assertContract(

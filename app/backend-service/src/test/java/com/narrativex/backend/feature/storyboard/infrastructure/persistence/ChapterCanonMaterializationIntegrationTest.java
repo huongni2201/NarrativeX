@@ -80,7 +80,7 @@ class ChapterCanonMaterializationIntegrationTest {
     storyVersionId = UuidV7.random();
     chapterId = UuidV7.random();
     revisionId = UuidV7.random();
-    sourceText = "Once upon a time in a faraway realm, an ancient hero arose to defend the realm.";
+    sourceText = "Once upon a time in a faraway realm. An ancient hero arose to defend the realm.";
     byte[] digest =
         MessageDigest.getInstance("SHA-256").digest(sourceText.getBytes(StandardCharsets.UTF_8));
     sourceHash = HexFormat.of().formatHex(digest);
@@ -176,18 +176,18 @@ class ChapterCanonMaterializationIntegrationTest {
             {
               "title": "Scene 1: The Briefing",
               "narration": "Once upon a time in a faraway realm, an ancient hero arose to defend the realm.",
-              "location": "loc_bunker",
-              "characters": ["char_elena", "char_lucas"],
+              "location_ai_name": "loc_bunker",
+              "character_ai_names": ["char_elena", "char_lucas"],
               "visual_beats": [
                 {
                   "title": "Elena analyzes relic",
                   "visual_intent": "Elena examining glowing relic on bench",
-                  "source_anchor": "Once upon a time in a faraway realm",
-                  "characters": ["char_elena"],
+                  "start_unit": 0,
+                  "character_ai_names": ["char_elena"],
                   "audio_cues": [{
                     "cue_type": "DIALOGUE",
                     "speaker_ai_name": "char_elena",
-                    "source_anchor": "Once upon a time",
+                    "start_unit": 0, "end_unit": 0,
                     "adaptation_action": "KEEP_EXACT",
                     "adapted_text": "Once upon a time"
                   }],
@@ -209,8 +209,8 @@ class ChapterCanonMaterializationIntegrationTest {
                 {
                   "title": "Lucas warns Elena",
                   "visual_intent": "Lucas stands in doorway with rifle",
-                  "source_anchor": "an ancient hero arose to defend the realm.",
-                  "characters": ["char_lucas"],
+                  "start_unit": 1,
+                  "character_ai_names": ["char_lucas"],
                   "visual_direction": {
                     "shot_size": "MEDIUM",
                     "camera_angle": "LOW_ANGLE",
@@ -293,8 +293,8 @@ class ChapterCanonMaterializationIntegrationTest {
     assertEquals(
         elena.getProjectCharacterId(), audioCues.getFirst().getSpeakerProjectCharacterId());
     assertEquals(0, audioCues.getFirst().getSourceStart());
-    assertEquals(16, audioCues.getFirst().getSourceEnd());
-    assertEquals("Once upon a time", audioCues.getFirst().getAdaptedText());
+    assertEquals(36, audioCues.getFirst().getSourceEnd());
+    assertEquals("Once upon a time in a faraway realm.", audioCues.getFirst().getAdaptedText());
     assertEquals("DRAFT", audioCues.getFirst().getStatus());
 
     VisualBeatRow beat1 = beats.get(1);

@@ -6,6 +6,8 @@ test("workspace routes resolve without coupling feature screens to EditorScreen"
   assert.equal(screenFromWorkspacePath("/projects/p1/editor"), "editor");
   assert.equal(screenFromWorkspacePath("/projects/p1/chapters"), "chapters");
   assert.equal(screenFromWorkspacePath("/projects/p1/canon"), "canon");
+  assert.equal(screenFromWorkspacePath("/projects/p1/audio"), "audio");
+  assert.equal(screenFromWorkspacePath("/projects/p1/voices"), "audio");
   assert.equal(screenFromWorkspacePath("/projects/p1/assets"), "assets");
   assert.equal(screenFromWorkspacePath("/projects/p1/jobs"), "jobs");
   assert.equal(screenFromWorkspacePath("/projects/p1/render"), "render");

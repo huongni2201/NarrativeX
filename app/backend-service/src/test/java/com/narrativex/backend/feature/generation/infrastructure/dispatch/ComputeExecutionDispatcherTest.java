@@ -11,23 +11,30 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
+import com.narrativex.backend.feature.generation.application.model.compute.ArtifactReadAccessDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ArtifactWriteAccessDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
+import com.narrativex.backend.feature.generation.application.model.compute.InputArtifactRefDto;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
+import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -51,7 +58,7 @@ class ComputeExecutionDispatcherTest {
   private static final String VALID_ANALYSIS_JSON =
       "{\"scenes\":[{\"title\":\"Scene\",\"narration\":\"Chapter text content\","
           + "\"visual_beats\":[{\"title\":\"Beat\",\"visual_intent\":\"A frame\","
-          + "\"source_anchor\":\"Chapter text content\",\"visual_direction\":{"
+          + "\"start_unit\":0,\"visual_direction\":{"
           + "\"shot_size\":\"WIDE\",\"camera_angle\":\"EYE_LEVEL\",\"lens_mm\":35,"
           + "\"focus_target\":\"subject\",\"action_phase\":\"BEFORE\","
           + "\"subject_placement\":\"center\",\"background\":\"room\","
@@ -66,6 +73,8 @@ class ComputeExecutionDispatcherTest {
   private ComputeArtifactAccess artifactAccess;
   private MediaAssetRepository mediaAssetRepository;
   private ChapterAnalysisRunRepository analysisRunRepository;
+  private NarrationRequestRepository narrationRequestRepository;
+  private VoiceCatalogAccess voiceCatalogAccess;
   private Map<UUID, OutputArtifactTargetDto> targetsByTask;
   private Map<UUID, GenerationJob> jobsById;
   private ComputeExecutionDispatcher dispatcher;
@@ -79,6 +88,8 @@ class ComputeExecutionDispatcherTest {
     artifactAccess = mock(ComputeArtifactAccess.class);
     mediaAssetRepository = mock(MediaAssetRepository.class);
     analysisRunRepository = mock(ChapterAnalysisRunRepository.class);
+    narrationRequestRepository = mock(NarrationRequestRepository.class);
+    voiceCatalogAccess = mock(VoiceCatalogAccess.class);
     targetsByTask = new HashMap<>();
     jobsById = new HashMap<>();
 
@@ -104,7 +115,9 @@ class ComputeExecutionDispatcherTest {
             mediaAssetRepository,
             null,
             null,
-            analysisRunRepository);
+            analysisRunRepository,
+            narrationRequestRepository,
+            voiceCatalogAccess);
 
     when(artifactAccess.createOutput(
             any(UUID.class), any(UUID.class), any(String.class), any(String.class)))
@@ -363,6 +376,7 @@ class ComputeExecutionDispatcherTest {
     UUID projectId = UuidV7.random();
     GenerationJob job =
         GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
+    stubNarrationVoice(projectId, "vieneu-default", null, voice("vieneu-default", null, null));
 
     jobsById.put(job.getJobId(), job);
     dispatcher.dispatchJob(job.getJobId());
@@ -374,6 +388,130 @@ class ComputeExecutionDispatcherTest {
     assertNotNull(finalState.getComputeAttemptId());
     assertNotNull(finalState.getComputeExecutionHandle());
     verify(executionPort).submitTask(any(ComputeTaskRequest.class));
+  }
+
+  @Test
+  void narrationSendsPresetVoiceNameToWorker() {
+    UUID projectId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
+    stubNarrationVoice(
+        projectId,
+        "vieneu-preset-minh-quan-pro",
+        null,
+        voice("vieneu-preset-minh-quan-pro", "Minh Quân Pro", null));
+
+    jobsById.put(job.getJobId(), job);
+    dispatcher.dispatchJob(job.getJobId());
+
+    ComputeTaskRequest request = submittedRequest();
+    assertEquals(
+        Map.of("kind", "catalog", "value", "Minh Quân Pro"), request.inputs().get("voice"));
+    assertTrue(request.artifacts().inputs().isEmpty());
+  }
+
+  @Test
+  void narrationClonesFromCustomVoiceReference() {
+    UUID projectId = UuidV7.random();
+    UUID referenceAssetId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
+    stubNarrationVoice(projectId, "custom-1", null, voice("custom-1", null, referenceAssetId));
+    InputArtifactRefDto reference = inputArtifact(referenceAssetId);
+    when(artifactAccess.createVoiceReferenceInput(referenceAssetId, "voice-reference"))
+        .thenReturn(reference);
+
+    jobsById.put(job.getJobId(), job);
+    dispatcher.dispatchJob(job.getJobId());
+
+    ComputeTaskRequest request = submittedRequest();
+    assertEquals(
+        Map.of("kind", "artifact", "value", "voice-reference"), request.inputs().get("voice"));
+    assertEquals(List.of(reference), request.artifacts().inputs());
+  }
+
+  @Test
+  void narrationRequestReferenceOverridesCustomVoiceReference() {
+    UUID projectId = UuidV7.random();
+    UUID customReferenceId = UuidV7.random();
+    UUID projectAssetId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
+    stubNarrationVoice(
+        projectId,
+        "custom-1",
+        new VoiceReferenceSelection(VoiceReferenceScope.PROJECT, projectAssetId),
+        voice("custom-1", null, customReferenceId));
+    InputArtifactRefDto reference = inputArtifact(projectAssetId);
+    when(artifactAccess.createInput(projectId, projectAssetId, "voice-reference"))
+        .thenReturn(reference);
+
+    jobsById.put(job.getJobId(), job);
+    dispatcher.dispatchJob(job.getJobId());
+
+    assertEquals(List.of(reference), submittedRequest().artifacts().inputs());
+    verify(artifactAccess, never()).createVoiceReferenceInput(any(), any());
+  }
+
+  @Test
+  void narrationFailsSubmissionWhenVoiceIsDisabled() {
+    UUID projectId = UuidV7.random();
+    GenerationJob job =
+        GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
+    stubNarrationVoice(projectId, "custom-gone", null, null);
+
+    jobsById.put(job.getJobId(), job);
+    dispatcher.dispatchJob(job.getJobId());
+
+    verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
+    assertEquals(JobStatus.FAILED, jobsById.get(job.getJobId()).getStatus());
+  }
+
+  private void stubNarrationVoice(
+      UUID projectId,
+      String voiceId,
+      VoiceReferenceSelection selection,
+      VoiceCatalogAccess.VoiceCapabilities capabilities) {
+    when(narrationRequestRepository.findByGenerationJobId(any()))
+        .thenReturn(
+            Optional.of(
+                new NarrationRequest(
+                    UuidV7.random(),
+                    projectId,
+                    UuidV7.random(),
+                    1L,
+                    "a".repeat(64),
+                    "Xin chào",
+                    voiceId,
+                    "vi",
+                    java.math.BigDecimal.ONE,
+                    "sentence-v1",
+                    "b".repeat(64),
+                    selection)));
+    when(voiceCatalogAccess.findVoice(voiceId)).thenReturn(Optional.ofNullable(capabilities));
+  }
+
+  private static VoiceCatalogAccess.VoiceCapabilities voice(
+      String id, String providerVoice, UUID referenceAssetId) {
+    return new VoiceCatalogAccess.VoiceCapabilities(
+        id, "VIENEU", true, true, false, 48000, "LOCAL_RETRYABLE", providerVoice, referenceAssetId);
+  }
+
+  private static InputArtifactRefDto inputArtifact(UUID assetId) {
+    return new InputArtifactRefDto(
+        assetId,
+        "voice-reference",
+        "audio/wav",
+        1024,
+        "c".repeat(64),
+        new ArtifactReadAccessDto(
+            "GET", "https://example.test/" + assetId, Instant.now().plusSeconds(300), Map.of()));
+  }
+
+  private ComputeTaskRequest submittedRequest() {
+    ArgumentCaptor<ComputeTaskRequest> captor = ArgumentCaptor.forClass(ComputeTaskRequest.class);
+    verify(executionPort).submitTask(captor.capture());
+    return captor.getValue();
   }
 
   @Test

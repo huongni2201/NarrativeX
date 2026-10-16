@@ -15,8 +15,8 @@
               "ai_name": { "type": "string" },
               "canonical_name": { "type": "string" },
               "aliases": { "type": "array", "items": { "type": "string" } },
-              "role": { "type": "string" },
-              "importance": { "type": "string" },
+              "role": { "type": "string", "enum": ["PROTAGONIST", "ANTAGONIST", "SUPPORTING", "EXTRA"] },
+              "importance": { "type": "string", "enum": ["PRIMARY", "SECONDARY", "BACKGROUND"] },
               "description": { "type": "string" },
               "visual_prompt": { "type": "string" }
             }
@@ -52,20 +52,23 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["title", "visual_intent", "source_anchor", "visual_direction", "audio_cues"],
+              "required": ["title", "visual_intent", "start_unit", "visual_direction", "audio_cues"],
               "properties": {
                 "title": { "type": "string" },
                 "visual_intent": { "type": "string" },
-                "source_anchor": { "type": "string" },
+                "start_unit": { "type": "integer", "minimum": 0 },
+                "dramatic_intent": { "type": "string", "enum": ["SETUP", "QUESTION", "TENSION", "ESCALATION", "REVEAL", "REACTION", "PAYOFF", "RELIEF", "TRANSITION", "CLIFFHANGER"] },
                 "audio_cues": {
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["cue_type", "source_anchor", "adaptation_action", "adapted_text"],
+                    "required": ["cue_type", "start_unit", "end_unit", "adaptation_action"],
+                    "additionalProperties": false,
                     "properties": {
                       "cue_type": { "type": "string", "enum": ["NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM"] },
                       "speaker_ai_name": { "type": "string" },
-                      "source_anchor": { "type": "string" },
+                      "start_unit": { "type": "integer", "minimum": 0 },
+                      "end_unit": { "type": "integer", "minimum": 0 },
                       "adaptation_action": { "type": "string", "enum": ["KEEP_EXACT", "LIGHT_EDIT", "COMPRESS", "VISUAL_PRIMARY"] },
                       "adapted_text": { "type": "string" },
                       "delivery_hint": { "type": "string" }

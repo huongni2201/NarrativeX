@@ -18,7 +18,7 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Desktop API types | `app/desktop/src/shared/api-types` | Desktop-owned request and response types; backend DTOs remain independently owned |
 | Narration TTS | VieNeu 3.8.1 + WhisperX 3.8.6 forced-align | segmented TTS, 48 kHz mono WAV master and forced alignment; narration remains the master clock |
 | Image generation | ComfyUI v0.36.0 (RealVisXL) with WebSocket completion | target local/remote image generation |
-| Visual timing | source-anchor resolver + backend `NarrationTextClockMapper` | `source_anchor -> UTF-16 text range -> narration alignment -> production beat clock` |
+| Visual timing | source-anchor resolver + backend `NarrationTextClockMapper` | `start_unit -> source unit -> UTF-16 text range -> narration alignment -> production beat clock` |
 | Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, PROJECT voice references, backups, render work/cache and final artifacts |
 | Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled final rendering and local MP4 output |
 

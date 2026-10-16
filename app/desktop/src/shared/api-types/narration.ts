@@ -5,10 +5,20 @@ export interface DesktopVoice {
   language: string;
   gender: string | null;
   sampleUrl: string | null;
+  /** Raw catalog metadata JSON (preset flags, custom reference binding). */
+  metadataJson?: string | null;
 }
 
 type ExecutionPreference = "AUTO" | "CLOUD" | "LOCAL";
 export type VoiceReferenceScope = "PROJECT" | "GLOBAL_LOCAL";
+
+export interface CreateCustomVoiceInput {
+  name: string;
+  language?: string;
+  gender?: "MALE" | "FEMALE" | "NEUTRAL";
+  description?: string;
+  referenceAssetId: string;
+}
 
 export interface VoiceReferenceInput {
   scope: VoiceReferenceScope;

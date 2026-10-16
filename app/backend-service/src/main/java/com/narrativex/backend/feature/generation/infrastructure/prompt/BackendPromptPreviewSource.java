@@ -7,9 +7,11 @@ import com.narrativex.backend.feature.generation.application.model.prompt.Prompt
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptPreviewTarget;
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
 import com.narrativex.backend.feature.generation.application.port.out.PromptPreviewSource;
+import com.narrativex.backend.feature.generation.application.port.out.ShotLocationContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.service.CharacterIdentityPromptComposer;
 import com.narrativex.backend.feature.generation.application.service.StoryboardVisualPromptComposer;
+import com.narrativex.backend.feature.generation.application.service.VideoLocationContext;
 import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
@@ -28,6 +30,7 @@ public class BackendPromptPreviewSource implements PromptPreviewSource {
   private final StoryboardVisualPromptComposer storyboardComposer;
   private final StoryboardShotAccess shotAccess;
   private final VideoPromptCompiler videoPromptCompiler;
+  private final ShotLocationContextRepository shotLocationContexts;
 
   @Override
   public PromptPreviewResult preview(PromptSettings settings, PromptPreviewTarget target) {
@@ -87,7 +90,11 @@ public class BackendPromptPreviewSource implements PromptPreviewSource {
         shotAccess
             .findShotById(target.projectId(), target.shotId())
             .orElseThrow(() -> new ResourceNotFoundException("Shot not found"));
-    var compiled = videoPromptCompiler.compile(shot, settings, null);
+    // Same Location resolution as Take admission, so the preview shows the prompt that is sent.
+    var location =
+        VideoLocationContext.from(
+            shotLocationContexts.findForShot(target.projectId(), target.shotId()));
+    var compiled = videoPromptCompiler.compile(shot, settings, null, location);
     String negative = compiled.negativePrompt() == null ? "" : compiled.negativePrompt();
     return new PromptPreviewResult(compiled.prompt(), negative, compiled.prompt());
   }

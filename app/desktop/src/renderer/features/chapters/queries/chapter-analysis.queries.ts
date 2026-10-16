@@ -25,6 +25,8 @@ type ChapterAnalysisJob = {
   jobId: string;
   status: string;
   errorCode: string | null;
+  /** 0..100 as reported by the backend; 0 means "claimed", only the Desktop runner raises it while agy works. */
+  progress: number;
 };
 
 type PendingAnalysisCommand = {
@@ -118,6 +120,7 @@ export function useChapterAnalysis(
       jobId: trackedJob.jobId,
       status: jobQuery.data.status,
       errorCode: jobQuery.data.errorCode ?? null,
+      progress: jobQuery.data.progress,
     };
   }, [jobQuery.data, trackedJob]);
 

@@ -105,6 +105,23 @@ public class GenerationJobTransactionService {
     return Optional.of(generationJobRepository.save(running));
   }
 
+  /**
+   * Raises the progress of a RUNNING job. It never lowers it, never reaches 100 (only completion
+   * does) and writes nothing when the value would not change, so a chatty reporter cannot churn the
+   * row or its change events.
+   */
+  @Transactional
+  public Optional<GenerationJob> recordProgress(UUID jobId, int progress) {
+    Optional<GenerationJob> jobOpt = generationJobRepository.findByJobId(jobId);
+    if (jobOpt.isEmpty()) return Optional.empty();
+    GenerationJob job = jobOpt.get();
+    if (job.getStatus() != JobStatus.RUNNING || job.isCancellationRequested())
+      return Optional.empty();
+    GenerationJob advanced = job.recordComputeProgress(progress, null, null);
+    if (advanced.getProgress() == job.getProgress()) return Optional.of(job);
+    return Optional.of(generationJobRepository.save(advanced));
+  }
+
   @Transactional
   public GenerationJob markSubmitted(
       UUID jobId, ComputeSubmissionReceipt receipt, Instant nextReconcileAt) {
@@ -143,6 +160,24 @@ public class GenerationJobTransactionService {
       return job;
     }
     return generationJobRepository.save(job.markFailed(errorCode, step));
+  }
+
+  /**
+   * Returns a job whose attempt failed without output to the queue; a later claim starts a new
+   * attempt.
+   */
+  @Transactional
+  public GenerationJob markRequeued(UUID jobId, String reason) {
+    GenerationJob job =
+        generationJobRepository
+            .findByJobId(jobId)
+            .orElseThrow(() -> new IllegalStateException("Job " + jobId + " disappeared"));
+    if (job.getStatus() == JobStatus.QUEUED) return job;
+    if (!GenerationJobStateMachine.canTransition(job.getStatus(), JobStatus.QUEUED)) {
+      log.warn("Cannot transition job {} from {} to QUEUED", jobId, job.getStatus());
+      return job;
+    }
+    return generationJobRepository.save(job.markQueued("REQUEUED_" + reason));
   }
 
   @Transactional

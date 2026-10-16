@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ShotLocationContextMapper">
+
+    <resultMap id="shotLocationContextRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ShotLocationContextRow">
+        <id property="shotId" column="shot_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="locationId" column="location_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="name" column="name" />
+        <result property="description" column="description" />
+        <result property="visualPrompt" column="visual_prompt" />
+        <result property="previousShotId" column="previous_shot_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="previousEndStateJson" column="previous_end_state_json" />
+    </resultMap>
+
+    <!-- Scene order is Beat, then Sequence, then Shot. The window runs over every Shot of the
+         requested Scenes so a predecessor is found even when it is not part of the requested set. -->
+    <select id="findForShots" resultMap="shotLocationContextRow">
+        WITH requested_scenes AS (
+            SELECT DISTINCT vb.scene_id
+              FROM shots sh
+              JOIN shot_sequences ss ON ss.id = sh.sequence_id
+              JOIN visual_beats vb ON vb.id = ss.visual_beat_id
+              JOIN scenes s ON s.id = vb.scene_id
+             WHERE s.project_id = #{projectId}
+               AND sh.id IN
+        <foreach collection="shotIds" item="shotId" open="(" separator="," close=")">
+            #{shotId}
+        </foreach>
+        ),
+        ordered AS (
+            SELECT sh.id AS shot_id,
+                   vb.scene_id,
+                   LAG(sh.id) OVER scene_order AS previous_shot_id,
+                   LAG(sh.end_state_json::text) OVER scene_order AS previous_end_state_json
+              FROM shots sh
+              JOIN shot_sequences ss ON ss.id = sh.sequence_id
+              JOIN visual_beats vb ON vb.id = ss.visual_beat_id
+             WHERE vb.scene_id IN (SELECT scene_id FROM requested_scenes)
+            WINDOW scene_order AS (
+                PARTITION BY vb.scene_id
+                ORDER BY vb.order_index, ss.order_index, sh.order_index
+            )
+        )
+        SELECT o.shot_id,
+               pl.id AS location_id,
+               pl.name,
+               pl.description,
+               pl.visual_prompt,
+               o.previous_shot_id,
+               o.previous_end_state_json
+          FROM ordered o
+          JOIN scenes s ON s.id = o.scene_id
+          LEFT JOIN project_locations pl
+                 ON pl.id = s.project_location_id
+                AND pl.project_id = s.project_id
+         WHERE o.shot_id IN
+        <foreach collection="shotIds" item="shotId" open="(" separator="," close=")">
+            #{shotId}
+        </foreach>
+         ORDER BY o.shot_id
+    </select>
+</mapper>

@@ -38,6 +38,16 @@ class GenerationJobStateMachineTest {
   }
 
   @Test
+  void aRunThatProducedNothingMayReturnToTheQueueButNoTerminalJobMay() {
+    assertTrue(GenerationJobStateMachine.canTransition(JobStatus.RUNNING, JobStatus.QUEUED));
+    assertTrue(GenerationJobStateMachine.canTransition(JobStatus.UNKNOWN, JobStatus.QUEUED));
+    assertFalse(GenerationJobStateMachine.canTransition(JobStatus.SUBMITTED, JobStatus.QUEUED));
+    assertFalse(GenerationJobStateMachine.canTransition(JobStatus.RECONCILING, JobStatus.QUEUED));
+    assertFalse(GenerationJobStateMachine.canTransition(JobStatus.FAILED, JobStatus.QUEUED));
+    assertFalse(GenerationJobStateMachine.canTransition(JobStatus.COMPLETED, JobStatus.QUEUED));
+  }
+
+  @Test
   void rejectsTerminalStateRegressions() {
     assertFalse(GenerationJobStateMachine.canTransition(JobStatus.COMPLETED, JobStatus.RUNNING));
     assertFalse(GenerationJobStateMachine.canTransition(JobStatus.COMPLETED, JobStatus.SUBMITTED));

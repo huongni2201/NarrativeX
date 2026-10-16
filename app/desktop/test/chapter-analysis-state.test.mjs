@@ -35,7 +35,7 @@ test("chapter analysis state disables duplicates and only spins for confirmed pr
     assert.equal(state.isTerminal, false, status);
     assert.equal(state.canAnalyze, false, status);
   }
-  assert.match(deriveChapterAnalysisUiState(job("UNKNOWN"), false).message, /chưa xác định/i);
+  assert.match(deriveChapterAnalysisUiState(job("UNKNOWN"), false).message, /chờ xác nhận/i);
   assert.match(deriveChapterAnalysisUiState(job("STALLED"), false).message, /đã dừng/i);
 });
 

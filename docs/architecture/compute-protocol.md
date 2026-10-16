@@ -107,6 +107,8 @@ Rules:
 - `constraints.deadline` is validated before `ACCEPTED`. If the deadline is already in the past,
   the worker rejects the task with a validation error (`422 Unprocessable Entity`).
 
+`audio.synthesize` voice selection (**IMPLEMENTED** in the backend dispatch; worker/runtime behavior is not verified): a preset or default catalog voice is sent as `voice: {"kind":"catalog","value":<provider voice name>}` — the catalog row's `providerVoice` metadata (for example `Minh Quân Pro`), falling back to the catalog ID. A request-level reference, or the reference bound to a custom catalog voice, is sent as `voice: {"kind":"artifact","value":"voice-reference"}` with exactly one input artifact of role `voice-reference`; an explicit request reference wins over a custom voice's stored reference. If the voice cannot be resolved the job fails at submission (`NARRATION_VOICE_UNRESOLVED`) instead of falling back to another voice. The protocol has no speaking-rate field, so `speakingRate` is not yet forwarded to the worker.
+
 The active task types are `audio.synthesize`, `audio.align`, `image.generate`, `video.generate`,
 and `media.validate`.
 Add a task type only with schemas, deterministic validation, capability advertisement, tests, and

@@ -19,6 +19,8 @@ import com.narrativex.backend.feature.generation.application.port.in.PromptSetti
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ShotLocationContextRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ShotLocationContextRepository.ShotLocationContext;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog;
@@ -28,6 +30,7 @@ import com.narrativex.backend.feature.generation.application.service.NativeVideo
 import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeDialogueLine;
 import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeVideoInputs;
 import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeVoiceDescription;
+import com.narrativex.backend.feature.generation.application.service.VideoLocationContext;
 import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
@@ -69,6 +72,7 @@ public class GenerateShotTakeUseCase {
   private final NativeVideoInputMapper nativeVideoInputMapper;
   private final NarrativeXLimitsProperties limits;
   private final PromptSettingsAccess promptSettingsAccess;
+  private final ShotLocationContextRepository shotLocationContexts;
 
   @Transactional
   public TakeResponse execute(GenerateShotTakeCommand command) {
@@ -96,13 +100,33 @@ public class GenerateShotTakeUseCase {
   /** Freezes one shot against the prompt settings the caller resolved once for the batch. */
   @Transactional
   public FrozenShot freeze(GenerateShotTakeCommand command, PromptSettings settings) {
-    var prepared = prepare(command);
-    bindPrompt(prepared, compilePrompt(prepared.shot(), settings));
+    return freeze(command, settings, null);
+  }
+
+  /**
+   * Batch variant: Location contexts for every Shot of the batch come from one {@link
+   * #loadLocationContexts} call instead of one query per Shot. A Shot missing from the map is
+   * resolved individually.
+   */
+  @Transactional
+  public FrozenShot freeze(
+      GenerateShotTakeCommand command,
+      PromptSettings settings,
+      Map<UUID, ShotLocationContext> preloadedLocations) {
+    var prepared =
+        prepare(
+            command, preloadedLocations == null ? null : preloadedLocations.get(command.shotId()));
+    bindPrompt(prepared, compilePrompt(prepared.shot(), settings, prepared.location()));
     return new FrozenShot(
         prepared.requestFingerprint(), JSON.writeValueAsString(prepared.semantics()));
   }
 
   public record FrozenShot(String requestFingerprint, String inputJson) {}
+
+  /** One bounded query for the Location and preceding-Shot context of every given Shot. */
+  public Map<UUID, ShotLocationContext> loadLocationContexts(UUID projectId, List<UUID> shotIds) {
+    return shotLocationContexts.findForShots(projectId, shotIds);
+  }
 
   private record Prepared(
       StoryboardShotAccess.ShotView shot,
@@ -112,7 +136,8 @@ public class GenerateShotTakeUseCase {
       Map<String, Object> inputs,
       Map<String, Object> semantics,
       List<TakeInputSnapshot.Reference> references,
-      String requestFingerprint) {}
+      String requestFingerprint,
+      VideoLocationContext location) {}
 
   private TakeResponse admit(
       GenerateShotTakeCommand command, String frozenFingerprint, String frozenInputJson) {
@@ -134,11 +159,12 @@ public class GenerateShotTakeUseCase {
     generationJobRepository.acquireIdempotencyLock(key);
     // Settings-independent identity: replay and frozen-batch checks never consult the current
     // prompt configuration, so a later Save cannot turn a replay into a conflict.
-    var prepared = prepare(command);
+    var prepared = prepare(command, null);
     String requestFingerprint = prepared.requestFingerprint();
     PromptInput frozenPrompt = frozenInputJson == null ? null : frozenPrompt(frozenInputJson);
     if (frozenFingerprint != null
         && !frozenFingerprint.equals(requestFingerprint)
+        && !frozenFingerprint.equals(locationFreeRequestFingerprint(prepared))
         && !frozenFingerprint.equals(legacyRequestFingerprint(prepared, frozenPrompt))) {
       throw new ResourceConflictException(
           "Frozen batch shot inputs changed; create a new batch after reconciliation");
@@ -151,6 +177,7 @@ public class GenerateShotTakeUseCase {
               .orElseThrow(() -> new IllegalStateException("Admitted job has no take"));
       var saved = JSON.readValue(take.inputSnapshotJson(), TakeInputSnapshot.class);
       if (!requestFingerprint.equals(saved.requestFingerprint())
+          && !locationFreeRequestFingerprint(prepared).equals(saved.requestFingerprint())
           && !isLegacyReplay(prepared, saved)) {
         throw new ResourceConflictException("Idempotency-Key reused with different shot inputs");
       }
@@ -160,7 +187,7 @@ public class GenerateShotTakeUseCase {
         prepared,
         frozenPrompt != null
             ? frozenPrompt
-            : compilePrompt(prepared.shot(), promptSettingsAccess.current()));
+            : compilePrompt(prepared.shot(), promptSettingsAccess.current(), prepared.location()));
     var shot = prepared.shot();
     var strategy = prepared.strategy();
     var audioMode = prepared.audioMode();
@@ -273,7 +300,7 @@ public class GenerateShotTakeUseCase {
     return response(take, job.getJobId());
   }
 
-  private Prepared prepare(GenerateShotTakeCommand command) {
+  private Prepared prepare(GenerateShotTakeCommand command, ShotLocationContext preloaded) {
     String contextJson =
         storyboardAccess.findAdmissionContextLocked(command.projectId(), command.shotId());
     if (contextJson == null)
@@ -317,6 +344,15 @@ public class GenerateShotTakeUseCase {
           "UNSUPPORTED_REFERENCE_CONDITIONING: Current LTX profile does not accept input artifacts");
     }
     pinVoices(context);
+    // Resolved by ID through Scene.project_location_id; shots.location_ref is only a fallback.
+    VideoLocationContext location =
+        VideoLocationContext.from(
+            preloaded != null
+                ? preloaded
+                : shotLocationContexts.findForShot(command.projectId(), command.shotId()));
+    if (location != null) {
+      context.put("locationContext", location.provenance());
+    }
     List<NativeDialogueLine> dialogue = new ArrayList<>();
     NativeVoiceDescription primaryVoiceReference = null;
     @SuppressWarnings("unchecked")
@@ -391,15 +427,24 @@ public class GenerateShotTakeUseCase {
     String requestFingerprint =
         fingerprint(semantics, catalog.defaultProvider(), catalog.defaultModel());
     return new Prepared(
-        shot, strategy, audioMode, context, inputs, semantics, references, requestFingerprint);
+        shot,
+        strategy,
+        audioMode,
+        context,
+        inputs,
+        semantics,
+        references,
+        requestFingerprint,
+        location);
   }
 
   /** Compiled prompts plus the prompt-settings provenance frozen next to them. */
   private record PromptInput(
       String prompt, String negativePrompt, Map<String, Object> provenance) {}
 
-  private PromptInput compilePrompt(StoryboardShotAccess.ShotView shot, PromptSettings settings) {
-    var compiled = promptCompiler.compile(shot, settings, null);
+  private PromptInput compilePrompt(
+      StoryboardShotAccess.ShotView shot, PromptSettings settings, VideoLocationContext location) {
+    var compiled = promptCompiler.compile(shot, settings, null, location);
     Map<String, Object> provenance = new TreeMap<>();
     provenance.put("revision", Long.toString(settings.revision()));
     provenance.put("styleId", settings.activeStyleId());
@@ -450,17 +495,40 @@ public class GenerateShotTakeUseCase {
     inputsCopy.put("prompt", stored.prompt());
     inputsCopy.put(
         "negativePrompt", stored.negativePrompt() == null ? "" : stored.negativePrompt());
-    Map<String, Object> semanticsCopy = new TreeMap<>(prepared.semantics());
+    Map<String, Object> semanticsCopy = withoutLocationContext(prepared.semantics());
     semanticsCopy.put("inputs", inputsCopy);
     semanticsCopy.remove("structuralPrompt"); // not part of the pre-settings identity
     return fingerprint(semanticsCopy, catalog.defaultProvider(), catalog.defaultModel());
+  }
+
+  /**
+   * Request fingerprint as computed before Location context joined the identity, so work admitted
+   * by an older build still replays instead of conflicting.
+   */
+  private String locationFreeRequestFingerprint(Prepared prepared) {
+    if (prepared.location() == null) return prepared.requestFingerprint();
+    return fingerprint(
+        withoutLocationContext(prepared.semantics()),
+        catalog.defaultProvider(),
+        catalog.defaultModel());
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> withoutLocationContext(Map<String, Object> semantics) {
+    Map<String, Object> copy = new TreeMap<>(semantics);
+    if (copy.get("context") instanceof Map<?, ?> context) {
+      Map<String, Object> contextCopy = new TreeMap<>((Map<String, Object>) context);
+      contextCopy.remove("locationContext");
+      copy.put("context", contextCopy);
+    }
+    return copy;
   }
 
   /** Test seam: the pre-settings request fingerprint for prompts that were stored earlier. */
   String legacyFingerprintForStoredPrompts(
       GenerateShotTakeCommand command, String prompt, String negativePrompt) {
     return legacyRequestFingerprint(
-        prepare(command), new PromptInput(prompt, negativePrompt, null));
+        prepare(command, null), new PromptInput(prompt, negativePrompt, null));
   }
 
   private boolean isLegacyReplay(Prepared prepared, TakeInputSnapshot saved) {

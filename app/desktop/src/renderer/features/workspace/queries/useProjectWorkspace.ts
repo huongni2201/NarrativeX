@@ -64,8 +64,16 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   },
   canon: {
     timeline: false,
-    chapters: true,
+    chapters: false,
     assetScope: "visual",
+    characters: true,
+    voices: false,
+    presets: false,
+  },
+  audio: {
+    timeline: true,
+    chapters: true,
+    assetScope: "audio",
     characters: true,
     voices: true,
     presets: false,

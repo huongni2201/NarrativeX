@@ -50,7 +50,7 @@ test("a ready session registers one credential, mirrors its state and allows min
     assert.deepEqual(eligibility, { credentialRef: "11111111-1111-4111-8111-111111111111", maxParallel: 3 });
     const registration = h.state.requests.find(r => r.path.endsWith("analysis-credentials"));
     assert.equal(registration.body.label, "Antigravity CLI");
-    assert.equal(registration.body.adapterVersion, "antigravity-cli/1");
+    assert.equal(registration.body.adapterVersion, "antigravity-cli/2");
     assert.deepEqual(registration.body.models, ["gemini-3.8-flash-high", "claude-sonnet-4-6"]);
     const stored = JSON.parse(await readFile(join(h.directory, "session.json"), "utf8"));
     assert.equal(registration.body.fingerprint, createHash("sha256").update(`agy-cli:${stored.installationId}`).digest("hex"));
@@ -137,7 +137,7 @@ test("a refusal pauses for 30 minutes except when only a tool was denied", async
   const h = await build();
   try {
     await h.session.eligibility();
-    await h.session.noteFailure(new AnalysisError("PROVIDER_REFUSAL", false, null, { source: "AGY_CLI", exitCode: 0, reason: "TOOL_DENIED" }));
+    await h.session.noteFailure(new AnalysisError("TOOL_DENIED", false, null, { source: "AGY_CLI", exitCode: 0, reason: "TOOL_DENIED" }));
     assert.ok(await h.session.eligibility());
     await h.session.noteFailure(new AnalysisError("PROVIDER_REFUSAL", false, null, { source: "AGY_CLI", exitCode: 1, reason: "REFUSED" }));
     assert.equal(await h.session.eligibility(), null);

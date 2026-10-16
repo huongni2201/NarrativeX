@@ -4,7 +4,6 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Anal
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisRuntimeConfiguration;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionAttempt;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionSnapshot;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 

@@ -13,14 +13,21 @@ export function modelFamily(slug: string): AgyModel["family"] {
 
 /** Reads the last JSON object printed by agy; earlier lines may be progress output. */
 export function lastJsonLine(stdout: string): Record<string, unknown> | null {
+  const unwrap = (value: unknown): Record<string, unknown> | null => {
+    const record = asRecord(value);
+    if (typeof record?.event === "string") {
+      return record.event === "result" ? asRecord(record.result) : null;
+    }
+    return record;
+  };
   const whole = stdout.trim();
   if (!whole) return null;
-  try { const value = asRecord(JSON.parse(whole)); if (value) return value; } catch { /* Try line by line. */ }
+  try { const value = unwrap(JSON.parse(whole)); if (value) return value; } catch { /* Try line by line. */ }
   const lines = whole.split(/\r?\n/u);
   for (let index = lines.length - 1; index >= 0; index--) {
     const line = lines[index]!.trim();
     if (!line.startsWith("{")) continue;
-    try { const value = asRecord(JSON.parse(line)); if (value) return value; } catch { /* Keep looking upward. */ }
+    try { const value = unwrap(JSON.parse(line)); if (value) return value; } catch { /* Keep looking upward. */ }
   }
   return null;
 }
@@ -45,8 +52,9 @@ export function parseUsage(stdout: string): AgyUsageGroup[] {
       const remaining = Math.max(0, Math.min(1, bucket.remaining_fraction));
       const reset = typeof bucket.reset_time === "string" ? bucket.reset_time : null;
       const window = String(bucket.window ?? "").toLowerCase();
-      if (window.includes("5h") || window.includes("hour")) { result.fiveHourRemaining = remaining; result.fiveHourResetsAt = reset; }
-      else if (window.includes("week")) { result.weeklyRemaining = remaining; result.weeklyResetsAt = reset; }
+      // Check the weekly window first: "168 hours" or "weekly (7d)" must not be mistaken for the 5-hour bucket.
+      if (window.includes("week") || window.includes("7d") || window.includes("168")) { result.weeklyRemaining = remaining; result.weeklyResetsAt = reset; }
+      else if (window.includes("5h") || window.includes("hour")) { result.fiveHourRemaining = remaining; result.fiveHourResetsAt = reset; }
     }
     return [result];
   });

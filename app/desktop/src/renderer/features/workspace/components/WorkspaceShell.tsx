@@ -7,6 +7,7 @@ import {
   Folder,
   Layers3,
   Activity,
+  AudioLines,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ const navigation: Array<{
 }> = [
   { id: "chapters", label: "Chương", icon: BookOpen, segment: "chapters" },
   { id: "canon", label: "Hồ sơ", icon: BookMarked, segment: "canon" },
+  { id: "audio", label: "Âm thanh", icon: AudioLines, segment: "audio" },
   { id: "editor", label: "Biên tập", icon: Layers3, segment: "editor" },
   { id: "assets", label: "Tài nguyên", icon: Folder, segment: "assets" },
   { id: "jobs", label: "Tác vụ", icon: Activity, segment: "jobs" },

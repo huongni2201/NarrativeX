@@ -46,8 +46,5 @@ public interface VisualBeatPromptContext {
   }
 
   record PreparedVisualBeatPrompt(
-      UUID visualBeatId,
-      UUID sceneId,
-      long beatRowVersion,
-      ComposedVisualPrompt composedPrompt) {}
+      UUID visualBeatId, UUID sceneId, long beatRowVersion, ComposedVisualPrompt composedPrompt) {}
 }

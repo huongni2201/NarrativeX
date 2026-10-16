@@ -11,4 +11,13 @@ public interface CatalogMapper extends NarrativeXMyBatisMapper {
   List<VoiceRow> listVoices(@Param("language") String language);
 
   Optional<VoiceCapabilitiesRow> findVoiceCapabilities(@Param("voiceId") String voiceId);
+
+  int insertCustomVoice(
+      @Param("id") String id,
+      @Param("name") String name,
+      @Param("language") String language,
+      @Param("gender") String gender,
+      @Param("metadataJson") String metadataJson);
+
+  int disableCustomVoice(@Param("id") String id);
 }

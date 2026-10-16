@@ -46,14 +46,16 @@ public final class GenerationJobStateMachine {
               || target == JobStatus.UNKNOWN
               || target == JobStatus.RECONCILING;
       case RUNNING ->
-          target == JobStatus.RUNNING
+          target == JobStatus.QUEUED
+              || target == JobStatus.RUNNING
               || target == JobStatus.COMPLETED
               || target == JobStatus.FAILED
               || target == JobStatus.CANCELED
               || target == JobStatus.UNKNOWN
               || target == JobStatus.RECONCILING;
       case UNKNOWN, RECONCILING, STALLED ->
-          target == JobStatus.RUNNING
+          (current == JobStatus.UNKNOWN && target == JobStatus.QUEUED)
+              || target == JobStatus.RUNNING
               || target == JobStatus.COMPLETED
               || target == JobStatus.FAILED
               || target == JobStatus.CANCELED

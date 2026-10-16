@@ -45,12 +45,8 @@ public final class Project extends UuidAggregateRoot {
   }
 
   public static Project create(
-      String name,
-      String sourceLanguage,
-      String narrationLanguage,
-      AspectRatio imageAspectRatio) {
-    return create(
-        name, null, sourceLanguage, narrationLanguage, imageAspectRatio);
+      String name, String sourceLanguage, String narrationLanguage, AspectRatio imageAspectRatio) {
+    return create(name, null, sourceLanguage, narrationLanguage, imageAspectRatio);
   }
 
   public static Project create(

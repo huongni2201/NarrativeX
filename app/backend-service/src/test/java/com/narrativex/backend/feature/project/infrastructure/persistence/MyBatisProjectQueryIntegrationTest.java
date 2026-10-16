@@ -48,11 +48,9 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
   @Test
   void mapsDashboardPageAndCountsForSingleUser() {
     Project p1 =
-        projectRepository.save(
-            Project.create("P1", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
+        projectRepository.save(Project.create("P1", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
     Project p2 =
-        projectRepository.save(
-            Project.create("P2", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
+        projectRepository.save(Project.create("P2", "vi-VN", "vi-VN", AspectRatio.RATIO_16_9));
 
     jdbcTemplate.update(
         "UPDATE projects SET status = 'ACTIVE' WHERE id IN (?, ?)", p1.getId(), p2.getId());

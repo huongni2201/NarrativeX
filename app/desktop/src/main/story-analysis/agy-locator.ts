@@ -5,8 +5,8 @@ import type { Exec } from "./agy-exec.ts";
 export interface AgyInstall { path: string; version: string }
 export type LocateResult = { ok: true; install: AgyInstall } | { ok: false; issue: "AGY_NOT_FOUND" | "AGY_VERSION_UNSUPPORTED" | "PLATFORM_UNSUPPORTED" };
 
-/** Flags this adapter relies on (--json-schema, --input-format, /usage) were verified on 1.3.5. */
-export const MIN_AGY_VERSION = "1.3.0";
+/** Flags this adapter relies on (--json-schema, --input-format, /usage) and the isolation spike (6b) were verified on 1.3.5. */
+export const MIN_AGY_VERSION = "1.3.5";
 
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map(Number), pb = b.split(".").map(Number);

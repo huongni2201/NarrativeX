@@ -2,19 +2,24 @@ package com.narrativex.backend.feature.character.api.controller;
 
 import com.narrativex.backend.feature.character.api.request.CreateCharacterRequest;
 import com.narrativex.backend.feature.character.api.request.CreateCharacterVersionRequest;
+import com.narrativex.backend.feature.character.api.request.CreateCharacterVoiceProfileRequest;
 import com.narrativex.backend.feature.character.api.request.SetCharacterVersionReferencesRequest;
 import com.narrativex.backend.feature.character.api.response.CharacterSummaryResponse;
 import com.narrativex.backend.feature.character.api.response.CharacterVersionReferenceResponse;
 import com.narrativex.backend.feature.character.api.response.CharacterVersionResponse;
+import com.narrativex.backend.feature.character.api.response.CharacterVoiceProfilesResponse;
 import com.narrativex.backend.feature.character.application.command.ChangeCharacterVersionStatusCommand;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterCommand;
 import com.narrativex.backend.feature.character.application.command.CreateCharacterVersionCommand;
+import com.narrativex.backend.feature.character.application.command.CreateCharacterVoiceProfileCommand;
 import com.narrativex.backend.feature.character.application.query.CharacterListQuery;
 import com.narrativex.backend.feature.character.application.usecase.CountCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.CreateCharacterUseCase;
 import com.narrativex.backend.feature.character.application.usecase.CreateCharacterVersionUseCase;
+import com.narrativex.backend.feature.character.application.usecase.CreateCharacterVoiceProfileUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterVersionReferencesUseCase;
+import com.narrativex.backend.feature.character.application.usecase.GetCharacterVoiceProfilesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.LockCharacterVersionUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase;
@@ -41,6 +46,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/characters")
 public class CharacterController {
+  private final GetCharacterVoiceProfilesUseCase getVoiceProfiles;
+  private final CreateCharacterVoiceProfileUseCase createVoiceProfile;
   private final ListCharactersUseCase listCharactersUseCase;
   private final GetCharacterUseCase getCharacterUseCase;
   private final CountCharactersUseCase countCharactersUseCase;
@@ -56,6 +63,35 @@ public class CharacterController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Character count retrieved successfully", countCharactersUseCase.execute()));
+  }
+
+  @GetMapping("/{characterId}/voice-profiles")
+  public ResponseEntity<ApiResponse<CharacterVoiceProfilesResponse>> voiceProfiles(
+      @PathVariable UUID characterId) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Character voices retrieved",
+            CharacterVoiceProfilesResponse.from(getVoiceProfiles.execute(characterId))));
+  }
+
+  @PostMapping("/{characterId}/voice-profiles")
+  public ResponseEntity<ApiResponse<CharacterVoiceProfilesResponse.Profile>> createVoiceProfile(
+      @PathVariable UUID characterId,
+      @Valid @RequestBody CreateCharacterVoiceProfileRequest request) {
+    var profile =
+        createVoiceProfile.execute(
+            new CreateCharacterVoiceProfileCommand(
+                characterId,
+                request.expectedRowVersion(),
+                request.language(),
+                request.accent(),
+                request.voiceDescription(),
+                request.deliveryBaseline()));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            ApiResponse.success(
+                "Character voice saved and selected",
+                CharacterVoiceProfilesResponse.Profile.from(profile)));
   }
 
   @PostMapping

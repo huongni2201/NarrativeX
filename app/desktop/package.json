@@ -7,6 +7,7 @@
   "author": "NarrativeX",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:analysis": "pwsh -NoProfile -File ../../scripts/agy-cli-spike.ps1 -StartDesktop",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "type-check": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",

@@ -62,9 +62,14 @@ export class AgySession {
   private running = 0;
   private refreshedAt = 0;
   private refreshing: Promise<void> | null = null;
+  private queuedRefresh: Promise<void> | null = null;
   private stored: StoredSession | null = null;
   private registering: Promise<string> | null = null;
   private lastReported = "";
+  /** Serializes observations so an older state can never overtake a newer one on its way to the backend. */
+  private reporting: Promise<void> = Promise.resolve();
+  /** Delivery notice kept apart from `lastError` so a settled tick can clear it without erasing a chapter failure. */
+  private deliveryNotice: string | null = null;
 
   constructor(private readonly deps: AgySessionDependencies) {}
 
@@ -74,10 +79,27 @@ export class AgySession {
 
   /** Re-reads install, login, usage, models and configuration; concurrent callers share one probe. */
   refresh(force = true): Promise<void> {
-    if (this.refreshing) return this.refreshing;
+    if (this.refreshing) {
+      // A forced refresh (login changed, "refresh" pressed) must observe state newer than the probe already running.
+      if (force && !this.queuedRefresh) {
+        this.queuedRefresh = this.refreshing.catch(() => undefined).then(() => {
+          this.queuedRefresh = null;
+          return this.startRefresh(true);
+        });
+      }
+      return this.queuedRefresh ?? this.refreshing;
+    }
+    if (this.queuedRefresh) return this.queuedRefresh;
     if (!force && this.now() - this.refreshedAt < REFRESH_INTERVAL_MS) return Promise.resolve();
-    this.refreshing = this.doRefresh(force).finally(() => { this.refreshing = null; this.refreshedAt = this.now(); });
-    return this.refreshing;
+    return this.startRefresh(force);
+  }
+
+  private startRefresh(force: boolean): Promise<void> {
+    const run: Promise<void> = this.doRefresh(force).finally(() => {
+      if (this.refreshing === run) this.refreshing = null;
+      this.refreshedAt = this.now();
+    });
+    return this.refreshing = run;
   }
 
   private async doRefresh(force: boolean): Promise<void> {
@@ -101,7 +123,8 @@ export class AgySession {
       this.connectionState = failure.code === "AUTH_REQUIRED" ? "AUTH_REQUIRED" : "UNAVAILABLE";
       this.lastError = failure.code; this.diagnostic = failure.diagnostic;
     }
-    this.config = await this.deps.configuration().catch(() => null);
+    // A transient backend error must not wipe the last known configuration and block claims until the next refresh.
+    this.config = (await this.deps.configuration().catch(() => null)) ?? this.config;
     void this.report();
   }
 
@@ -142,7 +165,7 @@ export class AgySession {
       runningJobs: this.running,
       maxParallel: this.maxParallel(),
       modelIssue: this.modelIssue(),
-      lastError: this.lastError ?? this.blocked,
+      lastError: this.lastError ?? this.deliveryNotice ?? this.blocked,
       lastDiagnostic: this.diagnostic,
     };
   }
@@ -187,8 +210,9 @@ export class AgySession {
 
   noteSuccess(): void {
     this.connectionState = "CONNECTED";
-    if (this.holdOff && this.holdOff.state === "RATE_LIMITED") this.holdOff = null;
+    // A parallel job may have started before the latest 429/refusal; its success cannot lift that hold-off.
     this.lastError = null; this.diagnostic = null;
+    if (this.deliveryNotice !== "RESULT_DELIVERY_PENDING") this.deliveryNotice = null;
     void this.report();
   }
 
@@ -213,7 +237,7 @@ export class AgySession {
         break;
       }
       case "PROVIDER_REFUSAL":
-        if (error.diagnostic?.reason !== "TOOL_DENIED") this.holdOff = { until: now + REFUSAL_HOLD_MS, state: "RATE_LIMITED", reason: "PROVIDER_REFUSAL" };
+        this.holdOff = { until: now + REFUSAL_HOLD_MS, state: "RATE_LIMITED", reason: "PROVIDER_REFUSAL" };
         break;
       case "PROVIDER_UNAVAILABLE":
       case "CLI_UNAVAILABLE":
@@ -224,7 +248,18 @@ export class AgySession {
     void this.report();
   }
 
-  noteDeliveryProblem(code: string | null): void { if (code) this.lastError = code; }
+  /** `null` means every pending result was delivered, so the "delivery pending" notice must not stay on screen. */
+  noteDeliveryProblem(code: string | null): void {
+    if (code) this.deliveryNotice = code;
+    else if (this.deliveryNotice === "RESULT_DELIVERY_PENDING") this.deliveryNotice = null;
+  }
+
+  /** The backend refused this Desktop's credential slot: forget it so the next claim registers a fresh one. */
+  async credentialRejected(): Promise<void> {
+    this.registering = null;
+    this.lastReported = "";
+    if (this.stored) { this.stored.credentialRef = null; await this.persist().catch(() => undefined); }
+  }
 
   // ---- backend slot -------------------------------------------------------------------------------------------
 
@@ -286,7 +321,14 @@ export class AgySession {
   }
 
   /** Mirrors connection and quota to the backend so it can stop assigning work while the session is unusable. */
-  private async report(force = false): Promise<void> {
+  private report(force = false): Promise<void> {
+    const run = this.reporting.then(() => this.sendObservation(force));
+    this.reporting = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Runs strictly after earlier reports and re-reads the current state, so a stale body is never sent late. */
+  private async sendObservation(force: boolean): Promise<void> {
     const credentialRef = this.stored?.credentialRef;
     if (!credentialRef) return;
     const quota = this.quota();

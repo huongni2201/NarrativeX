@@ -28,7 +28,7 @@ class ChapterAnalysisProfileContractTest {
     assertEquals(contract.schemaHash(), reloaded.schemaHash());
     assertEquals(64, contract.promptHash().length());
     assertEquals(64, contract.schemaHash().length());
-    assertTrue(contract.systemInstruction("1.1", "1.1").contains("promptVersion=1.1"));
+    assertTrue(contract.systemInstruction("1.2", "1.2").contains("promptVersion=1.2"));
 
     var jsonSchema = contract.responseSchema();
     assertEquals("object", jsonSchema.path("type").asText());

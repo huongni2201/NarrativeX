@@ -91,10 +91,7 @@ public class VisualBeatPromptContextAdapter implements VisualBeatPromptContext {
           visualBeatId,
           Preparation.ready(
               new PreparedVisualBeatPrompt(
-                  beat.getId(),
-                  beat.getSceneId(),
-                  beat.getRowVersion(),
-                  composed)));
+                  beat.getId(), beat.getSceneId(), beat.getRowVersion(), composed)));
     }
     return Map.copyOf(prepared);
   }

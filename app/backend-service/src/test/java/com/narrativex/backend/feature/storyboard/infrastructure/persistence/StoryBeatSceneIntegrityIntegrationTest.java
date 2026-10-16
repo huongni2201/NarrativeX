@@ -22,23 +22,50 @@ class StoryBeatSceneIntegrityIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void deletingLocationPreservesSceneAndItsProject() {
-    UUID project = jdbcTemplate.queryForObject(
-        "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('Location deletion','DRAFT','vi','vi','RATIO_16_9') RETURNING id", UUID.class);
-    UUID story = jdbcTemplate.queryForObject(
-        "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Story','vi','DRAFT') RETURNING id", UUID.class, project);
-    UUID chapter = jdbcTemplate.queryForObject(
-        "INSERT INTO chapters(story_version_id,order_index,title,source_text,source_hash) VALUES (?,0,'Chapter','Story',repeat('a',64)) RETURNING id", UUID.class, story);
-    UUID revision = jdbcTemplate.queryForObject(
-        "INSERT INTO storyboard_revisions(chapter_id,revision_number,source_hash,source_row_version) VALUES (?,1,repeat('a',64),0) RETURNING id", UUID.class, chapter);
-    UUID location = jdbcTemplate.queryForObject(
-        "INSERT INTO project_locations(project_id,name) VALUES (?,'Courtyard') RETURNING id", UUID.class, project);
-    UUID scene = jdbcTemplate.queryForObject(
-        "INSERT INTO scenes(chapter_id,storyboard_revision_id,project_id,project_location_id,order_index,title,location_text) VALUES (?,?,?,?,0,'Scene','Courtyard') RETURNING id", UUID.class, chapter, revision, project, location);
+    UUID project =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('Location deletion','DRAFT','vi','vi','RATIO_16_9') RETURNING id",
+            UUID.class);
+    UUID story =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,'Story','vi','DRAFT') RETURNING id",
+            UUID.class,
+            project);
+    UUID chapter =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO chapters(story_version_id,order_index,title,source_text,source_hash) VALUES (?,0,'Chapter','Story',repeat('a',64)) RETURNING id",
+            UUID.class,
+            story);
+    UUID revision =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO storyboard_revisions(chapter_id,revision_number,source_hash,source_row_version) VALUES (?,1,repeat('a',64),0) RETURNING id",
+            UUID.class,
+            chapter);
+    UUID location =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO project_locations(project_id,name) VALUES (?,'Courtyard') RETURNING id",
+            UUID.class,
+            project);
+    UUID scene =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO scenes(chapter_id,storyboard_revision_id,project_id,project_location_id,order_index,title,location_text) VALUES (?,?,?,?,0,'Scene','Courtyard') RETURNING id",
+            UUID.class,
+            chapter,
+            revision,
+            project,
+            location);
 
     assertEquals(1, jdbcTemplate.update("DELETE FROM project_locations WHERE id=?", location));
-    assertEquals(project, jdbcTemplate.queryForObject("SELECT project_id FROM scenes WHERE id=?", UUID.class, scene));
-    assertNull(jdbcTemplate.queryForObject("SELECT project_location_id FROM scenes WHERE id=?", UUID.class, scene));
-    assertEquals("Courtyard", jdbcTemplate.queryForObject("SELECT location_text FROM scenes WHERE id=?", String.class, scene));
+    assertEquals(
+        project,
+        jdbcTemplate.queryForObject("SELECT project_id FROM scenes WHERE id=?", UUID.class, scene));
+    assertNull(
+        jdbcTemplate.queryForObject(
+            "SELECT project_location_id FROM scenes WHERE id=?", UUID.class, scene));
+    assertEquals(
+        "Courtyard",
+        jdbcTemplate.queryForObject(
+            "SELECT location_text FROM scenes WHERE id=?", String.class, scene));
   }
 
   @Test

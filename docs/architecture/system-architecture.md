@@ -38,6 +38,8 @@ Redis and browser-based editors are removed.
 
 Owns presentation only: screens/routes, React Query caching, editor/timeline draft states, preview interactions, and explicit typed preload calls. It never touches native filesystem/process primitives, credentials, FFmpeg, or durable business policies.
 
+The project [audio workspace](desktop-audio-workspace.md) separates character voice configuration, chapter narration and the voice library from Canon. Character voice versions and the pinned voice remain backend-owned; renderer navigation and form drafts remain local UI state.
+
 ### Preload Bridge
 
 Exposes narrow, task-specific IPC channels. Arbitrary Node.js APIs, filesystem handles, and environment variables are strictly blocked.
@@ -72,6 +74,8 @@ Modular monolith structured around domain boundaries:
 - `runtime configuration`: Target endpoints, capability limits, and operational settings.
 
 Per ADR-0001, caller identity is not threaded through business logic. The backend does not persist absolute machine paths or media bytes in PostgreSQL. It may issue short-lived opaque local-media capabilities for authorized Desktop transfer.
+
+IMPLEMENTED: Generation SSE send failures remove only the affected subscriber. Spring and the servlet container own request completion after a send error; the application does not call `completeWithError()` again. A disconnected client does not interrupt heartbeat or update delivery to other subscribers, or change durable job state.
 
 ### Generation Service (`app/generation-service`)
 

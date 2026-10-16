@@ -73,6 +73,16 @@ async function listAll(projectId: string): Promise<DesktopCharacter[]> {
 }
 
 export const charactersApi = {
+  voiceProfiles: (characterId: string) =>
+    apiRequest<import("../../../../shared/api-types/character").DesktopCharacterVoiceProfiles>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}/voice-profiles`,
+    ),
+
+  createVoiceProfile: (characterId: string, input: import("../../../../shared/api-types/character").CreateCharacterVoiceProfileInput) =>
+    apiRequest<import("../../../../shared/api-types/character").DesktopCharacterVoiceProfile>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}/voice-profiles`,
+      { method: "POST", body: JSON.stringify(input) },
+    ),
   list: listPage,
   listAll,
 

@@ -5,9 +5,11 @@ import type {
   DesktopVoice,
   VoiceReferenceInput,
 } from "../../../../shared/api-types";
-import { MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
+import { AudioLines, MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toErrorMessage } from "@/lib/errors";
 import { isActiveGenerationJobStatus } from "../../generation/generation-status";
 import { useGenerationJob } from "../../generation/queries/generation.queries";
@@ -19,7 +21,6 @@ import {
 import { EmptyState } from "../../workspace/components/FeaturePage";
 import { VoiceCard } from "../components/VoiceCard";
 import { VoiceFiltersBar, type VoiceViewMode } from "../components/VoiceFiltersBar";
-import { VoiceLibraryRail } from "../components/VoiceLibraryRail";
 import { VoiceWorkspaceContext } from "../components/VoiceWorkspaceContext";
 import {
   filterVoices,
@@ -46,11 +47,13 @@ export function VoiceScreen({
   chapters,
   voices,
   assets,
+  section = "library",
 }: Readonly<{
   projectId: string;
   chapters: DesktopChapterDetails[];
   voices: DesktopVoice[];
   assets: DesktopAsset[];
+  section?: "library" | "narration";
 }>) {
   const generate = useGenerateNarration();
   const generateBatch = useGenerateBatchNarration();
@@ -363,20 +366,18 @@ export function VoiceScreen({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(176px,.85fr)_minmax(0,4fr)_minmax(250px,1.45fr)] bg-[radial-gradient(circle_at_50%_0%,var(--voice-glow),transparent_44%)]">
-      <VoiceLibraryRail />
-
+    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(280px,340px)] bg-background">
       <main className="min-w-0 overflow-hidden border-x border-border">
         <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
           <header className="border-b border-border bg-[var(--voice-header)] px-5 py-4">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="min-w-0">
                 <span className="text-caption font-bold text-text-muted">
-                  Library / Voice &amp; TTS
+                  Âm thanh
                 </span>
-                <h1 className="mt-1 text-[20px] font-semibold ">Voice &amp; TTS</h1>
+                <h1 className="mt-1 text-[20px] font-semibold">{section === "library" ? "Thư viện giọng" : "Lời kể theo chương"}</h1>
                 <p className="mt-1 text-caption text-text-secondary">
-                  Project voice lưu cục bộ theo dự án; reusable voice lưu trong thư viện dùng chung cho toàn bộ dự án.
+                  {section === "library" ? "Lọc, nghe thử và chọn giọng. Giọng nhập theo dự án được lưu cục bộ." : "Chọn chương và giọng người kể để tạo âm thanh cho lời kể."}
                 </p>
               </div>
 
@@ -403,7 +404,7 @@ export function VoiceScreen({
             </div>
           </header>
 
-          <VoiceFiltersBar
+          {section === "library" ? <VoiceFiltersBar
             query={query}
             language={language}
             gender={gender}
@@ -422,9 +423,33 @@ export function VoiceScreen({
             onTagChange={setTag}
             onSortChange={setSortMode}
             onViewModeChange={setViewMode}
-          />
+          /> : <div className="border-b border-border-subtle px-5 py-3 text-body text-text-secondary">{chapters.length} chương trong dự án</div>}
 
           <div className="min-h-0 overflow-auto px-5 py-3">
+            {section === "narration" ? <div className="mx-auto max-w-2xl space-y-5 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-2 text-body text-text-secondary">Chương đọc
+                  <Select value={chapterId || undefined} onValueChange={setChapterId}><SelectTrigger aria-label="Chương đọc"><SelectValue placeholder="Chọn chương" /></SelectTrigger>
+                    <SelectContent>{chapters.map(chapter => <SelectItem key={chapter.id} value={chapter.id}>{chapter.title}</SelectItem>)}</SelectContent>
+                  </Select>
+                </label>
+                <label className="grid gap-2 text-body text-text-secondary">Giọng người kể
+                  <Select value={voiceId || undefined} onValueChange={setVoiceId}><SelectTrigger aria-label="Giọng người kể"><SelectValue placeholder="Chọn giọng" /></SelectTrigger>
+                    <SelectContent>{voices.map(voice => <SelectItem key={voice.id} value={voice.id}>{voice.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </label>
+              </div>
+              <label className="grid max-w-xs gap-2 text-body text-text-secondary">Tốc độ đọc
+                <Input type="number" min="0.25" max="2" step="0.1" value={speakingRate} onChange={event => setSpeakingRate(event.target.value)} />
+              </label>
+              <p className="text-body text-text-muted">{voiceReferenceName ? `Giọng tham chiếu: ${voiceReferenceName}` : "Đang dùng giọng có sẵn. Bạn có thể chọn giọng tham chiếu ở khung bên phải."}</p>
+              {!chapters.length && <EmptyState title="Chưa có chương" description="Thêm chương và duyệt kịch bản trước khi tạo lời kể." />}
+              {!voices.length && <p role="status" className="text-body text-warning">Chưa có giọng người kể trong thư viện.</p>}
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => void runSingle()} disabled={!chapterId || !voiceId || busy}><AudioLines size={16} />Tạo lời kể</Button>
+                <Button variant="outline" onClick={() => void runBatch()} disabled={!chapters.length || !voiceId || busy}>Tạo lời kể cho tất cả chương</Button>
+              </div>
+            </div> : <>
             <div className="mb-2 flex items-center justify-between gap-3 text-caption text-text-muted">
               <span>{filteredVoices.length} voice hiển thị</span>
               <span className="inline-flex items-center gap-1">
@@ -460,22 +485,24 @@ export function VoiceScreen({
               />
             )}
 
+            </>}
             {notice && (
               <p className="mt-3 rounded-md border border-border bg-surface-input px-3 py-2 text-caption text-text-secondary" role="status">
                 {notice}
               </p>
             )}
 
-            <div className="flex items-center justify-center gap-2 py-6 text-caption text-text-secondary">
+            {section === "library" && <div className="flex items-center justify-center gap-2 py-6 text-caption text-text-secondary">
               <span>{filteredVoices.length} voice trong thư viện</span>
               <span className="text-text-dim">·</span>
               <span>Danh sách được tải từ backend</span>
-            </div>
+            </div>}
           </div>
         </div>
       </main>
 
       <VoiceWorkspaceContext
+        section={section}
         selectedVoice={selectedVoice}
         chapters={chapters}
         chapterId={chapterId}

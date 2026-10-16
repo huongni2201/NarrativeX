@@ -96,9 +96,8 @@ class VisualBeatSourceAnchorPersistenceIntegrationTest
   @DisplayName("Persists and retrieves visual beat source anchor fields in PostgreSQL")
   void persistsAndRetrievesSourceAnchorFields() throws Exception {
     String sourceText = "Once upon a time in a faraway realm, an ancient hero arose.";
-    String anchor = "faraway realm";
     var resolved =
-        sourceAnchorResolver.resolveAll(sourceText, "a".repeat(64), List.of(anchor)).get(0);
+        sourceAnchorResolver.range(sourceAnchorResolver.units(sourceText, "a".repeat(64)), 0, 0);
 
     Instant now = Instant.now();
     VisualBeatRow row = new VisualBeatRow();

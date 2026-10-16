@@ -56,9 +56,9 @@ public class GenerationEventStreamService implements GenerationEventStream {
     try {
       emitter.send(
           SseEmitter.event().name("generation.connected").data(Map.of("status", "CONNECTED")));
-    } catch (IOException exception) {
+    } catch (IOException | IllegalStateException exception) {
+      // Spring/Tomcat owns completion after a send failure; redispatch can race with onError.
       remove(emitter);
-      emitter.completeWithError(exception);
     }
     return emitter;
   }
@@ -74,7 +74,6 @@ public class GenerationEventStreamService implements GenerationEventStream {
                 .data(event.response()));
       } catch (IOException | IllegalStateException exception) {
         remove(emitter);
-        emitter.completeWithError(exception);
       }
     }
   }
@@ -85,7 +84,6 @@ public class GenerationEventStreamService implements GenerationEventStream {
         emitter.send(SseEmitter.event().comment("keep-alive"));
       } catch (IOException | IllegalStateException exception) {
         remove(emitter);
-        emitter.completeWithError(exception);
       }
     }
   }

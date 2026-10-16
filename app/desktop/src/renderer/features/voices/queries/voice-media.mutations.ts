@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { CreateCustomVoiceInput } from "../../../../shared/api-types";
 import { assetsApi } from "../../assets/api/assets.api";
+import { voicesApi } from "../api/voices.api";
 import { persistVoiceAudioAsset } from "../model/voice-media-workflow";
 
 export function useImportVoiceAudioAsset(projectId: string) {
@@ -38,5 +40,23 @@ export function useUploadVoiceReference() {
         queryClient.invalidateQueries({ queryKey: ["voice-references"] }),
       ]);
     },
+  });
+}
+
+export function useCreateCustomVoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateCustomVoiceInput) => voicesApi.createCustom(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["voices"] }),
+  });
+}
+
+export function useDeleteCustomVoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (voiceId: string) => voicesApi.deleteCustom(voiceId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["voices"] }),
   });
 }

@@ -12,7 +12,15 @@ import {
 } from "lucide-react";
 import type { DesktopJobHistoryItem } from "../../../../shared/api-types";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
+import { describeLocalRun, isLocalAnalysisRunning, type LocalRunIndicator } from "../model/analysis-run";
 import { useJobHistoryQuery } from "../queries/jobs.queries";
+import { useAnalysisActivity, useNow } from "../queries/useAnalysisActivity";
+
+const RUN_TONE_CLASS: Record<LocalRunIndicator["tone"], string> = {
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-destructive",
+};
 
 export interface JobsScreenProps {
   projectId: string;
@@ -25,6 +33,10 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
 
   const { data: page, isLoading, isError, refetch } = useJobHistoryQuery(projectId, 50);
   const jobs: DesktopJobHistoryItem[] = page?.content ?? [];
+
+  const watchingAnalysis = jobs.some(isLocalAnalysisRunning);
+  const { data: activity } = useAnalysisActivity(watchingAnalysis);
+  const now = useNow(watchingAnalysis);
 
   const filteredJobs = jobs.filter((job) => {
     if (filter === "ALL") return true;
@@ -109,6 +121,7 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
             {filteredJobs.map((job) => {
               const isExpanded = expandedJobId === job.jobId;
               const formattedDate = new Date(job.createdAt).toLocaleString();
+              const indicator = describeLocalRun(job, activity, now);
 
               return (
                 <div
@@ -138,6 +151,15 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
                           {job.currentStep && <span>•</span>}
                           <span>Thời gian: {formattedDate}</span>
                         </div>
+                        {indicator && (
+                          <div
+                            role="status"
+                            className={`mt-1 flex items-center gap-1.5 text-label font-medium ${RUN_TONE_CLASS[indicator.tone]}`}
+                          >
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+                            <span>{indicator.text}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

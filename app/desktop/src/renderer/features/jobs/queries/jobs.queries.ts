@@ -19,7 +19,9 @@ export function useJobHistoryQuery(projectId?: string, limit = 50) {
   return useQuery<DesktopJobHistoryPage>({
     queryKey: jobQueryKeys.history(projectId, limit),
     queryFn: () => jobsApi.getJobHistory(limit, undefined, projectId),
-    refetchInterval: 10_000,
+    // Faster while something runs, so a progress bar moves instead of jumping every 10 s.
+    refetchInterval: (query) =>
+      query.state.data?.content.some((job) => job.status === "RUNNING") ? 3_000 : 10_000,
     staleTime: 5_000,
   });
 }

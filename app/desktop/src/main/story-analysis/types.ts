@@ -5,7 +5,8 @@ export interface AnalysisClaim {
   projectId: string;
   attemptId: string;
   leaseToken: string;
-  sourceText: string;
+  /** The chapter as numbered pieces; the model names positions by `index` instead of copying text. */
+  sourceUnits: Array<{ index: number; text: string }>;
   sourceLanguage: string;
   promptTemplate: string;
   responseSchema: Record<string, unknown>;
@@ -26,6 +27,9 @@ export interface AnalysisCompletion {
   };
 }
 
+/** A finding of the backend's check of a result: an ERROR blocks it, a WARNING is only worth improving. */
+export interface Violation { severity: "ERROR" | "WARNING"; path: string; message: string }
+
 /** `ambiguous` means the provider may have executed the request; it is never resubmitted. */
 export class AnalysisError extends Error {
   constructor(readonly code: string, readonly ambiguous: boolean, readonly retryAfterMs: number | null = null,
@@ -38,5 +42,5 @@ export class AnalysisBackendError extends Error {
   constructor(readonly status: number) { super(`Analysis backend returned ${status}`); }
 }
 
-/** Adapter revision recorded in provenance. Bump when the CLI invocation or envelope mapping changes. */
-export const ADAPTER_VERSION = "antigravity-cli/1";
+/** Adapter revision recorded in provenance. Bump when the CLI invocation or envelope mapping changes (/2: windowed chapters and one repair turn). */
+export const ADAPTER_VERSION = "antigravity-cli/2";

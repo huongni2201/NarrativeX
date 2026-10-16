@@ -64,6 +64,33 @@ public record ChapterAnalysisExecutionAttempt(
         Instant.now());
   }
 
+  /** Same attempt with a later lease expiry (heartbeat); nothing else changes. */
+  public ChapterAnalysisExecutionAttempt withLease(Instant expiresAt) {
+    return new ChapterAnalysisExecutionAttempt(
+        attemptId,
+        generationJobId,
+        attemptNumber,
+        claimRequestId,
+        deviceId,
+        credentialRef,
+        credentialGeneration,
+        inputFingerprint,
+        checkpoint,
+        leaseTokenHash,
+        expiresAt,
+        fencingToken,
+        lastObservationSequence,
+        submissionIntentId,
+        conversationId,
+        outputHash,
+        completionPayloadHash,
+        terminalReason,
+        slotHeld,
+        rowVersion,
+        createdAt,
+        Instant.now());
+  }
+
   public ChapterAnalysisExecutionAttempt {
     Objects.requireNonNull(attemptId, "attemptId must not be null");
     Objects.requireNonNull(generationJobId, "generationJobId must not be null");

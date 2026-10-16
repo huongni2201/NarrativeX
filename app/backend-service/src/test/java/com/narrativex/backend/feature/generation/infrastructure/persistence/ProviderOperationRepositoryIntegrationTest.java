@@ -180,7 +180,8 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   private ProviderOperation reserve(String suffix) {
-    return repository.save(ProviderOperation.create(insertStageAttempt(), "test-provider", uniqueSha()));
+    return repository.save(
+        ProviderOperation.create(insertStageAttempt(), "test-provider", uniqueSha()));
   }
 
   private ProviderOperation complete(ProviderOperation reserved) {

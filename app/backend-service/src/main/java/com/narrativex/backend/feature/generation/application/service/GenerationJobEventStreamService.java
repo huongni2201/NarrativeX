@@ -150,8 +150,8 @@ public class GenerationJobEventStreamService {
         subscription.emitter().complete();
       }
     } catch (IOException | IllegalStateException exception) {
+      // Spring/Tomcat owns completion after a send failure; redispatch can race with onError.
       remove(jobId, subscription);
-      subscription.emitter().completeWithError(exception);
     }
   }
 
@@ -161,7 +161,6 @@ public class GenerationJobEventStreamService {
       subscription.markHeartbeat();
     } catch (IOException | IllegalStateException exception) {
       remove(jobId, subscription);
-      subscription.emitter().completeWithError(exception);
     }
   }
 

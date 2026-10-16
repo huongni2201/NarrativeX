@@ -3,8 +3,8 @@ package com.narrativex.backend.feature.generation.api.controller;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisRuntimeConfiguration;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
+import com.narrativex.backend.feature.generation.application.port.in.LocalChapterAnalysis;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
-import com.narrativex.backend.feature.generation.infrastructure.analysis.local.LocalChapterAnalysisService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.Instant;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 public class StoryAnalysisRuntimeController {
-  private final LocalChapterAnalysisService service;
+  private final LocalChapterAnalysis service;
   private static final String ROOT = "/api/v1/local-devices/chapter-analyses";
   private static final String CREDENTIALS = "/api/v1/local-devices/analysis-credentials";
 
@@ -46,9 +46,7 @@ public class StoryAnalysisRuntimeController {
             r.models() == null ? List.of() : r.models());
     return ApiResponse.success(
         "Analysis credential registered",
-        new CredentialRegistration(
-            credential.credentialRef(),
-            credential.credentialGeneration()));
+        new CredentialRegistration(credential.credentialRef(), credential.credentialGeneration()));
   }
 
   @PostMapping(CREDENTIALS + "/{credentialRef}/observation")
@@ -62,7 +60,7 @@ public class StoryAnalysisRuntimeController {
   }
 
   @PostMapping(ROOT + "/claim")
-  public ResponseEntity<ApiResponse<LocalChapterAnalysisService.Claim>> claim(
+  public ResponseEntity<ApiResponse<LocalChapterAnalysis.Claim>> claim(
       @RequestHeader("X-NX-Device-Token") String device, @Valid @RequestBody ClaimRequest request) {
     var claim =
         service.claim(
@@ -80,9 +78,25 @@ public class StoryAnalysisRuntimeController {
     service.complete(
         device,
         attemptId,
-        new LocalChapterAnalysisService.Completion(
+        new LocalChapterAnalysis.Completion(
             r.leaseToken(), r.rawJson(), r.usage(), r.adapterVersion(), r.conversationId()));
     return ApiResponse.success("Analysis result accepted");
+  }
+
+  @PostMapping(ROOT + "/{attemptId}/validation")
+  public ApiResponse<List<LocalChapterAnalysis.Violation>> validate(
+      @RequestHeader("X-NX-Device-Token") String device,
+      @PathVariable UUID attemptId,
+      @Valid @RequestBody ValidationRequest r) {
+    return ApiResponse.success(
+        "Analysis result checked",
+        service.validate(
+            device,
+            attemptId,
+            r.leaseToken(),
+            r.rawJson(),
+            r.windowFirst() == null ? -1 : r.windowFirst(),
+            r.windowLast() == null ? -1 : r.windowLast()));
   }
 
   @PostMapping(ROOT + "/{attemptId}/observation")
@@ -92,6 +106,15 @@ public class StoryAnalysisRuntimeController {
       @Valid @RequestBody Observation r) {
     service.report(device, attemptId, r.leaseToken(), r.code(), r.ambiguous());
     return ApiResponse.success("Analysis observation accepted");
+  }
+
+  @PostMapping(ROOT + "/{attemptId}/progress")
+  public ApiResponse<Void> progress(
+      @RequestHeader("X-NX-Device-Token") String device,
+      @PathVariable UUID attemptId,
+      @Valid @RequestBody Progress r) {
+    service.progress(device, attemptId, r.leaseToken(), r.progress());
+    return ApiResponse.success("Analysis progress accepted");
   }
 
   @PostMapping(ROOT + "/recover")
@@ -123,8 +146,7 @@ public class StoryAnalysisRuntimeController {
       @NotBlank @Size(max = 64) String adapterVersion,
       @Size(max = 32) List<@Size(max = 128) String> models) {}
 
-  public record CredentialRegistration(
-      UUID credentialRef, int credentialGeneration) {}
+  public record CredentialRegistration(UUID credentialRef, int credentialGeneration) {}
 
   public record CredentialObservation(
       @NotBlank @Pattern(regexp = "UNKNOWN|CONNECTED|AUTH_REQUIRED|UNAVAILABLE")
@@ -139,12 +161,21 @@ public class StoryAnalysisRuntimeController {
 
   public record Lease(@NotBlank @Size(max = 128) String leaseToken) {}
 
+  public record Progress(
+      @NotBlank @Size(max = 128) String leaseToken, @Min(0) @Max(99) int progress) {}
+
   public record Recovery(@NotNull UUID claimRequestId) {}
 
   public record Observation(
       @NotBlank @Size(max = 128) String leaseToken,
       @NotBlank @Pattern(regexp = "[A-Z_]{1,80}") String code,
       boolean ambiguous) {}
+
+  public record ValidationRequest(
+      @NotBlank @Size(max = 128) String leaseToken,
+      @NotBlank @Size(max = 4194304) String rawJson,
+      @Min(-1) Integer windowFirst,
+      @Min(-1) Integer windowLast) {}
 
   public record CompleteRequest(
       @NotBlank @Size(max = 128) String leaseToken,

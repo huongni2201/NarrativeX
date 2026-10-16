@@ -1,6 +1,7 @@
 export type ActivityId =
   | "chapters"
   | "canon"
+  | "audio"
   | "editor"
   | "assets"
   | "jobs"
@@ -12,6 +13,8 @@ const workspaceSegments: ReadonlyArray<readonly [string, ActivityId]> = [
   ["editor", "editor"],
   ["chapters", "chapters"],
   ["canon", "canon"],
+  ["audio", "audio"],
+  ["voices", "audio"],
   ["assets", "assets"],
   ["jobs", "jobs"],
   ["render", "render"],

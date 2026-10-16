@@ -10,6 +10,8 @@ public interface NarrationMapper extends NarrativeXMyBatisMapper {
   NarrationRequestRow findRequestByFingerprint(
       @Param("requestFingerprint") String requestFingerprint);
 
+  NarrationRequestRow findRequestByGenerationJobId(@Param("generationJobId") UUID generationJobId);
+
   int insertOperation(NarrationOperationRow row);
 
   VoicePreviewResultRow findCompletedVoicePreview(

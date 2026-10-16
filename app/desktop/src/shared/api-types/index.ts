@@ -11,6 +11,7 @@ export type {
 } from "./character";
 export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, RegisterLocalAssetRequest } from "./asset";
 export type {
+  CreateCustomVoiceInput,
   DesktopVoice,
   GenerateBatchNarrationInput,
   GenerateNarrationInput,

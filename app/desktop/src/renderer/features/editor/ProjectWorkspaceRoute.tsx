@@ -11,6 +11,7 @@ import { WorkspaceShell } from "../workspace/components/WorkspaceShell";
 import { useProjectWorkspace } from "../workspace/queries/useProjectWorkspace";
 import { screenFromWorkspacePath } from "../workspace/workspace-navigation";
 import { EditorScreen } from "./EditorScreen";
+import { AudioWorkspaceScreen } from "../voices/screens/AudioWorkspaceScreen";
 
 export function ProjectWorkspaceRoute() {
   const location = useLocation();
@@ -34,6 +35,10 @@ export function ProjectWorkspaceRoute() {
   if (!projectId) return <Navigate to="/projects" replace />;
 
   const searchParams = new URLSearchParams(location.search);
+  if (location.pathname.endsWith("/voices") || (screen === "canon" && searchParams.get("tab") === "voices")) {
+    searchParams.set("tab", "library");
+    return <Navigate to={`/projects/${projectId}/audio?${searchParams.toString()}`} replace />;
+  }
   const queryStage = searchParams.get("stage") as "source" | "canon" | "story" | "production" | null;
   const initialStage = queryStage ?? (location.pathname.includes("/story") ? "story" : "source");
 
@@ -51,6 +56,7 @@ export function ProjectWorkspaceRoute() {
       {screen === "canon" && (
         <ProjectCanonScreen projectId={projectId} workspace={workspace} />
       )}
+      {screen === "audio" && <AudioWorkspaceScreen projectId={projectId} workspace={workspace} />}
       {screen === "editor" && (
         <EditorScreen workspace={workspace} renderController={renderController} />
       )}

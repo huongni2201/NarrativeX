@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
@@ -46,7 +47,18 @@ public class MyBatisCatalogQueryAdapter implements CatalogQueryRepository, Voice
                     row.isSupportsVoiceClone(),
                     row.isSupportsBatch(),
                     row.getSampleRateHz(),
-                    row.getExecutionSemantics()));
+                    row.getExecutionSemantics(),
+                    row.getProviderVoice(),
+                    parseUuid(row.getReferenceAssetId())));
+  }
+
+  private static UUID parseUuid(String value) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      return UUID.fromString(value);
+    } catch (IllegalArgumentException ignored) {
+      return null;
+    }
   }
 
   private StylePresetView toStylePreset(StylePresetRow row) {

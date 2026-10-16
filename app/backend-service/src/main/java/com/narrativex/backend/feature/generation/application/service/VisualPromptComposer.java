@@ -23,14 +23,16 @@ import tools.jackson.databind.ObjectMapper;
  * Sole backend owner of the exact still-image prompt sent to image providers.
  *
  * <p>Story semantics and structured shot direction are authored upstream. This composer only
- * combines them with canonical character and location context, references and rendering language. Desktop
- * and provider adapters must submit this output verbatim rather than wrapping or re-authoring it.
+ * combines them with canonical character and location context, references and rendering language.
+ * Desktop and provider adapters must submit this output verbatim rather than wrapping or
+ * re-authoring it.
  */
 @Component
 public final class VisualPromptComposer {
   static final int MAX_REFERENCE_IMAGES = 3;
 
   private final ObjectMapper objectMapper;
+
   public VisualPromptComposer(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
   }

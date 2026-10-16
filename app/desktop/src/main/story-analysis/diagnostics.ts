@@ -4,14 +4,14 @@ import { dirname } from "node:path";
 const MAX_ENTRIES = 20;
 const MAX_EXCERPT = 2048;
 
-/** Masks e-mail addresses, bearer/OAuth tokens and long opaque strings before anything touches disk. */
+/** Masks e-mail addresses, bearer/OAuth tokens and long opaque strings before anything touches disk. Keeps the tail, where CLI errors end up. */
 export function redact(text: string): string {
   return text
     .replace(/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+)/gu, "$1***@$2")
     .replace(/(ya29\.|1\/\/)[A-Za-z0-9_\-.]+/gu, "<token>")
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/giu, "Bearer <token>")
     .replace(/[A-Za-z0-9_-]{60,}/gu, "<long>")
-    .slice(0, MAX_EXCERPT);
+    .slice(-MAX_EXCERPT);
 }
 
 export interface DiagnosticEntry { at: string; code: string; exitCode: number | null; reason: string | null; excerpt: string }

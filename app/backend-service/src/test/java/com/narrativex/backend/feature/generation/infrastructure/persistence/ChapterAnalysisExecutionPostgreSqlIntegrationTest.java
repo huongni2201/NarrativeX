@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Chap
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisExecutionStore;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisAttemptCheckpoint;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisExecutionMapper;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -22,6 +23,7 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,6 +31,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -59,6 +62,58 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
 
   @Autowired private JdbcTemplate jdbc;
   @Autowired private ChapterAnalysisExecutionStore store;
+  @Autowired private ChapterAnalysisExecutionMapper mapper;
+  @Autowired private SqlSessionTemplate sqlSession;
+
+  @Test
+  @Transactional
+  void archivedProjectsDoNotBlockTheLocalAnalysisQueue() {
+    UUID previouslyQueued = mapper.findNextQueuedLocalJob();
+    queuedAnalysis(true, "2000-01-01T00:00:00Z");
+    UUID activeJob = queuedAnalysis(false, "2001-01-01T00:00:00Z");
+
+    assertEquals(activeJob, mapper.findNextQueuedLocalJob());
+    jdbc.update(
+        "UPDATE projects SET archived_at = CURRENT_TIMESTAMP WHERE id = "
+            + "(SELECT project_id FROM generation_jobs WHERE job_id = ?)",
+        activeJob);
+    sqlSession.clearCache();
+    assertEquals(previouslyQueued, mapper.findNextQueuedLocalJob());
+  }
+
+  private UUID queuedAnalysis(boolean archived, String createdAt) {
+    UUID projectId = UuidV7.random();
+    jdbc.update(
+        "INSERT INTO projects (id, name, status, source_language, narration_language, image_aspect_ratio, archived_at) "
+            + "VALUES (?, 'Queue regression', 'DRAFT', 'vi', 'vi', '16:9', ?)",
+        projectId,
+        archived ? java.sql.Timestamp.from(Instant.now()) : null);
+    UUID jobId = UuidV7.random();
+    UUID internalId =
+        jdbc.queryForObject(
+            "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress, idempotency_key, created_at) "
+                + "VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?) RETURNING id",
+            (result, row) -> result.getObject(1, UUID.class),
+            jobId,
+            projectId,
+            "queue-regression:" + jobId,
+            java.sql.Timestamp.from(Instant.parse(createdAt)));
+    var profile =
+        new ChapterAnalysisExecutionProfile(
+            ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
+            "test-model",
+            "HIGH",
+            "1.1",
+            "a".repeat(64),
+            "1.1",
+            "b".repeat(64));
+    var schema = JsonMapper.builder().build().createObjectNode();
+    schema.put("type", "object");
+    store.saveSnapshot(
+        new ChapterAnalysisExecutionSnapshot(
+            internalId, profile, "Analyze", schema, "c".repeat(64), 1, Instant.now()));
+    return jobId;
+  }
 
   @Test
   void migrationAddsDurableExecutionTablesAndNullableTelemetryWithoutSecrets() throws SQLException {

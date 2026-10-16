@@ -17,6 +17,7 @@ const bridge: NarrativeXDesktopBridge = {
   storyAnalysis: {
     status: () => ipcRenderer.invoke("desktop:story-analysis:status"),
     refresh: () => ipcRenderer.invoke("desktop:story-analysis:refresh"),
+    activity: () => ipcRenderer.invoke("desktop:story-analysis:activity"),
     models: () => ipcRenderer.invoke("desktop:story-analysis:models"),
     openAgy: () => ipcRenderer.invoke("desktop:story-analysis:open-agy"),
     openTerms: () => ipcRenderer.invoke("desktop:story-analysis:open-terms"),

@@ -700,6 +700,19 @@ public final class GenerationJob extends AggregateRoot {
         .build();
   }
 
+  /**
+   * Puts a chapter whose run produced nothing back in the queue (for example while the account is
+   * rate limited).
+   */
+  public GenerationJob markQueued(String step) {
+    return toBuilder()
+        .status(JobStatus.QUEUED)
+        .currentStep(step)
+        .progress(0)
+        .errorCode(null)
+        .build();
+  }
+
   public GenerationJob markCanceled(String errorCode, String step) {
     Instant now = Instant.now();
     return toBuilder()

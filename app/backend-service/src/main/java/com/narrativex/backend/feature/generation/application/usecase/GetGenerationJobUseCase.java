@@ -19,5 +19,4 @@ public class GetGenerationJobUseCase {
         .findByJobId(query.jobId())
         .orElseThrow(() -> new ResourceNotFoundException("Job not found"));
   }
-
 }

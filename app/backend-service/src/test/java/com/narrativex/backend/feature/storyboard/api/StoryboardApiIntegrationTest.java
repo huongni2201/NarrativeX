@@ -360,7 +360,7 @@ class StoryboardApiIntegrationTest {
     mockMvc
         .perform(get("/api/v1/voices?language=vi-VN"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.length()").value(1))
+        .andExpect(jsonPath("$.data.length()").value(26))
         .andExpect(jsonPath("$.data[0].language").value("vi-VN"));
 
     mockMvc

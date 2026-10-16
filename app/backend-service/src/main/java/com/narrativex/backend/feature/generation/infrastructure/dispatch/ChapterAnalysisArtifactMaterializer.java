@@ -3,6 +3,8 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanon;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanonParser;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
+import com.narrativex.backend.feature.storyboard.domain.enums.DramaticIntent;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.AttentionEventRow;
@@ -31,6 +33,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,7 +42,24 @@ import tools.jackson.databind.json.JsonMapper;
  * Validates and materializes the canonical chapter storyboard envelope and retention/shot models.
  */
 public final class ChapterAnalysisArtifactMaterializer {
+  private static final Logger LOG =
+      LoggerFactory.getLogger(ChapterAnalysisArtifactMaterializer.class);
   private static final JsonMapper JSON = JsonMapper.builder().build();
+
+  /**
+   * Characters a visual beat may narrate before it exceeds the 10 s budget (ADR-0006); a warning,
+   * not a rejection.
+   */
+  static final int BEAT_MAX_CHARS = 150;
+
+  /**
+   * Provisional narration speed (about 14 characters per second); real timing comes from TTS
+   * alignment.
+   */
+  private static final long MS_PER_CHAR = 70;
+
+  private static final long MIN_SHOT_MS = 2_000;
+  private static final long MAX_SHOT_MS = 10_000;
   private static final List<String> REQUIRED_DIRECTION_FIELDS =
       List.of(
           "shot_size",
@@ -148,68 +169,53 @@ public final class ChapterAnalysisArtifactMaterializer {
 
     Instant now = Instant.now();
 
-    // Pass 1: Pre-validate all scenes, directions, and collect ordered source anchors
-    List<String> orderedAnchors = new ArrayList<>();
+    // Pass 1: Pre-validate all scenes, directions, and collect the ordered start units of the beats
+    List<Integer> startUnits = new ArrayList<>();
     for (int sceneIndex = 0; sceneIndex < scenes.size(); sceneIndex++) {
       JsonNode scene = object(scenes.get(sceneIndex), "scene " + sceneIndex);
       requiredText(scene, "title", "scene " + sceneIndex + " title");
-      JsonNode beats = firstArray(scene, "visual_beats", "visualBeats");
+      JsonNode beats = firstArray(scene, "visual_beats");
       if (beats == null || beats.isEmpty()) {
         throw invalid("scene " + sceneIndex + " must contain visual beats");
       }
       for (int beatIndex = 0; beatIndex < beats.size(); beatIndex++) {
         JsonNode beat = object(beats.get(beatIndex), "scene " + sceneIndex + " beat " + beatIndex);
-        requiredText(beat, "title", "visual beat title");
-        requiredText(beat, "visual_intent", "visual beat visual_intent");
-        String anchor =
-            requiredText(
-                beat,
-                "source_anchor",
-                "scene " + sceneIndex + " beat " + beatIndex + " source_anchor");
-        orderedAnchors.add(anchor);
-        JsonNode direction = firstObject(beat, "visual_direction", "visualDirection");
-        if (direction == null) {
-          throw invalid("visual beat is missing visual_direction");
-        }
-        for (String field : REQUIRED_DIRECTION_FIELDS) {
-          requiredValue(direction, field, "visual_direction." + field);
-        }
+        startUnits.add(validateBeat(beat, "scene " + sceneIndex + " beat " + beatIndex));
       }
     }
 
-    // Deterministically resolve all anchors before performing any database writes
-    List<
-            com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
-                .ResolvedSourceAnchor>
-        resolvedAnchors =
-            sourceAnchorResolver.resolveAll(
-                job.getSourceText(), job.getSourceHash(), orderedAnchors);
+    // Deterministically resolve all unit references before performing any database writes
+    SourceAnchorResolver.SourceUnits sourceUnits =
+        sourceAnchorResolver.units(job.getSourceText(), job.getSourceHash());
+    List<SourceAnchorResolver.ResolvedSourceAnchor> resolvedAnchors =
+        sourceAnchorResolver.resolveBeats(sourceUnits, startUnits);
 
     ChapterCanon parsedCanon = parseCanon(root.get("canon"));
     List<List<PreparedAudioCue>> audioPlans = new ArrayList<>();
     int audioBeatIndex = 0;
     for (JsonNode scene : scenes) {
-      for (JsonNode beat : firstArray(scene, "visual_beats", "visualBeats")) {
+      for (JsonNode beat : firstArray(scene, "visual_beats")) {
+        var beatAnchor = resolvedAnchors.get(audioBeatIndex++);
         audioPlans.add(
-            prepareAudioCues(job, beat, resolvedAnchors.get(audioBeatIndex++), parsedCanon));
+            fillNarrationGaps(
+                sourceUnits,
+                beatAnchor,
+                prepareAudioCues(sourceUnits, beat, beatAnchor, parsedCanon)));
       }
     }
 
     // Materialize Hook Plan if present
-    if (hookPlanMapper != null && (root.has("hook_plan") || root.has("hookPlan"))) {
-      JsonNode hookNode = root.has("hook_plan") ? root.get("hook_plan") : root.get("hookPlan");
+    if (hookPlanMapper != null && root.has("hook_plan")) {
+      JsonNode hookNode = root.get("hook_plan");
       if (hookNode != null && hookNode.isObject()) {
         HookPlanRow hookRow = new HookPlanRow();
         hookRow.setChapterId(job.getChapterId());
         hookRow.setPromise(text(hookNode, "promise", ""));
         hookRow.setConflict(text(hookNode, "conflict", ""));
-        hookRow.setCuriosityQuestion(
-            text(hookNode, "curiosity_question", text(hookNode, "curiosityQuestion", "")));
-        hookRow.setVisualHook(text(hookNode, "visual_hook", text(hookNode, "visualHook", "")));
-        hookRow.setDialogueHook(
-            text(hookNode, "dialogue_hook", text(hookNode, "dialogueHook", "")));
-        hookRow.setWithheldInformation(
-            text(hookNode, "withheld_information", text(hookNode, "withheldInformation", "")));
+        hookRow.setCuriosityQuestion(text(hookNode, "curiosity_question", ""));
+        hookRow.setVisualHook(text(hookNode, "visual_hook", ""));
+        hookRow.setDialogueHook(text(hookNode, "dialogue_hook", ""));
+        hookRow.setWithheldInformation(text(hookNode, "withheld_information", ""));
         hookRow.setCreatedAt(now);
         hookRow.setUpdatedAt(now);
         hookPlanMapper.insert(hookRow);
@@ -217,48 +223,35 @@ public final class ChapterAnalysisArtifactMaterializer {
     }
 
     // Materialize Retention Map and Attention Events if present
-    if (retentionMapMapper != null && (root.has("retention_map") || root.has("retentionMap"))) {
-      JsonNode retNode =
-          root.has("retention_map") ? root.get("retention_map") : root.get("retentionMap");
+    if (retentionMapMapper != null && root.has("retention_map")) {
+      JsonNode retNode = root.get("retention_map");
       if (retNode != null && retNode.isObject()) {
         RetentionMapRow retRow = new RetentionMapRow();
         retRow.setChapterId(job.getChapterId());
         retRow.setTensionCurveJson(
-            retNode.has("tension_curve")
-                ? retNode.get("tension_curve").toString()
-                : (retNode.has("tensionCurve") ? retNode.get("tensionCurve").toString() : "[]"));
+            retNode.has("tension_curve") ? retNode.get("tension_curve").toString() : "[]");
         retRow.setOpenQuestionsJson(
-            retNode.has("open_questions")
-                ? retNode.get("open_questions").toString()
-                : (retNode.has("openQuestions") ? retNode.get("openQuestions").toString() : "[]"));
+            retNode.has("open_questions") ? retNode.get("open_questions").toString() : "[]");
         retRow.setResolvedQuestionsJson(
             retNode.has("resolved_questions")
                 ? retNode.get("resolved_questions").toString()
-                : (retNode.has("resolvedQuestions")
-                    ? retNode.get("resolvedQuestions").toString()
-                    : "[]"));
+                : "[]");
         retRow.setPacingWarningsJson(
-            retNode.has("pacing_warnings")
-                ? retNode.get("pacing_warnings").toString()
-                : (retNode.has("pacingWarnings")
-                    ? retNode.get("pacingWarnings").toString()
-                    : "[]"));
+            retNode.has("pacing_warnings") ? retNode.get("pacing_warnings").toString() : "[]");
         retRow.setCreatedAt(now);
         retRow.setUpdatedAt(now);
         UUID mapId = retentionMapMapper.insert(retRow);
 
         if (attentionEventMapper != null) {
-          JsonNode eventsNode = firstArray(retNode, "attention_events", "attentionEvents");
+          JsonNode eventsNode = firstArray(retNode, "attention_events");
           if (eventsNode != null && eventsNode.isArray()) {
             List<AttentionEventRow> eventRows = new ArrayList<>();
             for (JsonNode ev : eventsNode) {
               AttentionEventRow evRow = new AttentionEventRow();
               evRow.setRetentionMapId(mapId);
-              evRow.setEventType(text(ev, "event_type", text(ev, "eventType", "INFO")));
+              evRow.setEventType(text(ev, "event_type", "INFO"));
               evRow.setTimeOffsetMs(
-                  ev.has("time_offset_ms")
-                      ? ev.get("time_offset_ms").asLong(0)
-                      : (ev.has("timeOffsetMs") ? ev.get("timeOffsetMs").asLong(0) : 0L));
+                  ev.has("time_offset_ms") ? ev.get("time_offset_ms").asLong(0) : 0L);
               evRow.setDescription(text(ev, "description", ""));
               evRow.setSeverity(text(ev, "severity", "INFO"));
               evRow.setCreatedAt(now);
@@ -290,7 +283,7 @@ public final class ChapterAnalysisArtifactMaterializer {
       JsonNode scene = scenes.get(sceneIndex);
       String title = requiredText(scene, "title", "scene " + sceneIndex + " title");
       String narration = text(scene, "narration", "");
-      JsonNode beats = firstArray(scene, "visual_beats", "visualBeats");
+      JsonNode beats = firstArray(scene, "visual_beats");
 
       SceneRow sceneRow = new SceneRow();
       sceneRow.setChapterId(job.getChapterId());
@@ -303,7 +296,7 @@ public final class ChapterAnalysisArtifactMaterializer {
       sceneRow.setCreatedAt(now);
       sceneRow.setUpdatedAt(now);
 
-      String locationRef = text(scene, "location", text(scene, "location_ai_name", null));
+      String locationRef = text(scene, "location_ai_name", null);
       if (locationRef != null && !locationRef.isBlank()) {
         sceneRow.setLocationText(locationRef);
         if (reconciled != null) {
@@ -314,18 +307,21 @@ public final class ChapterAnalysisArtifactMaterializer {
 
       // Materialize scene_characters
       if (canonMapper != null && reconciled != null) {
-        JsonNode sceneCharacters =
-            firstArray(scene, "characters", "scene_characters", "character_ai_names");
+        JsonNode sceneCharacters = firstArray(scene, "character_ai_names");
         if (sceneCharacters != null && sceneCharacters.isArray()) {
           int charOrder = 0;
           Set<UUID> addedSceneChars = new HashSet<>();
           for (JsonNode charNode : sceneCharacters) {
             String charRef =
-                charNode.isTextual()
-                    ? charNode.asText()
-                    : text(charNode, "ai_name", text(charNode, "name", null));
+                charNode.isTextual() ? charNode.asText() : text(charNode, "ai_name", null);
             if (charRef != null && !charRef.isBlank()) {
               UUID projectCharId = reconciled.findCharacterId(charRef);
+              if (projectCharId == null) {
+                LOG.warn(
+                    "Scene {} refers to character '{}' that is not in the chapter canon",
+                    sceneIndex,
+                    charRef);
+              }
               if (projectCharId != null && addedSceneChars.add(projectCharId)) {
                 canonMapper.insertSceneCharacter(sceneId, charOrder++, projectCharId);
               }
@@ -336,7 +332,7 @@ public final class ChapterAnalysisArtifactMaterializer {
 
       for (int beatIndex = 0; beatIndex < beats.size(); beatIndex++) {
         JsonNode beat = beats.get(beatIndex);
-        JsonNode direction = firstObject(beat, "visual_direction", "visualDirection");
+        JsonNode direction = firstObject(beat, "visual_direction");
         var resolvedAnchor = resolvedAnchors.get(globalBeatIndex++);
 
         StoryBeatRow storyBeatRow = new StoryBeatRow();
@@ -345,7 +341,7 @@ public final class ChapterAnalysisArtifactMaterializer {
         storyBeatRow.setSourceStart(resolvedAnchor.textStart());
         storyBeatRow.setSourceEnd(resolvedAnchor.textEnd());
         storyBeatRow.setSourceAnchorJson(resolvedAnchor.sourceAnchorJson());
-        storyBeatRow.setPurpose(requiredText(beat, "visual_intent", "visual beat visual_intent"));
+        storyBeatRow.setPurpose(dramaticIntent(beat));
         storyBeatRow.setSummary(requiredText(beat, "title", "visual beat title"));
         storyBeatRow.setImportance(text(beat, "importance", "NORMAL"));
         storyBeatRow.setStoryFunctionsJson("[]");
@@ -386,9 +382,8 @@ public final class ChapterAnalysisArtifactMaterializer {
         beatRow.setTitle(requiredText(beat, "title", "visual beat title"));
         beatRow.setVisualIntent(requiredText(beat, "visual_intent", "visual beat visual_intent"));
         beatRow.setVisualDirectionJson(direction.toString());
-        beatRow.setDramaticIntent(
-            text(beat, "dramatic_intent", text(beat, "dramaticIntent", "SETUP")));
-        beatRow.setRetentionRole(text(beat, "retention_role", text(beat, "retentionRole", null)));
+        beatRow.setDramaticIntent(dramaticIntent(beat));
+        beatRow.setRetentionRole(text(beat, "retention_role", null));
         beatRow.setReviewStatus("NEEDS_REVIEW");
         beatRow.setMotionMode("STILL");
         beatRow.setTextStart(resolvedAnchor.textStart());
@@ -400,18 +395,22 @@ public final class ChapterAnalysisArtifactMaterializer {
 
         // Materialize visual_beat_characters
         if (canonMapper != null && reconciled != null) {
-          JsonNode beatCharacters =
-              firstArray(beat, "characters", "beat_characters", "character_ai_names");
+          JsonNode beatCharacters = firstArray(beat, "character_ai_names");
           if (beatCharacters != null && beatCharacters.isArray()) {
             Set<UUID> addedBeatChars = new HashSet<>();
             for (JsonNode charNode : beatCharacters) {
               String charRef =
-                  charNode.isTextual()
-                      ? charNode.asText()
-                      : text(charNode, "ai_name", text(charNode, "name", null));
+                  charNode.isTextual() ? charNode.asText() : text(charNode, "ai_name", null);
               String role = charNode.isObject() ? text(charNode, "role", "SECONDARY") : "SECONDARY";
               if (charRef != null && !charRef.isBlank()) {
                 UUID projectCharId = reconciled.findCharacterId(charRef);
+                if (projectCharId == null) {
+                  LOG.warn(
+                      "Scene {} beat {} refers to character '{}' that is not in the chapter canon",
+                      sceneIndex,
+                      beatIndex,
+                      charRef);
+                }
                 if (projectCharId != null && addedBeatChars.add(projectCharId)) {
                   canonMapper.insertVisualBeatCharacter(beatId, projectCharId, role);
                 }
@@ -421,7 +420,7 @@ public final class ChapterAnalysisArtifactMaterializer {
         }
 
         // Materialize shot sequences and shots
-        JsonNode shotsNode = firstArray(beat, "shots", "shot_sequence", "shotSequence");
+        JsonNode shotsNode = firstArray(beat, "shots");
         if (shotSequenceMapper != null
             && shotMapper != null
             && shotsNode != null
@@ -440,89 +439,29 @@ public final class ChapterAnalysisArtifactMaterializer {
             ShotRow shotRow = new ShotRow();
             shotRow.setSequenceId(seqId);
             shotRow.setOrderIndex(shotIndex);
-            shotRow.setNarrativePurpose(
-                text(
-                    shotItem,
-                    "narrative_purpose",
-                    text(shotItem, "narrativePurpose", text(shotItem, "purpose", ""))));
-            shotRow.setRetentionRole(
-                text(shotItem, "retention_role", text(shotItem, "retentionRole", null)));
+            shotRow.setNarrativePurpose(text(shotItem, "narrative_purpose", ""));
+            shotRow.setRetentionRole(text(shotItem, "retention_role", null));
             shotRow.setSubjectsJson(
                 shotItem.has("subjects") ? shotItem.get("subjects").toString() : "[]");
-            shotRow.setLocationRef(
-                text(shotItem, "location_ref", text(shotItem, "locationRef", null)));
+            shotRow.setLocationRef(text(shotItem, "location_ref", null));
             shotRow.setStartStateJson(
-                shotItem.has("start_state")
-                    ? shotItem.get("start_state").toString()
-                    : (shotItem.has("startState") ? shotItem.get("startState").toString() : "{}"));
-            shotRow.setActionJson(
-                shotItem.has("action")
-                    ? (shotItem.get("action").isObject()
-                        ? shotItem.get("action").toString()
-                        : "{\"action\":\""
-                            + shotItem.get("action").asText().replace("\"", "\\\"")
-                            + "\"}")
-                    : "{}");
+                shotItem.has("start_state") ? shotItem.get("start_state").toString() : "{}");
+            shotRow.setActionJson(objectOrWrapped(shotItem, "action", "action"));
             shotRow.setEndStateJson(
-                shotItem.has("end_state")
-                    ? shotItem.get("end_state").toString()
-                    : (shotItem.has("endState") ? shotItem.get("endState").toString() : "{}"));
-            shotRow.setCompositionJson(
-                shotItem.has("composition")
-                    ? (shotItem.get("composition").isObject()
-                        ? shotItem.get("composition").toString()
-                        : "{\"composition\":\""
-                            + shotItem.get("composition").asText().replace("\"", "\\\"")
-                            + "\"}")
-                    : "{}");
-            shotRow.setCameraJson(
-                shotItem.has("camera")
-                    ? (shotItem.get("camera").isObject()
-                        ? shotItem.get("camera").toString()
-                        : "{\"camera\":\""
-                            + shotItem.get("camera").asText().replace("\"", "\\\"")
-                            + "\"}")
-                    : "{}");
+                shotItem.has("end_state") ? shotItem.get("end_state").toString() : "{}");
+            shotRow.setCompositionJson(objectOrWrapped(shotItem, "composition", "composition"));
+            shotRow.setCameraJson(objectOrWrapped(shotItem, "camera", "camera"));
             shotRow.setSubjectMotionJson(
-                shotItem.has("subject_motion")
-                    ? (shotItem.get("subject_motion").isObject()
-                        ? shotItem.get("subject_motion").toString()
-                        : "{\"subjectMotion\":\""
-                            + shotItem.get("subject_motion").asText().replace("\"", "\\\"")
-                            + "\"}")
-                    : "{}");
-            shotRow.setCameraMotionJson(
-                shotItem.has("camera_motion")
-                    ? (shotItem.get("camera_motion").isObject()
-                        ? shotItem.get("camera_motion").toString()
-                        : "{\"cameraMotion\":\""
-                            + shotItem.get("camera_motion").asText().replace("\"", "\\\"")
-                            + "\"}")
-                    : "{}");
+                objectOrWrapped(shotItem, "subject_motion", "subjectMotion"));
+            shotRow.setCameraMotionJson(objectOrWrapped(shotItem, "camera_motion", "cameraMotion"));
             shotRow.setEnvironmentMotionJson(
-                shotItem.has("environment_motion")
-                    ? (shotItem.get("environment_motion").isObject()
-                        ? shotItem.get("environment_motion").toString()
-                        : "{\"environmentMotion\":\""
-                            + shotItem.get("environment_motion").asText().replace("\"", "\\\"")
-                            + "\"}")
-                    : "{}");
+                objectOrWrapped(shotItem, "environment_motion", "environmentMotion"));
             shotRow.setTargetDurationMs(
                 shotItem.has("target_duration_ms")
-                    ? shotItem.get("target_duration_ms").asLong(4000)
-                    : (shotItem.has("targetDurationMs")
-                        ? shotItem.get("targetDurationMs").asLong(4000)
-                        : 4000L));
-            shotRow.setGenerationStrategy(
-                text(
-                    shotItem,
-                    "generation_strategy",
-                    text(shotItem, "generationStrategy", "TEXT_TO_VIDEO")));
-            shotRow.setQualityProfile(
-                text(
-                    shotItem,
-                    "quality_profile",
-                    text(shotItem, "qualityProfile", "720p_24fps_standard")));
+                    ? shotItem.get("target_duration_ms").asLong(estimateDurationMs(resolvedAnchor))
+                    : estimateDurationMs(resolvedAnchor));
+            shotRow.setGenerationStrategy(text(shotItem, "generation_strategy", "TEXT_TO_VIDEO"));
+            shotRow.setQualityProfile(text(shotItem, "quality_profile", "720p_24fps_standard"));
             shotRow.setStatus(text(shotItem, "status", "PLANNED"));
             shotRow.setCreatedAt(now);
             shotRow.setUpdatedAt(now);
@@ -549,18 +488,15 @@ public final class ChapterAnalysisArtifactMaterializer {
           defaultShot.setLocationRef(sceneRow.getLocationText());
           defaultShot.setStartStateJson("{}");
           defaultShot.setActionJson(
-              "{\"action\":\""
-                  + (beatRow.getVisualIntent() != null
-                      ? beatRow.getVisualIntent().replace("\"", "\\\"")
-                      : "")
-                  + "\"}");
+              wrapText(
+                  "action", beatRow.getVisualIntent() != null ? beatRow.getVisualIntent() : ""));
           defaultShot.setEndStateJson("{}");
           defaultShot.setCompositionJson("{}");
           defaultShot.setCameraJson("{}");
           defaultShot.setSubjectMotionJson("{}");
           defaultShot.setCameraMotionJson("{}");
           defaultShot.setEnvironmentMotionJson("{}");
-          defaultShot.setTargetDurationMs(4000L);
+          defaultShot.setTargetDurationMs(estimateDurationMs(resolvedAnchor));
           defaultShot.setGenerationStrategy("TEXT_TO_VIDEO");
           defaultShot.setQualityProfile("720p_24fps_standard");
           defaultShot.setStatus("PLANNED");
@@ -576,6 +512,236 @@ public final class ChapterAnalysisArtifactMaterializer {
     }
   }
 
+  public enum Severity {
+    /** The result cannot be materialized until this is fixed. */
+    ERROR,
+    /** The result is accepted; the finding is reported so it can be improved. */
+    WARNING
+  }
+
+  public record Violation(Severity severity, String path, String message) {}
+
+  private static Violation error(String path, String message) {
+    return new Violation(Severity.ERROR, path, message);
+  }
+
+  /** Structure of one visual beat; returns its {@code start_unit}. */
+  private static int validateBeat(JsonNode beat, String context) {
+    requiredText(beat, "title", context + " title");
+    requiredText(beat, "visual_intent", context + " visual_intent");
+    int start = unitIndex(beat, "start_unit", context);
+    JsonNode direction = firstObject(beat, "visual_direction");
+    if (direction == null) throw invalid(context + " is missing visual_direction");
+    for (String field : REQUIRED_DIRECTION_FIELDS) {
+      requiredValue(direction, field, context + " visual_direction." + field);
+    }
+    return start;
+  }
+
+  /**
+   * Checks a result without writing anything and reports every problem it can find, so the model
+   * can repair them in one pass. {@code windowFirst}/{@code windowLast} (inclusive unit indexes,
+   * {@code -1} for the whole chapter) bound a partial result produced for one window of a long
+   * chapter.
+   */
+  public List<Violation> validate(
+      GenerationJob job, byte[] payload, int windowFirst, int windowLast) {
+    JsonNode root;
+    try {
+      root = parse(payload);
+    } catch (IllegalArgumentException exception) {
+      return List.of(error("$", exception.getMessage()));
+    }
+    JsonNode scenes = root.get("scenes");
+    if (scenes == null || !scenes.isArray() || scenes.isEmpty()) {
+      return List.of(error("scenes", "analysis output must contain at least one scene"));
+    }
+    if (job.getSourceText() == null || job.getSourceText().isBlank()) {
+      return List.of(error("$", "analysis job source text is missing"));
+    }
+    SourceAnchorResolver.SourceUnits source =
+        sourceAnchorResolver.units(job.getSourceText(), job.getSourceHash());
+    int unitCount = source.units().size();
+    int low = Math.max(windowFirst, 0);
+    int high = windowLast < 0 ? unitCount - 1 : Math.min(windowLast, unitCount - 1);
+    if (low > high) return List.of(error("$", "unit window lies outside the chapter"));
+
+    List<Violation> found = new ArrayList<>();
+    List<JsonNode> beats = new ArrayList<>();
+    List<String> paths = new ArrayList<>();
+    List<Integer> starts = new ArrayList<>();
+    for (int sceneIndex = 0; sceneIndex < scenes.size(); sceneIndex++) {
+      String scenePath = "scenes[" + sceneIndex + "]";
+      JsonNode scene = scenes.get(sceneIndex);
+      try {
+        object(scene, scenePath);
+        requiredText(scene, "title", scenePath + " title");
+      } catch (IllegalArgumentException exception) {
+        found.add(error(scenePath, exception.getMessage()));
+        continue;
+      }
+      JsonNode sceneBeats = firstArray(scene, "visual_beats");
+      if (sceneBeats == null || sceneBeats.isEmpty()) {
+        found.add(error(scenePath, "scene must contain visual_beats"));
+        continue;
+      }
+      for (int beatIndex = 0; beatIndex < sceneBeats.size(); beatIndex++) {
+        String path = scenePath + ".visual_beats[" + beatIndex + "]";
+        try {
+          JsonNode beat = object(sceneBeats.get(beatIndex), path);
+          starts.add(validateBeat(beat, path));
+          beats.add(beat);
+          paths.add(path);
+        } catch (IllegalArgumentException exception) {
+          found.add(error(path, exception.getMessage()));
+        }
+      }
+    }
+    if (!found.isEmpty()) return found;
+
+    for (int index = 0; index < starts.size(); index++) {
+      int start = starts.get(index);
+      if (start < low || start > high) {
+        found.add(
+            error(
+                paths.get(index),
+                "start_unit " + start + " is outside the allowed units " + low + ".." + high));
+      } else if (index > 0 && start <= starts.get(index - 1)) {
+        found.add(
+            error(
+                paths.get(index),
+                "start_unit "
+                    + start
+                    + " must be greater than the previous beat's "
+                    + starts.get(index - 1)));
+      } else if (index == 0 && start != low) {
+        found.add(
+            error(paths.get(index), "the first beat must start at unit " + low + ", not " + start));
+      }
+    }
+    if (!found.isEmpty()) return found;
+
+    ChapterCanon canon = parseCanon(root.get("canon"));
+    for (int index = 0; index < beats.size(); index++) {
+      int first = index == 0 ? low : starts.get(index);
+      int last = index + 1 < starts.size() ? starts.get(index + 1) - 1 : high;
+      var anchor = sourceAnchorResolver.range(source, first, last);
+      int characters = 0;
+      for (int unit = first; unit <= last; unit++)
+        characters += source.units().get(unit).text().length();
+      if (characters > BEAT_MAX_CHARS) {
+        found.add(
+            new Violation(
+                Severity.WARNING,
+                paths.get(index),
+                "beat covers "
+                    + characters
+                    + " characters (limit "
+                    + BEAT_MAX_CHARS
+                    + "); start a new beat earlier"));
+      }
+      try {
+        List<PreparedAudioCue> cues = prepareAudioCues(source, beats.get(index), anchor, canon);
+        boolean[] covered = new boolean[last - first + 1];
+        for (PreparedAudioCue cue : cues) {
+          for (int unit = cue.firstUnit(); unit <= cue.lastUnit(); unit++)
+            covered[unit - first] = true;
+        }
+        for (int unit = first; unit <= last; unit++) {
+          if (covered[unit - first]) continue;
+          int runStart = unit;
+          while (unit + 1 <= last && !covered[unit + 1 - first]) unit++;
+          found.add(
+              new Violation(
+                  Severity.WARNING,
+                  paths.get(index) + ".audio_cues",
+                  "units "
+                      + runStart
+                      + ".."
+                      + unit
+                      + " are not narrated by any cue; exact narration will be added"));
+        }
+      } catch (IllegalArgumentException exception) {
+        found.add(error(paths.get(index) + ".audio_cues", exception.getMessage()));
+      }
+    }
+    return found;
+  }
+
+  /** Source text is never dropped silently: units no cue narrates become exact narrator cues. */
+  private List<PreparedAudioCue> fillNarrationGaps(
+      SourceAnchorResolver.SourceUnits source,
+      SourceAnchorResolver.ResolvedSourceAnchor beat,
+      List<PreparedAudioCue> cues) {
+    int first = beat.firstUnit();
+    int last = beat.lastUnit();
+    boolean[] covered = new boolean[last - first + 1];
+    for (PreparedAudioCue cue : cues) {
+      for (int unit = cue.firstUnit(); unit <= cue.lastUnit(); unit++) covered[unit - first] = true;
+    }
+    List<PreparedAudioCue> all = new ArrayList<>(cues);
+    for (int unit = first; unit <= last; unit++) {
+      if (covered[unit - first]) continue;
+      int runStart = unit;
+      while (unit + 1 <= last && !covered[unit + 1 - first]) unit++;
+      var range = sourceAnchorResolver.range(source, runStart, unit);
+      all.add(
+          new PreparedAudioCue(
+              -1,
+              "NARRATOR",
+              null,
+              range.textStart(),
+              range.textEnd(),
+              range.sourceAnchorJson(),
+              "KEEP_EXACT",
+              source.normalizedSource().substring(range.textStart(), range.textEnd()),
+              null,
+              runStart,
+              unit));
+    }
+    if (all.size() == cues.size()) return cues;
+    all.sort(
+        java.util.Comparator.comparingInt(PreparedAudioCue::firstUnit)
+            .thenComparingInt(PreparedAudioCue::lastUnit));
+    List<PreparedAudioCue> ordered = new ArrayList<>(all.size());
+    for (int index = 0; index < all.size(); index++) {
+      PreparedAudioCue cue = all.get(index);
+      ordered.add(
+          new PreparedAudioCue(
+              index,
+              cue.cueType(),
+              cue.speakerName(),
+              cue.sourceStart(),
+              cue.sourceEnd(),
+              cue.sourceAnchorJson(),
+              cue.adaptationAction(),
+              cue.adaptedText(),
+              cue.deliveryHint(),
+              cue.firstUnit(),
+              cue.lastUnit()));
+    }
+    return List.copyOf(ordered);
+  }
+
+  /**
+   * Provisional shot length from the narrated characters; alignment replaces it once audio exists.
+   */
+  private static long estimateDurationMs(SourceAnchorResolver.ResolvedSourceAnchor anchor) {
+    long estimate = (long) (anchor.textEnd() - anchor.textStart()) * MS_PER_CHAR;
+    return Math.max(MIN_SHOT_MS, Math.min(MAX_SHOT_MS, estimate));
+  }
+
+  private static String dramaticIntent(JsonNode beat) {
+    String value = text(beat, "dramatic_intent", null);
+    if (value != null) {
+      String normalized = value.trim().toUpperCase(Locale.ROOT);
+      for (DramaticIntent intent : DramaticIntent.values()) {
+        if (intent.name().equals(normalized)) return normalized;
+      }
+    }
+    return DramaticIntent.SETUP.name();
+  }
+
   private record PreparedAudioCue(
       int orderIndex,
       String cueType,
@@ -585,18 +751,18 @@ public final class ChapterAnalysisArtifactMaterializer {
       String sourceAnchorJson,
       String adaptationAction,
       String adaptedText,
-      String deliveryHint) {}
+      String deliveryHint,
+      int firstUnit,
+      int lastUnit) {}
 
   private List<PreparedAudioCue> prepareAudioCues(
-      GenerationJob job,
+      SourceAnchorResolver.SourceUnits source,
       JsonNode beat,
-      com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver
-              .ResolvedSourceAnchor
-          parent,
+      SourceAnchorResolver.ResolvedSourceAnchor parent,
       ChapterCanon canon) {
-    JsonNode cues = firstArray(beat, "audio_cues", "audioCues");
+    JsonNode cues = firstArray(beat, "audio_cues");
     if (cues == null) {
-      if (beat.has("audio_cues") || beat.has("audioCues")) {
+      if (beat.has("audio_cues")) {
         throw invalid("audio_cues must be an array");
       }
       return List.of();
@@ -612,11 +778,13 @@ public final class ChapterAnalysisArtifactMaterializer {
         Set.of(
             "cue_type",
             "speaker_ai_name",
-            "source_anchor",
+            "start_unit",
+            "end_unit",
             "adaptation_action",
             "adapted_text",
             "delivery_hint");
-    List<String> anchors = new ArrayList<>();
+    List<SourceAnchorResolver.ResolvedSourceAnchor> ranges = new ArrayList<>();
+    List<String> actions = new ArrayList<>();
     for (JsonNode rawCue : cues) {
       JsonNode cue = object(rawCue, "audio cue");
       long knownFields = fields.stream().filter(cue::has).count();
@@ -642,39 +810,78 @@ public final class ChapterAnalysisArtifactMaterializer {
       if (speaker != null && !names.contains(speaker.trim().toLowerCase(Locale.ROOT))) {
         throw invalid("audio cue speaker is not present in the chapter canon");
       }
-      String anchor = requiredText(cue, "source_anchor", "audio cue source_anchor");
-      String adapted = requiredText(cue, "adapted_text", "audio cue adapted_text");
-      if ("KEEP_EXACT".equals(action)
-          && !adapted
-              .replace("\r\n", "\n")
-              .replace('\r', '\n')
-              .equals(anchor.replace("\r\n", "\n").replace('\r', '\n'))) {
-        throw invalid("KEEP_EXACT audio cue text differs from its source");
+      String where = "audio cue " + ranges.size();
+      int first = unitIndex(cue, "start_unit", where);
+      int last = unitIndex(cue, "end_unit", where);
+      if (last < first) throw invalid(where + " end_unit must not be before start_unit");
+      if (first < parent.firstUnit() || last > parent.lastUnit()) {
+        throw invalid(
+            where
+                + " units "
+                + first
+                + ".."
+                + last
+                + " lie outside its visual beat's units "
+                + parent.firstUnit()
+                + ".."
+                + parent.lastUnit());
       }
-      anchors.add(anchor);
+      if (!ranges.isEmpty()) {
+        var previous = ranges.get(ranges.size() - 1);
+        if (first < previous.firstUnit() || last < previous.lastUnit()) {
+          throw invalid(where + " must come after the previous audio cue");
+        }
+        // Two cues may share a unit only to split it (for example dialogue and its tag), never to
+        // repeat exact text.
+        boolean shares = first <= previous.lastUnit();
+        if (shares
+            && ("KEEP_EXACT".equals(action)
+                || "KEEP_EXACT".equals(actions.get(actions.size() - 1)))) {
+          throw invalid(
+              where + " repeats units of the previous audio cue that keeps its text exact");
+        }
+      }
+      ranges.add(sourceAnchorResolver.range(source, first, last));
+      actions.add(action);
     }
-    String source = job.getSourceText().replace("\r\n", "\n").replace('\r', '\n');
-    var ranges =
-        sourceAnchorResolver.resolveAll(
-            source.substring(parent.textStart(), parent.textEnd()), parent.sourceHash(), anchors);
     List<PreparedAudioCue> prepared = new ArrayList<>();
     for (int index = 0; index < cues.size(); index++) {
       JsonNode cue = cues.get(index);
-      int start = parent.textStart() + ranges.get(index).textStart();
-      int end = parent.textStart() + ranges.get(index).textEnd();
+      var range = ranges.get(index);
+      String action = actions.get(index);
+      // The source text is authoritative for KEEP_EXACT; the model's copy is never trusted or
+      // compared.
+      String adapted =
+          "KEEP_EXACT".equals(action)
+              ? source.normalizedSource().substring(range.textStart(), range.textEnd())
+              : requiredText(cue, "adapted_text", "audio cue adapted_text");
       prepared.add(
           new PreparedAudioCue(
               index,
               cue.get("cue_type").asText(),
               text(cue, "speaker_ai_name", null),
-              start,
-              end,
-              sourceAnchorResolver.buildSourceAnchorJson(start, end, parent.sourceHash()),
-              text(cue, "adaptation_action", "KEEP_EXACT"),
-              cue.get("adapted_text").asText(),
-              text(cue, "delivery_hint", null)));
+              range.textStart(),
+              range.textEnd(),
+              range.sourceAnchorJson(),
+              action,
+              adapted,
+              text(cue, "delivery_hint", null),
+              range.firstUnit(),
+              range.lastUnit()));
     }
     return List.copyOf(prepared);
+  }
+
+  /** A non-negative integer unit index; text, fractions and out-of-int values are rejected. */
+  private static int unitIndex(JsonNode node, String field, String context) {
+    JsonNode value = node.get(field);
+    if (value == null
+        || !value.isIntegralNumber()
+        || !value.canConvertToInt()
+        || value.asInt() < 0) {
+      throw invalid(context + " " + field + " must be a non-negative integer unit index");
+    }
+    return value.asInt();
   }
 
   private static ChapterCanon parseCanon(JsonNode node) {
@@ -752,6 +959,23 @@ public final class ChapterAnalysisArtifactMaterializer {
   private static String text(JsonNode node, String field, String fallback) {
     JsonNode value = node.get(field);
     return value != null && value.isTextual() ? value.asText() : fallback;
+  }
+
+  /**
+   * Keeps an object as is and wraps a plain string as {key: text}; never builds JSON by
+   * concatenation.
+   */
+  private static String objectOrWrapped(JsonNode item, String field, String wrapKey) {
+    JsonNode value = item.get(field);
+    if (value == null) return "{}";
+    if (value.isObject()) return value.toString();
+    return wrapText(wrapKey, value.asText());
+  }
+
+  private static String wrapText(String key, String text) {
+    var node = JSON.createObjectNode();
+    node.put(key, text);
+    return node.toString();
   }
 
   private static IllegalArgumentException invalid(String message) {

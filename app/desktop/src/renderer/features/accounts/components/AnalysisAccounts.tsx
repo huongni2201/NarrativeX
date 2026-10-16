@@ -30,12 +30,16 @@ const ERROR_LABELS: Record<string, string> = {
   CONFIGURATION_UNAVAILABLE: "Chưa đọc được cấu hình phân tích từ backend.",
   QUOTA_EXHAUSTED: "Hạn mức agy đã hết; tự chạy lại sau thời điểm reset.",
   RATE_LIMITED: "agy đang giới hạn lượt dùng; tạm dừng một lúc.",
+  TOOL_DENIED: "Một lượt phân tích không có kết quả vì agy cố chạy công cụ bị chặn; chương sẽ được thử lại, tài khoản không bị tạm dừng.",
   PROVIDER_REFUSAL: "agy từ chối yêu cầu; tạm dừng 30 phút. Kiểm tra gói tài khoản.",
   MODEL_UNAVAILABLE: "Model đã chọn không có trong agy.",
   MODEL_NOT_AVAILABLE: "Model đã cấu hình không có trong `agy models`. Chọn lại bên dưới; các chương sẽ chưa được nhận cho đến lúc đó.",
   MODEL_NOT_CONFIGURED: "Chưa chọn model phân tích.",
   RESULT_DELIVERY_PENDING: "Kết quả đã được giữ an toàn trên máy và sẽ gửi lại khi backend sẵn sàng.",
   AMBIGUOUS_OUTCOME: "Một lượt phân tích chưa xác định kết quả và sẽ không tự chạy lại.",
+  ANALYSIS_TIMEOUT: "Một lượt phân tích chạy quá thời gian nên đã bị dừng; chương có thể quá dài.",
+  PROCESS_FAILED: "agy thoát mà không trả kết quả cho một lượt phân tích.",
+  APP_INTERRUPTED: "Một lượt phân tích bị gián đoạn do ứng dụng đóng. Mở chương và bấm Phân tích chương để chạy lại.",
 };
 
 function quotaText(remaining: number | null, resetsAt: string | null): string {
@@ -198,8 +202,9 @@ export function AnalysisAccounts() {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
           <label htmlFor="analysis-model" className="text-label text-text-secondary">Model agy</label>
+          {/* Radix's hidden form select can emit an empty value while restoring async options. */}
           {modelOptions.length > 0
-            ? <Select value={model} onValueChange={setModel} disabled={!config.data || save.isPending}>
+            ? <Select value={model} onValueChange={value => { if (value) setModel(value); }} disabled={!config.data || save.isPending}>
               <SelectTrigger id="analysis-model" aria-describedby="analysis-model-help"><SelectValue placeholder="Chọn model" /></SelectTrigger>
               <SelectContent>
                 {!modelKnown && model && <SelectItem value={model}>{model} (không có trong agy)</SelectItem>}
@@ -208,7 +213,7 @@ export function AnalysisAccounts() {
             </Select>
             : <Input id="analysis-model" value={model} maxLength={128} disabled={!config.data || save.isPending} onChange={event => setModel(event.target.value)} aria-describedby="analysis-model-help" />}
           <p id="analysis-model-help" className="text-caption text-text-muted">
-            Danh sách lấy từ <code>agy models</code>; mức suy luận nằm trong tên model nên không có ô riêng. Gợi ý: <code>gemini-3.8-flash-high</code>.
+            Danh sách lấy từ <code>agy models</code>; mức suy luận nằm trong tên model nên không có ô riêng. Gợi ý: <code>gemini-3.8-flash-low</code> (đã đo: nhanh nhất; <code>high</code> có thể suy nghĩ hàng chục nghìn token và quá thời gian).
           </p>
         </div>
         <div className="grid gap-2">

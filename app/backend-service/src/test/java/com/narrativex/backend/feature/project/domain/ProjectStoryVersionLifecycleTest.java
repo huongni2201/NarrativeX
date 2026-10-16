@@ -58,14 +58,7 @@ class ProjectStoryVersionLifecycleTest {
 
   private static Project project(UUID id) {
     return Project.rehydrate(
-        id,
-        0L,
-        "Project",
-        ProjectStatus.DRAFT,
-        "vi-VN",
-        "vi-VN",
-        AspectRatio.RATIO_16_9,
-        null);
+        id, 0L, "Project", ProjectStatus.DRAFT, "vi-VN", "vi-VN", AspectRatio.RATIO_16_9, null);
   }
 
   private static StoryVersion story(

@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptPreviewTarget;
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
+import com.narrativex.backend.feature.generation.application.port.out.ShotLocationContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.application.service.CharacterIdentityPromptComposer;
@@ -46,6 +47,8 @@ class BackendPromptPreviewSourceTest {
   private final StoryboardBeatAccess beats = mock(StoryboardBeatAccess.class);
   private final StoryboardShotAccess shots = mock(StoryboardShotAccess.class);
   private final VisualPromptContextRepository contexts = mock(VisualPromptContextRepository.class);
+  private final ShotLocationContextRepository shotLocations =
+      mock(ShotLocationContextRepository.class);
   private final BackendPromptPreviewSource source =
       new BackendPromptPreviewSource(
           mock(GetProjectCharacterDetailUseCase.class),
@@ -55,7 +58,8 @@ class BackendPromptPreviewSourceTest {
           new StoryboardVisualPromptComposer(
               new VisualPromptComposer(JsonMapper.builder().build())),
           shots,
-          new VideoPromptCompiler(JsonMapper.builder().build()));
+          new VideoPromptCompiler(JsonMapper.builder().build()),
+          shotLocations);
 
   private PromptSettings style(String id) {
     return PromptSettingsDefaults.settings().withActiveStyle(id).withRevision(1);
@@ -131,6 +135,25 @@ class BackendPromptPreviewSourceTest {
     assertThat(withDefaults.prompt()).doesNotContain("Keep camera moves slow and weighty.");
     assertThat(withCustom.negativePrompt()).contains("banned-negative-token");
     assertThat(withDefaults.negativePrompt()).contains("watermark");
+  }
+
+  @Test
+  void shotPreviewShowsTheSameLocationSettingAdmissionSends() {
+    when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot()));
+    when(shotLocations.findForShot(projectId, shotId))
+        .thenReturn(
+            new ShotLocationContextRepository.ShotLocationContext(
+                new VisualPromptContextRepository.LocationCanon(
+                    UUID.randomUUID(), "Main Hall", null, "Wide hall, red pillars"),
+                UUID.randomUUID(),
+                "{\"state\":\"Door open\"}"));
+
+    var preview =
+        source.preview(style("CINEMATIC_ANIME"), new PromptPreviewTarget.Shot(projectId, shotId));
+
+    assertThat(preview.prompt())
+        .contains("Setting: Main Hall: Wide hall, red pillars.")
+        .contains("same location (Main Hall) as the previous shot");
   }
 
   @Test

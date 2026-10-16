@@ -40,6 +40,19 @@ The matrix describes target strategy selection. The current pinned `video.genera
 
 ---
 
+## 2a. Location and continuity in the video prompt (IMPLEMENTED, text only)
+
+Take admission (`GenerateShotTakeUseCase`) and the "Compiled Video Prompt" preview (`BackendPromptPreviewSource`) resolve the Shot's Location through the same path, `ShotLocationContextRepository`: Shot → ShotSequence → VisualBeat → Scene → `scenes.project_location_id`. `shots.location_ref` is a free-text fallback used only when the Scene has no Location.
+
+- A resolved Location adds `Setting: <name>: <visual_prompt>` (falling back to `description`, capped at 600 characters on a sentence boundary). The text is identical for every Shot of the Scene, so the Beat does not re-describe the place.
+- A Shot with a preceding Shot in the same Scene (ordered Beat → Sequence → Shot) also gets `Continuity: same location (<name>) as the previous shot, keep architecture, prop layout, lighting and time of day unchanged; previous shot ended with <end_state>`. The first Shot of a Scene has none.
+- The Take snapshot records `context.locationContext` (`locationId`, `specHash`, `previousShotId`, `continuityHash`). It is part of the request fingerprint, so editing a Location changes the identity of new operations while admitted Takes and frozen batch prompts keep what they were admitted with. A replay of a Take admitted before this field existed still matches.
+- Batch freeze loads the Location context of all Shots with one query.
+
+This only reduces drift. Text-to-video does not guarantee identical architecture; visual anchoring needs the reference-conditioning capability that `video.generate:1.1` and `image.generate` do not have yet (see [location-continuity plan](../plans/location-continuity.md), phases 3–5).
+
+---
+
 ## 3. LTX-2.5 Infrastructure Adapter Isolation
 
 Logic specific to LTX-2.5 (e.g. DiT scheduling, NVFP4 quantization, attention heads, latent dimension conventions) resides strictly inside the GPU worker adapter (`app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/`). The backend domain never couples to LTX-specific tensor formats or command-line parameters.

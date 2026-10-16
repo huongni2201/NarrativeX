@@ -1,10 +1,12 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
@@ -62,6 +64,8 @@ public class ComputeExecutionDispatcher {
         mediaAssetRepository,
         canonMapper,
         canonReconciliationService,
+        null,
+        null,
         null);
   }
 
@@ -74,7 +78,9 @@ public class ComputeExecutionDispatcher {
       MediaAssetRepository mediaAssetRepository,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService,
-      ChapterAnalysisRunRepository analysisRunRepository) {
+      ChapterAnalysisRunRepository analysisRunRepository,
+      NarrationRequestRepository narrationRequestRepository,
+      VoiceCatalogAccess voiceCatalogAccess) {
     this.generationJobRepository = generationJobRepository;
 
     GenerationJobTransactionService transactionService =
@@ -91,7 +97,12 @@ public class ComputeExecutionDispatcher {
     ImageGenerationJobHandler imageHandler =
         new ImageGenerationJobHandler(transactionService, executionPort, artifactAccess);
     NarrationGenerationJobHandler narrationHandler =
-        new NarrationGenerationJobHandler(transactionService, executionPort, artifactAccess);
+        new NarrationGenerationJobHandler(
+            transactionService,
+            executionPort,
+            artifactAccess,
+            narrationRequestRepository,
+            voiceCatalogAccess);
 
     this.handlerRegistry =
         new GenerationJobHandlerRegistry(List.of(analysisHandler, imageHandler, narrationHandler));
@@ -107,7 +118,9 @@ public class ComputeExecutionDispatcher {
       MediaAssetRepository mediaAssetRepository,
       ChapterCanonMapper canonMapper,
       ChapterCanonReconciliationService canonReconciliationService,
-      ChapterAnalysisRunRepository analysisRunRepository) {
+      ChapterAnalysisRunRepository analysisRunRepository,
+      NarrationRequestRepository narrationRequestRepository,
+      VoiceCatalogAccess voiceCatalogAccess) {
     this(
         generationJobRepository,
         executionPort,
@@ -117,7 +130,9 @@ public class ComputeExecutionDispatcher {
         mediaAssetRepository,
         canonMapper,
         canonReconciliationService,
-        analysisRunRepository);
+        analysisRunRepository,
+        narrationRequestRepository,
+        voiceCatalogAccess);
   }
 
   /**

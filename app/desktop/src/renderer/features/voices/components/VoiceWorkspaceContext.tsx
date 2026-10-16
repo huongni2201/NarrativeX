@@ -26,6 +26,7 @@ import { formatBytes, formatDuration } from "../model/voice-ui";
 import { useGlobalLocalVoiceReferences } from "../queries/voice-media.queries";
 
 type Props = Readonly<{
+  section?: "library" | "narration";
   selectedVoice: DesktopVoice | null;
   chapters: DesktopChapterDetails[];
   chapterId: string;
@@ -58,6 +59,7 @@ type Props = Readonly<{
 }>;
 
 export function VoiceWorkspaceContext({
+  section = "library",
   selectedVoice,
   chapters,
   chapterId,
@@ -106,7 +108,7 @@ export function VoiceWorkspaceContext({
           <PropertyRow label="Storage" value={formatBytes(totalSizeBytes)} />
         </InspectorSection>
 
-        <InspectorSection title="Narration">
+        {section === "library" && <InspectorSection title="Narration">
           <div className="grid gap-2 p-2.5">
             <label className="grid gap-1 text-caption text-text-muted">
               Chapter
@@ -120,7 +122,7 @@ export function VoiceWorkspaceContext({
               <Input type="number" min="0.25" max="2" step="0.1" value={speakingRate} onChange={(event) => onSpeakingRateChange(event.target.value)} />
             </label>
           </div>
-        </InspectorSection>
+        </InspectorSection>}
 
         <InspectorSection title={customVoiceLabel} actions={voiceReferenceName ? <Button variant="ghost" size="icon-sm" aria-label="Bỏ giọng tham chiếu" onClick={onClearVoiceReference} disabled={busy}><Trash2 size={12} /></Button> : undefined}>
           {voiceReferenceName ? (
@@ -193,7 +195,7 @@ export function VoiceWorkspaceContext({
           </InspectorSection>
         ) : null}
 
-        <InspectorSection title="Popular tags" actions={<button type="button" onClick={onResetFilters} className="text-caption text-primary-hover">Reset</button>}>
+        {section === "library" && <InspectorSection title="Popular tags" actions={<button type="button" onClick={onResetFilters} className="text-caption text-primary-hover">Reset</button>}>
           <div className="flex flex-wrap gap-1 p-2.5">
             {tagCounts.slice(0, 5).map(({ label, count }) => (
               <button key={label} type="button" onClick={() => onTagFilter(label)} className="inline-flex min-h-7 items-center gap-1.5 border border-border-subtle bg-surface-dark px-2 text-caption text-text-secondary hover:bg-surface-hover">
@@ -201,14 +203,16 @@ export function VoiceWorkspaceContext({
               </button>
             ))}
           </div>
-        </InspectorSection>
+        </InspectorSection>}
 
         <InspectorSection title="Quick actions">
           <div className="grid gap-0.5 p-2">
             <QuickAction label="Asset Browser" icon={<FolderPlus size={12} />} onClick={onOpenAssets} />
-            <QuickAction label="Reset voice filters" icon={<Mic2 size={12} />} onClick={onResetFilters} />
-            <QuickAction label="Tạo voice take" icon={<Sparkles size={12} />} onClick={onCreateTake} disabled={!selectedVoice || !chapterId || busy} />
-            <QuickAction label="Tạo batch narration" icon={<AudioLines size={12} />} onClick={onBatch} disabled={!selectedVoice || !chapters.length || busy} />
+            {section === "library" && <>
+              <QuickAction label="Reset voice filters" icon={<Mic2 size={12} />} onClick={onResetFilters} />
+              <QuickAction label="Tạo voice take" icon={<Sparkles size={12} />} onClick={onCreateTake} disabled={!selectedVoice || !chapterId || busy} />
+              <QuickAction label="Tạo batch narration" icon={<AudioLines size={12} />} onClick={onBatch} disabled={!selectedVoice || !chapters.length || busy} />
+            </>}
           </div>
         </InspectorSection>
 

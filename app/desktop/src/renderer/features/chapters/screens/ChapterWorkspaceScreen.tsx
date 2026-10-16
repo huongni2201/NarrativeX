@@ -29,6 +29,7 @@ import {
 import { isActiveGenerationJobStatus } from "../../generation/generation-status";
 import { useChapterProductionStatus } from "../../production/queries/video-production.queries";
 import { canCreateInitialChapter, isAnalysisProcessingStatus } from "../model/chapter-ui";
+import { AnalysisProgress } from "../components/AnalysisProgress";
 import { ChapterRail } from "../components/ChapterRail";
 import { DeleteChapterDialog } from "../components/DeleteChapterDialog";
 import { ChapterSourceStage } from "../components/stages/ChapterSourceStage";
@@ -303,10 +304,12 @@ export function ChapterWorkspaceScreen({
           </div>
         </div>
 
-        {(analysis.message || analysis.error) && <p role={analysisHasError ? "alert" : "status"}
+        {(analysis.message || analysis.error) && <div role={analysisHasError ? "alert" : "status"}
           className={`border-b border-border-subtle bg-surface-panel px-4 py-3 text-label ${analysisHasError ? "text-danger" : "text-text-secondary"}`}>
-          {analysis.error instanceof Error ? analysis.error.message : analysis.message}
-        </p>}
+          <p>{analysis.error instanceof Error ? analysis.error.message : analysis.message}</p>
+          {analysis.isAnalyzing && analysis.job?.status === "RUNNING" && !analysisHasError &&
+            <AnalysisProgress percent={analysis.job.progress} />}
+        </div>}
         {/* Stage Content Canvas */}
         <div className="min-h-0 flex-1 overflow-hidden">
           {currentStage === "source" && (

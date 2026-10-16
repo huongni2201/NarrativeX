@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type {
   DesktopSelectedTake,
   DesktopShot,
@@ -207,6 +208,8 @@ export function VideoShotboard({
                   {shot?.preflight && !shot.preflight.ready && shot.preflight.blockers.length > 0 && (
                     <div className="mb-1 text-caption text-destructive bg-destructive/10 p-1.5 rounded border border-destructive/20 font-mono">
                       Blocker: {shot.preflight.blockers[0]}
+                      {shot.preflight.blockers.some(reason => reason.startsWith("MISSING_VOICE_PROFILE")) &&
+                        <Link to={`/projects/${projectId}/audio?tab=characters`} className="mt-2 block rounded px-1 py-2 text-body font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Thiết lập giọng nhân vật</Link>}
                     </div>
                   )}
                   <ShotActionToolbar

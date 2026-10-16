@@ -4,25 +4,32 @@ import com.narrativex.backend.feature.common.exception.ResourceConflictException
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.model.analysis.*;
+import com.narrativex.backend.feature.generation.application.port.in.LocalChapterAnalysis;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisExecutionStore;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
+import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.*;
+import com.narrativex.backend.feature.generation.infrastructure.analysis.ChapterAnalysisContractResources;
 import com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisJobHandler;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisExecutionMapper;
 import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
+import com.narrativex.backend.feature.storyboard.application.service.SourceUnitSegmenter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.JsonNode;
 
 /**
  * Local analysis execution through the one agy session owned by a Desktop device. PostgreSQL owns
@@ -30,7 +37,46 @@ import tools.jackson.databind.JsonNode;
  */
 @Service
 @RequiredArgsConstructor
-public class LocalChapterAnalysisService {
+public class LocalChapterAnalysisService implements LocalChapterAnalysis {
+  /** Desktop closed or crashed mid-run and kept no result. */
+  static final String INTERRUPTED_CODE = "APP_INTERRUPTED";
+
+  /** An UNKNOWN attempt that no result reached within the grace period. */
+  static final String UNRESOLVED_CODE = "OUTCOME_UNRESOLVED";
+
+  /**
+   * Time after lease expiry during which an UNKNOWN attempt still holds its slot for a late result.
+   */
+  private static final Duration UNKNOWN_GRACE = Duration.ofMinutes(10);
+
+  /**
+   * A lease is short and renewed by the heartbeat that rides on the cancellation poll, so a Desktop
+   * that vanished is noticed within minutes while a long (multi-window) run is never expired under
+   * a healthy Desktop.
+   */
+  private static final Duration LEASE_WINDOW = Duration.ofMinutes(2);
+
+  private static final Duration RENEW_BELOW = Duration.ofSeconds(90);
+
+  /**
+   * Failures that say nothing about the chapter and produced no output: the chapter goes back to
+   * the queue.
+   */
+  private static final Set<String> REQUEUEABLE =
+      Set.of(
+          "RATE_LIMITED",
+          "QUOTA_EXHAUSTED",
+          "AUTH_REQUIRED",
+          "MODEL_UNAVAILABLE",
+          "PROVIDER_UNAVAILABLE",
+          "TOOL_DENIED");
+
+  /**
+   * Attempts per chapter before a requeueable failure becomes final, so a persistent fault cannot
+   * loop forever.
+   */
+  private static final int MAX_ATTEMPTS = 5;
+
   private final ChapterAnalysisExecutionStore store;
   private final ChapterAnalysisExecutionMapper mapper;
   private final GenerationJobRepository jobs;
@@ -66,7 +112,13 @@ public class LocalChapterAnalysisService {
             c.maxRuntimeMs(),
             rowVersion);
     new ChapterAnalysisExecutionProfile(
-        mode, model, effort, "1.1", "0".repeat(64), "1.1", "0".repeat(64));
+        mode,
+        model,
+        effort,
+        ChapterAnalysisContractResources.VERSION,
+        "0".repeat(64),
+        ChapterAnalysisContractResources.VERSION,
+        "0".repeat(64));
     return store
         .updateRuntimeConfiguration(desired, rowVersion)
         .orElseThrow(
@@ -147,15 +199,15 @@ public class LocalChapterAnalysisService {
         new ChapterAnalysisExecutionAttempt(
             UuidV7.random(),
             job.getId(),
-            1,
+            mapper.lastAttemptNumber(job.getId()) + 1,
             claimRequestId,
             deviceId,
             credential.credentialRef(),
             credential.credentialGeneration(),
-            snapshot.inputFingerprint(),
+            attemptFingerprint(snapshot.inputFingerprint()),
             ChapterAnalysisAttemptCheckpoint.SUBMITTING,
             CanonHashCalculator.sha256(lease),
-            Instant.now().plusMillis(config.maxRuntimeMs() + 60_000),
+            Instant.now().plus(LEASE_WINDOW),
             1,
             0,
             UuidV7.random(),
@@ -168,13 +220,15 @@ public class LocalChapterAnalysisService {
             null,
             null);
     store.insertAttempt(attempt);
-    transactions.claimForRunning(publicJobId, "ANTIGRAVITY_ANALYSIS", 10).orElseThrow();
+    transactions.claimForRunning(publicJobId, "ANTIGRAVITY_ANALYSIS", 0).orElseThrow();
     return new Claim(
         publicJobId,
         job.getProjectId(),
         attempt.attemptId(),
         lease,
-        job.getSourceText(),
+        SourceUnitSegmenter.segment(job.getSourceText()).stream()
+            .map(unit -> new ClaimUnit(unit.index(), unit.text()))
+            .toList(),
         job.getSourceLanguage(),
         snapshot.profile(),
         snapshot.promptTemplate(),
@@ -204,6 +258,11 @@ public class LocalChapterAnalysisService {
       throw new IllegalArgumentException("OUTPUT_LIMIT_EXCEEDED");
     }
     var snapshot = store.findSnapshot(job.getId()).orElseThrow();
+    if (!attemptFingerprint(snapshot.inputFingerprint()).equals(attempt.inputFingerprint())) {
+      // The segmenter changed between claim and delivery, so the unit numbers in this result no
+      // longer mean the same text.
+      throw new IllegalArgumentException("SOURCE_UNITS_CHANGED");
+    }
     var request =
         new ChapterAnalysisRequest(
             job.getProjectId(),
@@ -224,16 +283,24 @@ public class LocalChapterAnalysisService {
             CanonHashCalculator.computeCanonHash(completion.rawJson()),
             snapshot.profile().promptHash(),
             snapshot.profile().schemaHash());
-    handler.materializeAndComplete(
-        job,
-        request,
-        result,
-        new ChapterAnalysisJobHandler.LocalProvenance(
-            attemptId,
-            attempt.credentialRef(),
-            completion.adapterVersion(),
-            completion.conversationId(),
-            snapshot.profile().executionMode()));
+    try {
+      handler.materializeAndComplete(
+          job,
+          request,
+          result,
+          new ChapterAnalysisJobHandler.LocalProvenance(
+              attemptId,
+              attempt.credentialRef(),
+              completion.adapterVersion(),
+              completion.conversationId(),
+              snapshot.profile().executionMode()));
+    } catch (DataIntegrityViolationException exception) {
+      // A constraint the model output broke (value too long, unexpected label) is deterministic:
+      // retrying the same
+      // payload can never succeed. Answer 400 so Desktop records it as a rejected result instead of
+      // retrying forever.
+      throw new IllegalArgumentException("ANALYSIS_OUTPUT_REJECTED", exception);
+    }
     update(
         attempt,
         attempt.observed(
@@ -260,18 +327,49 @@ public class LocalChapterAnalysisService {
       update(
           attempt,
           attempt.observed(ChapterAnalysisAttemptCheckpoint.UNKNOWN, null, null, null, code, true));
-    } else {
-      if (job.isCancellationRequested())
-        transactions.markCanceled(job.getJobId(), "USER_CANCELLED", "Local execution has stopped");
-      else
-        transactions.markSubmissionFailed(
-            job.getJobId(), code, "Local chapter analysis did not complete");
+    } else if (!job.isCancellationRequested()
+        && REQUEUEABLE.contains(code)
+        && attempt.attemptNumber() < MAX_ATTEMPTS) {
+      transactions.markRequeued(job.getJobId(), code);
       update(
           attempt,
-          attempt.observed(ChapterAnalysisAttemptCheckpoint.FAILED, null, null, null, code, false));
+          attempt.observed(
+              ChapterAnalysisAttemptCheckpoint.FAILED,
+              attempt.conversationId(),
+              attempt.outputHash(),
+              attempt.completionPayloadHash(),
+              code,
+              false));
+    } else {
+      settleAsFailed(attempt, job, code, "Local chapter analysis did not complete");
     }
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public List<Violation> validate(
+      String deviceToken,
+      UUID attemptId,
+      String lease,
+      String rawJson,
+      int windowFirst,
+      int windowLast) {
+    var attempt = requireAttempt(deviceToken, attemptId, lease);
+    if (!attempt.slotHeld()) throw new ResourceConflictException("Attempt is already terminal");
+    if (rawJson.getBytes(StandardCharsets.UTF_8).length > configuration().maxOutputBytes()) {
+      throw new IllegalArgumentException("OUTPUT_LIMIT_EXCEEDED");
+    }
+    var job = jobs.findById(attempt.generationJobId()).orElseThrow();
+    return handler.validate(job, rawJson, windowFirst, windowLast).stream()
+        .map(found -> new Violation(found.severity().name(), found.path(), found.message()))
+        .toList();
+  }
+
+  /**
+   * Desktop restarted without a retained result. The run lives only in the Desktop process, so no
+   * result can ever arrive: the attempt is a definite failure the person may re-run, not an outcome
+   * to reconcile.
+   */
   @Transactional
   public void recoverClaim(String deviceToken, UUID claimRequestId) {
     UUID deviceId = devices.authenticate(deviceToken, "DESKTOP_APP").id();
@@ -280,30 +378,47 @@ public class LocalChapterAnalysisService {
         .findAttemptByClaimRequest(deviceId, claimRequestId)
         .filter(a -> a.slotHeld())
         .ifPresent(
-            a -> {
-              var job = jobs.findById(a.generationJobId()).orElseThrow();
-              transactions.markSubmissionUnknown(
-                  job.getJobId(),
-                  "AMBIGUOUS_OUTCOME",
-                  "Desktop interrupted before retaining the result",
-                  null);
-              update(
-                  a,
-                  a.observed(
-                      ChapterAnalysisAttemptCheckpoint.UNKNOWN,
-                      null,
-                      null,
-                      null,
-                      "AMBIGUOUS_OUTCOME",
-                      true));
-            });
+            a ->
+                settleAsFailed(
+                    a,
+                    jobs.findById(a.generationJobId()).orElseThrow(),
+                    INTERRUPTED_CODE,
+                    "Desktop closed before the analysis finished; run it again"));
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public boolean canceled(String deviceToken, UUID attemptId, String lease) {
     var a = requireAttempt(deviceToken, attemptId, lease);
     var job = jobs.findById(a.generationJobId()).orElseThrow();
-    return job.isCancellationRequested() || job.getStatus().isTerminal();
+    boolean canceled = job.isCancellationRequested() || job.getStatus().isTerminal();
+    Instant now = Instant.now();
+    if (!canceled && a.slotHeld() && a.leaseExpiresAt().isBefore(now.plus(RENEW_BELOW))) {
+      // A lost race with another write is harmless: the next poll renews again.
+      store.updateAttempt(a.withLease(now.plus(LEASE_WINDOW)), a.rowVersion(), a.fencingToken());
+    }
+    return canceled;
+  }
+
+  /**
+   * Progress is a hint for the UI, so a lost race with the result or a cancellation is ignored. It
+   * runs outside a transaction of its own so that such a conflict cannot poison anything else.
+   */
+  public void progress(String deviceToken, UUID attemptId, String lease, int progress) {
+    var attempt = requireAttempt(deviceToken, attemptId, lease);
+    if (!attempt.slotHeld()) return;
+    var job = jobs.findById(attempt.generationJobId()).orElseThrow();
+    try {
+      transactions.recordProgress(job.getJobId(), progress);
+    } catch (OptimisticLockingFailureException ignored) {
+      // The job changed under us (result delivered, cancelled): the next report or the final state
+      // wins.
+    }
+  }
+
+  /** Binds the attempt to the unit numbering it was claimed with. */
+  private static String attemptFingerprint(String snapshotFingerprint) {
+    return CanonHashCalculator.sha256(
+        snapshotFingerprint + "|units-v" + SourceUnitSegmenter.VERSION);
   }
 
   @Scheduled(fixedDelay = 30_000)
@@ -325,6 +440,38 @@ public class LocalChapterAnalysisService {
               "DEVICE_OFFLINE",
               true));
     }
+    // UNKNOWN keeps its slot only while a late result could still be delivered. After the grace
+    // period nothing
+    // can arrive, so the slot and the chapter are released; the person decides whether to run the
+    // analysis again.
+    for (UUID id : mapper.findStaleUnknownLocalAttempts(Instant.now().minus(UNKNOWN_GRACE))) {
+      var a = store.findAttempt(id).orElseThrow();
+      settleAsFailed(
+          a,
+          jobs.findById(a.generationJobId()).orElseThrow(),
+          UNRESOLVED_CODE,
+          "No result arrived from the local analysis; run it again");
+    }
+  }
+
+  /**
+   * Closes the attempt as a definite, user-retryable failure (or as canceled when cancellation was
+   * requested).
+   */
+  private void settleAsFailed(
+      ChapterAnalysisExecutionAttempt attempt, GenerationJob job, String code, String step) {
+    if (job.isCancellationRequested())
+      transactions.markCanceled(job.getJobId(), "USER_CANCELLED", "Local execution has stopped");
+    else transactions.markSubmissionFailed(job.getJobId(), code, step);
+    update(
+        attempt,
+        attempt.observed(
+            ChapterAnalysisAttemptCheckpoint.FAILED,
+            attempt.conversationId(),
+            attempt.outputHash(),
+            attempt.completionPayloadHash(),
+            code,
+            false));
   }
 
   private AnalysisProviderCredential ownedCredential(UUID deviceId, UUID credentialRef) {
@@ -361,25 +508,4 @@ public class LocalChapterAnalysisService {
     new SecureRandom().nextBytes(bytes);
     return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
   }
-
-  public record Claim(
-      UUID jobId,
-      UUID projectId,
-      UUID attemptId,
-      String leaseToken,
-      String sourceText,
-      String sourceLanguage,
-      ChapterAnalysisExecutionProfile profile,
-      String promptTemplate,
-      JsonNode responseSchema,
-      long maxInputBytes,
-      long maxOutputBytes,
-      long maxRuntimeMs) {}
-
-  public record Completion(
-      String leaseToken,
-      String rawJson,
-      ChapterAnalysisUsage usage,
-      String adapterVersion,
-      String conversationId) {}
 }

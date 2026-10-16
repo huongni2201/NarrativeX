@@ -143,6 +143,13 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
       String conversationId,
       ChapterAnalysisExecutionMode executionMode) {}
 
+  /** Reports what is wrong with a delivered result without writing anything. */
+  public java.util.List<ChapterAnalysisArtifactMaterializer.Violation> validate(
+      GenerationJob job, String rawJson, int windowFirst, int windowLast) {
+    return analysisMaterializer.validate(
+        job, rawJson.getBytes(StandardCharsets.UTF_8), windowFirst, windowLast);
+  }
+
   public void materializeAndComplete(
       GenerationJob job,
       ChapterAnalysisRequest request,

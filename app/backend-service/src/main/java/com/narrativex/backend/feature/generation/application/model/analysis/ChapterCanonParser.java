@@ -2,6 +2,8 @@ package com.narrativex.backend.feature.generation.application.model.analysis;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -11,6 +13,9 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public final class ChapterCanonParser {
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
+  private static final Set<String> ROLES =
+      Set.of("PROTAGONIST", "ANTAGONIST", "SUPPORTING", "EXTRA");
+  private static final Set<String> IMPORTANCES = Set.of("PRIMARY", "SECONDARY", "BACKGROUND");
 
   private ChapterCanonParser() {}
 
@@ -45,8 +50,8 @@ public final class ChapterCanonParser {
             text(c, "canonical_name", text(c, "canonicalName", text(c, "name", aiName)));
         String description = text(c, "description", "");
         String visualPrompt = text(c, "visual_prompt", text(c, "visualPrompt", ""));
-        String role = text(c, "role", "SUPPORTING");
-        String importance = text(c, "importance", "SECONDARY");
+        String role = enumValue(text(c, "role", null), ROLES, "SUPPORTING");
+        String importance = enumValue(text(c, "importance", null), IMPORTANCES, "SECONDARY");
         List<String> aliases = parseStringList(c.get("aliases"));
         characters.add(
             new AnalyzedCharacter(
@@ -77,6 +82,17 @@ public final class ChapterCanonParser {
     }
 
     return new ChapterCanon(characters, locations);
+  }
+
+  /**
+   * The database constrains these values. A model that answers "Protagonist" or an unknown label
+   * must not fail the whole analysis after inference, so the value is normalized and falls back to
+   * a safe default.
+   */
+  private static String enumValue(String value, Set<String> allowed, String fallback) {
+    if (value == null) return fallback;
+    String normalized = value.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+    return allowed.contains(normalized) ? normalized : fallback;
   }
 
   private static JsonNode firstArray(JsonNode node, String... fields) {

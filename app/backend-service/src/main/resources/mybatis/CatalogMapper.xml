@@ -22,6 +22,8 @@
         <result property="supportsBatch" column="supports_batch"/>
         <result property="sampleRateHz" column="sample_rate_hz"/>
         <result property="executionSemantics" column="execution_semantics"/>
+        <result property="providerVoice" column="provider_voice"/>
+        <result property="referenceAssetId" column="reference_asset_id"/>
     </resultMap>
     <select id="listStylePresets" resultMap="stylePresetRow">
         SELECT id, name, category, description, thumbnail_url, prompt_suffix,
@@ -54,10 +56,31 @@
                COALESCE(
                    metadata_json ->> 'executionSemantics',
                    CASE WHEN provider = 'VIENEU' THEN 'LOCAL_RETRYABLE' ELSE 'EXTERNAL_DURABLE' END
-               ) AS execution_semantics
+               ) AS execution_semantics,
+               metadata_json ->> 'providerVoice' AS provider_voice,
+               metadata_json ->> 'referenceAssetId' AS reference_asset_id
          FROM voice_catalog
          WHERE id = #{voiceId}
            AND enabled = TRUE
            AND provider = 'VIENEU'
     </select>
+    <insert id="insertCustomVoice">
+        INSERT INTO voice_catalog (id, provider, name, language, gender, sample_url, metadata_json)
+        SELECT #{id}, 'VIENEU', #{name}, #{language}, #{gender}, NULL, #{metadataJson}::jsonb
+         WHERE NOT EXISTS (
+               SELECT 1
+                 FROM voice_catalog
+                WHERE enabled = TRUE
+                  AND provider = 'VIENEU'
+                  AND LOWER(name) = LOWER(#{name}))
+    </insert>
+    <update id="disableCustomVoice">
+        UPDATE voice_catalog
+           SET enabled = FALSE,
+               updated_at = CURRENT_TIMESTAMP
+         WHERE id = #{id}
+           AND enabled = TRUE
+           AND provider = 'VIENEU'
+           AND metadata_json ->> 'custom' = 'true'
+    </update>
 </mapper>

@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationOperationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,12 @@ public class MyBatisNarrationPersistenceAdapter
   @Override
   public Optional<NarrationRequest> findByFingerprint(String requestFingerprint) {
     return Optional.ofNullable(mapper.findRequestByFingerprint(requestFingerprint))
+        .map(MyBatisNarrationPersistenceAdapter::toDomain);
+  }
+
+  @Override
+  public Optional<NarrationRequest> findByGenerationJobId(UUID generationJobId) {
+    return Optional.ofNullable(mapper.findRequestByGenerationJobId(generationJobId))
         .map(MyBatisNarrationPersistenceAdapter::toDomain);
   }
 

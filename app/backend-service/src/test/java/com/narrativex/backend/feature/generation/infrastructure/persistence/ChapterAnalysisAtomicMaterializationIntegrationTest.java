@@ -104,7 +104,7 @@ class ChapterAnalysisAtomicMaterializationIntegrationTest {
         new ChapterAnalysisResult(
             """
           {"scenes":[{"title":"Scene","visual_beats":[{
-            "title":"Beat","visual_intent":"A frame","source_anchor":"Chapter text content",
+            "title":"Beat","visual_intent":"A frame","start_unit":0,
             "visual_direction":{"shot_size":"WIDE","camera_angle":"EYE_LEVEL","lens_mm":35,
               "focus_target":"subject","action_phase":"BEFORE","subject_placement":"center",
               "background":"room","motivated_light":"soft","palette":"warm",

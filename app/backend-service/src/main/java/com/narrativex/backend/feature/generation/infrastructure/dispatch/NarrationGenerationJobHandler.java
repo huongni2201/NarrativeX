@@ -1,8 +1,12 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
+import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
+import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
 import com.narrativex.backend.feature.generation.application.model.compute.CanonicalFingerprintCalculator;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeSubmissionReceipt;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeTaskRequest;
+import com.narrativex.backend.feature.generation.application.model.compute.InputArtifactRefDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ModelRefDto;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.TaskArtifactsDto;
@@ -10,9 +14,11 @@ import com.narrativex.backend.feature.generation.application.model.compute.TaskC
 import com.narrativex.backend.feature.generation.application.model.compute.TaskDescriptorDto;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
+import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.infrastructure.compute.ComputeClientException;
 import java.time.Instant;
@@ -34,10 +40,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class NarrationGenerationJobHandler implements GenerationJobHandler {
   private static final String PROTOCOL_VERSION = "1.0";
+  private static final String VOICE_REFERENCE_ROLE = "voice-reference";
 
   private final GenerationJobTransactionService transactionService;
   private final GenerationExecutionPort executionPort;
   private final ComputeArtifactAccess artifactAccess;
+  private final NarrationRequestRepository narrationRequestRepository;
+  private final VoiceCatalogAccess voiceCatalogAccess;
 
   @Override
   public JobType supportedType() {
@@ -58,6 +67,16 @@ public class NarrationGenerationJobHandler implements GenerationJobHandler {
     UUID attemptId = ComputeAttemptIdentity.forJob(job.getJobId(), job.getType());
     String idempotencyKey = "compute:tts:" + taskId;
 
+    VoiceInput voiceInput;
+    try {
+      voiceInput = resolveVoice(job);
+    } catch (RuntimeException e) {
+      log.error("Narration voice could not be resolved for job {}", jobId, e);
+      transactionService.markSubmissionFailed(
+          jobId, "NARRATION_VOICE_UNRESOLVED", "Narration voice could not be resolved");
+      return;
+    }
+
     TaskDescriptorDto task = new TaskDescriptorDto("audio.synthesize", "1.0");
     ModelRefDto model = new ModelRefDto("vieneu", "vieneu-v3-turbo", "default");
     TaskConstraintsDto constraints =
@@ -65,11 +84,11 @@ public class NarrationGenerationJobHandler implements GenerationJobHandler {
     Map<String, Object> inputs =
         Map.of(
             "script", job.getSourceText() != null ? job.getSourceText() : "",
-            "voice", Map.of("kind", "catalog", "value", "vieneu-default"),
+            "voice", voiceInput.voice(),
             "format", Map.of("container", "wav", "sampleRateHz", 48000, "channels", 1));
     OutputArtifactTargetDto output =
         artifactAccess.createOutput(taskId, attemptId, "narration", "audio/wav");
-    TaskArtifactsDto artifacts = new TaskArtifactsDto(List.of(), List.of(output));
+    TaskArtifactsDto artifacts = new TaskArtifactsDto(voiceInput.artifacts(), List.of(output));
 
     String fingerprint =
         CanonicalFingerprintCalculator.calculateFingerprint(
@@ -111,6 +130,44 @@ public class NarrationGenerationJobHandler implements GenerationJobHandler {
       }
     }
   }
+
+  /**
+   * Explicit request reference wins; otherwise a custom catalog voice supplies its stored reference
+   * recording; otherwise the preset name is sent to the worker.
+   */
+  private VoiceInput resolveVoice(GenerationJob job) {
+    NarrationRequest request =
+        narrationRequestRepository
+            .findByGenerationJobId(job.getId())
+            .orElseThrow(() -> new IllegalStateException("Narration request not found for job"));
+    VoiceCatalogAccess.VoiceCapabilities voice =
+        voiceCatalogAccess
+            .findVoice(request.voiceId())
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Narration voice is unavailable or disabled: " + request.voiceId()));
+
+    VoiceReferenceSelection reference = request.voiceReference();
+    if (reference == null && voice.referenceAssetId() != null) {
+      reference =
+          new VoiceReferenceSelection(VoiceReferenceScope.GLOBAL_LOCAL, voice.referenceAssetId());
+    }
+    if (reference == null) {
+      return new VoiceInput(
+          Map.of("kind", "catalog", "value", voice.synthesisVoiceName()), List.of());
+    }
+
+    InputArtifactRefDto artifact =
+        reference.scope() == VoiceReferenceScope.PROJECT
+            ? artifactAccess.createInput(
+                request.projectId(), reference.assetId(), VOICE_REFERENCE_ROLE)
+            : artifactAccess.createVoiceReferenceInput(reference.assetId(), VOICE_REFERENCE_ROLE);
+    return new VoiceInput(
+        Map.of("kind", "artifact", "value", VOICE_REFERENCE_ROLE), List.of(artifact));
+  }
+
+  private record VoiceInput(Map<String, Object> voice, List<InputArtifactRefDto> artifacts) {}
 
   private boolean isOutcomeAmbiguous(RuntimeException exception) {
     if (exception instanceof ComputeClientException computeException) {

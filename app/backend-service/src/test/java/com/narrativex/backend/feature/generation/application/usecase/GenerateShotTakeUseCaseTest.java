@@ -39,6 +39,7 @@ class GenerateShotTakeUseCaseTest {
           .VideoGenerationProperties();
   UUID projectId = UUID.randomUUID(), shotId = UUID.randomUUID();
   PromptSettingsAccess promptSettings = mock(PromptSettingsAccess.class);
+  ShotLocationContextRepository shotLocations = mock(ShotLocationContextRepository.class);
   GenerateShotTakeUseCase useCase =
       new GenerateShotTakeUseCase(
           storyboard,
@@ -54,7 +55,8 @@ class GenerateShotTakeUseCaseTest {
           new com.narrativex.backend.feature.generation.application.service
               .NativeVideoInputMapper(),
           new NarrativeXLimitsProperties(),
-          promptSettings);
+          promptSettings,
+          shotLocations);
 
   @BeforeEach
   void setup() {
@@ -522,6 +524,112 @@ class GenerateShotTakeUseCaseTest {
                         projectId, shotId, null, null, null, null, "", null)))
         .isInstanceOf(IllegalArgumentException.class);
     verifyNoInteractions(storyboard);
+  }
+
+  // ---- Location continuity: Scene Location resolved by ID, frozen into the Take ----
+
+  private final UUID locationId = UUID.randomUUID();
+
+  private void sceneLocation(String visualPrompt, UUID previousShotId, String previousEndState) {
+    when(shotLocations.findForShots(eq(projectId), any()))
+        .thenAnswer(
+            i ->
+                Map.of(
+                    shotId,
+                    new ShotLocationContextRepository.ShotLocationContext(
+                        new VisualPromptContextRepository.LocationCanon(
+                            locationId, "Main Hall", null, visualPrompt),
+                        previousShotId,
+                        previousEndState)));
+    when(shotLocations.findForShot(projectId, shotId))
+        .thenReturn(
+            new ShotLocationContextRepository.ShotLocationContext(
+                new VisualPromptContextRepository.LocationCanon(
+                    locationId, "Main Hall", null, visualPrompt),
+                previousShotId,
+                previousEndState));
+  }
+
+  @Test
+  void locationCanonReachesThePromptAndIsFrozenAsProvenance() {
+    UUID previous = UUID.randomUUID();
+    sceneLocation("Wide hall, two rows of red pillars", previous, "{\"state\":\"Door open\"}");
+
+    useCase.execute(command(null, 7L));
+
+    var snapshot = JSON_MAPPER.readTree(admittedSnapshots(1).getFirst());
+    assertThat(snapshot.at("/inputs/prompt").asText())
+        .contains("Setting: Main Hall: Wide hall, two rows of red pillars.")
+        .contains("same location (Main Hall) as the previous shot")
+        .contains("previous shot ended with Door open");
+    assertThat(snapshot.at("/context/locationContext/locationId").asText())
+        .isEqualTo(locationId.toString());
+    assertThat(snapshot.at("/context/locationContext/specHash").asText()).hasSize(64);
+    assertThat(snapshot.at("/context/locationContext/previousShotId").asText())
+        .isEqualTo(previous.toString());
+  }
+
+  @Test
+  void editingTheLocationSpecChangesTheRequestFingerprintAndLeavesAdmittedTakesUntouched() {
+    sceneLocation("Wide hall, red pillars", null, null);
+    useCase.execute(command(null, 7L));
+    sceneLocation("Wide hall, blue pillars", null, null);
+    when(jobs.findByIdempotencyKey(any())).thenReturn(Optional.empty());
+    useCase.execute(
+        new GenerateShotTakeCommand(
+            projectId, shotId, null, 7L, null, null, "other-key", "LTX_NATIVE_AV"));
+
+    var snapshots = admittedSnapshots(2);
+    var first = JSON_MAPPER.readTree(snapshots.get(0));
+    var second = JSON_MAPPER.readTree(snapshots.get(1));
+
+    assertThat(second.get("requestFingerprint").asText())
+        .isNotEqualTo(first.get("requestFingerprint").asText());
+    assertThat(first.at("/inputs/prompt").asText()).contains("red pillars");
+    assertThat(second.at("/inputs/prompt").asText()).contains("blue pillars");
+  }
+
+  @Test
+  void aSceneWithoutALocationKeepsTheLocationFreeIdentity() {
+    when(shotLocations.findForShot(projectId, shotId))
+        .thenReturn(ShotLocationContextRepository.ShotLocationContext.NONE);
+
+    useCase.execute(command(null, 7L));
+
+    var snapshot = JSON_MAPPER.readTree(admittedSnapshots(1).getFirst());
+    assertThat(snapshot.at("/context").has("locationContext")).isFalse();
+    assertThat(snapshot.at("/inputs/prompt").asText()).doesNotContain("Setting:");
+  }
+
+  @Test
+  void replayOfAnOperationAdmittedBeforeLocationContextStillMatches() {
+    var response = useCase.execute(command(null, 55L));
+    var job = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(jobs).save(job.capture());
+    String snapshot = admittedSnapshots(1).getFirst();
+    when(jobs.findByIdempotencyKey(any())).thenReturn(Optional.of(job.getValue()));
+    when(takes.findByGenerationJobId(any()))
+        .thenReturn(Optional.of(takeWith(response.id(), snapshot)));
+
+    // The Scene gained a Location after the Take was admitted by the previous build.
+    sceneLocation("Wide hall", null, null);
+
+    assertThat(useCase.execute(command(null, 55L)).id()).isEqualTo(response.id());
+    verify(outbox, times(1)).enqueue(any());
+  }
+
+  @Test
+  void batchFreezeUsesPreloadedLocationsWithoutPerShotQueries() {
+    sceneLocation("Wide hall", null, null);
+    var preloaded = useCase.loadLocationContexts(projectId, List.of(shotId));
+    clearInvocations(shotLocations);
+
+    var frozen =
+        useCase.freeze(
+            command(null, 11L), PromptSettingsDefaults.settings().withRevision(1), preloaded);
+
+    verifyNoInteractions(shotLocations);
+    assertThat(frozen.inputJson()).contains("Setting: Main Hall: Wide hall.");
   }
 
   private String admissionContext(int cueCount, String cueText) {

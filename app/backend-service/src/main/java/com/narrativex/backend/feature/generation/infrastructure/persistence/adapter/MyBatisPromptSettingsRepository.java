@@ -8,6 +8,8 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
@@ -21,7 +23,12 @@ public class MyBatisPromptSettingsRepository implements PromptSettingsRepository
     return Optional.ofNullable(mapper.find()).map(this::toSettings);
   }
 
+  /**
+   * Runs in its own transaction: the first read of a fresh installation seeds the defaults, and
+   * that read can be called from a read-only transaction that must not be asked to write.
+   */
   @Override
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public PromptSettings insertIfAbsent(PromptSettings initial) {
     PromptSettings stored = initial.withRevision(0);
     mapper.insertIfAbsent(

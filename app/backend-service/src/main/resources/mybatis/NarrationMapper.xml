@@ -43,6 +43,16 @@
          WHERE request_fingerprint = #{requestFingerprint}
     </select>
 
+    <select id="findRequestByGenerationJobId" resultMap="narrationRequestRow">
+        SELECT nr.id, nr.project_id, nr.chapter_id, nr.chapter_row_version, nr.source_hash,
+               nr.source_text, nr.voice_id, nr.language, nr.speaking_rate, nr.segmentation_version,
+               nr.request_fingerprint, nr.voice_reference_asset_id,
+               nr.project_voice_reference_asset_id
+          FROM narration_requests nr
+          JOIN narration_operations no ON no.narration_request_id = nr.id
+         WHERE no.generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    </select>
+
     <insert id="insertOperation">
         INSERT INTO narration_operations
             (id, narration_request_id, generation_job_id, stage_attempt_id)

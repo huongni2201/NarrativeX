@@ -168,6 +168,9 @@ public class CreateMediaJobUseCase {
         throw new GenerationAdmissionDeniedException(
             "STORYBOARD_NOT_READY", "Chapter has no current shots");
       int order = 0;
+      var locationContexts =
+          shotAdmission.loadLocationContexts(
+              command.projectId(), shotRows.stream().map(shot -> shot.id()).toList());
       for (var shot : shotRows) {
         UUID beatId =
             storyboardAccess.findSequenceById(shot.sequenceId()).orElseThrow().visualBeatId();
@@ -182,7 +185,7 @@ public class CreateMediaJobUseCase {
                 null,
                 "batch:" + job.getJobId() + ":shot-" + shot.id(),
                 null);
-        var frozen = shotAdmission.freeze(leafCommand, promptSettings);
+        var frozen = shotAdmission.freeze(leafCommand, promptSettings, locationContexts);
         mediaGenerationItemRepository.save(
             MediaGenerationItem.createShot(
                 job.getId(),

@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Users, Mic2, Compass, ShieldCheck } from "lucide-react";
+import { Users, Compass, ShieldCheck } from "lucide-react";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
 import { CharactersScreen } from "../../characters/screens/CharactersScreen";
-import { VoiceScreen } from "../../voices/screens/VoiceScreen";
 
 export interface ProjectCanonScreenProps {
   projectId: string;
@@ -10,7 +9,7 @@ export interface ProjectCanonScreenProps {
 }
 
 export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenProps) {
-  const [activeTab, setActiveTab] = useState<"characters" | "voices" | "continuity">("characters");
+  const [activeTab, setActiveTab] = useState<"characters" | "continuity">("characters");
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background">
@@ -29,19 +28,6 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
             >
               <Users size={15} />
               <span>Nhân vật (Characters)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("voices")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-body font-medium transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
-                activeTab === "voices"
-                  ? "bg-primary-muted text-primary shadow-sm"
-                  : "text-text-muted hover:text-foreground"
-              }`}
-            >
-              <Mic2 size={15} />
-              <span>Giọng đọc (Voices)</span>
             </button>
 
             <button
@@ -69,15 +55,6 @@ export function ProjectCanonScreen({ projectId, workspace }: ProjectCanonScreenP
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === "characters" && (
           <CharactersScreen projectId={projectId} characters={workspace.characters} />
-        )}
-
-        {activeTab === "voices" && (
-          <VoiceScreen
-            projectId={projectId}
-            chapters={workspace.chapters}
-            voices={workspace.voices}
-            assets={workspace.assets}
-          />
         )}
 
         {activeTab === "continuity" && (

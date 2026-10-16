@@ -9,7 +9,13 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Versioned, transport-neutral prompt and response schema for Chapter Analysis. */
 public final class ChapterAnalysisContractResources {
-  private static final String RESOURCE_ROOT = "/analysis/chapter-analysis/1.1/";
+  /**
+   * Prompt and schema version; 1.2 references chapter positions by source unit index instead of
+   * quoted text.
+   */
+  public static final String VERSION = "1.2";
+
+  private static final String RESOURCE_ROOT = "/analysis/chapter-analysis/" + VERSION + "/";
   private final String promptTemplate;
   private final String promptHash;
   private final JsonNode responseSchema;
@@ -25,8 +31,9 @@ public final class ChapterAnalysisContractResources {
   }
 
   public String systemInstruction(String promptVersion, String schemaVersion) {
-    if (!"1.1".equals(promptVersion) || !"1.1".equals(schemaVersion)) {
-      throw new IllegalArgumentException("Only the Chapter Analysis 1.1 contract is available");
+    if (!VERSION.equals(promptVersion) || !VERSION.equals(schemaVersion)) {
+      throw new IllegalArgumentException(
+          "Only the Chapter Analysis " + VERSION + " contract is available");
     }
     return promptTemplate
         .replace("{promptVersion}", promptVersion)
@@ -48,7 +55,8 @@ public final class ChapterAnalysisContractResources {
   private static JsonNode parseSchema(ObjectMapper objectMapper, byte[] schemaBytes) {
     JsonNode schema = objectMapper.readTree(schemaBytes);
     if (schema == null || !schema.isObject() || !schema.path("properties").isObject()) {
-      throw new IllegalStateException("Chapter Analysis 1.1 schema must be a non-empty object");
+      throw new IllegalStateException(
+          "Chapter Analysis " + VERSION + " schema must be a non-empty object");
     }
     return schema;
   }

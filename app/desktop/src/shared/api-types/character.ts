@@ -1,6 +1,6 @@
 import type { VoiceReferenceScope } from "./narration";
 
-interface DesktopCharacterVoiceProfile {
+export interface DesktopCharacterVoiceProfile {
   id?: string | null;
   characterId: string;
   versionNumber: number;
@@ -12,6 +12,20 @@ interface DesktopCharacterVoiceProfile {
   deliveryBaseline?: string | null;
   status?: string | null;
   lockedAt?: string | null;
+}
+
+export interface DesktopCharacterVoiceProfiles {
+  characterRowVersion: number;
+  pinnedVoiceProfileId: string | null;
+  profiles: DesktopCharacterVoiceProfile[];
+}
+
+export interface CreateCharacterVoiceProfileInput {
+  expectedRowVersion: number;
+  language: string;
+  accent: string;
+  voiceDescription: string;
+  deliveryBaseline: string;
 }
 
 export interface DesktopCharacter {

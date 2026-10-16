@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.compute;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.out.VoiceReferenceAssetRepository;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.infrastructure.storage.ProjectLocalMediaAccess;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
@@ -32,6 +33,7 @@ public class LocalComputeArtifactAccess implements ComputeArtifactAccess {
   private final ProjectLocalMediaAccess projectLocalMediaAccess;
   private final MediaStorageAccess mediaStorageAccess;
   private final MediaAssetRepository mediaAssetRepository;
+  private final VoiceReferenceAssetRepository voiceReferenceAssetRepository;
   private final ComputeServiceProperties properties;
   private final Map<UUID, Binding> outputBindings = new ConcurrentHashMap<>();
 
@@ -111,6 +113,36 @@ public class LocalComputeArtifactAccess implements ComputeArtifactAccess {
         || !asset.sha256().matches("^[0-9a-f]{64}$")) {
       throw new IllegalArgumentException(
           "Input media asset is not ready or lacks integrity metadata");
+    }
+    Instant expiresAt = Instant.now().plus(properties.getArtifactTtl());
+    URI downloadUrl =
+        projectLocalMediaAccess.supports(asset.storageKey())
+            ? projectLocalMediaAccess.createDownloadUrl(
+                asset.storageKey(), expiresAt, URI.create(properties.getArtifactBaseUrl()))
+            : mediaStorageAccess.createDownloadUrl(asset.storageKey(), expiresAt);
+    return new InputArtifactRefDto(
+        asset.id(),
+        role,
+        asset.contentType(),
+        asset.sizeBytes(),
+        asset.sha256().toLowerCase(),
+        new ArtifactReadAccessDto("GET", downloadUrl.toString(), expiresAt, Map.of()));
+  }
+
+  @Override
+  public InputArtifactRefDto createVoiceReferenceInput(UUID voiceReferenceAssetId, String role) {
+    var asset =
+        voiceReferenceAssetRepository
+            .findById(voiceReferenceAssetId)
+            .orElseThrow(() -> new IllegalArgumentException("Voice reference asset not found"));
+    if (asset.storageKey() == null
+        || asset.storageKey().isBlank()
+        || !"READY".equals(asset.status())
+        || asset.sizeBytes() <= 0
+        || asset.sha256() == null
+        || !asset.sha256().matches("^[0-9a-fA-F]{64}$")) {
+      throw new IllegalArgumentException(
+          "Voice reference asset is not ready or lacks integrity metadata");
     }
     Instant expiresAt = Instant.now().plus(properties.getArtifactTtl());
     URI downloadUrl =
