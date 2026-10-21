@@ -13,6 +13,7 @@ import { TakeQualityBadge, TakeQualityPanel } from "./TakeQualityPanel";
 
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
 import { takeSelectionStartsFreshTrim } from "../../production/model/take-quality";
+import { isTakeSelectable, TAKE_REVIEW_ITEMS as REVIEW_ITEMS } from "../../production/model/take-review";
 import { whisperXEvidenceStatus } from "../../production/model/whisperx-status";
 
 export interface TakeSelectorDrawerProps {
@@ -33,14 +34,6 @@ export interface TakeSelectorDrawerProps {
     contentReview: TakeContentReviewChecklist,
   ) => Promise<void> | void;
 }
-
-const REVIEW_ITEMS: Array<{ key: keyof TakeContentReviewChecklist; label: string }> = [
-  { key: "characterWardrobe", label: "Nhân vật và trang phục" },
-  { key: "settingContinuity", label: "Bối cảnh và continuity" },
-  { key: "actionMotion", label: "Hành động và chuyển động" },
-  { key: "dialogueVoice", label: "Lời thoại và giọng" },
-  { key: "lipSync", label: "Khẩu hình và thoại trên hình" },
-];
 
 const emptyReview = (): TakeContentReviewChecklist => ({
   characterWardrobe: false,
@@ -120,18 +113,6 @@ export function TakeSelectorDrawer({
   }, [isOpen, shot?.id, selectedTake?.takeId, selectedTake?.sourceInMs, selectedTake?.sourceOutMs]);
 
   if (!isOpen || !shot) return null;
-
-  const isTakeSelectable = (take: DesktopTake | undefined | null): boolean => {
-    if (!take) return false;
-    const status = take.status?.toUpperCase() ?? "";
-    if (status === "PENDING" || status === "RUNNING" || status === "VALIDATING" || status === "FAILED") {
-      return false;
-    }
-    const hasPassed = status === "PASSED" || take.validationResult?.passed === true;
-    const hasAsset = Boolean(take.outputAssetId);
-    const hasValidDuration = Boolean(take.sourceDurationMs && take.sourceDurationMs > 0);
-    return hasPassed && hasAsset && hasValidDuration;
-  };
 
   const renderTakeStatusBadge = (take: DesktopTake) => {
     const status = take.status?.toUpperCase() ?? "PENDING";

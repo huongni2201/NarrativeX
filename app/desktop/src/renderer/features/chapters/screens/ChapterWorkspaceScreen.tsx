@@ -335,6 +335,9 @@ export function ChapterWorkspaceScreen({
 
           {currentStage === "story" && (
             <StoryStageView
+              projectId={projectId}
+              chapterId={selectedChapterId ?? undefined}
+              onProceedToProduction={() => setCurrentStage("production")}
               story={story ?? null}
               isLoading={storyLoading}
               selectedBeatId={selectedBeat?.id ?? null}
@@ -350,6 +353,9 @@ export function ChapterWorkspaceScreen({
               story={story ?? null}
               timeline={timeline}
               productionStatus={productionStatus.data ?? null}
+              statusError={productionStatus.isError}
+              onRetryStatus={() => { void productionStatus.refetch(); }}
+              onNavigateToSource={() => setCurrentStage("source")}
               activeGenerationJob={generationJob.data ?? null}
               onGenerateVideoShots={handleGenerateVideoShots}
               isGenerating={isGenerating}

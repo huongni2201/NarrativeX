@@ -97,7 +97,7 @@ test("ChapterProductionStage enforces backend-authoritative status and avoids lo
   const statusModel = readSource("features/chapters/model/production-stage-status.ts");
   assert.match(statusModel, /status\?\.timelineReady === true/);
   assert.match(statusModel, /status\?\.overallProgressPercent/);
-  assert.match(source, /Technical PASS:/);
+  assert.match(source, /Shot có Take đạt kỹ thuật:/);
   assert.doesNotMatch(source, /Word Alignment QC/);
 });
 

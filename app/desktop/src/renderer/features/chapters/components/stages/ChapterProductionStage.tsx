@@ -1,15 +1,17 @@
 import { useState, useMemo, type ReactNode } from "react";
-import { productionStageStatus } from "../../model/production-stage-status";
+import { productionNextStep, productionStageStatus } from "../../model/production-stage-status";
+import { Link } from "react-router-dom";
 import {
   Sparkles,
   Volume2,
   Film,
-  Clock,
   UserCheck,
   ShieldCheck,
   ChevronDown,
   ChevronUp,
   Info,
+  ArrowRight,
+  CheckCheck,
 } from "lucide-react";
 import type {
   ChapterProductionStatus,
@@ -29,6 +31,8 @@ import { useUpdateVisualBeatReview } from "../../../storyboard/queries/storyboar
 import { invalidatePreviewMediaQueries } from "../../../storyboard/queries/storyboard-media.queries";
 import { importLocalMedia } from "../../../assets/services/import-local-media";
 import { useQueryClient } from "@tanstack/react-query";
+import { ChapterBulkReview } from "../ChapterBulkReview";
+import { BulkTakeReview } from "../../../storyboard/components/BulkTakeReview";
 
 export interface ChapterProductionStageProps {
   projectId?: string;
@@ -39,6 +43,9 @@ export interface ChapterProductionStageProps {
   activeGenerationJob?: GenerationJob | null;
   onGenerateVideoShots?: () => void;
   isGenerating?: boolean;
+  statusError?: boolean;
+  onRetryStatus?: () => void;
+  onNavigateToSource?: () => void;
 }
 
 export function ChapterProductionStage({
@@ -50,6 +57,9 @@ export function ChapterProductionStage({
   activeGenerationJob: _activeGenerationJob,
   onGenerateVideoShots,
   isGenerating = false,
+  statusError = false,
+  onRetryStatus,
+  onNavigateToSource,
 }: ChapterProductionStageProps) {
   const queryClient = useQueryClient();
   const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
@@ -106,12 +116,13 @@ export function ChapterProductionStage({
     audioReady,
     totalShots,
     shotsGeneratedCount,
-    technicalValidatedCount,
     editorReady,
     generationReady,
     overallProgressPercent,
     voiceReady,
   } = productionStageStatus(productionStatus);
+  const nextStep = productionNextStep(productionStatus);
+  const selectedCount = productionStatus?.selectedTakeCount ?? 0;
 
   const handleReview = (beat: StoryboardVisualBeat, status: VisualBeatReviewStatus) => {
     updateVisualBeatReview.mutate({
@@ -179,28 +190,28 @@ export function ChapterProductionStage({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background">
       {/* Control Room Header & Overall Action */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-dark px-5">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-dark px-5 py-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="text-[16px] font-semibold text-foreground">
               Phòng điều khiển sản xuất
             </span>
-            <span className="rounded bg-surface-3 px-2 py-0.5 text-caption font-mono text-text-secondary">
+            <span className="max-w-full truncate rounded bg-surface-3 px-2 py-0.5 text-caption text-text-secondary" title={chapter.title}>
               {chapter.title}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 border-l border-border-subtle pl-4 text-label">
-            <span className="text-text-muted">Tiến độ sản xuất video:</span>
+          <div className="flex flex-wrap items-center gap-2 text-label">
+            <span className="text-text-muted">Shot đã chọn Take:</span>
             <strong className="text-primary font-mono text-[15px]">
-              {overallProgressPercent}%
+              {productionStatus ? totalShots > 0 ? `${selectedCount}/${totalShots} · ${overallProgressPercent}%` : "Chưa có Shot" : "Chưa có dữ liệu"}
             </strong>
-            <div className="h-2 w-28 overflow-hidden rounded-full bg-surface-3">
+            {productionStatus && totalShots > 0 && <div className="h-2 w-28 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-label="Tỷ lệ Shot đã chọn Take" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallProgressPercent}>
               <div
                 className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-300"
                 style={{ width: `${overallProgressPercent}%` }}
               />
-            </div>
+            </div>}
           </div>
         </div>
 
@@ -208,7 +219,7 @@ export function ChapterProductionStage({
         <button
           type="button"
           onClick={onGenerateVideoShots}
-          disabled={isGenerating || !generationReady}
+          disabled={isGenerating || !generationReady || !onGenerateVideoShots || statusError}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-body font-semibold text-primary-foreground transition-[color,background-color,border-color,box-shadow,transform,opacity] hover:bg-primary-hover shadow-md disabled:opacity-50"
           title="Sinh Video Shots tự động với mô hình LTX-2.5 video-first cho toàn bộ chapter"
         >
@@ -218,7 +229,7 @@ export function ChapterProductionStage({
               ? "Đang sản xuất video shots..."
               : totalShots > 0 && shotsGeneratedCount < totalShots
               ? "Tạo các shot còn thiếu"
-              : "Sản xuất Video Shots (LTX)"}
+              : "Tạo Video Shots"}
           </span>
         </button>
       </div>
@@ -229,36 +240,36 @@ export function ChapterProductionStage({
           <div className="flex flex-wrap items-center gap-2 text-text-secondary">
             <StatusChip
               icon={<Volume2 size={14} />}
-              label="Narration Audio:"
+              label="Narration:"
               value={audioReady === null ? "—" : audioReady ? "Sẵn sàng" : "Đang chờ"}
               tone={audioReady ? "success" : audioReady === null ? "neutral" : "warning"}
               title="Trạng thái file âm thanh kể chuyện (Narration Audio)"
             />
             <StatusChip
               icon={<UserCheck size={14} />}
-              label="Voice:"
+              label="Giọng nhân vật:"
               value={voiceReady === null ? "—" : voiceReady ? "Sẵn sàng" : "Bị chặn"}
               tone={voiceReady ? "success" : voiceReady === null ? "neutral" : "warning"}
               title="Trạng thái hồ sơ giọng đọc nhân vật"
             />
             <StatusChip
               icon={<Film size={14} />}
-              label="Video Shots:"
-              value={`${shotsGeneratedCount} / ${Math.max(1, totalShots)}`}
+              label="Shot có Take đạt kỹ thuật:"
+              value={productionStatus ? `${shotsGeneratedCount} / ${totalShots}` : "—"}
               tone={totalShots > 0 && shotsGeneratedCount >= totalShots ? "success" : "neutral"}
-              title="Số lượng video shots đã sinh hoàn tất"
+              title="Shot có Take đạt kiểm tra kỹ thuật; vẫn cần duyệt nội dung trước khi chọn."
             />
             <StatusChip
-              icon={<Clock size={14} />}
-              label="Technical PASS:"
-              value={`${technicalValidatedCount} / ${Math.max(1, totalShots)}`}
-              tone={totalShots > 0 && technicalValidatedCount >= totalShots ? "success" : "neutral"}
-              title="Take đã qua kiểm định đầu ra kỹ thuật; không xác nhận alignment, nội dung hoặc khẩu hình."
+              icon={<CheckCheck size={14} />}
+              label="Đã chọn Take:"
+              value={productionStatus ? `${selectedCount} / ${totalShots}` : "—"}
+              tone={totalShots > 0 && selectedCount === totalShots ? "success" : "neutral"}
+              title="Số Shot đã chọn Take và lưu In/Out để dựng."
             />
             <StatusChip
               icon={<ShieldCheck size={14} />}
               label=""
-              value={editorReady ? "Timeline Editor sẵn sàng" : "Chờ shots"}
+              value={!productionStatus ? "Timeline: chưa có dữ liệu" : editorReady ? "Timeline sẵn sàng" : "Timeline chưa sẵn sàng"}
               tone={editorReady ? "success" : "neutral"}
             />
           </div>
@@ -267,6 +278,8 @@ export function ChapterProductionStage({
           <button
             type="button"
             onClick={() => setShowTechDetails((prev) => !prev)}
+            aria-expanded={showTechDetails}
+            aria-controls="production-technical-details"
             className="inline-flex items-center gap-1 text-caption font-mono text-text-dim hover:text-foreground transition-colors"
           >
             <Info size={12} />
@@ -277,7 +290,7 @@ export function ChapterProductionStage({
 
         {/* Collapsible Technical Details */}
         {showTechDetails && (
-          <div className="mt-2 flex items-center gap-4 rounded-md border border-border-subtle bg-surface-dark px-3 py-1.5 font-mono text-caption text-text-dim">
+          <div id="production-technical-details" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border-subtle bg-surface-dark px-3 py-1.5 font-mono text-caption text-text-dim">
             <span>Model: <strong className="text-foreground">LTX-2.5 22B Distilled (Native AV)</strong></span>
             <span>Độ phân giải: <strong className="text-foreground">1280x720 (720p)</strong></span>
             <span>Khung hình: <strong className="text-foreground">24 FPS Cinematic</strong></span>
@@ -288,6 +301,28 @@ export function ChapterProductionStage({
 
       {/* Main Canonical Production Workspace: VideoShotboard */}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <section className="mx-4 my-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-panel p-4" aria-label="Bước tiếp theo" aria-live="polite">
+          <div className="min-w-0 flex-1 basis-72">
+            <p className="mb-1 text-caption font-semibold uppercase tracking-wide text-primary">Bước tiếp theo</p>
+            <h3 className="text-body font-semibold text-foreground">{statusError ? "Không cập nhật được trạng thái sản xuất" : nextStep.title}</h3>
+            <p className="mt-1 text-label leading-relaxed text-text-secondary">{statusError ? "Hãy tải lại trạng thái trước khi tiếp tục. Dữ liệu đang hiển thị có thể đã cũ." : nextStep.detail}</p>
+            {!statusError && productionStatus && (productionStatus.failedShots > 0 || productionStatus.manualReviewShots > 0) && <p className="mt-2 text-label text-warning">{productionStatus.failedShots} Shot lỗi · {productionStatus.manualReviewShots} Shot cần duyệt thủ công. Kiểm tra chi tiết bên dưới.</p>}
+          </div>
+          {statusError && onRetryStatus ? (
+            <button type="button" onClick={onRetryStatus} className="nx-timeline-action">Tải lại trạng thái</button>
+          ) : !statusError && productionStatus && (!productionStatus.storyReady || totalShots === 0) && onNavigateToSource ? (
+            <button type="button" onClick={onNavigateToSource} className="nx-timeline-action">Mở Nội dung gốc<ArrowRight size={14} aria-hidden="true" /></button>
+          ) : !statusError && nextStep.destination ? (
+            <Link to={`/projects/${projectId}/${nextStep.destination}`} className="nx-timeline-action">
+              {nextStep.destination === "audio" ? "Mở Âm thanh" : "Mở trình dựng"}
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          ) : null}
+        </section>
+        <div className="mx-4 mb-3 space-y-3">
+          <ChapterBulkReview key={chapter.id} projectId={projectId} chapterId={chapter.id} story={story} />
+          <BulkTakeReview key={`takes-${chapter.id}`} projectId={projectId} chapterId={chapter.id} />
+        </div>
         {mediaImportMessage && (
           <div
             className="mx-4 mt-3 rounded-md border border-warning bg-surface-panel p-3 text-label text-warning"

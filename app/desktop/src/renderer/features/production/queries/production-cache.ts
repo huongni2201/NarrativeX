@@ -1,4 +1,4 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { InvalidateOptions, QueryClient } from "@tanstack/react-query";
 import type { ChapterProductionStatus } from "../../../../shared/api-types";
 
 export const videoProductionQueryKeys = {
@@ -10,12 +10,12 @@ export const videoProductionQueryKeys = {
   shotAudioCueAllocations: (projectId: string, sequenceId: string) => ["video-production", "shot-sequence", projectId, sequenceId, "audio-cue-allocations"] as const,
 };
 
-export function refreshProduction(client: QueryClient, projectId: string, chapterId?: string | null) {
+export function refreshProduction(client: QueryClient, projectId: string, chapterId?: string | null, options: InvalidateOptions = {}) {
   return Promise.all([
-    client.invalidateQueries({ queryKey: chapterId ? videoProductionQueryKeys.chapter(projectId, chapterId) : videoProductionQueryKeys.chapters(projectId) }),
-    client.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-    client.invalidateQueries({ queryKey: chapterId ? ["projects", projectId, "chapters", chapterId] : ["projects", projectId, "chapters"] }),
-    client.invalidateQueries({ queryKey: ["generation", "current-media-job", projectId, ...(chapterId ? [chapterId] : [])] }),
+    client.invalidateQueries({ queryKey: chapterId ? videoProductionQueryKeys.chapter(projectId, chapterId) : videoProductionQueryKeys.chapters(projectId) }, options),
+    client.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }, options),
+    client.invalidateQueries({ queryKey: chapterId ? ["projects", projectId, "chapters", chapterId] : ["projects", projectId, "chapters"] }, options),
+    client.invalidateQueries({ queryKey: ["generation", "current-media-job", projectId, ...(chapterId ? [chapterId] : [])] }, options),
   ]);
 }
 

@@ -1,6 +1,7 @@
 import { Clapperboard, Film, Sparkles } from "lucide-react";
 import type { DesktopChapterStory, DesktopStoryBeat } from "../../../../shared/api-types";
 import { StoryBeatCard } from "../components/StoryBeatCard";
+import { ChapterBulkReview } from "../../chapters/components/ChapterBulkReview";
 
 export interface StoryStageViewProps {
   story: DesktopChapterStory | null;
@@ -8,6 +9,9 @@ export interface StoryStageViewProps {
   selectedBeatId: string | null;
   onSelectBeat: (beat: DesktopStoryBeat) => void;
   onNavigateToSource?: () => void;
+  projectId?: string;
+  chapterId?: string;
+  onProceedToProduction?: () => void;
 }
 
 export function StoryStageView({
@@ -16,6 +20,9 @@ export function StoryStageView({
   selectedBeatId,
   onSelectBeat,
   onNavigateToSource,
+  projectId,
+  chapterId,
+  onProceedToProduction,
 }: StoryStageViewProps) {
   if (isLoading) {
     return (
@@ -51,6 +58,7 @@ export function StoryStageView({
 
   return (
     <div className="flex h-full w-full flex-col overflow-y-auto p-4 space-y-6">
+      {projectId && chapterId && <ChapterBulkReview key={chapterId} projectId={projectId} chapterId={chapterId} story={story} onProceed={onProceedToProduction} />}
       {/* Scenes Container */}
       {story.scenes.map((scene) => (
         <div key={scene.id} className="nx-story-scene space-y-3">

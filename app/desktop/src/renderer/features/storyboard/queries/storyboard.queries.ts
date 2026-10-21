@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QueryClient } from "@tanstack/react-query";
+import type { InvalidateOptions, QueryClient } from "@tanstack/react-query";
 import {
   storyboardApi,
   storyboardQueryKey,
@@ -19,11 +19,12 @@ export function invalidateVisualBeatReviewQueries(
   queryClient: QueryClient,
   projectId: string,
   chapterId: string,
+  options: InvalidateOptions = {},
 ) {
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) }),
-    queryClient.invalidateQueries({ queryKey: storyQueryKeys.chapterStory(projectId, chapterId) }),
-    queryClient.invalidateQueries({ queryKey: videoProductionQueryKeys.chapter(projectId, chapterId) }),
+    queryClient.invalidateQueries({ queryKey: storyboardKeys.chapter(projectId, chapterId) }, options),
+    queryClient.invalidateQueries({ queryKey: storyQueryKeys.chapterStory(projectId, chapterId) }, options),
+    queryClient.invalidateQueries({ queryKey: videoProductionQueryKeys.chapter(projectId, chapterId) }, options),
   ]);
 }
 
