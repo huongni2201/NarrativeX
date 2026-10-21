@@ -22,7 +22,9 @@ async def test_delayed_dependency_readiness_refresh_is_throttled_and_recovers(
     clock = [10.0]
     monkeypatch.setattr(module.time, "monotonic", lambda: clock[0])
     verification = []
-    monkeypatch.setattr(module, "verify_runtime_files", lambda path: verification.append(path))
+    monkeypatch.setattr(
+        module, "verify_runtime_files", lambda path, _profile=None: verification.append(path)
+    )
     client = AsyncMock()
     client.object_info.side_effect = [
         httpx.ConnectError("booting"),
@@ -46,7 +48,7 @@ async def test_readiness_refresh_keeps_invalid_static_profile_blocked(monkeypatc
     from narrativex_gpu_worker.adapters.executors.ltx import executor as module
     from narrativex_gpu_worker.adapters.executors.ltx.executor import LtxVideoExecutor
 
-    def reject(_path):
+    def reject(_path, _profile=None):
         raise ValueError("Pinned model revision mismatch")
 
     monkeypatch.setattr(module, "verify_runtime_files", reject)

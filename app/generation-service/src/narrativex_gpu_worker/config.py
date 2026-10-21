@@ -78,7 +78,26 @@ class WorkerSettings(BaseSettings):
         default="http://127.0.0.1:8188",
         validation_alias="GENERATION_SERVICE_COMFYUI_BASE_URL",
     )
-    ltx_runtime_directory: Path | None = None
+    ltx_runtime_directory: Path | None = Field(
+        default=None,
+        validation_alias="GENERATION_SERVICE_LTX_RUNTIME_DIRECTORY",
+    )
+    # Pinned profile id from adapters/executors/ltx/workflows; blank selects the default.
+    ltx_profile: str = Field(
+        default="",
+        validation_alias="GENERATION_SERVICE_LTX_PROFILE",
+    )
+    ltx_vram_budget_mb: int | None = Field(
+        default=None,
+        ge=1,
+        validation_alias="GENERATION_SERVICE_LTX_VRAM_BUDGET_MB",
+    )
+    # Declared GPU memory for hosts where nvidia-smi is unavailable or reports a shared device.
+    gpu_vram_mb: int | None = Field(
+        default=None,
+        ge=1,
+        validation_alias="GENERATION_SERVICE_GPU_VRAM_MB",
+    )
     comfyui_timeout_seconds: float = Field(
         default=120.0,
         gt=0,
