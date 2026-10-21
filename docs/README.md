@@ -61,10 +61,10 @@ docs/
 | [Two-stage Chapter Analysis](plans/20261017-two-stage-chapter-analysis.md) | PARTIAL: staged contracts, validation and runner implemented; PostgreSQL/runtime acceptance pending |
 | [Prompt Settings](plans/prompt-settings.md) | PARTIAL: backend done, Desktop runtime unverified |
 | [Performance optimization](plans/performance-optimization.md) | TARGET: not started |
-| [Location continuity](plans/location-continuity.md) | PARTIAL: phase 0 (video prompt) implemented; phases 1–5 not started |
-| [Video production and regeneration](plans/20261017-video-production-and-regeneration.md) | PARTIAL: Phase A mostly implemented and Phase B core image attempts added; PostgreSQL/runtime gates remain; phases C–E are TARGET |
+| [Location continuity](plans/location-continuity.md) | PARTIAL: phase 0 (video prompt) implemented; phases 1–2 not started; phases 3–5 are superseded by the video quality pipeline |
+| [Video production and regeneration](plans/20261017-video-production-and-regeneration.md) | PARTIAL: Phase A mostly implemented and Phase B core image attempts added; PostgreSQL/runtime gates remain; phases C–E are TARGET and superseded in order and approach by the video quality pipeline |
 | [Production flow bug fixes](plans/20261017-production-flow-bug-fixes.md) | PARTIAL: cue allocation, review/trim and per-Shot UI are implemented; PostgreSQL and Electron runtime gates remain |
-| [Video quality pipeline](plans/20261020-video-quality-pipeline.md) | TARGET: audio-first, keyframe-conditioned production with QC, sound design and multi-track render (P0–P14); not started |
+| [Video quality pipeline](plans/20261020-video-quality-pipeline.md) | TARGET direction (audio-first, keyframe-conditioned, multi-track render, P0–P14). P1 automatic take QC: P1.1–P1.4 implemented, P1.5 Desktop implemented but runtime-unverified, P1.6 open; P2–P14 not started |
 | [Story-to-video remediation](plans/20261020-story-to-video-remediation.md) | PARTIAL: core SQL, CAS, duration, cue text and QC-label fixes have automated coverage; Electron/API/GPU acceptance remains |
 
 ## Maintenance rules
