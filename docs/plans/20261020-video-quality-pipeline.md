@@ -1,12 +1,33 @@
 # Plan: Luồng sản xuất video chất lượng cao sau phân tích chương
 
-**Ngày:** 2026-10-20 · **Cập nhật:** 2026-10-20 (bản hoàn chỉnh, có task triển khai)
+**Ngày:** 2026-10-20 · **Cập nhật:** 2026-10-21 (đối chiếu code ở `4ea50b686`; thêm mục 0 trạng thái thực tế, task sửa lỗi P1.F, task hoàn thiện P1.1b)
 
-**Trạng thái:** TARGET — chưa triển khai. Mọi checkbox chỉ được đánh dấu khi có bằng chứng (test thật, runtime Electron, GPU thật cho phần GPU). Kết quả từ fake provider không phải năng lực production.
+**Trạng thái:** TARGET, triển khai một phần. Mới có lõi QC nấc 1 (P1.1–P1.4); P0, P1.5, P1.6 chưa đạt nghiệm thu; P2–P14 chưa bắt đầu. Mọi checkbox chỉ được đánh dấu khi có bằng chứng (test thật, runtime Electron, GPU thật cho phần GPU). Kết quả từ fake provider không phải năng lực production.
 
 **Quan hệ với plan khác:** thay thế thứ tự và giải pháp của đợt C–E trong [Video production and regeneration](20261017-video-production-and-regeneration.md) và giai đoạn 3–5 của [Location continuity](location-continuity.md). Mốc A của [Story-to-video remediation](20261020-story-to-video-remediation.md) vẫn là điều kiện nền (P0). Các ADR chỉ dùng làm tham chiếu; điểm đi khác ADR nằm ở [mục 12](#12-cập-nhật-adr-và-tài-liệu).
 
 **Quy ước đường dẫn:** **BE** = `app/backend-service/src/main/java/com/narrativex/backend/` · **BR** = `app/backend-service/src/main/resources/` · **BT** = `app/backend-service/src/test/java/com/narrativex/backend/` · **GS** = `app/generation-service/src/narrativex_gpu_worker/` · **GT** = `app/generation-service/tests/` · **CT** = `contracts/compute/v1/` · **DE** = `app/desktop/src/` · **DT** = `app/desktop/test/`. Tên file mới là đề xuất; khảo sát seam tương đương trước khi tạo.
+
+---
+
+## 0. Trạng thái thực tế (đối chiếu code ở `4ea50b686`, 2026-10-21)
+
+| Phần | Kết quả | Việc còn lại |
+|---|---|---|
+| P0 | Một phần; chưa đạt cổng “3 SelectedTake native → MP4 qua Electron thật” | Hoàn tất Mốc A + chạy cổng |
+| P1.1 | Scorer V2 có khung trắng, đứng hình cuối clip, độ lệch màu/dải sáng (P1.1b, 2026-10-21) | Hiệu chỉnh ở P1.6 |
+| P1.2 | Contract `qualityMetrics` V2 có và có test | — |
+| P1.3 | Finalizer + evaluator V2; yêu cầu thoại theo snapshot từng Take (P1.F2, 2026-10-21) | Hiệu chỉnh ở P1.6 |
+| P1.4 | Read model trả thêm `speechExpectation` (`EXPECTED`/`NOT_EXPECTED`/`UNKNOWN`) | — |
+| P1.5 | UI có gợi ý In **và Out**; lỗi mất In/Out đã sửa (P1.F1); **chưa qua runtime Electron với API thật** | Cổng runtime P1.5 |
+| P1.6 | Chưa hiệu chỉnh trên ≥ 30 Take thật | P1.6 (cần GPU thật + người gắn nhãn) |
+| P2–P14 | Chưa triển khai | Theo mục 6 |
+
+Đường sinh hiện tại vẫn là T2V + native AV (`LTX_NATIVE_AV`), render snapshot schema 3/4. Chưa có audio-first, keyframe conditioning, mix nhiều track.
+
+**Bằng chứng kiểm tra sau P1.F/P1.1b (2026-10-21):** worker 199 test (FFmpeg thật) + `ruff check` + `mypy` sạch; Desktop 522 test pass (15 skipped có sẵn) + `type-check` sạch; backend: toàn bộ suite 984 test, 0 lỗi (`./mvnw.cmd test`). **Chưa** có Electron + API thật (DB cục bộ không có Take nào) và **chưa** có GPU thật; xem ghi chú ở P1.F1.
+
+**Thứ tự ưu tiên để đóng nền tảng:** ~~P1.F1 + P1.F2~~ (xong) → ~~P1.1b~~ (xong) → P0 cổng → cổng runtime P1.5 → P1.6. Chỉ sau đó mới coi M1 xong và mở P13.
 
 ---
 
@@ -140,7 +161,7 @@ Song song được: P1 ‖ P2 ‖ P3; P7 ‖ P4–P6 (khác file/module). Nhạc
 
 | Mốc giá trị | Gồm | Người dùng nhận được |
 |---|---|---|
-| M1 | P1 | Biết Take nào hỏng mà không xem hết |
+| M1 | P0 cổng + P1 (gồm P1.F, P1.1b, P1.6) | Biết Take nào hỏng mà không xem hết. *Chưa đạt: lõi đã có nhưng còn lỗi P1.F, thiếu số đo P1.1b, chưa có runtime/hiệu chỉnh* |
 | M2 | P3–P6 + P11.3 + P12 (một phần) | Giọng nhân vật nhất quán, nhạc nền, nhịp đúng — kể cả khi hình vẫn T2V |
 | M3 | P7–P9 | Nhân vật/bối cảnh đồng nhất, khớp môi |
 | M4 | P10–P12 | Liền mạch, combat có tiếng, mix chuẩn — chương hoàn chỉnh |
@@ -157,7 +178,7 @@ Mỗi task: viết test tái hiện/đặc tả trước, rồi code; task SQL c
 - [ ] Hoàn tất Mốc A (A1–A8) của [Story-to-video remediation](20261020-story-to-video-remediation.md).
 - [ ] Phục hồi `docs/current-status.md` chỉ với facts đã kiểm chứng.
 
-**Cổng:** ba SelectedTake native → MP4 qua Electron thật.
+**Cổng (chưa đạt):** ba SelectedTake native → MP4 qua Electron thật. Bằng chứng cần có: ba Take từ GPU thật được chọn qua UI, render admission thành công, MP4 ffprobe đúng stream/thời lượng, log không lỗi. Chưa có thì mọi “M1 xong” chỉ là đo trên fixture.
 
 ### P1 — QC tự động nấc 1 (đo + hiển thị)
 
@@ -166,23 +187,36 @@ Không đổi `PASSED/FAILED`, không tự tạo job, không chặn chọn Take.
 | Chỉ số (FFmpeg, CPU vài giây/Take) | Cảnh báo khởi điểm | Nhóm `VideoQAFailureCategory` |
 |---|---|---|
 | Đứng hình đầu clip (`freezedetect`) | > 0,5 s | `MOTION` |
+| Đứng hình cuối clip (`freezedetect`, khoảng chạm cuối clip; V2) | > 0,5 s | `MOTION` |
 | Tổng đứng hình | > 25% thời lượng | `MOTION` |
 | Chuyển động thấp (`signalstats` YDIF trung bình) | dưới ngưỡng | `MOTION` |
 | Cắt cứng trong clip (`scdet`) | có | `TEMPORAL_ARTIFACT` |
 | Nhấp nháy (độ lệch YAVG) | vượt ngưỡng | `TEMPORAL_ARTIFACT` |
-| Khung đen/trắng (`blackdetect`, YAVG) | > 0,2 s | `TECHNICAL_OUTPUT` |
-| Im lặng khi Shot có thoại (`silencedetect`) | > 60% | `DURATION` |
+| Khung đen (`blackdetect`) và khung trắng (YAVG ≥ 230 từng khung, V2) | > 0,2 s | `TECHNICAL_OUTPUT` |
+| Im lặng khi **Take** có thoại, theo snapshot của Take (`silencedetect`) | > 60% | `DURATION` |
 | Loudness/clipping (`ebur128`, `astats`) | clipping hoặc < −35 LUFS | `TECHNICAL_OUTPUT` |
-| Chữ ký màu (trung bình/độ lệch YUV, histogram thô) | so trong Scene ở backend | `CONTINUITY` |
+| Chữ ký màu: trung bình YUV so trong Scene ở backend (có cảnh báo); độ lệch YUV trong clip và dải sáng 10%–90% (V2) mới chỉ đo và hiển thị, chưa có cảnh báo cho tới P1.6 | so trong Scene ở backend | `CONTINUITY` |
 
 Chưa đo ở nấc 1 (hiển thị “chưa đo”): giống mặt (cần P7), khớp môi SyncNet (P9), biến dạng tay/mặt.
 
 **P1.1 — Worker chấm điểm** · GS `adapters/executors/ltx/media.py` (cạnh `inspect_native_video`), mới `adapters/executors/ltx/quality.py`; GT `executors/test_ltx_quality.py`
-- [x] `score_video_quality(data, ffmpeg)` chạy một lần ffmpeg với các filter, parse log → số đo thô + `scorerVersion = FFMPEG_TAKE_QC_V1`.
+- [x] `score_video_quality(data, ffmpeg)` chạy một lần ffmpeg với các filter, parse log → số đo thô + `scorerVersion` (V1 khi viết; nay `FFMPEG_TAKE_QC_V2`, xem P1.1b).
 - [x] Timeout riêng; lỗi/timeout → `status = UNAVAILABLE` + lý do; **không** làm fail task video.
 - [x] Gọi sau `inspect_native_video` trong executor LTX.
 - [x] Fixture sinh bằng FFmpeg: đứng 1 s đầu, cắt cứng giữa, nhấp nháy, đen, im lặng, clipping, clip tốt.
   - Bằng chứng (2026-10-20): `tests/executors/test_ltx_quality.py` 11 test với FFmpeg thật trên CPU; toàn bộ worker 184 test, `ruff`, `mypy` sạch. Nhấp nháy đo bằng độ lệch chuẩn của ΔYAVG có dấu (|Δ| không phân biệt được dao động đều). Đứng hình ở cuối clip chỉ tính vào tổng, chưa có chỉ số riêng.
+  - **Lệch so với bảng chỉ số (đối chiếu 2026-10-21):** bản V1 của `quality.py` chưa đo khung trắng, độ lệch màu/histogram, đứng hình cuối clip. Đã bổ sung ở P1.1b bên dưới (scorer V2).
+
+**P1.1b — Hoàn thiện số đo còn thiếu** · GS `adapters/executors/ltx/quality.py`; GT `executors/test_ltx_quality.py`; CT `schemas/produced-artifact.json`; GS `contracts/artifact.py`; BE `ProducedArtifactDto.java`, `VideoQualityMetricsDto.java`, `TakeQualityEvaluator.java`
+- [x] **Đứng hình cuối clip** (`freezeTailMs`): khoảng freeze chạm cuối clip (dung sai như `_HEAD_TOLERANCE_S`). Là điều kiện để gợi ý Out ở P1.5/P10.1.
+- [x] **Khung trắng** (`whiteTotalMs`): ffmpeg không có `whitedetect`; dùng YAVG từng khung ≥ ngưỡng (khởi điểm 235, dải limited) nhân thời lượng khung. Đọc `pts_time` từ metadata để tính thời lượng, không giả định FPS cố định.
+- [x] **Độ lệch màu / histogram thô**: thêm số đo trong clip (ví dụ độ lệch chuẩn Y qua khung, `YLOW`/`YHIGH`, `SATAVG` của `signalstats`). **Xác minh tên khóa bằng FFmpeg thật** trước khi chốt trường contract.
+- [x] Quy tắc tương thích: trường mới là tùy chọn trong contract (Take cũ không có → “chưa đo”, không phải 0). `scorerVersion` tăng lên `FFMPEG_TAKE_QC_V2`; evaluator xử lý `null` của từng trường mới độc lập, không suy ra lỗi từ thiếu số đo.
+- [x] Cảnh báo mới ở evaluator (khung trắng → `TECHNICAL_OUTPUT`, đứng hình cuối → `MOTION`, lệch màu mở rộng → `CONTINUITY`) kèm tăng `thresholdsVersion` lên `TAKE_QC_THRESHOLDS_V2`. Giữ nguyên ngưỡng V1 cho số đo đã có; ngưỡng mới ghi là “chưa hiệu chỉnh” cho tới P1.6.
+- [x] Test: fixture khung trắng, fixture freeze cuối clip, clip tốt không báo nhầm; contract test Pydantic ↔ schema ↔ ví dụ ↔ Jackson (trường lạ vẫn bị từ chối); evaluator với Take V1 (không có trường mới) vẫn cho kết quả như cũ.
+- [x] Cập nhật bảng chỉ số (cột “Nhóm”) và danh sách “Chưa đo ở nấc 1” khi xong.
+  - Bằng chứng (2026-10-21): khóa `signalstats` kiểm bằng FFmpeg đóng gói trong Desktop (`YLOW`, `YHIGH`, `YAVG`, `UAVG`, `VAVG`; dòng `frame:… pts_time:…` đi trước khóa). Trường mới: `freezeTailMs`, `whiteTotalMs`, `stddevY/U/V` (độ lệch chuẩn của trung bình từng khung), `lowY`/`highY` (trung bình YLOW/YHIGH từng khung). `test_ltx_quality.py` 18 test (7 test mới, FFmpeg thật: clip tốt, freeze cuối ≠ freeze đầu, clip trắng, clip đen không bị tính trắng, tia chớp trắng 0,5 s đo ≈ 0,5 s, độ lệch màu tăng khi đổi màu); toàn worker 199 test, `ruff check`, `mypy` sạch; contract test Pydantic ↔ schema ↔ ví dụ và Jackson (backend) pass; evaluator V2 có test biên và test Take V1 không bị cảnh báo vì thiếu trường.
+  - **Lệch có chủ đích so với mô tả ở trên:** (1) `WHITE_FRAMES` và `FREEZE_TAIL` là mức `REVIEW`, không phải `DEFECT` (tia chớp trắng có thể là chủ ý, ngưỡng chưa hiệu chỉnh); (2) độ lệch màu trong clip và dải sáng **chỉ đo và hiển thị, chưa có cảnh báo** (không có căn cứ ngưỡng trước P1.6) nên không có cảnh báo `CONTINUITY` mới; (3) khung trắng dùng YAVG ≥ 230 (không phải 235) để chịu được nén; mọi ngưỡng mới chờ P1.6.
 
 **P1.2 — Contract** · CT `schemas/produced-artifact.json`, `examples/`; GS `contracts/artifact.py`; BE `feature/generation/application/model/compute/ProducedArtifactDto.java`
 - [x] Thêm `qualityMetrics` tùy chọn vào technical metadata video (status, scorerVersion, metrics).
@@ -192,7 +226,7 @@ Chưa đo ở nấc 1 (hiển thị “chưa đo”): giống mặt (cần P7), 
 **P1.3 — Backend ghi và đánh giá** · BE `feature/generation/infrastructure/finalizer/VideoGenerationResultFinalizer.java`, mới `feature/generation/application/service/TakeQualityEvaluator.java`; BT tương ứng
 - [x] Finalizer ghi `takes.metrics_json = {version, status, metrics}`; không đổi `validation_status`.
   - Lệch plan có chủ đích: ghi dưới khóa `metrics_json.qualityControl` bằng `jsonb_set` để không đè khóa `whisperx` có sẵn. Có test PostgreSQL thật (`TakeQualityControlPostgreSqlIntegrationTest`).
-- [x] `TakeQualityEvaluator` thuần, ngưỡng có version `TAKE_QC_THRESHOLDS_V1` → `warnings[]` + mức tổng (`GOOD`/`REVIEW`/`DEFECT`/`UNMEASURED`). Tính khi đọc, đổi ngưỡng không cần sinh lại.
+- [x] `TakeQualityEvaluator` thuần, ngưỡng có version (V1 khi viết; nay `TAKE_QC_THRESHOLDS_V2`) → `warnings[]` + mức tổng (`GOOD`/`REVIEW`/`DEFECT`/`UNMEASURED`). Tính khi đọc, đổi ngưỡng không cần sinh lại.
 - [x] Cảnh báo màu: so chữ ký màu với trung vị SelectedTake khác cùng Scene.
 - [x] Test biên ngưỡng; Take cũ `{}` → `UNMEASURED`; Scene 0/1/nhiều SelectedTake.
   - Ngưỡng chưa nêu trong plan (chuyển động 0,5 YDIF; nhấp nháy 8; lệch màu Y 25 / UV 10) là giá trị khởi điểm **chưa hiệu chỉnh**, chờ P1.6. Với Scene chỉ có 2 Take khác đo được, trung vị là trung bình nên một Take lệch nặng kéo tham chiếu của Take còn lại.
@@ -200,17 +234,48 @@ Chưa đo ở nấc 1 (hiển thị “chưa đo”): giống mặt (cần P7), 
 **P1.4 — Read model** · BE `GetChapterProductionUseCase`, Take list query, `ChapterProductionView`
 - [x] Trả metrics, warnings, mức tổng trong Take list và production view.
   - Bằng chứng: `ProductionTakeItem.quality`; backend 975 test, 0 lỗi (2026-10-20). `TakeResponse` (kết quả tạo Take) không mang QC vì chưa có số đo lúc đó.
+  - **Lỗi đã biết:** `expectsSpeech` được tính một lần cho cả StoryBeat rồi áp cho mọi Shot/Take của Beat (xem P1.F2).
 
-**P1.5 — Desktop** (đã code + test model + type-check; **chưa qua cổng runtime Electron**, chưa đánh dấu xong) · DE `renderer/features/production/` (Take drawer, `VideoShotboard`), API types `shared/api-types/`
-- [ ] Huy hiệu **Tốt / Cần xem / Có lỗi / Chưa đo**; danh sách chỉ số có giá trị, ngưỡng, giải thích tiếng Việt.
-- [ ] Gợi ý In/Out từ đứng hình đầu/cuối (người bấm áp dụng). *Mới có gợi ý In từ đứng hình đầu; chưa có Out vì chưa đo đứng hình cuối.*
+**P1.F — Sửa lỗi trong phần đã triển khai** (làm trước mọi việc khác của P1; mỗi lỗi bắt đầu bằng test đỏ tái hiện)
+
+**P1.F1 — Mở “Chỉ số đã đo” làm mất In/Out và checklist** · DE `renderer/features/storyboard/components/TakeSelectorDrawer.tsx`, `TakeQualityPanel.tsx`; DT test component
+- Nguyên nhân: nội dung `TakeQualityPanel` nằm trong thẻ Take có `onClick={() => handleSelectTake(take)}`; click vào “Chỉ số đã đo” nổi lên thẻ, `handleSelectTake` luôn đặt In = 0, Out = toàn clip, xóa checklist, kể cả khi đó đã là Take đang chọn.
+- [x] Test đỏ trước: chỉnh In/Out và tick checklist ở Take đang active → bấm/mở “Chỉ số đã đo” → In/Out và checklist không đổi. Thêm test: bấm thẻ chính Take đang active cũng không reset.
+- [x] Sửa gốc: `handleSelectTake` thoát sớm (chỉ dọn lỗi hiển thị, không reset trim/checklist) khi `take.id === activeTakeId`. Đổi sang Take khác vẫn reset như hiện tại.
+- [x] Sửa lớp UI: vùng chi tiết QC (và nút “Áp dụng In gợi ý”) chặn nổi sự kiện click/keydown, hoặc tách khỏi phần tử tương tác chọn Take. Bàn phím: Enter/Space trong vùng chi tiết không kích hoạt chọn Take.
+- [x] Giữ hành vi: nút áp dụng In gợi ý vẫn hoạt động và chỉ áp In, không đụng checklist.
+- [ ] Qua gate runtime UI (mục 9): Electron thật, mở/đóng chỉ số khi đã chỉnh In/Out, kiểm console, screenshot.
+  - **Trạng thái (2026-10-21): chưa đạt, bị chặn bởi dữ liệu.** DB cục bộ không có Take nào và backend Docker đang chạy là bản build cũ nên chưa chạy được luồng thật. Đã kiểm chứng hành vi trong **trình duyệt thật bằng trang harness tạm với dữ liệu giả** (đã xóa, không commit): áp In 900 / Out 3200 → mở “Chỉ số đã đo” → In/Out vẫn 900/3200; bấm thẻ Take đang active → không reset; đổi sang Take khác → reset về 0/4000 như cũ; gợi ý biến mất sau khi áp; console không lỗi. Harness **không** chứng minh tích hợp API thật, Electron, dark/light, hay overflow ở viền; viewport thử 800×600 cho thấy danh sách Take rất thấp (hành vi layout có sẵn của drawer, chưa sửa).
+  - Cần để đóng mục này: backend build mới + ít nhất 2 Take có `qualityControl` (từ GPU thật hoặc seed qua API) + Electron dev, chạy lại các luồng ở mục P1.5.
+  - Bằng chứng code: `takeSelectionStartsFreshTrim` (test model), thoát sớm trong `handleSelectTake`, vùng QC bọc `stopPropagation`. Test đỏ trên code cũ **chưa** chạy (hành vi nổi sự kiện được xác nhận qua harness, không qua bản cũ).
+
+**P1.F2 — QC báo “thiếu thoại” nhầm cho Shot không có thoại** · BE `GetChapterProductionUseCase`, `TakeQualityReadModel`, `TakeQualityEvaluator`; BT test tương ứng (+ PostgreSQL integration cho đọc snapshot)
+- Nguyên nhân: `expectsSpeech = cues.anyMatch(DIALOGUE)` tính từ cue hiện tại của StoryBeat rồi dùng cho mọi Shot. Beat có Shot A nói và Shot B chỉ phản ứng: Take B im lặng > 60% bị `SILENT_DIALOGUE` → `DEFECT`. Sửa cue sau này còn đổi đánh giá của Take đã sinh.
+- Nguyên tắc: yêu cầu thoại là thuộc tính **của Take** tại thời điểm sinh, lấy từ snapshot bất biến; không đọc cue hiện tại.
+- [x] Test đỏ trước: Beat có hai Shot (A có `inputs.dialogue` khác rỗng, B rỗng), Take B im lặng 100% → không có cảnh báo `SILENT_DIALOGUE`; Take A im lặng → có. Test thứ hai: đổi/xóa cue của Beat sau khi Take sinh → đánh giá của Take không đổi.
+- [x] Nguồn: `TakeRecord.inputSnapshotJson` → `inputs.dialogue` (`GenerateShotTakeUseCase` đã ghi cùng `inputs.audioMode`). `expectsSpeech = dialogue không rỗng` và `audioMode` là native AV.
+- [x] Quy tắc dữ liệu cũ (tường minh, có test): snapshot thiếu khóa `dialogue` hoặc `schemaVersion` cũ hơn lúc bắt đầu ghi khóa này, hoặc JSON không đọc được → trạng thái **“không rõ yêu cầu thoại”**: bỏ qua riêng cảnh báo im lặng và **không** quy kết lỗi, ghi chú trong panel “Không xác định có thoại hay không”. Không fallback về cue hiện tại.
+- [x] Tách khỏi vòng lặp theo Beat: tính theo từng Take trong `toTakeItem` (không còn biến `expectsSpeech` dùng chung); `TakeQualityReadModel.assess` nhận tham số yêu cầu thoại ba trạng thái (`YES`/`NO`/`UNKNOWN`) thay cho `boolean`.
+- [ ] Khi pipeline audio-first (P5+) thay native AV, nguồn thoại của Take đổi thành `speech_stem`/ô master của Shot; ghi chú ở đây để P9.2 cập nhật cùng snapshot.
+- [x] Test hồi quy: Take cũ (không có `dialogue`) không đổi mức tổng ngoài việc mất cảnh báo im lặng; mọi test QC cũ vẫn pass.
+  - Bằng chứng (2026-10-21): `TakeQualityEvaluator.SpeechExpectation` + `Context(speech, sceneColor)`; `TakeQualityReadModel.speechExpectation(inputSnapshotJson)`; `ProductionTakeQualityItem.speechExpectation`; `GetChapterProductionUseCase` không còn biến theo Beat. `GetChapterProductionUseCaseTest.speechIsJudgedFromEachTakesOwnSnapshotNotTheBeatsCues` (cùng một Beat có cue thoại: Take nói im lặng → `SILENT_DIALOGUE`; Take phản ứng im lặng → sạch; Take snapshot cũ → `UNKNOWN`, không cảnh báo); `TakeQualityReadModelTest` (có/không thoại, audioMode khác `NATIVE_AV`, snapshot thiếu/hỏng → `UNKNOWN`); `findByShotIds` xác nhận có nạp `input_snapshot_json`. Đây là test mới, chưa chạy bản đỏ trên code cũ.
+  - Hệ quả hiển thị: panel QC ghi “Không xác định Take này có thoại hay không nên chưa kiểm tra im lặng” khi `UNKNOWN`.
+
+**P1.5 — Desktop** (đã code + test model + type-check; **chưa qua cổng runtime Electron**, chưa đánh dấu xong) · DE `renderer/features/storyboard/components/` (`TakeSelectorDrawer`, `TakeQualityPanel`), `renderer/features/production/model/take-quality`, API types `shared/api-types/`
+- [ ] Huy hiệu **Tốt / Cần xem / Có lỗi / Chưa đo**; danh sách chỉ số có giá trị, ngưỡng, giải thích tiếng Việt. *Đã code; chờ runtime.*
+- [ ] Gợi ý In/Out từ đứng hình đầu/cuối (người bấm áp dụng). *Code + test model + harness: có gợi ý In và Out (`suggestedSourceOutMs`), gợi ý tôn trọng In/Out hiện tại (còn ≥ 100 ms) và ẩn sau khi đã áp; chưa qua runtime thật.* Gợi ý không bao giờ tự áp.
 - [ ] Shotboard: chấm màu Take đang chọn, số Take lỗi, bộ lọc “Shot có cảnh báo”.
 - [ ] Ba lớp nhãn tách bạch: Kỹ thuật · QC tự động · Người duyệt. Design tokens hiện có.
+- [ ] Sau P1.F1: cổng runtime Electron thật qua các luồng: mở/đóng chỉ số khi đã chỉnh In/Out + checklist; áp In/Out gợi ý; đổi Take rồi quay lại; Take `UNMEASURED`/`UNAVAILABLE`/không có thoại; lỗi API; loading/empty; dark/light; screenshot. Không có automation → ghi “runtime-verification blocked”, không đánh dấu xong.
 
 **P1.6 — Hiệu chỉnh ngưỡng**
-- [ ] Chấm ≥ 30 Take thật đã được người gắn nhãn tốt/xấu; ghi tỷ lệ bắt đúng/báo nhầm vào `docs/operations/benchmarks/`.
+- [ ] Thu ≥ 30 Take thật (GPU thật, ≥ 10 nhãn xấu trong đó, trải ít nhất đứng/giật/đen/im lặng/lệch màu); người dựng gắn nhãn Tốt/Cần xem/Hỏng **trước khi** xem điểm QC để tránh thiên lệch.
+- [ ] Công cụ xuất bảng nhãn ↔ `metrics_json` (script trong `scripts/`, không thêm vào luồng chạy) để chạy lại sau mỗi lần đổi ngưỡng.
+- [ ] Chỉ số báo cáo: tỷ lệ bắt đúng (recall) trên Take hỏng, tỷ lệ báo nhầm (false positive) trên Take tốt, riêng từng quy tắc. Ghi vào `docs/operations/benchmarks/`.
+- [ ] Mục tiêu khởi điểm *(đề xuất, người sở hữu sản phẩm chốt)*: recall ≥ 80% trên Take hỏng, Take tốt bị đánh `DEFECT` ≤ 10% (bị đánh `REVIEW` chấp nhận cao hơn). Quy tắc nào không đạt thì hạ mức hoặc tắt, tăng `thresholdsVersion`.
+- [ ] Ngưỡng chưa hiệu chỉnh (chuyển động 0,5 YDIF; nhấp nháy 8; lệch màu Y 25 / UV 10; ngưỡng mới của P1.1b) được thay bằng giá trị đã đo, ghi lý do trong benchmark.
 
-**Cổng P1:** cảnh báo bắt phần lớn Take hỏng vì đứng/giật/đen/im lặng với tỷ lệ báo nhầm người dựng chấp nhận được.
+**Cổng P1:** (1) P1.F1 và P1.F2 đã đóng với test hồi quy; (2) P1.1b xong; (3) P1.5 qua runtime Electron; (4) P1.6 đạt mục tiêu: cảnh báo bắt phần lớn Take hỏng vì đứng/giật/đen/trắng/im lặng với tỷ lệ báo nhầm người dựng chấp nhận được. Thiếu (3) hoặc (4) → M1 chưa xong và **P13 không được bắt đầu**.
 
 ### P2 — Benchmark model (spike, không code production)
 
@@ -429,7 +494,7 @@ Máy: RTX 5090 32 GB. Mỗi spike ghi model/revision, VRAM, thời gian, chất 
 
 ### P13 — QC nấc 2 (tự tạo lại)
 
-Chỉ bắt đầu khi cổng P1 đạt và có dữ liệu từ P9.
+Chỉ bắt đầu khi **cổng P1 đạt đầy đủ** (gồm P1.F, runtime P1.5, hiệu chỉnh P1.6) và có dữ liệu từ P9. Tự tạo lại dựa trên ngưỡng chưa hiệu chỉnh hoặc yêu cầu thoại sai (P1.F2) sẽ đốt GPU vì báo nhầm.
 
 - [ ] BE: sau finalize, Take `DEFECT` → tự admit Take mới (seed mới) qua đúng đường admission/idempotency như thao tác tay; ngân sách 1–2 lần/Shot; ghi lý do.
 - [ ] Không tự chọn Take; không retry khi UNKNOWN; tôn trọng capacity/execution slot.
@@ -453,7 +518,9 @@ Chỉ bắt đầu khi cổng P1 đạt và có dữ liệu từ P9.
 | Cảnh 2 người nói | Chỉ bật `TALKING_2P` khi S4 đạt; mặc định tách shot/reverse-shot |
 | VRAM/thời gian quá lớn | P14 lập lịch; profile nhanh cho Shot phụ; đo trước ở P2 |
 | License model nhạc/foley | Kiểm ở S5 trước khi chốt; ghi license vào benchmark |
-| Ngưỡng QC sai | Nấc 1 chỉ hiển thị; ngưỡng versioned, tính lại không cần sinh lại |
+| Ngưỡng QC sai | Nấc 1 chỉ hiển thị; ngưỡng versioned, tính lại không cần sinh lại; P13 chặn bởi P1.6 |
+| QC đánh giá theo dữ liệu có thể đổi (cue hiện tại) | Mọi đầu vào của đánh giá lấy từ snapshot bất biến của Take; dữ liệu cũ thiếu → “không rõ”, không suy đoán (P1.F2) |
+| Tính năng UI “xong” chỉ vì test model/type-check | Cổng runtime Electron bắt buộc; thiếu automation thì báo blocked (AGENTS.md) |
 | Phân tích lại chương tốn chi phí và đổi Beat | Chỉ chạy khi người dùng yêu cầu; revision kịch bản giữ lịch sử |
 | Schema lớn | Chia migration theo phase; xác minh policy baseline trước mỗi phase |
 
@@ -482,6 +549,7 @@ Tự chọn Take, tự dựng lại cả chương, Shot/Editing Director bằng 
 
 ## 11. Thứ tự bắt đầu đề xuất
 
+0. **Đóng nền trước:** P1.F1 + P1.F2 (song song được, khác module) → P1.1b → cổng runtime P1.5 → P1.6. P0 cổng chạy song song khi GPU sẵn sàng.
 1. P0 (đang làm) ‖ P1 ‖ P2 ‖ P3.1.
 2. P3.2–P3.3 → P4 → P5 → P6, song song P7.
 3. P11.3 (nhạc) + P12.2 (mix/ducking) sớm để có M2.

@@ -187,8 +187,8 @@ be available to the executor. This metadata does not include observed speech-wor
 
 `technicalMetadata` may also carry an optional closed `qualityMetrics` object (or null): `status`
 (`MEASURED` or `UNAVAILABLE`), `scorerVersion`, an optional `reason`, and optional raw measurements
-(`freezeHeadMs`, `freezeTotalMs`, `motionMean`, `sceneCutCount`, `flickerStddev`, `blackTotalMs`,
-`silenceTotalMs`, `integratedLufs`, `peakDbfs`, `meanY`, `meanU`, `meanV`). The LTX executor produces it
+(`freezeHeadMs`, `freezeTailMs`, `freezeTotalMs`, `motionMean`, `sceneCutCount`, `flickerStddev`, `blackTotalMs`, `whiteTotalMs`,
+`silenceTotalMs`, `integratedLufs`, `peakDbfs`, `meanY`, `meanU`, `meanV`, `stddevY`, `stddevU`, `stddevV`, `lowY`, `highY`). The LTX executor produces it
 with one FFmpeg pass after decode validation. It is advisory: a scoring failure or timeout reports
 `UNAVAILABLE` with a reason and never fails the task, and the worker emits no verdicts or thresholds.
 Digital silence is reported as −120 dB rather than a non-finite value. See

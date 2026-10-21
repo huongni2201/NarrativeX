@@ -122,17 +122,24 @@ export interface TakeQualityMetrics {
   scorerVersion: string;
   reason?: string | null;
   freezeHeadMs?: number | null;
+  freezeTailMs?: number | null;
   freezeTotalMs?: number | null;
   motionMean?: number | null;
   sceneCutCount?: number | null;
   flickerStddev?: number | null;
   blackTotalMs?: number | null;
+  whiteTotalMs?: number | null;
   silenceTotalMs?: number | null;
   integratedLufs?: number | null;
   peakDbfs?: number | null;
   meanY?: number | null;
   meanU?: number | null;
   meanV?: number | null;
+  stddevY?: number | null;
+  stddevU?: number | null;
+  stddevV?: number | null;
+  lowY?: number | null;
+  highY?: number | null;
 }
 
 /** Advisory automatic QC; it never replaces technical validation or the editor's review. */
@@ -141,6 +148,8 @@ export interface TakeQuality {
   thresholdsVersion?: string;
   warnings: TakeQualityWarning[];
   metrics?: TakeQualityMetrics | null;
+  /** Whether the Take was generated to speak; UNKNOWN for Takes that predate the snapshot field. */
+  speechExpectation?: "EXPECTED" | "NOT_EXPECTED" | "UNKNOWN";
 }
 
 export interface DesktopTake {

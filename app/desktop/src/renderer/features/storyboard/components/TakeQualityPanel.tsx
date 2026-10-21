@@ -5,7 +5,9 @@ import {
   UNMEASURED_CHECKS,
   describeQualityWarning,
   qualityMeasurementRows,
+  speechExpectationNote,
   suggestedSourceInMs,
+  suggestedSourceOutMs,
   takeQualityBadge,
   type TakeQualityTone,
 } from "../../production/model/take-quality";
@@ -33,18 +35,27 @@ export function TakeQualityBadge({
 interface TakeQualityPanelProps {
   quality?: TakeQuality | null;
   durationMs: number;
+  /** Current trim, so a suggestion is only offered when it leaves a usable span. */
+  sourceInMs?: number;
+  sourceOutMs?: number;
   /** Offered only for the take being trimmed; the editor presses it, nothing is applied silently. */
   onApplySuggestedIn?: (sourceInMs: number) => void;
+  onApplySuggestedOut?: (sourceOutMs: number) => void;
 }
 
 /** Advisory automatic QC. It never changes technical validation or the human review. */
 export function TakeQualityPanel({
   quality,
   durationMs,
+  sourceInMs = 0,
+  sourceOutMs = durationMs,
   onApplySuggestedIn,
+  onApplySuggestedOut,
 }: Readonly<TakeQualityPanelProps>) {
   const measurementRows = qualityMeasurementRows(quality?.metrics);
-  const suggestedIn = suggestedSourceInMs(quality, durationMs);
+  const suggestedIn = suggestedSourceInMs(quality, durationMs, sourceOutMs);
+  const suggestedOut = suggestedSourceOutMs(quality, durationMs, sourceInMs);
+  const speechNote = speechExpectationNote(quality);
   const unavailableReason =
     quality?.metrics?.status === "UNAVAILABLE" ? quality.metrics.reason : null;
 
@@ -93,7 +104,7 @@ export function TakeQualityPanel({
         </ul>
       )}
 
-      {suggestedIn != null && onApplySuggestedIn && (
+      {suggestedIn != null && suggestedIn > sourceInMs && onApplySuggestedIn && (
         <button
           type="button"
           onClick={(event) => {
@@ -103,6 +114,19 @@ export function TakeQualityPanel({
           className="cursor-pointer text-primary hover:underline"
         >
           Đặt In = {suggestedIn} ms để bỏ đoạn đứng hình đầu clip
+        </button>
+      )}
+
+      {suggestedOut != null && suggestedOut < sourceOutMs && onApplySuggestedOut && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onApplySuggestedOut(suggestedOut);
+          }}
+          className="cursor-pointer text-primary hover:underline"
+        >
+          Đặt Out = {suggestedOut} ms để bỏ đoạn đứng hình cuối clip
         </button>
       )}
 
@@ -119,6 +143,8 @@ export function TakeQualityPanel({
           </dl>
         </details>
       )}
+
+      {speechNote && <p className="text-text-muted">{speechNote}</p>}
 
       <p className="text-text-muted">
         Chưa đo ở nấc này: {UNMEASURED_CHECKS.join(", ")}.

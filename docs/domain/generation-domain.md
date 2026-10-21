@@ -9,7 +9,7 @@ A Take carries three independent judgements. None may stand in for another.
 | Layer | Source | Effect |
 |---|---|---|
 | **Technical validation** | Backend finalizer on worker evidence (observed duration, 720p24 streams, audio stream, full decode) | Sets `validation_status` PASSED/FAILED. Required before a Take can be selected. |
-| **Automatic QC (tier 1)** | Worker measurements (`qualityMetrics`), evaluated on read against `TAKE_QC_THRESHOLDS_V1` | Advisory only: GOOD, REVIEW, DEFECT or UNMEASURED. Never changes validation, blocks selection or submits a job. |
+| **Automatic QC (tier 1)** | Worker measurements (`qualityMetrics`), evaluated on read against `TAKE_QC_THRESHOLDS_V2` | Advisory only: GOOD, REVIEW, DEFECT or UNMEASURED. Never changes validation, blocks selection or submits a job. |
 | **Human review** | Editor checklist at selection time | Required to create or change a SelectedTake. |
 
 Missing or unavailable measurements read as UNMEASURED, never as a pass. Checks tier 1 does not perform (face similarity, lip-sync, hand/face deformation) are shown as "chưa đo".
@@ -23,9 +23,10 @@ Missing or unavailable measurements read as UNMEASURED, never as a pass. Checks 
 ## Where measurements live
 
 - Take row: `takes.metrics_json`. WhisperX evidence sits under `whisperx`; automatic QC under `qualityControl` (written with `jsonb_set`, so keys do not overwrite each other).
-- Worker scorer: `FFMPEG_TAKE_QC_V1` (freeze head/total, motion, scene cuts, flicker, black, silence, LUFS, peak, mean YUV).
+- Worker scorer: `FFMPEG_TAKE_QC_V2` (freeze head/tail/total, motion, scene cuts, flicker, black, white, silence, LUFS, peak, mean and per-clip spread of YUV, 10%–90% luma range). Takes scored by V1 lack the V2 fields; a missing field is "not measured", never a warning.
+- Speech expectation is per Take, read from the Take's own frozen input snapshot (`inputs.dialogue`, `inputs.audioMode`) as `EXPECTED`, `NOT_EXPECTED` or `UNKNOWN`. Current StoryBeat cues are never consulted, so editing a script does not re-grade an existing Take; snapshots that predate the field are `UNKNOWN` and skip only the silence check.
 - Read model: `ChapterProductionView.ProductionTakeItem.quality` (level, thresholds version, warnings, raw metrics).
-- Thresholds not fixed by the plan (motion, flicker, color drift) are uncalibrated starting values until measured against labelled takes.
+- Thresholds not fixed by the plan (motion, flicker, color drift, frozen tail, white frames) are uncalibrated starting values until measured against labelled takes.
 
 ## Not in scope
 

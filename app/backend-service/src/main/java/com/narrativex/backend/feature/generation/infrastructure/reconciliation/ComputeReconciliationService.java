@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizerRegistry;
+import com.narrativex.backend.feature.generation.application.service.InvalidComputeOutputException;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -208,7 +209,21 @@ public class ComputeReconciliationService {
         Optional<ComputeResultFinalizer> finalizerOpt =
             finalizerRegistry.findFinalizer(job.getType(), job.getProductionMode());
         if (finalizerOpt.isPresent()) {
-          finalizerOpt.get().finalizeResult(job, observation);
+          try {
+            finalizerOpt.get().finalizeResult(job, observation);
+          } catch (InvalidComputeOutputException invalid) {
+            log.warn(
+                "Job {} produced an unusable output: {}", job.getJobId(), invalid.getMessage());
+            GenerationJob current = jobRepository.findByJobId(job.getJobId()).orElse(job);
+            GenerationJob failed =
+                current.getStatus().isTerminal()
+                    ? current
+                    : jobRepository.save(
+                        current.markFailed(
+                            InvalidComputeOutputException.ERROR_CODE, "OUTPUT_INVALID"));
+            eventPublisher.publishEvent(new GenerationJobChangedEvent(failed));
+            return ReconciliationResult.RECONCILED_TERMINAL;
+          }
         } else {
           log.warn(
               "No finalizer found for JobType {}; retaining unresolved result during reconciliation",

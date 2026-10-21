@@ -10,18 +10,22 @@ import org.springframework.stereotype.Component;
  * Turns raw worker measurements into advisory warnings. It runs on read, so changing a threshold
  * never needs a regeneration, and it never touches a Take's validation status.
  *
- * <p>The numbers are TAKE_QC_THRESHOLDS_V1 starting values from the video quality plan (P1); the
- * ones the plan leaves open (motion, flicker, color drift) are uncalibrated until P1.6.
+ * <p>The numbers are TAKE_QC_THRESHOLDS_V2 starting values from the video quality plan (P1); the
+ * ones the plan leaves open (motion, flicker, color drift, frozen tail, white frames) are
+ * uncalibrated until P1.6. V2 adds the frozen tail and white-frame rules to V1; every V1 rule keeps
+ * its value. A measurement a take lacks (it was scored before V2) simply raises no such warning.
  */
 @Component
 public class TakeQualityEvaluator {
-  public static final String THRESHOLDS_VERSION = "TAKE_QC_THRESHOLDS_V1";
+  public static final String THRESHOLDS_VERSION = "TAKE_QC_THRESHOLDS_V2";
 
   private static final double FREEZE_HEAD_MS = 500;
   private static final double FREEZE_TOTAL_RATIO = 0.25;
   private static final double LOW_MOTION_YDIF = 0.5;
   private static final double FLICKER_STDDEV = 8.0;
+  private static final double FREEZE_TAIL_MS = 500;
   private static final double BLACK_MS = 200;
+  private static final double WHITE_MS = 200;
   private static final double SILENCE_RATIO = 0.60;
   private static final double CLIPPING_DBFS = -0.1;
   private static final double QUIET_LUFS = -35;
@@ -43,9 +47,20 @@ public class TakeQualityEvaluator {
   /** Median color signature of the other selected takes in the same scene. */
   public record SceneColor(double meanY, double meanU, double meanV) {}
 
-  public record Context(boolean expectsSpeech, SceneColor sceneColor) {
+  /**
+   * Whether the Take was generated with speech to voice. It comes from the Take's own frozen input
+   * snapshot, never from the Story's current cues; {@code UNKNOWN} (data predating the snapshot
+   * field) makes no claim about speech.
+   */
+  public enum SpeechExpectation {
+    EXPECTED,
+    NOT_EXPECTED,
+    UNKNOWN
+  }
+
+  public record Context(SpeechExpectation speech, SceneColor sceneColor) {
     public static Context none() {
-      return new Context(false, null);
+      return new Context(SpeechExpectation.UNKNOWN, null);
     }
   }
 
@@ -71,6 +86,15 @@ public class TakeQualityEvaluator {
               Severity.REVIEW,
               metrics.freezeHeadMs(),
               FREEZE_HEAD_MS));
+    }
+    if (metrics.freezeTailMs() != null && metrics.freezeTailMs() > FREEZE_TAIL_MS) {
+      warnings.add(
+          warn(
+              "FREEZE_TAIL",
+              VideoQAFailureCategory.MOTION,
+              Severity.REVIEW,
+              metrics.freezeTailMs(),
+              FREEZE_TAIL_MS));
     }
     if (metrics.freezeTotalMs() != null
         && durationMs > 0
@@ -119,7 +143,17 @@ public class TakeQualityEvaluator {
               metrics.blackTotalMs(),
               BLACK_MS));
     }
-    if (context.expectsSpeech()
+    if (metrics.whiteTotalMs() != null && metrics.whiteTotalMs() > WHITE_MS) {
+      // REVIEW, not DEFECT: a white flash can be intended, and the threshold is uncalibrated.
+      warnings.add(
+          warn(
+              "WHITE_FRAMES",
+              VideoQAFailureCategory.TECHNICAL_OUTPUT,
+              Severity.REVIEW,
+              metrics.whiteTotalMs(),
+              WHITE_MS));
+    }
+    if (context.speech() == SpeechExpectation.EXPECTED
         && metrics.silenceTotalMs() != null
         && durationMs > 0
         && metrics.silenceTotalMs() > durationMs * SILENCE_RATIO) {

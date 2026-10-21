@@ -2,10 +2,12 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.common.domain.enums.VoiceReferenceScope;
 import com.narrativex.backend.feature.generation.application.model.VoiceReferenceSelection;
+import com.narrativex.backend.feature.generation.application.port.out.NarrationAssetRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationOperationRepository;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationOperation;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationAssetRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationOperationRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow;
@@ -17,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class MyBatisNarrationPersistenceAdapter
-    implements NarrationRequestRepository, NarrationOperationRepository {
+    implements NarrationRequestRepository, NarrationOperationRepository, NarrationAssetRepository {
   private final NarrationMapper mapper;
 
   @Override
@@ -53,6 +55,65 @@ public class MyBatisNarrationPersistenceAdapter
           "Narration operation already exists for job or stage attempt");
     }
     return operation;
+  }
+
+  @Override
+  public UUID register(Registration registration) {
+    NarrationAssetRow current = mapper.findAssetByRequest(registration.narrationRequestId());
+    if (current != null && registration.mediaAssetId().equals(current.getProjectAssetId())) {
+      return current.getId();
+    }
+    mapper.insertProjectAsset(
+        registration.mediaAssetId(),
+        registration.projectId(),
+        registration.name(),
+        registration.storageKey(),
+        registration.mimeType());
+    if (current == null) {
+      mapper.insertNarrationAsset(
+          registration.mediaAssetId(),
+          registration.narrationRequestId(),
+          registration.mediaAssetId(),
+          registration.durationMs(),
+          registration.sizeBytes(),
+          registration.codec(),
+          registration.sampleRateHz(),
+          registration.channels(),
+          registration.checksum());
+      return registration.mediaAssetId();
+    }
+    // Regeneration: new bytes invalidate the timing measured on the old ones.
+    mapper.deleteAlignments(current.getId());
+    mapper.replaceNarrationAsset(
+        current.getId(),
+        registration.mediaAssetId(),
+        registration.durationMs(),
+        registration.sizeBytes(),
+        registration.codec(),
+        registration.sampleRateHz(),
+        registration.channels(),
+        registration.checksum());
+    mapper.archiveProjectAsset(current.getProjectAssetId());
+    return current.getId();
+  }
+
+  @Override
+  public Optional<NarrationAsset> findCurrentByMediaAssetId(UUID mediaAssetId) {
+    NarrationAssetRow row = mapper.findAssetByProjectAsset(mediaAssetId);
+    return Optional.ofNullable(row)
+        .map(
+            found ->
+                new NarrationAsset(
+                    found.getId(),
+                    found.getNarrationRequestId(),
+                    found.getDurationMs(),
+                    found.getSourceHash()));
+  }
+
+  @Override
+  public void saveAlignment(
+      UUID narrationAssetId, String sourceHash, String version, String wordsJson) {
+    mapper.insertAlignment(narrationAssetId, sourceHash, version, wordsJson);
   }
 
   private static NarrationRequestRow toRow(NarrationRequest request) {

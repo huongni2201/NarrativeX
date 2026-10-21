@@ -143,16 +143,22 @@ public class ChapterVideoBatchService {
   private void projectLeaf(MediaGenerationItem item) {
     var leaf = jobs.findById(item.getLeafGenerationJobId()).orElseThrow();
     var take = takes.findById(item.getTakeId()).orElseThrow();
+    // A finished job whose Take failed validation produced no usable shot.
+    boolean takeRejected = "FAILED".equalsIgnoreCase(take.status());
     String status =
         switch (leaf.getStatus()) {
-          case COMPLETED -> "READY";
+          case COMPLETED -> takeRejected ? "FAILED" : "READY";
           case FAILED -> "FAILED";
           case CANCELED -> "CANCELED";
           case UNKNOWN, RECONCILING, STALLED -> "UNKNOWN";
           case QUEUED -> "QUEUED";
           default -> "RUNNING";
         };
-    items.updateExecution(item.getId(), status, take.outputAssetId(), leaf.getErrorCode());
+    String errorCode =
+        leaf.getStatus() == JobStatus.COMPLETED && takeRejected
+            ? "TAKE_VALIDATION_FAILED"
+            : leaf.getErrorCode();
+    items.updateExecution(item.getId(), status, take.outputAssetId(), errorCode);
   }
 
   /** A request is durable before worker I/O; a cancel acknowledgement is not a terminal outcome. */

@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.generation.application.model.compute.TaskD
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationAlignmentProvider;
+import com.narrativex.backend.feature.generation.application.service.AlignmentWordsParser;
 import com.narrativex.backend.feature.generation.domain.enums.AlignmentStatus;
 import com.narrativex.backend.feature.generation.domain.value.NarrationDocument;
 import com.narrativex.backend.feature.generation.domain.value.NarrationDocumentChapter;
@@ -23,7 +24,6 @@ import com.narrativex.backend.feature.generation.domain.value.NarrationSetSnapsh
 import com.narrativex.backend.feature.generation.domain.value.NarrationSpan;
 import com.narrativex.backend.feature.generation.domain.value.NarrationTimeline;
 import com.narrativex.backend.feature.generation.domain.value.WordAlignment;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -32,8 +32,6 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
@@ -43,7 +41,6 @@ public class ComputeNarrationAlignmentAdapter implements NarrationAlignmentProvi
   private static final String EXECUTOR = "whisperx";
   private static final String MODEL = "large-v3";
   private static final String REVISION = "3.8.6";
-  private static final JsonMapper JSON = JsonMapper.builder().build();
 
   private final GenerationExecutionPort executionPort;
   private final ComputeArtifactAccess artifactAccess;
@@ -114,7 +111,8 @@ public class ComputeNarrationAlignmentAdapter implements NarrationAlignmentProvi
       ProducedArtifactDto produced = requireProducedOutput(observation, output);
       artifactAccess.verifyOutput(output, produced);
       List<WordAlignment> words =
-          parseWords(artifactAccess.readOutput(output), narration.totalDurationMs());
+          AlignmentWordsParser.parse(
+              artifactAccess.readOutput(output), narration.totalDurationMs());
       return buildTimeline(document, narration, words);
     } catch (RuntimeException exception) {
       log.warn("Compute service alignment failed; alignment remains non-ready", exception);
@@ -136,53 +134,6 @@ public class ComputeNarrationAlignmentAdapter implements NarrationAlignmentProvi
                     && target.mediaType().equals(artifact.mediaType()))
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException("WhisperX alignment artifact is missing"));
-  }
-
-  private static List<WordAlignment> parseWords(byte[] payload, long durationMs) {
-    if (payload == null || payload.length == 0) {
-      throw new IllegalArgumentException("alignment output is empty");
-    }
-    try {
-      JsonNode root = JSON.readTree(new String(payload, StandardCharsets.UTF_8));
-      if (!root.isArray() || root.isEmpty()) {
-        throw new IllegalArgumentException("alignment words are missing");
-      }
-      List<WordAlignment> result = new ArrayList<>();
-      int expectedIndex = 0;
-      int previousTextEnd = 0;
-      long previousAudioEnd = 0;
-      for (JsonNode node : root) {
-        if (!node.isObject()
-            || !node.hasNonNull("index")
-            || !node.hasNonNull("textStart")
-            || !node.hasNonNull("textEnd")
-            || !node.hasNonNull("audioStartMs")
-            || !node.hasNonNull("audioEndMs")
-            || !node.hasNonNull("confidence")) {
-          throw new IllegalArgumentException("alignment word fields are incomplete");
-        }
-        int index = node.get("index").asInt();
-        int textStart = node.get("textStart").asInt();
-        int textEnd = node.get("textEnd").asInt();
-        long audioStart = node.get("audioStartMs").asLong();
-        long audioEnd = node.get("audioEndMs").asLong();
-        double confidence = node.get("confidence").asDouble();
-        if (index != expectedIndex
-            || textStart < previousTextEnd
-            || audioStart < previousAudioEnd
-            || audioEnd > durationMs) {
-          throw new IllegalArgumentException("alignment words are not monotonic");
-        }
-        result.add(new WordAlignment(index, textStart, textEnd, audioStart, audioEnd, confidence));
-        previousTextEnd = textEnd;
-        previousAudioEnd = audioEnd;
-        expectedIndex++;
-      }
-      return List.copyOf(result);
-    } catch (RuntimeException exception) {
-      if (exception instanceof IllegalArgumentException) throw exception;
-      throw new IllegalArgumentException("alignment output is invalid", exception);
-    }
   }
 
   private static NarrationTimeline buildTimeline(

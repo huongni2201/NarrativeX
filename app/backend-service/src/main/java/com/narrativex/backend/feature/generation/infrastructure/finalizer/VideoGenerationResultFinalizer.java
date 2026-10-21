@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.generation.application.port.out.ComputeArt
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
+import com.narrativex.backend.feature.generation.application.service.InvalidComputeOutputException;
 import com.narrativex.backend.feature.generation.application.service.VideoQualityAssurance;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -40,9 +41,6 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
   private final ComputeArtifactAccess artifactAccess;
   private final TakeMapper takeMapper;
   private final VideoQualityAssurance videoQualityAssurance;
-  private final com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis
-          .ShotMapper
-      shotMapper;
 
   @Autowired
   public VideoGenerationResultFinalizer(
@@ -50,32 +48,12 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
       MediaAssetRepository mediaAssetRepository,
       ComputeArtifactAccess artifactAccess,
       TakeMapper takeMapper,
-      VideoQualityAssurance videoQualityAssurance,
-      @Autowired(required = false)
-          com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
-              shotMapper) {
+      VideoQualityAssurance videoQualityAssurance) {
     this.generationJobRepository = generationJobRepository;
     this.mediaAssetRepository = mediaAssetRepository;
     this.artifactAccess = artifactAccess;
     this.takeMapper = takeMapper;
     this.videoQualityAssurance = videoQualityAssurance;
-    this.shotMapper = shotMapper;
-  }
-
-  // Backward-compatible constructor for existing tests
-  public VideoGenerationResultFinalizer(
-      GenerationJobRepository generationJobRepository,
-      MediaAssetRepository mediaAssetRepository,
-      ComputeArtifactAccess artifactAccess,
-      TakeMapper takeMapper,
-      VideoQualityAssurance videoQualityAssurance) {
-    this(
-        generationJobRepository,
-        mediaAssetRepository,
-        artifactAccess,
-        takeMapper,
-        videoQualityAssurance,
-        null);
   }
 
   // Backward-compatible constructor for existing tests
@@ -83,7 +61,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
       GenerationJobRepository generationJobRepository,
       MediaAssetRepository mediaAssetRepository,
       ComputeArtifactAccess artifactAccess) {
-    this(generationJobRepository, mediaAssetRepository, artifactAccess, null, null, null);
+    this(generationJobRepository, mediaAssetRepository, artifactAccess, null, null);
   }
 
   @Override
@@ -101,7 +79,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
   }
 
   @Override
-  @Transactional
+  @Transactional(noRollbackFor = InvalidComputeOutputException.class)
   public void finalizeResult(GenerationJob job, ComputeObservationDto observation) {
     if (job.getStatus().isTerminal()) {
       log.debug(
@@ -127,7 +105,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
             .findFirst()
             .orElseThrow(
                 () ->
-                    new IllegalArgumentException(
+                    new InvalidComputeOutputException(
                         "Compute observation is missing required video output"));
 
     OutputArtifactTargetDto target =
@@ -214,10 +192,6 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
           take.setValidationFailureCategory(null);
           take.setValidationFailureReason(null);
           take.setValidationRetryRecommendation(null);
-
-          if (shotMapper != null && take.getShotId() != null) {
-            shotMapper.updateStatus(take.getShotId(), "MANUAL_REVIEW");
-          }
         } else {
           take.setStatus("FAILED");
           take.setValidationStatus("FAILED");
@@ -229,6 +203,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
 
         takeMapper.updateValidation(take);
         takeMapper.updateStatus(take.getId(), take.getStatus());
+        takeMapper.refreshShotStatus(take.getId());
         storeQualityMeasurements(take, produced);
         log.info(
             "Take {} validated: shotId={}, attemptNumber={}, status={}, QA passed={}, failureCategory={}",

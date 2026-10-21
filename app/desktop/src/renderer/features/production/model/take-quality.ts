@@ -41,6 +41,11 @@ const WARNINGS: Record<string, { title: string; detail: (w: TakeQualityWarning) 
     detail: (w) =>
       `Đứng hình ở đầu clip ${seconds(w.measured)} (ngưỡng ${seconds(w.threshold)}).`,
   },
+  FREEZE_TAIL: {
+    title: "Đứng hình cuối clip",
+    detail: (w) =>
+      `Đứng hình ở cuối clip ${seconds(w.measured)} (ngưỡng ${seconds(w.threshold)}).`,
+  },
   FREEZE_TOTAL: {
     title: "Đứng hình nhiều",
     detail: (w) =>
@@ -63,6 +68,10 @@ const WARNINGS: Record<string, { title: string; detail: (w: TakeQualityWarning) 
   BLACK_FRAMES: {
     title: "Khung đen",
     detail: (w) => `Có khung đen ${seconds(w.measured)} (ngưỡng ${seconds(w.threshold)}).`,
+  },
+  WHITE_FRAMES: {
+    title: "Khung trắng",
+    detail: (w) => `Có khung trắng ${seconds(w.measured)} (ngưỡng ${seconds(w.threshold)}).`,
   },
   SILENT_DIALOGUE: {
     title: "Im lặng khi có thoại",
@@ -106,11 +115,13 @@ export function qualityMeasurementRows(
     if (value != null) rows.push({ label, value: format(value) });
   };
   add("Đứng hình đầu clip", metrics.freezeHeadMs, seconds);
+  add("Đứng hình cuối clip", metrics.freezeTailMs, seconds);
   add("Tổng đứng hình", metrics.freezeTotalMs, seconds);
   add("Chuyển động trung bình", metrics.motionMean, (n) => decimal(n, 2));
   add("Cắt cứng trong clip", metrics.sceneCutCount, String);
   add("Nhấp nháy (độ lệch sáng)", metrics.flickerStddev, (n) => decimal(n, 2));
   add("Khung đen", metrics.blackTotalMs, seconds);
+  add("Khung trắng", metrics.whiteTotalMs, seconds);
   add("Im lặng", metrics.silenceTotalMs, seconds);
   add("Độ lớn tiếng", metrics.integratedLufs, lufs);
   add("Đỉnh âm thanh", metrics.peakDbfs, (n) => `${decimal(n, 1)} dBFS`);
@@ -120,20 +131,69 @@ export function qualityMeasurementRows(
       value: [metrics.meanY, metrics.meanU, metrics.meanV].map((n) => Math.round(n)).join("/"),
     });
   }
+  if (metrics.stddevY != null && metrics.stddevU != null && metrics.stddevV != null) {
+    rows.push({
+      label: "Độ lệch màu trong clip (Y/U/V)",
+      value: [metrics.stddevY, metrics.stddevU, metrics.stddevV]
+        .map((n) => decimal(n, 1))
+        .join("/"),
+    });
+  }
+  if (metrics.lowY != null && metrics.highY != null) {
+    rows.push({
+      label: "Dải sáng (10%–90%)",
+      value: `${Math.round(metrics.lowY)}–${Math.round(metrics.highY)}`,
+    });
+  }
   return rows;
 }
 
 const MIN_USABLE_MS = 100;
 
-/** In point that skips a flagged frozen opening; the editor applies it explicitly. */
+/**
+ * In point that skips a flagged frozen opening; the editor applies it explicitly. `sourceOutMs`
+ * is the current Out so a suggestion never leaves less than a usable span.
+ */
 export function suggestedSourceInMs(
   quality: TakeQuality | null | undefined,
   durationMs: number,
+  sourceOutMs: number = durationMs,
 ): number | null {
   const flagged = quality?.warnings.some((warning) => warning.code === "FREEZE_HEAD");
   const head = quality?.metrics?.freezeHeadMs;
   if (!flagged || head == null || head <= 0) return null;
-  return durationMs - head >= MIN_USABLE_MS ? head : null;
+  return Math.min(sourceOutMs, durationMs) - head >= MIN_USABLE_MS ? head : null;
+}
+
+/** Out point that drops a flagged frozen ending; the editor applies it explicitly. */
+export function suggestedSourceOutMs(
+  quality: TakeQuality | null | undefined,
+  durationMs: number,
+  sourceInMs: number = 0,
+): number | null {
+  const flagged = quality?.warnings.some((warning) => warning.code === "FREEZE_TAIL");
+  const tail = quality?.metrics?.freezeTailMs;
+  if (!flagged || tail == null || tail <= 0) return null;
+  const out = durationMs - tail;
+  return out - sourceInMs >= MIN_USABLE_MS ? out : null;
+}
+
+/** Said in words so an unknown speech expectation is not read as "no dialogue expected". */
+export function speechExpectationNote(quality?: TakeQuality | null): string | null {
+  return quality?.level !== "UNMEASURED" && quality?.speechExpectation === "UNKNOWN"
+    ? "Không xác định Take này có thoại hay không nên chưa kiểm tra im lặng."
+    : null;
+}
+
+/**
+ * Choosing the take that is already active must not touch the editor's trim or review checklist;
+ * only a different take starts a fresh trim.
+ */
+export function takeSelectionStartsFreshTrim(
+  activeTakeId: string | null | undefined,
+  selectedTakeId: string,
+): boolean {
+  return activeTakeId !== selectedTakeId;
 }
 
 export interface ShotQualitySummary {

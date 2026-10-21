@@ -135,9 +135,6 @@ public class GetChapterProductionUseCase {
             vb.storyBeatId() != null
                 ? cuesByBeat.getOrDefault(vb.storyBeatId(), List.of())
                 : List.of();
-        boolean expectsSpeech =
-            cues.stream().anyMatch(c -> "DIALOGUE".equalsIgnoreCase(c.cueType()));
-
         List<ChapterProductionView.ProductionAudioCueItem> cueItems = new ArrayList<>();
 
         for (AudioCueInfo cue : cues) {
@@ -232,7 +229,7 @@ public class GetChapterProductionUseCase {
 
             List<ChapterProductionView.ProductionTakeItem> takeItems =
                 takes.stream()
-                    .map(take -> toTakeItem(take, expectsSpeech, sceneSelectedQuality))
+                    .map(take -> toTakeItem(take, sceneSelectedQuality))
                     .toList();
 
             shotItems.add(
@@ -625,9 +622,7 @@ public class GetChapterProductionUseCase {
   }
 
   private ChapterProductionView.ProductionTakeItem toTakeItem(
-      TakeRecord row,
-      boolean expectsSpeech,
-      Map<UUID, VideoQualityMetricsDto> sceneSelectedQuality) {
+      TakeRecord row, Map<UUID, VideoQualityMetricsDto> sceneSelectedQuality) {
     ChapterProductionView.WhisperXSummaryItem whisperX = extractWhisperXSummary(row.metricsJson());
     List<VideoQualityMetricsDto> others =
         sceneSelectedQuality.entrySet().stream()
@@ -638,7 +633,7 @@ public class GetChapterProductionUseCase {
         takeQuality.assess(
             row.metricsJson(),
             row.sourceDurationMs(),
-            expectsSpeech,
+            takeQuality.speechExpectation(row.inputSnapshotJson()),
             takeQuality.sceneReference(others));
 
     return new ChapterProductionView.ProductionTakeItem(

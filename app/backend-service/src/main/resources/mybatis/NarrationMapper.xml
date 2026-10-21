@@ -81,4 +81,63 @@
            AND pa.storage_key IS NOT NULL
          LIMIT 1
     </select>
+
+    <resultMap id="narrationAssetRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationAssetRow">
+        <result property="id" column="id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="narrationRequestId" column="narration_request_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="projectAssetId" column="project_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="durationMs" column="duration_ms" />
+        <result property="sourceHash" column="source_hash" />
+    </resultMap>
+
+    <insert id="insertProjectAsset">
+        INSERT INTO project_assets (id, project_id, name, asset_type, storage_key, mime_type, status, metadata_json)
+        VALUES (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{name}, 'AUDIO', #{storageKey}, #{mimeType}, 'ACTIVE', '{}'::jsonb)
+        ON CONFLICT (id) DO NOTHING
+    </insert>
+
+    <update id="archiveProjectAsset">
+        UPDATE project_assets SET status = 'ARCHIVED', updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="findAssetByRequest" resultMap="narrationAssetRow">
+        SELECT na.id, na.narration_request_id, na.project_asset_id, na.duration_ms, nr.source_hash
+          FROM narration_assets na
+          JOIN narration_requests nr ON nr.id = na.narration_request_id
+         WHERE na.narration_request_id = #{narrationRequestId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findAssetByProjectAsset" resultMap="narrationAssetRow">
+        SELECT na.id, na.narration_request_id, na.project_asset_id, na.duration_ms, nr.source_hash
+          FROM narration_assets na
+          JOIN narration_requests nr ON nr.id = na.narration_request_id
+         WHERE na.project_asset_id = #{projectAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    </select>
+
+    <insert id="insertNarrationAsset">
+        INSERT INTO narration_assets
+            (id, narration_request_id, project_asset_id, duration_ms, size_bytes, codec, sample_rate_hz, channels, checksum)
+        VALUES
+            (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{narrationRequestId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{projectAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{durationMs}, #{sizeBytes}, #{codec}, #{sampleRateHz}, #{channels}, #{checksum})
+    </insert>
+
+    <update id="replaceNarrationAsset">
+        UPDATE narration_assets
+           SET project_asset_id = #{projectAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, duration_ms = #{durationMs}, size_bytes = #{sizeBytes},
+               codec = #{codec}, sample_rate_hz = #{sampleRateHz}, channels = #{channels},
+               checksum = #{checksum}, created_at = CURRENT_TIMESTAMP
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    </update>
+
+    <delete id="deleteAlignments">
+        DELETE FROM narration_alignments WHERE narration_asset_id = #{narrationAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    </delete>
+
+    <insert id="insertAlignment">
+        INSERT INTO narration_alignments (id, narration_asset_id, source_hash, alignment_version, words_json)
+        VALUES (uuidv7(), #{narrationAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{sourceHash}, #{alignmentVersion}, CAST(#{wordsJson} AS jsonb))
+        ON CONFLICT (narration_asset_id, alignment_version) DO NOTHING
+    </insert>
 </mapper>

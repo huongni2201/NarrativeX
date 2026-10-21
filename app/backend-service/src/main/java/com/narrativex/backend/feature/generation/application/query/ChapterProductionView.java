@@ -107,7 +107,9 @@ public record ChapterProductionView(
       String level,
       String thresholdsVersion,
       List<ProductionTakeQualityWarningItem> warnings,
-      VideoQualityMetricsDto metrics) {}
+      VideoQualityMetricsDto metrics,
+      /** EXPECTED, NOT_EXPECTED or UNKNOWN, read from the Take's own input snapshot. */
+      String speechExpectation) {}
 
   public record ProductionTakeQualityWarningItem(
       String code,

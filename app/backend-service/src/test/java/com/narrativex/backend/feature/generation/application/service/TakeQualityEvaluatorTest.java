@@ -8,11 +8,12 @@ import com.narrativex.backend.feature.generation.application.service.TakeQuality
 import com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.Level;
 import com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.SceneColor;
 import com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.Severity;
+import com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.SpeechExpectation;
 import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
-/** Thresholds below are the documented starting values of TAKE_QC_THRESHOLDS_V1. */
+/** Thresholds below are the documented starting values of TAKE_QC_THRESHOLDS_V2. */
 class TakeQualityEvaluatorTest {
   private static final long DURATION_MS = 5000;
   private final TakeQualityEvaluator evaluator = new TakeQualityEvaluator();
@@ -41,17 +42,24 @@ class TakeQualityEvaluatorTest {
           "FFMPEG_TAKE_QC_V1",
           null,
           freezeHeadMs,
+          null,
           freezeTotalMs,
           motionMean,
           sceneCutCount,
           flickerStddev,
           blackTotalMs,
+          null,
           silenceTotalMs,
           integratedLufs,
           peakDbfs,
           meanY,
           meanU,
-          meanV);
+          meanV,
+          null,
+          null,
+          null,
+          null,
+          null);
     }
   }
 
@@ -82,7 +90,67 @@ class TakeQualityEvaluatorTest {
 
     assertThat(assessment.level()).isEqualTo(Level.GOOD);
     assertThat(assessment.warnings()).isEmpty();
-    assertThat(assessment.thresholdsVersion()).isEqualTo("TAKE_QC_THRESHOLDS_V1");
+    assertThat(assessment.thresholdsVersion()).isEqualTo("TAKE_QC_THRESHOLDS_V2");
+  }
+
+  /** A clean V2 measurement with only the tail-freeze and white-frame fields chosen. */
+  private static VideoQualityMetricsDto v2(Long freezeTailMs, Long whiteTotalMs) {
+    return new VideoQualityMetricsDto(
+        "MEASURED",
+        "FFMPEG_TAKE_QC_V2",
+        null,
+        0L,
+        freezeTailMs,
+        0L,
+        3.0,
+        0,
+        0.5,
+        0L,
+        whiteTotalMs,
+        0L,
+        -19.0,
+        -3.0,
+        120.0,
+        127.0,
+        128.0,
+        4.0,
+        1.0,
+        1.0,
+        40.0,
+        200.0);
+  }
+
+  @Test
+  void frozenTailAboveHalfSecondAsksForReview() {
+    assertSingleWarning(
+        evaluator.evaluate(v2(501L, 0L), DURATION_MS, Context.none()),
+        "FREEZE_TAIL",
+        VideoQAFailureCategory.MOTION,
+        Severity.REVIEW,
+        Level.REVIEW);
+    assertThat(evaluator.evaluate(v2(500L, 0L), DURATION_MS, Context.none()).level())
+        .isEqualTo(Level.GOOD);
+  }
+
+  @Test
+  void whiteFramesAboveTwoHundredMillisecondsAskForReview() {
+    assertSingleWarning(
+        evaluator.evaluate(v2(0L, 201L), DURATION_MS, Context.none()),
+        "WHITE_FRAMES",
+        VideoQAFailureCategory.TECHNICAL_OUTPUT,
+        Severity.REVIEW,
+        Level.REVIEW);
+    assertThat(evaluator.evaluate(v2(0L, 200L), DURATION_MS, Context.none()).level())
+        .isEqualTo(Level.GOOD);
+  }
+
+  @Test
+  void takesScoredBeforeV2RaiseNoTailOrWhiteWarningFromMissingFields() {
+    // V1 takes have no tail/white fields at all; absence is "not measured", never a defect.
+    Assessment assessment = evaluator.evaluate(v2(null, null), DURATION_MS, Context.none());
+
+    assertThat(assessment.level()).isEqualTo(Level.GOOD);
+    assertThat(assessment.warnings()).isEmpty();
   }
 
   @Test
@@ -98,6 +166,13 @@ class TakeQualityEvaluatorTest {
             "UNAVAILABLE",
             "FFMPEG_TAKE_QC_V1",
             "timed out",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -201,7 +276,7 @@ class TakeQualityEvaluatorTest {
     Assessment assessment =
         assess(
             m -> new Measured(0, 0, 3.0, 0, 0.5, 0, 3001, -19, -3, 120, 127, 128),
-            new Context(true, null));
+            new Context(SpeechExpectation.EXPECTED, null));
 
     assertSingleWarning(
         assessment,
@@ -213,6 +288,16 @@ class TakeQualityEvaluatorTest {
 
   @Test
   void silenceIsFineWhenTheShotHasNoSpeech() {
+    assertThat(
+            assess(
+                    m -> new Measured(0, 0, 3.0, 0, 0.5, 0, 5000, -19, -3, 120, 127, 128),
+                    new Context(SpeechExpectation.NOT_EXPECTED, null))
+                .level())
+        .isEqualTo(Level.GOOD);
+  }
+
+  @Test
+  void silenceMakesNoClaimWhenSpeechIsUnknown() {
     assertThat(
             assess(
                     m -> new Measured(0, 0, 3.0, 0, 0.5, 0, 5000, -19, -3, 120, 127, 128),
@@ -243,7 +328,7 @@ class TakeQualityEvaluatorTest {
 
   @Test
   void colorFarFromTheSceneReferenceAsksForReview() {
-    Assessment assessment = assess(m -> m, new Context(false, new SceneColor(160.0, 127.0, 128.0)));
+    Assessment assessment = assess(m -> m, new Context(SpeechExpectation.NOT_EXPECTED, new SceneColor(160.0, 127.0, 128.0)));
 
     assertSingleWarning(
         assessment,
@@ -255,7 +340,7 @@ class TakeQualityEvaluatorTest {
 
   @Test
   void colorCloseToTheSceneReferenceIsGood() {
-    assertThat(assess(m -> m, new Context(false, new SceneColor(125.0, 129.0, 126.0))).level())
+    assertThat(assess(m -> m, new Context(SpeechExpectation.NOT_EXPECTED, new SceneColor(125.0, 129.0, 126.0))).level())
         .isEqualTo(Level.GOOD);
   }
 

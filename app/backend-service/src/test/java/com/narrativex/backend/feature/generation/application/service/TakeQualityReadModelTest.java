@@ -1,5 +1,8 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import static com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.SpeechExpectation.EXPECTED;
+import static com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.SpeechExpectation.NOT_EXPECTED;
+import static com.narrativex.backend.feature.generation.application.service.TakeQualityEvaluator.SpeechExpectation.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.narrativex.backend.feature.generation.application.model.compute.VideoQualityMetricsDto;
@@ -25,16 +28,37 @@ class TakeQualityReadModelTest {
 
   private static VideoQualityMetricsDto color(double y, double u, double v) {
     return new VideoQualityMetricsDto(
-        "MEASURED", "FFMPEG_TAKE_QC_V1", null, 0L, 0L, 3.0, 0, 0.5, 0L, 0L, -19.0, -3.0, y, u, v);
+        "MEASURED",
+        "FFMPEG_TAKE_QC_V1",
+        null,
+        0L,
+        null,
+        0L,
+        3.0,
+        0,
+        0.5,
+        0L,
+        null,
+        0L,
+        -19.0,
+        -3.0,
+        y,
+        u,
+        v,
+        null,
+        null,
+        null,
+        null,
+        null);
   }
 
   @Test
   void storedMeasurementsAreAssessedWithWarningsAndRawMetrics() {
     ProductionTakeQualityItem quality =
-        readModel.assess(stored(FROZEN_OPENING), 5000L, false, Optional.empty());
+        readModel.assess(stored(FROZEN_OPENING), 5000L, NOT_EXPECTED, Optional.empty());
 
     assertThat(quality.level()).isEqualTo("REVIEW");
-    assertThat(quality.thresholdsVersion()).isEqualTo("TAKE_QC_THRESHOLDS_V1");
+    assertThat(quality.thresholdsVersion()).isEqualTo("TAKE_QC_THRESHOLDS_V2");
     assertThat(quality.warnings()).extracting("code").containsExactly("FREEZE_HEAD");
     assertThat(quality.metrics().freezeHeadMs()).isEqualTo(900L);
   }
@@ -42,7 +66,7 @@ class TakeQualityReadModelTest {
   @Test
   void takesWithoutStoredQualityAreUnmeasured() {
     for (String json : new String[] {null, "", "{}", "{\"whisperx\":{}}", "not json"}) {
-      ProductionTakeQualityItem quality = readModel.assess(json, 5000L, false, Optional.empty());
+      ProductionTakeQualityItem quality = readModel.assess(json, 5000L, NOT_EXPECTED, Optional.empty());
 
       assertThat(quality.level()).as("metricsJson=%s", json).isEqualTo("UNMEASURED");
       assertThat(quality.warnings()).isEmpty();
@@ -57,7 +81,7 @@ class TakeQualityReadModelTest {
             stored(
                 "{\"status\":\"UNAVAILABLE\",\"scorerVersion\":\"FFMPEG_TAKE_QC_V1\",\"reason\":\"timed out\"}"),
             5000L,
-            false,
+            NOT_EXPECTED,
             Optional.empty());
 
     assertThat(quality.level()).isEqualTo("UNMEASURED");
@@ -68,19 +92,67 @@ class TakeQualityReadModelTest {
   void speechExpectationControlsTheSilenceWarning() {
     String silent = FROZEN_OPENING.replace("\"silenceTotalMs\":0", "\"silenceTotalMs\":5000");
 
-    assertThat(readModel.assess(stored(silent), 5000L, true, Optional.empty()).warnings())
+    assertThat(readModel.assess(stored(silent), 5000L, EXPECTED, Optional.empty()).warnings())
         .extracting("code")
         .contains("SILENT_DIALOGUE");
-    assertThat(readModel.assess(stored(silent), 5000L, false, Optional.empty()).warnings())
+    assertThat(readModel.assess(stored(silent), 5000L, NOT_EXPECTED, Optional.empty()).warnings())
         .extracting("code")
         .doesNotContain("SILENT_DIALOGUE");
+  }
+
+  @Test
+  void unknownSpeechMakesNoClaimAboutSilence() {
+    String silent = FROZEN_OPENING.replace("\"silenceTotalMs\":0", "\"silenceTotalMs\":5000");
+
+    ProductionTakeQualityItem quality =
+        readModel.assess(stored(silent), 5000L, UNKNOWN, Optional.empty());
+
+    assertThat(quality.warnings()).extracting("code").doesNotContain("SILENT_DIALOGUE");
+    assertThat(quality.speechExpectation()).isEqualTo("UNKNOWN");
+  }
+
+  private static String snapshot(String inputsJson) {
+    return "{\"schemaVersion\":1,\"inputs\":" + inputsJson + "}";
+  }
+
+  @Test
+  void speechIsExpectedOnlyWhenTheTakeSnapshotCarriesDialogue() {
+    String withLine = "{\"audioMode\":\"NATIVE_AV\",\"dialogue\":[{\"speaker\":\"An\",\"text\":\"Hi\"}]}";
+    String withoutLine = "{\"audioMode\":\"NATIVE_AV\",\"dialogue\":[]}";
+
+    assertThat(readModel.speechExpectation(snapshot(withLine))).isEqualTo(EXPECTED);
+    assertThat(readModel.speechExpectation(snapshot(withoutLine))).isEqualTo(NOT_EXPECTED);
+  }
+
+  @Test
+  void aTakeWithoutNativeAudioDoesNotExpectSpeechInTheVideo() {
+    String separateTrack = "{\"audioMode\":\"EXTERNAL_MASTER\",\"dialogue\":[{\"text\":\"Hi\"}]}";
+
+    assertThat(readModel.speechExpectation(snapshot(separateTrack))).isEqualTo(NOT_EXPECTED);
+  }
+
+  @Test
+  void snapshotsThatPredateTheDialogueFieldAreUnknownNotAssumed() {
+    for (String json :
+        new String[] {
+          null,
+          "",
+          "{}",
+          "not json",
+          "{\"schemaVersion\":1}",
+          snapshot("{\"audioMode\":\"NATIVE_AV\"}"),
+          snapshot("{\"dialogue\":\"oops\"}"),
+          snapshot("[]")
+        }) {
+      assertThat(readModel.speechExpectation(json)).as("snapshot=%s", json).isEqualTo(UNKNOWN);
+    }
   }
 
   @Test
   void sceneColorReferenceFeedsTheColorDriftWarning() {
     ProductionTakeQualityItem quality =
         readModel.assess(
-            stored(FROZEN_OPENING), 5000L, false, Optional.of(new SceneColor(170, 127, 128)));
+            stored(FROZEN_OPENING), 5000L, NOT_EXPECTED, Optional.of(new SceneColor(170, 127, 128)));
 
     assertThat(quality.warnings()).extracting("code").contains("COLOR_DRIFT");
   }
@@ -107,6 +179,13 @@ class TakeQualityReadModelTest {
             "UNAVAILABLE",
             "FFMPEG_TAKE_QC_V1",
             "x",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,

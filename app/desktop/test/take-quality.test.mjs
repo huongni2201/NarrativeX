@@ -5,8 +5,11 @@ import {
   describeQualityWarning,
   qualityMeasurementRows,
   shotQualitySummary,
+  speechExpectationNote,
   suggestedSourceInMs,
+  suggestedSourceOutMs,
   takeQualityBadge,
+  takeSelectionStartsFreshTrim,
 } from "../src/renderer/features/production/model/take-quality.ts";
 
 const warning = (code, measured, threshold, severity = "REVIEW") => ({
@@ -152,4 +155,72 @@ test("shot summary: nothing selected or measured raises no alarm", () => {
     shotQualitySummary([{ id: "x", quality: quality("GOOD") }], "x").needsAttention,
     false,
   );
+});
+
+test("choosing the already active take keeps the trim and review checklist", () => {
+  assert.equal(takeSelectionStartsFreshTrim("take-a", "take-a"), false);
+  assert.equal(takeSelectionStartsFreshTrim("take-a", "take-b"), true);
+  assert.equal(takeSelectionStartsFreshTrim(null, "take-a"), true);
+  assert.equal(takeSelectionStartsFreshTrim(undefined, "take-a"), true);
+});
+
+test("a frozen ending suggests an Out that drops it, only when a usable span remains", () => {
+  const flagged = quality(
+    "REVIEW",
+    [warning("FREEZE_TAIL", 900, 500)],
+    { status: "MEASURED", scorerVersion: "FFMPEG_TAKE_QC_V2", freezeTailMs: 900 },
+  );
+  assert.equal(suggestedSourceOutMs(flagged, 4000), 3100);
+  // A trimmed In that leaves under 100 ms before the suggested Out gets no suggestion.
+  assert.equal(suggestedSourceOutMs(flagged, 4000, 3050), null);
+  assert.equal(suggestedSourceOutMs(flagged, 900), null);
+  assert.equal(suggestedSourceOutMs(quality("GOOD"), 4000), null);
+});
+
+test("an In suggestion respects the current Out", () => {
+  const flagged = quality(
+    "REVIEW",
+    [warning("FREEZE_HEAD", 900, 500)],
+    { status: "MEASURED", scorerVersion: "FFMPEG_TAKE_QC_V2", freezeHeadMs: 900 },
+  );
+  assert.equal(suggestedSourceInMs(flagged, 4000), 900);
+  assert.equal(suggestedSourceInMs(flagged, 4000, 950), null);
+});
+
+test("new V2 measurements and warnings read in Vietnamese; V1 takes just omit them", () => {
+  assert.equal(
+    describeQualityWarning(warning("FREEZE_TAIL", 900, 500)).detail,
+    "Đứng hình ở cuối clip 0,9 s (ngưỡng 0,5 s).",
+  );
+  assert.equal(
+    describeQualityWarning(warning("WHITE_FRAMES", 350, 200)).detail,
+    "Có khung trắng 0,4 s (ngưỡng 0,2 s).",
+  );
+  const rows = qualityMeasurementRows({
+    status: "MEASURED",
+    scorerVersion: "FFMPEG_TAKE_QC_V2",
+    freezeTailMs: 0,
+    whiteTotalMs: 0,
+    stddevY: 6.44,
+    stddevU: 1.2,
+    stddevV: 1.5,
+    lowY: 44,
+    highY: 201.5,
+  });
+  const byLabel = Object.fromEntries(rows.map((row) => [row.label, row.value]));
+  assert.equal(byLabel["Đứng hình cuối clip"], "0,0 s");
+  assert.equal(byLabel["Khung trắng"], "0,0 s");
+  assert.equal(byLabel["Độ lệch màu trong clip (Y/U/V)"], "6,4/1,2/1,5");
+  assert.equal(byLabel["Dải sáng (10%–90%)"], "44–202");
+  const v1 = qualityMeasurementRows({ status: "MEASURED", scorerVersion: "FFMPEG_TAKE_QC_V1" });
+  assert.deepEqual(v1, []);
+});
+
+test("an unknown speech expectation is stated, not read as no dialogue", () => {
+  const unknown = { ...quality("GOOD"), speechExpectation: "UNKNOWN" };
+  assert.match(speechExpectationNote(unknown), /Không xác định/);
+  assert.equal(speechExpectationNote({ ...quality("GOOD"), speechExpectation: "EXPECTED" }), null);
+  assert.equal(speechExpectationNote({ ...quality("GOOD"), speechExpectation: "NOT_EXPECTED" }), null);
+  assert.equal(speechExpectationNote({ ...quality("UNMEASURED"), speechExpectation: "UNKNOWN" }), null);
+  assert.equal(speechExpectationNote(quality("GOOD")), null);
 });

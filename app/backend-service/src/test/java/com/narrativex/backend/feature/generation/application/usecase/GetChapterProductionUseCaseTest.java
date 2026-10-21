@@ -245,6 +245,12 @@ class GetChapterProductionUseCaseTest {
     assertThat(status.overallProgressPercent()).isEqualTo(100);
   }
 
+  private static final String SPEAKING_SNAPSHOT =
+      "{\"schemaVersion\":1,\"inputs\":{\"audioMode\":\"NATIVE_AV\","
+          + "\"dialogue\":[{\"speaker\":\"An\",\"text\":\"Hi\"}]}}";
+  private static final String SILENT_SHOT_SNAPSHOT =
+      "{\"schemaVersion\":1,\"inputs\":{\"audioMode\":\"NATIVE_AV\",\"dialogue\":[]}}";
+
   private static String measured(double meanY, long silenceMs) {
     return "{\"whisperx\":{\"status\":\"PASSED\"},\"qualityControl\":{\"status\":\"MEASURED\","
         + "\"scorerVersion\":\"FFMPEG_TAKE_QC_V1\",\"freezeHeadMs\":0,\"freezeTotalMs\":0,"
@@ -334,7 +340,13 @@ class GetChapterProductionUseCaseTest {
               null,
               null,
               "PASSED",
-              Instant.now()));
+              Instant.now(),
+              null,
+              null,
+              null,
+              null,
+              SPEAKING_SNAPSHOT,
+              null));
       selections.add(new SelectedTake(shotId, takeId, 0L, 3000L));
     }
     List<UUID> shotIds = shots.stream().map(ShotInfo::id).toList();
@@ -362,6 +374,115 @@ class GetChapterProductionUseCaseTest {
     assertThat(items.get(4).level()).isEqualTo("GOOD");
     assertThat(items.get(5).level()).isEqualTo("UNMEASURED");
     assertThat(items.get(5).metrics()).isNull();
+  }
+
+  /**
+   * One Beat has a dialogue cue, but only the first Shot was generated to speak it. The second Shot
+   * is a reaction; its silence must not be graded as missing dialogue, and a take whose snapshot
+   * predates the dialogue field must not be graded either way.
+   */
+  @Test
+  void speechIsJudgedFromEachTakesOwnSnapshotNotTheBeatsCues() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID sceneId = UUID.randomUUID();
+    UUID visualBeatId = UUID.randomUUID();
+    UUID storyBeatId = UUID.randomUUID();
+    UUID sequenceId = UUID.randomUUID();
+    when(storyboardAccess.findChapter(chapterId))
+        .thenReturn(Optional.of(new ChapterInfo(chapterId, UUID.randomUUID(), "Chapter", 1)));
+    when(storyboardAccess.findScenes(chapterId))
+        .thenReturn(List.of(new SceneInfo(sceneId, 1, "S")));
+    when(storyboardAccess.findVisualBeats(List.of(sceneId)))
+        .thenReturn(
+            List.of(
+                new VisualBeatInfo(
+                    visualBeatId, sceneId, storyBeatId, 1, "B", "intent", "APPROVED", null, null)));
+    when(storyboardAccess.findAudioCues(List.of(storyBeatId)))
+        .thenReturn(
+            List.of(
+                new StoryboardProductionAccess.AudioCueInfo(
+                    UUID.randomUUID(), storyBeatId, 0, "DIALOGUE", null, 1L, "Line", "APPROVED")));
+    when(storyboardAccess.findSequences(List.of(visualBeatId)))
+        .thenReturn(List.of(new ShotSequenceInfo(sequenceId, visualBeatId, 1)));
+
+    String silent = measured(120, 4000);
+    // speaking shot, reaction shot, take generated before the snapshot recorded dialogue
+    String[] snapshots = {SPEAKING_SNAPSHOT, SILENT_SHOT_SNAPSHOT, "{\"schemaVersion\":1}"};
+    List<ShotInfo> shots = new java.util.ArrayList<>();
+    List<TakeRecord> takes = new java.util.ArrayList<>();
+    for (int index = 0; index < snapshots.length; index++) {
+      UUID shotId = UUID.randomUUID();
+      shots.add(
+          new ShotInfo(
+              shotId,
+              sequenceId,
+              index,
+              "p",
+              "HOOK",
+              List.of(),
+              null,
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              4000L,
+              GenerationStrategy.TEXT_TO_VIDEO,
+              "STANDARD",
+              "READY"));
+      takes.add(
+          new TakeRecord(
+              UUID.randomUUID(),
+              shotId,
+              1,
+              "comfyui",
+              "ltx",
+              GenerationStrategy.TEXT_TO_VIDEO,
+              UUID.randomUUID(),
+              4000L,
+              silent,
+              "PASSED",
+              null,
+              null,
+              null,
+              "PASSED",
+              Instant.now(),
+              null,
+              null,
+              null,
+              null,
+              snapshots[index],
+              null));
+    }
+    List<UUID> shotIds = shots.stream().map(ShotInfo::id).toList();
+    when(storyboardAccess.findShotsByChapter(projectId, chapterId)).thenReturn(shots);
+    when(takeRepository.findByShotIds(shotIds)).thenReturn(takes);
+    when(selectedTakeRepository.findByShotIds(shotIds)).thenReturn(List.of());
+
+    var items =
+        useCase
+            .execute(projectId, chapterId)
+            .scenes()
+            .getFirst()
+            .visualBeats()
+            .getFirst()
+            .shotSequence()
+            .shots()
+            .stream()
+            .map(shot -> shot.takes().getFirst().quality())
+            .toList();
+
+    assertThat(items.get(0).warnings()).extracting("code").containsExactly("SILENT_DIALOGUE");
+    assertThat(items.get(0).speechExpectation()).isEqualTo("EXPECTED");
+    assertThat(items.get(1).warnings()).isEmpty();
+    assertThat(items.get(1).level()).isEqualTo("GOOD");
+    assertThat(items.get(1).speechExpectation()).isEqualTo("NOT_EXPECTED");
+    assertThat(items.get(2).warnings()).isEmpty();
+    assertThat(items.get(2).speechExpectation()).isEqualTo("UNKNOWN");
   }
 
   @Test

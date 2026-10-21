@@ -91,8 +91,7 @@ public class CreateProjectRenderUseCase {
         getProductionTimelineUseCase.execute(command.projectId());
     if (!sourceTimeline.readyForRender()) {
       throw new GenerationAdmissionDeniedException(
-          "PROJECT_RENDER_INPUT_NOT_READY",
-          "Project rendering requires READY narration and visual media for every production timeline beat.");
+          "PROJECT_RENDER_INPUT_NOT_READY", notReadyMessage(sourceTimeline));
     }
     ProductionTimelineView timeline = applyBeatOverrides(sourceTimeline, command.beatOverrides());
 
@@ -169,6 +168,25 @@ public class CreateProjectRenderUseCase {
       throw new GenerationAdmissionDeniedException(
           "LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
     }
+  }
+
+  /**
+   * Native rendering is decided for the whole Project, so every chapter needs selected Takes. Name
+   * the chapters that block it instead of asking for narration that the native path never uses.
+   */
+  static String notReadyMessage(ProductionTimelineView timeline) {
+    if (!"NATIVE_TAKE".equals(timeline.audioMode())) {
+      return "Project rendering requires READY narration and visual media for every production timeline beat.";
+    }
+    String blocking =
+        timeline.chapters().stream()
+            .filter(chapter -> !chapter.readyForRender())
+            .map(ProductionTimelineView.Chapter::title)
+            .collect(Collectors.joining(", "));
+    return "Project rendering uses the selected video Takes of every chapter. Select a passed Take for"
+        + " every Shot in: "
+        + (blocking.isBlank() ? "the current production timeline" : blocking)
+        + ".";
   }
 
   static ProductionTimelineView applyBeatOverrides(

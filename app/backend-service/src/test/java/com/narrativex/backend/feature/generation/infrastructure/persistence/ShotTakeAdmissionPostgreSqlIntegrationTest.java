@@ -1061,17 +1061,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
               return new ComputeSubmissionReceipt(
                   request.taskId(), request.attemptId(), "test-handle", "ACCEPTED", 1L);
             });
-    var handler =
-        new VideoGenerationJobHandler(
-            transactions,
-            execution,
-            artifacts,
-            null,
-            null,
-            null,
-            takeMapper,
-            new com.narrativex.backend.feature.generation.infrastructure.compute
-                .VideoGenerationProperties());
+    var handler = new VideoGenerationJobHandler(transactions, execution, artifacts, takeMapper);
     handler.execute(admitted.jobId());
     verify(execution, times(1)).submitTask(any());
     assertThat(takes.findById(admitted.id()).orElseThrow().status()).isEqualTo("RUNNING");
@@ -1083,15 +1073,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     jdbc.update("DELETE FROM takes WHERE id=?", admitted.id());
     GenerationExecutionPort execution = mock(GenerationExecutionPort.class);
     new VideoGenerationJobHandler(
-            transactions,
-            execution,
-            mock(ComputeArtifactAccess.class),
-            null,
-            null,
-            null,
-            takeMapper,
-            new com.narrativex.backend.feature.generation.infrastructure.compute
-                .VideoGenerationProperties())
+            transactions, execution, mock(ComputeArtifactAccess.class), takeMapper)
         .execute(admitted.jobId());
     verifyNoInteractions(execution);
     assertThat(jobs.findByJobId(admitted.jobId()).orElseThrow().getStatus())
@@ -1107,17 +1089,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
     when(artifacts.getOrCreateTarget(any(), any(), any(), any(), any()))
         .thenAnswer(i -> new OutputArtifactTargetDto(i.getArgument(2), "video", "video/mp4", null));
     when(execution.submitTask(any())).thenThrow(new IllegalStateException("connection lost"));
-    var handler =
-        new VideoGenerationJobHandler(
-            transactions,
-            execution,
-            artifacts,
-            null,
-            null,
-            null,
-            takeMapper,
-            new com.narrativex.backend.feature.generation.infrastructure.compute
-                .VideoGenerationProperties());
+    var handler = new VideoGenerationJobHandler(transactions, execution, artifacts, takeMapper);
     handler.execute(admitted.jobId());
     handler.execute(admitted.jobId());
     verify(execution, times(1)).submitTask(any());
@@ -1139,16 +1111,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
         .thenReturn(
             new ComputeSubmissionReceipt(
                 admitted.jobId(), UUID.randomUUID(), "test-handle", "ACCEPTED", 1L));
-    new VideoGenerationJobHandler(
-            transactions,
-            execution,
-            artifacts,
-            null,
-            null,
-            null,
-            takeMapper,
-            new com.narrativex.backend.feature.generation.infrastructure.compute
-                .VideoGenerationProperties())
+    new VideoGenerationJobHandler(transactions, execution, artifacts, takeMapper)
         .execute(admitted.jobId());
     var job = jobs.findByJobId(admitted.jobId()).orElseThrow();
     assertThat(job.getComputeAttemptId()).isEqualTo(original);
@@ -1177,16 +1140,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
                 return new ComputeSubmissionReceipt(
                     request.taskId(), request.attemptId(), "test-handle", "ACCEPTED", 1L);
               });
-      new VideoGenerationJobHandler(
-              transactions,
-              execution,
-              artifacts,
-              null,
-              null,
-              null,
-              takeMapper,
-              new com.narrativex.backend.feature.generation.infrastructure.compute
-                  .VideoGenerationProperties())
+      new VideoGenerationJobHandler(transactions, execution, artifacts, takeMapper)
           .execute(admitted.jobId());
       assertThat(takes.findById(admitted.id()).orElseThrow().status()).isEqualTo(terminal);
       assertThat(jobs.findByJobId(admitted.jobId()).orElseThrow().getStatus())
@@ -1223,6 +1177,74 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
         .isInstanceOf(ResourceConflictException.class);
     assertThat(admission.execute(command("original", 1L)).id()).isEqualTo(admitted.id());
     assertThat(count("takes")).isEqualTo(1);
+  }
+
+  String takeStatus(UUID takeId) {
+    return jdbc.queryForObject("SELECT status FROM takes WHERE id = ?", String.class, takeId);
+  }
+
+  String shotStatus() {
+    return jdbc.queryForObject("SELECT status FROM shots WHERE id = ?", String.class, shotId);
+  }
+
+  @Test
+  void failedDispatchClosesTheTakeAndMarksTheShotFailed() {
+    var admitted = admission.execute(command("dispatch-failure", 5L));
+    assertThat(takeStatus(admitted.id())).isEqualTo("PENDING");
+    assertThat(shotStatus()).isEqualTo("QUEUED");
+
+    assertThat(claim(admitted.jobId())).isTrue();
+    transactions.markSubmissionFailed(admitted.jobId(), "VIDEO_DISPATCH_ERROR", "test");
+
+    assertThat(takeStatus(admitted.id())).isEqualTo("FAILED");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT validation_status FROM takes WHERE id = ?", String.class, admitted.id()))
+        .isEqualTo("FAILED");
+    assertThat(shotStatus()).isEqualTo("FAILED");
+  }
+
+  @Test
+  void canceledJobClosesTheTakeBeforeSubmission() {
+    var admitted = admission.execute(command("cancel-before-submit", 6L));
+
+    transactions.requestCancellation(admitted.jobId());
+
+    assertThat(takeStatus(admitted.id())).isEqualTo("FAILED");
+    assertThat(shotStatus()).isEqualTo("FAILED");
+  }
+
+  @Test
+  void runningTakeMakesTheShotGeneratingAndFailureAfterwardsClosesIt() {
+    var admitted = admission.execute(command("running-then-failed", 7L));
+    assertThat(claim(admitted.jobId())).isTrue();
+    takeMapper.updateStatus(admitted.id(), "RUNNING");
+    takeMapper.refreshShotStatus(admitted.id());
+    assertThat(shotStatus()).isEqualTo("GENERATING");
+
+    transactions.markSubmissionFailed(admitted.jobId(), "COMPUTE_FAILED", "test");
+
+    assertThat(takeStatus(admitted.id())).isEqualTo("FAILED");
+    assertThat(shotStatus()).isEqualTo("FAILED");
+  }
+
+  @Test
+  void failedRetakeNeverReplacesTheSavedSelectionStatus() {
+    var first = admission.execute(command("selected-first", 8L));
+    var checklist = new TakeContentReviewChecklist(true, true, true, true, true);
+    selectedTakes.saveSelection(
+        shotId, first.id(), 0L, 1_000L, 0L, "a".repeat(64), checklist.toJson());
+    takeMapper.refreshShotStatus(first.id());
+    assertThat(shotStatus()).isEqualTo("SELECTED");
+    jdbc.update("UPDATE generation_jobs SET status = 'COMPLETED' WHERE job_id = ?", first.jobId());
+
+    var retake = admission.execute(command("selected-retake", 9L));
+    assertThat(shotStatus()).isEqualTo("SELECTED");
+    assertThat(claim(retake.jobId())).isTrue();
+    transactions.markSubmissionFailed(retake.jobId(), "COMPUTE_FAILED", "test");
+
+    assertThat(takeStatus(retake.id())).isEqualTo("FAILED");
+    assertThat(shotStatus()).isEqualTo("SELECTED");
   }
 
   @Test

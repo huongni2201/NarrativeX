@@ -386,4 +386,48 @@ class ComputeEventApplicationServiceTest {
     assertEquals(99, holder.get().getProgress());
     assertEquals(JobStatus.RUNNING, holder.get().getStatus());
   }
+
+  @Test
+  void unusableWorkerOutputFailsTheJobInsteadOfLeavingItForEndlessRetries() {
+    UUID taskId = UUID.randomUUID();
+    UUID attemptId = UUID.randomUUID();
+    GenerationJob job =
+        GenerationJob.create(
+                UUID.randomUUID(), JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH)
+            .markSubmitting("SUBMITTING")
+            .markSubmitted(attemptId, "handle-1", 1L, Instant.now(), Instant.now().plusSeconds(10));
+    when(receiptRepository.existsByEventId("evt_bad_output")).thenReturn(false);
+    when(generationJobRepository.findByComputeAttempt(taskId, attemptId))
+        .thenReturn(Optional.of(job));
+    when(generationJobRepository.findByJobId(job.getJobId())).thenReturn(Optional.of(job));
+    when(generationJobRepository.save(any())).thenAnswer(call -> call.getArgument(0));
+    org.mockito.Mockito.doThrow(new InvalidComputeOutputException("audio is not 48 kHz mono"))
+        .when(imageFinalizer)
+        .finalizeResult(any(), any());
+
+    ComputeEventRequest request =
+        new ComputeEventRequest(
+            "evt_bad_output",
+            "1.0",
+            taskId,
+            attemptId,
+            2L,
+            "SUCCEEDED",
+            null,
+            1.0,
+            List.of(),
+            null,
+            null,
+            Instant.now());
+
+    var outcome = service.processEvent(request, "hash");
+
+    assertEquals(ComputeEventApplicationService.ProcessingOutcome.PROCESSED, outcome);
+    var saved = org.mockito.ArgumentCaptor.forClass(GenerationJob.class);
+    verify(generationJobRepository, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+    GenerationJob last = saved.getAllValues().getLast();
+    assertEquals(JobStatus.FAILED, last.getStatus());
+    assertEquals(InvalidComputeOutputException.ERROR_CODE, last.getErrorCode());
+    verify(eventPublisher).publishEvent(any(GenerationJobChangedEvent.class));
+  }
 }

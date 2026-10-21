@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { TakeQualityBadge, TakeQualityPanel } from "./TakeQualityPanel";
 
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
+import { takeSelectionStartsFreshTrim } from "../../production/model/take-quality";
 import { whisperXEvidenceStatus } from "../../production/model/whisperx-status";
 
 export interface TakeSelectorDrawerProps {
@@ -177,6 +178,7 @@ export function TakeSelectorDrawer({
   const isReviewComplete = REVIEW_ITEMS.every(({ key }) => reviewChecklist[key]);
 
   const handleSelectTake = (take: DesktopTake) => {
+    if (!takeSelectionStartsFreshTrim(activeTakeId, take.id)) return;
     setActiveTakeId(take.id);
     const duration = Math.max(100, take.sourceDurationMs ?? shot.targetDurationMs ?? 4000);
     setSourceInMs(0);
@@ -350,18 +352,31 @@ export function TakeSelectorDrawer({
                     )}
                   </div>
 
-                  <TakeQualityPanel
-                    quality={take.quality}
-                    durationMs={take.sourceDurationMs ?? shot.targetDurationMs ?? 4000}
-                    onApplySuggestedIn={
-                      isSelected
-                        ? (suggestedIn) => {
-                            setSourceInMs(suggestedIn);
-                            setReviewChecklist(emptyReview());
-                          }
-                        : undefined
-                    }
-                  />
+                  {/* The QC detail is not part of the take card's select target. */}
+                  <div onClick={(event) => event.stopPropagation()}>
+                    <TakeQualityPanel
+                      quality={take.quality}
+                      durationMs={take.sourceDurationMs ?? shot.targetDurationMs ?? 4000}
+                      sourceInMs={isSelected ? sourceInMs : undefined}
+                      sourceOutMs={isSelected ? sourceOutMs : undefined}
+                      onApplySuggestedIn={
+                        isSelected
+                          ? (suggestedIn) => {
+                              setSourceInMs(suggestedIn);
+                              setReviewChecklist(emptyReview());
+                            }
+                          : undefined
+                      }
+                      onApplySuggestedOut={
+                        isSelected
+                          ? (suggestedOut) => {
+                              setSourceOutMs(suggestedOut);
+                              setReviewChecklist(emptyReview());
+                            }
+                          : undefined
+                      }
+                    />
+                  </div>
 
                   {projectId && take.outputAssetId && isSelected && (
                     <div className="mt-2 overflow-hidden rounded border border-border-soft aspect-video bg-black">

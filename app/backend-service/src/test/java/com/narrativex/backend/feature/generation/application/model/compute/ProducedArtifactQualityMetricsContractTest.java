@@ -37,8 +37,15 @@ class ProducedArtifactQualityMetricsContractTest {
 
     assertThat(quality.status()).isEqualTo("MEASURED");
     assertThat(quality.measured()).isTrue();
-    assertThat(quality.scorerVersion()).isEqualTo("FFMPEG_TAKE_QC_V1");
+    assertThat(quality.scorerVersion()).isEqualTo("FFMPEG_TAKE_QC_V2");
     assertThat(quality.freezeHeadMs()).isEqualTo(417L);
+    assertThat(quality.freezeTailMs()).isZero();
+    assertThat(quality.whiteTotalMs()).isZero();
+    assertThat(quality.stddevY()).isEqualTo(6.4);
+    assertThat(quality.stddevU()).isEqualTo(1.2);
+    assertThat(quality.stddevV()).isEqualTo(1.5);
+    assertThat(quality.lowY()).isEqualTo(44.0);
+    assertThat(quality.highY()).isEqualTo(201.5);
     assertThat(quality.freezeTotalMs()).isEqualTo(583L);
     assertThat(quality.motionMean()).isEqualTo(2.84);
     assertThat(quality.sceneCutCount()).isZero();
@@ -77,7 +84,7 @@ class ProducedArtifactQualityMetricsContractTest {
     ObjectNode quality = (ObjectNode) technicalMetadata(produced).get("qualityMetrics");
     quality.removeAll();
     quality.put("status", "UNAVAILABLE");
-    quality.put("scorerVersion", "FFMPEG_TAKE_QC_V1");
+    quality.put("scorerVersion", "FFMPEG_TAKE_QC_V2");
     quality.put("reason", "FFmpeg quality scoring timed out");
 
     VideoQualityMetricsDto read = read(produced).technicalMetadata().qualityMetrics();

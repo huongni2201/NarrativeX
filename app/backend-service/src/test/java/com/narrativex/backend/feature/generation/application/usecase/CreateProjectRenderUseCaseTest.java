@@ -147,6 +147,86 @@ class CreateProjectRenderUseCaseTest {
                     .isEqualTo("INVALID_RENDER_OVERRIDE"));
   }
 
+  @Test
+  void nativeNotReadyMessageNamesTheChaptersThatBlockTheRender() {
+    UUID projectId = UUID.randomUUID(), chapterId = UUID.randomUUID();
+    var ready = chapter(chapterId, "Chapter 1", true);
+    var blocked = chapter(UUID.randomUUID(), "Chapter 2", false);
+    var nativeBeat =
+        new ProductionTimelineView.Beat(
+            chapterId,
+            0,
+            0,
+            0,
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Beat",
+            "Intent",
+            "NONE",
+            "GENERATE_NEW",
+            UUID.randomUUID(),
+            "VIDEO",
+            5_000L,
+            "TRIM",
+            0L,
+            true,
+            "videos/a.mp4",
+            100L,
+            "c".repeat(64),
+            0L,
+            5_000L,
+            5_000L,
+            true);
+    var native_ =
+        new ProductionTimelineView(
+            projectId,
+            UUID.randomUUID(),
+            5_000L,
+            "16:9",
+            false,
+            List.of(ready, blocked),
+            List.of(nativeBeat));
+
+    assertThat(CreateProjectRenderUseCase.notReadyMessage(native_))
+        .contains("Chapter 2")
+        .doesNotContain("Chapter 1")
+        .doesNotContain("narration");
+  }
+
+  @Test
+  void narrationNotReadyMessageKeepsTheNarrationRequirement() {
+    UUID chapterId = UUID.randomUUID();
+    var timeline =
+        timeline(
+            UUID.randomUUID(), UUID.randomUUID(), chapterId, UUID.randomUUID(), UUID.randomUUID());
+
+    assertThat(CreateProjectRenderUseCase.notReadyMessage(timeline)).contains("narration");
+  }
+
+  private static ProductionTimelineView.Chapter chapter(UUID id, String title, boolean ready) {
+    return new ProductionTimelineView.Chapter(
+        id,
+        0,
+        title,
+        1L,
+        "a".repeat(64),
+        null,
+        null,
+        0L,
+        5_000L,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        ready ? 1 : 0,
+        ready);
+  }
+
   private static ProductionTimelineView timeline(
       UUID projectId, UUID storyVersionId, UUID chapterId, UUID firstBeatId, UUID secondBeatId) {
     ProductionTimelineView.Chapter chapter =

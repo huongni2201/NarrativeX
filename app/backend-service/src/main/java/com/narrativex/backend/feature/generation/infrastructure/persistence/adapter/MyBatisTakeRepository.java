@@ -43,6 +43,7 @@ public class MyBatisTakeRepository implements TakeRepository {
     row.setInputFingerprint(fingerprint);
     UUID id = mapper.insert(row);
     if (id == null) throw new IllegalStateException("Take insert did not return an ID");
+    mapper.refreshShotStatus(id);
     return findById(id).orElseThrow(() -> new IllegalStateException("Inserted take disappeared"));
   }
 
@@ -77,6 +78,7 @@ public class MyBatisTakeRepository implements TakeRepository {
   @Override
   public void updateStatus(UUID id, String status) {
     mapper.updateStatus(id, status);
+    mapper.refreshShotStatus(id);
   }
 
   private TakeRecord toRecord(TakeRow row) {

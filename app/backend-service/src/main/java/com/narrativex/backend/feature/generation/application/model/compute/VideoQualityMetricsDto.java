@@ -10,17 +10,24 @@ public record VideoQualityMetricsDto(
     @JsonProperty("scorerVersion") String scorerVersion,
     @JsonProperty("reason") String reason,
     @JsonProperty("freezeHeadMs") Long freezeHeadMs,
+    @JsonProperty("freezeTailMs") Long freezeTailMs,
     @JsonProperty("freezeTotalMs") Long freezeTotalMs,
     @JsonProperty("motionMean") Double motionMean,
     @JsonProperty("sceneCutCount") Integer sceneCutCount,
     @JsonProperty("flickerStddev") Double flickerStddev,
     @JsonProperty("blackTotalMs") Long blackTotalMs,
+    @JsonProperty("whiteTotalMs") Long whiteTotalMs,
     @JsonProperty("silenceTotalMs") Long silenceTotalMs,
     @JsonProperty("integratedLufs") Double integratedLufs,
     @JsonProperty("peakDbfs") Double peakDbfs,
     @JsonProperty("meanY") Double meanY,
     @JsonProperty("meanU") Double meanU,
-    @JsonProperty("meanV") Double meanV) {
+    @JsonProperty("meanV") Double meanV,
+    @JsonProperty("stddevY") Double stddevY,
+    @JsonProperty("stddevU") Double stddevU,
+    @JsonProperty("stddevV") Double stddevV,
+    @JsonProperty("lowY") Double lowY,
+    @JsonProperty("highY") Double highY) {
 
   public boolean measured() {
     return "MEASURED".equals(status);

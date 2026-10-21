@@ -3,8 +3,10 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeMapper;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepository {
   private final GenerationJobMapper mapper;
+  private final TakeMapper takeMapper;
 
   @Override
   public GenerationJob save(GenerationJob job) {
@@ -35,7 +38,27 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
     }
     GenerationJobRow updated = mapper.findById(job.getId());
     if (updated == null) throw missing(job.getId());
+    closeOpenTakes(updated);
     return toDomain(updated);
+  }
+
+  /**
+   * Every path that ends a job without a result (compute failure, dispatch failure, cancellation,
+   * reconciliation) saves it here, so Takes cannot stay PENDING or RUNNING behind a closed job.
+   * Successful jobs are finalized together with their Take by the result finalizer.
+   */
+  private void closeOpenTakes(GenerationJobRow updated) {
+    JobStatus status = updated.getStatus();
+    if (status != JobStatus.FAILED && status != JobStatus.CANCELED) return;
+    String reason =
+        status == JobStatus.CANCELED
+            ? "Generation was canceled before a result was produced"
+            : "Generation failed before a result was produced"
+                + (updated.getErrorCode() == null ? "" : " (" + updated.getErrorCode() + ")");
+    if (takeMapper.closeOpenTakesForJob(updated.getId(), reason) > 0) {
+      var take = takeMapper.findByGenerationJobId(updated.getId());
+      if (take != null) takeMapper.refreshShotStatus(take.getId());
+    }
   }
 
   @Override

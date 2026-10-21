@@ -122,7 +122,11 @@ public class ComputeEventApplicationService {
         Optional<ComputeResultFinalizer> finalizerOpt =
             finalizerRegistry.findFinalizer(job.getType(), job.getProductionMode());
         if (finalizerOpt.isPresent()) {
-          finalizerOpt.get().finalizeResult(job, request.toObservationDto());
+          try {
+            finalizerOpt.get().finalizeResult(job, request.toObservationDto());
+          } catch (InvalidComputeOutputException invalid) {
+            return failInvalidOutput(job, invalid);
+          }
         } else {
           log.warn("No finalizer found for JobType {}; retaining unresolved result", job.getType());
           job =
@@ -167,5 +171,19 @@ public class ComputeEventApplicationService {
         return ProcessingOutcome.PROCESSED;
       }
     }
+  }
+
+  /** A successful run whose output can never be accepted ends the job instead of looping. */
+  private ProcessingOutcome failInvalidOutput(
+      GenerationJob job, InvalidComputeOutputException invalid) {
+    log.warn("Job {} produced an unusable output: {}", job.getJobId(), invalid.getMessage());
+    GenerationJob current = generationJobRepository.findByJobId(job.getJobId()).orElse(job);
+    if (!current.getStatus().isTerminal()) {
+      current =
+          generationJobRepository.save(
+              current.markFailed(InvalidComputeOutputException.ERROR_CODE, "OUTPUT_INVALID"));
+    }
+    eventPublisher.publishEvent(new GenerationJobChangedEvent(current));
+    return ProcessingOutcome.PROCESSED;
   }
 }

@@ -110,6 +110,41 @@
       AND (#{status} != 'RUNNING' OR status = 'PENDING')
   </update>
 
+  <!-- Closes Takes left open when their job ended in FAILED or CANCELED without a result. -->
+  <update id="closeOpenTakesForJob">
+    UPDATE takes
+    SET status = 'FAILED',
+        validation_status = 'FAILED',
+        validation_failure_reason = COALESCE(validation_failure_reason, #{reason}),
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE generation_job_id = #{generationJobId}
+      AND status IN ('PENDING', 'RUNNING', 'VALIDATING')
+  </update>
+
+  <!-- Shot status implied by its Takes: a saved selection wins, then in-flight, review, failed. -->
+  <sql id="impliedShotStatus">
+    CASE
+      WHEN EXISTS (SELECT 1 FROM selected_takes st WHERE st.shot_id = sh.id) THEN 'SELECTED'
+      WHEN EXISTS (SELECT 1 FROM takes t WHERE t.shot_id = sh.id AND t.status = 'RUNNING') THEN 'GENERATING'
+      WHEN EXISTS (SELECT 1 FROM takes t WHERE t.shot_id = sh.id AND t.status = 'VALIDATING') THEN 'VALIDATING'
+      WHEN EXISTS (SELECT 1 FROM takes t WHERE t.shot_id = sh.id AND t.status = 'PENDING') THEN 'QUEUED'
+      WHEN EXISTS (SELECT 1 FROM takes t WHERE t.shot_id = sh.id AND t.status = 'PASSED') THEN 'MANUAL_REVIEW'
+      WHEN EXISTS (SELECT 1 FROM takes t WHERE t.shot_id = sh.id AND t.status = 'FAILED') THEN 'FAILED'
+      ELSE sh.status
+    END
+  </sql>
+
+  <!-- Re-derives the status of the Shot owning #{takeId}; writes (and bumps row_version) only on change. -->
+  <update id="refreshShotStatus">
+    UPDATE shots sh
+    SET status = <include refid="impliedShotStatus" />,
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = sh.row_version + 1
+    WHERE sh.id = (SELECT shot_id FROM takes WHERE id = #{takeId})
+      AND sh.status &lt;&gt; <include refid="impliedShotStatus" />
+  </update>
+
   <update id="updateValidation">
     UPDATE takes
     SET output_asset_id = #{outputAssetId},

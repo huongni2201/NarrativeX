@@ -106,6 +106,13 @@
               ],
               "minimum": 0
             },
+            "freezeTailMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
             "freezeTotalMs": {
               "type": [
                 "integer",
@@ -133,6 +140,13 @@
               ]
             },
             "blackTotalMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "whiteTotalMs": {
               "type": [
                 "integer",
                 "null"
@@ -171,6 +185,36 @@
               ]
             },
             "meanV": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "stddevY": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "stddevU": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "stddevV": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lowY": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "highY": {
               "type": [
                 "number",
                 "null"

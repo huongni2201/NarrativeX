@@ -64,17 +64,26 @@ class VideoQualityMetrics(ProtocolModel):
     scorer_version: Annotated[str, Field(min_length=1, max_length=64)]
     reason: Annotated[str, Field(max_length=256)] | None = None
     freeze_head_ms: DurationMs | None = None
+    freeze_tail_ms: DurationMs | None = None
     freeze_total_ms: DurationMs | None = None
     motion_mean: Measure | None = None
     scene_cut_count: Annotated[int, Field(ge=0)] | None = None
     flicker_stddev: Measure | None = None
     black_total_ms: DurationMs | None = None
+    white_total_ms: DurationMs | None = None
     silence_total_ms: DurationMs | None = None
     integrated_lufs: Measure | None = None
     peak_dbfs: Measure | None = None
     mean_y: Measure | None = None
     mean_u: Measure | None = None
     mean_v: Measure | None = None
+    # Spread of the per-frame averages across the clip (how far the colour wanders within a take).
+    stddev_y: Measure | None = None
+    stddev_u: Measure | None = None
+    stddev_v: Measure | None = None
+    # Mean per-frame 10th/90th luma percentile (coarse tonal range).
+    low_y: Measure | None = None
+    high_y: Measure | None = None
 
 
 class VideoTechnicalMetadata(ProtocolModel):

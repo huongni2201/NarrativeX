@@ -28,6 +28,13 @@ public interface TakeMapper extends NarrativeXMyBatisMapper {
 
   int updateValidation(TakeRow row);
 
+  /** Re-derives the owning Shot's status from its Takes and saved selection. */
+  int refreshShotStatus(@Param("takeId") UUID takeId);
+
+  /** Fails PENDING/RUNNING/VALIDATING Takes of a job that ended without producing a result. */
+  int closeOpenTakesForJob(
+      @Param("generationJobId") UUID generationJobId, @Param("reason") String reason);
+
   /** Sets only metrics_json.qualityControl, leaving other metric keys and validation alone. */
   int updateQualityControl(
       @Param("id") UUID id, @Param("qualityControlJson") String qualityControlJson);

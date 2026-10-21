@@ -23,19 +23,26 @@
         "decodePassed": true,
         "qualityMetrics": {
           "status": "MEASURED",
-          "scorerVersion": "FFMPEG_TAKE_QC_V1",
+          "scorerVersion": "FFMPEG_TAKE_QC_V2",
           "freezeHeadMs": 417,
+          "freezeTailMs": 0,
           "freezeTotalMs": 583,
           "motionMean": 2.84,
           "sceneCutCount": 0,
           "flickerStddev": 0.62,
           "blackTotalMs": 0,
+          "whiteTotalMs": 0,
           "silenceTotalMs": 1200,
           "integratedLufs": -19.4,
           "peakDbfs": -3.1,
           "meanY": 118.2,
           "meanU": 126.7,
-          "meanV": 129.1
+          "meanV": 129.1,
+          "stddevY": 6.4,
+          "stddevU": 1.2,
+          "stddevV": 1.5,
+          "lowY": 44.0,
+          "highY": 201.5
         }
       }
     }

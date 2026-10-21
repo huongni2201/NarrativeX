@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
+import com.narrativex.backend.feature.generation.application.service.InvalidComputeOutputException;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -49,7 +50,7 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
   }
 
   @Override
-  @Transactional
+  @Transactional(noRollbackFor = InvalidComputeOutputException.class)
   public void finalizeResult(GenerationJob job, ComputeObservationDto observation) {
     if (job.getStatus().isTerminal()) {
       log.debug(
@@ -75,7 +76,7 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
             .findFirst()
             .orElseThrow(
                 () ->
-                    new IllegalArgumentException(
+                    new InvalidComputeOutputException(
                         "Compute observation is missing required image output"));
 
     OutputArtifactTargetDto target =

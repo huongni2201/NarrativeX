@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
@@ -43,8 +42,6 @@ class VideoGenerationResultFinalizerTest {
   private ComputeArtifactAccess artifactAccess;
   private TakeMapper takeMapper;
   private VideoQualityAssurance videoQualityAssurance;
-  private com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
-      shotMapper;
   private VideoGenerationResultFinalizer finalizer;
 
   @BeforeEach
@@ -54,18 +51,13 @@ class VideoGenerationResultFinalizerTest {
     artifactAccess = mock(ComputeArtifactAccess.class);
     takeMapper = mock(TakeMapper.class);
     videoQualityAssurance = mock(VideoQualityAssurance.class);
-    shotMapper =
-        mock(
-            com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper
-                .class);
     finalizer =
         new VideoGenerationResultFinalizer(
             generationJobRepository,
             mediaAssetRepository,
             artifactAccess,
             takeMapper,
-            videoQualityAssurance,
-            shotMapper);
+            videoQualityAssurance);
   }
 
   @ParameterizedTest
@@ -177,13 +169,12 @@ class VideoGenerationResultFinalizerTest {
       assertEquals("PASSED", updatedTake.getValidationStatus());
       assertEquals(5000L, updatedTake.getSourceDurationMs());
       verify(takeMapper).updateStatus(takeId, "PASSED");
-      verify(shotMapper).updateStatus(shotId, "MANUAL_REVIEW");
     } else {
       assertEquals("FAILED", updatedTake.getStatus());
       assertEquals("TECHNICAL_OUTPUT", updatedTake.getValidationFailureCategory());
       verify(takeMapper).updateStatus(takeId, "FAILED");
-      verifyNoInteractions(shotMapper);
     }
+    verify(takeMapper).refreshShotStatus(takeId);
     verify(generationJobRepository).save(any());
   }
 
@@ -309,7 +300,10 @@ class VideoGenerationResultFinalizerTest {
             null,
             null);
 
-    assertThrows(IllegalArgumentException.class, () -> finalizer.finalizeResult(job, observation));
+    assertThrows(
+        com.narrativex.backend.feature.generation.application.service.InvalidComputeOutputException
+            .class,
+        () -> finalizer.finalizeResult(job, observation));
   }
 
   private TakeRow finalizeWithQuality(
@@ -367,20 +361,27 @@ class VideoGenerationResultFinalizerTest {
         new com.narrativex.backend.feature.generation.application.model.compute
             .VideoQualityMetricsDto(
             "MEASURED",
-            "FFMPEG_TAKE_QC_V1",
+            "FFMPEG_TAKE_QC_V2",
             null,
             417L,
+            0L,
             583L,
             2.84,
             0,
             0.62,
+            0L,
             0L,
             1200L,
             -19.4,
             -3.1,
             118.2,
             126.7,
-            129.1);
+            129.1,
+            6.4,
+            1.2,
+            1.5,
+            44.0,
+            201.5);
 
     TakeRow take = finalizeWithQuality(quality);
 
@@ -388,7 +389,7 @@ class VideoGenerationResultFinalizerTest {
     verify(takeMapper).updateQualityControl(eq(take.getId()), json.capture());
     var stored = new tools.jackson.databind.ObjectMapper().readTree(json.getValue());
     assertEquals("MEASURED", stored.get("status").asText());
-    assertEquals("FFMPEG_TAKE_QC_V1", stored.get("scorerVersion").asText());
+    assertEquals("FFMPEG_TAKE_QC_V2", stored.get("scorerVersion").asText());
     assertEquals(417, stored.get("freezeHeadMs").asInt());
     assertEquals(129.1, stored.get("meanV").asDouble());
     assertEquals("PASSED", take.getValidationStatus());
@@ -400,8 +401,15 @@ class VideoGenerationResultFinalizerTest {
         new com.narrativex.backend.feature.generation.application.model.compute
             .VideoQualityMetricsDto(
             "UNAVAILABLE",
-            "FFMPEG_TAKE_QC_V1",
+            "FFMPEG_TAKE_QC_V2",
             "timed out",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
