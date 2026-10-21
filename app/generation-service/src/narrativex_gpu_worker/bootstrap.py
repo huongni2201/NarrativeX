@@ -7,6 +7,7 @@ SQLite, HTTP or provider implementations themselves.
 
 from __future__ import annotations
 
+import os
 import shlex
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from narrativex_gpu_worker.adapters.events import HttpComputeEventPublisher
 from narrativex_gpu_worker.adapters.executors import ExecutorCatalog
 from narrativex_gpu_worker.adapters.executors.comfyui import ComfyUIClient, ComfyUIExecutor
 from narrativex_gpu_worker.adapters.executors.ltx import LtxVideoExecutor
+from narrativex_gpu_worker.adapters.executors.ltx.profiles import resolve_profile
 from narrativex_gpu_worker.adapters.executors.media_validation import MediaValidationExecutor
 from narrativex_gpu_worker.adapters.executors.vieneu import VieNeuClient, VieNeuExecutor
 from narrativex_gpu_worker.adapters.executors.whisperx import WhisperXClient, WhisperXExecutor
@@ -58,6 +60,30 @@ class ApplicationComponents:
     async def close(self) -> None:
         if self.close_resources is not None:
             await self.close_resources()
+
+
+def split_command(command: str, windows: bool | None = None) -> tuple[str, ...]:
+    """Split a runtime command line; Windows paths keep their backslashes."""
+    if not (os.name == "nt" if windows is None else windows):
+        return tuple(shlex.split(command))
+    parts = shlex.split(command, posix=False)
+    return tuple(
+        part[1:-1] if len(part) >= 2 and part[0] == part[-1] and part[0] in "\"'" else part
+        for part in parts
+    )
+
+
+def gpu_total_vram_reader(settings: WorkerSettings) -> Callable[[], Awaitable[int | None]]:
+    """Declared VRAM wins; otherwise nvidia-smi, and None when the size is unknown."""
+    probe = GpuVramProbe(enabled=settings.residency_vram_probe_enabled)
+
+    async def read() -> int | None:
+        if settings.gpu_vram_mb is not None:
+            return settings.gpu_vram_mb
+        usage = await probe.query_vram()
+        return usage.total_mb if usage is not None else None
+
+    return read
 
 
 def build_executor_catalog(
@@ -104,6 +130,9 @@ def build_executor_catalog(
                 # Readiness stays false until pinned runtime/model/schema preflight succeeds.
                 runtime_directory=settings.ltx_runtime_directory,
                 max_artifact_bytes=settings.max_artifact_bytes,
+                profile=resolve_profile(settings.ltx_profile),
+                gpu_total_vram_mb=gpu_total_vram_reader(settings),
+                vram_budget_mb=settings.ltx_vram_budget_mb,
             ),
             MediaValidationExecutor(artifacts, ready=True),
         )
@@ -133,7 +162,7 @@ def build_application(
         )
         supervisor = RuntimeProcessSupervisor(vram_probe=vram_probe, http_client=client)
         if settings.comfyui_command.strip():
-            comfy_cmd = tuple(shlex.split(settings.comfyui_command))
+            comfy_cmd = split_command(settings.comfyui_command)
             comfy_health = f"{settings.comfyui_base_url.rstrip('/')}/system_stats"
             supervisor.register_runtime(
                 ProcessSpec(
@@ -155,7 +184,7 @@ def build_application(
             supervisor.register_runtime(
                 ProcessSpec(
                     family=RuntimeFamily.VIENEU,
-                    command=tuple(shlex.split(settings.vieneu_command)),
+                    command=split_command(settings.vieneu_command),
                     health_url=f"{settings.vieneu_base_url.rstrip('/')}/health",
                     startup_timeout_seconds=settings.residency_transition_timeout_seconds,
                 )
@@ -164,7 +193,7 @@ def build_application(
             supervisor.register_runtime(
                 ProcessSpec(
                     family=RuntimeFamily.WHISPERX,
-                    command=tuple(shlex.split(settings.whisperx_command)),
+                    command=split_command(settings.whisperx_command),
                     startup_timeout_seconds=settings.residency_transition_timeout_seconds,
                 )
             )

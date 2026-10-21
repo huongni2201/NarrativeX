@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path, PurePosixPath
 from uuid import NAMESPACE_URL, uuid5
 
@@ -31,13 +32,8 @@ from narrativex_gpu_worker.contracts.task import NativeVideoGenerateInputs
 
 from .media import inspect_native_video
 from .preflight import baseline_graph, validate_object_info, verify_runtime_files
-from .workflow import (
-    CHECKPOINT,
-    MANIFEST,
-    PROFILE_ID,
-    SUPPORTED_STRATEGIES,
-    build_ltx_video_workflow,
-)
+from .profiles import LtxProfile, resolve_profile
+from .workflow import SUPPORTED_STRATEGIES, build_ltx_video_workflow
 
 
 class LtxVideoExecutor:
@@ -45,11 +41,7 @@ class LtxVideoExecutor:
 
     name = "ltx"
     task_types = frozenset({"video.generate"})
-    models = (
-        ModelRef(executor="ltx", model=MANIFEST["modelId"], revision=MANIFEST["modelRevision"]),
-    )
     task_schema_versions = {"video.generate": ["1.0", "1.1"]}
-    workflow_profiles = [dict(profile_id=PROFILE_ID, **MANIFEST["capabilities"])]
 
     def __init__(
         self,
@@ -57,7 +49,23 @@ class LtxVideoExecutor:
         artifact_adapter: ArtifactPort,
         runtime_directory: Path | None = None,
         max_artifact_bytes: int = 2_147_483_648,
+        profile: LtxProfile | None = None,
+        gpu_total_vram_mb: Callable[[], Awaitable[int | None]] | None = None,
+        vram_budget_mb: int | None = None,
     ) -> None:
+        self._profile = profile or resolve_profile()
+        self._gpu_total_vram_mb = gpu_total_vram_mb
+        self._vram_budget_mb = vram_budget_mb or self._profile.vram_budget_mb
+        self.models = (
+            ModelRef(
+                executor="ltx",
+                model=self._profile.model_id,
+                revision=self._profile.model_revision,
+            ),
+        )
+        self.workflow_profiles = [
+            dict(profile_id=self._profile.profile_id, **self._profile.manifest["capabilities"])
+        ]
         self._client = client
         self._artifact_adapter = artifact_adapter
         self._ready = False
@@ -78,12 +86,18 @@ class LtxVideoExecutor:
         self._next_preflight = time.monotonic() + 5
         if self._runtime_directory is None:
             return
+        if not await self._gpu_fits_profile():
+            return
         try:
             if not self._runtime_verified:
-                await asyncio.to_thread(verify_runtime_files, self._runtime_directory)
+                await asyncio.to_thread(
+                    verify_runtime_files, self._runtime_directory, self._profile
+                )
                 self._runtime_verified = True
             async with asyncio.timeout(5):
-                validate_object_info(await self._client.object_info(), baseline_graph())
+                validate_object_info(
+                    await self._client.object_info(), baseline_graph(self._profile), self._profile
+                )
         except (
             OSError,
             ValueError,
@@ -96,6 +110,17 @@ class LtxVideoExecutor:
             return
         self.readiness_error = ""
         self._ready = True
+
+    async def _gpu_fits_profile(self) -> bool:
+        # An unknown GPU size (no nvidia-smi, CI) is left to the runtime preflight.
+        total = await self._gpu_total_vram_mb() if self._gpu_total_vram_mb else None
+        if total is not None and total < self._profile.min_vram_mb:
+            self.readiness_error = (
+                f"GPU has {total} MB VRAM; LTX profile {self._profile.profile_id} "
+                f"requires {self._profile.min_vram_mb} MB"
+            )
+            return False
+        return True
 
     async def refresh_preflight(self) -> None:
         # Static pin failures require an explicit preflight/restart after operator repair.
@@ -111,7 +136,9 @@ class LtxVideoExecutor:
     @property
     def runtime_requirement(self) -> RuntimeRequirement:
         # INT8 fit on the target workstation still requires a real measured run.
-        return RuntimeRequirement(family=RuntimeFamily.LTX_VIDEO, vram_budget_mb=32768)
+        return RuntimeRequirement(
+            family=RuntimeFamily.LTX_VIDEO, vram_budget_mb=self._vram_budget_mb
+        )
 
     async def recover_handle(self, task: ComputeTask) -> str | None:
         prompt = self.prompt_id(task)
@@ -152,7 +179,7 @@ class LtxVideoExecutor:
                 "VIDEO_OUTPUT_INVALID", "Exactly one MP4 output target required", "PERMANENT"
             )
         if isinstance(inputs, NativeVideoGenerateInputs):
-            if inputs.workflow_profile_id != PROFILE_ID:
+            if inputs.workflow_profile_id != self._profile.profile_id:
                 raise ExecutorExecutionError(
                     "VIDEO_PROFILE_UNAVAILABLE", "Pinned workflow profile required", "PERMANENT"
                 )
@@ -176,7 +203,7 @@ class LtxVideoExecutor:
             workflow = build_ltx_video_workflow(
                 inputs.prompt,
                 inputs.negative_prompt,
-                CHECKPOINT,
+                self._profile.checkpoint,
                 inputs.width,
                 inputs.height,
                 inputs.fps,
@@ -189,6 +216,7 @@ class LtxVideoExecutor:
                 motion_intent=inputs.motion_intent,
                 voice_reference=inputs.voice_reference,
                 provider_options=options,
+                profile=self._profile,
             )
         except ValueError as exc:
             raise ExecutorExecutionError("VIDEO_PROFILE_INVALID", str(exc), "PERMANENT") from exc
@@ -219,8 +247,8 @@ class LtxVideoExecutor:
             raise AmbiguousOutcomeError("LTX completion transport is unresolved") from exc
         if cancel.is_set():
             raise AmbiguousOutcomeError("LTX cancellation remains unconfirmed")
-        output = record.get("outputs", {}).get(MANIFEST["outputNode"], {})
-        files = output.get(MANIFEST["outputSlot"], [])
+        output = record.get("outputs", {}).get(self._profile.manifest["outputNode"], {})
+        files = output.get(self._profile.manifest["outputSlot"], [])
         if len(files) != 1 or not output.get("animated"):
             raise ExecutorExecutionError(
                 "VIDEO_OUTPUT_INVALID", "Pinned SaveVideo output missing", "PERMANENT"

@@ -20,6 +20,17 @@ The worker may run on the same machine or a separate Windows GPU workstation. Th
 
 The active LTX profile does not admit I2V, First/Last Frame, reference artifacts, or AUDIO_FIRST. Runtime capability readiness is a configuration claim, not a measurement of GPU health or output quality.
 
+## Model profile and GPU size (IMPLEMENTED, unmeasured on GPU)
+
+Rented nodes change between GPU classes and between Windows and Linux, so the worker selects its LTX profile from the environment instead of code. [`deploy/gpu-worker.env.example`](../../deploy/gpu-worker.env.example) lists every key.
+
+- `GENERATION_SERVICE_LTX_PROFILE` names a pinned manifest in `app/generation-service/src/narrativex_gpu_worker/adapters/executors/ltx/workflows/`. Blank selects `ltx-2.5-22b-distilled-int8-native-av-v1`. An unknown id stops the worker at startup; there is no fallback to another profile. Graph digest, model checksums and runtime commit stay enforced for whichever profile is selected.
+- The worker advertises the selected profile and model. The backend must request the same pair through `NARRATIVEX_VIDEO_DEFAULT_PROFILE` and `NARRATIVEX_VIDEO_DEFAULT_MODEL`; a mismatch is rejected, not translated.
+- Each manifest declares `minVramMb` and `vramBudgetMb`. The worker reads total VRAM from `GENERATION_SERVICE_GPU_VRAM_MB` or, when unset, from `nvidia-smi`. A smaller GPU keeps LTX unready with an explicit `readiness_error`; other executors are unaffected. `GENERATION_SERVICE_LTX_VRAM_BUDGET_MB` overrides only the residency budget.
+- The default profile requires a 32 GB card (`minVramMb` 30720, because 32 GB cards report slightly under 32768 MiB). RTX 4090 and RTX 3090 (24 GB) run TTS, alignment, image and media validation but not this LTX profile. A 24 GB LTX profile needs its own pinned manifest after a measured run.
+- Runtime commands (`GENERATION_SERVICE_*_COMMAND`) keep backslashes on Windows and use POSIX quoting on Linux.
+- Only Windows has a bootstrap script ([`deploy/remote-gpu-windows`](../../deploy/remote-gpu-windows/README.md)); a Linux node is configured by hand with the same keys.
+
 ## Connectivity and credentials
 
 - The backend connects through its configured Compute Protocol base URL. Configure the worker endpoint through the backend runtime settings/environment used by the deployment; do not treat a dynamic session handshake as an implemented contract.

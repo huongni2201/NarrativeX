@@ -7,14 +7,18 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from .workflow import CHECKPOINT, MANIFEST, build_ltx_video_workflow
+from .profiles import LtxProfile
+from .workflow import DEFAULT_PROFILE, build_ltx_video_workflow
 
 
-def validate_object_info(info: dict[str, Any], graph: dict[str, Any]) -> None:
+def validate_object_info(
+    info: dict[str, Any], graph: dict[str, Any], profile: LtxProfile | None = None
+) -> None:
+    outputs = (profile or DEFAULT_PROFILE).manifest["outputs"]
     for node in graph.values():
         kind = node["class_type"]
         schema = info.get(kind)
-        if not isinstance(schema, dict) or schema.get("output") != MANIFEST["outputs"][kind]:
+        if not isinstance(schema, dict) or schema.get("output") != outputs[kind]:
             raise ValueError(f"Runtime output schema mismatch: {kind}")
         inputs = schema.get("input", {})
         ports = inputs.get("required", {}) | inputs.get("optional", {})
@@ -45,7 +49,7 @@ def validate_object_info(info: dict[str, Any], graph: dict[str, Any]) -> None:
                 raise ValueError(f"Runtime loader inventory missing: {kind}.{name}")
             if isinstance(value, list):
                 source = graph[value[0]]["class_type"]
-                actual = MANIFEST["outputs"][source][value[1]]
+                actual = outputs[source][value[1]]
                 if actual != expected:
                     raise ValueError(f"Runtime connection type mismatch: {kind}.{name}")
             elif isinstance(expected, list):
@@ -66,7 +70,8 @@ def validate_object_info(info: dict[str, Any], graph: dict[str, Any]) -> None:
                 raise ValueError(f"Unverified runtime input schema: {kind}.{name}: {expected}")
 
 
-def verify_runtime_files(runtime: Path) -> None:
+def verify_runtime_files(runtime: Path, profile: LtxProfile | None = None) -> None:
+    manifest = (profile or DEFAULT_PROFILE).manifest
     commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=runtime, text=True, timeout=10
     ).strip()
@@ -76,9 +81,9 @@ def verify_runtime_files(runtime: Path) -> None:
         text=True,
         timeout=10,
     ).strip()
-    if commit != MANIFEST["runtimeCommit"] or dirty:
+    if commit != manifest["runtimeCommit"] or dirty:
         raise ValueError("ComfyUI runtime pin mismatch or modified source")
-    for model in MANIFEST["models"]:
+    for model in manifest["models"]:
         file = runtime / "models" / model["path"]
         if not file.is_file() or file.stat().st_size != model["sizeBytes"]:
             raise ValueError(f"Pinned model missing or wrong size: {model['path']}")
@@ -88,5 +93,8 @@ def verify_runtime_files(runtime: Path) -> None:
             raise ValueError(f"Pinned model checksum mismatch: {model['path']}")
 
 
-def baseline_graph() -> dict[str, Any]:
-    return build_ltx_video_workflow("preflight", "", CHECKPOINT, 1280, 720, 24, 3000, 0)
+def baseline_graph(profile: LtxProfile | None = None) -> dict[str, Any]:
+    profile = profile or DEFAULT_PROFILE
+    return build_ltx_video_workflow(
+        "preflight", "", profile.checkpoint, 1280, 720, 24, 3000, 0, profile=profile
+    )

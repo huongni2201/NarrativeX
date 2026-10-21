@@ -151,6 +151,9 @@ GENERATION_SERVICE_VIENEU_BASE_URL=http://127.0.0.1:8008
 GENERATION_SERVICE_COMFYUI_BASE_URL=http://127.0.0.1:8188
 GENERATION_SERVICE_LTX_RUNTIME_DIRECTORY=$InstallDir\runtimes\ComfyUI
 GENERATION_SERVICE_WHISPERX_DEVICE=cuda
+# LTX profile and GPU size: see deploy/gpu-worker.env.example. Blank profile = pinned default.
+GENERATION_SERVICE_LTX_PROFILE=
+# GENERATION_SERVICE_GPU_VRAM_MB=32607
 "@
 
 Set-Content -Path "$InstallDir\.env" -Value $envContent -Encoding utf8

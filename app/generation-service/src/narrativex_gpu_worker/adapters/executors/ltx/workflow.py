@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 from typing import Any
+
+from .profiles import LtxProfile, resolve_profile
 
 DEFAULT_NEGATIVE_PROMPT = (
     "blurry, low quality, morphing, unnatural limbs, jittery motion, abrupt camera jump, "
@@ -80,10 +81,11 @@ SUPPORTED_STRATEGIES = frozenset({"TEXT_TO_VIDEO"})
 UNSUPPORTED_STRATEGIES = frozenset(
     {"IMAGE_TO_VIDEO", "FIRST_LAST_FRAME", "MULTI_KEYFRAME", "VIDEO_EXTEND", "VIDEO_RETAKE"}
 )
-WORKFLOWS = Path(__file__).with_name("workflows")
-MANIFEST: dict[str, Any] = json.loads((WORKFLOWS / "native-av.manifest.json").read_text())
-PROFILE_ID: str = MANIFEST["profileId"]
-CHECKPOINT = "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors"
+# Module-level names describe the default profile; executors bind an operator-selected one.
+DEFAULT_PROFILE: LtxProfile = resolve_profile()
+MANIFEST: dict[str, Any] = DEFAULT_PROFILE.manifest
+PROFILE_ID: str = DEFAULT_PROFILE.profile_id
+CHECKPOINT: str = DEFAULT_PROFILE.checkpoint
 
 
 def build_ltx_video_workflow(
@@ -105,15 +107,17 @@ def build_ltx_video_workflow(
     start_image: str | None = None,
     end_image: str | None = None,
     voice_audio: str | None = None,
+    profile: LtxProfile | None = None,
 ) -> dict[str, Any]:
     """Bind the allowlisted T2V profile; never accept caller-supplied graphs or models."""
+    profile = profile or DEFAULT_PROFILE
     if generation_mode not in SUPPORTED_STRATEGIES:
         raise ValueError(f"Unsupported generation strategy: {generation_mode}")
     if voice_audio:
         raise ValueError("Audio reference conditioning is not verified for this profile")
     if start_image or end_image:
         raise ValueError("Image conditioning is not verified for this profile")
-    if checkpoint != CHECKPOINT:
+    if checkpoint != profile.checkpoint:
         raise ValueError("Checkpoint does not match the pinned workflow profile")
     if provider_options or motion_bucket_id is not None:
         raise ValueError("Provider controls are not supported by the pinned profile")
@@ -121,17 +125,19 @@ def build_ltx_video_workflow(
         raise ValueError("Native profile requires 1280x720, 24 FPS, and at most 10 seconds")
     if not 0 <= seed <= 18446744073709551615:
         raise ValueError("Seed must be an unsigned 64-bit integer")
-    raw = (WORKFLOWS / "native-av.json").read_bytes()
-    if hashlib.sha256(raw).hexdigest() != MANIFEST["graphSha256"]:
+    raw = profile.graph_path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != profile.manifest["graphSha256"]:
         raise ValueError("Pinned workflow digest mismatch")
     workflow: dict[str, Any] = json.loads(raw)
     frames = 1 + (duration_ms * fps // 8000) * 8
-    workflow["2612"]["inputs"]["text"] = compose_ltx_positive_prompt(
+    nodes = profile.bindings
+    workflow[nodes["positivePrompt"]]["inputs"]["text"] = compose_ltx_positive_prompt(
         prompt, dialogue, camera_intent, motion_intent, voice_reference
     )
-    workflow["2483"]["inputs"]["text"] = negative_prompt or DEFAULT_NEGATIVE_PROMPT
-    workflow["3059"]["inputs"]["length"] = frames
-    workflow["3980"]["inputs"]["frames_number"] = frames
-    workflow["4832"]["inputs"]["noise_seed"] = seed
+    negative = negative_prompt or DEFAULT_NEGATIVE_PROMPT
+    workflow[nodes["negativePrompt"]]["inputs"]["text"] = negative
+    workflow[nodes["videoLength"]]["inputs"]["length"] = frames
+    workflow[nodes["audioFrames"]]["inputs"]["frames_number"] = frames
+    workflow[nodes["seed"]]["inputs"]["noise_seed"] = seed
     # The output prefix is internal and cannot be a caller-supplied machine path.
     return workflow
