@@ -49,7 +49,7 @@ test("the service reports the running chapter with its agy pid and forgets it wh
     run: (claim, signal, hooks) => new Promise(resolve => {
       hooks.onSpawn(4242);
       seen = service.currentActivity();
-      finish = () => resolve({ leaseToken: claim.leaseToken, rawJson: "{}", adapterVersion: "antigravity-cli/2", conversationId: null,
+      finish = () => resolve({ leaseToken: claim.leaseToken, rawJson: "{}", adapterVersion: "antigravity-cli/3", conversationId: null,
         usage: { promptTokens: 1, outputTokens: 1, thinkingTokens: 0, cachedTokens: 0, totalTokens: 2, runtimeMs: 1 } });
     }),
     encrypt: v => Buffer.from(v), decrypt: b => b.toString(),

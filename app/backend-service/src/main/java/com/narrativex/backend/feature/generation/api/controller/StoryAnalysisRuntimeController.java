@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.api.controller;
 
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisRuntimeConfiguration;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStage;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.application.port.in.LocalChapterAnalysis;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.JsonNode;
 
 @RestController
 @RequiredArgsConstructor
@@ -90,13 +92,15 @@ public class StoryAnalysisRuntimeController {
       @Valid @RequestBody ValidationRequest r) {
     return ApiResponse.success(
         "Analysis result checked",
-        service.validate(
+        service.validateStage(
             device,
             attemptId,
             r.leaseToken(),
             r.rawJson(),
             r.windowFirst() == null ? -1 : r.windowFirst(),
-            r.windowLast() == null ? -1 : r.windowLast()));
+            r.windowLast() == null ? -1 : r.windowLast(),
+            r.stage(),
+            r.canonContext()));
   }
 
   @PostMapping(ROOT + "/{attemptId}/observation")
@@ -113,7 +117,7 @@ public class StoryAnalysisRuntimeController {
       @RequestHeader("X-NX-Device-Token") String device,
       @PathVariable UUID attemptId,
       @Valid @RequestBody Progress r) {
-    service.progress(device, attemptId, r.leaseToken(), r.progress());
+    service.progressStage(device, attemptId, r.leaseToken(), r.progress(), r.stage());
     return ApiResponse.success("Analysis progress accepted");
   }
 
@@ -162,7 +166,9 @@ public class StoryAnalysisRuntimeController {
   public record Lease(@NotBlank @Size(max = 128) String leaseToken) {}
 
   public record Progress(
-      @NotBlank @Size(max = 128) String leaseToken, @Min(0) @Max(99) int progress) {}
+      @NotBlank @Size(max = 128) String leaseToken,
+      @Min(0) @Max(99) int progress,
+      ChapterAnalysisStage stage) {}
 
   public record Recovery(@NotNull UUID claimRequestId) {}
 
@@ -175,7 +181,14 @@ public class StoryAnalysisRuntimeController {
       @NotBlank @Size(max = 128) String leaseToken,
       @NotBlank @Size(max = 4194304) String rawJson,
       @Min(-1) Integer windowFirst,
-      @Min(-1) Integer windowLast) {}
+      @Min(-1) Integer windowLast,
+      ChapterAnalysisStage stage,
+      JsonNode canonContext) {
+    public ValidationRequest(
+        String leaseToken, String rawJson, Integer windowFirst, Integer windowLast) {
+      this(leaseToken, rawJson, windowFirst, windowLast, null, null);
+    }
+  }
 
   public record CompleteRequest(
       @NotBlank @Size(max = 128) String leaseToken,

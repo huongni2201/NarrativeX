@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { genderLabel, groupVieNeuVoices, parseVoiceMetadata, regionLabel } from "../src/renderer/features/voices/model/vieneu-voices.ts";
+import { genderLabel, groupVieNeuVoices, parseVoiceMetadata, regionLabel, VOICE_SAMPLE_TEXT } from "../src/renderer/features/voices/model/vieneu-voices.ts";
 
 const voice = (id, name, metadata, extra = {}) => ({
   id, name, provider: "VIENEU", language: "vi-VN", gender: null, sampleUrl: null,
@@ -27,12 +27,12 @@ test("grouping separates custom from system voices and puts featured presets fir
     voice("vieneu-preset-b", "Bình", { preset: true }),
     voice("custom-2", "Zed", { custom: true }),
     voice("vieneu-preset-a", "An", { preset: true, featured: true }),
-    voice("vieneu-default", "VieNeu Default"),
+    voice("vieneu-preset-c", "Cường", { preset: true }),
     voice("custom-1", "Ánh", { custom: true }),
     voice("other", "Other", {}, { provider: "OTHER" }),
   ]);
   assert.deepEqual(groups.custom.map(item => item.id), ["custom-1", "custom-2"]);
-  assert.deepEqual(groups.builtIn.map(item => item.id), ["vieneu-preset-a", "vieneu-preset-b", "vieneu-default"]);
+  assert.deepEqual(groups.builtIn.map(item => item.id), ["vieneu-preset-a", "vieneu-preset-b", "vieneu-preset-c"]);
 });
 
 test("labels use Vietnamese copy and keep unknown regions visible", () => {
@@ -41,4 +41,10 @@ test("labels use Vietnamese copy and keep unknown regions visible", () => {
   assert.equal(regionLabel(null), null);
   assert.equal(genderLabel("FEMALE"), "Nữ");
   assert.equal(genderLabel(null), "Chưa rõ giới tính");
+});
+
+test("voice sample text is long enough for a 10–15 second reading", () => {
+  const syllables = VOICE_SAMPLE_TEXT.split(/\s+/).filter(Boolean).length;
+  assert.ok(syllables >= 45 && syllables <= 65, `got ${syllables} syllables`);
+  assert.ok(VOICE_SAMPLE_TEXT.length <= 500);
 });

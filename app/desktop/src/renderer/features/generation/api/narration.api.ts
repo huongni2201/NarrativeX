@@ -5,12 +5,12 @@ import type {
   GenerationJob,
   VoicePreviewResult,
 } from "../../../../shared/api-types";
-import { apiRequest } from "../../../api/client";
+import { apiRequest } from "../../../api/client.ts";
 
 export const narrationApi = {
   generate: (projectId: string, input: GenerateNarrationInput) =>
     apiRequest<GenerationJob>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(input.chapterId)}/narration-jobs?forceRegenerate=true`,
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(input.chapterId)}/narration-jobs${input.forceRegenerate ? "?forceRegenerate=true" : ""}`,
       {
         method: "POST",
         body: JSON.stringify({

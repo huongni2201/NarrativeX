@@ -31,6 +31,7 @@ from narrativex_gpu_worker.contracts.task import NativeVideoGenerateInputs
 
 from .media import inspect_native_video
 from .preflight import baseline_graph, validate_object_info, verify_runtime_files
+from .quality import score_video_quality
 from .workflow import (
     CHECKPOINT,
     MANIFEST,
@@ -262,6 +263,9 @@ class LtxVideoExecutor:
             ) from exc
         except ValueError as exc:
             raise ExecutorExecutionError("VIDEO_OUTPUT_INVALID", str(exc), "PERMANENT") from exc
+        # Advisory only: scoring reports UNAVAILABLE instead of failing a decodable take.
+        quality = await score_video_quality(bytes(data), duration_ms=metadata.duration_ms)
+        metadata = metadata.model_copy(update={"quality_metrics": quality})
         if cancel.is_set():
             raise ExecutionCanceledError("LTX canceled after confirmed generation and validation")
         produced = await self._artifact_adapter.upload(task.artifacts.outputs[0], bytes(data))

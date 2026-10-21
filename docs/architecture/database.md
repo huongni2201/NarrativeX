@@ -1,15 +1,15 @@
 # NarrativeX Database Architecture and Baseline Policy
 
 **Status:** maintained database contract  
-**Authority:** Spring Boot backend Flyway migrations (current worktree inventory V1–V7), integration tests, and current ADRs (ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0002)
+**Authority:** Spring Boot backend Flyway migrations (current worktree inventory V1–V7 plus additive V17–V19), integration tests, and current ADRs (ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010)
 
 ## PostgreSQL Authority and Flyway Ownership
 
 PostgreSQL is the single authoritative store for business state, admission control, durable generation jobs, device leases, and artifact metadata. The Spring Boot backend owns Flyway and manages the relational schema. `app/generation-service` and Electron Desktop have zero direct access to PostgreSQL.
 
-## Current Migration Inventory (V1–V7)
+## Current Migration Inventory (V1–V7 and V17–V19)
 
-The pre-production baseline is squashed into seven responsibility-separated migrations. The former incremental files V8–V15 (async compute orchestration, video-first production, character voice profiles, native render cuts, subtitle settings, Chapter Analysis local execution, prompt settings, and the Antigravity CLI execution mode) are folded into the owning V1–V7 files. The interim V16 indexes are folded into V6. This inventory does not establish which versions are applied to an installed database or declare any runtime capability complete.
+The pre-production baseline is squashed into seven responsibility-separated migrations. The former incremental files V8–V15 (async compute orchestration, video-first production, character voice profiles, native render cuts, subtitle settings, Chapter Analysis local execution, prompt settings, and the Antigravity CLI execution mode) are folded into the owning V1–V7 files. The interim V16 indexes are folded into V6. Additive V17 extends `selected_takes` with the current row version and human-review snapshot. V18 adds nullable staged prompt/schema contracts to Chapter Analysis execution snapshots. V19 persists ShotSequence cue allocation. These versions avoid reusing numbers that may exist in an older installed Flyway history. This inventory does not establish which versions are applied to an installed database or declare any runtime capability complete.
 
 | Migration | Responsibility |
 |---|---|
@@ -19,11 +19,14 @@ The pre-production baseline is squashed into seven responsibility-separated migr
 | V4__catalog_generation_and_render_snapshots.sql | Catalogs, upload lifecycle, video-first shot production (hook plans, retention maps, shots, takes), media lineage, local devices, Chapter Analysis runtime (Desktop configuration, redacted credential metadata, immutable execution and prompt snapshots, fenced attempts, usage/provenance), immutable render snapshots including native take cuts, and project subtitle settings ([ADR-0010](../decisions/ADR-0010-installation-wide-prompt-settings.md), Proposed) |
 | V5__database_logic_and_triggers.sql | Immutability guards (media plans, lineage, takes, analysis snapshots), database functions, and after-commit generation event triggers |
 | V6__indexes.sql | Access-path, covering, partial, and unique indexes for every table, including active video batches, pending outbox events, compute orchestration, and Chapter Analysis runtime |
-| V7__seed_catalog.sql | Deterministic system and catalog seed data only, including the singleton Chapter Analysis runtime configuration row and the VieNeu voice catalog (`vieneu-default` plus 25 v3 Turbo presets named in the pinned VieNeu-TTS 3.8.1 README; preset names are not yet confirmed against a running VieNeu server) |
+| V7__seed_catalog.sql | Deterministic system and catalog seed data only, including the singleton Chapter Analysis runtime configuration row and the VieNeu voice catalog (`vieneu-default` plus 25 v3 Turbo presets named in the pinned VieNeu-TTS 3.8.1 README, each with a `sample_url` to a pre-rendered sample on R2 (`https://media.narrativex.cloud/narration/vieneu-previews/vieneu-<slug>.wav`, rendered by `scripts/generate-voice-samples.mjs`; the files are uploaded manually and their presence is not verified by the migration); preset names are not yet confirmed against a running VieNeu server) |
+| V17__shot_selection_review.sql | Adds optimistic row versioning and a human-review checklist/fingerprint to the currently selected Take |
+| V18__chapter_analysis_stage_contracts.sql | Adds nullable JSONB CANON/STORY prompt and schema contracts to immutable Chapter Analysis execution snapshots |
+| V19__shot_audio_cue_allocations.sql | Adds versioned, one-cue-to-one-Shot playback allocation for each ShotSequence |
 
 User-created VieNeu voices need no schema change: they are `voice_catalog` rows with `metadata_json.custom = true`, `referenceAssetId` (a READY `voice_reference_assets` row) and `referenceFilename`, and are removed by setting `enabled = FALSE`. `narration_requests.voice_id` has no foreign key, so earlier narration snapshots survive removal. Because V7 changed in place under the pre-production baseline policy, an installed database that already applied V7 will fail Flyway checksum validation; reset it only after confirming its data is disposable.
 
-A clean database should apply the current **V1 through V7** inventory. Runtime configuration, execution snapshots and run provenance permit only `ANTIGRAVITY_CLI`. `analysis_provider_credentials` has at most one opaque session slot per Desktop device; there is no account pool, rotation, enable list or API fallback. Chapter-analysis runs store the adapter revision without provider tokens, OAuth state, email or profile paths. The previous V1–V7 revision was compared with the former V1–V15 chain on temporary PostgreSQL 16 and applied in focused PostgreSQL 18 checks. Those checks predate the current CLI-only/single-slot cleanup and do **not** verify the current migration files. No installed database upgrade path has been tested; audit its applied Flyway history before changing it. Chapter Analysis execution snapshots do not store story text. Runtime capability remains gated separately from the presence of these schema tables.
+A clean database should apply V1 through V7 followed by V17, V18 and V19. Runtime configuration, execution snapshots and run provenance permit only `ANTIGRAVITY_CLI`. `analysis_provider_credentials` has at most one opaque session slot per Desktop device; there is no account pool, rotation, enable list or API fallback. Chapter-analysis runs store the adapter revision without provider tokens, OAuth state, email or profile paths. The previous V1–V7 revision was compared with the former V1–V15 chain on temporary PostgreSQL 16 and applied in focused PostgreSQL 18 checks. Those checks predate the current CLI-only/single-slot cleanup and do **not** verify the current migration files. No installed database upgrade path has been tested; audit its applied Flyway history before changing it. Chapter Analysis execution snapshots do not store story text. Runtime capability remains gated separately from the presence of these schema tables.
 
 Continuity review reports, selective-regeneration plans, StoryBeat continuity JSON, and shard-based Chapter Analysis checkpoints were removed from the baseline because the current workflow has no writers or consumers for them. Character and canon context remains in the source/beat models used by prompt composition.
 
@@ -59,7 +62,7 @@ The baseline contains the tables required for video-first, retention-driven prod
 
 5. **`takes` & `selected_takes`**:
    - `takes`: Immutable candidate generation attempts produced by video foundation models (LTX-2.5). Records generation metrics, `validation_status`, `validation_failure_category`, and targeted retry recommendations.
-   - `selected_takes`: Decouples raw clip duration from the timeline edit. Stores `source_in_ms` and `source_out_ms` trim points for the approved take on each shot.
+   - `selected_takes`: Decouples raw clip duration from the timeline edit. Stores trim points, optimistic `row_version`, and the content-review checklist/fingerprint for the selected Take. Legacy selections have no review fingerprint and need explicit review before they can be reselected.
 
 6. **`generation_references`**:
    - Stores auxiliary conditioning assets (`reference_type` in `CHARACTER_REFERENCE`, `LOCATION_REFERENCE`, `START_FRAME`, `END_FRAME`, `KEYFRAME`, `THUMBNAIL`, `POSTER`) attached to a shot with attention `weight`.
@@ -97,10 +100,10 @@ Until the first production deployment:
 
 ## Post-Production Append-Only Rule
 
-Immediately prior to the first production release, freeze the complete baseline present at that release. The current repository inventory is V1–V7; this does not establish the applied versions or freeze status of any installed database. From the freeze point forward:
+Immediately prior to the first production release, freeze the complete baseline present at that release. The current repository inventory is V1–V7 plus additive V17–V19; this does not establish the applied versions or freeze status of any installed database. From the freeze point forward:
 
 - Applied migrations must never be modified or deleted.
-- All future schema, index, backfill, and catalog changes must be append-only forward migrations after the last frozen version (**V8** if the current V1–V7 inventory is frozen).
+- All future schema, index, backfill, and catalog changes must be append-only forward migrations after the last frozen version (V20 after the current V19 add-ons).
 - Forward migrations must preserve backward compatibility for active installations.
 
 ## Critical Schema Invariants

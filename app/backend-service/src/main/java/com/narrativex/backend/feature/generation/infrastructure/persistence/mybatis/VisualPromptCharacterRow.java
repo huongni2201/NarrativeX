@@ -23,4 +23,7 @@ public class VisualPromptCharacterRow {
   private String injury;
   private String wardrobeContext;
   private String beatRole;
+  private UUID characterVersionId;
+  private UUID outfitVersionId;
+  private String aiName;
 }

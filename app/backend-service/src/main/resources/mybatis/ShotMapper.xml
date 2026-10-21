@@ -273,9 +273,30 @@
       'sourceText', ch.source_text, 'storyboardRevisionId', sc.storyboard_revision_id,
       'visualBeatId', vb.id, 'visualBeatReviewStatus', vb.review_status,
       'shotRowVersion', sh.row_version, 'subjects', sh.subjects_json,
+      'shotSequenceShotCount', (SELECT COUNT(*)::int FROM shots sequence_shot WHERE sequence_shot.sequence_id = sq.id),
+      'beatAudioCueCount', (SELECT COUNT(*)::int FROM audio_cues beat_cue WHERE beat_cue.story_beat_id = vb.story_beat_id),
+      'cueAllocationRowVersion', COALESCE((SELECT allocation_set.row_version
+        FROM shot_audio_cue_allocation_sets allocation_set WHERE allocation_set.sequence_id = sq.id), 0),
+      'cueAllocationComplete', CASE
+        WHEN NOT EXISTS (SELECT 1 FROM audio_cues beat_cue WHERE beat_cue.story_beat_id = vb.story_beat_id) THEN TRUE
+        WHEN (SELECT COUNT(*) FROM shots sequence_shot WHERE sequence_shot.sequence_id = sq.id) = 1
+          AND NOT EXISTS (SELECT 1 FROM shot_audio_cue_allocations allocation WHERE allocation.sequence_id = sq.id) THEN TRUE
+        ELSE (SELECT COUNT(*) FROM audio_cues beat_cue
+          JOIN shot_audio_cue_allocations allocation ON allocation.audio_cue_id = beat_cue.id
+            AND allocation.sequence_id = sq.id
+            AND allocation.audio_cue_row_version = beat_cue.row_version
+          WHERE beat_cue.story_beat_id = vb.story_beat_id)
+          = (SELECT COUNT(*) FROM audio_cues beat_cue WHERE beat_cue.story_beat_id = vb.story_beat_id)
+      END,
       'shot', to_jsonb(sh) - 'created_at' - 'updated_at' - 'status',
       'cues', COALESCE((SELECT jsonb_agg(to_jsonb(ac) ORDER BY ac.order_index, ac.id)
-        FROM audio_cues ac WHERE ac.story_beat_id = vb.story_beat_id), '[]'::jsonb),
+        FROM audio_cues ac
+        LEFT JOIN shot_audio_cue_allocations allocation
+          ON allocation.audio_cue_id = ac.id AND allocation.sequence_id = sq.id
+        WHERE ac.story_beat_id = vb.story_beat_id
+          AND (((SELECT COUNT(*) FROM shots sequence_shot WHERE sequence_shot.sequence_id = sq.id) = 1
+                AND NOT EXISTS (SELECT 1 FROM shot_audio_cue_allocations any_allocation WHERE any_allocation.sequence_id = sq.id))
+            OR (allocation.shot_id = sh.id AND allocation.audio_cue_row_version = ac.row_version))), '[]'::jsonb),
       'characters', COALESCE((SELECT jsonb_agg(jsonb_build_object(
           'projectCharacterId', pc.id, 'characterId', pc.character_id,
           'characterVersionId', cv.id, 'versionNumber', cv.version_number,

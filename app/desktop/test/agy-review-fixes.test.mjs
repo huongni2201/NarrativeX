@@ -57,9 +57,9 @@ test("a real error carried by the envelope or stderr is still classified", async
 });
 
 test("diagnostics keep the end of the text, where CLI errors are printed", () => {
-  const text = `${"a ".repeat(3000)}FINAL ERROR LINE`;
+  const text = `${"a ".repeat(12000)}FINAL ERROR LINE`;
   assert.match(redact(text), /FINAL ERROR LINE$/u);
-  assert.ok(redact(text).length <= 2048);
+  assert.ok(redact(text).length <= 16_384);
 });
 
 test("diagnostics log keeps the newest 20 entries", async () => {
@@ -70,6 +70,32 @@ test("diagnostics log keeps the newest 20 entries", async () => {
     const entries = await log.read();
     assert.equal(entries.length, 20);
     assert.equal(entries.at(-1).reason, "R24");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("parallel diagnostics retain job IDs and redacted multiline details across a restart", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nx-job-diag-"));
+  try {
+    const file = join(dir, "d.log");
+    const log = new DiagnosticsLog(file);
+    await Promise.all([log.record("ANALYSIS_TIMEOUT", 1, "CLI_PRINT_TIMEOUT", "first line\nBearer secret-token\nfinal line", "job-1"),
+      log.record("OUTPUT_LIMIT_EXCEEDED", 1, "OUTPUT_TOKEN_LIMIT", "exceeded the output token limit", "job-2")]);
+    const entries = await new DiagnosticsLog(file).read();
+    assert.deepEqual(entries.map(entry => entry.jobId), ["job-1", "job-2"]);
+    assert.equal(entries[0].excerpt, "first line\nBearer <token>\nfinal line");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("an absent diagnostics log is empty but corrupt logs report a read error", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nx-bad-diag-"));
+  try {
+    const file = join(dir, "d.log");
+    const log = new DiagnosticsLog(file);
+    assert.deepEqual(await log.read(), []);
+    for (const text of ["bad json", "{}", "[null]", '[{"at":"now"}]']) {
+      await writeFile(file, text);
+      await assert.rejects(log.read());
+    }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -140,7 +166,7 @@ async function service({ run, requestHook, session = {}, jobs = 1 } = {}) {
       if (requestHook) { const outcome = await requestHook(path, body); if (outcome !== undefined) return outcome; }
       return path.endsWith("/claim") ? queue.shift() ?? null : path.endsWith("/cancellation") ? false : null;
     },
-    run: run ?? (async c => ({ leaseToken: c.leaseToken, rawJson: "{}", adapterVersion: "antigravity-cli/2", conversationId: null,
+    run: run ?? (async c => ({ leaseToken: c.leaseToken, rawJson: "{}", adapterVersion: "antigravity-cli/3", conversationId: null,
       usage: { promptTokens: 1, outputTokens: 1, thinkingTokens: 0, cachedTokens: 0, totalTokens: 2, runtimeMs: 1 } })),
     encrypt: v => Buffer.from(v), decrypt: b => b.toString(),
   });

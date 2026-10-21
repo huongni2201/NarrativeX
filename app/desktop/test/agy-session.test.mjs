@@ -50,7 +50,7 @@ test("a ready session registers one credential, mirrors its state and allows min
     assert.deepEqual(eligibility, { credentialRef: "11111111-1111-4111-8111-111111111111", maxParallel: 3 });
     const registration = h.state.requests.find(r => r.path.endsWith("analysis-credentials"));
     assert.equal(registration.body.label, "Antigravity CLI");
-    assert.equal(registration.body.adapterVersion, "antigravity-cli/2");
+    assert.equal(registration.body.adapterVersion, "antigravity-cli/3");
     assert.deepEqual(registration.body.models, ["gemini-3.8-flash-high", "claude-sonnet-4-6"]);
     const stored = JSON.parse(await readFile(join(h.directory, "session.json"), "utf8"));
     assert.equal(registration.body.fingerprint, createHash("sha256").update(`agy-cli:${stored.installationId}`).digest("hex"));

@@ -185,6 +185,15 @@ finalization requires this technical evidence before marking a take PASSED; a ch
 or content-QA pass alone cannot establish technical readiness. FFmpeg and ffprobe must
 be available to the executor. This metadata does not include observed speech-word timing.
 
+`technicalMetadata` may also carry an optional closed `qualityMetrics` object (or null): `status`
+(`MEASURED` or `UNAVAILABLE`), `scorerVersion`, an optional `reason`, and optional raw measurements
+(`freezeHeadMs`, `freezeTotalMs`, `motionMean`, `sceneCutCount`, `flickerStddev`, `blackTotalMs`,
+`silenceTotalMs`, `integratedLufs`, `peakDbfs`, `meanY`, `meanU`, `meanV`). The LTX executor produces it
+with one FFmpeg pass after decode validation. It is advisory: a scoring failure or timeout reports
+`UNAVAILABLE` with a reason and never fails the task, and the worker emits no verdicts or thresholds.
+Digital silence is reported as −120 dB rather than a non-finite value. See
+`contracts/compute/v1/examples/succeeded-video-observation.json` and ADR-0008 item 11.
+
 Local deployments may implement the artifact gateway over loopback, but the wire contract remains
 an opaque URL/capability. `file://`, drive letters, UNC paths, project-relative storage keys, and
 host absolute paths are invalid protocol values.

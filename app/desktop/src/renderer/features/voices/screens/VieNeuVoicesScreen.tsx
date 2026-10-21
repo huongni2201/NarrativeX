@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { AudioWaveform, FileAudio, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AudioWaveform, FileAudio, Loader2, Pause, Play, Plus, Trash2, Upload } from "lucide-react";
 import type { DesktopVoice } from "../../../../shared/api-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,16 +17,24 @@ import {
 } from "../model/vieneu-voices";
 import { useCreateCustomVoice, useDeleteCustomVoice, useUploadVoiceReference } from "../queries/voice-media.mutations";
 import { useVoiceReferenceAsset } from "../queries/voice-media.queries";
+import { useVoiceSamplePlayer, type VoiceSampleState } from "../queries/use-voice-sample-player";
 
 const UNSET_GENDER = "UNSET";
 
-export function VieNeuVoicesScreen({ voices, loading, error }: Readonly<{
+export function VieNeuVoicesScreen({ projectId, chapterId, voices, loading, error, onUseVoice, active = true }: Readonly<{
+  projectId: string;
+  /** Voice samples are rendered as preview jobs of this chapter; without one they cannot be played. */
+  chapterId: string | null;
   voices: DesktopVoice[];
   loading: boolean;
   error: string | null;
+  onUseVoice?: (voice: DesktopVoice) => void;
+  active?: boolean;
 }>) {
   const groups = useMemo(() => groupVieNeuVoices(voices), [voices]);
   const [notice, setNotice] = useState<string | null>(null);
+  const sample = useVoiceSamplePlayer(projectId, chapterId);
+  useEffect(() => { if (!active) sample.stop(); }, [active, sample.stop]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
@@ -43,13 +51,15 @@ export function VieNeuVoicesScreen({ voices, loading, error }: Readonly<{
           {loading && !voices.length ? <p role="status" className="text-body text-text-muted">Đang tải danh sách giọng…</p> : null}
           {error && !voices.length ? <p role="alert" className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body text-destructive">Không tải được danh sách giọng: {error}</p> : null}
           {notice && <p role="status" className="rounded-md border border-border bg-surface-input px-3 py-2 text-caption text-text-secondary">{notice}</p>}
+          {!chapterId && voices.some(voice => !voice.sampleUrl) && <p role="status" className="text-caption text-text-muted">Thêm ít nhất một chương vào dự án để nghe thử giọng mẫu.</p>}
+          {sample.state.phase === "error" && <p role="alert" className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-caption text-destructive">{sample.state.message}</p>}
 
           <VoiceSection
             title="Giọng của bạn"
             count={groups.custom.length}
             empty={<EmptyState title="Chưa có giọng tự tạo" description="Tải một đoạn thu mẫu ở khung bên phải để tạo giọng đầu tiên." icon={AudioWaveform} />}
           >
-            {groups.custom.map(voice => <CustomVoiceRow key={voice.id} voice={voice} onNotice={setNotice} />)}
+            {groups.custom.map(voice => <CustomVoiceRow key={voice.id} voice={voice} onNotice={setNotice} sample={sample} canSample={Boolean(chapterId)} onUseVoice={onUseVoice} />)}
           </VoiceSection>
 
           <VoiceSection
@@ -57,7 +67,7 @@ export function VieNeuVoicesScreen({ voices, loading, error }: Readonly<{
             count={groups.builtIn.length}
             empty={loading ? null : <EmptyState title="Chưa có giọng VieNeu" description="Backend chưa trả về giọng VieNeu nào trong thư viện." icon={AudioWaveform} />}
           >
-            {groups.builtIn.map(voice => <BuiltInVoiceRow key={voice.id} voice={voice} />)}
+            {groups.builtIn.map(voice => <BuiltInVoiceRow key={voice.id} voice={voice} sample={sample} canSample={Boolean(chapterId)} onUseVoice={onUseVoice} />)}
           </VoiceSection>
         </div>
       </main>
@@ -86,7 +96,28 @@ function VoiceMeta({ voice }: Readonly<{ voice: DesktopVoice }>) {
   return <span className="mt-0.5 block truncate text-caption text-text-muted">{parts.join(" · ")}</span>;
 }
 
-function BuiltInVoiceRow({ voice }: Readonly<{ voice: DesktopVoice }>) {
+type SamplePlayer = ReturnType<typeof useVoiceSamplePlayer>;
+
+function SampleButton({ voice, sample, canSample }: Readonly<{ voice: DesktopVoice; sample: SamplePlayer; canSample: boolean }>) {
+  const state: VoiceSampleState = sample.state.voiceId === voice.id ? sample.state : { voiceId: null, phase: "idle" };
+  const generating = state.phase === "generating";
+  const playing = state.phase === "playing";
+  const playable = canSample || Boolean(voice.sampleUrl);
+  const label = playing ? `Dừng nghe giọng ${voice.name}` : generating ? `Đang tạo giọng mẫu ${voice.name}` : `Nghe thử giọng ${voice.name}`;
+  return (
+    <Button
+      type="button" variant="ghost" size="icon" aria-label={label} aria-pressed={playing}
+      title={playable ? (generating ? "Đang tạo giọng mẫu (lần đầu có thể mất vài chục giây)…" : label) : "Cần ít nhất một chương để nghe thử"}
+      disabled={!playable}
+      onClick={() => (playing || generating ? sample.stop() : void sample.play(voice.id, voice.sampleUrl))}
+      className="shrink-0"
+    >
+      {generating ? <Loader2 size={15} className="animate-spin" /> : playing ? <Pause size={15} /> : <Play size={15} />}
+    </Button>
+  );
+}
+
+function BuiltInVoiceRow({ voice, sample, canSample, onUseVoice }: Readonly<{ voice: DesktopVoice; sample: SamplePlayer; canSample: boolean; onUseVoice?: (voice: DesktopVoice) => void }>) {
   const metadata = parseVoiceMetadata(voice);
   return (
     <li className="flex min-h-[64px] items-center gap-3 rounded-md border border-border-subtle bg-surface-panel px-3 py-2">
@@ -96,11 +127,13 @@ function BuiltInVoiceRow({ voice }: Readonly<{ voice: DesktopVoice }>) {
         <VoiceMeta voice={voice} />
       </span>
       {metadata.featured && <StatusIndicator label="Nổi bật" tone="accent" className="shrink-0" />}
+      <SampleButton voice={voice} sample={sample} canSample={canSample} />
+      {onUseVoice && <Button type="button" size="sm" variant="outline" aria-label={`Dùng giọng ${voice.name} tạo lời kể`} onClick={() => { sample.stop(); onUseVoice(voice); }}>Dùng giọng</Button>}
     </li>
   );
 }
 
-function CustomVoiceRow({ voice, onNotice }: Readonly<{ voice: DesktopVoice; onNotice(value: string | null): void }>) {
+function CustomVoiceRow({ voice, onNotice, sample, canSample, onUseVoice }: Readonly<{ voice: DesktopVoice; onNotice(value: string | null): void; sample: SamplePlayer; canSample: boolean; onUseVoice?: (voice: DesktopVoice) => void }>) {
   const remove = useDeleteCustomVoice();
   const [confirming, setConfirming] = useState(false);
   const metadata = parseVoiceMetadata(voice);
@@ -125,6 +158,8 @@ function CustomVoiceRow({ voice, onNotice }: Readonly<{ voice: DesktopVoice; onN
         {metadata.description && <span className="mt-0.5 block truncate text-caption text-text-secondary">{metadata.description}</span>}
         {metadata.referenceFilename && <span className="mt-0.5 block truncate text-caption text-text-dim">Giọng mẫu: {metadata.referenceFilename}</span>}
       </span>
+      <SampleButton voice={voice} sample={sample} canSample={canSample} />
+      {onUseVoice && <Button type="button" size="sm" variant="outline" aria-label={`Dùng giọng ${voice.name} tạo lời kể`} disabled={remove.isPending} onClick={() => { sample.stop(); onUseVoice(voice); }}>Dùng giọng</Button>}
       {confirming ? (
         <span className="flex shrink-0 items-center gap-1.5">
           <Button type="button" variant="destructive" size="sm" disabled={remove.isPending} onClick={() => void confirmRemove()}>

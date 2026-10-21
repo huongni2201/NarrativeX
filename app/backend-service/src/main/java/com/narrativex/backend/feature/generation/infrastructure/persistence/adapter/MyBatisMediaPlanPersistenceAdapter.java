@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaScenePlanRow;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -90,5 +91,15 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
   @Override
   public boolean existsForChapter(UUID mediaPlanId, int revision, UUID chapterId) {
     return mapper.existsForChapter(mediaPlanId, revision, chapterId);
+  }
+
+  @Override
+  public Optional<FrozenBeatImageInput> findFrozenBeatImageInput(
+      UUID mediaPlanId, UUID visualBeatId) {
+    return Optional.ofNullable(mapper.findFrozenBeatImageInput(mediaPlanId, visualBeatId))
+        .map(
+            row ->
+                new FrozenBeatImageInput(
+                    row.getPrompt(), row.getNegativePrompt(), row.getImageSettingsJson()));
   }
 }

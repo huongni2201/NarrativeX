@@ -46,9 +46,31 @@ export function knownCanon(canon: { characters: Json[]; locations: Json[] }): Js
   };
 }
 
+/** Compact identity context for STORY windows; visual prompts stay outside each request. */
+export function storyCanonContext(canon: { characters: Json[]; locations: Json[] }): MergedCanon {
+  return {
+    characters: canon.characters.map(({ ai_name, canonical_name, aliases, role, importance, description }) => ({ ai_name, canonical_name, aliases, role, importance, description })),
+    locations: canon.locations.map(({ ai_name, name, aliases, description }) => ({ ai_name, name, aliases, description })),
+  };
+}
+
+/** Full definitions supplied only to later CANON windows so repeated identities stay stable. */
+export function knownCanonDefinitions(canon: { characters: Json[]; locations: Json[] }): MergedCanon {
+  return {
+    characters: canon.characters.map(({ ai_name, canonical_name, aliases, role, importance, description, visual_prompt }) => ({ ai_name, canonical_name, aliases, role, importance, description, visual_prompt })),
+    locations: canon.locations.map(({ ai_name, name, aliases, description, visual_prompt }) => ({ ai_name, name, aliases, description, visual_prompt })),
+  };
+}
+
 export interface MergedCanon { characters: Json[]; locations: Json[] }
 
-/** Adds the entities of a window to the canon so far. An entity listed again keeps its first definition and gains aliases. */
+export class CanonMergeError extends Error {
+  constructor() {
+    super("CANON_CONFLICT");
+  }
+}
+
+/** Legacy merge behavior retained for jobs frozen on the combined 1.2 contract. */
 export function mergeCanon(into: MergedCanon, canon: unknown): MergedCanon {
   const source = isObject(canon) ? canon : {};
   const merge = (target: Json[], incoming: Json[]): Json[] => {
@@ -64,6 +86,35 @@ export function mergeCanon(into: MergedCanon, canon: unknown): MergedCanon {
     return result;
   };
   return { characters: merge(into.characters, list(source.characters)), locations: merge(into.locations, list(source.locations)) };
+}
+
+/** Staged CANON merging rejects duplicate ids and changed definitions instead of overwriting them. */
+export function mergeStagedCanon(into: MergedCanon, canon: unknown): MergedCanon {
+  if (!isObject(canon) || !Array.isArray(canon.characters) || !Array.isArray(canon.locations)) {
+    throw new CanonMergeError();
+  }
+  const source = canon;
+  const merge = (target: Json[], incoming: Json[], definitionFields: string[]): Json[] => {
+    const result = [...target];
+    const seen = new Set<string>();
+    for (const entity of incoming) {
+      const id = key(entity);
+      if (!id || seen.has(id)) throw new CanonMergeError();
+      seen.add(id);
+      const existing = result.find(candidate => key(candidate) === id);
+      if (!existing) { result.push(entity); continue; }
+      if (definitionFields.some(field => JSON.stringify(existing[field] ?? null) !== JSON.stringify(entity[field] ?? null))) {
+        throw new CanonMergeError();
+      }
+      const aliases = new Set<string>([...(Array.isArray(existing.aliases) ? existing.aliases : []), ...(Array.isArray(entity.aliases) ? entity.aliases : [])].filter((alias): alias is string => typeof alias === "string"));
+      if (aliases.size) existing.aliases = [...aliases];
+    }
+    return result;
+  };
+  return {
+    characters: merge(into.characters, list(source.characters), ["canonical_name", "role", "importance", "description", "visual_prompt"]),
+    locations: merge(into.locations, list(source.locations), ["name", "description", "visual_prompt"]),
+  };
 }
 
 export function parseObject(rawJson: string): Json | null {

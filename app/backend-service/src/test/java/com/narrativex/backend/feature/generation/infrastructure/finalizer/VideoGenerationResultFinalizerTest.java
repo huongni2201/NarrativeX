@@ -311,4 +311,126 @@ class VideoGenerationResultFinalizerTest {
 
     assertThrows(IllegalArgumentException.class, () -> finalizer.finalizeResult(job, observation));
   }
+
+  private TakeRow finalizeWithQuality(
+      com.narrativex.backend.feature.generation.application.model.compute.VideoQualityMetricsDto
+          quality) {
+    UUID jobId = UuidV7.random();
+    UUID artifactId = UuidV7.random();
+    GenerationJob job = mock(GenerationJob.class);
+    when(job.getStatus()).thenReturn(JobStatus.RUNNING);
+    when(job.getJobId()).thenReturn(jobId);
+    when(job.getProjectId()).thenReturn(UuidV7.random());
+    when(job.getType()).thenReturn(JobType.CHAPTER_GENERATE);
+    OutputArtifactTargetDto target =
+        new OutputArtifactTargetDto(artifactId, "video", "video/mp4", null);
+    when(artifactAccess.getOrCreateTarget(
+            any(), any(), eq(artifactId), eq("video"), eq("video/mp4")))
+        .thenReturn(target);
+    when(artifactAccess.storageKey(target)).thenReturn("projects/p/assets/" + artifactId + ".mp4");
+    TakeRow takeRow = new TakeRow();
+    takeRow.setId(UuidV7.random());
+    takeRow.setAttemptNumber(1);
+    takeRow.setGenerationMode("TEXT_TO_VIDEO");
+    when(takeMapper.findByJobId(jobId.toString())).thenReturn(List.of(takeRow));
+    when(videoQualityAssurance.evaluateTake(anyInt(), any(), any(), any()))
+        .thenReturn(new VideoQualityAssurance.QAEvaluation(true, null, null, null, false));
+    ProducedArtifactDto produced =
+        new ProducedArtifactDto(
+            artifactId,
+            "video",
+            "video/mp4",
+            1048576L,
+            "sha256:abc",
+            new ProducedArtifactDto.TechnicalMetadata(5000L, 1280, 720, 24.0, true, true, quality));
+
+    finalizer.finalizeResult(
+        job,
+        new ComputeObservationDto(
+            "1.0",
+            jobId,
+            null,
+            "SUCCEEDED",
+            1,
+            Instant.now(),
+            "ltx:123",
+            1.0,
+            List.of(produced),
+            null,
+            null));
+    return takeRow;
+  }
+
+  @Test
+  void finalizeResultStoresQualityMeasurementsWithoutChangingValidation() throws Exception {
+    var quality =
+        new com.narrativex.backend.feature.generation.application.model.compute
+            .VideoQualityMetricsDto(
+            "MEASURED",
+            "FFMPEG_TAKE_QC_V1",
+            null,
+            417L,
+            583L,
+            2.84,
+            0,
+            0.62,
+            0L,
+            1200L,
+            -19.4,
+            -3.1,
+            118.2,
+            126.7,
+            129.1);
+
+    TakeRow take = finalizeWithQuality(quality);
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(takeMapper).updateQualityControl(eq(take.getId()), json.capture());
+    var stored = new tools.jackson.databind.ObjectMapper().readTree(json.getValue());
+    assertEquals("MEASURED", stored.get("status").asText());
+    assertEquals("FFMPEG_TAKE_QC_V1", stored.get("scorerVersion").asText());
+    assertEquals(417, stored.get("freezeHeadMs").asInt());
+    assertEquals(129.1, stored.get("meanV").asDouble());
+    assertEquals("PASSED", take.getValidationStatus());
+  }
+
+  @Test
+  void finalizeResultStoresUnavailableMeasurementWithItsReason() throws Exception {
+    var unavailable =
+        new com.narrativex.backend.feature.generation.application.model.compute
+            .VideoQualityMetricsDto(
+            "UNAVAILABLE",
+            "FFMPEG_TAKE_QC_V1",
+            "timed out",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+    TakeRow take = finalizeWithQuality(unavailable);
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(takeMapper).updateQualityControl(eq(take.getId()), json.capture());
+    var stored = new tools.jackson.databind.ObjectMapper().readTree(json.getValue());
+    assertEquals("UNAVAILABLE", stored.get("status").asText());
+    assertEquals("timed out", stored.get("reason").asText());
+    assertEquals(false, stored.has("freezeTotalMs"));
+  }
+
+  @Test
+  void finalizeResultWithoutMeasurementsLeavesMetricsUntouched() {
+    TakeRow take = finalizeWithQuality(null);
+
+    org.mockito.Mockito.verify(takeMapper, org.mockito.Mockito.never())
+        .updateQualityControl(any(), any());
+    assertEquals("PASSED", take.getValidationStatus());
+  }
 }

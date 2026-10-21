@@ -30,10 +30,14 @@ import com.narrativex.backend.feature.generation.application.port.out.ChapterAna
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationExecutionPort;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
+import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository.FrozenBeatImageInput;
 import com.narrativex.backend.feature.generation.application.port.out.NarrationRequestRepository;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.entity.ChapterAnalysisRun;
+import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.entity.NarrationRequest;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
@@ -75,6 +79,8 @@ class ComputeExecutionDispatcherTest {
   private ChapterAnalysisRunRepository analysisRunRepository;
   private NarrationRequestRepository narrationRequestRepository;
   private VoiceCatalogAccess voiceCatalogAccess;
+  private MediaGenerationItemRepository mediaGenerationItemRepository;
+  private MediaPlanRepository mediaPlanRepository;
   private Map<UUID, OutputArtifactTargetDto> targetsByTask;
   private Map<UUID, GenerationJob> jobsById;
   private ComputeExecutionDispatcher dispatcher;
@@ -90,6 +96,8 @@ class ComputeExecutionDispatcherTest {
     analysisRunRepository = mock(ChapterAnalysisRunRepository.class);
     narrationRequestRepository = mock(NarrationRequestRepository.class);
     voiceCatalogAccess = mock(VoiceCatalogAccess.class);
+    mediaGenerationItemRepository = mock(MediaGenerationItemRepository.class);
+    mediaPlanRepository = mock(MediaPlanRepository.class);
     targetsByTask = new HashMap<>();
     jobsById = new HashMap<>();
 
@@ -117,7 +125,9 @@ class ComputeExecutionDispatcherTest {
             null,
             analysisRunRepository,
             narrationRequestRepository,
-            voiceCatalogAccess);
+            voiceCatalogAccess,
+            mediaGenerationItemRepository,
+            mediaPlanRepository);
 
     when(artifactAccess.createOutput(
             any(UUID.class), any(UUID.class), any(String.class), any(String.class)))
@@ -262,6 +272,7 @@ class ComputeExecutionDispatcherTest {
     UUID projectId = UuidV7.random();
     GenerationJob job =
         GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
+    givenFrozenImageAttempt();
 
     jobsById.put(job.getJobId(), job);
     dispatcher.dispatchJob(job.getJobId());
@@ -376,7 +387,11 @@ class ComputeExecutionDispatcherTest {
     UUID projectId = UuidV7.random();
     GenerationJob job =
         GenerationJob.create(projectId, JobType.NARRATION_GENERATE, ResourceClass.PROVIDER_BATCH);
-    stubNarrationVoice(projectId, "vieneu-default", null, voice("vieneu-default", null, null));
+    stubNarrationVoice(
+        projectId,
+        "vieneu-preset-minh-quan-pro",
+        null,
+        voice("vieneu-preset-minh-quan-pro", "Minh Quân Pro", null));
 
     jobsById.put(job.getJobId(), job);
     dispatcher.dispatchJob(job.getJobId());
@@ -519,6 +534,7 @@ class ComputeExecutionDispatcherTest {
     UUID projectId = UuidV7.random();
     GenerationJob job =
         GenerationJob.create(projectId, JobType.CHAPTER_GENERATE, ResourceClass.PROVIDER_BATCH);
+    givenFrozenImageAttempt();
 
     jobsById.put(job.getJobId(), job);
     when(executionPort.submitTask(any(ComputeTaskRequest.class)))
@@ -543,5 +559,27 @@ class ComputeExecutionDispatcherTest {
     dispatcher.dispatchJob(job.getJobId());
 
     verify(executionPort, never()).submitTask(any(ComputeTaskRequest.class));
+  }
+
+  /** A single-VisualBeat image job with its frozen plan prompt, as admission persists it. */
+  private void givenFrozenImageAttempt() {
+    UUID visualBeatId = UuidV7.random();
+    when(mediaGenerationItemRepository.findByJobId(any()))
+        .thenReturn(
+            List.of(
+                MediaGenerationItem.create(
+                    UuidV7.random(),
+                    UuidV7.random(),
+                    visualBeatId,
+                    "beat-" + visualBeatId,
+                    1,
+                    "a".repeat(64))));
+    when(mediaPlanRepository.findFrozenBeatImageInput(any(), any()))
+        .thenReturn(
+            Optional.of(
+                new FrozenBeatImageInput(
+                    "a lighthouse at dusk",
+                    "blurry, low quality",
+                    "{\"aspectRatio\":\"16:9\"}")));
   }
 }

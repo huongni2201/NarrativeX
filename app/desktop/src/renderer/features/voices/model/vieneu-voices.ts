@@ -86,3 +86,7 @@ export function groupVieNeuVoices(voices: readonly DesktopVoice[]): VieNeuVoiceG
 }
 
 export const REFERENCE_MIN_SECONDS_HINT = "3–8 giây, giọng sạch, không nhạc nền";
+
+/** About 50 syllables, which VieNeu reads in roughly 10–15 seconds at normal speed. */
+export const VOICE_SAMPLE_TEXT =
+  "Xin chào, mình là một giọng đọc tiếng Việt. Hôm nay trời đẹp, mình sẽ cùng bạn kể lại những câu chuyện thật tự nhiên, rõ ràng và dễ nghe. Hy vọng giọng đọc này sẽ phù hợp với câu chuyện của bạn. Hãy thử nghe thật kỹ nhé.";

@@ -123,6 +123,14 @@
     WHERE id = #{id}
   </update>
 
+  <update id="updateQualityControl">
+    UPDATE takes
+    SET metrics_json = jsonb_set(COALESCE(metrics_json, '{}'::jsonb), '{qualityControl}', #{qualityControlJson}::jsonb, true),
+        updated_at = CURRENT_TIMESTAMP,
+        row_version = row_version + 1
+    WHERE id = #{id}
+  </update>
+
   <select id="findByJobId" resultMap="take">
     SELECT generation_job_id, compute_task_id, compute_attempt_id, operation_plan_id, input_snapshot_json::text AS input_snapshot_json, input_fingerprint, id, row_version, created_at, updated_at, shot_id, attempt_number, provider, model,
            generation_mode, output_asset_id, source_duration_ms,

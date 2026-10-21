@@ -68,6 +68,115 @@
         },
         "decodePassed": {
           "type": "boolean"
+        },
+        "qualityMetrics": {
+          "description": "Advisory raw measurements. Thresholds and verdicts are owned by the backend.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "scorerVersion"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "MEASURED",
+                "UNAVAILABLE"
+              ]
+            },
+            "scorerVersion": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            },
+            "freezeHeadMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "freezeTotalMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "motionMean": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "sceneCutCount": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "flickerStddev": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "blackTotalMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "silenceTotalMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "integratedLufs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "peakDbfs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "meanY": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "meanU": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "meanV": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
         }
       }
     }

@@ -16,6 +16,7 @@ import com.narrativex.backend.feature.generation.application.service.VideoPrompt
 import com.narrativex.backend.feature.generation.application.service.VisualPromptText;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardBeatAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -94,7 +95,13 @@ public class BackendPromptPreviewSource implements PromptPreviewSource {
     var location =
         VideoLocationContext.from(
             shotLocationContexts.findForShot(target.projectId(), target.shotId()));
-    var compiled = videoPromptCompiler.compile(shot, settings, null, location);
+    var characterContext =
+        visualPromptContextRepository.findForShot(target.projectId(), target.shotId());
+    var visibleCharacters =
+        videoPromptCompiler.selectVisibleCharacters(
+            shot.subjectsJson(),
+            characterContext == null ? List.of() : characterContext.characters());
+    var compiled = videoPromptCompiler.compile(shot, settings, null, location, visibleCharacters);
     String negative = compiled.negativePrompt() == null ? "" : compiled.negativePrompt();
     return new PromptPreviewResult(compiled.prompt(), negative, compiled.prompt());
   }

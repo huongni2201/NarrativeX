@@ -41,6 +41,7 @@
         <result property="schemaVersion" column="schema_version"/>
         <result property="schemaHash" column="schema_hash"/>
         <result property="responseSchemaJson" column="response_schema_json"/>
+        <result property="stageContractsJson" column="stage_contracts_json"/>
         <result property="inputFingerprint" column="input_fingerprint"/>
         <result property="configRevision" column="config_revision"/>
         <result property="createdAt" column="created_at"/>
@@ -127,12 +128,14 @@
     <insert id="insertSnapshot">
         INSERT INTO chapter_analysis_execution_snapshots (
             generation_job_id, execution_mode, profile_json, prompt_version, prompt_hash,
-            prompt_template, schema_version, schema_hash, response_schema_json, input_fingerprint,
-            config_revision, created_at
+            prompt_template, schema_version, schema_hash, response_schema_json, stage_contracts_json,
+            input_fingerprint, config_revision, created_at
         ) VALUES (
             #{generationJobId}, #{executionMode}, CAST(#{profileJson} AS jsonb), #{promptVersion},
             #{promptHash}, #{promptTemplate}, #{schemaVersion}, #{schemaHash},
-            CAST(#{responseSchemaJson} AS jsonb), #{inputFingerprint}, #{configRevision},
+            CAST(#{responseSchemaJson} AS jsonb),
+            CAST(NULLIF(#{stageContractsJson}, '') AS jsonb),
+            #{inputFingerprint}, #{configRevision},
             COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
         ) ON CONFLICT (generation_job_id) DO NOTHING
     </insert>

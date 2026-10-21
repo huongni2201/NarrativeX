@@ -15,10 +15,23 @@ import com.narrativex.backend.feature.generation.application.model.compute.*;
 import com.narrativex.backend.feature.generation.application.port.out.*;
 import com.narrativex.backend.feature.generation.application.service.GenerationJobTransactionService;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateShotTakeUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.GetChapterProductionUseCase;
+import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
+import com.narrativex.backend.feature.generation.domain.value.TakeContentReviewChecklist;
 import com.narrativex.backend.feature.generation.infrastructure.compute.VideoGenerationProperties;
+import com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisArtifactMaterializer;
 import com.narrativex.backend.feature.generation.infrastructure.dispatch.VideoGenerationJobHandler;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.TakeMapper;
+import com.narrativex.backend.feature.storyboard.application.port.out.ShotAudioCueAllocationRepository;
+import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
+import com.narrativex.backend.feature.storyboard.application.usecase.ReplaceShotAudioCueAllocationsUseCase;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter.ChapterCanonReconciliationService;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCanonMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.*;
 import java.util.concurrent.*;
@@ -36,11 +49,23 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   @Autowired GenerateShotTakeUseCase admission;
   @Autowired GenerationJobRepository jobs;
   @Autowired TakeRepository takes;
+  @Autowired GetChapterProductionUseCase chapterProduction;
+  @Autowired SelectedTakeRepository selectedTakes;
+  @Autowired VisualPromptContextRepository visualPromptContexts;
+  @Autowired ReplaceShotAudioCueAllocationsUseCase replaceShotAudioCueAllocations;
+  @Autowired ShotAudioCueAllocationRepository shotAudioCueAllocations;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
   @Autowired TakeMapper takeMapper;
   @Autowired GenerationJobTransactionService transactions;
   @Autowired NarrativeXLimitsProperties limits;
   @Autowired VideoGenerationProperties video;
   @Autowired JdbcTemplate jdbc;
+
+  @Autowired StoryboardMapper materializationStoryboardMapper;
+  @Autowired ChapterMapper materializationChapterMapper;
+  @Autowired ChapterCanonMapper chapterCanonMapper;
+  @Autowired ChapterCanonReconciliationService chapterCanonReconciliationService;
+  @Autowired ShotSequenceMapper shotSequenceMapper;
 
   @Autowired
   com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper shots;
@@ -61,7 +86,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   com.narrativex.backend.feature.generation.infrastructure.finalizer.VideoGenerationResultFinalizer
       videoFinalizer;
 
-  UUID projectId, chapterId, beatId, storyBeatId, shotId;
+  UUID projectId, chapterId, beatId, storyBeatId, sequenceId, shotId;
   JsonMapper json = JsonMapper.builder().build();
 
   @BeforeEach
@@ -106,12 +131,11 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
             "INSERT INTO visual_beats(scene_id,story_beat_id,order_index,title,visual_intent,review_status) VALUES (?,?,1,'Visual','Hero walks','APPROVED') RETURNING id",
             scene,
             storyBeatId);
-    UUID sequence =
-        id("INSERT INTO shot_sequences(visual_beat_id) VALUES (?) RETURNING id", beatId);
+    sequenceId = id("INSERT INTO shot_sequences(visual_beat_id) VALUES (?) RETURNING id", beatId);
     shotId =
         id(
             "INSERT INTO shots(sequence_id,order_index,narrative_purpose) VALUES (?,1,'Hero walks to the door') RETURNING id",
-            sequence);
+            sequenceId);
   }
 
   @AfterEach
@@ -122,6 +146,52 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
 
   UUID id(String sql, Object... params) {
     return jdbc.queryForObject(sql, UUID.class, params);
+  }
+
+  private static void await(CountDownLatch latch) {
+    try {
+      latch.await();
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Concurrent writer test was interrupted", exception);
+    }
+  }
+
+  UUID addProjectCharacter(
+      UUID ownerProjectId,
+      String canonicalName,
+      String aiName,
+      boolean identityActive,
+      boolean participatesInBeat,
+      String beatRole) {
+    UUID characterId =
+        id("INSERT INTO characters(canonical_name) VALUES (?) RETURNING id", canonicalName);
+    UUID versionId =
+        id(
+            "INSERT INTO character_versions(character_id,version_number,bible,visual_prompt,status,locked_at) VALUES (?,1,'Fixture','Fixture prompt','LOCKED',CURRENT_TIMESTAMP) RETURNING id",
+            characterId);
+    UUID projectCharacterId =
+        id(
+            "INSERT INTO project_characters(project_id,character_id,role,importance,pinned_character_version_id) VALUES (?,?,'SUPPORTING','SECONDARY',?) RETURNING id",
+            ownerProjectId,
+            characterId,
+            versionId);
+    if (aiName != null) {
+      jdbc.update(
+          "INSERT INTO project_character_ai_identities(project_id,project_character_id,ai_name,is_active) VALUES (?,?,?,?)",
+          ownerProjectId,
+          projectCharacterId,
+          aiName,
+          identityActive);
+    }
+    if (participatesInBeat) {
+      jdbc.update(
+          "INSERT INTO visual_beat_characters(visual_beat_id,project_character_id,role) VALUES (?,?,?)",
+          beatId,
+          projectCharacterId,
+          beatRole);
+    }
+    return projectCharacterId;
   }
 
   GenerateShotTakeCommand command(String key, Long seed) {
@@ -220,6 +290,522 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   @Test
+  void selectedTakeReviewUsesOptimisticVersionAndPersistsTrimFingerprint() {
+    var admitted = admission.execute(command("review-selection", null));
+    var take = takes.findById(admitted.id()).orElseThrow();
+    var checklist = new TakeContentReviewChecklist(true, true, true, true, true);
+    String reviewFingerprint = "a".repeat(64);
+
+    var first =
+        selectedTakes.saveSelection(
+            shotId, admitted.id(), 250L, 3_250L, 0L, reviewFingerprint, checklist.toJson());
+    assertThat(first.rowVersion()).isEqualTo(1L);
+    assertThat(first.reviewFingerprint()).isEqualTo(reviewFingerprint);
+    assertThat(json.readTree(first.reviewChecklistJson()).path("lipSync").asBoolean()).isTrue();
+
+    var second =
+        selectedTakes.saveSelection(
+            shotId,
+            admitted.id(),
+            500L,
+            3_000L,
+            first.rowVersion(),
+            "b".repeat(64),
+            checklist.toJson());
+    assertThat(second.rowVersion()).isEqualTo(2L);
+    assertThat(second.sourceInMs()).isEqualTo(500L);
+
+    assertThatThrownBy(
+            () ->
+                selectedTakes.saveSelection(
+                    shotId,
+                    admitted.id(),
+                    0L,
+                    3_000L,
+                    first.rowVersion(),
+                    "c".repeat(64),
+                    checklist.toJson()))
+        .isInstanceOf(ResourceConflictException.class)
+        .hasMessageContaining("changed in another window");
+    assertThat(take.inputFingerprint()).isNotBlank();
+  }
+
+  @Test
+  void selectedTakeUpdatesLegacyVersionZeroAndNeverInsertsForMissingNewerVersion() {
+    var admitted = admission.execute(command("legacy-selection", null));
+    jdbc.update(
+        "INSERT INTO selected_takes(shot_id,take_id,source_in_ms,source_out_ms,row_version) VALUES (?,?,0,3000,0)",
+        shotId,
+        admitted.id());
+
+    var saved =
+        selectedTakes.saveSelection(
+            shotId,
+            admitted.id(),
+            250L,
+            2_750L,
+            0L,
+            "a".repeat(64),
+            new TakeContentReviewChecklist(true, true, true, true, true).toJson());
+
+    assertThat(saved.rowVersion()).isEqualTo(1L);
+    assertThat(saved.sourceInMs()).isEqualTo(250L);
+    assertThatThrownBy(
+            () ->
+                selectedTakes.saveSelection(
+                    UUID.randomUUID(),
+                    admitted.id(),
+                    0L,
+                    3_000L,
+                    1L,
+                    "b".repeat(64),
+                    new TakeContentReviewChecklist(true, true, true, true, true).toJson()))
+        .isInstanceOf(ResourceConflictException.class);
+  }
+
+  @Test
+  void concurrentSelectedTakeCompareAndSetAllowsOnlyOneWriter() throws Exception {
+    var admitted = admission.execute(command("concurrent-selection", null));
+    var first =
+        selectedTakes.saveSelection(
+            shotId,
+            admitted.id(),
+            250L,
+            3_250L,
+            0L,
+            "a".repeat(64),
+            new TakeContentReviewChecklist(true, true, true, true, true).toJson());
+    var start = new CountDownLatch(1);
+    var pool = Executors.newFixedThreadPool(2);
+    try {
+      var writers =
+          List.of(
+              pool.submit(
+                  () -> {
+                    await(start);
+                    try {
+                      return selectedTakes.saveSelection(
+                          shotId,
+                          admitted.id(),
+                          500L,
+                          3_000L,
+                          first.rowVersion(),
+                          "b".repeat(64),
+                          new TakeContentReviewChecklist(true, true, true, true, true).toJson());
+                    } catch (ResourceConflictException conflict) {
+                      return conflict;
+                    }
+                  }),
+              pool.submit(
+                  () -> {
+                    await(start);
+                    try {
+                      return selectedTakes.saveSelection(
+                          shotId,
+                          admitted.id(),
+                          750L,
+                          2_750L,
+                          first.rowVersion(),
+                          "c".repeat(64),
+                          new TakeContentReviewChecklist(true, true, true, true, true).toJson());
+                    } catch (ResourceConflictException conflict) {
+                      return conflict;
+                    }
+                  }));
+      start.countDown();
+      List<Object> results = new ArrayList<>();
+      for (var writer : writers) results.add(writer.get(10, TimeUnit.SECONDS));
+
+      assertThat(results).filteredOn(SelectedTake.class::isInstance).hasSize(1);
+      assertThat(results).filteredOn(ResourceConflictException.class::isInstance).hasSize(1);
+      assertThat(selectedTakes.findByShotId(shotId).orElseThrow().rowVersion()).isEqualTo(2L);
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  @Test
+  void shotCharacterContextUsesOnlyActiveProjectIdentityForBeatParticipants() {
+    assertThat(visualPromptContexts.findForShot(projectId, shotId).characters()).isEmpty();
+
+    UUID active = addProjectCharacter(projectId, "Visible Hero", "Hero AI", true, true, "PRIMARY");
+    UUID inactive =
+        addProjectCharacter(projectId, "Inactive Alias", "Old AI", false, true, "SECONDARY");
+    UUID missing = addProjectCharacter(projectId, "No Alias", null, false, true, "SECONDARY");
+    addProjectCharacter(projectId, "Not In Beat", "Unrelated AI", true, false, "SECONDARY");
+    UUID otherProject =
+        id(
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('other-project','DRAFT','vi','vi','RATIO_16_9') RETURNING id");
+    addProjectCharacter(otherProject, "Foreign Hero", "Foreign AI", true, true, "PRIMARY");
+
+    var characters = visualPromptContexts.findForShot(projectId, shotId).characters();
+
+    assertThat(characters).hasSize(3);
+    assertThat(characters)
+        .extracting(character -> character.assignmentId())
+        .containsExactlyInAnyOrder(active, inactive, missing);
+    assertThat(characters)
+        .filteredOn(character -> character.assignmentId().equals(active))
+        .singleElement()
+        .satisfies(
+            character -> {
+              assertThat(character.canonicalName()).isEqualTo("Visible Hero");
+              assertThat(character.aiName()).isEqualTo("Hero AI");
+              assertThat(character.characterVersionId()).isNotNull();
+            });
+    assertThat(characters)
+        .filteredOn(character -> character.assignmentId().equals(inactive))
+        .singleElement()
+        .extracting(character -> character.aiName())
+        .isNull();
+    assertThat(characters)
+        .filteredOn(character -> character.assignmentId().equals(missing))
+        .singleElement()
+        .extracting(character -> character.aiName())
+        .isNull();
+    assertThat(visualPromptContexts.findForShot(projectId, shotId).characters())
+        .extracting(character -> character.assignmentId())
+        .containsExactlyElementsOf(
+            characters.stream().map(character -> character.assignmentId()).toList());
+  }
+
+  @Test
+  void chapterProductionReadModelPreservesCueTextAndStatusForSameSpeaker() {
+    UUID speaker = addProjectCharacter(projectId, "Cue Speaker", null, false, false, "SECONDARY");
+    UUID firstCue =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,speaker_project_character_id,adaptation_action,adapted_text,status) VALUES (?,1,'DIALOGUE',?,'LIGHT_EDIT','First distinct line','DRAFT') RETURNING id",
+            storyBeatId,
+            speaker);
+    UUID secondCue =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,speaker_project_character_id,adaptation_action,adapted_text,status) VALUES (?,2,'DIALOGUE',?,'LIGHT_EDIT','Second distinct line','APPROVED') RETURNING id",
+            storyBeatId,
+            speaker);
+
+    var response = chapterProduction.execute(projectId, chapterId);
+    var cues =
+        response.scenes().stream()
+            .flatMap(scene -> scene.visualBeats().stream())
+            .flatMap(beat -> beat.audioCues().stream())
+            .toList();
+
+    assertThat(cues).extracting(cue -> cue.id()).containsExactly(firstCue, secondCue);
+    assertThat(cues)
+        .extracting(cue -> cue.adaptedText())
+        .containsExactly("First distinct line", "Second distinct line");
+    assertThat(cues).extracting(cue -> cue.status()).containsExactly("DRAFT", "APPROVED");
+  }
+
+  @Test
+  void materializedVietnameseDefaultShotDurationPassesTheSamePostgresAdmissionEstimate()
+      throws Exception {
+    String source = "ắ".repeat(67);
+    String sourceHash =
+        HexFormat.of()
+            .formatHex(
+                java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    UUID materializedProject =
+        id(
+            "INSERT INTO projects(name,status,source_language,narration_language,image_aspect_ratio) VALUES ('duration-estimate','DRAFT','vi','vi','RATIO_16_9') RETURNING id");
+    UUID storyVersionId =
+        id(
+            "INSERT INTO story_versions(project_id,version_number,content,source_language,status) VALUES (?,1,?,'vi','ACTIVE') RETURNING id",
+            materializedProject,
+            source);
+    UUID materializedChapterId =
+        id(
+            "INSERT INTO chapters(story_version_id,order_index,title,source_text,source_hash) VALUES (?,1,'Duration fixture',?,?) RETURNING id",
+            storyVersionId,
+            source,
+            sourceHash);
+    UUID revisionId =
+        id(
+            "INSERT INTO storyboard_revisions(chapter_id,revision_number,source_hash,source_row_version) VALUES (?,1,?,0) RETURNING id",
+            materializedChapterId,
+            sourceHash);
+    jdbc.update(
+        "UPDATE chapters SET current_storyboard_revision_id=? WHERE id=?",
+        revisionId,
+        materializedChapterId);
+    var analysisJob =
+        GenerationJob.createChapterAnalysis(
+            materializedProject,
+            storyVersionId,
+            materializedChapterId,
+            revisionId,
+            0L,
+            sourceHash,
+            source,
+            "vi",
+            "duration-estimate-" + UUID.randomUUID());
+    String payload =
+        """
+        {
+          "canon":{"characters":[{"ai_name":"hero","canonical_name":"Hero","aliases":[],"role":"PROTAGONIST","importance":"PRIMARY","description":"A hero","visual_prompt":"A hero"}],"locations":[]},
+          "scenes":[{"title":"Scene","character_ai_names":["hero"],"visual_beats":[{
+            "title":"Hero speaks","visual_intent":"The hero speaks","start_unit":0,
+            "character_ai_names":[{"ai_name":"hero","role":"PRIMARY"}],
+            "visual_direction":{"shot_size":"MEDIUM","camera_angle":"EYE_LEVEL","lens_mm":35,"focus_target":"hero","action_phase":"DURING","subject_placement":"center","foreground":"clear","background":"simple","motivated_light":"soft daylight","palette":"warm","camera_movement":"STATIC","movement_direction":"NONE","movement_intensity":"SUBTLE","crop_safe_area":"full"},
+            "audio_cues":[{"cue_type":"DIALOGUE","speaker_ai_name":"hero","start_unit":0,"end_unit":0,"adaptation_action":"KEEP_EXACT"}]
+          }]}]
+        }
+        """;
+
+    var materializer =
+        new ChapterAnalysisArtifactMaterializer(
+            materializationStoryboardMapper,
+            materializationChapterMapper,
+            new SourceAnchorResolver(),
+            chapterCanonMapper,
+            chapterCanonReconciliationService,
+            null,
+            null,
+            null,
+            shotSequenceMapper,
+            shots);
+    materializer.materialize(
+        analysisJob, payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    UUID defaultShotId =
+        jdbc.queryForObject(
+            "SELECT sh.id FROM shots sh JOIN shot_sequences ss ON ss.id=sh.sequence_id JOIN visual_beats vb ON vb.id=ss.visual_beat_id JOIN scenes s ON s.id=vb.scene_id WHERE s.chapter_id=?",
+            UUID.class,
+            materializedChapterId);
+    long persistedDuration =
+        jdbc.queryForObject(
+            "SELECT target_duration_ms FROM shots WHERE id=?", Long.class, defaultShotId);
+    UUID characterId =
+        id("SELECT character_id FROM project_characters WHERE project_id=?", materializedProject);
+    UUID voiceProfileId =
+        id(
+            "INSERT INTO character_voice_profiles(character_id,version_number,voice_description,accent,delivery_baseline) VALUES (?,1,'Warm clear voice','Northern Vietnamese','Measured') RETURNING id",
+            characterId);
+    UUID characterVersionId =
+        id(
+            "SELECT id FROM character_versions WHERE character_id=? ORDER BY version_number DESC LIMIT 1",
+            characterId);
+    jdbc.update(
+        "UPDATE character_versions SET status='LOCKED', locked_at=CURRENT_TIMESTAMP WHERE id=?",
+        characterVersionId);
+    jdbc.update(
+        "UPDATE project_characters SET pinned_character_version_id=? WHERE project_id=? AND character_id=?",
+        characterVersionId,
+        materializedProject,
+        characterId);
+    jdbc.update(
+        "UPDATE characters SET pinned_voice_profile_id=? WHERE id=?", voiceProfileId, characterId);
+    jdbc.update(
+        "UPDATE story_beats SET review_status='APPROVED' WHERE scene_id IN (SELECT id FROM scenes WHERE chapter_id=?)",
+        materializedChapterId);
+    jdbc.update(
+        "UPDATE visual_beats SET review_status='APPROVED' WHERE scene_id IN (SELECT id FROM scenes WHERE chapter_id=?)",
+        materializedChapterId);
+    jdbc.update(
+        "UPDATE audio_cues SET status='APPROVED' WHERE story_beat_id IN (SELECT sb.id FROM story_beats sb JOIN scenes s ON s.id=sb.scene_id WHERE s.chapter_id=?)",
+        materializedChapterId);
+
+    assertThat(persistedDuration).isEqualTo(5_625L);
+    var admitted =
+        admission.execute(
+            new GenerateShotTakeCommand(
+                materializedProject,
+                defaultShotId,
+                null,
+                null,
+                null,
+                null,
+                "duration-admission-" + UUID.randomUUID(),
+                null));
+    assertThat(admitted.id()).isNotNull();
+    assertThat(takes.findById(admitted.id()).orElseThrow().inputSnapshotJson()).contains(source);
+  }
+
+  @Test
+  void cueAllocationIsCompletePerShotAndStaleCueVersionsBlockAdmissionContext() throws Exception {
+    UUID secondShotId =
+        id(
+            "INSERT INTO shots(sequence_id,order_index,narrative_purpose) VALUES (?,2,'Reaction') RETURNING id",
+            sequenceId);
+    UUID firstCueId =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,adaptation_action,adapted_text,status) VALUES (?,1,'DIALOGUE','KEEP_EXACT','Hero enters', 'APPROVED') RETURNING id",
+            storyBeatId);
+    UUID secondCueId =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,adaptation_action,adapted_text,status) VALUES (?,2,'DIALOGUE','KEEP_EXACT','Who is there?', 'APPROVED') RETURNING id",
+            storyBeatId);
+    var assignments =
+        List.of(
+            new ReplaceShotAudioCueAllocationsUseCase.Assignment(firstCueId, shotId),
+            new ReplaceShotAudioCueAllocationsUseCase.Assignment(secondCueId, secondShotId));
+
+    var saved = replaceShotAudioCueAllocations.execute(projectId, sequenceId, 0L, assignments);
+    assertThat(saved.rowVersion()).isEqualTo(1L);
+    assertThat(saved.allocations()).hasSize(2);
+
+    var reassigned =
+        replaceShotAudioCueAllocations.execute(
+            projectId,
+            sequenceId,
+            saved.rowVersion(),
+            List.of(
+                new ReplaceShotAudioCueAllocationsUseCase.Assignment(firstCueId, secondShotId),
+                new ReplaceShotAudioCueAllocationsUseCase.Assignment(secondCueId, shotId)));
+    assertThat(reassigned.rowVersion()).isEqualTo(2L);
+    assertThat(reassigned.allocations())
+        .extracting(allocation -> allocation.shotId())
+        .containsExactlyInAnyOrder(secondShotId, shotId);
+
+    var context = json.readValue(shots.findAdmissionContextLocked(projectId, shotId), Map.class);
+    assertThat(context.get("cueAllocationComplete")).isEqualTo(true);
+    assertThat(context.get("shotSequenceShotCount")).isEqualTo(2);
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> selectedCues = (List<Map<String, Object>>) context.get("cues");
+    assertThat(selectedCues)
+        .extracting(cue -> cue.get("id").toString())
+        .containsExactly(secondCueId.toString());
+
+    jdbc.update(
+        "UPDATE audio_cues SET adapted_text = 'The changed line', row_version = row_version + 1 WHERE id = ?",
+        firstCueId);
+    var staleContext =
+        json.readValue(shots.findAdmissionContextLocked(projectId, shotId), Map.class);
+    assertThat(staleContext.get("cueAllocationComplete")).isEqualTo(false);
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> staleCues = (List<Map<String, Object>>) staleContext.get("cues");
+    assertThat(staleCues)
+        .extracting(cue -> cue.get("id").toString())
+        .containsExactly(secondCueId.toString());
+
+    var refreshed =
+        replaceShotAudioCueAllocations.execute(
+            projectId,
+            sequenceId,
+            reassigned.rowVersion(),
+            List.of(
+                new ReplaceShotAudioCueAllocationsUseCase.Assignment(firstCueId, shotId),
+                new ReplaceShotAudioCueAllocationsUseCase.Assignment(secondCueId, secondShotId)));
+    assertThat(refreshed.rowVersion()).isEqualTo(3L);
+    assertThat(refreshed.allocations())
+        .filteredOn(allocation -> allocation.audioCueId().equals(firstCueId))
+        .singleElement()
+        .extracting(allocation -> allocation.audioCueRowVersion())
+        .isEqualTo(1L);
+    var refreshedContext =
+        json.readValue(shots.findAdmissionContextLocked(projectId, shotId), Map.class);
+    assertThat(refreshedContext.get("cueAllocationComplete")).isEqualTo(true);
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> refreshedCues =
+        (List<Map<String, Object>>) refreshedContext.get("cues");
+    assertThat(refreshedCues)
+        .extracting(cue -> cue.get("adapted_text"))
+        .containsExactly("The changed line");
+
+    assertThatThrownBy(
+            () ->
+                replaceShotAudioCueAllocations.execute(
+                    projectId, sequenceId, reassigned.rowVersion(), assignments))
+        .isInstanceOf(ResourceConflictException.class);
+    assertThat(shotAudioCueAllocations.findBySequenceId(sequenceId).orElseThrow())
+        .isEqualTo(refreshed);
+  }
+
+  @Test
+  void allocationInsertFailureRollsBackVersionAndExistingMappings() {
+    UUID cueId =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,adaptation_action,adapted_text,status) VALUES (?,1,'DIALOGUE','KEEP_EXACT','Hello', 'APPROVED') RETURNING id",
+            storyBeatId);
+    var saved =
+        replaceShotAudioCueAllocations.execute(
+            projectId,
+            sequenceId,
+            0L,
+            List.of(new ReplaceShotAudioCueAllocationsUseCase.Assignment(cueId, shotId)));
+    var invalid =
+        new com.narrativex.backend.feature.storyboard.application.model.ShotAudioCueAllocation(
+            UUID.randomUUID(), shotId, 0L);
+
+    assertThatThrownBy(
+            () ->
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                    .executeWithoutResult(
+                        status ->
+                            shotAudioCueAllocations.replace(
+                                sequenceId, saved.rowVersion(), List.of(invalid))))
+        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+    assertThat(shotAudioCueAllocations.findBySequenceId(sequenceId).orElseThrow()).isEqualTo(saved);
+  }
+
+  @Test
+  void concurrentAllocationReplacementAllowsOnlyOneWriter() throws Exception {
+    UUID secondShotId =
+        id(
+            "INSERT INTO shots(sequence_id,order_index,narrative_purpose) VALUES (?,2,'Reaction') RETURNING id",
+            sequenceId);
+    UUID firstCueId =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,adaptation_action,adapted_text,status) VALUES (?,1,'DIALOGUE','KEEP_EXACT','First line', 'APPROVED') RETURNING id",
+            storyBeatId);
+    UUID secondCueId =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,adaptation_action,adapted_text,status) VALUES (?,2,'DIALOGUE','KEEP_EXACT','Second line', 'APPROVED') RETURNING id",
+            storyBeatId);
+    var firstSet =
+        List.of(
+            new ReplaceShotAudioCueAllocationsUseCase.Assignment(firstCueId, shotId),
+            new ReplaceShotAudioCueAllocationsUseCase.Assignment(secondCueId, secondShotId));
+    var secondSet =
+        List.of(
+            new ReplaceShotAudioCueAllocationsUseCase.Assignment(firstCueId, secondShotId),
+            new ReplaceShotAudioCueAllocationsUseCase.Assignment(secondCueId, shotId));
+    var initial = replaceShotAudioCueAllocations.execute(projectId, sequenceId, 0L, firstSet);
+    var start = new CountDownLatch(1);
+    var pool = Executors.newFixedThreadPool(2);
+    try {
+      var writers =
+          List.of(
+              pool.submit(
+                  () -> {
+                    await(start);
+                    try {
+                      return replaceShotAudioCueAllocations.execute(
+                          projectId, sequenceId, initial.rowVersion(), firstSet);
+                    } catch (ResourceConflictException conflict) {
+                      return conflict;
+                    }
+                  }),
+              pool.submit(
+                  () -> {
+                    await(start);
+                    try {
+                      return replaceShotAudioCueAllocations.execute(
+                          projectId, sequenceId, initial.rowVersion(), secondSet);
+                    } catch (ResourceConflictException conflict) {
+                      return conflict;
+                    }
+                  }));
+      start.countDown();
+      List<Object> results = new ArrayList<>();
+      for (var writer : writers) results.add(writer.get(10, TimeUnit.SECONDS));
+
+      assertThat(results)
+          .filteredOn(
+              com.narrativex.backend.feature.storyboard.application.model.ShotAudioCueAllocationSet
+                      .class
+                  ::isInstance)
+          .hasSize(1);
+      assertThat(results).filteredOn(ResourceConflictException.class::isInstance).hasSize(1);
+      assertThat(shotAudioCueAllocations.findBySequenceId(sequenceId).orElseThrow().rowVersion())
+          .isEqualTo(2L);
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  @Test
   void sameKeyChangedSeedPromptOrSourceRevisionConflicts() {
     admission.execute(command("transport", 12L));
     assertThatThrownBy(() -> admission.execute(command("transport", 13L)))
@@ -282,7 +868,7 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   @Test
-  void nativeSpeakerProfileWithoutAudioReferencePinsDescriptionVersionAndActualCueTypes() {
+  void nativeSpeakerProfileWithoutAudioReferencePinsDescriptionForDialogue() {
     UUID character = id("INSERT INTO characters(canonical_name) VALUES ('Hero') RETURNING id");
     UUID version =
         id(
@@ -303,32 +889,46 @@ class ShotTakeAdmissionPostgreSqlIntegrationTest extends PostgreSqlIntegrationTe
             "INSERT INTO character_voice_profiles(character_id,version_number,voice_description,accent,delivery_baseline) VALUES (?,3,'Adult warm baritone','Northern Vietnamese','Calm measured') RETURNING id",
             character);
     jdbc.update("UPDATE characters SET pinned_voice_profile_id=? WHERE id=?", voice, character);
-    for (int i = 0; i < 4; i++)
-      jdbc.update(
-          "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,speaker_project_character_id,adapted_text,delivery_hint,status) VALUES (?,?,?,?,?,'Calm','APPROVED')",
-          storyBeatId,
-          i,
-          List.of("NARRATOR", "DIALOGUE", "INNER_MONOLOGUE", "SYSTEM").get(i),
-          participation,
-          "Approved cue " + i);
+    jdbc.update(
+        "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,speaker_project_character_id,adapted_text,delivery_hint,status) VALUES (?,0,'DIALOGUE',?,'Approved dialogue cue','Calm','APPROVED')",
+        storyBeatId,
+        participation);
     var take = admission.execute(command("native", null));
     var frozen = snapshot(take);
     assertThat(frozen.audioMode()).isEqualTo("LTX_NATIVE_AV");
     assertThat(json.writeValueAsString(frozen.inputs().get("voiceReference")))
         .contains("Adult warm baritone", "Northern Vietnamese");
     assertThat(json.writeValueAsString(frozen.inputs().get("dialogue")))
-        .contains(
-            "Approved cue 0",
-            "Approved cue 1",
-            "Approved cue 2",
-            "Approved cue 3",
-            "Adult warm baritone");
+        .contains("Approved dialogue cue", "Adult warm baritone");
     assertThat(json.writeValueAsString(frozen.context()))
         .contains(version.toString(), voice.toString(), "\"versionNumber\":3");
     jdbc.update(
         "UPDATE character_voice_profiles SET voice_description='Current live voice changed',row_version=row_version+1 WHERE id=?",
         voice);
     assertThat(snapshot(take)).isEqualTo(frozen);
+  }
+
+  @Test
+  void unsupportedNativeAudioCueTypesRejectBeforeCreatingIntent() {
+    UUID cueId =
+        id(
+            "INSERT INTO audio_cues(story_beat_id,order_index,cue_type,adaptation_action,adapted_text,status) VALUES (?,0,'NARRATOR','KEEP_EXACT','Unsupported cue','APPROVED') RETURNING id",
+            storyBeatId);
+    int jobsBefore = count("generation_jobs");
+    int takesBefore = count("takes");
+    int outboxBefore = count("outbox_events");
+
+    for (String cueType : List.of("NARRATOR", "INNER_MONOLOGUE", "SYSTEM")) {
+      jdbc.update(
+          "UPDATE audio_cues SET cue_type=?, row_version=row_version+1 WHERE id=?", cueType, cueId);
+      assertThatThrownBy(() -> admission.execute(command("unsupported-" + cueType, null)))
+          .isInstanceOf(DomainValidationException.class)
+          .hasMessageContaining("UNSUPPORTED_NATIVE_AUDIO_CUE: " + cueType);
+    }
+
+    assertThat(count("generation_jobs")).isEqualTo(jobsBefore);
+    assertThat(count("takes")).isEqualTo(takesBefore);
+    assertThat(count("outbox_events")).isEqualTo(outboxBefore);
   }
 
   @Test

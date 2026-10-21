@@ -6,8 +6,13 @@ import com.narrativex.backend.feature.generation.application.port.out.SelectedTa
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository.TakeRecord;
 import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
+import com.narrativex.backend.feature.generation.domain.value.TakeContentReviewChecklist;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess.ShotInfo;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,10 +36,17 @@ public class SelectTakeUseCase {
 
   @Transactional
   public SelectedTake execute(
-      UUID projectId, UUID shotId, UUID takeId, long sourceInMs, long sourceOutMs) {
+      UUID projectId,
+      UUID shotId,
+      UUID takeId,
+      long sourceInMs,
+      long sourceOutMs,
+      long expectedRowVersion,
+      TakeContentReviewChecklist contentReview) {
     Objects.requireNonNull(projectId, "projectId must not be null");
     Objects.requireNonNull(shotId, "shotId must not be null");
     Objects.requireNonNull(takeId, "takeId must not be null");
+    Objects.requireNonNull(contentReview, "contentReview must not be null");
 
     // 1. Verify Shot belongs to project
     Optional<ShotInfo> shotOpt = storyboardAccess.findShot(projectId, shotId);
@@ -105,8 +117,26 @@ public class SelectTakeUseCase {
               + "ms)");
     }
 
-    // 8. Persist to selected_takes
-    selectedTakeRepository.saveSelection(shotId, takeId, sourceInMs, sourceOutMs);
+    if (!contentReview.isComplete()) {
+      throw new IllegalStateException(
+          "Complete the content review checklist before selecting this Take");
+    }
+    if (take.inputFingerprint() == null || take.inputFingerprint().isBlank()) {
+      throw new IllegalStateException(
+          "Take input fingerprint is unavailable; content review cannot be tied to this Take");
+    }
+
+    String reviewFingerprint =
+        reviewFingerprint(take.id(), take.inputFingerprint(), sourceInMs, sourceOutMs);
+    SelectedTake selected =
+        selectedTakeRepository.saveSelection(
+            shotId,
+            takeId,
+            sourceInMs,
+            sourceOutMs,
+            expectedRowVersion,
+            reviewFingerprint,
+            contentReview.toJson());
 
     // 6. Update Shot status to SELECTED
     storyboardAccess.updateShotStatus(shotId, "SELECTED");
@@ -117,6 +147,27 @@ public class SelectTakeUseCase {
         sourceInMs,
         sourceOutMs);
 
-    return new SelectedTake(shotId, takeId, sourceInMs, sourceOutMs);
+    return selected;
+  }
+
+  private static String reviewFingerprint(
+      UUID takeId, String inputFingerprint, long sourceInMs, long sourceOutMs) {
+    String canonicalInput =
+        "take-content-review-v1\n"
+            + takeId
+            + "\n"
+            + inputFingerprint
+            + "\n"
+            + sourceInMs
+            + "\n"
+            + sourceOutMs;
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(canonicalInput.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is not available", exception);
+    }
   }
 }

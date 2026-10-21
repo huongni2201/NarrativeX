@@ -32,6 +32,8 @@ The former image-first pipeline (one still image per VisualBeat with Ken Burns p
 
 10. Hook plans, retention maps and attention events may be produced by analysis and persisted for creator review. No retention engine, automatic pacing enforcement, Shot Director, Editing Director, automatic semantic QA loop or post-publish feedback loop is part of the current architecture. Each of those requires its own ADR before implementation.
 
+11. Automatic take QC, tier 1, is advisory measurement only. The worker reports raw FFmpeg measurements (`qualityMetrics`, scorer `FFMPEG_TAKE_QC_V1`); the backend stores them under `takes.metrics_json.qualityControl` and evaluates them on read against versioned thresholds (`TAKE_QC_THRESHOLDS_V1`). It never changes `validation_status`, never blocks selecting a Take and never submits a job. Missing or unavailable measurements read as UNMEASURED, not as a pass. Tier 2 (budgeted automatic regeneration) is not part of this decision and needs its own amendment once tier-1 thresholds are calibrated against labelled takes.
+
 ## Invariants
 
 1. Every admitted Take is reproducible from its frozen snapshot. Later edits to Shot, voice, model or prompt settings never rewrite it.

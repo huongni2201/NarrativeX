@@ -13,14 +13,22 @@ const profiles: Record<string, { characterRowVersion: number; pinnedVoiceProfile
 };
 const presetMetadata = (extra: object) => JSON.stringify({ preset: true, providerVoice: "x", ...extra });
 const voices: Array<Record<string, unknown>> = scenario === "no-vieneu" ? [] : [
-  { id: "vieneu-default", name: "VieNeu Default", provider: "VIENEU", language: "vi-VN", gender: "NEUTRAL", sampleUrl: null, metadataJson: null },
   { id: "vieneu-preset-minh-duc", name: "Minh Đức", provider: "VIENEU", language: "vi-VN", gender: null, sampleUrl: null, metadataJson: presetMetadata({ region: "north" }) },
   { id: "vieneu-preset-minh-quan-pro", name: "Minh Quân Pro", provider: "VIENEU", language: "vi-VN", gender: null, sampleUrl: null, metadataJson: presetMetadata({ featured: true }) },
 ];
 const referenceStatus = scenario === "reference-rejected" ? "REJECTED" : "READY";
+if (scenario === "narration") voices.push({ id: "custom-narrator", name: "Giọng bà kể", provider: "VIENEU", language: "vi-VN", gender: "FEMALE", sampleUrl: null,
+  metadataJson: JSON.stringify({ custom: true, supportsSpeakingRate: false, referenceAssetId: "reference-1", referenceFilename: "giong-mau.wav" }) });
+let narrationJob = { jobId: "narration-job", type: "NARRATION_GENERATE", status: "QUEUED", progress: 0, currentStep: "QUEUED", errorCode: null };
+let onJobEvent: ((event: object) => void) | undefined;
+window.addEventListener("complete-narration", () => {
+  narrationJob = { ...narrationJob, status: "COMPLETED", progress: 100, currentStep: "COMPLETED" };
+  onJobEvent?.({ event: "snapshot", data: JSON.stringify(narrationJob) });
+});
 
 window.narrativex = {
   api: {
+    subscribe: (_path: string, handlers: { onEvent: (event: object) => void }) => { onJobEvent = handlers.onEvent; return () => { onJobEvent = undefined; }; },
     uploadVoiceReference: async () => ({ assetId: "reference-1", status: "VALIDATING", originalFilename: "giong-mau.wav", contentType: "audio/wav", sizeBytes: 2048, checksumSha256: "a".repeat(64) }),
     request: async ({ path, method = "GET", body }: { path: string; method?: string; body?: string }) => {
       const ok = (data: unknown, status = 200) => ({ status, statusText: "OK", bodyText: JSON.stringify({ success: true, message: "OK", timestamp: "2026-10-16T00:00:00Z", data }) });
@@ -30,6 +38,20 @@ window.narrativex = {
       if (path === "/api/v1/voice-references/reference-1") {
         return ok({ id: "reference-1", originalFilename: "giong-mau.wav", contentType: "audio/wav", sizeBytes: 2048, sha256: "a".repeat(64), status: referenceStatus });
       }
+      if (path.includes("/narration-jobs") && method === "POST") {
+        sessionStorage.setItem("narration-body", body!);
+        sessionStorage.setItem("narration-path", path);
+        sessionStorage.setItem("narration-count", String(Number(sessionStorage.getItem("narration-count") ?? 0) + 1));
+        if (sessionStorage.getItem("fail-narration") === "503") return fail(503, "Không xác nhận được yêu cầu");
+        if (sessionStorage.getItem("fail-narration")) return fail(400, "Lưu nội dung chương trước khi tạo lời kể.");
+        return ok(narrationJob);
+      }
+      if (path === "/api/v1/generation-jobs/narration-job") return ok(narrationJob);
+      if (path.endsWith("/voice-preview-jobs") && method === "POST") {
+        sessionStorage.setItem("narration-preview-body", body!);
+        return ok({ ...narrationJob, jobId: "voice-preview", status: "COMPLETED", progress: 100 });
+      }
+      if (path.endsWith("/voice-preview-jobs/voice-preview/result")) return ok({ url: "http://localhost/sample.wav", expiresAt: "2099-01-01T00:00:00Z", contentType: "audio/wav", durationMs: 10000 });
       if (path === "/api/v1/voices/custom" && method === "POST") {
         const input = JSON.parse(body!);
         if (voices.some(voice => String(voice.name).toLowerCase() === String(input.name).toLowerCase())) return fail(409, `Đã có giọng tên '${input.name}'`);

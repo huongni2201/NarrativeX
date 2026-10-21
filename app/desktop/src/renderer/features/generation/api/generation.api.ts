@@ -1,9 +1,11 @@
 import type {
   AnalyzeChapterInput,
   CreateMediaJobInput,
+  CreateVisualBeatImageAttemptInput,
   GenerationJob,
   MediaJobDetails,
   MediaReviewInput,
+  VisualBeatImageAttempt,
 } from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
@@ -71,6 +73,54 @@ export const generationApi = {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(normalizeCreateMediaJobInput(input)),
+      },
+    ),
+
+  createVisualBeatImageAttempt: (
+    projectId: string,
+    chapterId: string,
+    visualBeatId: string,
+    input: CreateVisualBeatImageAttemptInput,
+    idempotencyKey: string,
+  ) =>
+    apiRequest<GenerationJob>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/visual-beats/${encodeURIComponent(visualBeatId)}/image-attempts`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(input),
+      },
+    ),
+
+  getVisualBeatImageAttempts: (projectId: string, chapterId: string, visualBeatId: string) =>
+    apiRequest<VisualBeatImageAttempt[]>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/visual-beats/${encodeURIComponent(visualBeatId)}/image-attempts`,
+    ),
+
+  reviewVisualBeatImageAttempt: (
+    projectId: string,
+    chapterId: string,
+    visualBeatId: string,
+    itemId: string,
+    input: MediaReviewInput,
+  ) =>
+    apiCommand(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/visual-beats/${encodeURIComponent(visualBeatId)}/image-attempts/${encodeURIComponent(itemId)}/review`,
+      { method: "POST", body: JSON.stringify(input) },
+    ),
+
+  selectVisualBeatImageAttempt: (
+    projectId: string,
+    chapterId: string,
+    visualBeatId: string,
+    itemId: string,
+    expectedVisualBeatRowVersion: number,
+  ) =>
+    apiRequest<unknown>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/visual-beats/${encodeURIComponent(visualBeatId)}/selected-image`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ itemId, expectedVisualBeatRowVersion }),
       },
     ),
 

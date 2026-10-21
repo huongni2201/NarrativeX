@@ -37,6 +37,7 @@ type Props = Readonly<{
   totalDurationMs: number;
   totalSizeBytes: number;
   busy: boolean;
+  fixedSpeakingRate?: boolean;
   voiceReferenceName: string | null;
   voiceReferenceScope: VoiceReferenceScope | null;
   previewText: string;
@@ -70,6 +71,7 @@ export function VoiceWorkspaceContext({
   totalDurationMs,
   totalSizeBytes,
   busy,
+  fixedSpeakingRate = false,
   voiceReferenceName,
   voiceReferenceScope,
   previewText,
@@ -119,7 +121,7 @@ export function VoiceWorkspaceContext({
             </label>
             <label className="grid gap-1 text-caption text-text-muted">
               Speaking rate
-              <Input type="number" min="0.25" max="2" step="0.1" value={speakingRate} onChange={(event) => onSpeakingRateChange(event.target.value)} />
+              <Input type="number" min="0.25" max="2" step="0.1" value={fixedSpeakingRate ? "1" : speakingRate} disabled={fixedSpeakingRate} onChange={(event) => onSpeakingRateChange(event.target.value)} />
             </label>
           </div>
         </InspectorSection>}

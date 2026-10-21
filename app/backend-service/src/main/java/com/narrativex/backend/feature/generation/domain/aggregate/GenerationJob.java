@@ -8,12 +8,15 @@ import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 
 /** Durable generation job aggregate. */
 public final class GenerationJob extends AggregateRoot {
   public static final String CANCEL_REQUESTED_CODE = "COMPUTE_CANCEL_REQUESTED";
+  private static final Set<String> LOCAL_ANALYSIS_STEPS =
+      Set.of("ANTIGRAVITY_ANALYSIS_CANON", "ANTIGRAVITY_ANALYSIS_STORY");
   @Getter private final UUID jobId;
   @Getter private final UUID projectId;
   @Getter private final JobType type;
@@ -669,6 +672,15 @@ public final class GenerationJob extends AggregateRoot {
         .computeSequence(sequence != null ? sequence : this.computeSequence)
         .lastComputeState(computeState != null ? computeState : this.lastComputeState)
         .build();
+  }
+
+  /** Records a trusted Chapter Analysis stage label alongside its monotonic progress. */
+  public GenerationJob recordLocalAnalysisProgress(int progress, String stageStep) {
+    if (!LOCAL_ANALYSIS_STEPS.contains(stageStep)) {
+      throw new IllegalArgumentException("Unsupported local analysis progress step");
+    }
+    int bounded = Math.max(0, Math.min(99, progress));
+    return toBuilder().progress(Math.max(this.progress, bounded)).currentStep(stageStep).build();
   }
 
   public boolean isCancellationRequested() {

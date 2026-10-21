@@ -6,10 +6,13 @@ import com.narrativex.backend.feature.generation.application.model.compute.Outpu
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.application.service.ComputeResultFinalizer;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +27,7 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
   private final GenerationJobRepository generationJobRepository;
   private final MediaAssetRepository mediaAssetRepository;
   private final ComputeArtifactAccess artifactAccess;
+  private final MediaGenerationItemRepository mediaGenerationItemRepository;
 
   @Override
   public JobType supportedType() {
@@ -38,7 +42,10 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
         && (productionMode == null
             || productionMode
                 == com.narrativex.backend.feature.generation.domain.enums.ProductionMode
-                    .IMAGE_MOTION);
+                    .IMAGE_MOTION
+            || productionMode
+                == com.narrativex.backend.feature.generation.domain.enums.ProductionMode
+                    .LEGACY_IMAGE);
   }
 
   @Override
@@ -90,11 +97,24 @@ public class ImageGenerationResultFinalizer implements ComputeResultFinalizer {
             produced.sha256(),
             null));
 
+    // Attach the asset to its VisualBeat attempt so the user can review and select it.
+    mediaGenerationItemRepository.completeImageAttempt(
+        requireSingleAttempt(job).getId(), produced.artifactId());
+
     GenerationJob freshJob = generationJobRepository.findByJobId(job.getJobId()).orElse(job);
     if (!freshJob.getStatus().isTerminal()) {
       GenerationJob completed = freshJob.markCompleted("MEDIA_READY");
       generationJobRepository.save(completed);
       log.info("Image generation completed and asset finalized for job {}", job.getJobId());
     }
+  }
+
+  private MediaGenerationItem requireSingleAttempt(GenerationJob job) {
+    List<MediaGenerationItem> attempts = mediaGenerationItemRepository.findByJobId(job.getId());
+    if (attempts.size() != 1) {
+      throw new IllegalStateException(
+          "Image job " + job.getJobId() + " must own exactly one VisualBeat attempt");
+    }
+    return attempts.get(0);
   }
 }

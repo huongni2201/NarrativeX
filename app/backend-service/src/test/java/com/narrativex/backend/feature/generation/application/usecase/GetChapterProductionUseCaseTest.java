@@ -98,7 +98,10 @@ class GetChapterProductionUseCaseTest {
           speakerVoiceAccess,
           mock(GetCurrentMediaJobUseCase.class),
           timeline,
-          statusRepository);
+          statusRepository,
+          new com.narrativex.backend.feature.generation.application.service.TakeQualityReadModel(
+              new com.narrativex.backend.feature.generation.application.service
+                  .TakeQualityEvaluator()));
 
   @Test
   void assemblesCompleteProductionResponse() {
@@ -107,6 +110,10 @@ class GetChapterProductionUseCaseTest {
     UUID storyVersionId = UUID.randomUUID();
     UUID sceneId = UUID.randomUUID();
     UUID visualBeatId = UUID.randomUUID();
+    UUID storyBeatId = UUID.randomUUID();
+    UUID speakerProjectCharacterId = UUID.randomUUID();
+    UUID firstCueId = UUID.randomUUID();
+    UUID secondCueId = UUID.randomUUID();
     UUID sequenceId = UUID.randomUUID();
     UUID shotId = UUID.randomUUID();
     UUID takeId = UUID.randomUUID();
@@ -121,7 +128,7 @@ class GetChapterProductionUseCaseTest {
         new VisualBeatInfo(
             visualBeatId,
             sceneId,
-            UUID.randomUUID(),
+            storyBeatId,
             1,
             "Beat 1",
             "visual intent",
@@ -129,7 +136,27 @@ class GetChapterProductionUseCaseTest {
             null,
             "beat prompt");
     when(storyboardAccess.findVisualBeats(List.of(sceneId))).thenReturn(List.of(vb));
-    when(storyboardAccess.findAudioCues(any())).thenReturn(List.of());
+    when(storyboardAccess.findAudioCues(List.of(storyBeatId)))
+        .thenReturn(
+            List.of(
+                new StoryboardProductionAccess.AudioCueInfo(
+                    firstCueId,
+                    storyBeatId,
+                    0,
+                    "DIALOGUE",
+                    speakerProjectCharacterId,
+                    1L,
+                    "First line",
+                    "DRAFT"),
+                new StoryboardProductionAccess.AudioCueInfo(
+                    secondCueId,
+                    storyBeatId,
+                    1,
+                    "DIALOGUE",
+                    speakerProjectCharacterId,
+                    2L,
+                    "Second line",
+                    "APPROVED")));
 
     ShotSequenceInfo sequence = new ShotSequenceInfo(sequenceId, visualBeatId, 1);
     when(storyboardAccess.findSequences(List.of(visualBeatId))).thenReturn(List.of(sequence));
@@ -167,7 +194,7 @@ class GetChapterProductionUseCaseTest {
             GenerationStrategy.TEXT_TO_VIDEO,
             UUID.randomUUID(),
             4000L,
-            "{\"whisperX\":{\"expectedText\":\"Hello\",\"recognizedText\":\"Hello\",\"confidence\":0.95,\"coverage\":1.0}}",
+            "{\"whisperX\":{\"expectedText\":\"Hello\",\"recognizedText\":\"Hello\",\"confidence\":0.95,\"coverage\":1.0,\"timingMatch\":true,\"status\":\"PASSED\"}}",
             "PASSED",
             null,
             null,
@@ -192,6 +219,16 @@ class GetChapterProductionUseCaseTest {
     assertThat(shotItem.takes()).hasSize(1);
     assertThat(shotItem.takes().get(0).whisperXSummary()).isNotNull();
     assertThat(shotItem.takes().get(0).whisperXSummary().recognizedText()).isEqualTo("Hello");
+    var cueItems = response.scenes().get(0).visualBeats().get(0).audioCues();
+    assertThat(cueItems)
+        .extracting(ChapterProductionView.ProductionAudioCueItem::id)
+        .containsExactly(firstCueId, secondCueId);
+    assertThat(cueItems)
+        .extracting(ChapterProductionView.ProductionAudioCueItem::adaptedText)
+        .containsExactly("First line", "Second line");
+    assertThat(cueItems)
+        .extracting(ChapterProductionView.ProductionAudioCueItem::status)
+        .containsExactly("DRAFT", "APPROVED");
     assertThat(shotItem.selectedTake()).isNotNull();
     assertThat(shotItem.selectedTake().takeId()).isEqualTo(takeId);
     assertThat(response.selectedShots()).isEqualTo(1);
@@ -206,6 +243,125 @@ class GetChapterProductionUseCaseTest {
     assertThat(status.timelineReady()).isFalse();
     assertThat(status.renderReady()).isFalse();
     assertThat(status.overallProgressPercent()).isEqualTo(100);
+  }
+
+  private static String measured(double meanY, long silenceMs) {
+    return "{\"whisperx\":{\"status\":\"PASSED\"},\"qualityControl\":{\"status\":\"MEASURED\","
+        + "\"scorerVersion\":\"FFMPEG_TAKE_QC_V1\",\"freezeHeadMs\":0,\"freezeTotalMs\":0,"
+        + "\"motionMean\":3.0,\"sceneCutCount\":0,\"flickerStddev\":0.5,\"blackTotalMs\":0,"
+        + "\"silenceTotalMs\":"
+        + silenceMs
+        + ",\"integratedLufs\":-19.0,\"peakDbfs\":-3.0,\"meanY\":"
+        + meanY
+        + ",\"meanU\":127.0,\"meanV\":128.0}}";
+  }
+
+  @Test
+  void takeQualityIsEvaluatedAgainstItsSceneAndDialogue() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID sceneId = UUID.randomUUID();
+    UUID visualBeatId = UUID.randomUUID();
+    UUID storyBeatId = UUID.randomUUID();
+    UUID sequenceId = UUID.randomUUID();
+    when(storyboardAccess.findChapter(chapterId))
+        .thenReturn(Optional.of(new ChapterInfo(chapterId, UUID.randomUUID(), "Chapter", 1)));
+    when(storyboardAccess.findScenes(chapterId))
+        .thenReturn(List.of(new SceneInfo(sceneId, 1, "S")));
+    when(storyboardAccess.findVisualBeats(List.of(sceneId)))
+        .thenReturn(
+            List.of(
+                new VisualBeatInfo(
+                    visualBeatId, sceneId, storyBeatId, 1, "B", "intent", "APPROVED", null, null)));
+    when(storyboardAccess.findAudioCues(List.of(storyBeatId)))
+        .thenReturn(
+            List.of(
+                new StoryboardProductionAccess.AudioCueInfo(
+                    UUID.randomUUID(), storyBeatId, 0, "DIALOGUE", null, 1L, "Line", "APPROVED")));
+    when(storyboardAccess.findSequences(List.of(visualBeatId)))
+        .thenReturn(List.of(new ShotSequenceInfo(sequenceId, visualBeatId, 1)));
+
+    // Y of 170 is far from a scene whose other takes sit near 120; the last take was never
+    // measured.
+    String[] metrics = {
+      measured(170, 0),
+      measured(120, 4000),
+      measured(121, 0),
+      measured(122, 0),
+      measured(119, 0),
+      "{}"
+    };
+    List<ShotInfo> shots = new java.util.ArrayList<>();
+    List<TakeRecord> takes = new java.util.ArrayList<>();
+    List<SelectedTake> selections = new java.util.ArrayList<>();
+    for (int index = 0; index < metrics.length; index++) {
+      UUID shotId = UUID.randomUUID();
+      UUID takeId = UUID.randomUUID();
+      shots.add(
+          new ShotInfo(
+              shotId,
+              sequenceId,
+              index,
+              "p",
+              "HOOK",
+              List.of(),
+              null,
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              "{}",
+              4000L,
+              GenerationStrategy.TEXT_TO_VIDEO,
+              "STANDARD",
+              "READY"));
+      takes.add(
+          new TakeRecord(
+              takeId,
+              shotId,
+              1,
+              "comfyui",
+              "ltx",
+              GenerationStrategy.TEXT_TO_VIDEO,
+              UUID.randomUUID(),
+              4000L,
+              metrics[index],
+              "PASSED",
+              null,
+              null,
+              null,
+              "PASSED",
+              Instant.now()));
+      selections.add(new SelectedTake(shotId, takeId, 0L, 3000L));
+    }
+    List<UUID> shotIds = shots.stream().map(ShotInfo::id).toList();
+    when(storyboardAccess.findShotsByChapter(projectId, chapterId)).thenReturn(shots);
+    when(takeRepository.findByShotIds(shotIds)).thenReturn(takes);
+    when(selectedTakeRepository.findByShotIds(shotIds)).thenReturn(selections);
+
+    var items =
+        useCase
+            .execute(projectId, chapterId)
+            .scenes()
+            .getFirst()
+            .visualBeats()
+            .getFirst()
+            .shotSequence()
+            .shots()
+            .stream()
+            .map(shot -> shot.takes().getFirst().quality())
+            .toList();
+
+    assertThat(items.get(0).warnings()).extracting("code").containsExactly("COLOR_DRIFT");
+    assertThat(items.get(1).warnings()).extracting("code").containsExactly("SILENT_DIALOGUE");
+    assertThat(items.get(2).level()).isEqualTo("GOOD");
+    assertThat(items.get(3).level()).isEqualTo("GOOD");
+    assertThat(items.get(4).level()).isEqualTo("GOOD");
+    assertThat(items.get(5).level()).isEqualTo("UNMEASURED");
+    assertThat(items.get(5).metrics()).isNull();
   }
 
   @Test

@@ -10,11 +10,11 @@ const REF = "11111111-1111-4111-8111-111111111111";
 const encrypt = value => Buffer.from(`enc:${value}`, "utf8");
 const decrypt = value => value.toString("utf8").replace(/^enc:/u, "");
 const completion = (attemptId, lease = `lease-${attemptId}`) => ({
-  leaseToken: lease, rawJson: "{\"scenes\":[]}", adapterVersion: "antigravity-cli/2", conversationId: "c",
+  leaseToken: lease, rawJson: "{\"scenes\":[]}", adapterVersion: "antigravity-cli/3", conversationId: "c",
   usage: { promptTokens: 1, outputTokens: 1, thinkingTokens: 0, cachedTokens: 0, totalTokens: 2, runtimeMs: 5 },
 });
 
-async function build({ jobs = 1, maxParallel = 1, eligible = true, run, requestHook, decryptWith = decrypt, onDeliveryError } = {}) {
+async function build({ jobs = 1, maxParallel = 1, eligible = true, run, requestHook, decryptWith = decrypt, onDeliveryError, onEligibility } = {}) {
   const root = await mkdtemp(join(tmpdir(), "nx-analysis-service-"));
   const directory = join(root, "journal");
   const queue = Array.from({ length: jobs }, (_, index) => ({
@@ -28,7 +28,7 @@ async function build({ jobs = 1, maxParallel = 1, eligible = true, run, requestH
   const runs = [];
   const service = new StoryAnalysisService(directory, {
     session: {
-      eligibility: async () => eligible ? { credentialRef: REF, maxParallel } : null,
+      eligibility: async () => { onEligibility?.(); return eligible ? { credentialRef: REF, maxParallel } : null; },
       noteSuccess: () => { notes.success++; },
       noteFailure: async error => { notes.failures.push(error.code); },
       noteDeliveryProblem: code => { notes.delivery.push(code); },
@@ -56,13 +56,13 @@ test("one chapter: claim, run, complete, and the journal is gone", async () => {
     await h.service.idle();
     const claim = posts(h, "/claim")[0].body;
     assert.equal(claim.credentialRef, REF);
-    assert.equal(claim.adapterVersion, "antigravity-cli/2");
+    assert.equal(claim.adapterVersion, "antigravity-cli/3");
     assert.match(claim.claimRequestId, /^[0-9a-f-]{36}$/u);
     assert.deepEqual(h.runs, ["attempt-1"]);
     const complete = posts(h, "/attempt-1/complete");
     assert.equal(complete.length, 1);
     assert.equal(complete[0].body.leaseToken, "lease-attempt-1");
-    assert.equal(complete[0].body.adapterVersion, "antigravity-cli/2");
+    assert.equal(complete[0].body.adapterVersion, "antigravity-cli/3");
     assert.deepEqual(await journals(h), []);
     assert.equal(h.notes.success, 1);
   } finally { await h.cleanup(); }
@@ -141,6 +141,10 @@ test("a known failure is observed as not ambiguous; an unresolved one as ambiguo
 test("a failed delivery keeps the result and delivers it later without running again", async () => {
   let failures = 1;
   const h = await build({ requestHook: path => { if (path.endsWith("/complete") && failures-- > 0) throw new AnalysisBackendError(503); } });
+  h.queue[0].stageContracts = {
+    CANON: { promptTemplate: "canon", responseSchema: {}, promptHash: "a", schemaHash: "b" },
+    STORY: { promptTemplate: "story", responseSchema: {}, promptHash: "c", schemaHash: "d" },
+  };
   try {
     await h.service.tick();
     await h.service.idle();
@@ -213,6 +217,25 @@ test("an unreadable journal is set aside instead of blocking the queue", async (
 });
 
 const storedJournal = (h, id, journal) => writeFile(join(h.directory, `pending-${id}.encrypted`), encrypt(JSON.stringify({ claimRequestId: id, credentialRef: REF, ...journal })));
+
+test("an unpaired Desktop pairs before settling a journal from an earlier backend database, so the queue is not blocked", async () => {
+  let paired = false;
+  const h = await build({ jobs: 1, onEligibility: () => { paired = true; }, requestHook: (path) => {
+    // Without a device identity `recover` cannot be sent at all; the request layer throws a plain Error.
+    if (path.endsWith("/recover") && !paired) throw new Error("Local device must be connected first");
+  } });
+  try {
+    await mkdir(h.directory, { recursive: true });
+    const id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    await storedJournal(h, id, {});
+    await h.service.tick();
+    await h.service.idle();
+    assert.deepEqual(await journals(h), [], "the orphaned journal is settled once the Desktop is paired");
+    assert.equal(posts(h, "/recover")[0].body.claimRequestId, id);
+    assert.deepEqual(h.runs, ["attempt-1"], "the queued chapter is claimed after the journal is settled");
+    assert.equal(posts(h, "/attempt-1/complete").length, 1);
+  } finally { await h.cleanup(); }
+});
 
 test("a stored result whose attempt the backend no longer knows (404) is set aside and does not block new claims", async () => {
   const h = await build({ jobs: 1, requestHook: path => { if (path.endsWith("/attempt-9/complete")) throw new AnalysisBackendError(404); } });
@@ -299,6 +322,29 @@ test("the runner can ask the backend to check a result with this attempt's lease
   } finally { await h.cleanup(); }
 });
 
+test("staged validation forwards its trusted stage and accumulated canon context", async () => {
+  const context = { stage: "STORY", canonContext: { characters: [{ ai_name: "lan" }], locations: [] } };
+  const h = await build({
+    requestHook: (path, body) => { if (path.endsWith("/validation")) return []; },
+    run: async (claim, signal, hooks) => {
+      await hooks.validate("{\"scenes\":[]}", 4, 8, context);
+      return completion(claim.attemptId);
+    },
+  });
+  try {
+    await h.service.tick();
+    await h.service.idle();
+    assert.deepEqual(posts(h, "/attempt-1/validation")[0].body, {
+      leaseToken: "lease-attempt-1",
+      rawJson: "{\"scenes\":[]}",
+      windowFirst: 4,
+      windowLast: 8,
+      stage: "STORY",
+      canonContext: context.canonContext,
+    });
+  } finally { await h.cleanup(); }
+});
+
 test("progress is posted with this attempt's lease, and a backend that refuses it never disturbs the run", async () => {
   const h = await build({
     requestHook: (path) => { if (path.endsWith("/progress")) throw new AnalysisBackendError(404); },
@@ -313,5 +359,21 @@ test("progress is posted with this attempt's lease, and a backend that refuses i
     ]);
     assert.equal(posts(h, "/attempt-1/complete").length, 1, "the result is still delivered");
     assert.equal(h.notes.success, 1);
+  } finally { await h.cleanup(); }
+});
+
+test("stage progress sends only the runner's trusted enum value", async () => {
+  const h = await build({
+    run: async (claim, signal, hooks) => {
+      hooks.onProgress(52, { stage: "CANON", windowNumber: 2, windowCount: 4 });
+      return completion(claim.attemptId);
+    },
+  });
+  try {
+    await h.service.tick();
+    await h.service.idle();
+    assert.deepEqual(posts(h, "/attempt-1/progress")[0].body, {
+      leaseToken: "lease-attempt-1", progress: 52, stage: "CANON",
+    });
   } finally { await h.cleanup(); }
 });

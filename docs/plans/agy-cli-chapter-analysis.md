@@ -46,6 +46,10 @@ Thêm 9 test cho các nhánh trên: nhóm Chapter Analysis **69 pass, 1 skip** (
 
 ## 3. Kiến trúc
 
+**Chẩn đoán lỗi Jobs, 2026-10-17 — IMPLEMENTED, UI đã kiểm chứng:** `agy print timeout` được phân loại `ANALYSIS_TIMEOUT`; thông báo vượt output token được phân loại `OUTPUT_LIMIT_EXCEEDED`. Jobs có giải thích tiếng Việt, xem toàn bộ phần log đã lưu, cuộn và sao chép qua clipboard native. Log giữ 20 mục gần nhất, tối đa 16.384 ký tự cuối/mục, che thông tin nhạy cảm, gắn Job ID cho lượt chạy mới; log cũ không có ID được ghi rõ là nhật ký gần đây chưa liên kết. Test Desktop: **492 pass, 13 skip**; hai test trình duyệt Jobs đạt; type-check, build và dependency lock đạt. Electron/Vite với backend thật đã mở đúng job `01a1491a-b198-71e3-9984-9322d0471402`, đọc bản sao log thật trong profile kiểm chứng riêng và kiểm tra clipboard, dark/light, cửa sổ hẹp; không có lỗi JavaScript, request thất bại hoặc tràn ngang trong lượt kiểm tra. Bằng chứng cục bộ: `.runtime/jobs-errors-native-{dark,light,narrow}.png`. **PARTIAL:** không chạy lại inference, nên chưa xác nhận chương này phân tích thành công; log của job cũ vẫn mang mã `PROCESS_FAILED` đã lưu trước bản sửa.
+
+**Two-stage Chapter Analysis, 2026-10-17 — PARTIAL:** plan [Tách Chapter Analysis thành hai prompt](20261017-two-stage-chapter-analysis.md) implements execution contract 1.3 with adapter `antigravity-cli/3`. New snapshots run CANON windows before STORY windows; already admitted 1.2 snapshots retain this plan's combined window contract. Contract, stage-validation and runner unit tests pass. PostgreSQL round-trip and real Electron/backend/provider acceptance are still pending; this entry does not promote the real chapter flow to IMPLEMENTED.
+
 ```text
 Renderer (tab Tài khoản, nút Phân tích)
    │ IPC: status / models / openAgy / refresh / openTerms

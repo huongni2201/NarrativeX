@@ -42,12 +42,12 @@ test("audio workspace saves character voices, preserves drafts on errors and sep
     await page.getByRole("button", { name: "Lời kể", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Lời kể theo chương" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Chương đọc", exact: true })).toContainText("Chương thử");
-    await expect(page.getByRole("combobox", { name: "Giọng người kể", exact: true })).toContainText("VieNeu Default");
+    await expect(page.getByRole("combobox", { name: "Giọng người kể", exact: true })).toContainText("Minh Quân Pro");
     await page.getByRole("button", { name: "Thư viện giọng", exact: true }).click();
     await page.getByRole("textbox", { name: "Tìm voice" }).fill("Không có giọng này");
     await expect(page.getByText("Không tìm thấy voice", { exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "Tìm voice" }).fill("");
-    await page.getByRole("button", { name: "Phát thử VieNeu Default" }).first().click();
+    await page.getByRole("button", { name: "Phát thử Minh Quân Pro" }).first().click();
     await expect(page.getByRole("status")).toContainText("Voice này chưa có sample audio.");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
     await page.goto(url("error"));
@@ -81,7 +81,7 @@ test("VieNeu voices tab lists presets, creates and removes custom voices and rep
     await page.getByRole("button", { name: "Giọng VieNeu", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Giọng VieNeu" })).toBeVisible();
     const builtIn = page.getByRole("region", { name: "Giọng có sẵn của VieNeu" });
-    await expect(builtIn.getByRole("listitem")).toHaveCount(3);
+    await expect(builtIn.getByRole("listitem")).toHaveCount(2);
     await expect(builtIn.getByRole("listitem").first()).toContainText("Minh Quân Pro");
     await expect(builtIn.getByText("Nổi bật")).toBeVisible();
     await expect(builtIn).toContainText("Miền Bắc");

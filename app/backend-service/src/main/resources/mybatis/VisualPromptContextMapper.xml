@@ -28,6 +28,11 @@
         <result property="injury" column="injury" />
         <result property="wardrobeContext" column="wardrobe_context" />
         <result property="beatRole" column="beat_role" />
+        <result property="characterVersionId" column="character_version_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="outfitVersionId" column="outfit_version_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="aiName" column="ai_name" />
     </resultMap>
 
     <resultMap id="visualPromptReferenceRow"
@@ -257,6 +262,85 @@
                       ELSE 2
                   END,
                   sc.order_index,
+                  pc.id
+    </select>
+
+    <select id="findCharactersForShot" resultMap="visualPromptCharacterRow">
+        SELECT vb.id AS visual_beat_id,
+               pc.id AS assignment_id,
+               c.id AS character_id,
+               c.canonical_name,
+               cai.ai_name,
+               canon.id AS character_version_id,
+               canon.version_number,
+               canon.visual_prompt,
+               appearance.appearance_prompt,
+               appearance.age_state,
+               appearance.hairstyle,
+               appearance.injury,
+               appearance.wardrobe_context,
+               appearance.outfit_version_id,
+               COALESCE(vbc.role, 'SECONDARY') AS beat_role
+          FROM shots sh
+          JOIN shot_sequences ss ON ss.id = sh.sequence_id
+          JOIN visual_beats vb ON vb.id = ss.visual_beat_id
+          JOIN scenes s ON s.id = vb.scene_id
+          JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
+          JOIN visual_beat_characters vbc ON vbc.visual_beat_id = vb.id
+          JOIN project_characters pc ON pc.id = vbc.project_character_id
+          JOIN characters c ON c.id = pc.character_id
+          LEFT JOIN project_character_ai_identities cai
+            ON cai.project_id = pc.project_id
+           AND cai.project_character_id = pc.id
+           AND cai.is_active = TRUE
+          LEFT JOIN LATERAL (
+              SELECT cv.id,
+                     cv.version_number,
+                     cv.visual_prompt
+                FROM character_versions cv
+               WHERE cv.character_id = c.id
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
+               ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
+                        cv.version_number DESC,
+                        cv.id DESC
+               LIMIT 1
+          ) canon ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT ca.appearance_prompt,
+                     ca.age_state,
+                     ca.hairstyle,
+                     ca.injury,
+                     ca.wardrobe_context,
+                     ca.outfit_version_id
+                FROM character_appearances ca
+               WHERE ca.character_id = c.id
+                 AND (ca.project_id = pc.project_id OR ca.project_id IS NULL)
+                 AND ca.timeline_key = CONCAT('chapter:', ch.id::text)
+               ORDER BY CASE WHEN ca.project_id = pc.project_id THEN 0 ELSE 1 END,
+                        ca.updated_at DESC,
+                        ca.id DESC
+               LIMIT 1
+          ) appearance ON TRUE
+         WHERE sh.id = #{shotId}
+           AND s.project_id = #{projectId}
+           AND s.storyboard_revision_id = ch.current_storyboard_revision_id
+           AND ch.deleted_at IS NULL
+           AND sv.project_id = #{projectId}
+           AND pc.project_id = #{projectId}
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+         ORDER BY CASE COALESCE(vbc.role, 'SECONDARY')
+                      WHEN 'PRIMARY' THEN 0
+                      WHEN 'SECONDARY' THEN 1
+                      ELSE 2
+                  END,
                   pc.id
     </select>
 

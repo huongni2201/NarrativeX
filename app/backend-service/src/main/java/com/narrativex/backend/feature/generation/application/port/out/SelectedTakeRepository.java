@@ -10,5 +10,12 @@ public interface SelectedTakeRepository {
 
   List<SelectedTake> findByShotIds(List<UUID> shotIds);
 
-  void saveSelection(UUID shotId, UUID takeId, long sourceInMs, long sourceOutMs);
+  SelectedTake saveSelection(
+      UUID shotId,
+      UUID takeId,
+      long sourceInMs,
+      long sourceOutMs,
+      long expectedRowVersion,
+      String reviewFingerprint,
+      String reviewChecklistJson);
 }

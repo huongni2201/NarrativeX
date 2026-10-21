@@ -17,4 +17,7 @@ public interface MediaPlanMapper extends NarrativeXMyBatisMapper {
       @Param("mediaPlanId") UUID mediaPlanId,
       @Param("revision") int revision,
       @Param("chapterId") UUID chapterId);
+
+  FrozenBeatImageInputRow findFrozenBeatImageInput(
+      @Param("mediaPlanId") UUID mediaPlanId, @Param("visualBeatId") UUID visualBeatId);
 }

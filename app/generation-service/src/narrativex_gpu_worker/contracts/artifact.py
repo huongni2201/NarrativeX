@@ -53,6 +53,30 @@ class OutputArtifactTarget(ProtocolModel):
     access: ArtifactWriteAccess
 
 
+Measure = Annotated[float, Field(allow_inf_nan=False)]
+DurationMs = Annotated[int, Field(ge=0)]
+
+
+class VideoQualityMetrics(ProtocolModel):
+    """Raw take measurements. Thresholds and verdicts belong to the backend, not the worker."""
+
+    status: Literal["MEASURED", "UNAVAILABLE"]
+    scorer_version: Annotated[str, Field(min_length=1, max_length=64)]
+    reason: Annotated[str, Field(max_length=256)] | None = None
+    freeze_head_ms: DurationMs | None = None
+    freeze_total_ms: DurationMs | None = None
+    motion_mean: Measure | None = None
+    scene_cut_count: Annotated[int, Field(ge=0)] | None = None
+    flicker_stddev: Measure | None = None
+    black_total_ms: DurationMs | None = None
+    silence_total_ms: DurationMs | None = None
+    integrated_lufs: Measure | None = None
+    peak_dbfs: Measure | None = None
+    mean_y: Measure | None = None
+    mean_u: Measure | None = None
+    mean_v: Measure | None = None
+
+
 class VideoTechnicalMetadata(ProtocolModel):
     duration_ms: Annotated[int, Field(gt=0)]
     width: Annotated[int, Field(gt=0)]
@@ -60,6 +84,7 @@ class VideoTechnicalMetadata(ProtocolModel):
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     has_audio: bool
     decode_passed: bool
+    quality_metrics: VideoQualityMetrics | None = None
 
 
 class ProducedArtifact(ProtocolModel):
@@ -87,5 +112,6 @@ __all__ = [
     "ProtocolModel",
     "Sha256",
     "TaskArtifacts",
+    "VideoQualityMetrics",
     "VideoTechnicalMetadata",
 ]

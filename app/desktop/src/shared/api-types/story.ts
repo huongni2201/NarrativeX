@@ -98,12 +98,49 @@ interface TakeValidationResult {
 }
 
 interface WhisperXSummary {
-  expectedText: string;
-  recognizedText: string;
-  coverage: number;
-  confidence: number;
-  timingMatch: boolean;
-  status: "PASSED" | "WARNING" | "FAILED";
+  expectedText: string | null;
+  recognizedText: string | null;
+  coverage: number | null;
+  confidence: number | null;
+  timingMatch: boolean | null;
+  status: "PASSED" | "WARNING" | "FAILED" | null;
+}
+
+export type TakeQualityLevel = "GOOD" | "REVIEW" | "DEFECT" | "UNMEASURED";
+
+export interface TakeQualityWarning {
+  code: string;
+  category: VideoQAFailureCategory;
+  severity: "REVIEW" | "DEFECT";
+  measured: number;
+  threshold: number;
+}
+
+/** Raw worker measurements; absent fields were not measured. */
+export interface TakeQualityMetrics {
+  status: "MEASURED" | "UNAVAILABLE";
+  scorerVersion: string;
+  reason?: string | null;
+  freezeHeadMs?: number | null;
+  freezeTotalMs?: number | null;
+  motionMean?: number | null;
+  sceneCutCount?: number | null;
+  flickerStddev?: number | null;
+  blackTotalMs?: number | null;
+  silenceTotalMs?: number | null;
+  integratedLufs?: number | null;
+  peakDbfs?: number | null;
+  meanY?: number | null;
+  meanU?: number | null;
+  meanV?: number | null;
+}
+
+/** Advisory automatic QC; it never replaces technical validation or the editor's review. */
+export interface TakeQuality {
+  level: TakeQualityLevel;
+  thresholdsVersion?: string;
+  warnings: TakeQualityWarning[];
+  metrics?: TakeQualityMetrics | null;
 }
 
 export interface DesktopTake {
@@ -122,6 +159,7 @@ export interface DesktopTake {
   createdAt?: string;
   metricsJson?: string | null;
   whisperXSummary?: WhisperXSummary | null;
+  quality?: TakeQuality | null;
 }
 
 export interface DesktopSelectedTake {
@@ -129,9 +167,20 @@ export interface DesktopSelectedTake {
   takeId: string;
   sourceInMs: number;
   sourceOutMs: number;
-  rowVersion?: number;
+  rowVersion: number;
+  reviewFingerprint?: string | null;
+  reviewChecklistJson?: string | null;
+  reviewedAt?: string | null;
   selectedAt?: string;
   updatedAt?: string;
+}
+
+export interface TakeContentReviewChecklist {
+  characterWardrobe: boolean;
+  settingContinuity: boolean;
+  actionMotion: boolean;
+  dialogueVoice: boolean;
+  lipSync: boolean;
 }
 
 interface DesktopShotGenerationAttempt {
@@ -190,7 +239,7 @@ export interface DesktopShot {
   preflight?: ShotPreflight | null;
 }
 
-interface ChapterProductionAudioCue {
+export interface ChapterProductionAudioCue {
   id: string;
   storyBeatId: string;
   orderIndex: number;
@@ -198,13 +247,15 @@ interface ChapterProductionAudioCue {
   speakerProjectCharacterId?: string | null;
   speakerName?: string | null;
   adaptedText?: string | null;
+  status: "DRAFT" | "READY" | "APPROVED" | "REJECTED";
   characterId?: string | null;
   voiceProfileId?: string | null;
   voiceReferenceAssetId?: string | null;
   voiceReady: boolean;
+  rowVersion: number;
 }
 
-interface ChapterProductionVisualBeat {
+export interface ChapterProductionVisualBeat {
   id: string;
   sceneId: string;
   storyBeatId?: string | null;
@@ -218,6 +269,18 @@ interface ChapterProductionVisualBeat {
   prompt?: string | null;
   audioCues: ChapterProductionAudioCue[];
   shotSequence?: DesktopShotSequence | null;
+}
+
+export interface ShotAudioCueAllocation {
+  audioCueId: string;
+  shotId: string;
+  audioCueRowVersion: number;
+}
+
+export interface ShotAudioCueAllocationSet {
+  sequenceId: string;
+  rowVersion: number;
+  allocations: ShotAudioCueAllocation[];
 }
 
 interface ChapterProductionScene {

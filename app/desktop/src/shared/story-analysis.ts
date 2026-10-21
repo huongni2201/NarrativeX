@@ -9,6 +9,19 @@ export interface AnalysisDiagnostic {
   reason: string | null;
 }
 
+/** Local CLI error log only; never model output. Older entries have no job ID. */
+export interface AnalysisDiagnosticEntry {
+  at: string;
+  code: string;
+  exitCode: number | null;
+  reason: string | null;
+  excerpt: string;
+  jobId?: string;
+  stage?: "CANON" | "STORY";
+  windowNumber?: number;
+  windowCount?: number;
+}
+
 /** Remaining share (0..1) of the `agy /usage` buckets for one model family. */
 export interface AgyUsageGroup {
   family: "gemini" | "third-party";

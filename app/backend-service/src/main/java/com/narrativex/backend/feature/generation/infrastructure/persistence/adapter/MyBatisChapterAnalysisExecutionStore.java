@@ -5,6 +5,8 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Anal
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionAttempt;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionProfile;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionSnapshot;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStage;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStageContract;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisExecutionStore;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisAttemptCheckpoint;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
@@ -14,6 +16,7 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisExecutionMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisExecutionSnapshotRow;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,8 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExecutionStore {
   private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
+  private static final TypeReference<Map<ChapterAnalysisStage, ChapterAnalysisStageContract>>
+      STAGE_CONTRACTS = new TypeReference<>() {};
 
   private final ChapterAnalysisExecutionMapper mapper;
   private final ObjectMapper objectMapper;
@@ -210,6 +215,8 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
     row.setSchemaVersion(value.profile().schemaVersion());
     row.setSchemaHash(value.profile().schemaHash());
     row.setResponseSchemaJson(write(value.responseSchema()));
+    row.setStageContractsJson(
+        value.stageContracts() == null ? null : write(value.stageContracts()));
     row.setInputFingerprint(value.inputFingerprint());
     row.setConfigRevision(value.configRevision());
     row.setCreatedAt(value.createdAt());
@@ -224,6 +231,7 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
         readTree(row.getResponseSchemaJson()),
         row.getInputFingerprint(),
         row.getConfigRevision(),
+        readStageContracts(row.getStageContractsJson()),
         row.getCreatedAt());
   }
 
@@ -259,6 +267,7 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
         && expected.profile().equals(saved.profile())
         && expected.promptTemplate().equals(saved.promptTemplate())
         && expected.responseSchema().equals(saved.responseSchema())
+        && java.util.Objects.equals(expected.stageContracts(), saved.stageContracts())
         && expected.inputFingerprint().equals(saved.inputFingerprint())
         && expected.configRevision() == saved.configRevision();
   }
@@ -286,6 +295,15 @@ public class MyBatisChapterAnalysisExecutionStore implements ChapterAnalysisExec
       return objectMapper.readTree(json);
     } catch (Exception exception) {
       throw new IllegalStateException("Could not read chapter analysis schema JSON", exception);
+    }
+  }
+
+  private Map<ChapterAnalysisStage, ChapterAnalysisStageContract> readStageContracts(String json) {
+    if (json == null || json.isBlank()) return null;
+    try {
+      return Map.copyOf(objectMapper.readValue(json, STAGE_CONTRACTS));
+    } catch (Exception exception) {
+      throw new IllegalStateException("Could not read Chapter Analysis stage contracts", exception);
     }
   }
 

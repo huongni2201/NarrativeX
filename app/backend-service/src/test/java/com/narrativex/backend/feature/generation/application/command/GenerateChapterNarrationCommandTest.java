@@ -39,22 +39,27 @@ class GenerateChapterNarrationCommandTest {
   }
 
   @Test
-  void previewRejectsMissingReferenceAndOversizedText() {
-    UUID projectId = UUID.randomUUID();
-    UUID chapterId = UUID.randomUUID();
+  void previewWithoutReferenceUsesCatalogVoice() {
+    var command =
+        new GenerateChapterNarrationCommand(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "vieneu-preset-minh-quan-pro",
+            BigDecimal.ONE,
+            null,
+            "Giọng mẫu");
 
+    assertThat(command.preview()).isTrue();
+    assertThat(command.voiceReference()).isNull();
+  }
+
+  @Test
+  void previewRejectsOversizedText() {
     assertThatThrownBy(
             () ->
                 new GenerateChapterNarrationCommand(
-                    projectId, chapterId, "vieneu-default", BigDecimal.ONE, null, "Giọng mẫu"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("requires a voice reference");
-
-    assertThatThrownBy(
-            () ->
-                new GenerateChapterNarrationCommand(
-                    projectId,
-                    chapterId,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
                     "vieneu-default",
                     BigDecimal.ONE,
                     new VoiceReferenceSelection(

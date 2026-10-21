@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Cano
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRequest;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisResult;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisRetirement;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStage;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisRunRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Handler for CHAPTER_ANALYZE generation jobs. Analysis runs through Desktop's agy CLI (ADR-0009):
@@ -148,6 +150,33 @@ public class ChapterAnalysisJobHandler implements GenerationJobHandler {
       GenerationJob job, String rawJson, int windowFirst, int windowLast) {
     return analysisMaterializer.validate(
         job, rawJson.getBytes(StandardCharsets.UTF_8), windowFirst, windowLast);
+  }
+
+  public java.util.List<ChapterAnalysisArtifactMaterializer.Violation> validateStage(
+      GenerationJob job,
+      ChapterAnalysisStage stage,
+      String rawJson,
+      int windowFirst,
+      int windowLast,
+      JsonNode canonContext,
+      JsonNode responseSchema) {
+    byte[] payload = rawJson.getBytes(StandardCharsets.UTF_8);
+    return switch (stage) {
+      case CANON -> analysisMaterializer.validateCanonStage(payload, responseSchema, canonContext);
+      case STORY ->
+          analysisMaterializer.validateStoryStage(
+              job, payload, windowFirst, windowLast, responseSchema, canonContext);
+    };
+  }
+
+  public java.util.List<ChapterAnalysisArtifactMaterializer.Violation> validateStagedFinal(
+      GenerationJob job,
+      String rawJson,
+      JsonNode finalSchema,
+      JsonNode canonSchema,
+      JsonNode storySchema) {
+    return analysisMaterializer.validateStagedFinal(
+        job, rawJson.getBytes(StandardCharsets.UTF_8), finalSchema, canonSchema, storySchema);
   }
 
   public void materializeAndComplete(

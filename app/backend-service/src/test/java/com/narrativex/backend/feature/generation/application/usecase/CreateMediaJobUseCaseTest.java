@@ -27,7 +27,9 @@ import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -372,6 +374,169 @@ class CreateMediaJobUseCaseTest {
     // The legacy ImageStyle hint is ignored: the plan gets the saved configuration.
     assertThat(captured.getValue().promptSettings()).isSameAs(current);
     verify(promptSettingsAccess, org.mockito.Mockito.times(1)).current();
+  }
+
+  @Test
+  void singleBeatImageAttemptFreezesOnlyTheApprovedBeat() {
+    UUID targetBeatId = UUID.randomUUID();
+    UUID otherBeatId = UUID.randomUUID();
+    var current = PromptSettingsDefaults.settings().withActiveStyle("CINEMATIC").withRevision(6);
+    var planningSource =
+        new MediaPlanningSource(
+            List.of(
+                new MediaPlanningSource.SceneSnapshot(
+                    UUID.randomUUID(),
+                    1,
+                    "Scene narration",
+                    10,
+                    List.of(
+                        new MediaPlanningSource.BeatSnapshot(
+                            targetBeatId, 1, "Target beat", MediaPlanningSource.MotionIntent.STILL),
+                        new MediaPlanningSource.BeatSnapshot(
+                            otherBeatId,
+                            2,
+                            "Other beat",
+                            MediaPlanningSource.MotionIntent.STILL)))));
+    when(generationJobRepository.findByIdempotencyKey("one-beat-image"))
+        .thenReturn(Optional.empty());
+    when(promptSettingsAccess.current()).thenReturn(current);
+    when(chapterSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
+        .thenReturn(
+            new ChapterAnalysisSource(CHAPTER_ID, UUID.randomUUID(), 1L, "a".repeat(64), "source"));
+    when(mediaPlanningSourceAccess.requireCurrent(CHAPTER_ID)).thenReturn(planningSource);
+    when(imageGenerationCatalog.resolve())
+        .thenReturn(new ImageGenerationCatalog.ImageGenerationProfile("api", "image-model"));
+    when(limits.getMaxConcurrentExpensiveJobs()).thenReturn(5);
+    when(projectAccess.findProject(PROJECT_ID))
+        .thenReturn(
+            org.mockito.Mockito.mock(
+                com.narrativex.backend.feature.project.domain.aggregate.Project.class));
+    var sentinel = new IllegalStateException("stop after plan command");
+    when(createMediaPlanUseCase.execute(any())).thenThrow(sentinel);
+    var command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "one-beat-image",
+            "LEGACY_IMAGE",
+            "16:9",
+            ImageStyle.CINEMATIC,
+            "IMAGE",
+            "API",
+            6L,
+            targetBeatId);
+
+    assertThatThrownBy(() -> useCase.execute(command)).isSameAs(sentinel);
+
+    var captured = org.mockito.ArgumentCaptor.forClass(CreateMediaPlanCommand.class);
+    verify(createMediaPlanUseCase).execute(captured.capture());
+    assertThat(captured.getValue().includedBeatIds()).containsExactly(targetBeatId);
+    var otherBeatCommand =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "other-beat-image",
+            "LEGACY_IMAGE",
+            "16:9",
+            ImageStyle.CINEMATIC,
+            "IMAGE",
+            "API",
+            6L,
+            otherBeatId);
+    assertThat(CreateMediaJobUseCase.fingerprint(command, "API"))
+        .isNotEqualTo(CreateMediaJobUseCase.fingerprint(otherBeatCommand, "API"));
+  }
+
+  @Test
+  void rejectsSingleBeatScopeForVideoFirstJobs() {
+    var command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "single-beat-video",
+            "VIDEO_FIRST",
+            "16:9",
+            ImageStyle.CINEMATIC,
+            "VIDEO",
+            null,
+            null,
+            UUID.randomUUID());
+
+    assertThatThrownBy(() -> useCase.execute(command))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("only supported for image jobs");
+    verifyNoInteractions(projectAccess, chapterSourceAccess, mediaPlanningSourceAccess);
+  }
+
+  @Test
+  void perBeatImageAttemptPassesExactlyOneApprovedBeatToThePlan() {
+    UUID targetBeatId = UUID.randomUUID();
+    UUID otherBeatId = UUID.randomUUID();
+    var current = PromptSettingsDefaults.settings().withActiveStyle("CINEMATIC").withRevision(6);
+    var planningSource =
+        new MediaPlanningSource(
+            List.of(
+                new MediaPlanningSource.SceneSnapshot(
+                    UUID.randomUUID(),
+                    1,
+                    "Scene narration",
+                    10,
+                    List.of(
+                        new MediaPlanningSource.BeatSnapshot(
+                            targetBeatId, 1, "Target beat", MediaPlanningSource.MotionIntent.STILL),
+                        new MediaPlanningSource.BeatSnapshot(
+                            otherBeatId,
+                            2,
+                            "Other beat",
+                            MediaPlanningSource.MotionIntent.STILL)))));
+    when(generationJobRepository.findByIdempotencyKey("one-beat-image"))
+        .thenReturn(Optional.empty());
+    when(promptSettingsAccess.current()).thenReturn(current);
+    when(chapterSourceAccess.requireForAnalysisLocked(PROJECT_ID, CHAPTER_ID))
+        .thenReturn(
+            new ChapterAnalysisSource(CHAPTER_ID, UUID.randomUUID(), 1L, "a".repeat(64), "source"));
+    when(mediaPlanningSourceAccess.requireCurrent(CHAPTER_ID)).thenReturn(planningSource);
+    when(imageGenerationCatalog.resolve())
+        .thenReturn(new ImageGenerationCatalog.ImageGenerationProfile("api", "image-model"));
+    when(limits.getMaxConcurrentExpensiveJobs()).thenReturn(5);
+    when(projectAccess.findProject(PROJECT_ID))
+        .thenReturn(
+            org.mockito.Mockito.mock(
+                com.narrativex.backend.feature.project.domain.aggregate.Project.class));
+    var sentinel = new IllegalStateException("stop after plan command");
+    when(createMediaPlanUseCase.execute(any())).thenThrow(sentinel);
+    var command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "one-beat-image",
+            "LEGACY_IMAGE",
+            "16:9",
+            ImageStyle.CINEMATIC,
+            "IMAGE",
+            "API",
+            6L,
+            targetBeatId);
+
+    assertThatThrownBy(() -> useCase.execute(command)).isSameAs(sentinel);
+
+    var captured = org.mockito.ArgumentCaptor.forClass(CreateMediaPlanCommand.class);
+    verify(createMediaPlanUseCase).execute(captured.capture());
+    assertThat(captured.getValue().includedBeatIds()).containsExactly(targetBeatId);
+    var otherBeatCommand =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "other-beat-image",
+            "LEGACY_IMAGE",
+            "16:9",
+            ImageStyle.CINEMATIC,
+            "IMAGE",
+            "API",
+            6L,
+            otherBeatId);
+    assertThat(CreateMediaJobUseCase.fingerprint(command, "API"))
+        .isNotEqualTo(CreateMediaJobUseCase.fingerprint(otherBeatCommand, "API"));
   }
 
   private void stubExistingJob(

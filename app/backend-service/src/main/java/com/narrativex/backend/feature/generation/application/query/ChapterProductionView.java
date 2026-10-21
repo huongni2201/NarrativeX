@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.query;
 
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
+import com.narrativex.backend.feature.generation.application.model.compute.VideoQualityMetricsDto;
 import com.narrativex.backend.feature.generation.domain.enums.VideoQAFailureCategory;
 import java.time.Instant;
 import java.util.List;
@@ -48,10 +49,12 @@ public record ChapterProductionView(
       UUID speakerProjectCharacterId,
       String speakerName,
       String adaptedText,
+      String status,
       UUID characterId,
       UUID voiceProfileId,
       UUID voiceReferenceAssetId,
-      boolean voiceReady) {}
+      boolean voiceReady,
+      long rowVersion) {}
 
   public record ProductionShotSequenceItem(
       UUID id, UUID visualBeatId, int orderIndex, List<ProductionShotItem> shots) {}
@@ -96,10 +99,32 @@ public record ChapterProductionView(
       String validationRetryRecommendation,
       String status,
       Instant createdAt,
-      WhisperXSummaryItem whisperXSummary) {}
+      WhisperXSummaryItem whisperXSummary,
+      ProductionTakeQualityItem quality) {}
+
+  /** Advisory automatic QC: raw worker measurements plus warnings evaluated on read. */
+  public record ProductionTakeQualityItem(
+      String level,
+      String thresholdsVersion,
+      List<ProductionTakeQualityWarningItem> warnings,
+      VideoQualityMetricsDto metrics) {}
+
+  public record ProductionTakeQualityWarningItem(
+      String code,
+      VideoQAFailureCategory category,
+      String severity,
+      double measured,
+      double threshold) {}
 
   public record ProductionSelectedTakeItem(
-      UUID shotId, UUID takeId, long sourceInMs, long sourceOutMs) {}
+      UUID shotId,
+      UUID takeId,
+      long sourceInMs,
+      long sourceOutMs,
+      long rowVersion,
+      String reviewFingerprint,
+      String reviewChecklistJson,
+      Instant reviewedAt) {}
 
   public record ProductionPreflightItem(
       boolean ready, List<String> blockers, List<String> warnings) {}

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Shared test-side source of truth for the pre-release Flyway baseline. */
+/** Shared test-side source of truth for the current Flyway migration inventory. */
 public final class FlywayMigrationContract {
   private static final Pattern VERSIONED_MIGRATION = Pattern.compile("V(\\d+)__.*\\.sql");
   private static final List<String> CANONICAL_MIGRATIONS =
@@ -21,7 +21,10 @@ public final class FlywayMigrationContract {
           "V4__catalog_generation_and_render_snapshots.sql",
           "V5__database_logic_and_triggers.sql",
           "V6__indexes.sql",
-          "V7__seed_catalog.sql");
+          "V7__seed_catalog.sql",
+          "V17__shot_selection_review.sql",
+          "V18__chapter_analysis_stage_contracts.sql",
+          "V19__shot_audio_cue_allocations.sql");
 
   private FlywayMigrationContract() {}
 
@@ -57,7 +60,7 @@ public final class FlywayMigrationContract {
 
   public static Path migration(String name) {
     if (!CANONICAL_MIGRATIONS.contains(name)) {
-      throw new IllegalArgumentException("Unknown canonical Flyway migration: " + name);
+      throw new IllegalArgumentException("Unknown Flyway migration: " + name);
     }
     return migrationRoot().resolve(name);
   }

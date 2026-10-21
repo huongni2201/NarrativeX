@@ -1,25 +1,80 @@
-import { useState, useEffect } from "react";
-import type { DesktopSelectedTake, DesktopShot, DesktopTake } from "../../../../shared/api-types";
+import { useState, useEffect, useRef } from "react";
+import type {
+  DesktopSelectedTake,
+  DesktopShot,
+  DesktopTake,
+  TakeContentReviewChecklist,
+} from "../../../../shared/api-types";
 import { AlertCircle, CheckCircle2, Clapperboard, Clock, Film, Loader2, RotateCcw, Scissors, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TakeQualityBadge, TakeQualityPanel } from "./TakeQualityPanel";
 
 import { localAssetPreviewUrl } from "../../../../shared/local-asset-preview-url";
+import { whisperXEvidenceStatus } from "../../production/model/whisperx-status";
 
 export interface TakeSelectorDrawerProps {
   projectId?: string;
   shot: DesktopShot | null;
+  previousShot?: DesktopShot | null;
+  previousSelectedTake?: DesktopTake | null;
+  nextShot?: DesktopShot | null;
+  nextSelectedTake?: DesktopTake | null;
   takes: DesktopTake[];
   selectedTake: DesktopSelectedTake | null;
   isOpen: boolean;
   onClose: () => void;
-  onSelectTake: (takeId: string, sourceInMs: number, sourceOutMs: number) => Promise<void> | void;
+  onSelectTake: (
+    takeId: string,
+    sourceInMs: number,
+    sourceOutMs: number,
+    contentReview: TakeContentReviewChecklist,
+  ) => Promise<void> | void;
+}
+
+const REVIEW_ITEMS: Array<{ key: keyof TakeContentReviewChecklist; label: string }> = [
+  { key: "characterWardrobe", label: "Nhân vật và trang phục" },
+  { key: "settingContinuity", label: "Bối cảnh và continuity" },
+  { key: "actionMotion", label: "Hành động và chuyển động" },
+  { key: "dialogueVoice", label: "Lời thoại và giọng" },
+  { key: "lipSync", label: "Khẩu hình và thoại trên hình" },
+];
+
+const emptyReview = (): TakeContentReviewChecklist => ({
+  characterWardrobe: false,
+  settingContinuity: false,
+  actionMotion: false,
+  dialogueVoice: false,
+  lipSync: false,
+});
+
+function readReviewChecklist(value?: string | null): TakeContentReviewChecklist | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Partial<TakeContentReviewChecklist>;
+    if (REVIEW_ITEMS.every(({ key }) => parsed[key] === true)) {
+      return {
+        characterWardrobe: true,
+        settingContinuity: true,
+        actionMotion: true,
+        dialogueVoice: true,
+        lipSync: true,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 export function TakeSelectorDrawer({
   projectId,
   shot,
+  previousShot,
+  previousSelectedTake,
+  nextShot,
+  nextSelectedTake,
   takes,
   selectedTake,
   isOpen,
@@ -35,6 +90,9 @@ export function TakeSelectorDrawer({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [reviewChecklist, setReviewChecklist] = useState<TakeContentReviewChecklist>(emptyReview);
+  const activePreviewRef = useRef<HTMLVideoElement | null>(null);
 
   // Synchronize internal state whenever drawer opens or active shot/selected take changes (without resetting on takes poll refresh)
   useEffect(() => {
@@ -43,9 +101,20 @@ export function TakeSelectorDrawer({
       setActiveTakeId(initialTakeId);
       const initialTake = takes.find((t) => t.id === initialTakeId) ?? takes[0];
       const maxDur = initialTake?.sourceDurationMs ?? shot.targetDurationMs ?? 4000;
-      setSourceInMs(selectedTake?.sourceInMs ?? 0);
-      setSourceOutMs(selectedTake?.sourceOutMs ?? maxDur);
+      const initialIn = selectedTake?.sourceInMs ?? 0;
+      const initialOut = selectedTake?.sourceOutMs ?? maxDur;
+      setSourceInMs(initialIn);
+      setSourceOutMs(initialOut);
+      setReviewChecklist(
+        selectedTake?.takeId === initialTakeId &&
+            selectedTake.sourceInMs === initialIn &&
+            selectedTake.sourceOutMs === initialOut &&
+            selectedTake.reviewFingerprint
+          ? readReviewChecklist(selectedTake.reviewChecklistJson) ?? emptyReview()
+          : emptyReview(),
+      );
       setSaveError(null);
+      setPreviewError(null);
     }
   }, [isOpen, shot?.id, selectedTake?.takeId, selectedTake?.sourceInMs, selectedTake?.sourceOutMs]);
 
@@ -105,21 +174,40 @@ export function TakeSelectorDrawer({
   const currentTake = takes.find((t) => t.id === activeTakeId) ?? takes[0];
   const maxDuration = Math.max(100, currentTake?.sourceDurationMs ?? shot.targetDurationMs ?? 4000);
   const isCurrentTakeSelectable = isTakeSelectable(currentTake);
+  const isReviewComplete = REVIEW_ITEMS.every(({ key }) => reviewChecklist[key]);
 
   const handleSelectTake = (take: DesktopTake) => {
     setActiveTakeId(take.id);
     const duration = Math.max(100, take.sourceDurationMs ?? shot.targetDurationMs ?? 4000);
     setSourceInMs(0);
     setSourceOutMs(duration);
+    setReviewChecklist(emptyReview());
     setSaveError(null);
+    setPreviewError(null);
+  };
+
+  const previewNear = (pointMs: number) => {
+    const video = activePreviewRef.current;
+    if (!video) {
+      setPreviewError("Preview của Take chưa sẵn sàng.");
+      return;
+    }
+    video.currentTime = Math.max(0, pointMs - 1000) / 1000;
+    void video.play().catch(() => setPreviewError("Không thể phát preview của Take này."));
   };
 
   const handleSaveSelection = async () => {
-    if (!activeTakeId || sourceOutMs <= sourceInMs || isSaving || !isCurrentTakeSelectable) return;
+    if (
+      !activeTakeId ||
+      sourceOutMs <= sourceInMs ||
+      isSaving ||
+      !isCurrentTakeSelectable ||
+      !isReviewComplete
+    ) return;
     try {
       setIsSaving(true);
       setSaveError(null);
-      await onSelectTake(activeTakeId, sourceInMs, sourceOutMs);
+      await onSelectTake(activeTakeId, sourceInMs, sourceOutMs, reviewChecklist);
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Không thể áp dụng take vào timeline edit.";
@@ -180,6 +268,19 @@ export function TakeSelectorDrawer({
               const isPassed = take.status === "PASSED" || take.validationResult?.passed === true;
               const failureReason = take.validationResult?.failureReason;
               const retryRecommendation = take.validationResult?.retryRecommendation;
+              const whisperXStatus = whisperXEvidenceStatus(take.whisperXSummary);
+              const whisperXStatusLabel = {
+                NO_DATA: "Chưa có dữ liệu",
+                PASSED: "WhisperX: PASSED",
+                WARNING: "WhisperX: cần xem lại",
+                FAILED: "WhisperX: FAIL",
+              }[whisperXStatus];
+              const whisperXStatusClass = {
+                NO_DATA: "text-text-muted",
+                PASSED: "text-success",
+                WARNING: "text-warning",
+                FAILED: "text-destructive-foreground",
+              }[whisperXStatus];
 
               return (
                 <div
@@ -196,7 +297,9 @@ export function TakeSelectorDrawer({
                       Take #{take.attemptNumber}
                     </span>
                     <div className="flex items-center gap-1.5">
+                      <span className="text-caption text-text-dim">Kỹ thuật:</span>
                       {renderTakeStatusBadge(take)}
+                      <TakeQualityBadge quality={take.quality} />
                     </div>
                   </div>
 
@@ -216,24 +319,54 @@ export function TakeSelectorDrawer({
                     </div>
                   )}
 
-                  {take.whisperXSummary && (
-                    <div className="mt-2 text-caption p-2 bg-info/10 text-info-foreground border border-info/20 rounded space-y-1">
-                      <div className="flex items-center justify-between font-semibold">
-                        <span>WhisperX Dialogue QA</span>
-                        <span className="font-mono">
-                          {(take.whisperXSummary.confidence * 100).toFixed(0)}% conf · {(take.whisperXSummary.coverage * 100).toFixed(0)}% cov
-                        </span>
-                      </div>
-                      <div className="text-caption text-text-secondary">
-                        <div><span className="font-bold">Expected:</span> "{take.whisperXSummary.expectedText}"</div>
-                        <div><span className="font-bold">Recognized:</span> "{take.whisperXSummary.recognizedText}"</div>
-                      </div>
+                  <div className="mt-2 text-caption p-2 bg-info/10 border border-info/20 rounded space-y-1">
+                    <div className="flex items-center justify-between gap-2 font-semibold">
+                      <span className="text-info-foreground">WhisperX speech timing</span>
+                      <span className={`font-mono ${whisperXStatusClass}`}>{whisperXStatusLabel}</span>
                     </div>
-                  )}
+                    {take.whisperXSummary ? (
+                      <div className="text-caption text-text-secondary">
+                        <div>
+                          <span className="font-bold">Timing:</span>{" "}
+                          {take.whisperXSummary.timingMatch == null
+                            ? "Chưa có timing đo"
+                            : take.whisperXSummary.timingMatch
+                              ? "Khớp"
+                              : "Không khớp"}
+                          {" · "}
+                          {take.whisperXSummary.confidence == null
+                            ? "—"
+                            : `${(take.whisperXSummary.confidence * 100).toFixed(0)}%`} conf ·{" "}
+                          {take.whisperXSummary.coverage == null
+                            ? "—"
+                            : `${(take.whisperXSummary.coverage * 100).toFixed(0)}%`} cov
+                        </div>
+                        <div><span className="font-bold">Expected:</span> "{take.whisperXSummary.expectedText ?? "—"}"</div>
+                        <div><span className="font-bold">Recognized:</span> "{take.whisperXSummary.recognizedText ?? "—"}"</div>
+                        <div className="text-text-muted">Không đánh giá khẩu hình hoặc nội dung hình ảnh.</div>
+                      </div>
+                    ) : (
+                      <div className="text-text-muted">Chưa có dữ liệu căn chỉnh lời cho Take này.</div>
+                    )}
+                  </div>
+
+                  <TakeQualityPanel
+                    quality={take.quality}
+                    durationMs={take.sourceDurationMs ?? shot.targetDurationMs ?? 4000}
+                    onApplySuggestedIn={
+                      isSelected
+                        ? (suggestedIn) => {
+                            setSourceInMs(suggestedIn);
+                            setReviewChecklist(emptyReview());
+                          }
+                        : undefined
+                    }
+                  />
 
                   {projectId && take.outputAssetId && isSelected && (
                     <div className="mt-2 overflow-hidden rounded border border-border-soft aspect-video bg-black">
                       <video
+                        ref={activePreviewRef}
                         src={localAssetPreviewUrl(projectId, take.outputAssetId)}
                         controls
                         className="w-full h-full object-contain"
@@ -283,7 +416,10 @@ export function TakeSelectorDrawer({
                     step={50}
                     value={sourceInMs}
                     disabled={isSaving}
-                    onChange={(e) => setSourceInMs(Math.max(0, parseInt(e.target.value) || 0))}
+                    onChange={(e) => {
+                      setSourceInMs(Math.max(0, parseInt(e.target.value) || 0));
+                      setReviewChecklist(emptyReview());
+                    }}
                     className="w-full h-1 bg-surface-panel rounded appearance-none cursor-pointer accent-primary"
                     title="Trim In Point"
                   />
@@ -297,7 +433,10 @@ export function TakeSelectorDrawer({
                     step={50}
                     value={sourceOutMs}
                     disabled={isSaving}
-                    onChange={(e) => setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0))}
+                    onChange={(e) => {
+                      setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0));
+                      setReviewChecklist(emptyReview());
+                    }}
                     className="w-full h-1 bg-surface-panel rounded appearance-none cursor-pointer accent-primary"
                     title="Trim Out Point"
                   />
@@ -312,6 +451,7 @@ export function TakeSelectorDrawer({
                   onClick={() => {
                     setSourceInMs(0);
                     setSourceOutMs(maxDuration);
+                    setReviewChecklist(emptyReview());
                   }}
                   className="text-caption text-primary hover:underline cursor-pointer"
                 >
@@ -324,6 +464,7 @@ export function TakeSelectorDrawer({
                     onClick={() => {
                       setSourceInMs(0);
                       setSourceOutMs(shot.targetDurationMs);
+                      setReviewChecklist(emptyReview());
                     }}
                     className="text-caption text-primary hover:underline cursor-pointer"
                   >
@@ -344,7 +485,10 @@ export function TakeSelectorDrawer({
                   max={sourceOutMs - 100}
                   value={sourceInMs}
                   disabled={isSaving}
-                  onChange={(e) => setSourceInMs(Math.max(0, parseInt(e.target.value) || 0))}
+                  onChange={(e) => {
+                    setSourceInMs(Math.max(0, parseInt(e.target.value) || 0));
+                    setReviewChecklist(emptyReview());
+                  }}
                   className="h-8 text-caption"
                 />
               </div>
@@ -358,9 +502,10 @@ export function TakeSelectorDrawer({
                   max={maxDuration}
                   value={sourceOutMs}
                   disabled={isSaving}
-                  onChange={(e) =>
-                    setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0))
-                  }
+                  onChange={(e) => {
+                    setSourceOutMs(Math.min(maxDuration, parseInt(e.target.value) || 0));
+                    setReviewChecklist(emptyReview());
+                  }}
                   className="h-8 text-caption"
                 />
               </div>
@@ -372,6 +517,22 @@ export function TakeSelectorDrawer({
               </span>
             </div>
 
+            <div className="mt-3 rounded border border-warning/30 bg-warning/10 p-2.5 text-caption text-warning">
+              <div className="font-semibold">Trim needs a manual timing check</div>
+              <p className="mt-1 text-text-secondary">
+                Chưa có word-level alignment cho cut này. Phát quanh In/Out và kiểm tra điểm nối với Shot kế tiếp; hệ thống không tự đánh dấu câu hoặc khẩu hình đã khớp.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" disabled={!currentTake?.outputAssetId} onClick={() => previewNear(sourceInMs)}>
+                  Play near In
+                </Button>
+                <Button type="button" variant="outline" size="sm" disabled={!currentTake?.outputAssetId} onClick={() => previewNear(sourceOutMs)}>
+                  Play through Out
+                </Button>
+              </div>
+              {previewError && <p className="mt-2 text-caption text-destructive">{previewError}</p>}
+            </div>
+
             {!isCurrentTakeSelectable && (
               <div className="mt-2.5 rounded bg-warning/10 border border-warning/20 p-2 text-caption text-warning flex items-start gap-1.5">
                 <AlertCircle size={13} className="shrink-0 mt-0.5" />
@@ -379,6 +540,80 @@ export function TakeSelectorDrawer({
               </div>
             )}
           </div>
+        )}
+
+        {currentTake && isCurrentTakeSelectable && (
+          <fieldset className="mt-3 rounded border border-border-soft bg-surface-dark p-3">
+            <legend className="px-1 text-caption font-semibold text-foreground">
+              Người duyệt — bắt buộc trước khi chọn Take (Human content review)
+            </legend>
+            <div className="grid gap-2">
+              {REVIEW_ITEMS.map(({ key, label }) => (
+                <label key={key} className="flex min-h-8 items-center gap-2 text-caption text-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={reviewChecklist[key]}
+                    disabled={isSaving}
+                    onChange={(event) =>
+                      setReviewChecklist((previous) => ({
+                        ...previous,
+                        [key]: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {(previousShot || nextShot) && projectId && (
+          <section className="mt-3 rounded border border-border-soft bg-surface-dark p-3" aria-label="Adjacent Shot cut context">
+            <h3 className="text-caption font-semibold text-foreground">Adjacent Shot context</h3>
+            <p className="mt-1 text-caption text-text-muted">
+              Play the outgoing and incoming clips manually to inspect the cut. This preview does not mix or alter the render timeline.
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {previousShot && (
+                <div className="min-w-0">
+                  <div className="mb-1 text-caption text-text-secondary">
+                    Previous Shot · {previousSelectedTake ? `Take #${previousSelectedTake.attemptNumber}` : "no selected Take"}
+                  </div>
+                  {previousSelectedTake?.outputAssetId ? (
+                    <video
+                      src={localAssetPreviewUrl(projectId, previousSelectedTake.outputAssetId)}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full rounded border border-border-soft bg-black object-contain"
+                      aria-label="Previous Shot selected Take preview"
+                    />
+                  ) : (
+                    <p className="text-caption text-text-muted">Chọn Take cho Shot trước để kiểm tra điểm nối.</p>
+                  )}
+                </div>
+              )}
+              {nextShot && (
+                <div className="min-w-0">
+                  <div className="mb-1 text-caption text-text-secondary">
+                    Next Shot · {nextSelectedTake ? `Take #${nextSelectedTake.attemptNumber}` : "no selected Take"}
+                  </div>
+                  {nextSelectedTake?.outputAssetId ? (
+                    <video
+                      src={localAssetPreviewUrl(projectId, nextSelectedTake.outputAssetId)}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full rounded border border-border-soft bg-black object-contain"
+                      aria-label="Next Shot selected Take preview"
+                    />
+                  ) : (
+                    <p className="text-caption text-text-muted">Chọn Take cho Shot kế tiếp để kiểm tra điểm nối.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
         )}
 
         {/* Inline Error Message */}
@@ -400,7 +635,7 @@ export function TakeSelectorDrawer({
           <Button
             size="sm"
             onClick={handleSaveSelection}
-            disabled={!activeTakeId || sourceOutMs <= sourceInMs || isSaving || !isCurrentTakeSelectable}
+            disabled={!activeTakeId || sourceOutMs <= sourceInMs || isSaving || !isCurrentTakeSelectable || !isReviewComplete}
             className="flex-1"
           >
             {isSaving ? (
@@ -409,7 +644,7 @@ export function TakeSelectorDrawer({
                 <span>Applying Take...</span>
               </>
             ) : (
-              <span>Apply Take to Edit</span>
+              <span>Select reviewed Take</span>
             )}
           </Button>
         </div>

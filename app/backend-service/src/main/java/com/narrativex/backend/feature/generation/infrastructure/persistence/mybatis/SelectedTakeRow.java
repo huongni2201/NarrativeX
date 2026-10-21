@@ -12,6 +12,10 @@ public class SelectedTakeRow {
   private UUID takeId;
   private long sourceInMs;
   private long sourceOutMs;
+  private long rowVersion;
+  private String reviewFingerprint;
+  private String reviewChecklistJson;
+  private Instant reviewedAt;
   private Instant createdAt;
   private Instant updatedAt;
 }

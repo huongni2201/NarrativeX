@@ -191,13 +191,28 @@ class ChapterProductionControllerTest {
     UUID takeId = UUID.randomUUID();
 
     SelectedTake selected = new SelectedTake(shotId, takeId, 0L, 3000L);
-    when(selectTakeUseCase.execute(projectId, shotId, takeId, 0L, 3000L)).thenReturn(selected);
+    when(selectTakeUseCase.execute(
+            projectId,
+            shotId,
+            takeId,
+            0L,
+            3000L,
+            0L,
+            new com.narrativex.backend.feature.generation.domain.value.TakeContentReviewChecklist(
+                true, true, true, true, true)))
+        .thenReturn(selected);
 
     mockMvc
         .perform(
             put("/api/v1/projects/{projectId}/shots/{shotId}/selected-take", projectId, shotId)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"takeId\":\"" + takeId + "\",\"sourceInMs\":0,\"sourceOutMs\":3000}"))
+                .content(
+                    "{\"takeId\":\""
+                        + takeId
+                        + "\",\"sourceInMs\":0,\"sourceOutMs\":3000,"
+                        + "\"expectedRowVersion\":0,\"contentReview\":{"
+                        + "\"characterWardrobe\":true,\"settingContinuity\":true,"
+                        + "\"actionMotion\":true,\"dialogueVoice\":true,\"lipSync\":true}}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.takeId").value(takeId.toString()))

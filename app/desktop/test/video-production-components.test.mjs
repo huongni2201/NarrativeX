@@ -97,6 +97,8 @@ test("ChapterProductionStage enforces backend-authoritative status and avoids lo
   const statusModel = readSource("features/chapters/model/production-stage-status.ts");
   assert.match(statusModel, /status\?\.timelineReady === true/);
   assert.match(statusModel, /status\?\.overallProgressPercent/);
+  assert.match(source, /Technical PASS:/);
+  assert.doesNotMatch(source, /Word Alignment QC/);
 });
 
 test("VideoShotboard uses authoritative shots without local fake shot synthesis", () => {
@@ -147,12 +149,27 @@ test("TakeSelectorDrawer provides state synchronization, visual trim rail, and m
   assert.match(drawerSource, /Applying Take\.\.\./);
 });
 
+test("ShotAudioCueAllocationPanel distinguishes missing, unapproved, and long cue text", () => {
+  const panelSource = readSource("features/storyboard/components/ShotAudioCueAllocationPanel.tsx");
+
+  assert.match(panelSource, /cue\.adaptedText/);
+  assert.match(panelSource, /cue\.status/);
+  assert.match(panelSource, /<details/);
+  assert.match(panelSource, /Chưa có văn bản cue/);
+  assert.match(panelSource, /Văn bản chưa duyệt/);
+  assert.doesNotMatch(panelSource, /dangerouslySetInnerHTML/);
+});
+
 test("ChapterProductionStage mounts VideoShotboard directly into production stage", () => {
   const prodStageSource = readSource("features/chapters/components/stages/ChapterProductionStage.tsx");
 
   assert.match(prodStageSource, /<VideoShotboard/);
   assert.match(prodStageSource, /projectId=\{projectId\}/);
-  assert.match(prodStageSource, /timelineBeats=\{timelineBeats\}/);
+  const timelineBinding = prodStageSource.match(/timelineBeats=\{([^}]+)\}/)?.[1];
+  assert.match(timelineBinding ?? "", /timeline\?\.beats\s*\?\?\s*\[\]/);
+  const shotboardSource = readSource("features/storyboard/components/VideoShotboard.tsx");
+  assert.match(shotboardSource, /timelineBeatByShotId/);
+  assert.match(shotboardSource, /timelineBeats\.flatMap/);
 });
 
 

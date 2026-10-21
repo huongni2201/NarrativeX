@@ -59,9 +59,6 @@ public record GenerateChapterNarrationCommand(
       if (previewText.length() > 500) {
         throw new IllegalArgumentException("previewText must not exceed 500 characters");
       }
-      if (voiceReference == null) {
-        throw new IllegalArgumentException("Voice preview requires a voice reference asset");
-      }
     }
   }
 

@@ -1,4 +1,6 @@
 import { AudioLines, AudioWaveform, Library, Mic2 } from "lucide-react";
+import { useState } from "react";
+import type { DesktopVoice } from "../../../../shared/api-types";
 import { useSearchParams } from "react-router-dom";
 import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWorkspace";
 import { CharacterVoicesScreen } from "./CharacterVoicesScreen";
@@ -14,6 +16,7 @@ const tabs = [
 
 export function AudioWorkspaceScreen({ projectId, workspace }: Readonly<{ projectId: string; workspace: DesktopWorkspaceState }>) {
   const [params, setParams] = useSearchParams();
+  const [requestedVoice, setRequestedVoice] = useState<DesktopVoice | null>(null);
   const tab = tabs.find(item => item.id === params.get("tab"))?.id ?? "characters";
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
@@ -29,10 +32,15 @@ export function AudioWorkspaceScreen({ projectId, workspace }: Readonly<{ projec
           <CharacterVoicesScreen projectId={projectId} characters={workspace.characters} loading={workspace.status === "loading"} />
         </div>
         <div hidden={tab !== "vieneu"} className="h-full">
-          <VieNeuVoicesScreen voices={workspace.voices} loading={workspace.status === "loading"} error={workspace.error} />
+          <VieNeuVoicesScreen projectId={projectId} chapterId={workspace.chapters[0]?.id ?? null} voices={workspace.voices} loading={workspace.status === "loading"} error={workspace.error}
+            active={tab === "vieneu"}
+            onUseVoice={(voice) => {
+              setRequestedVoice({ ...voice });
+              setParams(previous => { const next = new URLSearchParams(previous); next.set("tab", "narration"); return next; });
+            }} />
         </div>
         <div hidden={tab === "characters" || tab === "vieneu"} className="h-full">
-          <VoiceScreen projectId={projectId} chapters={workspace.chapters} voices={workspace.voices} assets={workspace.assets} section={tab === "narration" ? "narration" : "library"} />
+          <VoiceScreen projectId={projectId} chapters={workspace.chapters} voices={workspace.voices} assets={workspace.assets} section={tab === "narration" ? "narration" : "library"} requestedVoice={requestedVoice} active={tab === "narration" || tab === "library"} />
         </div>
       </div>
     </div>

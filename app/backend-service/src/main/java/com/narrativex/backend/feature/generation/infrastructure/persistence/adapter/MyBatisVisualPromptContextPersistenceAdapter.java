@@ -41,6 +41,11 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
   }
 
   @Override
+  public VisualPromptContext findForShot(UUID projectId, UUID shotId) {
+    return toContext(null, mapper.findCharactersForShot(projectId, shotId), List.of());
+  }
+
+  @Override
   public Map<UUID, VisualPromptContext> findForBeats(UUID projectId, List<UUID> visualBeatIds) {
     if (visualBeatIds.isEmpty()) {
       return Map.of();
@@ -116,7 +121,10 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                         row.getInjury(),
                         row.getWardrobeContext(),
                         row.getBeatRole(),
-                        referencesByAssignment.getOrDefault(row.getAssignmentId(), List.of())))
+                        referencesByAssignment.getOrDefault(row.getAssignmentId(), List.of()),
+                        row.getCharacterVersionId(),
+                        row.getOutfitVersionId(),
+                        row.getAiName()))
             .toList();
 
     return new VisualPromptContext(location, characters);

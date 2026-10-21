@@ -65,6 +65,20 @@ class GenerationJobTransactionServiceProgressTest {
   }
 
   @Test
+  void trustedStageLabelIsSavedEvenWhenPercentDidNotChange() {
+    var job = running(50);
+
+    var saved = service.recordProgress(job.getJobId(), 50, "ANTIGRAVITY_ANALYSIS_STORY");
+
+    assertThat(saved).get().extracting(GenerationJob::getProgress).isEqualTo(50);
+    assertThat(saved)
+        .get()
+        .extracting(GenerationJob::getCurrentStep)
+        .isEqualTo("ANTIGRAVITY_ANALYSIS_STORY");
+    verify(repository).save(any(GenerationJob.class));
+  }
+
+  @Test
   void aJobThatIsNotRunningIsLeftAlone() {
     var queued =
         GenerationJob.create(UUID.randomUUID(), JobType.CHAPTER_ANALYZE, ResourceClass.BACKGROUND);

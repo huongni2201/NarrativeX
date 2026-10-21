@@ -28,6 +28,10 @@ public interface TakeMapper extends NarrativeXMyBatisMapper {
 
   int updateValidation(TakeRow row);
 
+  /** Sets only metrics_json.qualityControl, leaving other metric keys and validation alone. */
+  int updateQualityControl(
+      @Param("id") UUID id, @Param("qualityControlJson") String qualityControlJson);
+
   List<TakeRow> findByJobId(@Param("generationJobId") String generationJobId);
 
   TakeRow findByTaskId(@Param("computeTaskId") UUID computeTaskId);

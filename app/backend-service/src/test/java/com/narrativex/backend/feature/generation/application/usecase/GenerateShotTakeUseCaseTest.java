@@ -15,6 +15,8 @@ import com.narrativex.backend.feature.generation.application.model.TakeInputSnap
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
 import com.narrativex.backend.feature.generation.application.port.in.PromptSettingsAccess;
 import com.narrativex.backend.feature.generation.application.port.out.*;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.application.service.VideoPromptCompiler;
 import com.narrativex.backend.feature.generation.domain.aggregate.*;
 import com.narrativex.backend.feature.storyboard.application.port.in.*;
@@ -38,8 +40,11 @@ class GenerateShotTakeUseCaseTest {
       new com.narrativex.backend.feature.generation.infrastructure.compute
           .VideoGenerationProperties();
   UUID projectId = UUID.randomUUID(), shotId = UUID.randomUUID();
+  private static final UUID TEST_SPEAKER_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000101");
   PromptSettingsAccess promptSettings = mock(PromptSettingsAccess.class);
   ShotLocationContextRepository shotLocations = mock(ShotLocationContextRepository.class);
+  VisualPromptContextRepository visualPromptContexts = mock(VisualPromptContextRepository.class);
   GenerateShotTakeUseCase useCase =
       new GenerateShotTakeUseCase(
           storyboard,
@@ -56,11 +61,27 @@ class GenerateShotTakeUseCaseTest {
               .NativeVideoInputMapper(),
           new NarrativeXLimitsProperties(),
           promptSettings,
-          shotLocations);
+          shotLocations,
+          visualPromptContexts);
 
   @BeforeEach
   void setup() {
     when(promptSettings.current()).thenReturn(PromptSettingsDefaults.settings().withRevision(1));
+    when(voices.resolveSpeakerVoice(TEST_SPEAKER_ID))
+        .thenReturn(
+            Optional.of(
+                new SpeakerVoiceAccess.ResolvedSpeakerVoice(
+                    UUID.randomUUID(),
+                    "Hero",
+                    UUID.randomUUID(),
+                    null,
+                    VoiceReferenceScope.PROJECT,
+                    "en",
+                    "US",
+                    "Warm, steady voice",
+                    "Measured delivery",
+                    1,
+                    0L)));
     when(storyboard.findAdmissionContextLocked(projectId, shotId))
         .thenReturn(admissionContext(0, ""));
     when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot(4000, "Hero moves")));
@@ -423,6 +444,50 @@ class GenerateShotTakeUseCaseTest {
   }
 
   @Test
+  void blocksNarratorCueInsteadOfConvertingItToDialogue() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(admissionContextWithCues(1, "A narrator speaks", "NARRATOR"));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("UNSUPPORTED_NATIVE_AUDIO_CUE: NARRATOR");
+
+    verify(jobs, never()).save(any());
+    verify(outbox, never()).enqueue(any());
+  }
+
+  @Test
+  void blocksUnallocatedCuesWhenBeatHasMultipleShots() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(
+            admissionContextWithCues(1, "Hero speaks", "DIALOGUE")
+                .replace("\"shotSequenceShotCount\":1", "\"shotSequenceShotCount\":3"));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("AUDIO_CUE_ALLOCATION_REQUIRED");
+
+    verify(jobs, never()).save(any());
+    verify(outbox, never()).enqueue(any());
+  }
+
+  @Test
+  void admitsCuesWhenSequenceAllocationIsComplete() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(
+            admissionContextWithCues(1, "Hero speaks", "DIALOGUE")
+                .replace("\"shotSequenceShotCount\":1", "\"shotSequenceShotCount\":3")
+                .replace(
+                    "\"cues\":[",
+                    "\"beatAudioCueCount\":1,\"cueAllocationComplete\":true,\"cues\":["));
+
+    var response = useCase.execute(command(null, null));
+
+    assertThat(response.id()).isNotNull();
+    verify(outbox).enqueue(any());
+  }
+
+  @Test
   void unusedVoiceReferenceBytesDoNotBlockNativeAvAdmission() {
     UUID projectCharacterId = UUID.randomUUID();
     UUID characterVersionId = UUID.randomUUID();
@@ -452,6 +517,32 @@ class GenerateShotTakeUseCaseTest {
   }
 
   @Test
+  void snapshotsVisibleCharacterVersionAndAppearanceIntoNewTakeIdentity() {
+    var earlierAppearance = visibleCharacter("blue cloak");
+    var revisedAppearance = visibleCharacter("green cloak");
+    when(visualPromptContexts.findForShot(projectId, shotId))
+        .thenReturn(
+            new VisualPromptContext(null, List.of(earlierAppearance)),
+            new VisualPromptContext(null, List.of(revisedAppearance)));
+
+    useCase.execute(command(null, 55L));
+    useCase.execute(
+        new GenerateShotTakeCommand(
+            projectId, shotId, null, 55L, null, null, "new-appearance-key", "LTX_NATIVE_AV"));
+
+    var snapshots = admittedSnapshots(2).stream().map(JSON_MAPPER::readTree).toList();
+    assertThat(
+            snapshots.get(0).at("/context/visibleCharacterContext/0/characterVersionId").asText())
+        .isNotBlank();
+    assertThat(snapshots.get(0).at("/context/visibleCharacterContext/0/outfitVersionId").asText())
+        .isNotBlank();
+    assertThat(snapshots.get(0).at("/inputs/prompt").asText()).contains("blue cloak");
+    assertThat(snapshots.get(1).at("/inputs/prompt").asText()).contains("green cloak");
+    assertThat(snapshots.get(0).path("requestFingerprint").asText())
+        .isNotEqualTo(snapshots.get(1).path("requestFingerprint").asText());
+  }
+
+  @Test
   void blocksDurationOverWorkerLimitBeforeWrites() {
     when(shots.findShotById(projectId, shotId)).thenReturn(Optional.of(shot(10_001, "Hero moves")));
 
@@ -469,7 +560,7 @@ class GenerateShotTakeUseCaseTest {
   @Test
   void blocksMoreThan32DialogueLinesBeforeWrites() {
     when(storyboard.findAdmissionContextLocked(projectId, shotId))
-        .thenReturn(admissionContext(33, "line"));
+        .thenReturn(admissionContextWithCues(33, "line", "DIALOGUE"));
 
     assertThatThrownBy(() -> useCase.execute(command(null, null)))
         .isInstanceOf(DomainValidationException.class)
@@ -482,7 +573,7 @@ class GenerateShotTakeUseCaseTest {
   @Test
   void blocksDialogueTextOverWorkerLimitBeforeWrites() {
     when(storyboard.findAdmissionContextLocked(projectId, shotId))
-        .thenReturn(admissionContext(1, "x".repeat(10_001)));
+        .thenReturn(admissionContextWithCues(1, "x".repeat(10_001), "DIALOGUE"));
 
     assertThatThrownBy(() -> useCase.execute(command(null, null)))
         .isInstanceOf(DomainValidationException.class)
@@ -490,6 +581,20 @@ class GenerateShotTakeUseCaseTest {
 
     verifyNoInteractions(outbox);
     verify(jobs, never()).save(any());
+  }
+
+  @Test
+  void blocksDialogueThatCannotFitShotDurationBeforeWrites() {
+    when(storyboard.findAdmissionContextLocked(projectId, shotId))
+        .thenReturn(admissionContextWithCues(1, "x".repeat(4_999), "DIALOGUE"));
+
+    assertThatThrownBy(() -> useCase.execute(command(null, null)))
+        .isInstanceOf(DomainValidationException.class)
+        .hasMessageContaining("NATIVE_DIALOGUE_DURATION_ESTIMATE_V1")
+        .hasMessageContaining("exceeds the 4000 ms Shot");
+
+    verify(jobs, never()).save(any());
+    verify(outbox, never()).enqueue(any());
   }
 
   @Test
@@ -645,9 +750,36 @@ class GenerateShotTakeUseCaseTest {
         + UUID.randomUUID()
         + "\",\"storyVersionId\":\""
         + UUID.randomUUID()
-        + "\",\"sourceText\":\"story\",\"chapterRowVersion\":0,\"sourceHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"sourceLanguage\":\"en\",\"storyboardRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"characters\":[],\"cues\":["
+        + "\",\"sourceText\":\"story\",\"chapterRowVersion\":0,\"sourceHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"sourceLanguage\":\"en\",\"storyboardRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"shotSequenceShotCount\":1,\"characters\":[],\"cues\":["
         + cues
         + "]}";
+  }
+
+  private String admissionContextWithCues(int cueCount, String cueText, String cueType) {
+    String speakerId = "DIALOGUE".equals(cueType) ? "\"" + TEST_SPEAKER_ID + "\"" : "null";
+    String characters =
+        "DIALOGUE".equals(cueType)
+            ? "["
+                + "{\"projectCharacterId\":\""
+                + TEST_SPEAKER_ID
+                + "\",\"characterVersionId\":\"00000000-0000-0000-0000-000000000102\",\"status\":\"LOCKED\"}"
+                + "]"
+            : "[]";
+    String cues =
+        java.util.stream.IntStream.range(0, cueCount)
+            .mapToObj(
+                index ->
+                    "{\"cue_type\":\""
+                        + cueType
+                        + "\",\"speaker_project_character_id\":"
+                        + speakerId
+                        + ",\"adapted_text\":\""
+                        + cueText
+                        + "\"}")
+            .collect(java.util.stream.Collectors.joining(","));
+    return admissionContext(0, "")
+        .replace("\"characters\":[]", "\"characters\":" + characters)
+        .replace("\"cues\":[]", "\"cues\":[" + cues + "]");
   }
 
   private String admissionContextWithSpeaker(UUID projectCharacterId, UUID characterVersionId) {
@@ -664,6 +796,25 @@ class GenerateShotTakeUseCaseTest {
         + "\",\"status\":\"LOCKED\"}],\"cues\":[{\"cue_type\":\"DIALOGUE\",\"speaker_project_character_id\":\""
         + projectCharacterId
         + "\",\"adapted_text\":\"Hello\"}]}";
+  }
+
+  private CharacterCanon visibleCharacter(String wardrobe) {
+    return new CharacterCanon(
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        "Hero",
+        3,
+        "A recognizable face with dark hair",
+        "",
+        "adult",
+        "dark hair",
+        null,
+        wardrobe,
+        "PRIMARY",
+        List.of(),
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        "hero");
   }
 
   private StoryboardShotAccess.ShotView shot(long durationMs, String purpose) {

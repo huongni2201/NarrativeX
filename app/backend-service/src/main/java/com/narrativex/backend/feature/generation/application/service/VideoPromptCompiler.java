@@ -1,7 +1,9 @@
 package com.narrativex.backend.feature.generation.application.service;
 
+import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettingsDefaults;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess.ShotView;
 import java.util.ArrayList;
@@ -10,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -21,6 +24,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 public final class VideoPromptCompiler {
+  private static final int MAX_VISIBLE_CHARACTERS = 8;
+  private static final int MAX_CHARACTER_DETAIL_CHARS = 800;
 
   public record CompiledVideoPrompt(
       String prompt,
@@ -63,6 +68,16 @@ public final class VideoPromptCompiler {
       PromptSettings settings,
       String continuityContext,
       VideoLocationContext locationContext) {
+    return compile(shot, settings, continuityContext, locationContext, null);
+  }
+
+  /** Compiles with the pinned canon of characters explicitly participating in this VisualBeat. */
+  public CompiledVideoPrompt compile(
+      ShotView shot,
+      PromptSettings settings,
+      String continuityContext,
+      VideoLocationContext locationContext,
+      List<CharacterCanon> characterContext) {
     Objects.requireNonNull(shot, "shot must not be null");
 
     String narrative = shot.narrativePurpose();
@@ -70,6 +85,8 @@ public final class VideoPromptCompiler {
         locationContext == null && shot.locationRef() != null ? shot.locationRef() : "";
 
     String action = extractField(shot.actionJson(), "action");
+    String actionPhase = extractField(shot.actionJson(), "actionPhase");
+    if (actionPhase.isBlank()) actionPhase = extractField(shot.actionJson(), "action_phase");
     String startState = extractField(shot.startStateJson(), "state");
     String endState = extractField(shot.endStateJson(), "state");
     String composition = extractField(shot.compositionJson(), "composition");
@@ -78,7 +95,14 @@ public final class VideoPromptCompiler {
     String cameraMotion = extractField(shot.cameraMotionJson(), "cameraMotion");
     String environmentMotion = extractField(shot.environmentMotionJson(), "environmentMotion");
 
-    List<String> characters = extractCharacters(shot.subjectsJson());
+    List<CharacterCanon> selectedCharacters =
+        characterContext == null
+            ? List.of()
+            : selectVisibleCharacters(shot.subjectsJson(), characterContext);
+    List<String> characters =
+        selectedCharacters.isEmpty()
+            ? extractCharacters(shot.subjectsJson())
+            : selectedCharacters.stream().map(CharacterCanon::canonicalName).toList();
 
     // 1. Subject Section
     StringBuilder subjectSb = new StringBuilder();
@@ -86,13 +110,36 @@ public final class VideoPromptCompiler {
       subjectSb.append("Characters: ").append(String.join(", ", characters));
     }
     if (!location.isBlank()) {
-      if (!subjectSb.isEmpty()) subjectSb.append(" at ");
+      if (!subjectSb.isEmpty()) {
+        if (selectedCharacters.isEmpty()) subjectSb.append(" at ");
+        else subjectSb.append('\n');
+      }
       subjectSb.append("Location: ").append(location);
+    }
+    for (CharacterCanon character : selectedCharacters) {
+      List<String> appearance = new ArrayList<>();
+      addBounded(appearance, "visual profile", character.visualPrompt());
+      addBounded(appearance, "appearance", character.appearancePrompt());
+      addBounded(appearance, "age", character.ageState());
+      addBounded(appearance, "hairstyle", character.hairstyle());
+      addBounded(appearance, "injury", character.injury());
+      addBounded(appearance, "wardrobe", character.wardrobeContext());
+      subjectSb
+          .append("\nCharacter identity lock: ")
+          .append(bounded(character.canonicalName(), 120))
+          .append(" [CharacterVersion ")
+          .append(character.versionNumber())
+          .append("]: ")
+          .append(bounded(String.join("; ", appearance), MAX_CHARACTER_DETAIL_CHARS));
     }
     String subjectDesc = subjectSb.toString();
 
     // 2. Action Section
     String actionDesc = !action.isBlank() ? action : narrative;
+    if (!actionPhase.isBlank()) {
+      actionDesc =
+          actionDesc.isBlank() ? actionPhase : actionDesc + " Action phase: " + actionPhase;
+    }
 
     // 3. Camera Section
     StringBuilder camSb = new StringBuilder();
@@ -216,5 +263,141 @@ public final class VideoPromptCompiler {
     } catch (Exception ignored) {
     }
     return list;
+  }
+
+  /**
+   * Resolves shot subjects only against VisualBeat participants; speech-only characters stay out.
+   */
+  public List<CharacterCanon> selectVisibleCharacters(
+      String subjectsJson, List<CharacterCanon> characterContext) {
+    List<CharacterCanon> candidates =
+        characterContext == null ? List.of() : List.copyOf(characterContext);
+    List<List<String>> subjects = extractSubjectKeys(subjectsJson);
+    if (subjects.isEmpty()) {
+      if (candidates.size() > MAX_VISIBLE_CHARACTERS) {
+        throw new DomainValidationException(
+            "TOO_MANY_VISIBLE_CHARACTERS: a Shot supports at most "
+                + MAX_VISIBLE_CHARACTERS
+                + " visible character locks");
+      }
+      candidates.forEach(VideoPromptCompiler::requirePinnedCharacter);
+      return candidates;
+    }
+
+    if (candidates.isEmpty()) {
+      throw new DomainValidationException(
+          "SHOT_SUBJECT_NOT_IN_VISUAL_BEAT: Shot subjects must participate in the VisualBeat");
+    }
+
+    List<CharacterCanon> selected = new ArrayList<>();
+    for (List<String> subjectKeys : subjects) {
+      CharacterCanon match = null;
+      for (String key : subjectKeys) {
+        List<CharacterCanon> matches =
+            candidates.stream().filter(candidate -> matchesSubject(candidate, key)).toList();
+        if (matches.size() != 1
+            || (match != null && !match.assignmentId().equals(matches.getFirst().assignmentId()))) {
+          throw new DomainValidationException(
+              "SHOT_SUBJECT_NOT_IN_VISUAL_BEAT: Shot subject does not resolve to one participating character");
+        }
+        match = matches.getFirst();
+      }
+      if (match == null) {
+        throw new DomainValidationException("SHOT_SUBJECT_MISSING_IDENTITY: Shot subject is empty");
+      }
+      requirePinnedCharacter(match);
+      UUID assignmentId = match.assignmentId();
+      if (selected.stream().noneMatch(character -> character.assignmentId().equals(assignmentId))) {
+        selected.add(match);
+      }
+      if (selected.size() > MAX_VISIBLE_CHARACTERS) {
+        throw new DomainValidationException(
+            "TOO_MANY_VISIBLE_CHARACTERS: a Shot supports at most "
+                + MAX_VISIBLE_CHARACTERS
+                + " visible character locks");
+      }
+    }
+    return List.copyOf(selected);
+  }
+
+  private List<List<String>> extractSubjectKeys(String subjectsJson) {
+    if (subjectsJson == null || subjectsJson.isBlank() || subjectsJson.equals("[]"))
+      return List.of();
+    try {
+      JsonNode node = objectMapper.readTree(subjectsJson);
+      if (node == null || !node.isArray()) {
+        throw new DomainValidationException("INVALID_SHOT_SUBJECTS: expected an array");
+      }
+      List<List<String>> subjects = new ArrayList<>();
+      for (JsonNode item : node) {
+        List<String> keys = new ArrayList<>();
+        if (item.isTextual()) {
+          addKey(keys, item.asText());
+        } else if (item.isObject()) {
+          for (String field :
+              List.of("projectCharacterId", "characterId", "aiName", "canonicalName", "name")) {
+            if (item.hasNonNull(field) && item.get(field).isTextual()) {
+              addKey(keys, item.get(field).asText());
+            }
+          }
+        } else {
+          throw new DomainValidationException("INVALID_SHOT_SUBJECTS: expected names or objects");
+        }
+        if (keys.isEmpty()) {
+          throw new DomainValidationException(
+              "SHOT_SUBJECT_MISSING_IDENTITY: Shot subject is empty");
+        }
+        subjects.add(List.copyOf(keys));
+      }
+      return List.copyOf(subjects);
+    } catch (DomainValidationException exception) {
+      throw exception;
+    } catch (Exception exception) {
+      throw new DomainValidationException("INVALID_SHOT_SUBJECTS: expected valid JSON");
+    }
+  }
+
+  private static void addKey(List<String> keys, String value) {
+    if (value != null && !value.isBlank()) keys.add(value.trim());
+  }
+
+  private static boolean matchesSubject(CharacterCanon candidate, String key) {
+    String normalized = key.trim().toLowerCase(Locale.ROOT);
+    return (candidate.assignmentId() != null
+            && normalized.equals(candidate.assignmentId().toString()))
+        || (candidate.characterId() != null
+            && normalized.equals(candidate.characterId().toString()))
+        || normalized.equals(normalize(candidate.aiName()))
+        || normalized.equals(normalize(candidate.canonicalName()));
+  }
+
+  private static String normalize(String value) {
+    return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private static void requirePinnedCharacter(CharacterCanon character) {
+    if (character.assignmentId() == null
+        || character.characterId() == null
+        || character.characterVersionId() == null
+        || character.canonicalName() == null
+        || character.canonicalName().isBlank()
+        || character.visualPrompt() == null
+        || character.visualPrompt().isBlank()) {
+      throw new DomainValidationException(
+          "MISSING_CHARACTER_CANON_VERSION: visible character needs a pinned version and visual profile");
+    }
+  }
+
+  private static void addBounded(List<String> target, String label, String value) {
+    if (value != null && !value.isBlank()) {
+      target.add(label + ": " + bounded(value, 200));
+    }
+  }
+
+  private static String bounded(String value, int maxChars) {
+    if (value == null) return "";
+    String trimmed = value.trim();
+    if (trimmed.length() <= maxChars) return trimmed;
+    return trimmed.substring(0, maxChars - 1).trim() + "…";
   }
 }

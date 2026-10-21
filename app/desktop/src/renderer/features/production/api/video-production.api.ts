@@ -5,6 +5,8 @@ import type {
   DesktopTake,
   GenerationStrategy,
   GenerateShotTakeInput,
+  ShotAudioCueAllocationSet,
+  TakeContentReviewChecklist,
 } from "../../../../shared/api-types";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
@@ -14,7 +16,13 @@ export interface SelectTakeInput {
   takeId: string;
   sourceInMs: number;
   sourceOutMs: number;
-  expectedShotRowVersion?: number;
+  expectedRowVersion: number;
+  contentReview: TakeContentReviewChecklist;
+}
+
+export interface ReplaceShotAudioCueAllocationsInput {
+  expectedRowVersion: number;
+  allocations: Array<{ audioCueId: string; shotId: string }>;
 }
 
 export const videoProductionApi = {
@@ -48,6 +56,21 @@ export const videoProductionApi = {
         method: "PUT",
         body: JSON.stringify(input),
       },
+    ),
+
+  getShotAudioCueAllocations: (projectId: string, sequenceId: string) =>
+    apiRequest<ShotAudioCueAllocationSet>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/shot-sequences/${encodeURIComponent(sequenceId)}/audio-cue-allocations`,
+    ),
+
+  replaceShotAudioCueAllocations: (
+    projectId: string,
+    sequenceId: string,
+    input: ReplaceShotAudioCueAllocationsInput,
+  ) =>
+    apiRequest<ShotAudioCueAllocationSet>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/shot-sequences/${encodeURIComponent(sequenceId)}/audio-cue-allocations`,
+      { method: "PUT", body: JSON.stringify(input) },
     ),
 
   updateStrategy: (projectId: string, shotId: string, strategy: GenerationStrategy) =>

@@ -7,6 +7,7 @@ export const videoProductionQueryKeys = {
   chapter: (projectId: string, chapterId: string) => ["video-production", "chapter", projectId, chapterId] as const,
   chapterStatus: (projectId: string, chapterId: string) => ["video-production", "chapter", projectId, chapterId, "status"] as const,
   chapterProduction: (projectId: string, chapterId: string) => ["video-production", "chapter", projectId, chapterId, "production"] as const,
+  shotAudioCueAllocations: (projectId: string, sequenceId: string) => ["video-production", "shot-sequence", projectId, sequenceId, "audio-cue-allocations"] as const,
 };
 
 export function refreshProduction(client: QueryClient, projectId: string, chapterId?: string | null) {

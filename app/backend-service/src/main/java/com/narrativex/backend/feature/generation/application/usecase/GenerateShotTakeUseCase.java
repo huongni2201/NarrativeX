@@ -24,8 +24,11 @@ import com.narrativex.backend.feature.generation.application.port.out.ShotLocati
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.port.out.TakeRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VideoGenerationCatalog;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
 import com.narrativex.backend.feature.generation.application.service.GenerationPreflightEvaluator;
+import com.narrativex.backend.feature.generation.application.service.NativeDialogueDurationEstimator;
 import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper;
 import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeDialogueLine;
 import com.narrativex.backend.feature.generation.application.service.NativeVideoInputMapper.NativeVideoInputs;
@@ -73,6 +76,7 @@ public class GenerateShotTakeUseCase {
   private final NarrativeXLimitsProperties limits;
   private final PromptSettingsAccess promptSettingsAccess;
   private final ShotLocationContextRepository shotLocationContexts;
+  private final VisualPromptContextRepository visualPromptContexts;
 
   @Transactional
   public TakeResponse execute(GenerateShotTakeCommand command) {
@@ -116,7 +120,10 @@ public class GenerateShotTakeUseCase {
     var prepared =
         prepare(
             command, preloadedLocations == null ? null : preloadedLocations.get(command.shotId()));
-    bindPrompt(prepared, compilePrompt(prepared.shot(), settings, prepared.location()));
+    bindPrompt(
+        prepared,
+        compilePrompt(
+            prepared.shot(), settings, prepared.location(), prepared.visibleCharacters()));
     return new FrozenShot(
         prepared.requestFingerprint(), JSON.writeValueAsString(prepared.semantics()));
   }
@@ -137,7 +144,8 @@ public class GenerateShotTakeUseCase {
       Map<String, Object> semantics,
       List<TakeInputSnapshot.Reference> references,
       String requestFingerprint,
-      VideoLocationContext location) {}
+      VideoLocationContext location,
+      List<CharacterCanon> visibleCharacters) {}
 
   private TakeResponse admit(
       GenerateShotTakeCommand command, String frozenFingerprint, String frozenInputJson) {
@@ -187,7 +195,11 @@ public class GenerateShotTakeUseCase {
         prepared,
         frozenPrompt != null
             ? frozenPrompt
-            : compilePrompt(prepared.shot(), promptSettingsAccess.current(), prepared.location()));
+            : compilePrompt(
+                prepared.shot(),
+                promptSettingsAccess.current(),
+                prepared.location(),
+                prepared.visibleCharacters()));
     var shot = prepared.shot();
     var strategy = prepared.strategy();
     var audioMode = prepared.audioMode();
@@ -311,6 +323,14 @@ public class GenerateShotTakeUseCase {
         shotAccess
             .findShotById(command.projectId(), command.shotId())
             .orElseThrow(() -> new ResourceNotFoundException("Shot not found"));
+    var characterContext = visualPromptContexts.findForShot(command.projectId(), command.shotId());
+    List<CharacterCanon> visibleCharacters =
+        promptCompiler.selectVisibleCharacters(
+            shot.subjectsJson(),
+            characterContext == null ? List.of() : characterContext.characters());
+    if (!visibleCharacters.isEmpty()) {
+      context.put("visibleCharacterContext", visibleCharacters);
+    }
     GenerationStrategy strategy =
         command.strategy() == null ? shot.generationStrategy() : command.strategy();
     if (strategy != GenerationStrategy.TEXT_TO_VIDEO) {
@@ -343,6 +363,18 @@ public class GenerateShotTakeUseCase {
       throw new DomainValidationException(
           "UNSUPPORTED_REFERENCE_CONDITIONING: Current LTX profile does not accept input artifacts");
     }
+    @SuppressWarnings("unchecked")
+    var cues = (List<Map<String, Object>>) context.getOrDefault("cues", List.of());
+    for (var cue : cues) requireNativeDialogueCue(cue);
+    int shotCount =
+        context.get("shotSequenceShotCount") instanceof Number value ? value.intValue() : 1;
+    int beatAudioCueCount =
+        context.get("beatAudioCueCount") instanceof Number value ? value.intValue() : cues.size();
+    boolean cueAllocationComplete = Boolean.TRUE.equals(context.get("cueAllocationComplete"));
+    if (shotCount > 1 && beatAudioCueCount > 0 && !cueAllocationComplete) {
+      throw new DomainValidationException(
+          "AUDIO_CUE_ALLOCATION_REQUIRED: allocate each complete AudioCue to one Shot before generation");
+    }
     pinVoices(context);
     // Resolved by ID through Scene.project_location_id; shots.location_ref is only a fallback.
     VideoLocationContext location =
@@ -357,8 +389,6 @@ public class GenerateShotTakeUseCase {
     NativeVoiceDescription primaryVoiceReference = null;
     @SuppressWarnings("unchecked")
     var voicesMap = (Map<String, Object>) context.getOrDefault("voices", Map.of());
-    @SuppressWarnings("unchecked")
-    var cues = (List<Map<String, Object>>) context.getOrDefault("cues", List.of());
     for (var cue : cues) {
       Object textObj = cue.get("adapted_text");
       if (textObj == null || textObj.toString().isBlank()) {
@@ -383,13 +413,28 @@ public class GenerateShotTakeUseCase {
             }
           }
         }
+        Object deliveryValue = cue.get("delivery_hint");
+        if (deliveryValue != null && !(deliveryValue instanceof String)) {
+          throw new DomainValidationException(
+              "INVALID_NATIVE_CUE_DELIVERY: delivery_hint must be a string");
+        }
+        if (deliveryValue instanceof String delivery && !delivery.isBlank()) {
+          voiceDesc =
+              (voiceDesc == null || voiceDesc.isBlank() ? "" : voiceDesc + "; ")
+                  + "Line delivery: "
+                  + delivery.trim();
+        }
         dialogue.add(new NativeDialogueLine(speaker, textObj.toString().trim(), voiceDesc));
       }
     }
 
     NativeVideoInputs nativeInputs =
         nativeVideoInputMapper.map(shot, dialogue, primaryVoiceReference);
-    validateNativeVideoInputs(shot.targetDurationMs(), nativeInputs);
+    // Native dialogue follows the source script; narration language is a legacy fallback.
+    Object language = context.get("sourceLanguage");
+    if (language == null) language = context.get("narrationLanguage");
+    validateNativeVideoInputs(
+        shot.targetDurationMs(), nativeInputs, Objects.toString(language, "unknown"));
 
     Map<String, Object> inputs = new TreeMap<>();
     inputs.put("workflowProfileId", catalog.defaultProfile());
@@ -423,7 +468,10 @@ public class GenerateShotTakeUseCase {
     // Settings-independent view of the Shot-derived prompt: a changed Shot still changes the
     // request identity, while the prompt configuration (style, instructions) never does.
     semantics.put(
-        "structuralPrompt", promptCompiler.compile(shot, (PromptSettings) null, null).prompt());
+        "structuralPrompt",
+        promptCompiler
+            .compile(shot, (PromptSettings) null, null, null, visibleCharacters)
+            .prompt());
     String requestFingerprint =
         fingerprint(semantics, catalog.defaultProvider(), catalog.defaultModel());
     return new Prepared(
@@ -435,7 +483,8 @@ public class GenerateShotTakeUseCase {
         semantics,
         references,
         requestFingerprint,
-        location);
+        location,
+        visibleCharacters);
   }
 
   /** Compiled prompts plus the prompt-settings provenance frozen next to them. */
@@ -443,8 +492,11 @@ public class GenerateShotTakeUseCase {
       String prompt, String negativePrompt, Map<String, Object> provenance) {}
 
   private PromptInput compilePrompt(
-      StoryboardShotAccess.ShotView shot, PromptSettings settings, VideoLocationContext location) {
-    var compiled = promptCompiler.compile(shot, settings, null, location);
+      StoryboardShotAccess.ShotView shot,
+      PromptSettings settings,
+      VideoLocationContext location,
+      List<CharacterCanon> visibleCharacters) {
+    var compiled = promptCompiler.compile(shot, settings, null, location, visibleCharacters);
     Map<String, Object> provenance = new TreeMap<>();
     provenance.put("revision", Long.toString(settings.revision()));
     provenance.put("styleId", settings.activeStyleId());
@@ -496,6 +548,12 @@ public class GenerateShotTakeUseCase {
     inputsCopy.put(
         "negativePrompt", stored.negativePrompt() == null ? "" : stored.negativePrompt());
     Map<String, Object> semanticsCopy = withoutLocationContext(prepared.semantics());
+    if (semanticsCopy.get("context") instanceof Map<?, ?> context) {
+      Map<String, Object> legacyContext = new TreeMap<>();
+      context.forEach((key, value) -> legacyContext.put(Objects.toString(key), value));
+      legacyContext.remove("visibleCharacterContext");
+      semanticsCopy.put("context", legacyContext);
+    }
     semanticsCopy.put("inputs", inputsCopy);
     semanticsCopy.remove("structuralPrompt"); // not part of the pre-settings identity
     return fingerprint(semanticsCopy, catalog.defaultProvider(), catalog.defaultModel());
@@ -551,8 +609,23 @@ public class GenerateShotTakeUseCase {
     }
   }
 
-  private static void validateNativeVideoInputs(long durationMs, NativeVideoInputs inputs) {
-    if (durationMs < 100 || durationMs > 10_000) {
+  static void requireNativeDialogueCue(Map<String, Object> cue) {
+    String cueType = Objects.toString(cue.get("cue_type"), "").trim();
+    if (!"DIALOGUE".equals(cueType)) {
+      throw new DomainValidationException(
+          "UNSUPPORTED_NATIVE_AUDIO_CUE: "
+              + (cueType.isBlank() ? "UNKNOWN" : cueType)
+              + " cannot be represented by the current Native AV profile");
+    }
+    if (cue.get("speaker_project_character_id") == null) {
+      throw new DomainValidationException(
+          "NATIVE_DIALOGUE_SPEAKER_REQUIRED: dialogue needs an explicit speaker");
+    }
+  }
+
+  private static void validateNativeVideoInputs(
+      long durationMs, NativeVideoInputs inputs, String language) {
+    if (durationMs < 100) {
       throw new DomainValidationException("INVALID_VIDEO_DURATION: Expected 100 to 10000 ms");
     }
     if (inputs.dialogue().size() > 32) {
@@ -570,6 +643,34 @@ public class GenerateShotTakeUseCase {
         throw new DomainValidationException(
             "INVALID_DIALOGUE_VOICE_DESCRIPTION: Maximum is 2000 characters");
       }
+    }
+    long durationEstimate =
+        NativeDialogueDurationEstimator.estimateMs(
+            inputs.dialogue().stream().map(NativeDialogueLine::text).toList(), language);
+    if (durationEstimate > 10_000) {
+      String limitMessage =
+          durationEstimate > durationMs
+              ? "exceeds the " + durationMs + " ms Shot and the 10000 ms profile limit"
+              : "exceeds the 10000 ms profile limit";
+      throw new DomainValidationException(
+          NativeDialogueDurationEstimator.VERSION
+              + ": estimated "
+              + durationEstimate
+              + " ms of speech "
+              + limitMessage
+              + "; shorten the dialogue or split the Shot");
+    }
+    if (!inputs.dialogue().isEmpty() && durationEstimate > durationMs) {
+      throw new DomainValidationException(
+          NativeDialogueDurationEstimator.VERSION
+              + ": estimated "
+              + durationEstimate
+              + " ms of speech exceeds the "
+              + durationMs
+              + " ms Shot; shorten the dialogue or split the Shot");
+    }
+    if (durationMs > 10_000) {
+      throw new DomainValidationException("INVALID_VIDEO_DURATION: Expected 100 to 10000 ms");
     }
     var voice = inputs.voiceReference();
     if (voice != null

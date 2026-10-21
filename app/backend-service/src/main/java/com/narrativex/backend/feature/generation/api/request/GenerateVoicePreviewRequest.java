@@ -15,7 +15,7 @@ public record GenerateVoicePreviewRequest(
     @NotBlank String voiceId,
     @NotBlank @Size(max = 500) String sampleText,
     @DecimalMin("0.25") @DecimalMax("2.0") BigDecimal speakingRate,
-    @NotNull @Valid VoiceReferenceSelection voiceReference) {
+    @Valid VoiceReferenceSelection voiceReference) {
   public BigDecimal effectiveSpeakingRate() {
     return speakingRate == null ? BigDecimal.ONE : speakingRate;
   }

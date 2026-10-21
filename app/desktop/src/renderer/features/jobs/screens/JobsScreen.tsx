@@ -15,6 +15,8 @@ import type { DesktopWorkspaceState } from "../../workspace/queries/useProjectWo
 import { describeLocalRun, isLocalAnalysisRunning, type LocalRunIndicator } from "../model/analysis-run";
 import { useJobHistoryQuery } from "../queries/jobs.queries";
 import { useAnalysisActivity, useNow } from "../queries/useAnalysisActivity";
+import { describeAnalysisFailure } from "../../chapters/model/chapter-analysis";
+import { AnalysisErrorDetails } from "../components/AnalysisErrorDetails";
 
 const RUN_TONE_CLASS: Record<LocalRunIndicator["tone"], string> = {
   success: "text-success",
@@ -61,7 +63,7 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-dark px-4">
+      <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle bg-surface-dark px-4 py-2">
         <div className="flex items-center gap-3">
           <Activity size={18} className="text-primary" />
           <h2 className="text-[14px] font-semibold text-foreground">Tác vụ hệ thống & Nhật ký xử lý (Jobs)</h2>
@@ -128,16 +130,20 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
                   key={job.jobId}
                   className="rounded-lg border border-border-subtle bg-surface transition-[color,background-color,border-color,box-shadow,transform,opacity] hover:border-border"
                 >
-                  <div
-                    className="flex cursor-pointer items-center justify-between p-3.5"
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={`job-details-${job.jobId}`}
+                    aria-label={`${isExpanded ? "Thu gọn" : "Xem chi tiết"} ${job.jobType} ${job.jobId}`}
+                    className="flex w-full flex-wrap items-center justify-between gap-3 p-3.5 text-left focus-visible:outline-2 focus-visible:outline-primary"
                     onClick={() => setExpandedJobId(isExpanded ? null : job.jobId)}
                   >
-                    <div className="flex items-center gap-3">
-                      <button type="button" className="text-text-muted hover:text-foreground">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="text-text-muted">
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </button>
+                      </span>
                       {getStatusIcon(job.status)}
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-[15px] font-medium text-foreground">
                             {job.jobType}
@@ -146,11 +152,12 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
                             {job.jobType}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-label text-text-muted mt-0.5">
-                          {job.currentStep && <span>Bước: {job.currentStep}</span>}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-text-muted">
+                          {job.currentStep && <span className="break-words [overflow-wrap:anywhere]">Bước: {job.currentStep}</span>}
                           {job.currentStep && <span>•</span>}
                           <span>Thời gian: {formattedDate}</span>
                         </div>
+                        {job.status === "FAILED" && job.jobType === "CHAPTER_ANALYZE" && <p className="mt-1 text-label text-destructive">{describeAnalysisFailure(job.errorCode ?? null)}</p>}
                         {indicator && (
                           <div
                             role="status"
@@ -188,29 +195,30 @@ export function JobsScreen({ projectId }: JobsScreenProps) {
                         {job.status}
                       </span>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Expandable Diagnostics */}
                   {isExpanded && (
-                    <div className="border-t border-border-subtle bg-surface-panel p-3.5 text-label">
+                    <div id={`job-details-${job.jobId}`} className="min-w-0 border-t border-border-subtle bg-surface-panel p-3.5 text-label">
                       <div className="flex items-center gap-1.5 text-text-muted mb-2 font-mono">
                         <Terminal size={13} />
                         <span>Technical Diagnostics</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 font-mono text-text-secondary">
+                      <div className="grid grid-cols-1 gap-2 font-mono text-text-secondary md:grid-cols-3">
                         <div className="rounded bg-surface-dark p-2">
                           <span className="text-text-muted block text-caption">Job ID:</span>
-                          <span className="truncate block text-foreground">{job.jobId}</span>
+                          <span className="block break-words text-foreground [overflow-wrap:anywhere]">{job.jobId}</span>
                         </div>
                         <div className="rounded bg-surface-dark p-2">
                           <span className="text-text-muted block text-caption">Current Step:</span>
-                          <span className="truncate block text-foreground">{job.currentStep || "—"}</span>
+                          <span className="block break-words text-foreground [overflow-wrap:anywhere]">{job.currentStep || "—"}</span>
                         </div>
                         <div className="rounded bg-surface-dark p-2">
                           <span className="text-text-muted block text-caption">Error Code:</span>
                           <span className="block text-foreground">{job.errorCode || "None"}</span>
                         </div>
                       </div>
+                      {job.status === "FAILED" && job.jobType === "CHAPTER_ANALYZE" && <AnalysisErrorDetails job={job} />}
                     </div>
                   )}
                 </div>

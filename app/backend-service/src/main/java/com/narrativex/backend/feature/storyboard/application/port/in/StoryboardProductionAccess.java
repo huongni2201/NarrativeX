@@ -28,6 +28,10 @@ public interface StoryboardProductionAccess {
 
   Optional<ShotSequenceInfo> findSequenceById(UUID sequenceId);
 
+  Optional<ShotSequenceInfo> findSequenceByVisualBeatAndProject(UUID projectId, UUID visualBeatId);
+
+  List<ShotInfo> findShotsBySequence(UUID sequenceId);
+
   void updateShotStatus(UUID shotId, String status);
 
   void updateShotStrategy(UUID shotId, GenerationStrategy strategy);
@@ -48,7 +52,37 @@ public interface StoryboardProductionAccess {
       String prompt) {}
 
   record AudioCueInfo(
-      UUID id, UUID storyBeatId, int orderIndex, String cueType, UUID speakerProjectCharacterId) {}
+      UUID id,
+      UUID storyBeatId,
+      int orderIndex,
+      String cueType,
+      UUID speakerProjectCharacterId,
+      long rowVersion,
+      String adaptedText,
+      String status) {
+    public AudioCueInfo(
+        UUID id, UUID storyBeatId, int orderIndex, String cueType, UUID speakerProjectCharacterId) {
+      this(id, storyBeatId, orderIndex, cueType, speakerProjectCharacterId, 0L, null, "DRAFT");
+    }
+
+    public AudioCueInfo(
+        UUID id,
+        UUID storyBeatId,
+        int orderIndex,
+        String cueType,
+        UUID speakerProjectCharacterId,
+        long rowVersion) {
+      this(
+          id,
+          storyBeatId,
+          orderIndex,
+          cueType,
+          speakerProjectCharacterId,
+          rowVersion,
+          null,
+          "DRAFT");
+    }
+  }
 
   record ShotSequenceInfo(UUID id, UUID visualBeatId, int orderIndex) {}
 

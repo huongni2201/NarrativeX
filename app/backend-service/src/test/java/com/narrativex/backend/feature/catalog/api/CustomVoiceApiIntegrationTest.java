@@ -59,9 +59,7 @@ class CustomVoiceApiIntegrationTest {
 
     assertEquals("Minh Quân Pro", preset.synthesisVoiceName());
     assertEquals(null, preset.referenceAssetId());
-    assertEquals(
-        "vieneu-default",
-        voiceCatalogAccess.findVoice("vieneu-default").orElseThrow().synthesisVoiceName());
+    assertTrue(voiceCatalogAccess.findVoice("vieneu-default").isEmpty());
   }
 
   @Test
@@ -90,7 +88,7 @@ class CustomVoiceApiIntegrationTest {
     mockMvc
         .perform(get("/api/v1/voices?language=vi-VN"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.length()").value(27));
+        .andExpect(jsonPath("$.data.length()").value(26));
 
     mockMvc
         .perform(
@@ -108,9 +106,6 @@ class CustomVoiceApiIntegrationTest {
   void rejectsPresetDeletionAndUnreadyReferences() throws Exception {
     mockMvc
         .perform(delete("/api/v1/voices/custom/vieneu-preset-minh-quan-pro"))
-        .andExpect(status().isNotFound());
-    mockMvc
-        .perform(delete("/api/v1/voices/custom/vieneu-default"))
         .andExpect(status().isNotFound());
     assertTrue(voiceCatalogAccess.findVoice("vieneu-preset-minh-quan-pro").isPresent());
 

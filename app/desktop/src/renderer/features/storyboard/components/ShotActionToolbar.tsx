@@ -15,9 +15,11 @@ export interface ShotActionToolbarProps {
   isGenerating?: boolean;
   isBlocked?: boolean;
   blockedReason?: string;
+  isReconciliationRequired?: boolean;
   takeCount: number;
   onGenerate: () => void;
   onRetake: () => void;
+  onReconcile?: () => void;
   onOpenTakeSelector: () => void;
   onStrategyChange: (strategy: GenerationStrategy) => void;
 }
@@ -28,9 +30,11 @@ export function ShotActionToolbar({
   isGenerating,
   isBlocked,
   blockedReason,
+  isReconciliationRequired,
   takeCount,
   onGenerate,
   onRetake,
+  onReconcile,
   onOpenTakeSelector,
   onStrategyChange,
 }: Readonly<ShotActionToolbarProps>) {
@@ -45,14 +49,77 @@ export function ShotActionToolbar({
     : false;
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {/* Strategy selector */}
+    <div className="flex flex-wrap items-center gap-1.5">
+      {/* Generate / Retake buttons */}
+      {isReconciliationRequired ? (
+        <Button
+          size="sm"
+          variant="default"
+          className="h-7 text-caption px-2.5"
+          disabled={isGenerating || !onReconcile}
+          onClick={onReconcile}
+          title="Gửi lại đúng yêu cầu cũ với idempotency key ban đầu"
+        >
+          {isGenerating ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <RefreshCw size={11} />
+          )}
+          <span>Đối soát</span>
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant={isBlocked ? "outline" : "default"}
+          className="h-7 text-caption px-2.5"
+          disabled={isGenerating || isBlocked}
+          onClick={onGenerate}
+          title={isBlocked ? (blockedReason ?? "Không thể tạo video lúc này") : undefined}
+        >
+          {isGenerating ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Play size={11} className="fill-current" />
+          )}
+          <span>{isGenerating ? "Đang tạo…" : takeCount > 0 ? "Tạo take mới" : "Tạo video"}</span>
+        </Button>
+      )}
+
+      {takeCount > 0 && !isReconciliationRequired && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-caption px-2"
+          disabled={isGenerating || isBlocked}
+          onClick={onRetake}
+          title={isBlocked ? (blockedReason ?? "Không thể tạo video lúc này") : "Tạo lại từ take hiện tại"}
+        >
+          <RefreshCw size={11} />
+          <span>Tạo lại</span>
+        </Button>
+      )}
+
+      {/* Take selector / Trimming drawer trigger */}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 text-caption px-2 text-text-secondary hover:text-foreground"
+        onClick={onOpenTakeSelector}
+      >
+        <Layers size={12} />
+        <span>Take ({takeCount})</span>
+      </Button>
+
+      {/* Strategy selector: rarely changed, so it sits last */}
       <Select
         value={currentStrategy}
         onValueChange={(val) => onStrategyChange(val as GenerationStrategy)}
       >
-        <SelectTrigger className="h-7 text-caption min-w-[120px] bg-surface-dark border-border-soft">
-          <SelectValue placeholder="Strategy" />
+        <SelectTrigger
+          className="mt-0.5 h-7 w-full border-border bg-surface-input text-caption"
+          aria-label="Chiến lược tạo video"
+        >
+          <SelectValue placeholder="Chiến lược" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="TEXT_TO_VIDEO" disabled={!isT2VSupported}>
@@ -75,48 +142,6 @@ export function ShotActionToolbar({
           </SelectItem>
         </SelectContent>
       </Select>
-
-      {/* Generate / Retake buttons */}
-      <Button
-        size="sm"
-        variant="default"
-        className="h-7 text-caption px-2.5"
-        disabled={isGenerating || isBlocked}
-        onClick={onGenerate}
-        title={isBlocked ? (blockedReason ?? "Generation blocked") : undefined}
-      >
-        {isGenerating ? (
-          <Loader2 size={12} className="animate-spin" />
-        ) : (
-          <Play size={11} className="fill-current" />
-        )}
-        <span>{takeCount > 0 ? "New Take" : "Generate"}</span>
-      </Button>
-
-      {takeCount > 0 && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-caption px-2"
-          disabled={isGenerating}
-          onClick={onRetake}
-          title="Reason-aware retake"
-        >
-          <RefreshCw size={11} />
-          <span>Retake</span>
-        </Button>
-      )}
-
-      {/* Take selector / Trimming drawer trigger */}
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 text-caption px-2 text-text-secondary hover:text-foreground"
-        onClick={onOpenTakeSelector}
-      >
-        <Layers size={12} />
-        <span>Takes ({takeCount})</span>
-      </Button>
     </div>
   );
 }

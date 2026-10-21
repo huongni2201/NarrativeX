@@ -136,5 +136,6 @@ test("chapter production stage manages video shots and narration readiness", () 
 
   assert.match(prodStage, /Video Shots/);
   assert.match(prodStage, /Narration Audio/);
-  assert.match(prodStage, /Word Alignment/);
+  assert.match(prodStage, /Technical PASS/);
+  assert.doesNotMatch(prodStage, /Word Alignment QC/);
 });

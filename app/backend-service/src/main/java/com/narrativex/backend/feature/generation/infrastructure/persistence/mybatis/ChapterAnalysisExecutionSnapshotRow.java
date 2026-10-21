@@ -17,6 +17,7 @@ public class ChapterAnalysisExecutionSnapshotRow {
   private String schemaVersion;
   private String schemaHash;
   private String responseSchemaJson;
+  private String stageContractsJson;
   private String inputFingerprint;
   private long configRevision;
   private Instant createdAt;

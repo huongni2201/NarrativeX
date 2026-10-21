@@ -11,6 +11,8 @@ import com.narrativex.backend.feature.generation.application.model.analysis.Anal
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionAttempt;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionProfile;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionSnapshot;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStage;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStageContract;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisExecutionStore;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisAttemptCheckpoint;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
@@ -21,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -81,6 +84,15 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
     assertEquals(previouslyQueued, mapper.findNextQueuedLocalJob());
   }
 
+  @Test
+  @Transactional
+  void legacyAdapterCannotClaimStagedSnapshotButVersionThreeCan() {
+    UUID stagedJob = queuedStagedAnalysis();
+
+    assertNotEquals(stagedJob, mapper.findNextQueuedLocalJob(false));
+    assertEquals(stagedJob, mapper.findNextQueuedLocalJob(true));
+  }
+
   private UUID queuedAnalysis(boolean archived, String createdAt) {
     UUID projectId = UuidV7.random();
     jdbc.update(
@@ -115,6 +127,45 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
     return jobId;
   }
 
+  private UUID queuedStagedAnalysis() {
+    UUID projectId = UuidV7.random();
+    jdbc.update(
+        "INSERT INTO projects (id, name, status, source_language, narration_language, image_aspect_ratio) "
+            + "VALUES (?, 'Staged queue regression', 'DRAFT', 'vi', 'vi', '16:9')",
+        projectId);
+    UUID jobId = UuidV7.random();
+    UUID internalId =
+        jdbc.queryForObject(
+            "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress, idempotency_key, created_at) "
+                + "VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?) RETURNING id",
+            (result, row) -> result.getObject(1, UUID.class),
+            jobId,
+            projectId,
+            "staged-queue-regression:" + jobId,
+            java.sql.Timestamp.from(Instant.parse("1900-01-01T00:00:00Z")));
+    var schema = JsonMapper.builder().build().createObjectNode();
+    schema.put("type", "object");
+    var profile =
+        new ChapterAnalysisExecutionProfile(
+            ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
+            "test-model",
+            "HIGH",
+            "1.3",
+            "a".repeat(64),
+            "1.3",
+            "b".repeat(64));
+    var contracts =
+        Map.of(
+            ChapterAnalysisStage.CANON,
+            new ChapterAnalysisStageContract("CANON", schema, "c".repeat(64), "d".repeat(64)),
+            ChapterAnalysisStage.STORY,
+            new ChapterAnalysisStageContract("STORY", schema, "e".repeat(64), "f".repeat(64)));
+    store.saveSnapshot(
+        new ChapterAnalysisExecutionSnapshot(
+            internalId, profile, "", schema, "1".repeat(64), 1, contracts, Instant.now()));
+    return jobId;
+  }
+
   @Test
   void migrationAddsDurableExecutionTablesAndNullableTelemetryWithoutSecrets() throws SQLException {
     try (Connection connection =
@@ -122,7 +173,7 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Statement statement = connection.createStatement()) {
       assertEquals(
-          "7",
+          "19",
           scalar(
               statement,
               "SELECT max(version::integer)::text FROM flyway_schema_history WHERE success"));
@@ -135,6 +186,12 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
           }) {
         assertTrue(exists(statement, "SELECT to_regclass('public." + table + "') IS NOT NULL"));
       }
+      assertTrue(
+          exists(
+              statement,
+              "SELECT is_nullable = 'YES' FROM information_schema.columns "
+                  + "WHERE table_schema='public' AND table_name='chapter_analysis_execution_snapshots' "
+                  + "AND column_name='stage_contracts_json'"));
       for (String column :
           new String[] {
             "prompt_tokens",
@@ -251,23 +308,30 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
     String fingerprint = "c".repeat(64);
     var schema = JsonMapper.builder().build().createObjectNode();
     schema.put("type", "object");
+    Map<ChapterAnalysisStage, ChapterAnalysisStageContract> stageContracts =
+        Map.of(
+            ChapterAnalysisStage.CANON,
+            new ChapterAnalysisStageContract("CANON", schema, "d".repeat(64), "e".repeat(64)),
+            ChapterAnalysisStage.STORY,
+            new ChapterAnalysisStageContract("STORY", schema, "f".repeat(64), "a".repeat(64)));
     var profile =
         new ChapterAnalysisExecutionProfile(
             ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
             "verified-model",
             "HIGH",
-            "1.1",
+            "1.3",
             promptHash,
-            "1.1",
+            "1.3",
             schemaHash);
     ChapterAnalysisExecutionSnapshot snapshot =
         new ChapterAnalysisExecutionSnapshot(
             generationJobId,
             profile,
-            "Analyze: {sourceText}",
+            "",
             schema,
             fingerprint,
             updated.revision(),
+            stageContracts,
             Instant.now());
     ChapterAnalysisExecutionSnapshot savedSnapshot = store.saveSnapshot(snapshot);
     ChapterAnalysisExecutionSnapshot loadedSnapshot =
@@ -277,6 +341,7 @@ class ChapterAnalysisExecutionPostgreSqlIntegrationTest {
     assertEquals(snapshot.responseSchema(), loadedSnapshot.responseSchema());
     assertEquals(snapshot.inputFingerprint(), loadedSnapshot.inputFingerprint());
     assertEquals(snapshot.configRevision(), loadedSnapshot.configRevision());
+    assertEquals(snapshot.stageContracts(), loadedSnapshot.stageContracts());
 
     UUID attemptId = UuidV7.random();
     UUID claimRequestId = UuidV7.random();

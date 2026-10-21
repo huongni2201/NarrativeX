@@ -26,7 +26,7 @@ const FAILURE_REASONS: Record<string, string> = {
   PROVIDER_REFUSAL: "agy từ chối yêu cầu. Kiểm tra gói tài khoản trong tab Tài khoản.",
   CONTENT_BLOCKED: "Nội dung chương bị bộ lọc an toàn chặn.",
   INPUT_TOO_LARGE: "Chương quá dài để phân tích một lần.",
-  OUTPUT_LIMIT_EXCEEDED: "Kết quả phân tích vượt giới hạn cho phép.",
+  OUTPUT_LIMIT_EXCEEDED: "Kết quả phân tích vượt giới hạn đầu ra (token hoặc dung lượng). Kiểm tra độ dài chương và yêu cầu đầu ra trong Cài đặt prompt trước khi phân tích lại.",
   SCHEMA_INVALID: "agy trả về kết quả không đúng định dạng. Hãy phân tích lại.",
   APP_INTERRUPTED: "Ứng dụng đã đóng khi đang phân tích nên chưa có kết quả. Bấm Phân tích chương để chạy lại.",
   ANALYSIS_TIMEOUT: "agy chạy quá thời gian cho phép nên đã bị dừng. Chương có thể quá dài; bấm Phân tích chương để thử lại.",

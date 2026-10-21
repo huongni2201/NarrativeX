@@ -16,7 +16,23 @@ public record ProducedArtifactDto(
   }
 
   public record TechnicalMetadata(
-      long durationMs, int width, int height, double fps, boolean hasAudio, boolean decodePassed) {
+      @JsonProperty("durationMs") long durationMs,
+      @JsonProperty("width") int width,
+      @JsonProperty("height") int height,
+      @JsonProperty("fps") double fps,
+      @JsonProperty("hasAudio") boolean hasAudio,
+      @JsonProperty("decodePassed") boolean decodePassed,
+      @JsonProperty("qualityMetrics") VideoQualityMetricsDto qualityMetrics) {
+    public TechnicalMetadata(
+        long durationMs,
+        int width,
+        int height,
+        double fps,
+        boolean hasAudio,
+        boolean decodePassed) {
+      this(durationMs, width, height, fps, hasAudio, decodePassed, null);
+    }
+
     public boolean matchesNativeProfile() {
       return durationMs > 0
           && width == 1280

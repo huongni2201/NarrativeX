@@ -1,0 +1,44 @@
+{
+  "protocolVersion": "1.0",
+  "taskId": "0199b861-cc3c-7a8e-a915-e5dbff3af7aa",
+  "attemptId": "0199b862-1025-78be-bd71-c6969b74ab71",
+  "state": "SUCCEEDED",
+  "sequence": 9,
+  "observedAt": "2026-10-20T09:15:42Z",
+  "executionHandle": "ltx:execution-opaque-1",
+  "progress": 1,
+  "outputs": [
+    {
+      "artifactId": "0199b862-3a10-7c3e-b7d4-5f0a6c2e9d11",
+      "role": "video",
+      "mediaType": "video/mp4",
+      "sizeBytes": 3482911,
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "technicalMetadata": {
+        "durationMs": 5042,
+        "width": 1280,
+        "height": 720,
+        "fps": 24,
+        "hasAudio": true,
+        "decodePassed": true,
+        "qualityMetrics": {
+          "status": "MEASURED",
+          "scorerVersion": "FFMPEG_TAKE_QC_V1",
+          "freezeHeadMs": 417,
+          "freezeTotalMs": 583,
+          "motionMean": 2.84,
+          "sceneCutCount": 0,
+          "flickerStddev": 0.62,
+          "blackTotalMs": 0,
+          "silenceTotalMs": 1200,
+          "integratedLufs": -19.4,
+          "peakDbfs": -3.1,
+          "meanY": 118.2,
+          "meanU": 126.7,
+          "meanV": 129.1
+        }
+      }
+    }
+  ],
+  "metrics": {"runtimeMs": 71234, "gpuTimeMs": 69880, "peakVramBytes": 27917287424}
+}

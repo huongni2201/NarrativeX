@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.character.application.port.in.SpeakerVoice
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.hashing.Sha256;
+import com.narrativex.backend.feature.generation.application.model.compute.VideoQualityMetricsDto;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository.ShotAggregate;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterProductionStatusRepository.ShotStrategyGroup;
@@ -13,6 +14,7 @@ import com.narrativex.backend.feature.generation.application.port.out.TakeReposi
 import com.narrativex.backend.feature.generation.application.query.ChapterProductionStatusView;
 import com.narrativex.backend.feature.generation.application.query.ChapterProductionView;
 import com.narrativex.backend.feature.generation.application.service.GenerationPreflightEvaluator;
+import com.narrativex.backend.feature.generation.application.service.TakeQualityReadModel;
 import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardProductionAccess;
@@ -51,6 +53,7 @@ public class GetChapterProductionUseCase {
   private final GetCurrentMediaJobUseCase getCurrentMediaJobUseCase;
   private final GetProductionTimelineUseCase getProductionTimelineUseCase;
   private final ChapterProductionStatusRepository statusRepository;
+  private final TakeQualityReadModel takeQuality;
 
   @Transactional(readOnly = true)
   public ChapterProductionView execute(UUID projectId, UUID chapterId) {
@@ -117,15 +120,23 @@ public class GetChapterProductionUseCase {
 
     List<ChapterProductionView.ProductionSceneItem> sceneItems = new ArrayList<>();
 
+    Map<UUID, TakeRecord> takeById =
+        takeRows.stream().collect(Collectors.toMap(TakeRecord::id, t -> t, (t1, t2) -> t1));
+
     for (SceneInfo scene : sceneRows) {
       List<VisualBeatInfo> sceneVisuals = visualsByScene.getOrDefault(scene.id(), List.of());
       List<ChapterProductionView.ProductionVisualBeatItem> beatItems = new ArrayList<>();
+      Map<UUID, VideoQualityMetricsDto> sceneSelectedQuality =
+          selectedQualityByTakeId(
+              sceneVisuals, sequenceByBeatId, shotsBySequenceId, selectedTakeByShotId, takeById);
 
       for (VisualBeatInfo vb : sceneVisuals) {
         List<AudioCueInfo> cues =
             vb.storyBeatId() != null
                 ? cuesByBeat.getOrDefault(vb.storyBeatId(), List.of())
                 : List.of();
+        boolean expectsSpeech =
+            cues.stream().anyMatch(c -> "DIALOGUE".equalsIgnoreCase(c.cueType()));
 
         List<ChapterProductionView.ProductionAudioCueItem> cueItems = new ArrayList<>();
 
@@ -161,11 +172,13 @@ public class GetChapterProductionUseCase {
                   cue.cueType(),
                   cue.speakerProjectCharacterId(),
                   speakerName,
-                  null,
+                  cue.adaptedText(),
+                  cue.status(),
                   charId,
                   profileId,
                   refAssetId,
-                  voiceReady));
+                  voiceReady,
+                  cue.rowVersion()));
         }
 
         // Shot Sequence
@@ -207,11 +220,20 @@ public class GetChapterProductionUseCase {
             ChapterProductionView.ProductionSelectedTakeItem selItem =
                 sel != null
                     ? new ChapterProductionView.ProductionSelectedTakeItem(
-                        sel.shotId(), sel.takeId(), sel.sourceInMs(), sel.sourceOutMs())
+                        sel.shotId(),
+                        sel.takeId(),
+                        sel.sourceInMs(),
+                        sel.sourceOutMs(),
+                        sel.rowVersion(),
+                        sel.reviewFingerprint(),
+                        sel.reviewChecklistJson(),
+                        sel.reviewedAt())
                     : null;
 
             List<ChapterProductionView.ProductionTakeItem> takeItems =
-                takes.stream().map(this::toTakeItem).toList();
+                takes.stream()
+                    .map(take -> toTakeItem(take, expectsSpeech, sceneSelectedQuality))
+                    .toList();
 
             shotItems.add(
                 new ChapterProductionView.ProductionShotItem(
@@ -578,8 +600,46 @@ public class GetChapterProductionUseCase {
         activeJobId);
   }
 
-  private ChapterProductionView.ProductionTakeItem toTakeItem(TakeRecord row) {
+  /** Stored measurements of the takes currently selected in one scene, keyed by take id. */
+  private Map<UUID, VideoQualityMetricsDto> selectedQualityByTakeId(
+      List<VisualBeatInfo> sceneVisuals,
+      Map<UUID, ShotSequenceInfo> sequenceByBeatId,
+      Map<UUID, List<ShotInfo>> shotsBySequenceId,
+      Map<UUID, SelectedTake> selectedTakeByShotId,
+      Map<UUID, TakeRecord> takeById) {
+    Map<UUID, VideoQualityMetricsDto> quality = new HashMap<>();
+    for (VisualBeatInfo vb : sceneVisuals) {
+      ShotSequenceInfo sequence = sequenceByBeatId.get(vb.id());
+      if (sequence == null) {
+        continue;
+      }
+      for (ShotInfo shot : shotsBySequenceId.getOrDefault(sequence.id(), List.of())) {
+        SelectedTake selected = selectedTakeByShotId.get(shot.id());
+        TakeRecord take = selected != null ? takeById.get(selected.takeId()) : null;
+        if (take != null) {
+          takeQuality.storedMetrics(take.metricsJson()).ifPresent(m -> quality.put(take.id(), m));
+        }
+      }
+    }
+    return quality;
+  }
+
+  private ChapterProductionView.ProductionTakeItem toTakeItem(
+      TakeRecord row,
+      boolean expectsSpeech,
+      Map<UUID, VideoQualityMetricsDto> sceneSelectedQuality) {
     ChapterProductionView.WhisperXSummaryItem whisperX = extractWhisperXSummary(row.metricsJson());
+    List<VideoQualityMetricsDto> others =
+        sceneSelectedQuality.entrySet().stream()
+            .filter(entry -> !entry.getKey().equals(row.id()))
+            .map(Map.Entry::getValue)
+            .toList();
+    ChapterProductionView.ProductionTakeQualityItem quality =
+        takeQuality.assess(
+            row.metricsJson(),
+            row.sourceDurationMs(),
+            expectsSpeech,
+            takeQuality.sceneReference(others));
 
     return new ChapterProductionView.ProductionTakeItem(
         row.id(),
@@ -597,7 +657,8 @@ public class GetChapterProductionUseCase {
         row.validationRetryRecommendation(),
         row.status(),
         row.createdAt(),
-        whisperX);
+        whisperX,
+        quality);
   }
 
   private ChapterProductionView.WhisperXSummaryItem extractWhisperXSummary(String metricsJson) {

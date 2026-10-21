@@ -36,31 +36,9 @@ SELECT setval(
     true
 );
 
-INSERT INTO voice_catalog (
-    id, provider, name, language, gender, sample_url, metadata_json
-)
-VALUES
-    (
-        'vieneu-default',
-        'VIENEU',
-        'VieNeu Default',
-        'vi-VN',
-        'NEUTRAL',
-        NULL,
-        '{"style":"natural","local":true,"profileId":"default","model":"vieneu-v3-turbo","supportsSpeakingRate":true,"supportsVoiceClone":true,"supportsBatch":false,"sampleRateHz":48000,"outputFormat":"wav","executionSemantics":"LOCAL_RETRYABLE"}'::jsonb
-    )
-ON CONFLICT (id) DO UPDATE
-SET provider = EXCLUDED.provider,
-    name = EXCLUDED.name,
-    language = EXCLUDED.language,
-    gender = EXCLUDED.gender,
-    sample_url = EXCLUDED.sample_url,
-    metadata_json = EXCLUDED.metadata_json,
-    enabled = TRUE,
-    updated_at = CURRENT_TIMESTAMP;
-
 -- VieNeu v3 Turbo preset voices (names per the pinned VieNeu-TTS 3.8.1 README). The worker resolves
--- providerVoice by name; gender is not published upstream, so it stays unset.
+-- providerVoice by name; gender is not published upstream, so it stays unset. sample_url points at the
+-- pre-rendered 10-15 second sample hosted on R2 (scripts/generate-voice-samples.mjs renders the files).
 INSERT INTO voice_catalog (
     id, provider, name, language, gender, sample_url, metadata_json
 )
@@ -69,7 +47,7 @@ SELECT 'vieneu-preset-' || v.slug,
        v.display_name,
        'vi-VN',
        NULL,
-       NULL,
+       'https://media.narrativex.cloud/narration/vieneu-previews/vieneu-' || v.slug || '.wav',
        jsonb_build_object(
            'style', 'preset',
            'local', TRUE,

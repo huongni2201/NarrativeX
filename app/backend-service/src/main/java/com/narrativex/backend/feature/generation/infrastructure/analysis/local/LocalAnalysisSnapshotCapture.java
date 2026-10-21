@@ -42,15 +42,16 @@ public class LocalAnalysisSnapshotCapture implements ChapterAnalysisSnapshotCapt
       throw new IllegalArgumentException(
           "INPUT_TOO_LARGE: Chapter and prompt instruction exceed the local analysis byte limit");
     }
+    var stageContracts = resources.stageContracts(customInstruction);
     var profile =
         new ChapterAnalysisExecutionProfile(
             ChapterAnalysisExecutionMode.ANTIGRAVITY_CLI,
             config.model(),
             config.effort(),
             ChapterAnalysisContractResources.VERSION,
-            resources.promptHash(),
+            ChapterAnalysisContractResources.promptHash(stageContracts),
             ChapterAnalysisContractResources.VERSION,
-            resources.schemaHash());
+            resources.schemaHash(stageContracts));
     String fingerprint =
         CanonHashCalculator.sha256(
             job.getSourceHash()
@@ -59,21 +60,16 @@ public class LocalAnalysisSnapshotCapture implements ChapterAnalysisSnapshotCapt
                 + ":"
                 + profile
                 + ":"
-                + job.getStoryboardRevisionId()
-                + ":"
-                + CanonHashCalculator.sha256(customInstruction));
+                + job.getStoryboardRevisionId());
     store.saveSnapshot(
         new ChapterAnalysisExecutionSnapshot(
             job.getId(),
             profile,
-            ChapterAnalysisInstructions.compose(
-                resources.systemInstruction(
-                    ChapterAnalysisContractResources.VERSION,
-                    ChapterAnalysisContractResources.VERSION),
-                customInstruction),
-            resources.responseSchema(),
+            "",
+            resources.finalResponseSchema(),
             fingerprint,
             config.revision(),
+            stageContracts,
             null));
   }
 }

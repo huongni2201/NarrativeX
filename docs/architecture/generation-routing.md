@@ -27,7 +27,7 @@ GenerationPlan:
 
 ## 2. Routing Decision Matrix
 
-The matrix describes target strategy selection. The current pinned `video.generate:1.1` profile only admits T2V at 1280×720/24 FPS/16:9. I2V, First/Last Frame, reference artifacts and AUDIO_FIRST fail preflight before a Take or job is created. Extended strategies remain TARGET. See [current status](../current-status.md); enum/route availability is not executor readiness.
+The matrix describes target strategy selection. The current pinned `video.generate:1.1` profile only admits T2V at 1280×720/24 FPS/16:9. I2V, First/Last Frame, reference artifacts and AUDIO_FIRST fail preflight before a Take or job is created. Extended strategies remain TARGET. See the [story-to-video remediation plan](../plans/20261020-story-to-video-remediation.md); enum/route availability is not executor readiness.
 
 | Strategy | When Selected | Required Inputs | Invariants & Fallbacks |
 |---|---|---|---|
@@ -50,6 +50,20 @@ Take admission (`GenerateShotTakeUseCase`) and the "Compiled Video Prompt" previ
 - Batch freeze loads the Location context of all Shots with one query.
 
 This only reduces drift. Text-to-video does not guarantee identical architecture; visual anchoring needs the reference-conditioning capability that `video.generate:1.1` and `image.generate` do not have yet (see [location-continuity plan](../plans/location-continuity.md), phases 3–5).
+
+## 2b. VisualBeat image attempts and Native AV cue ownership (PARTIAL)
+
+Image regeneration is scoped to one approved VisualBeat through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/visual-beats/{visualBeatId}/image-attempts`. The backend creates a media plan containing only that Beat and one `media_generation_items` candidate; it does not attach a completed candidate to the Beat automatically. At submission the `image.generate` task takes its prompt, negative prompt and size from the frozen plan snapshot of that Beat (`media_beat_plans`), with a seed fixed per job and Beat. A job that does not target exactly one VisualBeat, or whose frozen snapshot is missing or invalid, is failed before submission. On a successful compute callback, `ImageGenerationResultFinalizer` attaches the asset to the candidate and marks it `READY` with review status `NEEDS_REVIEW`. `GET` on the same collection lists prior candidates across jobs, and `POST .../{itemId}/review` records a candidate review. `PUT /api/v1/projects/{projectId}/chapters/{chapterId}/visual-beats/{visualBeatId}/selected-image` takes `itemId` and the expected VisualBeat row version, then attaches only a READY, approved image from the current storyboard revision. The existing preview remains selected until this explicit selection succeeds. The admission, scope, review, selection, image handler and image finalizer have unit tests; the GPU image worker, the compute callback round trip and the Electron selection flow have not been runtime-verified.
+
+For a VisualBeat with multiple Shots, Native AV admission requires every complete AudioCue to have one playback owner in its ShotSequence. `shot_audio_cue_allocations` pins the cue row version; admission passes only current cues owned by that Shot and blocks incomplete or stale mappings. A cue is kept whole in one Shot because the current native profile cannot preserve a sentence split across independently generated Takes.
+
+The Chapter production read model carries each AudioCue's ID, adapted text and review status to the allocation panel. Allocations remain keyed by cue ID and version; displayed text is plain data and is not used to infer ownership or source offsets.
+
+Shot prompt context resolves Character AI aliases from active `project_character_ai_identities` scoped by Project and participating `ProjectCharacter`. The join preserves a participating Character when its alias is missing or inactive; canonical identity and the locked CharacterVersion snapshot remain separate inputs. It does not expand context to every Character in the Scene.
+
+The current Native AV profile admits `DIALOGUE` cues only. `NARRATOR`, `INNER_MONOLOGUE` and `SYSTEM` are rejected before a Take or job is created; narration is not substituted as a hidden audio clock. Unsupported generation strategies, reference conditioning and audio modes remain preflight blockers until a profile advertises those capabilities.
+
+`NativeDialogueDurationEstimator` version `NATIVE_DIALOGUE_DURATION_ESTIMATE_V1` estimates native speech from cue text and source language, accounts for pauses between cues, and rounds to the profile frame grid. It is an admission estimate, not observed word timing or evidence of correct delivery. A speech estimate over the profile limit is blocked for editing or splitting; it is not clamped or truncated.
 
 ---
 

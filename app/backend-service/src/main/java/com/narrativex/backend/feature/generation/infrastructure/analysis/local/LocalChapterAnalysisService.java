@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.generation.application.service.GenerationJ
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.*;
 import com.narrativex.backend.feature.generation.infrastructure.analysis.ChapterAnalysisContractResources;
+import com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisArtifactMaterializer;
 import com.narrativex.backend.feature.generation.infrastructure.dispatch.ChapterAnalysisJobHandler;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisExecutionMapper;
 import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
@@ -22,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Local analysis execution through the one agy session owned by a Desktop device. PostgreSQL owns
@@ -189,8 +192,12 @@ public class LocalChapterAnalysisService implements LocalChapterAnalysis {
     var config = configuration();
     if (mapper.countHeldLocalSlots() >= config.maxConcurrentAnalyses()) return null;
     var credential = ownedCredential(deviceId, credentialRef);
+    if (!Objects.equals(adapterVersion, credential.adapterVersion())) {
+      throw new ResourceConflictException(
+          "Analysis adapter version changed; refresh the Desktop session");
+    }
     if (!credential.eligibleAt(Instant.now())) return null;
-    UUID publicJobId = mapper.findNextQueuedLocalJob();
+    UUID publicJobId = mapper.findNextQueuedLocalJob(supportsStagedContracts(adapterVersion));
     if (publicJobId == null) return null;
     var job = jobs.findByJobId(publicJobId).orElseThrow();
     var snapshot = store.findSnapshot(job.getId()).orElseThrow();
@@ -233,6 +240,7 @@ public class LocalChapterAnalysisService implements LocalChapterAnalysis {
         snapshot.profile(),
         snapshot.promptTemplate(),
         snapshot.responseSchema(),
+        snapshot.stageContracts(),
         config.maxInputBytes(),
         config.maxOutputBytes(),
         config.maxRuntimeMs());
@@ -258,10 +266,32 @@ public class LocalChapterAnalysisService implements LocalChapterAnalysis {
       throw new IllegalArgumentException("OUTPUT_LIMIT_EXCEEDED");
     }
     var snapshot = store.findSnapshot(job.getId()).orElseThrow();
+    if (hasStageContracts(snapshot) && !supportsStagedContracts(completion.adapterVersion())) {
+      throw new ResourceConflictException("STAGED_ANALYSIS_ADAPTER_REQUIRED");
+    }
     if (!attemptFingerprint(snapshot.inputFingerprint()).equals(attempt.inputFingerprint())) {
       // The segmenter changed between claim and delivery, so the unit numbers in this result no
       // longer mean the same text.
       throw new IllegalArgumentException("SOURCE_UNITS_CHANGED");
+    }
+    if (hasStageContracts(snapshot)) {
+      var finalError =
+          handler
+              .validateStagedFinal(
+                  job,
+                  completion.rawJson(),
+                  snapshot.responseSchema(),
+                  snapshot.stageContracts().get(ChapterAnalysisStage.CANON).responseSchema(),
+                  snapshot.stageContracts().get(ChapterAnalysisStage.STORY).responseSchema())
+              .stream()
+              .filter(
+                  found -> found.severity() == ChapterAnalysisArtifactMaterializer.Severity.ERROR)
+              .findFirst();
+      if (finalError.isPresent()) {
+        var violation = finalError.get();
+        throw new IllegalArgumentException(
+            "ANALYSIS_OUTPUT_REJECTED: " + violation.path() + " " + violation.message());
+      }
     }
     var request =
         new ChapterAnalysisRequest(
@@ -354,15 +384,61 @@ public class LocalChapterAnalysisService implements LocalChapterAnalysis {
       String rawJson,
       int windowFirst,
       int windowLast) {
+    return validateStage(
+        deviceToken, attemptId, lease, rawJson, windowFirst, windowLast, null, null);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<Violation> validateStage(
+      String deviceToken,
+      UUID attemptId,
+      String lease,
+      String rawJson,
+      int windowFirst,
+      int windowLast,
+      ChapterAnalysisStage stage,
+      JsonNode canonContext) {
     var attempt = requireAttempt(deviceToken, attemptId, lease);
     if (!attempt.slotHeld()) throw new ResourceConflictException("Attempt is already terminal");
     if (rawJson.getBytes(StandardCharsets.UTF_8).length > configuration().maxOutputBytes()) {
       throw new IllegalArgumentException("OUTPUT_LIMIT_EXCEEDED");
     }
     var job = jobs.findById(attempt.generationJobId()).orElseThrow();
-    return handler.validate(job, rawJson, windowFirst, windowLast).stream()
+    if (stage == null) {
+      return handler.validate(job, rawJson, windowFirst, windowLast).stream()
+          .map(found -> new Violation(found.severity().name(), found.path(), found.message()))
+          .toList();
+    }
+    var snapshot = store.findSnapshot(job.getId()).orElseThrow();
+    if (!hasStageContracts(snapshot)) {
+      return List.of(
+          new Violation("ERROR", "$", "Analysis stage does not match the frozen contract"));
+    }
+    if (!snapshot.stageContracts().containsKey(stage)) {
+      return List.of(
+          new Violation("ERROR", "$", "Analysis stage is not present in the frozen contract"));
+    }
+    return handler
+        .validateStage(
+            job,
+            stage,
+            rawJson,
+            windowFirst,
+            windowLast,
+            canonContext,
+            snapshot.stageContracts().get(stage).responseSchema())
+        .stream()
         .map(found -> new Violation(found.severity().name(), found.path(), found.message()))
         .toList();
+  }
+
+  private static boolean supportsStagedContracts(String adapterVersion) {
+    return "antigravity-cli/3".equals(adapterVersion);
+  }
+
+  private static boolean hasStageContracts(ChapterAnalysisExecutionSnapshot snapshot) {
+    return snapshot.stageContracts() != null && !snapshot.stageContracts().isEmpty();
   }
 
   /**
@@ -407,8 +483,30 @@ public class LocalChapterAnalysisService implements LocalChapterAnalysis {
     var attempt = requireAttempt(deviceToken, attemptId, lease);
     if (!attempt.slotHeld()) return;
     var job = jobs.findById(attempt.generationJobId()).orElseThrow();
+    recordProgress(job.getJobId(), progress, null);
+  }
+
+  @Override
+  public void progressStage(
+      String deviceToken, UUID attemptId, String lease, int progress, ChapterAnalysisStage stage) {
+    if (stage == null) {
+      progress(deviceToken, attemptId, lease, progress);
+      return;
+    }
+    var attempt = requireAttempt(deviceToken, attemptId, lease);
+    if (!attempt.slotHeld()) return;
+    var job = jobs.findById(attempt.generationJobId()).orElseThrow();
+    var snapshot = store.findSnapshot(job.getId()).orElse(null);
+    if (snapshot == null
+        || !hasStageContracts(snapshot)
+        || !snapshot.stageContracts().containsKey(stage)) return;
+    recordProgress(job.getJobId(), progress, "ANTIGRAVITY_ANALYSIS_" + stage.name());
+  }
+
+  private void recordProgress(UUID jobId, int progress, String stageStep) {
     try {
-      transactions.recordProgress(job.getJobId(), progress);
+      if (stageStep == null) transactions.recordProgress(jobId, progress);
+      else transactions.recordProgress(jobId, progress, stageStep);
     } catch (OptimisticLockingFailureException ignored) {
       // The job changed under us (result delivered, cancelled): the next report or the final state
       // wins.

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotAudioCueAllocationMapper">
+  <resultMap id="allocation" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotAudioCueAllocationRow">
+    <id property="audioCueId" column="audio_cue_id"/>
+    <result property="sequenceId" column="sequence_id"/>
+    <result property="shotId" column="shot_id"/>
+    <result property="audioCueRowVersion" column="audio_cue_row_version"/>
+  </resultMap>
+
+  <select id="findVersionBySequenceId" resultType="java.lang.Long">
+    SELECT row_version FROM shot_audio_cue_allocation_sets WHERE sequence_id = #{sequenceId}
+  </select>
+
+  <select id="findBySequenceId" resultMap="allocation">
+    SELECT sequence_id, audio_cue_id, shot_id, audio_cue_row_version
+    FROM shot_audio_cue_allocations
+    WHERE sequence_id = #{sequenceId}
+    ORDER BY audio_cue_id
+  </select>
+
+  <select id="findSequenceIdByAudioCueId" resultType="java.util.UUID">
+    SELECT sequence_id FROM shot_audio_cue_allocations WHERE audio_cue_id = #{audioCueId}
+  </select>
+
+  <update id="incrementVersion">
+    UPDATE shot_audio_cue_allocation_sets
+    SET row_version = row_version + 1,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE sequence_id = #{sequenceId}
+      AND row_version = #{expectedRowVersion}
+  </update>
+
+  <insert id="insertInitialVersion">
+    INSERT INTO shot_audio_cue_allocation_sets (sequence_id, row_version, updated_at)
+    VALUES (#{sequenceId}, 1, CURRENT_TIMESTAMP)
+    ON CONFLICT (sequence_id) DO NOTHING
+  </insert>
+
+  <delete id="deleteBySequenceId">
+    DELETE FROM shot_audio_cue_allocations WHERE sequence_id = #{sequenceId}
+  </delete>
+
+  <insert id="insertBatch">
+    INSERT INTO shot_audio_cue_allocations (
+      sequence_id, audio_cue_id, shot_id, audio_cue_row_version
+    ) VALUES
+    <foreach collection="allocations" item="allocation" separator=",">
+      (#{allocation.sequenceId}, #{allocation.audioCueId}, #{allocation.shotId}, #{allocation.audioCueRowVersion})
+    </foreach>
+  </insert>
+</mapper>

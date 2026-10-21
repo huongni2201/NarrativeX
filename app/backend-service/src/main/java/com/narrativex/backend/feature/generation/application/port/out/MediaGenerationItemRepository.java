@@ -12,6 +12,8 @@ public interface MediaGenerationItemRepository {
 
   List<MediaGenerationItem> findByJobId(UUID jobId);
 
+  List<MediaGenerationItem> findByVisualBeatId(UUID projectId, UUID chapterId, UUID visualBeatId);
+
   /** Number of frozen items of a batch that have not been admitted yet. */
   long countQueued(UUID jobId);
 
@@ -21,6 +23,9 @@ public interface MediaGenerationItemRepository {
   void bindLeaf(UUID itemId, UUID leafJobId, UUID takeId);
 
   void updateExecution(UUID itemId, String status, UUID assetId, String errorCode);
+
+  /** Attaches the generated asset to a VisualBeat image attempt and makes it reviewable. */
+  void completeImageAttempt(UUID itemId, UUID assetId);
 
   boolean review(UUID itemId, long rowVersion, String decision);
 }

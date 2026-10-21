@@ -9,8 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisUsageState;
 import com.narrativex.backend.feature.generation.infrastructure.analysis.ChapterAnalysisContractResources;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 class ChapterAnalysisProfileContractTest {
@@ -18,19 +20,44 @@ class ChapterAnalysisProfileContractTest {
       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   @Test
-  void versionedResourcesExposeJsonSchemaWithStableHashes() {
-    ChapterAnalysisContractResources contract =
-        new ChapterAnalysisContractResources(JsonMapper.builder().build());
-    ChapterAnalysisContractResources reloaded =
-        new ChapterAnalysisContractResources(JsonMapper.builder().build());
+  void versionedResourcesExposeJsonSchemaWithStableHashes() throws Exception {
+    var mapper = JsonMapper.builder().build();
+    ChapterAnalysisContractResources contract = new ChapterAnalysisContractResources(mapper);
+    ChapterAnalysisContractResources reloaded = new ChapterAnalysisContractResources(mapper);
 
     assertEquals(contract.promptHash(), reloaded.promptHash());
     assertEquals(contract.schemaHash(), reloaded.schemaHash());
     assertEquals(64, contract.promptHash().length());
     assertEquals(64, contract.schemaHash().length());
-    assertTrue(contract.systemInstruction("1.2", "1.2").contains("promptVersion=1.2"));
+    assertEquals("1.3", ChapterAnalysisContractResources.VERSION);
 
-    var jsonSchema = contract.responseSchema();
+    var stages = contract.stageContracts(null);
+    var reloadedStages = reloaded.stageContracts(null);
+    assertEquals(stages, reloadedStages);
+    String stageJson = mapper.writeValueAsString(stages);
+    Map<ChapterAnalysisStage, ChapterAnalysisStageContract> roundTrippedStages =
+        mapper.readValue(
+            stageJson,
+            new TypeReference<Map<ChapterAnalysisStage, ChapterAnalysisStageContract>>() {});
+    assertEquals(stages, roundTrippedStages);
+    assertEquals(
+        ChapterAnalysisContractResources.promptHash(stages),
+        ChapterAnalysisContractResources.promptHash(reloadedStages));
+    assertEquals(contract.schemaHash(stages), reloaded.schemaHash(reloadedStages));
+    assertTrue(
+        stages.get(ChapterAnalysisStage.CANON).promptTemplate().contains("promptVersion=1.3"),
+        stages.get(ChapterAnalysisStage.CANON).promptTemplate());
+    assertTrue(stages.get(ChapterAnalysisStage.STORY).promptTemplate().contains("STORY stage"));
+
+    var canonSchema = stages.get(ChapterAnalysisStage.CANON).responseSchema();
+    var storySchema = stages.get(ChapterAnalysisStage.STORY).responseSchema();
+    assertEquals("object", canonSchema.path("type").asText());
+    assertTrue(canonSchema.at("/properties/canon/properties/characters/items").isObject());
+    assertFalse(canonSchema.at("/properties/scenes").isObject());
+    assertTrue(storySchema.at("/properties/scenes/items/properties/visual_beats/items").isObject());
+    assertFalse(storySchema.at("/properties/canon").isObject());
+
+    var jsonSchema = contract.finalResponseSchema();
     assertEquals("object", jsonSchema.path("type").asText());
     assertEquals(
         "integer",
@@ -44,6 +71,20 @@ class ChapterAnalysisProfileContractTest {
                 "/properties/scenes/items/properties/visual_beats/items/properties/audio_cues/items")
             .isObject());
     assertNotNull(jsonSchema.at("/properties/canon/properties/characters/items"));
+  }
+
+  @Test
+  void customInstructionIsFrozenIntoEachProtectedStageContract() {
+    var resources = new ChapterAnalysisContractResources(JsonMapper.builder().build());
+    var stages = resources.stageContracts("Prefer concise scene descriptions.");
+
+    for (ChapterAnalysisStage stage : ChapterAnalysisStage.values()) {
+      assertTrue(stages.get(stage).promptTemplate().contains("Prefer concise scene descriptions."));
+      assertTrue(
+          stages.get(stage).promptTemplate().contains("take precedence over anything below"));
+      assertEquals(64, stages.get(stage).promptHash().length());
+      assertEquals(64, stages.get(stage).schemaHash().length());
+    }
   }
 
   @Test

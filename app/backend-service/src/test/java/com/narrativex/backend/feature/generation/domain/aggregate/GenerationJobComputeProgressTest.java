@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.domain.aggregate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
@@ -60,5 +61,17 @@ class GenerationJobComputeProgressTest {
 
     assertThat(updated.getComputeSequence()).isEqualTo(1L);
     assertThat(updated.getLastComputeState()).isEqualTo("RUNNING");
+  }
+
+  @Test
+  void chapterAnalysisStageLabelIsAllowListedAndProgressRemainsMonotonic() {
+    var job = runningJob(50);
+
+    var updated = job.recordLocalAnalysisProgress(40, "ANTIGRAVITY_ANALYSIS_CANON");
+
+    assertThat(updated.getProgress()).isEqualTo(50);
+    assertThat(updated.getCurrentStep()).isEqualTo("ANTIGRAVITY_ANALYSIS_CANON");
+    assertThatThrownBy(() -> job.recordLocalAnalysisProgress(55, "ANTIGRAVITY_ANALYSIS_MODEL_TEXT"))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

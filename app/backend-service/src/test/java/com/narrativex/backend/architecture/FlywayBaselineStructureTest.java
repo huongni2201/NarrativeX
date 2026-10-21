@@ -15,9 +15,16 @@ import org.junit.jupiter.api.Test;
 class FlywayBaselineStructureTest {
   @Test
   void migrationSetStaysCanonicalAndResponsibilitySeparated() throws IOException {
-    assertEquals(
-        FlywayMigrationContract.canonicalMigrationNames(),
-        FlywayMigrationContract.discoverMigrationNames());
+    var migrations = FlywayMigrationContract.discoverMigrationNames();
+    assertEquals(FlywayMigrationContract.canonicalMigrationNames(), migrations);
+    assertFalse(
+        migrations.stream()
+            .anyMatch(
+                name -> {
+                  int version = FlywayMigrationContract.version(name);
+                  return version >= 8 && version <= 16;
+                }),
+        "pre-release migration versions stay folded into the V1-V7 baseline");
 
     String v1 = read("V1__project_story_and_planning.sql");
     String v2 = read("V2__generation_and_media.sql");
@@ -129,8 +136,8 @@ class FlywayBaselineStructureTest {
     // V7 - Seeds
     assertTrue(v7.contains("'VIENEU'"));
     assertFalse(v7.contains("'VOICESTUDIO'"));
-    assertTrue(v7.contains("\"supportsSpeakingRate\":true"));
-    assertTrue(v7.contains("\"outputFormat\":\"wav\""));
+    assertTrue(v7.contains("'supportsSpeakingRate', TRUE"));
+    assertTrue(v7.contains("'outputFormat', 'wav'"));
     assertFalse(v7.contains("monthly_credits"));
 
     // V2 - async compute orchestration (indexes live in V6)
@@ -253,6 +260,21 @@ class FlywayBaselineStructureTest {
     assertFalse(v6.contains("idx_outbox_pending"));
     assertFalse(v6.contains("idx_notifications_"));
     assertTrue(v7.contains("INSERT INTO analysis_runtime_configuration"));
+  }
+
+  @Test
+  void stagedChapterAnalysisContractsUseAnAdditiveMigration() throws IOException {
+    String v18 =
+        Files.readString(
+            FlywayMigrationContract.migrationRoot()
+                .resolve("V18__chapter_analysis_stage_contracts.sql"));
+
+    assertTrue(v18.contains("ALTER TABLE chapter_analysis_execution_snapshots"));
+    assertTrue(v18.contains("ADD COLUMN stage_contracts_json JSONB"));
+    assertTrue(
+        v18.contains(
+            "stage_contracts_json IS NULL OR jsonb_typeof(stage_contracts_json) = 'object'"));
+    assertFalse(v18.contains("DROP COLUMN"));
   }
 
   private static String read(String name) throws IOException {

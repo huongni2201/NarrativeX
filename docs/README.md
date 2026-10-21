@@ -58,9 +58,14 @@ docs/
 | Plan | Status |
 |---|---|
 | [agy CLI Chapter Analysis](plans/agy-cli-chapter-analysis.md) | PARTIAL: isolation spike passed on agy 1.3.5, real chapter completion pending |
+| [Two-stage Chapter Analysis](plans/20261017-two-stage-chapter-analysis.md) | PARTIAL: staged contracts, validation and runner implemented; PostgreSQL/runtime acceptance pending |
 | [Prompt Settings](plans/prompt-settings.md) | PARTIAL: backend done, Desktop runtime unverified |
 | [Performance optimization](plans/performance-optimization.md) | TARGET: not started |
 | [Location continuity](plans/location-continuity.md) | PARTIAL: phase 0 (video prompt) implemented; phases 1–5 not started |
+| [Video production and regeneration](plans/20261017-video-production-and-regeneration.md) | PARTIAL: Phase A mostly implemented and Phase B core image attempts added; PostgreSQL/runtime gates remain; phases C–E are TARGET |
+| [Production flow bug fixes](plans/20261017-production-flow-bug-fixes.md) | PARTIAL: cue allocation, review/trim and per-Shot UI are implemented; PostgreSQL and Electron runtime gates remain |
+| [Video quality pipeline](plans/20261020-video-quality-pipeline.md) | TARGET: audio-first, keyframe-conditioned production with QC, sound design and multi-track render (P0–P14); not started |
+| [Story-to-video remediation](plans/20261020-story-to-video-remediation.md) | PARTIAL: core SQL, CAS, duration, cue text and QC-label fixes have automated coverage; Electron/API/GPU acceptance remains |
 
 ## Maintenance rules
 

@@ -9,9 +9,22 @@ public interface SelectedTakeMapper extends NarrativeXMyBatisMapper {
 
   java.util.List<SelectedTakeRow> findByShotIds(@Param("shotIds") java.util.List<UUID> shotIds);
 
-  int insert(SelectedTakeRow row);
+  int updateSelection(
+      @Param("shotId") UUID shotId,
+      @Param("takeId") UUID takeId,
+      @Param("sourceInMs") long sourceInMs,
+      @Param("sourceOutMs") long sourceOutMs,
+      @Param("expectedRowVersion") long expectedRowVersion,
+      @Param("reviewFingerprint") String reviewFingerprint,
+      @Param("reviewChecklistJson") String reviewChecklistJson);
 
-  int update(SelectedTakeRow row);
+  int insertSelection(
+      @Param("shotId") UUID shotId,
+      @Param("takeId") UUID takeId,
+      @Param("sourceInMs") long sourceInMs,
+      @Param("sourceOutMs") long sourceOutMs,
+      @Param("reviewFingerprint") String reviewFingerprint,
+      @Param("reviewChecklistJson") String reviewChecklistJson);
 
   int deleteByShotId(@Param("shotId") UUID shotId);
 }

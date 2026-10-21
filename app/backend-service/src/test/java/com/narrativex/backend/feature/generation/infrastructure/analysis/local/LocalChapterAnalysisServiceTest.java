@@ -333,6 +333,45 @@ class LocalChapterAnalysisServiceTest {
   }
 
   @Test
+  void stagedValidationUsesTheFrozenSchemaForTheRequestedStage() {
+    authenticate();
+    var running = attempt(ChapterAnalysisAttemptCheckpoint.LOCAL_RUNNING, null);
+    var job = runningJob(running);
+    var snapshot = mock(ChapterAnalysisExecutionSnapshot.class);
+    var schema = tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode();
+    schema.put("type", "object");
+    var contracts =
+        java.util.Map.of(
+            ChapterAnalysisStage.CANON,
+            new ChapterAnalysisStageContract("canon", schema, "a".repeat(64), "b".repeat(64)),
+            ChapterAnalysisStage.STORY,
+            new ChapterAnalysisStageContract("story", schema, "c".repeat(64), "d".repeat(64)));
+    when(store.findAttempt(running.attemptId())).thenReturn(Optional.of(running));
+    when(store.findRuntimeConfiguration()).thenReturn(configuration(1));
+    when(store.findSnapshot(job.getId())).thenReturn(Optional.of(snapshot));
+    when(snapshot.stageContracts()).thenReturn(contracts);
+    when(handler.validateStage(
+            eq(job), eq(ChapterAnalysisStage.CANON), eq("{}"), eq(3), eq(9), any(), any()))
+        .thenReturn(List.of());
+
+    var found =
+        service.validateStage(
+            "device", running.attemptId(), "lease", "{}", 3, 9, ChapterAnalysisStage.CANON, schema);
+
+    assertTrue(found.isEmpty());
+    verify(handler)
+        .validateStage(
+            eq(job),
+            eq(ChapterAnalysisStage.CANON),
+            eq("{}"),
+            eq(3),
+            eq(9),
+            eq(schema),
+            eq(contracts.get(ChapterAnalysisStage.CANON).responseSchema()));
+    verifyNoInteractions(transactions);
+  }
+
+  @Test
   void progressOfAHeldAttemptIsRecordedOnItsJob() {
     authenticate();
     var running = attempt(ChapterAnalysisAttemptCheckpoint.LOCAL_RUNNING, null);
@@ -342,6 +381,29 @@ class LocalChapterAnalysisServiceTest {
     service.progress("device", running.attemptId(), "lease", 55);
 
     verify(transactions).recordProgress(job.getJobId(), 55);
+  }
+
+  @Test
+  void stagedProgressUsesTheServerOwnedStageLabel() {
+    authenticate();
+    var running = attempt(ChapterAnalysisAttemptCheckpoint.LOCAL_RUNNING, null);
+    var job = runningJob(running);
+    var snapshot = mock(ChapterAnalysisExecutionSnapshot.class);
+    var schema = tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode();
+    schema.put("type", "object");
+    when(store.findAttempt(running.attemptId())).thenReturn(Optional.of(running));
+    when(store.findSnapshot(job.getId())).thenReturn(Optional.of(snapshot));
+    when(snapshot.stageContracts())
+        .thenReturn(
+            java.util.Map.of(
+                ChapterAnalysisStage.CANON,
+                new ChapterAnalysisStageContract("canon", schema, "a".repeat(64), "b".repeat(64)),
+                ChapterAnalysisStage.STORY,
+                new ChapterAnalysisStageContract("story", schema, "c".repeat(64), "d".repeat(64))));
+
+    service.progressStage("device", running.attemptId(), "lease", 55, ChapterAnalysisStage.STORY);
+
+    verify(transactions).recordProgress(job.getJobId(), 55, "ANTIGRAVITY_ANALYSIS_STORY");
   }
 
   @Test

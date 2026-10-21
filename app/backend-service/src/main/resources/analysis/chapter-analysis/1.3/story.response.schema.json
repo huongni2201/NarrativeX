@@ -1,0 +1,194 @@
+{
+  "type": "object",
+  "required": [
+    "scenes"
+  ],
+  "properties": {
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "visual_beats"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "narration": {
+            "type": "string"
+          },
+          "location_ai_name": {
+            "type": "string"
+          },
+          "character_ai_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visual_beats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "title",
+                "visual_intent",
+                "start_unit",
+                "visual_direction",
+                "audio_cues"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "visual_intent": {
+                  "type": "string"
+                },
+                "start_unit": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "dramatic_intent": {
+                  "type": "string",
+                  "enum": [
+                    "SETUP",
+                    "QUESTION",
+                    "TENSION",
+                    "ESCALATION",
+                    "REVEAL",
+                    "REACTION",
+                    "PAYOFF",
+                    "RELIEF",
+                    "TRANSITION",
+                    "CLIFFHANGER"
+                  ]
+                },
+                "audio_cues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "cue_type",
+                      "start_unit",
+                      "end_unit",
+                      "adaptation_action"
+                    ],
+                    "properties": {
+                      "cue_type": {
+                        "type": "string",
+                        "enum": [
+                          "NARRATOR",
+                          "DIALOGUE",
+                          "INNER_MONOLOGUE",
+                          "SYSTEM"
+                        ]
+                      },
+                      "speaker_ai_name": {
+                        "type": "string"
+                      },
+                      "start_unit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "end_unit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "adaptation_action": {
+                        "type": "string",
+                        "enum": [
+                          "KEEP_EXACT",
+                          "LIGHT_EDIT",
+                          "COMPRESS",
+                          "VISUAL_PRIMARY"
+                        ]
+                      },
+                      "adapted_text": {
+                        "type": "string"
+                      },
+                      "delivery_hint": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "character_ai_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "visual_direction": {
+                  "type": "object",
+                  "required": [
+                    "shot_size",
+                    "camera_angle",
+                    "lens_mm",
+                    "focus_target",
+                    "action_phase",
+                    "subject_placement",
+                    "background",
+                    "motivated_light",
+                    "palette",
+                    "camera_movement",
+                    "movement_intensity",
+                    "crop_safe_area"
+                  ],
+                  "properties": {
+                    "shot_size": {
+                      "type": "string"
+                    },
+                    "camera_angle": {
+                      "type": "string"
+                    },
+                    "lens_mm": {
+                      "type": "integer"
+                    },
+                    "focus_target": {
+                      "type": "string"
+                    },
+                    "action_phase": {
+                      "type": "string"
+                    },
+                    "subject_placement": {
+                      "type": "string"
+                    },
+                    "background": {
+                      "type": "string"
+                    },
+                    "motivated_light": {
+                      "type": "string"
+                    },
+                    "palette": {
+                      "type": "string"
+                    },
+                    "camera_movement": {
+                      "type": "string"
+                    },
+                    "movement_intensity": {
+                      "type": "string"
+                    },
+                    "crop_safe_area": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

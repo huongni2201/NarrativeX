@@ -82,7 +82,13 @@ public class ChapterProductionController {
       @Valid @RequestBody SelectTakeRequest request) {
     SelectedTake selected =
         selectTakeUseCase.execute(
-            projectId, shotId, request.takeId(), request.sourceInMs(), request.sourceOutMs());
+            projectId,
+            shotId,
+            request.takeId(),
+            request.sourceInMs(),
+            request.sourceOutMs(),
+            request.expectedRowVersion(),
+            request.contentReview());
     return ResponseEntity.ok(ApiResponse.success("Selected take updated successfully", selected));
   }
 

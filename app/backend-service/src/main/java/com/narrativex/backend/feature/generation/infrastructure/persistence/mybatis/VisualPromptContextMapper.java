@@ -21,6 +21,9 @@ public interface VisualPromptContextMapper extends NarrativeXMyBatisMapper {
   List<VisualPromptCharacterRow> findCharactersForBeat(
       @Param("projectId") UUID projectId, @Param("visualBeatId") UUID visualBeatId);
 
+  List<VisualPromptCharacterRow> findCharactersForShot(
+      @Param("projectId") UUID projectId, @Param("shotId") UUID shotId);
+
   List<VisualPromptReferenceRow> findCharacterReferencesForBeat(
       @Param("projectId") UUID projectId, @Param("visualBeatId") UUID visualBeatId);
 

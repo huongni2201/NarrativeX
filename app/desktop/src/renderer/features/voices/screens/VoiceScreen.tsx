@@ -3,6 +3,7 @@ import type {
   DesktopAsset,
   DesktopChapterDetails,
   DesktopVoice,
+  GenerationJob,
   VoiceReferenceInput,
 } from "../../../../shared/api-types";
 import { AudioLines, MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toErrorMessage } from "@/lib/errors";
+import { DesktopApiError } from "../../../api/client";
 import { isActiveGenerationJobStatus } from "../../generation/generation-status";
 import { useGenerationJob } from "../../generation/queries/generation.queries";
 import {
@@ -22,11 +24,13 @@ import { EmptyState } from "../../workspace/components/FeaturePage";
 import { VoiceCard } from "../components/VoiceCard";
 import { VoiceFiltersBar, type VoiceViewMode } from "../components/VoiceFiltersBar";
 import { VoiceWorkspaceContext } from "../components/VoiceWorkspaceContext";
+import { useVoiceSamplePlayer } from "../queries/use-voice-sample-player";
 import {
   filterVoices,
   playableSampleUrl,
   resolveVoiceSelection,
   uniqueVoiceValues,
+  voiceSupportsSpeakingRate,
   type VoiceSortMode,
 } from "../model/voice-filters";
 import {
@@ -38,7 +42,7 @@ import {
   useVoiceReferenceAsset,
 } from "../queries/voice-media.queries";
 
-const DEFAULT_VOICE_ID = "vieneu-default";
+const DEFAULT_VOICE_ID = "vieneu-preset-minh-quan-pro";
 const DEFAULT_PREVIEW_TEXT =
   "Xin chào, đây là giọng đọc mẫu được tạo từ đoạn giọng tham chiếu bạn vừa tải lên.";
 
@@ -48,12 +52,16 @@ export function VoiceScreen({
   voices,
   assets,
   section = "library",
+  requestedVoice = null,
+  active = true,
 }: Readonly<{
   projectId: string;
   chapters: DesktopChapterDetails[];
   voices: DesktopVoice[];
   assets: DesktopAsset[];
   section?: "library" | "narration";
+  requestedVoice?: DesktopVoice | null;
+  active?: boolean;
 }>) {
   const generate = useGenerateNarration();
   const generateBatch = useGenerateBatchNarration();
@@ -80,9 +88,33 @@ export function VoiceScreen({
   const [voiceReferenceName, setVoiceReferenceName] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState(DEFAULT_PREVIEW_TEXT);
   const [previewJobId, setPreviewJobId] = useState<string | null>(null);
+  const [narration, setNarration] = useState<{
+    job: GenerationJob;
+    chapterId: string;
+    chapterTitle: string;
+    voiceName: string;
+    voiceId: string;
+    speakingRate: number;
+    voiceReference: VoiceReferenceInput | null;
+  } | null>(null);
+  const [narrationUncertain, setNarrationUncertain] = useState(false);
+  const narrationQuery = useGenerationJob(narration?.job.jobId ?? null);
+  const narrationStatus = narrationQuery.data?.status ?? narration?.job.status;
+  const narrationActive = isActiveGenerationJobStatus(narrationStatus);
+  const catalogSample = useVoiceSamplePlayer(projectId, chapterId || null);
 
   useEffect(() => {
-    if (!chapterId && chapters[0]) setChapterId(chapters[0].id);
+    if (requestedVoice) selectCatalogVoice(requestedVoice.id);
+  }, [requestedVoice]);
+
+  useEffect(() => {
+    catalogSample.stop();
+    audioRef.current?.pause();
+    setPlayingVoiceId(null);
+  }, [section, active, catalogSample.stop]);
+
+  useEffect(() => {
+    if (!chapters.some((chapter) => chapter.id === chapterId)) setChapterId(chapters[0]?.id ?? "");
     const resolvedVoiceId = resolveVoiceSelection(voiceId, voices, DEFAULT_VOICE_ID);
     if (resolvedVoiceId !== voiceId) setVoiceId(resolvedVoiceId);
   }, [chapterId, chapters, voiceId, voices]);
@@ -128,8 +160,15 @@ export function VoiceScreen({
       : null;
   const totalDurationMs = audioAssets.reduce((sum, asset) => sum + (asset.durationMs ?? 0), 0);
   const totalSizeBytes = audioAssets.reduce((sum, asset) => sum + asset.sizeBytes, 0);
-  const parsedRate = Number.parseFloat(speakingRate);
-  const normalizedRate = Number.isFinite(parsedRate) ? parsedRate : 1;
+  const parsedRate = Number(speakingRate);
+  const fixedRate = !voiceSupportsSpeakingRate(selectedVoice);
+  const normalizedRate = fixedRate ? 1 : parsedRate;
+  const rateValid = fixedRate || (speakingRate.trim() !== "" && Number.isFinite(normalizedRate) && normalizedRate >= 0.25 && normalizedRate <= 2);
+  const canRegenerate = narrationStatus === "COMPLETED" &&
+    narration?.chapterId === chapterId && narration.voiceId === voiceId &&
+    narration.speakingRate === normalizedRate &&
+    narration.voiceReference?.assetId === voiceReference?.assetId &&
+    narration.voiceReference?.scope === voiceReference?.scope;
 
   const globalLocalVoiceReferenceId =
     voiceReference?.scope === "GLOBAL_LOCAL" ? voiceReference.assetId : null;
@@ -180,6 +219,8 @@ export function VoiceScreen({
   const previewBusy =
     voiceReferenceBusy || referencePending || generatePreview.isPending || previewActive;
   const busy =
+    narrationUncertain ||
+    narrationActive ||
     assetBusy ||
     voiceReferenceBusy ||
     referencePending ||
@@ -189,7 +230,7 @@ export function VoiceScreen({
     previewActive;
 
   async function runSingle() {
-    if (!chapterId || !voiceId || busy) return;
+    if (!chapterId || !voiceId || !rateValid || busy) return;
     setNotice(null);
     try {
       const job = await generate.mutateAsync({
@@ -199,16 +240,24 @@ export function VoiceScreen({
           voiceId,
           speakingRate: normalizedRate,
           voiceReference,
+          forceRegenerate: canRegenerate,
         },
       });
-      setNotice(`Narration job ${job.jobId.slice(0, 8)} đã được queue.`);
+      setNarration({ job, chapterId, voiceId, speakingRate: normalizedRate, voiceReference,
+        chapterTitle: chapters.find((chapter) => chapter.id === chapterId)?.title ?? "Chương đã chọn",
+        voiceName: voiceReferenceName ?? selectedVoice?.name ?? voiceId });
+      setNotice("Đã gửi yêu cầu tạo lời kể. Bạn có thể theo dõi trạng thái bên dưới.");
     } catch (error) {
-      setNotice(toErrorMessage(error, "Narration request thất bại."));
+      const uncertain = !(error instanceof DesktopApiError && error.status < 500);
+      setNarrationUncertain(uncertain);
+      setNotice(uncertain
+        ? "Chưa xác nhận được kết quả gửi yêu cầu. Kiểm tra Tác vụ audio trước khi tạo tiếp để tránh tạo trùng."
+        : toErrorMessage(error, "Narration request thất bại."));
     }
   }
 
   async function runBatch() {
-    if (!voiceId || !chapters.length || busy) return;
+    if (!voiceId || !chapters.length || !rateValid || busy) return;
     setNotice(null);
     try {
       const jobs = await generateBatch.mutateAsync({
@@ -293,6 +342,19 @@ export function VoiceScreen({
     setNotice("Đã bỏ giọng tham chiếu. Narration sẽ dùng voice preset đang chọn.");
   }
 
+  function selectCatalogVoice(id: string) {
+    setVoiceId(id);
+    setVoiceReference(null);
+    setVoiceReferenceName(null);
+    setSelectedAssetIds([]);
+    setPreviewJobId(null);
+    setNotice(null);
+    catalogSample.stop();
+    audioRef.current?.pause();
+    setPlayingVoiceId(null);
+    if (!voiceSupportsSpeakingRate(voices.find((voice) => voice.id === id) ?? null)) setSpeakingRate("1");
+  }
+
   function togglePreview(voice: DesktopVoice) {
     if (playingVoiceId === voice.id) {
       audioRef.current?.pause();
@@ -366,7 +428,7 @@ export function VoiceScreen({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(280px,340px)] bg-background">
+    <div className="grid h-full min-h-0 overflow-y-auto grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] bg-background">
       <main className="min-w-0 overflow-hidden border-x border-border">
         <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
           <header className="border-b border-border bg-[var(--voice-header)] px-5 py-4">
@@ -434,21 +496,37 @@ export function VoiceScreen({
                   </Select>
                 </label>
                 <label className="grid gap-2 text-body text-text-secondary">Giọng người kể
-                  <Select value={voiceId || undefined} onValueChange={setVoiceId}><SelectTrigger aria-label="Giọng người kể"><SelectValue placeholder="Chọn giọng" /></SelectTrigger>
+                  <Select value={voiceId || undefined} onValueChange={selectCatalogVoice}><SelectTrigger aria-label="Giọng người kể"><SelectValue placeholder="Chọn giọng" /></SelectTrigger>
                     <SelectContent>{voices.map(voice => <SelectItem key={voice.id} value={voice.id}>{voice.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </label>
               </div>
               <label className="grid max-w-xs gap-2 text-body text-text-secondary">Tốc độ đọc
-                <Input type="number" min="0.25" max="2" step="0.1" value={speakingRate} onChange={event => setSpeakingRate(event.target.value)} />
+                <Input aria-label="Tốc độ đọc" type="number" min="0.25" max="2" step="0.1" value={fixedRate ? "1" : speakingRate} disabled={fixedRate} onChange={event => setSpeakingRate(event.target.value)} />
+                {fixedRate && <span className="text-caption text-text-muted">Giọng này hỗ trợ tốc độ đọc tự nhiên 1×.</span>}
+                {!rateValid && <span role="alert" className="text-caption text-destructive">Chọn tốc độ từ 0,25 đến 2.</span>}
               </label>
-              <p className="text-body text-text-muted">{voiceReferenceName ? `Giọng tham chiếu: ${voiceReferenceName}` : "Đang dùng giọng có sẵn. Bạn có thể chọn giọng tham chiếu ở khung bên phải."}</p>
+              <p className="text-body text-text-muted">{voiceReferenceName ? `Đang dùng file tham chiếu ${voiceReferenceName} thay cho giọng ${selectedVoice?.name ?? "đã chọn"}. Chọn lại giọng người kể để dùng giọng trong thư viện.` : `Giọng sẽ dùng: ${selectedVoice?.name ?? "Chưa chọn"}.`}</p>
+              {voiceReference && selectedVoice && <Button type="button" variant="outline" onClick={() => selectCatalogVoice(voiceId)}>Dùng giọng trong thư viện</Button>}
+              {selectedVoice && !voiceReference && <Button type="button" variant="outline" disabled={!chapterId && !selectedVoice.sampleUrl}
+                onClick={() => catalogSample.state.voiceId === voiceId && ["generating", "playing"].includes(catalogSample.state.phase) ? catalogSample.stop() : void catalogSample.play(voiceId, selectedVoice.sampleUrl)}>
+                {catalogSample.state.voiceId === voiceId && catalogSample.state.phase === "generating" ? "Đang tạo mẫu · Dừng chờ" : catalogSample.state.voiceId === voiceId && catalogSample.state.phase === "playing" ? "Dừng nghe thử" : "Nghe thử giọng đã chọn"}
+              </Button>}
+              {catalogSample.state.phase === "error" && <p role="alert" className="text-body text-destructive">{catalogSample.state.message}</p>}
               {!chapters.length && <EmptyState title="Chưa có chương" description="Thêm chương và duyệt kịch bản trước khi tạo lời kể." />}
               {!voices.length && <p role="status" className="text-body text-warning">Chưa có giọng người kể trong thư viện.</p>}
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => void runSingle()} disabled={!chapterId || !voiceId || busy}><AudioLines size={16} />Tạo lời kể</Button>
-                <Button variant="outline" onClick={() => void runBatch()} disabled={!chapters.length || !voiceId || busy}>Tạo lời kể cho tất cả chương</Button>
+                <Button onClick={() => void runSingle()} disabled={!chapterId || !voiceId || !rateValid || busy}><AudioLines size={16} />{narrationActive ? "Đang tạo lời kể…" : canRegenerate ? "Tạo lại lời kể" : "Tạo lời kể"}</Button>
+                <Button variant="outline" onClick={() => void runBatch()} disabled={!chapters.length || !voiceId || !rateValid || busy}>Tạo lời kể cho tất cả chương</Button>
               </div>
+              {narrationUncertain && <Button type="button" variant="outline" onClick={() => navigate(`/projects/${projectId}/jobs`)}>Kiểm tra tác vụ audio</Button>}
+              {narration && <div className="space-y-2 rounded-md bg-surface-panel p-3" role="status">
+                <p className="text-body font-medium">{narration.chapterTitle} · {narration.voiceName}</p>
+                <p className="text-body text-text-secondary">{narrationStatus === "COMPLETED" ? "Đã tạo xong lời kể." : narrationStatus === "FAILED" || narrationStatus === "CANCELED" ? "Tạo lời kể chưa thành công. Xem chi tiết tác vụ trước khi thử lại." : "Đang xử lý lời kể…"} {narrationQuery.data?.progress ?? narration.job.progress}%</p>
+                {narrationQuery.isError && <p className="text-warning">Chưa tải được trạng thái mới. Yêu cầu vẫn đang được theo dõi; hãy xem ở Tác vụ.</p>}
+                <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/projects/${projectId}/jobs`)}>Xem tác vụ audio</Button>
+                {narrationStatus === "COMPLETED" && <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/projects/${projectId}/editor`)}>Mở Editor để nghe lời kể</Button>}
+              </div>}
             </div> : <>
             <div className="mb-2 flex items-center justify-between gap-3 text-caption text-text-muted">
               <span>{filteredVoices.length} voice hiển thị</span>
@@ -457,6 +535,10 @@ export function VoiceScreen({
                 Bộ lọc đang áp dụng
               </span>
             </div>
+
+            {selectedVoice && <Button type="button" variant="outline" className="mb-3" onClick={() => navigate(`/projects/${projectId}/audio?tab=narration`)}>
+              Dùng {selectedVoice.name} tạo lời kể
+            </Button>}
 
             {filteredVoices.length ? (
               <div
@@ -473,7 +555,7 @@ export function VoiceScreen({
                     index={index}
                     selected={voice.id === voiceId}
                     playing={voice.id === playingVoiceId}
-                    onSelect={() => setVoiceId(voice.id)}
+                    onSelect={() => selectCatalogVoice(voice.id)}
                     onPreview={() => togglePreview(voice)}
                   />
                 ))}
@@ -512,12 +594,13 @@ export function VoiceScreen({
         tagCounts={tagCounts}
         totalDurationMs={totalDurationMs}
         totalSizeBytes={totalSizeBytes}
-        busy={busy}
+        busy={busy || !rateValid}
+        fixedSpeakingRate={fixedRate}
         voiceReferenceName={voiceReferenceName}
         voiceReferenceScope={voiceReference?.scope ?? null}
         previewText={previewText}
         previewStatus={voiceReferenceReady ? previewStatus : voiceReference?.scope === "GLOBAL_LOCAL" ? voiceReferenceQuery.data?.status ?? null : selectedProjectVoiceAsset?.status ?? null}
-        previewUrl={previewResultQuery.data?.url ?? null}
+        previewUrl={active ? previewResultQuery.data?.url ?? null : null}
         previewBusy={previewBusy}
         onToggleAsset={toggleAsset}
         onSelectReusableVoice={selectReusableVoice}

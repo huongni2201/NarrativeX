@@ -14,6 +14,9 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.HookPlanRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotRow;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ShotSequenceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryBeatRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.VisualBeatRow;
@@ -70,6 +73,7 @@ class ChapterAnalysisAudioCueMaterializationTest {
   private final List<HookPlanRow> hooks = new ArrayList<>();
   private final List<StoryBeatRow> storyBeats = new ArrayList<>();
   private final List<VisualBeatRow> visualBeats = new ArrayList<>();
+  private final List<ShotRow> shots = new ArrayList<>();
   private final UUID storyBeatId = UUID.randomUUID();
   private final UUID participantId = UUID.randomUUID();
   private GenerationJob job;
@@ -134,6 +138,21 @@ class ChapterAnalysisAudioCueMaterializationTest {
         .thenReturn(
             new ChapterCanonReconciliationService.ReconciledCanon(
                 Map.of("child", participantId), Map.of()));
+    ShotSequenceMapper sequences = mock(ShotSequenceMapper.class);
+    when(sequences.insert(any())).thenReturn(UUID.randomUUID());
+    ShotMapper shotMapper = mock(ShotMapper.class);
+    when(shotMapper.insert(any()))
+        .thenAnswer(
+            invocation -> {
+              shots.add(invocation.getArgument(0));
+              return UUID.randomUUID();
+            });
+    when(shotMapper.insertBatch(any()))
+        .thenAnswer(
+            invocation -> {
+              shots.addAll(invocation.getArgument(0));
+              return shots.size();
+            });
     materializer =
         new ChapterAnalysisArtifactMaterializer(
             storyboard,
@@ -144,8 +163,31 @@ class ChapterAnalysisAudioCueMaterializationTest {
             hookMapper,
             null,
             null,
-            null,
-            null);
+            sequences,
+            shotMapper);
+  }
+
+  @Test
+  void defaultShotDurationUsesTheNativeDialogueEstimateAndRoundsToProfileFrames() throws Exception {
+    String source = "ắ".repeat(67);
+    String hash =
+        HexFormat.of()
+            .formatHex(
+                MessageDigest.getInstance("SHA-256")
+                    .digest(source.getBytes(StandardCharsets.UTF_8)));
+    job = job.toBuilder().sourceHash(hash).sourceText(source).sourceLanguage("vi").build();
+    chapter.setSourceHash(hash);
+    chapter.setSourceText(source);
+    String cue =
+        """
+        {"cue_type":"DIALOGUE","speaker_ai_name":"child","start_unit":0,"end_unit":0,
+         "adaptation_action":"KEEP_EXACT"}
+        """;
+
+    materializer.materialize(job, payload(beat(0, cue)).getBytes(StandardCharsets.UTF_8));
+
+    assertThat(shots).singleElement().extracting(ShotRow::getTargetDurationMs).isEqualTo(5_625L);
+    assertThat(cues).singleElement().extracting(AudioCueRow::getAdaptedText).isEqualTo(source);
   }
 
   @Test

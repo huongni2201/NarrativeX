@@ -52,7 +52,9 @@ export function registerStoryAnalysis(
     install: () => resolver.install(),
     directory,
     isolationVerified,
-    onDiagnostic: (code, exitCode, reason, rawText) => { void diagnostics.record(code, exitCode, reason, rawText); },
+    onDiagnostic: (code, exitCode, reason, rawText, jobId, stage, windowNumber, windowCount) => {
+      void diagnostics.record(code, exitCode, reason, rawText, jobId, stage, windowNumber, windowCount);
+    },
   });
 
   const request = async <T>(path: string, body: unknown): Promise<T | null> => {
@@ -121,6 +123,7 @@ export function registerStoryAnalysis(
 
   registerTrustedIpcHandler("desktop:story-analysis:status", trust, () => session.status());
   registerTrustedIpcHandler("desktop:story-analysis:refresh", trust, () => session.status(true));
+  registerTrustedIpcHandler("desktop:story-analysis:diagnostics", trust, () => diagnostics.read());
   registerTrustedIpcHandler("desktop:story-analysis:activity", trust, (): StoryAnalysisActivity[] =>
     service.currentActivity().map(entry => ({ ...entry, processAlive: entry.pid === null || processExists(entry.pid) })));
   registerTrustedIpcHandler("desktop:story-analysis:models", trust, () => session.listModels());

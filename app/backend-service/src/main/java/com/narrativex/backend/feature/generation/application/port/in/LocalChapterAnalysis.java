@@ -3,10 +3,13 @@ package com.narrativex.backend.feature.generation.application.port.in;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisProviderCredential;
 import com.narrativex.backend.feature.generation.application.model.analysis.AnalysisRuntimeConfiguration;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisExecutionProfile;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStage;
+import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisStageContract;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterAnalysisUsage;
 import com.narrativex.backend.feature.generation.domain.enums.ChapterAnalysisExecutionMode;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import tools.jackson.databind.JsonNode;
 
@@ -60,6 +63,22 @@ public interface LocalChapterAnalysis {
       int windowFirst,
       int windowLast);
 
+  default List<Violation> validateStage(
+      String deviceToken,
+      UUID attemptId,
+      String lease,
+      String rawJson,
+      int windowFirst,
+      int windowLast,
+      ChapterAnalysisStage stage,
+      JsonNode canonContext) {
+    if (stage == null) {
+      return validate(deviceToken, attemptId, lease, rawJson, windowFirst, windowLast);
+    }
+    return List.of(
+        new Violation("ERROR", "$", "Staged Chapter Analysis validation is unavailable"));
+  }
+
   void report(String deviceToken, UUID attemptId, String lease, String code, boolean ambiguous);
 
   void recoverClaim(String deviceToken, UUID claimRequestId);
@@ -69,6 +88,11 @@ public interface LocalChapterAnalysis {
    * progress and is ignored once the attempt or job is no longer running.
    */
   void progress(String deviceToken, UUID attemptId, String lease, int progress);
+
+  default void progressStage(
+      String deviceToken, UUID attemptId, String lease, int progress, ChapterAnalysisStage stage) {
+    progress(deviceToken, attemptId, lease, progress);
+  }
 
   /**
    * Whether the person asked to cancel; also the heartbeat that keeps a long-running lease alive.
@@ -85,9 +109,39 @@ public interface LocalChapterAnalysis {
       ChapterAnalysisExecutionProfile profile,
       String promptTemplate,
       JsonNode responseSchema,
+      Map<ChapterAnalysisStage, ChapterAnalysisStageContract> stageContracts,
       long maxInputBytes,
       long maxOutputBytes,
-      long maxRuntimeMs) {}
+      long maxRuntimeMs) {
+    public Claim(
+        UUID jobId,
+        UUID projectId,
+        UUID attemptId,
+        String leaseToken,
+        List<ClaimUnit> sourceUnits,
+        String sourceLanguage,
+        ChapterAnalysisExecutionProfile profile,
+        String promptTemplate,
+        JsonNode responseSchema,
+        long maxInputBytes,
+        long maxOutputBytes,
+        long maxRuntimeMs) {
+      this(
+          jobId,
+          projectId,
+          attemptId,
+          leaseToken,
+          sourceUnits,
+          sourceLanguage,
+          profile,
+          promptTemplate,
+          responseSchema,
+          null,
+          maxInputBytes,
+          maxOutputBytes,
+          maxRuntimeMs);
+    }
+  }
 
   /**
    * One numbered piece of the chapter; the model refers to {@code index} instead of copying text.

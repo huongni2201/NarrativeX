@@ -7,18 +7,24 @@
     <result property="takeId" column="take_id"/>
     <result property="sourceInMs" column="source_in_ms"/>
     <result property="sourceOutMs" column="source_out_ms"/>
+    <result property="rowVersion" column="row_version"/>
+    <result property="reviewFingerprint" column="review_fingerprint"/>
+    <result property="reviewChecklistJson" column="review_checklist_json"/>
+    <result property="reviewedAt" column="reviewed_at"/>
     <result property="createdAt" column="created_at"/>
     <result property="updatedAt" column="updated_at"/>
   </resultMap>
 
   <select id="findByShotId" resultMap="selectedTake">
-    SELECT shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at
+    SELECT shot_id, take_id, source_in_ms, source_out_ms, row_version, review_fingerprint,
+           review_checklist_json::text AS review_checklist_json, reviewed_at, created_at, updated_at
     FROM selected_takes
     WHERE shot_id = #{shotId}
   </select>
 
   <select id="findByShotIds" resultMap="selectedTake">
-    SELECT shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at
+    SELECT shot_id, take_id, source_in_ms, source_out_ms, row_version, review_fingerprint,
+           review_checklist_json::text AS review_checklist_json, reviewed_at, created_at, updated_at
     FROM selected_takes
     WHERE shot_id IN
     <foreach collection="shotIds" item="id" open="(" separator="," close=")">
@@ -26,19 +32,32 @@
     </foreach>
   </select>
 
-  <insert id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeRow">
-    INSERT INTO selected_takes (shot_id, take_id, source_in_ms, source_out_ms, created_at, updated_at)
-    VALUES (#{shotId}, #{takeId}, #{sourceInMs}, #{sourceOutMs}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP), COALESCE(#{updatedAt}, CURRENT_TIMESTAMP))
-  </insert>
-
-  <update id="update">
+  <update id="updateSelection">
     UPDATE selected_takes
     SET take_id = #{takeId},
         source_in_ms = #{sourceInMs},
         source_out_ms = #{sourceOutMs},
-        updated_at = #{updatedAt}
+        row_version = row_version + 1,
+        review_fingerprint = #{reviewFingerprint},
+        review_checklist_json = #{reviewChecklistJson}::jsonb,
+        reviewed_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
     WHERE shot_id = #{shotId}
+      AND row_version = #{expectedRowVersion}
   </update>
+
+  <insert id="insertSelection">
+    INSERT INTO selected_takes (
+      shot_id, take_id, source_in_ms, source_out_ms, row_version,
+      review_fingerprint, review_checklist_json, reviewed_at, created_at, updated_at
+    )
+    VALUES (
+      #{shotId}, #{takeId}, #{sourceInMs}, #{sourceOutMs}, 1,
+      #{reviewFingerprint}, #{reviewChecklistJson}::jsonb, CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    )
+    ON CONFLICT (shot_id) DO NOTHING
+  </insert>
 
   <delete id="deleteByShotId">
     DELETE FROM selected_takes WHERE shot_id = #{shotId}

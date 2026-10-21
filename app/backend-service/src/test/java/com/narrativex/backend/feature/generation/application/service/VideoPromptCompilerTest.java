@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.generation.application.model.prompt.PromptSettings;
 import com.narrativex.backend.feature.generation.application.port.out.ShotLocationContextRepository.ShotLocationContext;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardShotAccess.ShotView;
 import com.narrativex.backend.feature.storyboard.domain.enums.RetentionRole;
 import com.narrativex.backend.feature.storyboard.domain.enums.ShotStatus;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,7 @@ class VideoPromptCompilerTest {
             "[{\"aiName\":\"thief\"}]",
             "castle_courtyard",
             "{\"state\":\"Crouched on rooftop ridge\"}",
-            "{\"action\":\"Drops down silently to courtyard paving stones\"}",
+            "{\"action\":\"Drops down silently to courtyard paving stones\",\"actionPhase\":\"END\"}",
             "{\"state\":\"Landed in deep shadow behind pillar\"}",
             "{\"composition\":\"Medium full shot\"}",
             "{\"camera\":\"High angle 35mm lens\"}",
@@ -53,6 +55,7 @@ class VideoPromptCompilerTest {
         compiler.compile(shot, ImageStyle.CINEMATIC_ANIME, "Previous shot was wide establishing");
 
     assertThat(compiled.prompt()).contains("Drops down silently");
+    assertThat(compiled.prompt()).contains("Action phase: END");
     assertThat(compiled.prompt()).contains("Characters: thief");
     assertThat(compiled.prompt()).contains("castle_courtyard");
     assertThat(compiled.prompt()).contains("Medium full shot, High angle 35mm lens");
@@ -178,5 +181,57 @@ class VideoPromptCompilerTest {
 
     assertThat(compiler.compile(shot, (PromptSettings) null, null, location).prompt())
         .isEqualTo(compiler.compile(shot, (PromptSettings) null, null, location).prompt());
+  }
+
+  @Test
+  void shotPromptLocksOnlyVisibleBeatCharactersToPinnedCanonAndAppearance() {
+    UUID assignmentId = UUID.randomUUID();
+    var king =
+        new CharacterCanon(
+            assignmentId,
+            UUID.randomUUID(),
+            "King",
+            3,
+            "Silver hair and a narrow scar over his left brow",
+            "",
+            "middle-aged",
+            "silver hair",
+            "left brow scar",
+            "dark blue coat",
+            "PRIMARY",
+            java.util.List.of(),
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "king");
+    var narrator =
+        new CharacterCanon(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Narrator",
+            1,
+            "A separate off-screen voice",
+            "",
+            null,
+            null,
+            null,
+            null,
+            "SECONDARY",
+            java.util.List.of(),
+            UUID.randomUUID(),
+            null,
+            "narrator");
+
+    var visible =
+        compiler.selectVisibleCharacters(
+            shotAt(null, "King enters").subjectsJson(), List.of(king, narrator));
+    var compiled =
+        compiler.compile(shotAt(null, "King enters"), (PromptSettings) null, null, null, visible);
+
+    assertThat(visible).containsExactly(king);
+    assertThat(compiled.prompt())
+        .contains("Character identity lock: King [CharacterVersion 3]")
+        .contains("Silver hair and a narrow scar over his left brow")
+        .contains("wardrobe: dark blue coat")
+        .doesNotContain("A separate off-screen voice");
   }
 }

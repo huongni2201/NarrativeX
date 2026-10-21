@@ -28,6 +28,6 @@ test("production preview import only accepts images and explains retained assets
     new URL("../src/renderer/features/storyboard/components/VideoShotboard.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(shotboard, /Import Reference Image/);
-  assert.match(shotboard, /Replace Preview Image/);
+  assert.match(shotboard, /Nhập ảnh tham chiếu/);
+  assert.match(shotboard, /Thay ảnh xem trước/);
 });

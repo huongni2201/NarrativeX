@@ -15,6 +15,11 @@ public interface VisualPromptContextRepository {
    */
   VisualPromptContext findForBeat(UUID projectId, UUID visualBeatId);
 
+  /** Resolve only explicitly participating VisualBeat characters for one Shot. */
+  default VisualPromptContext findForShot(UUID projectId, UUID shotId) {
+    return VisualPromptContext.empty();
+  }
+
   /**
    * Resolve contexts for a storyboard scope in bounded batch queries. Implementations should
    * override this method; the default preserves compatibility for test doubles and non-MyBatis
@@ -60,7 +65,41 @@ public interface VisualPromptContextRepository {
       String injury,
       String wardrobeContext,
       String beatRole,
-      List<CharacterReference> references) {
+      List<CharacterReference> references,
+      UUID characterVersionId,
+      UUID outfitVersionId,
+      String aiName) {
+    public CharacterCanon(
+        UUID assignmentId,
+        UUID characterId,
+        String canonicalName,
+        Integer versionNumber,
+        String visualPrompt,
+        String appearancePrompt,
+        String ageState,
+        String hairstyle,
+        String injury,
+        String wardrobeContext,
+        String beatRole,
+        List<CharacterReference> references) {
+      this(
+          assignmentId,
+          characterId,
+          canonicalName,
+          versionNumber,
+          visualPrompt,
+          appearancePrompt,
+          ageState,
+          hairstyle,
+          injury,
+          wardrobeContext,
+          beatRole,
+          references,
+          null,
+          null,
+          null);
+    }
+
     public CharacterCanon {
       references = references == null ? List.of() : List.copyOf(references);
     }

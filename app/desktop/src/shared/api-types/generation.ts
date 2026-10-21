@@ -63,6 +63,26 @@ export interface CreateMediaJobInput {
   imageProvider?: ImageGenerationProvider | null;
 }
 
+export interface CreateVisualBeatImageAttemptInput {
+  aspectRatio?: MediaAspectRatio;
+  expectedPromptRevision?: number | null;
+}
+
+export interface VisualBeatImageAttempt {
+  itemId: string;
+  jobId: string;
+  mediaPlanId: string;
+  storyboardRevisionId?: string | null;
+  currentStoryboardRevision: boolean;
+  attemptNumber: number;
+  executionStatus: string;
+  mediaAssetId: string | null;
+  reviewStatus: "NOT_READY" | "NEEDS_REVIEW" | "APPROVED" | "REJECTED";
+  reviewedAt?: string | null;
+  errorCode?: string | null;
+  rowVersion: number;
+}
+
 interface MediaGenerationItem {
   id: string;
   visualBeatId: string;

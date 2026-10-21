@@ -6,6 +6,7 @@ import "../../src/renderer/styles.css";
 
 // Isolated fixture: ?scenario=alive | starting | missing | dead decides what the Desktop reports for the RUNNING job.
 const scenario = new URLSearchParams(location.search).get("scenario") ?? "alive";
+if (scenario === "light") document.documentElement.dataset.theme = "light";
 const startedAt = new Date(Date.now() - 272_000).toISOString();
 const activity = {
   alive: [{ jobId: "job-running", startedAt, pid: 28224, processAlive: true }],
@@ -23,7 +24,15 @@ window.narrativex = {
     if (!path.startsWith("/api/v1/jobs/history")) throw new Error(`Unexpected API: ${path}`);
     return { status: 200, statusText: "OK", bodyText: JSON.stringify({ success: true, message: "OK", timestamp: "2026-10-16T00:00:00Z", data: page }) };
   } },
-  storyAnalysis: { activity: async () => activity },
+  storyAnalysis: { activity: async () => activity, diagnostics: async () => {
+    if (scenario === "log-error") throw new Error("Cannot read log");
+    if (scenario === "empty") return [];
+    return [{ at: "2026-10-17T09:14:15Z", code: "ANALYSIS_TIMEOUT", exitCode: 1, reason: "CLI_PRINT_TIMEOUT", stage: "STORY", windowNumber: 2, windowCount: 3,
+      ...(scenario === "legacy" ? {} : { jobId: "job-failed" }),
+      excerpt: "[agy] print timeout after 10m0s with turn in progress; returning partial output\nexceeded the output token limit\n" + "detail ".repeat(1500) + "FINAL ERROR LINE" },
+      { at: "2026-10-17T09:15:15Z", jobId: "another-job", code: "PROCESS_FAILED", exitCode: 1, reason: "OTHER", excerpt: "OTHER JOB PRIVATE DETAIL" }];
+  } },
+  system: { copyText: async (text: string) => { sessionStorage.setItem("copied-job-error", text); } },
 } as unknown as typeof window.narrativex;
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 createRoot(document.getElementById("root")!).render(<StrictMode><QueryClientProvider client={client}>

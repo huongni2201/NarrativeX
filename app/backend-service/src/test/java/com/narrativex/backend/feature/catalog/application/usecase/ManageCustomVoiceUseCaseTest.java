@@ -98,8 +98,9 @@ class ManageCustomVoiceUseCaseTest {
     useCase.delete("custom-1");
 
     verify(repository).disable("custom-1");
-    assertThrows(ResourceNotFoundException.class, () -> useCase.delete("vieneu-default"));
-    verify(repository, never()).disable("vieneu-default");
+    assertThrows(
+        ResourceNotFoundException.class, () -> useCase.delete("vieneu-preset-minh-quan-pro"));
+    verify(repository, never()).disable("vieneu-preset-minh-quan-pro");
   }
 
   @Test

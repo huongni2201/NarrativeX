@@ -38,7 +38,7 @@ from narrativex_gpu_worker.contracts import (
     VideoMotionIntent,
     VideoVoiceReference,
 )
-from narrativex_gpu_worker.contracts.artifact import VideoTechnicalMetadata
+from narrativex_gpu_worker.contracts.artifact import VideoQualityMetrics, VideoTechnicalMetadata
 
 
 @pytest.fixture
@@ -168,6 +168,13 @@ async def test_ltx_execute_success(video_task: ComputeTask, monkeypatch, decode_
     monkeypatch.setattr(
         "narrativex_gpu_worker.adapters.executors.ltx.executor.inspect_native_video", inspect
     )
+    quality = VideoQualityMetrics(
+        status="MEASURED", scorer_version="FFMPEG_TAKE_QC_V1", freeze_head_ms=0
+    )
+    score = AsyncMock(return_value=quality)
+    monkeypatch.setattr(
+        "narrativex_gpu_worker.adapters.executors.ltx.executor.score_video_quality", score
+    )
     client = AsyncMock(spec=ComfyUIClient)
     client.submit_prompt.return_value = "prompt-ltx-123"
     client.wait_for_completion.return_value = {
@@ -208,6 +215,7 @@ async def test_ltx_execute_success(video_task: ComputeTask, monkeypatch, decode_
             await executor.execute(video_task, cancel, context)
         assert failure.value.code == "VIDEO_OUTPUT_INVALID"
         artifact_adapter.upload.assert_not_awaited()
+        score.assert_not_awaited()
         return
     output = await executor.execute(video_task, cancel, context)
 
@@ -215,8 +223,11 @@ async def test_ltx_execute_success(video_task: ComputeTask, monkeypatch, decode_
     assert context.save_handle.await_count == 2
     assert len(output.outputs) == 1
     assert output.outputs[0].role == "target-video"
-    assert output.outputs[0].technical_metadata == metadata
+    assert output.outputs[0].technical_metadata == metadata.model_copy(
+        update={"quality_metrics": quality}
+    )
     assert output.outputs[0].technical_metadata.duration_ms != video_task.inputs.duration_ms
+    assert score.await_args.kwargs["duration_ms"] == metadata.duration_ms
     artifact_adapter.upload.assert_awaited_once()
 
 

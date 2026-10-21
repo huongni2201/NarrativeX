@@ -112,13 +112,24 @@ public class GenerationJobTransactionService {
    */
   @Transactional
   public Optional<GenerationJob> recordProgress(UUID jobId, int progress) {
+    return recordProgress(jobId, progress, null);
+  }
+
+  @Transactional
+  public Optional<GenerationJob> recordProgress(UUID jobId, int progress, String stageStep) {
     Optional<GenerationJob> jobOpt = generationJobRepository.findByJobId(jobId);
     if (jobOpt.isEmpty()) return Optional.empty();
     GenerationJob job = jobOpt.get();
     if (job.getStatus() != JobStatus.RUNNING || job.isCancellationRequested())
       return Optional.empty();
-    GenerationJob advanced = job.recordComputeProgress(progress, null, null);
-    if (advanced.getProgress() == job.getProgress()) return Optional.of(job);
+    GenerationJob advanced =
+        stageStep == null
+            ? job.recordComputeProgress(progress, null, null)
+            : job.recordLocalAnalysisProgress(progress, stageStep);
+    if (advanced.getProgress() == job.getProgress()
+        && java.util.Objects.equals(advanced.getCurrentStep(), job.getCurrentStep())) {
+      return Optional.of(job);
+    }
     return Optional.of(generationJobRepository.save(advanced));
   }
 

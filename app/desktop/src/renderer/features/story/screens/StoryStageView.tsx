@@ -53,7 +53,7 @@ export function StoryStageView({
     <div className="flex h-full w-full flex-col overflow-y-auto p-4 space-y-6">
       {/* Scenes Container */}
       {story.scenes.map((scene) => (
-        <div key={scene.id} className="space-y-3">
+        <div key={scene.id} className="nx-story-scene space-y-3">
           {/* Scene Header */}
           <div className="flex items-center justify-between border-b border-border-subtle pb-2">
             <div className="flex items-center gap-2.5">
@@ -72,7 +72,7 @@ export function StoryStageView({
           </div>
 
           {/* StoryBeat Cards Grid/List */}
-          <div className="grid grid-cols-1 gap-2.5">
+          <div className="nx-story-beat-grid">
             {scene.storyBeats.map((beat) => (
               <StoryBeatCard
                 key={beat.id}

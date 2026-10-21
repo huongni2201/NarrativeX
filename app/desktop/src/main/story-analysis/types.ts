@@ -10,10 +10,30 @@ export interface AnalysisClaim {
   sourceLanguage: string;
   promptTemplate: string;
   responseSchema: Record<string, unknown>;
+  stageContracts?: AnalysisStageContracts | null;
   profile: { model: string; effort: "LOW" | "MEDIUM" | "HIGH"; promptHash: string; schemaHash: string };
   maxInputBytes: number;
   maxOutputBytes: number;
   maxRuntimeMs: number;
+}
+
+export type AnalysisStage = "CANON" | "STORY";
+
+export interface AnalysisStageContract {
+  promptTemplate: string;
+  responseSchema: Record<string, unknown>;
+  promptHash: string;
+  schemaHash: string;
+}
+
+export interface AnalysisStageContracts {
+  CANON: AnalysisStageContract;
+  STORY: AnalysisStageContract;
+}
+
+export interface AnalysisStageValidationContext {
+  stage: AnalysisStage;
+  canonContext?: { characters: Array<Record<string, unknown>>; locations: Array<Record<string, unknown>> };
 }
 
 export interface AnalysisCompletion {
@@ -42,5 +62,5 @@ export class AnalysisBackendError extends Error {
   constructor(readonly status: number) { super(`Analysis backend returned ${status}`); }
 }
 
-/** Adapter revision recorded in provenance. Bump when the CLI invocation or envelope mapping changes (/2: windowed chapters and one repair turn). */
-export const ADAPTER_VERSION = "antigravity-cli/2";
+/** Adapter revision recorded in provenance. Version 3 adds the frozen CANON → STORY execution contract. */
+export const ADAPTER_VERSION = "antigravity-cli/3";

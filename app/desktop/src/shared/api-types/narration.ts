@@ -29,6 +29,7 @@ export interface GenerateNarrationInput {
   chapterId: string;
   voiceId: string;
   speakingRate?: number;
+  forceRegenerate?: boolean;
   voiceReference?: VoiceReferenceInput | null;
   executionPreference?: ExecutionPreference;
 }
@@ -47,7 +48,8 @@ export interface GenerateVoicePreviewInput {
   voiceId: string;
   sampleText: string;
   speakingRate?: number;
-  voiceReference: VoiceReferenceInput;
+  /** Omit to preview the catalog voice itself (preset name, or a custom voice's stored recording). */
+  voiceReference?: VoiceReferenceInput | null;
 }
 
 export interface VoicePreviewResult {

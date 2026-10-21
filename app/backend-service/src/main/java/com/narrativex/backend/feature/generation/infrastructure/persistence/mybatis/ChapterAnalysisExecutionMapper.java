@@ -16,9 +16,24 @@ public interface ChapterAnalysisExecutionMapper extends NarrativeXMyBatisMapper 
       WHERE j.status = 'QUEUED' AND j.job_type = 'CHAPTER_ANALYZE'
         AND s.execution_mode = 'ANTIGRAVITY_CLI'
         AND p.archived_at IS NULL
+        AND (
+          (s.stage_contracts_json IS NULL AND s.prompt_version <> '1.3' AND s.schema_version <> '1.3')
+          OR (
+            #{supportsStaged} = TRUE
+            AND s.prompt_version = '1.3' AND s.schema_version = '1.3'
+            AND s.stage_contracts_json IS NOT NULL
+            AND (SELECT count(*) FROM jsonb_object_keys(s.stage_contracts_json)) = 2
+            AND jsonb_exists(s.stage_contracts_json, 'CANON')
+            AND jsonb_exists(s.stage_contracts_json, 'STORY')
+          )
+        )
       ORDER BY j.created_at, j.id LIMIT 1
       """)
-  UUID findNextQueuedLocalJob();
+  UUID findNextQueuedLocalJob(@Param("supportsStaged") boolean supportsStaged);
+
+  default UUID findNextQueuedLocalJob() {
+    return findNextQueuedLocalJob(true);
+  }
 
   @Select(
       "SELECT COALESCE(MAX(attempt_number), 0) FROM chapter_analysis_execution_attempts WHERE generation_job_id = #{generationJobId}")

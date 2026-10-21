@@ -87,7 +87,10 @@ public class MyBatisStoryboardProductionAccessAdapter implements StoryboardProdu
                     c.getStoryBeatId(),
                     c.getOrderIndex(),
                     c.getCueType(),
-                    c.getSpeakerProjectCharacterId()))
+                    c.getSpeakerProjectCharacterId(),
+                    c.getRowVersion(),
+                    c.getAdaptedText(),
+                    c.getStatus()))
         .toList();
   }
 
@@ -134,6 +137,19 @@ public class MyBatisStoryboardProductionAccessAdapter implements StoryboardProdu
     ShotSequenceRow sq = shotSequenceMapper.findById(sequenceId);
     if (sq == null) return Optional.empty();
     return Optional.of(new ShotSequenceInfo(sq.getId(), sq.getVisualBeatId(), sq.getOrderIndex()));
+  }
+
+  @Override
+  public Optional<ShotSequenceInfo> findSequenceByVisualBeatAndProject(
+      UUID projectId, UUID visualBeatId) {
+    ShotSequenceRow row = shotMapper.findSequenceByBeatIdAndProject(projectId, visualBeatId);
+    return Optional.ofNullable(row)
+        .map(sq -> new ShotSequenceInfo(sq.getId(), sq.getVisualBeatId(), sq.getOrderIndex()));
+  }
+
+  @Override
+  public List<ShotInfo> findShotsBySequence(UUID sequenceId) {
+    return shotMapper.findBySequenceId(sequenceId).stream().map(this::toShotInfo).toList();
   }
 
   @Override

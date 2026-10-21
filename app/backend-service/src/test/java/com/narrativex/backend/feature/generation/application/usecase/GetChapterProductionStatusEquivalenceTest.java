@@ -57,7 +57,10 @@ class GetChapterProductionStatusEquivalenceTest {
           speakerVoiceAccess,
           currentJob,
           timeline,
-          statusRepository);
+          statusRepository,
+          new com.narrativex.backend.feature.generation.application.service.TakeQualityReadModel(
+              new com.narrativex.backend.feature.generation.application.service
+                  .TakeQualityEvaluator()));
 
   private final UUID projectId = UUID.randomUUID();
   private final UUID chapterId = UUID.randomUUID();

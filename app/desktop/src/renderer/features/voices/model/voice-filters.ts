@@ -55,3 +55,12 @@ export function playableSampleUrl(value: string): string | null {
     return null;
   }
 }
+
+export function voiceSupportsSpeakingRate(voice: DesktopVoice | null): boolean {
+  if (!voice) return false;
+  try {
+    const metadata = JSON.parse(voice.metadataJson ?? "{}");
+    if (typeof metadata?.supportsSpeakingRate === "boolean") return metadata.supportsSpeakingRate;
+  } catch { /* Use the catalog's provider default when metadata is unavailable. */ }
+  return voice.provider === "VIENEU";
+}

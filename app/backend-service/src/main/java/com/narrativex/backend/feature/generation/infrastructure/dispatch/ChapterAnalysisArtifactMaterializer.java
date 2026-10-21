@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanon;
 import com.narrativex.backend.feature.generation.application.model.analysis.ChapterCanonParser;
+import com.narrativex.backend.feature.generation.application.service.NativeDialogueDurationEstimator;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.storyboard.application.service.SourceAnchorResolver;
 import com.narrativex.backend.feature.storyboard.domain.enums.DramaticIntent;
@@ -27,9 +28,11 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -421,6 +424,12 @@ public final class ChapterAnalysisArtifactMaterializer {
 
         // Materialize shot sequences and shots
         JsonNode shotsNode = firstArray(beat, "shots");
+        boolean hasSingleShot = shotsNode != null && shotsNode.size() == 1;
+        long defaultShotDurationMs =
+            shotsNode == null || shotsNode.isEmpty() || hasSingleShot
+                ? estimateDefaultShotDurationMs(
+                    resolvedAnchor, audioPlans.get(globalBeatIndex - 1), job.getSourceLanguage())
+                : estimateDurationMs(resolvedAnchor);
         if (shotSequenceMapper != null
             && shotMapper != null
             && shotsNode != null
@@ -458,8 +467,8 @@ public final class ChapterAnalysisArtifactMaterializer {
                 objectOrWrapped(shotItem, "environment_motion", "environmentMotion"));
             shotRow.setTargetDurationMs(
                 shotItem.has("target_duration_ms")
-                    ? shotItem.get("target_duration_ms").asLong(estimateDurationMs(resolvedAnchor))
-                    : estimateDurationMs(resolvedAnchor));
+                    ? shotItem.get("target_duration_ms").asLong(defaultShotDurationMs)
+                    : defaultShotDurationMs);
             shotRow.setGenerationStrategy(text(shotItem, "generation_strategy", "TEXT_TO_VIDEO"));
             shotRow.setQualityProfile(text(shotItem, "quality_profile", "720p_24fps_standard"));
             shotRow.setStatus(text(shotItem, "status", "PLANNED"));
@@ -487,16 +496,15 @@ public final class ChapterAnalysisArtifactMaterializer {
           defaultShot.setSubjectsJson("[]");
           defaultShot.setLocationRef(sceneRow.getLocationText());
           defaultShot.setStartStateJson("{}");
-          defaultShot.setActionJson(
-              wrapText(
-                  "action", beatRow.getVisualIntent() != null ? beatRow.getVisualIntent() : ""));
+          var defaultInputs = defaultShotInputs(beatRow.getVisualIntent(), direction);
+          defaultShot.setActionJson(defaultInputs.actionJson());
           defaultShot.setEndStateJson("{}");
-          defaultShot.setCompositionJson("{}");
-          defaultShot.setCameraJson("{}");
+          defaultShot.setCompositionJson(defaultInputs.compositionJson());
+          defaultShot.setCameraJson(defaultInputs.cameraJson());
           defaultShot.setSubjectMotionJson("{}");
-          defaultShot.setCameraMotionJson("{}");
-          defaultShot.setEnvironmentMotionJson("{}");
-          defaultShot.setTargetDurationMs(estimateDurationMs(resolvedAnchor));
+          defaultShot.setCameraMotionJson(defaultInputs.cameraMotionJson());
+          defaultShot.setEnvironmentMotionJson(defaultInputs.environmentMotionJson());
+          defaultShot.setTargetDurationMs(defaultShotDurationMs);
           defaultShot.setGenerationStrategy("TEXT_TO_VIDEO");
           defaultShot.setQualityProfile("720p_24fps_standard");
           defaultShot.setStatus("PLANNED");
@@ -668,6 +676,263 @@ public final class ChapterAnalysisArtifactMaterializer {
     return found;
   }
 
+  /** Validates one CANON window against its frozen schema and the already merged canon. */
+  public List<Violation> validateCanonStage(
+      byte[] payload, JsonNode schema, JsonNode canonContext) {
+    JsonNode root;
+    try {
+      root = parse(payload);
+    } catch (IllegalArgumentException exception) {
+      return List.of(error("$", exception.getMessage()));
+    }
+    List<Violation> findings = new ArrayList<>(schemaFindings(root, schema));
+    if (!findings.isEmpty()) return findings;
+
+    JsonNode previous = normalizeCanon(canonContext);
+    if (previous == null)
+      return List.of(error("canonContext", "must contain characters and locations"));
+    var previousStage = JSON.createObjectNode();
+    previousStage.set("canon", previous);
+    List<Violation> contextFindings = schemaFindings(previousStage, schema);
+    if (!contextFindings.isEmpty()) {
+      return List.of(error("canonContext", "contains an invalid canonical entity"));
+    }
+    findings.addAll(validateCanonDefinitions(root.path("canon"), previous));
+    return findings;
+  }
+
+  /** Validates one STORY window using the canon that CANON has already completed. */
+  public List<Violation> validateStoryStage(
+      GenerationJob job,
+      byte[] payload,
+      int windowFirst,
+      int windowLast,
+      JsonNode schema,
+      JsonNode canonContext) {
+    JsonNode story;
+    try {
+      story = parse(payload);
+    } catch (IllegalArgumentException exception) {
+      return List.of(error("$", exception.getMessage()));
+    }
+    List<Violation> findings = new ArrayList<>(schemaFindings(story, schema));
+    if (!findings.isEmpty()) return findings;
+
+    JsonNode canon = normalizeCanon(canonContext);
+    if (canon == null)
+      return List.of(error("canonContext", "must contain characters and locations"));
+    var candidate = JSON.createObjectNode();
+    candidate.set("canon", canon);
+    candidate.set("scenes", story.get("scenes"));
+    findings.addAll(validateReferences(story.get("scenes"), canon));
+    findings.addAll(
+        validate(
+            job, candidate.toString().getBytes(StandardCharsets.UTF_8), windowFirst, windowLast));
+    return findings;
+  }
+
+  /** Checks the completed result again before any staged output is materialized. */
+  public List<Violation> validateStagedFinal(
+      GenerationJob job,
+      byte[] payload,
+      JsonNode finalSchema,
+      JsonNode canonSchema,
+      JsonNode storySchema) {
+    JsonNode result;
+    try {
+      result = parse(payload);
+    } catch (IllegalArgumentException exception) {
+      return List.of(error("$", exception.getMessage()));
+    }
+    List<Violation> findings = new ArrayList<>(schemaFindings(result, finalSchema));
+    if (!findings.isEmpty()) return findings;
+
+    JsonNode emptyCanon = emptyCanon();
+    var canonStage = JSON.createObjectNode();
+    canonStage.set("canon", result.get("canon"));
+    findings.addAll(
+        validateCanonStage(
+            canonStage.toString().getBytes(StandardCharsets.UTF_8), canonSchema, emptyCanon));
+
+    var storyStage = JSON.createObjectNode();
+    storyStage.set("scenes", result.get("scenes"));
+    findings.addAll(
+        validateStoryStage(
+            job,
+            storyStage.toString().getBytes(StandardCharsets.UTF_8),
+            -1,
+            -1,
+            storySchema,
+            result.get("canon")));
+    return findings;
+  }
+
+  private static List<Violation> schemaFindings(JsonNode value, JsonNode schema) {
+    return ChapterAnalysisJsonSchemaValidator.validate(value, schema).stream()
+        .map(finding -> error(finding.path(), finding.message()))
+        .toList();
+  }
+
+  private static JsonNode normalizeCanon(JsonNode value) {
+    JsonNode canon = value != null && value.has("canon") ? value.get("canon") : value;
+    if (canon == null || !canon.isObject()) return null;
+    JsonNode characters = canon.get("characters");
+    JsonNode locations = canon.get("locations");
+    if (characters == null || !characters.isArray() || locations == null || !locations.isArray()) {
+      return null;
+    }
+    return canon;
+  }
+
+  private static List<Violation> validateCanonDefinitions(JsonNode incoming, JsonNode previous) {
+    List<Violation> findings = new ArrayList<>();
+    validateCanonEntityList(
+        incoming.path("characters"),
+        previous.path("characters"),
+        "characters",
+        List.of("canonical_name", "role", "importance", "description", "visual_prompt"),
+        findings);
+    validateCanonEntityList(
+        incoming.path("locations"),
+        previous.path("locations"),
+        "locations",
+        List.of("name", "description", "visual_prompt"),
+        findings);
+    return findings;
+  }
+
+  private static void validateCanonEntityList(
+      JsonNode incoming,
+      JsonNode previous,
+      String collection,
+      List<String> definitionFields,
+      List<Violation> findings) {
+    Map<String, JsonNode> known = new HashMap<>();
+    for (JsonNode entity : previous) {
+      String id = text(entity, "ai_name", null);
+      if (id != null) known.put(id.trim().toLowerCase(Locale.ROOT), entity);
+    }
+    Set<String> seen = new HashSet<>();
+    for (int index = 0; index < incoming.size(); index++) {
+      JsonNode entity = incoming.get(index);
+      String path = "canon." + collection + "[" + index + "]";
+      String id = text(entity, "ai_name", null);
+      if (id == null || id.isBlank()) continue;
+      String key = id.trim().toLowerCase(Locale.ROOT);
+      if (!seen.add(key)) {
+        findings.add(error(path + ".ai_name", "duplicates another entity in this window"));
+        continue;
+      }
+      JsonNode existing = known.get(key);
+      if (existing == null) continue;
+      for (String field : definitionFields) {
+        JsonNode currentValue = existing.get(field);
+        JsonNode nextValue = entity.get(field);
+        if (currentValue != null && nextValue != null && !currentValue.equals(nextValue)) {
+          findings.add(
+              error(path + "." + field, "conflicts with the frozen definition for ai_name " + id));
+        }
+      }
+    }
+  }
+
+  private static List<Violation> validateReferences(JsonNode scenes, JsonNode canon) {
+    Set<String> characters = canonNames(canon.get("characters"), "canonical_name");
+    Set<String> locations = canonNames(canon.get("locations"), "name");
+    List<Violation> findings = new ArrayList<>();
+    for (int sceneIndex = 0; sceneIndex < scenes.size(); sceneIndex++) {
+      JsonNode scene = scenes.get(sceneIndex);
+      String scenePath = "scenes[" + sceneIndex + "]";
+      addUnknownReference(
+          scene,
+          "location_ai_name",
+          locations,
+          scenePath + ".location_ai_name",
+          "location",
+          findings);
+      addUnknownArrayReferences(
+          scene,
+          "character_ai_names",
+          characters,
+          scenePath + ".character_ai_names",
+          "character",
+          findings);
+      JsonNode beats = scene.path("visual_beats");
+      for (int beatIndex = 0; beatIndex < beats.size(); beatIndex++) {
+        addUnknownArrayReferences(
+            beats.get(beatIndex),
+            "character_ai_names",
+            characters,
+            scenePath + ".visual_beats[" + beatIndex + "].character_ai_names",
+            "character",
+            findings);
+      }
+    }
+    return findings;
+  }
+
+  private static Set<String> canonNames(JsonNode entities, String canonicalNameField) {
+    Set<String> names = new HashSet<>();
+    for (JsonNode entity : entities) {
+      addName(names, text(entity, "ai_name", null));
+      addName(names, text(entity, canonicalNameField, null));
+      JsonNode aliases = entity.path("aliases");
+      if (aliases.isArray()) {
+        for (JsonNode alias : aliases) if (alias.isTextual()) addName(names, alias.asText());
+      }
+    }
+    return names;
+  }
+
+  private static void addUnknownReference(
+      JsonNode item,
+      String field,
+      Set<String> known,
+      String path,
+      String kind,
+      List<Violation> findings) {
+    JsonNode value = item.get(field);
+    if (value != null && value.isTextual() && !value.asText().isBlank()) {
+      requireKnownReference(value.asText(), known, path, kind, findings);
+    }
+  }
+
+  private static void addUnknownArrayReferences(
+      JsonNode item,
+      String field,
+      Set<String> known,
+      String path,
+      String kind,
+      List<Violation> findings) {
+    JsonNode values = item.path(field);
+    if (!values.isArray()) return;
+    for (int index = 0; index < values.size(); index++) {
+      JsonNode value = values.get(index);
+      if (value.isTextual()) {
+        requireKnownReference(value.asText(), known, path + "[" + index + "]", kind, findings);
+      }
+    }
+  }
+
+  private static void requireKnownReference(
+      String name, Set<String> known, String path, String kind, List<Violation> findings) {
+    if (!known.contains(name.trim().toLowerCase(Locale.ROOT))) {
+      findings.add(
+          error(path, "references a " + kind + " that is not present in the chapter canon"));
+    }
+  }
+
+  private static void addName(Set<String> names, String value) {
+    if (value != null && !value.isBlank()) names.add(value.trim().toLowerCase(Locale.ROOT));
+  }
+
+  private static JsonNode emptyCanon() {
+    var canon = JSON.createObjectNode();
+    canon.putArray("characters");
+    canon.putArray("locations");
+    return canon;
+  }
+
   /** Source text is never dropped silently: units no cue narrates become exact narrator cues. */
   private List<PreparedAudioCue> fillNarrationGaps(
       SourceAnchorResolver.SourceUnits source,
@@ -729,6 +994,22 @@ public final class ChapterAnalysisArtifactMaterializer {
   private static long estimateDurationMs(SourceAnchorResolver.ResolvedSourceAnchor anchor) {
     long estimate = (long) (anchor.textEnd() - anchor.textStart()) * MS_PER_CHAR;
     return Math.max(MIN_SHOT_MS, Math.min(MAX_SHOT_MS, estimate));
+  }
+
+  private static long estimateDefaultShotDurationMs(
+      SourceAnchorResolver.ResolvedSourceAnchor anchor,
+      List<PreparedAudioCue> cues,
+      String language) {
+    long visualEstimate = estimateDurationMs(anchor);
+    List<String> dialogue =
+        cues.stream()
+            .filter(cue -> "DIALOGUE".equals(cue.cueType()))
+            .map(PreparedAudioCue::adaptedText)
+            .toList();
+    long speechEstimate = NativeDialogueDurationEstimator.estimateMs(dialogue, language);
+    long frameRoundedSpeechEstimate =
+        NativeDialogueDurationEstimator.roundUpToFrame(speechEstimate, 24);
+    return Math.max(visualEstimate, frameRoundedSpeechEstimate);
   }
 
   private static String dramaticIntent(JsonNode beat) {
@@ -976,6 +1257,86 @@ public final class ChapterAnalysisArtifactMaterializer {
     var node = JSON.createObjectNode();
     node.put(key, text);
     return node.toString();
+  }
+
+  static DefaultShotInputs defaultShotInputs(String visualIntent, JsonNode direction) {
+    var action = JSON.createObjectNode();
+    action.put("action", visualIntent == null ? "" : visualIntent);
+    action.put("actionPhase", direction.path("action_phase").asText(""));
+
+    var composition = JSON.createObjectNode();
+    composition.put(
+        "composition",
+        direction.path("shot_size").asText()
+            + ", subject placement: "
+            + direction.path("subject_placement").asText()
+            + ", focus: "
+            + direction.path("focus_target").asText());
+    composition.put("framing", direction.path("shot_size").asText());
+    composition.put("focusTarget", direction.path("focus_target").asText());
+    copyDirectionField(direction, composition, "subjectPlacement", "subject_placement");
+    copyDirectionField(direction, composition, "foreground", "foreground");
+    copyDirectionField(direction, composition, "background", "background");
+    copyDirectionField(direction, composition, "motivatedLight", "motivated_light");
+    copyDirectionField(direction, composition, "palette", "palette");
+    copyDirectionField(direction, composition, "cropSafeArea", "crop_safe_area");
+
+    var camera = JSON.createObjectNode();
+    camera.put(
+        "camera",
+        direction.path("camera_angle").asText()
+            + ", "
+            + direction.path("lens_mm").asText()
+            + "mm lens");
+    camera.put("framing", direction.path("shot_size").asText());
+    camera.put("angle", direction.path("camera_angle").asText());
+    camera.put("lensMm", direction.path("lens_mm").asInt());
+
+    String movementDirection = direction.path("movement_direction").asText();
+    var cameraMotion = JSON.createObjectNode();
+    cameraMotion.put(
+        "cameraMotion",
+        direction.path("camera_movement").asText()
+            + (movementDirection.isBlank() ? "" : " " + movementDirection));
+    cameraMotion.put("movement", direction.path("camera_movement").asText());
+    cameraMotion.put("speed", direction.path("movement_intensity").asText());
+    copyDirectionField(direction, cameraMotion, "movementDirection", "movement_direction");
+
+    var environmentMotion = JSON.createObjectNode();
+    environmentMotion.put(
+        "environmentMotion",
+        direction.path("background").asText()
+            + ", motivated light: "
+            + direction.path("motivated_light").asText()
+            + ", palette: "
+            + direction.path("palette").asText());
+    copyDirectionField(direction, environmentMotion, "background", "background");
+    copyDirectionField(direction, environmentMotion, "motivatedLight", "motivated_light");
+    copyDirectionField(direction, environmentMotion, "palette", "palette");
+    return new DefaultShotInputs(
+        action.toString(),
+        composition.toString(),
+        camera.toString(),
+        cameraMotion.toString(),
+        environmentMotion.toString());
+  }
+
+  record DefaultShotInputs(
+      String actionJson,
+      String compositionJson,
+      String cameraJson,
+      String cameraMotionJson,
+      String environmentMotionJson) {}
+
+  private static void copyDirectionField(
+      JsonNode source,
+      tools.jackson.databind.node.ObjectNode target,
+      String targetField,
+      String sourceField) {
+    JsonNode value = source.get(sourceField);
+    if (value != null && !value.isNull()) {
+      target.put(targetField, value.asText());
+    }
   }
 
   private static IllegalArgumentException invalid(String message) {

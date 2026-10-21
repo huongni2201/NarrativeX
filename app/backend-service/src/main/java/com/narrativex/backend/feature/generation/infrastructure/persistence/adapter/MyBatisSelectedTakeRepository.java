@@ -1,10 +1,10 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.generation.application.port.out.SelectedTakeRepository;
 import com.narrativex.backend.feature.generation.domain.value.SelectedTake;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.SelectedTakeRow;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,30 +28,45 @@ public class MyBatisSelectedTakeRepository implements SelectedTakeRepository {
   }
 
   @Override
-  public void saveSelection(UUID shotId, UUID takeId, long sourceInMs, long sourceOutMs) {
-    SelectedTakeRow existing = mapper.findByShotId(shotId);
-    Instant now = Instant.now();
-    if (existing != null) {
-      existing.setTakeId(takeId);
-      existing.setSourceInMs(sourceInMs);
-      existing.setSourceOutMs(sourceOutMs);
-      existing.setUpdatedAt(now);
-      mapper.update(existing);
-    } else {
-      SelectedTakeRow row = new SelectedTakeRow();
-      row.setShotId(shotId);
-      row.setTakeId(takeId);
-      row.setSourceInMs(sourceInMs);
-      row.setSourceOutMs(sourceOutMs);
-      row.setCreatedAt(now);
-      row.setUpdatedAt(now);
-      mapper.insert(row);
+  public SelectedTake saveSelection(
+      UUID shotId,
+      UUID takeId,
+      long sourceInMs,
+      long sourceOutMs,
+      long expectedRowVersion,
+      String reviewFingerprint,
+      String reviewChecklistJson) {
+    int updated =
+        mapper.updateSelection(
+            shotId,
+            takeId,
+            sourceInMs,
+            sourceOutMs,
+            expectedRowVersion,
+            reviewFingerprint,
+            reviewChecklistJson);
+    if (updated == 0 && expectedRowVersion == 0) {
+      updated =
+          mapper.insertSelection(
+              shotId, takeId, sourceInMs, sourceOutMs, reviewFingerprint, reviewChecklistJson);
     }
+    if (updated != 1) {
+      throw new ResourceConflictException(
+          "Selected Take changed in another window; reload the Shot before selecting again");
+    }
+    return toValue(mapper.findByShotId(shotId));
   }
 
   private SelectedTake toValue(SelectedTakeRow row) {
     if (row == null) return null;
     return new SelectedTake(
-        row.getShotId(), row.getTakeId(), row.getSourceInMs(), row.getSourceOutMs());
+        row.getShotId(),
+        row.getTakeId(),
+        row.getSourceInMs(),
+        row.getSourceOutMs(),
+        row.getRowVersion(),
+        row.getReviewFingerprint(),
+        row.getReviewChecklistJson(),
+        row.getReviewedAt());
   }
 }

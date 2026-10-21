@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AgyRunner } from "../src/main/story-analysis/agy-runner.ts";
-import { errorsOf, mergeCanon, planWindows, repairMessage } from "../src/main/story-analysis/agy-windows.ts";
+import { CanonMergeError, errorsOf, mergeCanon, mergeStagedCanon, planWindows, repairMessage } from "../src/main/story-analysis/agy-windows.ts";
 
 // ---- pure helpers -----------------------------------------------------------------------------------------------
 
@@ -41,6 +41,26 @@ test("an entity listed again keeps its first definition and gains aliases", () =
   assert.equal(second.characters[0].role, "PROTAGONIST");
   assert.deepEqual(second.characters[0].aliases.sort(), ["cô", "cô Lan"]);
   assert.equal(second.locations.length, 1);
+});
+
+test("staged canon merges aliases but rejects duplicate ids and conflicting definitions", () => {
+  const first = {
+    characters: [{ ai_name: "lan", canonical_name: "Lan", aliases: [], role: "PROTAGONIST", importance: "PRIMARY", description: "A traveler", visual_prompt: "A young traveler" }],
+    locations: [],
+  };
+  const merged = mergeStagedCanon(first, {
+    characters: [{ ...first.characters[0], aliases: ["the traveler"] }],
+    locations: [],
+  });
+  assert.deepEqual(merged.characters[0].aliases, ["the traveler"]);
+  assert.throws(
+    () => mergeStagedCanon(merged, { characters: [{ ...first.characters[0], visual_prompt: "An older traveler" }], locations: [] }),
+    CanonMergeError,
+  );
+  assert.throws(
+    () => mergeStagedCanon(merged, { characters: [first.characters[0], first.characters[0]], locations: [] }),
+    CanonMergeError,
+  );
 });
 
 test("a repair request lists errors only and says which units it covers", () => {
@@ -89,7 +109,7 @@ test("without a backend check the result is delivered after one call", async () 
     const done = await run(h);
     assert.equal(h.calls.length, 1);
     assert.deepEqual(JSON.parse(done.rawJson).scenes, [{ title: "a" }]);
-    assert.equal(done.adapterVersion, "antigravity-cli/2");
+    assert.equal(done.adapterVersion, "antigravity-cli/3");
   } finally { await h.cleanup(); }
 });
 

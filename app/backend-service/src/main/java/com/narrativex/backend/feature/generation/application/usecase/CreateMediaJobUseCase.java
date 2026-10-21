@@ -24,6 +24,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,10 @@ public class CreateMediaJobUseCase {
         && !"LEGACY_IMAGE".equals(command.productionMode())) {
       throw new GenerationAdmissionDeniedException(
           "UNSUPPORTED_MEDIA_STRATEGY", "Unsupported productionMode: " + command.productionMode());
+    }
+    if (command.includedBeatId() != null && "VIDEO_FIRST".equals(command.productionMode())) {
+      throw new GenerationAdmissionDeniedException(
+          "UNSUPPORTED_MEDIA_SCOPE", "A single-VisualBeat scope is only supported for image jobs.");
     }
 
     String imageProvider = normalizeImageProvider(command.imageProvider());
@@ -112,7 +117,21 @@ public class CreateMediaJobUseCase {
     }
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
-    int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
+    if (command.includedBeatId() != null) {
+      var beat =
+          planningSource.scenes().stream()
+              .flatMap(scene -> scene.beats().stream())
+              .filter(candidate -> command.includedBeatId().equals(candidate.visualBeatId()))
+              .findFirst()
+              .orElseThrow(
+                  () ->
+                      new GenerationAdmissionDeniedException(
+                          "VISUAL_BEAT_NOT_FOUND", "VisualBeat is not in the current chapter."));
+      if (!"APPROVED".equals(beat.reviewStatus())) {
+        throw new GenerationAdmissionDeniedException(
+            "STORYBOARD_NOT_READY", "The VisualBeat must be approved before image generation.");
+      }
+    }
     boolean isVideoFirst = "VIDEO_FIRST".equals(command.productionMode());
     String providerKey;
     String modelKey;
@@ -149,7 +168,8 @@ public class CreateMediaJobUseCase {
                 effectiveAspectRatio,
                 providerKey,
                 modelKey,
-                promptSettings));
+                promptSettings,
+                command.includedBeatId() == null ? Set.of() : Set.of(command.includedBeatId())));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -221,7 +241,7 @@ public class CreateMediaJobUseCase {
         isVideoFirst ? "shot-video" : "shot-image",
         job.getId(),
         plan.id(),
-        beatCount,
+        plan.scenes().stream().mapToInt(scene -> scene.beats().size()).sum(),
         providerKey,
         modelKey,
         command.projectId(),
@@ -267,14 +287,18 @@ public class CreateMediaJobUseCase {
 
   private static String requestPayload(CreateMediaJobCommand command, String imageProvider) {
     String visualMode = normalizeVisualMode(command.visualGenerationMode());
-    return String.join(
-        ":",
-        command.projectId().toString(),
-        command.chapterId().toString(),
-        command.productionMode(),
-        visualMode,
-        imageProvider,
-        command.aspectRatio());
+    String payload =
+        String.join(
+            ":",
+            command.projectId().toString(),
+            command.chapterId().toString(),
+            command.productionMode(),
+            visualMode,
+            imageProvider,
+            command.aspectRatio());
+    return command.includedBeatId() == null
+        ? payload
+        : payload + ":beat:" + command.includedBeatId();
   }
 
   private static String hash(String payload) {

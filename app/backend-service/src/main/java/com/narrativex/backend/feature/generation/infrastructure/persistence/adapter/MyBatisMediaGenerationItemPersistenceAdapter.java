@@ -43,6 +43,14 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
   }
 
   @Override
+  public List<MediaGenerationItem> findByVisualBeatId(
+      UUID projectId, UUID chapterId, UUID visualBeatId) {
+    return mapper.findByVisualBeatId(projectId, chapterId, visualBeatId).stream()
+        .map(MyBatisMediaGenerationItemPersistenceAdapter::toDomain)
+        .toList();
+  }
+
+  @Override
   public long countQueued(UUID jobId) {
     return mapper.countQueued(jobId);
   }
@@ -66,6 +74,12 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
   @Override
   public void updateExecution(UUID itemId, String status, UUID assetId, String errorCode) {
     mapper.updateExecution(itemId, status, assetId, errorCode);
+  }
+
+  @Override
+  public void completeImageAttempt(UUID itemId, UUID assetId) {
+    if (mapper.completeImageAttempt(itemId, assetId) != 1)
+      throw new IllegalStateException("Image attempt is not awaiting a result: " + itemId);
   }
 
   private static MediaGenerationItemRow toRow(MediaGenerationItem item) {

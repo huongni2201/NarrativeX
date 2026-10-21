@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import type { AnalysisDiagnosticEntry } from "../../shared/story-analysis.ts";
 
 const MAX_ENTRIES = 20;
-const MAX_EXCERPT = 2048;
+const MAX_EXCERPT = 16_384;
 
 /** Masks e-mail addresses, bearer/OAuth tokens and long opaque strings before anything touches disk. Keeps the tail, where CLI errors end up. */
 export function redact(text: string): string {
@@ -14,7 +15,7 @@ export function redact(text: string): string {
     .slice(-MAX_EXCERPT);
 }
 
-export interface DiagnosticEntry { at: string; code: string; exitCode: number | null; reason: string | null; excerpt: string }
+export type DiagnosticEntry = AnalysisDiagnosticEntry;
 
 /** Local-only ring of the latest agy failures, used to tune the error patterns. It is never uploaded. */
 export class DiagnosticsLog {
@@ -23,8 +24,21 @@ export class DiagnosticsLog {
   constructor(private readonly path: string, private readonly now: () => number = Date.now) {}
 
   /** Serialized so parallel chapters cannot interleave a read-modify-write. */
-  record(code: string, exitCode: number | null, reason: string | null, rawText: string): Promise<void> {
-    const entry: DiagnosticEntry = { at: new Date(this.now()).toISOString(), code, exitCode, reason, excerpt: redact(rawText) };
+  record(
+    code: string,
+    exitCode: number | null,
+    reason: string | null,
+    rawText: string,
+    jobId?: string,
+    stage?: "CANON" | "STORY",
+    windowNumber?: number,
+    windowCount?: number,
+  ): Promise<void> {
+    const entry: DiagnosticEntry = {
+      at: new Date(this.now()).toISOString(), code, exitCode, reason, excerpt: redact(rawText),
+      ...(jobId ? { jobId } : {}), ...(stage ? { stage } : {}),
+      ...(windowNumber ? { windowNumber } : {}), ...(windowCount ? { windowCount } : {}),
+    };
     this.queue = this.queue.then(async () => {
       const entries = await this.read();
       entries.push(entry);
@@ -37,7 +51,17 @@ export class DiagnosticsLog {
   async read(): Promise<DiagnosticEntry[]> {
     try {
       const value: unknown = JSON.parse(await readFile(this.path, "utf8"));
-      return Array.isArray(value) ? value as DiagnosticEntry[] : [];
-    } catch { return []; }
+      if (!Array.isArray(value) || !value.every(entry => entry && typeof entry.at === "string" &&
+        typeof entry.code === "string" && typeof entry.excerpt === "string" &&
+        (entry.exitCode === null || Number.isInteger(entry.exitCode)) &&
+        (entry.reason === null || typeof entry.reason === "string") &&
+        (entry.jobId === undefined || typeof entry.jobId === "string"))) {
+        throw new Error("Invalid analysis diagnostics log");
+      }
+      return value.slice(-MAX_ENTRIES);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
   }
 }

@@ -204,6 +204,7 @@ export interface NarrativeXDesktopBridge {
     status(): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
     refresh(): Promise<import("../shared/story-analysis").StoryAnalysisStatus>;
     activity(): Promise<import("../shared/story-analysis").StoryAnalysisActivity[]>;
+    diagnostics(): Promise<import("../shared/story-analysis").AnalysisDiagnosticEntry[]>;
     models(): Promise<import("../shared/story-analysis").AgyModel[]>;
     openAgy(): Promise<void>;
     openTerms(): Promise<void>;

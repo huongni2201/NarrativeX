@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { productionStageStatus } from "../../model/production-stage-status";
 import {
   Sparkles,
@@ -17,7 +17,6 @@ import type {
   DesktopChapterStory,
   DesktopStoryBeat,
   DesktopTimeline,
-  DesktopTimelineBeat,
   GenerationJob,
 } from "../../../../../shared/api-types";
 import type {
@@ -65,6 +64,11 @@ export function ChapterProductionStage({
     [story]
   );
 
+  const sceneTitleById = useMemo(
+    () => new Map((story?.scenes ?? []).map((scene) => [scene.id, scene.title])),
+    [story],
+  );
+
   const visualBeats: StoryboardVisualBeat[] = useMemo(() => {
     return allBeats.flatMap((b) =>
       b.visualBeats.map((vb) => ({
@@ -87,16 +91,6 @@ export function ChapterProductionStage({
     );
   }, [allBeats]);
 
-  const timelineBeats = useMemo(() => {
-    const map = new Map<string, DesktopTimelineBeat>();
-    if (timeline?.beats) {
-      for (const b of timeline.beats) {
-        map.set(b.visualBeatId, b);
-      }
-    }
-    return map;
-  }, [timeline]);
-
   if (!chapter || !story) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center text-text-muted">
@@ -112,7 +106,7 @@ export function ChapterProductionStage({
     audioReady,
     totalShots,
     shotsGeneratedCount,
-    qcPassedCount,
+    technicalValidatedCount,
     editorReady,
     generationReady,
     overallProgressPercent,
@@ -232,50 +226,41 @@ export function ChapterProductionStage({
       {/* Creator-First Production Readiness Strip */}
       <div className="border-b border-border-subtle bg-surface-panel px-5 py-2.5 text-label">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-5 text-text-secondary">
-            {/* Story & Narration Audio */}
-            <div className="flex items-center gap-1.5" title="Trạng thái file âm thanh kể chuyện (Narration Audio)">
-              <Volume2 size={14} className={audioReady ? "text-success" : "text-text-dim"} />
-              <span className="text-text-muted">Narration Audio:</span>
-              <span className={`font-semibold font-mono ${audioReady ? "text-success" : "text-warning"}`}>
-                {audioReady === null ? "—" : audioReady ? "Ready" : "Pending"}
-              </span>
-            </div>
-
-            {/* Voice Profile */}
-            <div className="flex items-center gap-1.5" title="Trạng thái hồ sơ giọng đọc nhân vật">
-              <UserCheck size={14} className={voiceReady ? "text-purple-400" : "text-text-dim"} />
-              <span className="text-text-muted">Voice:</span>
-              <span className={`font-semibold font-mono ${voiceReady ? "text-purple-400" : "text-text-dim"}`}>
-                {voiceReady === null ? "—" : voiceReady ? "Ready" : "Blocked"}
-              </span>
-            </div>
-
-            {/* Video Shots ready */}
-            <div className="flex items-center gap-1.5" title="Số lượng video shots đã sinh hoàn tất">
-              <Film size={14} className="text-primary" />
-              <span className="text-text-muted">Video Shots:</span>
-              <span className="font-semibold font-mono text-foreground">
-                {shotsGeneratedCount} / {Math.max(1, totalShots)}
-              </span>
-            </div>
-
-            {/* Word Alignment QC */}
-            <div className="flex items-center gap-1.5" title="Số lượng shots đã vượt qua kiểm định Word Alignment & QC">
-              <Clock size={14} className={qcPassedCount >= totalShots && totalShots > 0 ? "text-success" : "text-cyan-400"} />
-              <span className="text-text-muted">Word Alignment QC:</span>
-              <span className="font-semibold font-mono text-foreground">
-                {qcPassedCount} / {Math.max(1, totalShots)}
-              </span>
-            </div>
-
-            {/* Editor readiness */}
-            <div className="flex items-center gap-1.5 border-l border-border-subtle pl-4">
-              <ShieldCheck size={14} className={editorReady ? "text-success" : "text-text-dim"} />
-              <span className={editorReady ? "text-success font-semibold" : "text-text-dim font-medium"}>
-                {editorReady ? "Timeline Editor Sẵn sàng" : "Chờ shots"}
-              </span>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 text-text-secondary">
+            <StatusChip
+              icon={<Volume2 size={14} />}
+              label="Narration Audio:"
+              value={audioReady === null ? "—" : audioReady ? "Sẵn sàng" : "Đang chờ"}
+              tone={audioReady ? "success" : audioReady === null ? "neutral" : "warning"}
+              title="Trạng thái file âm thanh kể chuyện (Narration Audio)"
+            />
+            <StatusChip
+              icon={<UserCheck size={14} />}
+              label="Voice:"
+              value={voiceReady === null ? "—" : voiceReady ? "Sẵn sàng" : "Bị chặn"}
+              tone={voiceReady ? "success" : voiceReady === null ? "neutral" : "warning"}
+              title="Trạng thái hồ sơ giọng đọc nhân vật"
+            />
+            <StatusChip
+              icon={<Film size={14} />}
+              label="Video Shots:"
+              value={`${shotsGeneratedCount} / ${Math.max(1, totalShots)}`}
+              tone={totalShots > 0 && shotsGeneratedCount >= totalShots ? "success" : "neutral"}
+              title="Số lượng video shots đã sinh hoàn tất"
+            />
+            <StatusChip
+              icon={<Clock size={14} />}
+              label="Technical PASS:"
+              value={`${technicalValidatedCount} / ${Math.max(1, totalShots)}`}
+              tone={totalShots > 0 && technicalValidatedCount >= totalShots ? "success" : "neutral"}
+              title="Take đã qua kiểm định đầu ra kỹ thuật; không xác nhận alignment, nội dung hoặc khẩu hình."
+            />
+            <StatusChip
+              icon={<ShieldCheck size={14} />}
+              label=""
+              value={editorReady ? "Timeline Editor sẵn sàng" : "Chờ shots"}
+              tone={editorReady ? "success" : "neutral"}
+            />
           </div>
 
           {/* Technical Details Toggle */}
@@ -311,14 +296,15 @@ export function ChapterProductionStage({
             {mediaImportMessage}
           </div>
         )}
-        <div className="p-4">
+        <div className="px-4 pb-4">
           <VideoShotboard
             projectId={projectId}
             chapterId={chapter.id}
             beats={visualBeats}
+            sceneTitleById={sceneTitleById}
             hasSelectedScene={allBeats.length > 0}
             selectedSceneBeatCount={allBeats.length}
-            timelineBeats={timelineBeats}
+            timelineBeats={timeline?.beats ?? []}
             updating={updateVisualBeatReview.isPending}
             mediaBusyBeatId={mediaBusyBeatId}
             copiedPromptBeatId={copiedPromptBeatId}
@@ -328,6 +314,37 @@ export function ChapterProductionStage({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+const STATUS_CHIP_TONES = {
+  success: "text-success",
+  warning: "text-warning",
+  neutral: "text-foreground",
+} as const;
+
+function StatusChip({
+  icon,
+  label,
+  value,
+  tone,
+  title,
+}: Readonly<{
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone: keyof typeof STATUS_CHIP_TONES;
+  title?: string;
+}>) {
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-surface-dark px-2.5 py-1"
+      title={title}
+    >
+      <span className={tone === "neutral" ? "text-text-dim" : STATUS_CHIP_TONES[tone]}>{icon}</span>
+      {label && <span className="text-text-muted">{label}</span>}
+      <span className={`font-mono font-semibold ${STATUS_CHIP_TONES[tone]}`}>{value}</span>
     </div>
   );
 }

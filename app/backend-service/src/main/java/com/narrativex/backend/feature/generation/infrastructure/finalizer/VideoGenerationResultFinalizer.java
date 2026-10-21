@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.common.domain.enums.GenerationStrategy;
 import com.narrativex.backend.feature.generation.application.model.compute.ComputeObservationDto;
 import com.narrativex.backend.feature.generation.application.model.compute.OutputArtifactTargetDto;
 import com.narrativex.backend.feature.generation.application.model.compute.ProducedArtifactDto;
+import com.narrativex.backend.feature.generation.application.model.compute.VideoQualityMetricsDto;
 import com.narrativex.backend.feature.generation.application.port.out.ComputeArtifactAccess;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.service.ComputeAttemptIdentity;
@@ -21,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Finalizes video generation jobs upon compute success (callback or reconciliation). Materializes
@@ -30,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Component
 public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
+  private static final JsonMapper JSON = JsonMapper.builder().build();
+
   private final GenerationJobRepository generationJobRepository;
   private final MediaAssetRepository mediaAssetRepository;
   private final ComputeArtifactAccess artifactAccess;
@@ -224,6 +229,7 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
 
         takeMapper.updateValidation(take);
         takeMapper.updateStatus(take.getId(), take.getStatus());
+        storeQualityMeasurements(take, produced);
         log.info(
             "Take {} validated: shotId={}, attemptNumber={}, status={}, QA passed={}, failureCategory={}",
             take.getId(),
@@ -240,6 +246,20 @@ public class VideoGenerationResultFinalizer implements ComputeResultFinalizer {
       GenerationJob completed = freshJob.markCompleted("MEDIA_READY");
       generationJobRepository.save(completed);
       log.info("Video generation completed and asset finalized for job {}", job.getJobId());
+    }
+  }
+
+  /** Advisory only: never alters validation, and a bad payload must not fail finalization. */
+  private void storeQualityMeasurements(TakeRow take, ProducedArtifactDto produced) {
+    VideoQualityMetricsDto quality =
+        produced.technicalMetadata() != null ? produced.technicalMetadata().qualityMetrics() : null;
+    if (quality == null) {
+      return;
+    }
+    try {
+      takeMapper.updateQualityControl(take.getId(), JSON.writeValueAsString(quality));
+    } catch (JacksonException exception) {
+      log.warn("Take {} quality measurements could not be stored", take.getId(), exception);
     }
   }
 }

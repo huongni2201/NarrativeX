@@ -127,12 +127,14 @@ export class StoryAnalysisService {
     if (this.stopped || this.ticking) return;
     this.ticking = true;
     try {
+      // Eligibility runs first because it pairs an unpaired Desktop, and `recover` needs a device identity. A journal left
+      // by an earlier backend database could otherwise never be settled, which blocks pairing and every claim forever.
+      const eligibility = await this.dependencies.session.eligibility().catch(() => null);
       // Never claim new work while an earlier claim/result is still unreconciled: otherwise every failing tick
       // leaves one more pending journal behind and the backend can see several unresolved attempts.
       const settled = await this.settleJournals();
       if (settled) this.dependencies.session.noteDeliveryProblem(null);
       if (!settled || this.stopped) return;
-      const eligibility = await this.dependencies.session.eligibility();
       if (!eligibility || this.stopped) return;
       while (!this.stopped && this.running.size < eligibility.maxParallel) {
         if (!(await this.startOne(eligibility.credentialRef))) break;
@@ -212,13 +214,23 @@ export class StoryAnalysisService {
       journal.completion = await this.dependencies.run(claim, controller.signal, {
         onSpawn: pid => { current.pid = pid; },
         // Best effort: the UI shows it, nothing depends on it, and an older backend without the endpoint just ignores it.
-        onProgress: progress => {
-          void request(`${ROOT}/${claim.attemptId}/progress`, { leaseToken: claim.leaseToken, progress }).catch(() => undefined);
+        onProgress: (progress, context) => {
+          void request(`${ROOT}/${claim.attemptId}/progress`, {
+            leaseToken: claim.leaseToken,
+            progress,
+            ...(context ? { stage: context.stage } : {}),
+          }).catch(() => undefined);
         },
         // The backend's own check of a result, so one repair turn can fix what it would otherwise reject. A backend that
         // cannot answer (older, offline) simply means the result is delivered as it is.
-        validate: (rawJson, windowFirst, windowLast) =>
-          request<Violation[]>(`${ROOT}/${claim.attemptId}/validation`, { leaseToken: claim.leaseToken, rawJson, windowFirst, windowLast }),
+        validate: (rawJson, windowFirst, windowLast, context) =>
+          request<Violation[]>(`${ROOT}/${claim.attemptId}/validation`, {
+            leaseToken: claim.leaseToken,
+            rawJson,
+            windowFirst,
+            windowLast,
+            ...(context ? { stage: context.stage, canonContext: context.canonContext } : {}),
+          }),
       });
     } catch (error) {
       failure = error instanceof AnalysisError ? error : new AnalysisError("AMBIGUOUS_OUTCOME", true);
